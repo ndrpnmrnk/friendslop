@@ -311,7 +311,6 @@ export const T = {
   frogFace: (expr = 'open') => photo('frogFace' + expr, 48, 40, (g, W, H) => {
     fill(g, W, H, '#4a9a3e');
     frogSpots(g, W, H, 7, [[0, 0, W, H * 0.2], [0, 0, W * 0.12, H], [W * 0.88, 0, W, H]]);
-    g.fillStyle = '#86cc6e'; g.fillRect(W * 0.16, H * 0.67, W * 0.68, H * 0.16);
     for (const [x, px] of [[0.2, 0.32], [0.64, 0.64]]) {
       if (expr === 'closed') { g.fillStyle = '#1a2a14'; g.fillRect(W * x, H * 0.36, W * 0.16, H * 0.05); continue; }
       g.fillStyle = '#17111f'; g.fillRect(W * x - 1, H * 0.22 - 1, W * 0.16 + 2, H * 0.24 + 2);

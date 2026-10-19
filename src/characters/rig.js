@@ -140,13 +140,10 @@ function animate(c, dt, s) {
   // ткань (платок): отстаёт при беге, подлетает в прыжке, трепещет на ветру
   const fl2 = c.torso.userData.flaps;
   if (fl2) { const sp = clamp(s.speed || 0, 0, 1.4), air = s.air ? clamp(-(s.vy || 0) * 0.05, -0.5, 0.7) : 0;
-    fl2.forEach((pv, i) => { const k = [0.25, 0.95, 0.6][i]; let want = (pv.userData.base || 0) + (sp * 0.8 + air) * k + Math.sin(t * (9 + i * 2) + i) * (0.05 + sp * 0.18);
-      if (i === 0) want = Math.min(want, -0.12); // переднее полотнище не уходит внутрь тела
-      pv.rotation.x += (want - pv.rotation.x) * damp(10, dt); if (i === 2) pv.rotation.z = Math.sin(t * 7) * 0.08 * (0.3 + sp); }); }
-  // горловой мешок лягушки: раз в несколько секунд «ква» — надувается два раза
-  const sac = c.head.userData.sac;
-  if (sac) { c.sacT = (c.sacT ?? 2) - dt; if (c.sacT < -0.9) c.sacT = 2.5 + Math.random() * 3; const q = c.sacT < 0 ? Math.max(0, Math.sin(-c.sacT / 0.9 * Math.PI * 2)) : 0, b = 1 + Math.sin(t * 2.2) * 0.05;
-    sac.scale.set(0.22 * (b + q * 0.7), 0.11 * (b + q * 1.1), 0.13 * (b + q * 1.4)); sac.position.z = 0.4 + q * 0.06; }
+    fl2.forEach((pv, i) => { const u = pv.userData, fl = Math.abs(Math.sin(t * (8 + i * 1.7) + i * 1.3)) * (0.04 + sp * 0.2);
+      // только наружу (отрицательный угол): бег — сильнее отлетают задние полоски, прыжок — все подлетают
+      const want = Math.min(-0.08, u.base - sp * 0.55 * (0.35 + 0.65 * Math.max(0, u.back + 0.2)) - Math.max(0, air) - fl);
+      pv.rotation.x += (want - pv.rotation.x) * damp(9, dt); }); }
   if (s.act !== 'special' && c.head.userData.tongue) c.head.userData.tongue.visible = false;
   if (s.look !== undefined) c.head.rotation.y += (s.look - c.head.rotation.y) * damp(6, dt); else c.head.rotation.y *= 0.9;
   c.handL.rotation.x = s.hold ? -0.6 : run ? sn * 0.5 * k : 0; c.handR.rotation.x = s.hold ? (s.charge ? 0.8 : -0.6) : run ? -sn * 0.5 * k : 0;
