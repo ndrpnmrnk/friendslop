@@ -6,7 +6,7 @@ import { COATS } from '../game/cats.js';
    телевизор и акула чуть шире и ниже. Хитбокс и скорость у всех одинаковые. */
 const ginger = { ...COATS[0], name: 'skinGinger', base: '#d89a5a', light: '#f2cfa0', dark: '#a8682e', eye: '#9aa870' };
 
-let headGeo, sharkGeo, frogGeo, HAT_CROWN, HAT_BRIM, FROG_TORSO, FROG_HIPS, SHAWL;
+let headGeo, sharkGeo, frogGeo, HAT_CROWN, HAT_BRIM, FROG_TORSO, FROG_HIPS, SHAWL, SAC_GEO;
 export const SKINS = {
   cat: {
     name: 'Котик',
@@ -100,7 +100,13 @@ export const SKINS = {
       // язык (показывается в idle-«фишке»)
       const tongue = mesh(G.box, col(0xd85a7a), 0, 1.04, 0.44, 0.1, 0.03, 0.3, head); tongue.visible = false;
       // горловой мешок: светлый, время от времени надувается
-      const sac = mesh(G.sph10, lam({ map: T.frogSkin(), color: 0xeaf6e2 }, 'frogSac'), 0, 0.84, 0.3, 0.2, 0.09, 0.14, head);
+      SAC_GEO = SAC_GEO || (() => {
+        // нормали мешка берём с поверхности головы: свет и тень ложатся на него как на продолжение морды
+        const g = new THREE.SphereGeometry(1, 12, 8), p = g.attributes.position, n = g.attributes.normal, s0 = [0.2, 0.09, 0.14], o = [0, 0.84, 0.3], c = [0, 1.18, 0.02], hs = [0.58, 0.44, 0.5];
+        for (let i = 0; i < p.count; i++) { const w = [o[0] + p.getX(i) * s0[0], o[1] + p.getY(i) * s0[1], o[2] + p.getZ(i) * s0[2]];
+          let nx = (w[0] - c[0]) / hs[0] ** 2, ny = (w[1] - c[1]) / hs[1] ** 2, nz = (w[2] - c[2]) / hs[2] ** 2; nx *= s0[0]; ny *= s0[1]; nz *= s0[2]; const l = Math.hypot(nx, ny, nz) || 1; n.setXYZ(i, nx / l, ny / l, nz / l); }
+        return g; })();
+      const sac = mesh(SAC_GEO, skin, 0, 0.84, 0.3, 0.2, 0.09, 0.14, head);
       head.userData = { h, faces, tongue, sac };
       // тело: рубашка хаки (плечи шире), воротник, портупея, ремень с пряжкой, штаны с карманами и штанинами до ботинок
       const shirt = tmat(T.frogShirt()), pants = tmat(T.pants());
