@@ -3,11 +3,11 @@ export const W = {
   group: null,
   solids: [], zones: [], doors: [], ladders: [], pushables: [], items: [],
   occluders: [], birds: [], cats: [], catHomes: [], missionZones: [], spawns: [],
-  debris: [], decals: [], animated: [], crane: null, bounds: 50, districts: [], breakables: [], holes: [], tunnelOpenings: [], keep: [], swingers: [], cars: [], vendings: [], flick: [], manholes: [], chimneys: [], hitHooks: [], floodRects: [],
+  debris: [], decals: [], animated: [], crane: null, bounds: 50, districts: [], breakables: [], holes: [], tunnelOpenings: [], keep: [], swingers: [], cars: [], vendings: [], flick: [], manholes: [], chimneys: [], interacts: [], bouncers: [], hydrants: [], bells: [], dropLadders: [], carousels: [], hides: [], hitHooks: [], floodRects: [],
   spots: { fish: [], fuse: [], safe: [], pickup: [], deliver: [], demo: [], crane: [] },
 };
 export function resetWorld(group) {
   W.group = group;
-  for (const k of ['solids', 'zones', 'doors', 'ladders', 'pushables', 'items', 'occluders', 'birds', 'cats', 'catHomes', 'missionZones', 'spawns', 'debris', 'decals', 'animated', 'districts', 'breakables', 'holes', 'tunnelOpenings', 'keep', 'swingers', 'swingSeats', 'cars', 'vendings', 'flick', 'manholes', 'chimneys']) W[k] = [];
+  for (const k of ['solids', 'zones', 'doors', 'ladders', 'pushables', 'items', 'occluders', 'birds', 'cats', 'catHomes', 'missionZones', 'spawns', 'debris', 'decals', 'animated', 'districts', 'breakables', 'holes', 'tunnelOpenings', 'keep', 'swingers', 'swingSeats', 'cars', 'vendings', 'flick', 'manholes', 'chimneys', 'interacts', 'bouncers', 'hydrants', 'bells', 'dropLadders', 'carousels', 'hides']) W[k] = [];
   W.crane = null; W.grid = new Map(); W.hitHooks = []; W.floodRects = []; W.spots = { fish: [], fuse: [], safe: [], pickup: [], deliver: [], demo: [], crane: [] };
 }

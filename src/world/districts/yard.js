@@ -10,7 +10,7 @@ export default {
   build(b) {
     // жилой дом на 4 этажа: подъезд, квартиры, лестница до крыши
     b.tower({ x: 4, z: 1, w: 20, d: 7, floors: 4, fh: 3.3, wall: 0x7c6a9c,
-      door: { side: 's', at: 0.5, sign: ['ПОДЪЕЗД 3', '#2a1f3d', '#f5c542'] }, ladder: { side: 'w', at: 0.5 }, gaps: [{ side: 'e', at: 0.5 }], floor: T.floorTile(),
+      door: { side: 's', at: 0.5, sign: ['ПОДЪЕЗД 3', '#2a1f3d', '#f5c542'] }, gaps: [{ side: 'e', at: 0.5 }, { side: 'w', at: 0.5 }], floor: T.floorTile(),
       interior(f, k, r) {
         if (k === 0) {
           f.box(17.5, 1.42, 2.6, 0.3, 1.1, tmat(T.mailbox()), { y: 1.0 });
@@ -32,6 +32,7 @@ export default {
           f.sofa(20, 7.1, Math.PI, 0x3a5a4a); f.tvStand(20, 4.2, 0); f.plantPot(23.3, 4.3);
         }
       } });
+    b.dropLadder(4, 4.5, 'w', 13.2);
     b.tower({ x: 25, z: 1, w: 6, d: 7, floors: 4, fh: 3.3, wall: 0x9c6a6a, door: { side: 's', at: 0.5 }, gaps: [{ side: 'w', at: 0.5 }],
       run: 0.3, entry: 1.0, lane: 1.1, floor: T.floorWood(),
       interior(f, k, r) { if (k % 2 === 0) f.shelf((r.x0 + r.x1) / 2, r.z1 - 0.3, 3.4, Math.PI); else { f.table((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, 0.8); f.chair((r.x0 + r.x1) / 2 + 0.9, (r.z0 + r.z1) / 2, -Math.PI / 2); } } });
@@ -59,7 +60,7 @@ export default {
     // плоские гаражи: на крышу — с мусорного бака
     const gc = [0x6a5a4a, 0x4a6a5a, 0x5a5a7a];
     for (let i = 0; i < 3; i++) { const x = 23.5 + i * 2.8; b.box(x, 25, 2.7, 5, 2.3, tmat(T.corrugated(gc[i]))); b.m(G.box, tmat(T.roof()), x, 2.32, 25, 2.75, 0.04, 5.05); }
-    b.dumpster(20.6, 25.5);
+    b.dumpster(20.6, 25.5); b.mattress(22, 21.6, 0.1);
     b.zone('roof', 22.6, 23, 30.6, 27, 2.3);
     // сарай и деревянный забор
     b.shed(2, 27, 4, 3.5);

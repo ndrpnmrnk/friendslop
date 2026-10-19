@@ -74,6 +74,19 @@ export class Builder {
     addZone('water', { r: [this.X(x0), this.Z(z0), this.X(x1), this.Z(z1)] }, this.Y + y);
     return m;
   }
+  // Батут: прямоугольник, на который приземлишься — подбросит вверх
+  bouncer(x0, z0, x1, z1, y, power = 10) { W.bouncers.push({ x0: this.X(Math.min(x0, x1)), z0: this.Z(Math.min(z0, z1)), x1: this.X(Math.max(x0, x1)), z1: this.Z(Math.max(z0, z1)), y: this.Y + y, power }); }
+  // Старый матрас у стены — пружинит
+  mattress(x, z, ry = 0) {
+    const g = this.prop(x, z, ry), m = new THREE.Mesh(G.box, [col(0xb8a8c8), col(0xb8a8c8), tmat(T.carpet(0xd8d0e0)), col(0x8a7a9a), col(0xb8a8c8), col(0xb8a8c8)]); m.position.y = 0.17; m.scale.set(1.0, 0.34, 1.9); g.add(m);
+    const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 1.9 : 1.0, q ? 1.0 : 1.9, 0, 0.34); this.bouncer(x - (q ? 0.95 : 0.5), z - (q ? 0.5 : 0.95), x + (q ? 0.95 : 0.5), z + (q ? 0.5 : 0.95), 0.34, 10);
+  }
+  // Надувная тыква-батут
+  bouncyPumpkin(x, z, r = 1.6) {
+    const pm = this.m(G.sph10, lam({ map: T.pumpkin(), emissive: 0x3a1a00 }, 'bouncyP'), x, 0.55, z, r, 0.6, r); pm.rotation.y = rand() * 3;
+    this.m(G.cyl6, col(0x3f6b2a), x, 1.2, z, 0.12, 0.2, 0.12);
+    this.solid(x, z, r * 1.3, r * 1.3, 0, 1.0); this.bouncer(x - r * 0.65, z - r * 0.65, x + r * 0.65, z + r * 0.65, 1.0, 12);
+  }
   // Стелющийся туман: два прозрачных слоя с бегущим шумом
   mist(x0, z0, x1, z1, y = 0) {
     for (const [hy, op, k] of [[0.25, 0.45, 1], [0.7, 0.3, 1.6]]) { const w = x1 - x0, d = z1 - z0;
@@ -142,7 +155,8 @@ export class Builder {
     W.cars.push({ x: this.X(x), z: this.Z(z), y: this.Y, ry, alarm: 0 });
     const q = Math.abs(Math.sin(ry)) > 0.5;
     this.solid(x, z, q ? 1.8 : 4, q ? 4 : 1.8, 0, 0.95);
-    this.solid(x - Math.cos(ry) * 0.2, z + Math.sin(ry) * 0.2, q ? 1.5 : 2.2, q ? 2.2 : 1.5, 0.95, 0.5);
+    const rx = x - Math.cos(ry) * 0.2, rz = z + Math.sin(ry) * 0.2, rw = q ? 1.5 : 2.2, rd = q ? 2.2 : 1.5;
+    this.solid(rx, rz, rw, rd, 0.95, 0.5); this.bouncer(rx - rw / 2, rz - rd / 2, rx + rw / 2, rz + rd / 2, 1.45, 8.5);
     return g;
   }
   bus(x, z, c = 0xd8a030) {
@@ -183,6 +197,7 @@ export class Builder {
     this.m(G.box, col(0x243d32), x, 1.2, z, 1.48, 0.1, 1.18);
     this.solid(x, z, 1.48, 1.18, 1.15, 0.1);
     this.m(G.box, col(0x22222c), x, 1.28, z + 0.18, 0.4, 0.06, 0.07);
+    W.hides.push({ x: this.X(x), y: this.Y, z: this.Z(z), r: 1.4, kind: 'bin', out: [0, 1] });
     for (const xx of [-0.55, 0.55]) this.m(G.cyl6, col(0x17111f), x + xx, 0.1, z - 0.35, 0.1, 0.08, 0.1).rotation.z = Math.PI / 2;
   }
   pump(x, z, r = 0.5, h = 1.6, y = 0) {
@@ -233,7 +248,8 @@ export class Builder {
   bin(x, z) { addPushable(this, 'bin', x, z); }
   hydrant(x, z) {
     const red = col(0xc8243a), mt = tmat(T.metal());
-    this.m(G.cyl6, red, x, 0.35, z, 0.18, 0.7, 0.18); this.m(G.cone6, red, x, 0.76, z, 0.23, 0.18, 0.23);
+    this.m(G.cyl6, red, x, 0.35, z, 0.18, 0.7, 0.18); const cap = this.m(G.cone6, red, x, 0.76, z, 0.23, 0.18, 0.23); W.keep.push(cap);
+    W.hydrants.push({ x: this.X(x), y: this.Y, z: this.Z(z), cap, on: 0, t: 0 });
     this.m(G.cyl6, mt, x, 0.05, z, 0.25, 0.1, 0.25);
     for (const sx of [-1, 1]) this.m(G.cyl6, red, x + sx * 0.2, 0.48, z, 0.105, 0.23, 0.105).rotation.z = Math.PI / 2;
     this.solid(x, z, 0.6, 0.4, 0, 0.85);

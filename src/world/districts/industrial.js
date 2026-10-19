@@ -15,7 +15,7 @@ export default {
       const dk = col(0x2b2533); for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.m(G.box, dk, x + sx * (w / 2 - 0.02), y + 1.3, z + sz * (d / 2 - 0.02), 0.14, 2.6, 0.14);
       const long = w > d, ex = long ? w / 2 + 0.03 : 0, ez = long ? 0 : d / 2 + 0.03;
       for (const s2 of [-1, 1]) for (const k of [-0.25, 0.25]) b.m(G.box, col(0x8a8d98), x + s2 * ex + (long ? 0 : k * d), y + 1.3, z + s2 * ez + (long ? k * d : 0), long ? 0.04 : 0.05, 2.3, long ? 0.05 : 0.04);
-      const num = b.m(G.box, tmat(T.sign('FSL ' + (100 + ((x * 7 + z * 13) | 0) % 900), '#2b2533', '#f1e8ff')), x + (long ? 0 : d / 2 + 0.02), y + 2.2, z + (long ? d / 2 + 0.02 : 0), long ? 1.4 : 0.01, 0.3, long ? 0.01 : 1.4);
+      const num = b.m(G.box, tmat(T.sign('FSL ' + [217, 404, 666][((x * 7 + z * 13) | 0) % 3], '#2b2533', '#f1e8ff')), x + (long ? 0 : d / 2 + 0.02), y + 2.2, z + (long ? d / 2 + 0.02 : 0), long ? 1.4 : 0.01, 0.3, long ? 0.01 : 1.4);
     };
     const open = (x0, z0, w, d, openSide, c) => {
       const m = tmat(T.corrugated(c)), t = 0.15;

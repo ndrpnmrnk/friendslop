@@ -12,7 +12,7 @@ export default {
   id: 'office', name: 'Бизнес-центр', ground: 'pave',
   build(b) {
     const N = 8, FH = 3.4;
-    b.tower({ x: 7, z: 1, w: 18, d: 13, floors: N, fh: FH, wall: 0x4e5c7a, brick: false, lit: 0.75, floor: T.carpet(),
+    b.tower({ x: 7, z: 1, w: 18, d: 13, floors: N, fh: FH, fireEscape: { side: 'w', at: 0.55 }, wall: 0x4e5c7a, brick: false, lit: 0.75, floor: T.carpet(),
       door: { side: 's', at: 0.5, sign: ['БЦ «ПОЛНОЛУНИЕ»', '#17111f', '#b18cff'] },
       interior(f, k, r) {
         if (k === 0) {

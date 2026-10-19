@@ -16,7 +16,7 @@ export default {
     for (const s of shops) {
       // двухэтажный магазин: торговый зал внизу, наверху — склад/квартира/офис, лестница до крыши
       b.tower({ x: s.x, z: 1, w: 9, d: 7, floors: 2, fh: 3.8, wall: s.wall, lit: 0.7, door: { side: 's', at: 0.5 }, sign: s.sign, awning: s.aw, floor: T.floorTile(),
-        gaps: s.gaps, ladder: s.kind === 'bakery' ? { side: 'w', at: 0.75 } : null,
+        gaps: s.kind === 'bakery' ? s.gaps.concat([{ side: 'w', at: 0.75 }]) : s.gaps,
         interior(f, k, r) {
           const cx = (r.x0 + r.x1) / 2;
           if (k === 0) {
@@ -31,6 +31,7 @@ export default {
           }
         } });
     }
+    b.dropLadder(1, 6.25, 'w', 7.6);
     b.plank(10, 5.2, 11.5, 5.2, 7.6, 1.1); b.plank(20.5, 5.2, 22, 5.2, 7.6, 1.1);
     // рекламный щит на крыше и кондиционеры
     for (const x of [24, 30]) b.box(x, 2, 0.15, 0.15, 2.5, col(0x2b2533), { y: 7.6 });

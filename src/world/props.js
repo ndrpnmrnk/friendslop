@@ -446,6 +446,7 @@ export const PropMethods = {
     }
     for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; add(G.box, glow(i % 2 ? 0xffd28a : 0xff8a1f), Math.cos(a) * (r + 0.45), 3.65, Math.sin(a) * (r + 0.45), 0.14, 0.14, 0.14, 0, rot); }
     this.light(x, z, r + 1.2);
+    { const a = r * 0.7; this.solid(x, z, a * 2, a * 2, 0, 0.34); W.carousels.push({ x: this.X(x), z: this.Z(z), r: r * 0.95, top: this.Y + 0.34, w: 0.5 }); }
     W.animated.push((dt, t) => { rot.rotation.y += dt * 0.5; riders.forEach((q, i) => (q.position.y = 1.0 + Math.sin(t * 2 + i) * 0.3)); });
   },
   // Летняя эстрада-ракушка: сцена со ступенями, полукупол сзади, прожекторы
@@ -508,6 +509,21 @@ export const PropMethods = {
     { const [cx, cz] = L(1.1, 0); this.solid(cx, cz, q ? 1.8 : 1.8, q ? 1.8 : 1.8, 0.6, 1.05); }
     for (const [lx, lz] of [[-0.5, -0.45], [-0.5, 0.45], [-1.4, 0], [-1.4, -0.5]]) { const [px, pz] = L(lx, lz); this.item('pumpkin', px, pz, 0.6); }
   },
+  // Красная откидная лестница: верх закреплён, нижняя секция сложена наверху на защёлке.
+  // Попал в защёлку (бросок, вода, рогатка) — секция с лязгом съезжает вниз; с крыши E — поднять обратно.
+  dropLadder(x, z, side, top, low = 2.4, y0 = 0) {
+    const n = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }[side], ax = n[1] !== 0;
+    this.ladder(x, z, side, top, y0 + low); const zone = W.ladders[W.ladders.length - 1];
+    const red = col(0xd8243a), seg = new THREE.Group(), px = x + n[0] * 0.2, pz = z + n[1] * 0.2;
+    seg.position.set(this.X(px), this.Y + y0 + low, this.Z(pz)); this.g.add(seg); W.keep.push(seg);
+    for (const o of [-0.3, 0.3]) { const r = new THREE.Mesh(G.box, red); r.position.set(ax ? o : 0, low / 2, ax ? 0 : o); r.scale.set(0.06, low, 0.06); seg.add(r); }
+    for (let y = 0.2; y < low; y += 0.38) { const r = new THREE.Mesh(G.box, red); r.position.y = y; r.scale.set(ax ? 0.6 : 0.05, 0.05, ax ? 0.05 : 0.6); seg.add(r); }
+    const latch = new THREE.Mesh(G.box, lam({ color: 0xff3a3a, emissive: 0x6a0a0a }, 'latch')); latch.position.set(0, low + 0.12, 0); latch.scale.set(0.22, 0.18, 0.22); seg.add(latch);
+    const l = { seg, zone, low, y0: this.Y + y0, k: 0, down: false, drop: false, lx: this.X(px), ly: this.Y + y0 + 2 * low + 0.12, lz: this.Z(pz), bx: this.X(x + n[0] * 0.6), by: this.Y + y0, bz: this.Z(z + n[1] * 0.6) };
+    zone.y0 = this.Y + y0 + low; W.dropLadders.push(l);
+    W.interacts.push({ x: this.X(x - n[0] * 0.7), z: this.Z(z - n[1] * 0.7), y: this.Y + top, r: 1.4, label: 'Поднять лестницу', enabled: () => l.down && l.k > 0.95, act: () => { l.down = false; } });
+    return l;
+  },
   // Ярмарочная палатка: каркас, полосатая крыша-шатёр, прилавок с товаром
   tent(x, z, ry = 0, c1 = '#d8243a', c2 = '#f1e8ff', goods = 'pumpkin', sign = '') {
     const g = this.prop(x, z, ry), dk = col(0x2b2533), wd = tmat(T.wood());
@@ -531,7 +547,9 @@ export const PropMethods = {
     this.box(x, z, 2.4, 2.4, 0.2, st, { y: 6.5 });
     for (const [dx, dz, w, d] of [[0, -1.15, 2.4, 0.1], [-0.85, 1.15, 0.7, 0.1], [0.85, 1.15, 0.7, 0.1], [-1.15, 0, 0.1, 2.4], [1.15, 0, 0.1, 2.4]]) this.box(x + dx, z + dz, w, d, 0.9, dk, { y: 6.7 });
     this.box(x, z - 0.2, 1.6, 1.2, 2.2, st, { y: 6.7 });
-    const roof = this.m(G.cone4, tmat(T.roof()), x, 10.0, z, 1.5, 1.4, 1.5); roof.rotation.y = Math.PI / 4;
+    const roof = this.m(G.cone4, tmat(T.roof()), x, 10.55, z - 0.2, 1.4, 1.2, 1.4); roof.rotation.y = Math.PI / 4;
+    for (const [px, pz] of [[-0.7, -0.5], [0.7, -0.5], [-0.7, 0.5], [0.7, 0.5]]) this.m(G.box, st, x + px, 9.45, z - 0.2 + pz, 0.16, 1.1, 0.16);
+    this.m(G.box, st, x, 10.0, z - 0.2, 1.7, 0.12, 1.3);
     for (const [nx, nz, off] of [[0, 1, 0.61], [0, -1, 0.61], [1, 0, 0.81], [-1, 0, 0.81]]) {
       const fx = x + nx * off, fz = z - 0.2 + nz * off;
       const f = this.m(G.cyl12, col(0xf1e8d0), fx + nx * 0.02, 7.9, fz + nz * 0.02, 0.5, 0.04, 0.5); f.rotation.set(nz ? Math.PI / 2 : 0, 0, nx ? Math.PI / 2 : 0);
@@ -539,6 +557,10 @@ export const PropMethods = {
       this.m(G.box, dk, fx + nx * 0.05 + nz * 0.1, 7.9, fz + nz * 0.05 + nx * 0.1, nx ? 0.02 : 0.22, 0.05, nz ? 0.02 : 0.22);
     }
     this.ladder(x, z + 1.2, 's', 6.7);
+    // колокол под крышей: попади — зазвонит
+    const bell = this.m(new THREE.CylinderGeometry(0.22, 0.42, 0.55, 10, 1, true), lam({ color: 0xc8a040, side: THREE.DoubleSide }, 'bell'), x, 9.3, z - 0.2, 1, 1, 1); W.keep.push(bell);
+    this.m(G.box, dk, x, 9.85, z - 0.2, 1.5, 0.06, 0.06);
+    W.bells.push({ x: this.X(x), y: this.Y + 9.3, z: this.Z(z - 0.2), mesh: bell, ring: 0 });
   },
   // Куча листьев: пробежишь — листья разлетаются
   leafPile(x, z, r = 1) {
@@ -547,6 +569,7 @@ export const PropMethods = {
     for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, d = r * 0.5; const k = this.m(G.sph, lm, x + Math.cos(a) * d, 0.02, z + Math.sin(a) * d, r * 0.45, r * 0.2, r * 0.4); k.rotation.y = a; }
     const lit = this.m(G.plane, lam({ map: T.leafLitter(), alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'leafLitter', true), x, 0.03, z, r * 3.4, r * 3.4, 1); lit.rotation.x = -Math.PI / 2; lit.rotation.z = Math.random() * 6;
     addZone('leaves', { c: [this.X(x), this.Z(z), r * 0.9] }, this.Y);
+    W.hides.push({ x: this.X(x), y: this.Y, z: this.Z(z), r: r + 0.6, kind: 'leaves', out: [0, 0] });
   },
   // Деревянный причал над водой
   pier(x0, z0, x1, z1, y = 0.35) {

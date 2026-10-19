@@ -13,6 +13,7 @@ import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
 import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
+import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide } from './game/worldfx.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict } from './game/items.js';
@@ -86,6 +87,7 @@ $('mgexit').onclick = () => { if (S.wm) closeWorld(null); else closeMission(null
 function startRound() {
   generateMap(scene, (Math.random() * 1e9) | 0);
   buildLife(scene);
+  registerInteracts();
   buildMinimap(DISTRICTS);
   resetEvents(); $('eventbar').classList.add('hidden');
   resetMissions();
@@ -249,9 +251,12 @@ function interact() {
   if (S.mg) return;
   if (S.crane) { exitCrane(); return; }
   if (P.ride) { dismount(P, false); return; }
+  if (P.swing) { leaveSwing(P, false); return; }
+  if (P.hidden) { leaveHide(P); return; }
   if (P.grab) { hopIn(P); return; }
   const m = S.wm ? null : nearMission(P);
   if (m) { openMission(m); return; }
+  { const q = nearInteract(P); if (q && !P.held) { q.act(P); return; } }
   if (P.held) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; return; }
   const it = nearestItem(P.pos, 1.5);
   if (it) { pickUp(it); P.held = it; return; }
@@ -263,6 +268,9 @@ function promptText() {
   if (S.crane) return '<b>E</b>выйти из крана';
   if (S.wm) return '';
   const m = nearMission(P); if (m) return `<b>E</b>${m.def.name}`;
+  if (P.swing) return '<b>E</b>Встать';
+  if (P.hidden) return '<b>E</b>Выскочить';
+  { const q = nearInteract(P); if (q && !P.held) return `<b>E</b>${q.label}`; }
   return '';
 }
 
@@ -270,7 +278,9 @@ function promptText() {
 const clock = new THREE.Timer(); let t = 0;
 const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function loop() {
-  clock.update(); const dt = Math.min(0.05, clock.getDelta()); t += dt;
+  clock.update(); let dt = Math.min(0.05, clock.getDelta());
+  if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
+  t += dt;
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'menu') { menu.update(dt); present(menu.scene, menu.camera); }
   else {
@@ -304,7 +314,7 @@ function loop() {
     }
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
     const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt);
-    if (P) P.root.visible = !S.mg && !S.crane;
+    if (P) P.root.visible = !S.mg && !S.crane && !P.hidden;
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
     if (dotHtml !== S.dotHtml) { $('dot').innerHTML = dotHtml; S.dotHtml = dotHtml; }
     updateItems(dt, P);
@@ -328,13 +338,15 @@ function loop() {
     updateSwingers(dt, t, S.state === 'play' ? P : null);
     sky.update(camera, t, dt, P, hemi, scene.fog);
     updateLife(dt, t, S.state === 'play' ? P : null, camera);
+    updateWorldFx(dt, t, S.state === 'play' ? P : null);
+    cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play' ? P.boost * 6 : 0;
     updateBreakables(dt);
     updateParticles(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
     { const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz); }
     // камера вплотную к персонажу (у стены) — прячем его, чтобы голова не закрывала полэкрана
     if (P && P.root.visible && !S.mg && !S.crane) { const hx = P.pos.x - camera.position.x, hy = P.pos.y + 1.0 - camera.position.y, hz = P.pos.z - camera.position.z; if (hx * hx + hy * hy + hz * hz < 0.95 * 0.95) P.root.visible = false; }
-    present(scene, camera);
+    if (!window.__noRender) present(scene, camera);
   }
   endFrame();
   requestAnimationFrame(loop);
