@@ -19,13 +19,15 @@ export function createPlayer(skin) {
   };
 }
 
-export function updatePlayer(p, dt, t, canMove) {
+export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const ctrl = canMove && p.stun <= 0 && !p.frozen;
   let ix = 0, iz = 0;
   if (ctrl) {
     if (keys.KeyA || keys.ArrowLeft) ix--; if (keys.KeyD || keys.ArrowRight) ix++;
     if (keys.KeyW || keys.ArrowUp) iz--; if (keys.KeyS || keys.ArrowDown) iz++;
   }
+  // ввод относительно камеры: W — от камеры вперёд
+  { const sx = ix, sz = iz, s = Math.sin(yaw), c = Math.cos(yaw); ix = sx * c + sz * s; iz = -sx * s + sz * c; }
   const il = Math.hypot(ix, iz); if (il) { ix /= il; iz /= il; }
   // спринт и стамина
   const wantSprint = ctrl && il > 0 && (keys.ShiftLeft || keys.ShiftRight) && !p.climb;

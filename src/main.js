@@ -2,7 +2,8 @@ import './styles.css';
 import { THREE, V3, G, present, makeCamera, basic, mesh, sprite } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS } from './config.js';
-import { keys, tapped, endFrame, mouse, on, aim } from './core/input.js';
+import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook } from './core/input.js';
+import { DIFF } from './config.js';
 import { W } from './world/state.js';
 import { generateMap } from './world/world.js';
 import { updatePushables } from './world/physics.js';
@@ -12,7 +13,8 @@ import { updateCrane } from './world/crane.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict } from './game/items.js';
-import { updateCamera, cam } from './game/camera.js';
+import { updateCamera, cam, resetCamera } from './game/camera.js';
+import { createArrow, updateArrow } from './game/arrow.js';
 import { M, resetMissions, spawnWave, removeMission, updateMissions, nearMission, GAMES } from './missions/missions.js';
 import { pulseOutline } from './game/outline.js';
 import { $, pop, renderHud, renderStamina } from './ui/hud.js';
@@ -26,6 +28,10 @@ const hemi = new THREE.HemisphereLight(SEASON.hemi[0], SEASON.hemi[1], SEASON.he
 const sun = new THREE.DirectionalLight(SEASON.sun[0], SEASON.sun[1] * Math.PI); sun.position.set(-30, 50, 25); scene.add(sun);
 const camera = makeCamera(CONFIG.camera.fov);
 const menu = createMenu();
+const arrow = createArrow(scene);
+// мышь захватывается для камеры во время игры (кроме мини-игр)
+lock.want = () => S.state === 'play' && !S.mg;
+document.addEventListener('pointerlockchange', () => { $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
 
 const S = { state: 'menu', time: 0, score: 0, done: 0, mg: null, crane: false, hudT: 0, cursor: true };
 let P = null;
@@ -57,7 +63,8 @@ function startRound() {
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
   spawnWave(P);
   Object.assign(S, { state: 'play', time: CONFIG.roundTime, score: 0, done: 0, mg: null, crane: false });
-  cam.pose = null;
+  cam.pose = null; resetCamera(Math.random() * Math.PI * 2);
+  $('lockhint').classList.toggle('hidden', locked());
   $('menu').classList.add('hidden'); $('results').classList.add('hidden'); $('hud').classList.remove('hidden'); $('mgpanel').classList.add('hidden');
   document.body.classList.add('playing'); setCursor(true);
   updateCamera(camera, P, 0, true);
@@ -65,7 +72,7 @@ function startRound() {
 function endRound() {
   if (S.mg) closeMission(null);
   if (S.crane) exitCrane();
-  S.state = 'results'; document.body.classList.remove('playing'); $('dot').classList.add('hidden');
+  S.state = 'results'; document.body.classList.remove('playing'); $('dot').classList.add('hidden'); unlock(); $('lockhint').classList.add('hidden');
   $('hud').classList.add('hidden');
   $('resScore').textContent = S.score;
   $('resInfo').textContent = `Миссий выполнено: ${S.done}.`;
@@ -90,12 +97,14 @@ function openMission(m) {
     finish: res => { if (S.mg && S.mg.m === m) closeMission(res); },
   };
   S.mg = { m, game: null };
+  unlock(); $('lockhint').classList.add('hidden');
   S.mg.game = GAMES[m.def.game](m.obj, api, { cursor: setCursor });
 }
 function closeMission(res) {
   if (!S.mg) return;
   const { m, game } = S.mg;
   game.stop(); S.mg = null; cam.pose = null; m.busy = false; P.root.visible = true; setCursor(true);
+  $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden');
   if (!res) return;
   if (res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; pop(`+${pts} ${m.def.icon}`, 'good'); }
@@ -105,7 +114,9 @@ function closeMission(res) {
 
 /* ---------- кран ---------- */
 function nearCrane() { const c = W.crane; return c && !S.crane && Math.hypot(c.cab.x - P.pos.x, c.cab.z - P.pos.z) < 1.9 && Math.abs(c.cab.y - P.pos.y) < 0.6; }
+const craneStick = { nx: 0, ny: 0 };
 function enterCrane() {
+  craneStick.nx = 0; craneStick.ny = 0;
   const c = W.crane; if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   S.crane = true; c.active = true; P.frozen = true; P.root.visible = false;
   const mid = new V3().addVectors(c.look, c.cab).multiplyScalar(0.5); mid.y = c.look.y;
@@ -189,7 +200,7 @@ function loop() {
       S.time -= dt;
       if (tapped('KeyE')) interact();
       if (P.charging) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
-      updatePlayer(P, dt, t, !S.mg && !S.crane);
+      updatePlayer(P, dt, t, !S.mg && !S.crane, cam.yaw);
       if (P.held) { P.held.pos.copy(P.ch.holdPoint); P.held.g.rotation.y = P.root.rotation.y; }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
       updateMissions(dt, t, P, pop);
@@ -218,14 +229,17 @@ function loop() {
     updatePushables(dt, S.state === 'play' && !S.crane && !S.mg ? P : null);
     for (const c of W.cats) updateCat(c, dt, t, S.state === 'play' ? P : null);
     updateBirds(dt, t, S.state === 'play' ? P : null);
-    updateCrane(dt, S.crane ? mouse : null);
+    const lk = takeLook();
+    if (S.crane) { craneStick.nx = Math.max(-1, Math.min(1, craneStick.nx + lk.dx * 0.004)); craneStick.ny = Math.max(-1, Math.min(1, craneStick.ny - lk.dy * 0.004)); }
+    updateCrane(dt, S.crane ? (locked() ? craneStick : mouse) : null);
+    if (S.state === 'play') updateArrow(arrow, P, M.list, dt, t, !S.mg && !S.crane);
     for (const d of W.doors) {
       const want = d.open ? 1.65 * d.inward : 0; d.ang += (want - d.ang) * Math.min(1, dt * 8); d.pivot.rotation.y = d.ang;
       d.solid.on = !d.open && Math.abs(d.ang) < 0.5;
     }
     for (const f of W.animated) f(dt, t);
     updateParticles(dt);
-    updateCamera(camera, P, dt);
+    updateCamera(camera, P, dt, false, S.state === 'play' && !S.crane ? lk : null);
     present(scene, camera);
   }
   endFrame();

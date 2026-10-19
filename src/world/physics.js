@@ -89,7 +89,7 @@ export function updatePushables(dt, player) {
     const p = { x: b.x, z: b.z };
     if (pushOut(p, b.r, b.y + 0.2, b.y + 1)) { b.vx *= -0.3; b.vz *= -0.3; }
     b.x = p.x; b.z = p.z;
-    const f = Math.exp(-dt * (b.kind === 'barrel' ? 1.2 : 2.2)); b.vx *= f; b.vz *= f;
+    const f = Math.exp(-dt * ({ barrel: 2.6, cart: 2.0, bin: 4 }[b.kind])); b.vx *= f; b.vz *= f;
     const mv = Math.hypot(b.x - op.x, b.z - op.z);
     b.mesh.position.set(b.x, b.y, b.z);
     if (mv > 1e-4) {
@@ -111,15 +111,21 @@ export function bumpPushables(pl) {
     if (p.y > b.y + b.h - 0.1 || p.y + pl.h < b.y) continue;
     const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz), m = b.r + pl.r;
     if (d >= m || d < 1e-4) continue;
-    const nx = dx / d, nz = dz / d, over = m - d;
-    b.x += nx * over * 0.6; b.z += nz * over * 0.6; p.x -= nx * over * 0.4; p.z -= nz * over * 0.4;
+    const nx = dx / d, nz = dz / d, over = m - d, share = 1 / (1 + b.mass);
+    // тяжёлое почти не сдвигается, а игрок упирается в него
+    b.x += nx * over * share; b.z += nz * over * share; p.x -= nx * over * (1 - share); p.z -= nz * over * (1 - share);
     const vn = pl.vel.x * nx + pl.vel.z * nz;
-    if (vn > 0) { b.vx += nx * vn * 0.9 - b.vx * 0.2; b.vz += nz * vn * 0.9 - b.vz * 0.2; }
+    if (vn > 0) {
+      const target = vn * (b.mass > 3 ? 0.45 : 0.85);
+      const cur = b.vx * nx + b.vz * nz;
+      if (cur < target) { const add = (target - cur) * Math.min(1, 6 / b.mass * 0.25); b.vx += nx * add; b.vz += nz * add; }
+      const slow = vn * (b.mass / (b.mass + 1.5)); pl.vel.x -= nx * slow; pl.vel.z -= nz * slow;
+    }
   }
 }
 export function impulsePushables(x, z, r, power) {
   for (const b of W.pushables) {
     const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz);
-    if (d < r + b.r && d > 1e-4) { b.vx += dx / d * power; b.vz += dz / d * power; }
+    if (d < r + b.r && d > 1e-4) { b.vx += dx / d * power / b.mass; b.vz += dz / d * power / b.mass; }
   }
 }

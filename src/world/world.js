@@ -36,10 +36,13 @@ export function generateMap(scene, s) {
     const top = tmat(rep(GROUND[d.ground](), chunk / 3, chunk / 3));
     mesh(G.box, [curb, curb, top, curb, curb, curb], ox + chunk / 2, base / 2, oz + chunk / 2, chunk, base, chunk, group);
     addSolid(ox, oz, ox + chunk, oz + chunk, 0, base);
-    // пешеходные переходы у краёв района
-    for (const [x, z, w, dd] of [[ox + chunk / 2, oz - road / 2, 3, road - 1], [ox - road / 2, oz + chunk / 2, road - 1, 3]]) {
-      for (let k = 0; k < 5; k++) { const vert = w < dd; mesh(G.box, line, vert ? x - 1.2 + k * 0.6 : x - dd / 2 + 0.5 + k * ((dd - 1) / 4), 0.012, vert ? z : z - 1.2 + k * 0.6, vert ? 0.35 : 0.6, 0.02, vert ? dd : 0.35, group); }
-    }
+    // пешеходные переходы посередине каждой стороны района: полосы вдоль дороги, через всю её ширину
+    const zebra = (x, z, alongX) => {
+      for (let k = -2.5; k <= 2.5; k += 1) mesh(G.box, line, alongX ? x : x + k * 0.95, 0.024, alongX ? z + k * 0.95 : z, alongX ? 2.6 : 0.5, 0.02, alongX ? 0.5 : 2.6, group);
+    };
+    zebra(ox + chunk / 2, oz - road / 2, true); zebra(ox - road / 2, oz + chunk / 2, false);
+    if (gz === grid - 1) zebra(ox + chunk / 2, oz + chunk + road / 2, true);
+    if (gx === grid - 1) zebra(ox + chunk + road / 2, oz + chunk / 2, false);
     W.districts.push({ id: d.id, name: d.name, ox, oz });
     d.build(new Builder(ox, oz, base, d.name));
   }

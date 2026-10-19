@@ -1,4 +1,5 @@
 import { M } from '../missions/missions.js';
+import { cam } from '../game/camera.js';
 
 const $ = id => document.getElementById(id);
 export { $ };
@@ -14,7 +15,8 @@ export function renderHud(S, P, prompt) {
   $('score').textContent = S.score;
   $('missions').innerHTML = M.list.map(m => {
     const p = m.obj.pos(), dx = p.x - P.pos.x, dz = p.z - P.pos.z;
-    const dist = Math.round(Math.hypot(dx, dz)), ang = Math.atan2(dx, -dz), timed = m.def.life > 0;
+    const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = -fz, rz = fx;
+    const dist = Math.round(Math.hypot(dx, dz)), ang = Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz), timed = m.def.life > 0;
     const bar = timed ? `<div class="bar${m.life < 8 ? ' warn' : ''}"><i style="width:${Math.max(0, m.life / m.def.life * 100)}%"></i></div>` : '';
     return `<div class="mcard px d-${m.def.diff}${m.busy ? ' active' : ''}"><div class="mi">${m.def.icon}</div><div class="mt"><div class="mn">${m.def.name}</div>` +
       `<div class="ms"><span class="pts">${m.def.points}</span> · ${dist} м · ${m.where}${timed ? '' : ' · без таймера'}</div>${bar}</div>` +

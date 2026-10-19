@@ -15,15 +15,18 @@ export default {
         b.m(G.cyl8, tmat(T.rust()), r.x1 - 1.2, 0.35, r.z0 + 0.6, 0.3, 0.7, 0.3); b.m(G.ico, tmat(T.bush()), r.x1 - 1.2, 1.0, r.z0 + 0.6, 0.5, 0.6, 0.5); b.solid(r.x1 - 1.2, r.z0 + 0.6, 0.6, 0.6, 0, 1.2);
         b.bench(15, r.z0 + 0.5, 0);
       } });
-    // качели
-    const dk = col(0x3a4a6a);
-    for (const x of [5, 9]) { b.m(G.box, dk, x, 1.25, 13.4, 0.1, 2.5, 0.1); b.m(G.box, dk, x, 1.25, 14.6, 0.1, 2.5, 0.1); b.solid(x, 14, 0.25, 1.5, 0, 2.5); }
-    b.m(G.box, dk, 7, 2.5, 14, 4.2, 0.1, 0.1);
-    for (const x of [6.1, 7.9]) {
-      const p = new THREE.Group(); p.position.set(b.X(x), b.Y + 2.45, b.Z(14)); W.group.add(p);
-      for (const o of [-0.3, 0.3]) { const r = new THREE.Mesh(G.box, col(0x6a6d78)); r.position.set(o, -0.85, 0); r.scale.set(0.03, 1.7, 0.03); p.add(r); }
-      const s = new THREE.Mesh(G.box, tmat(T.wood())); s.position.y = -1.7; s.scale.set(0.75, 0.06, 0.35); p.add(s);
-      const ph = Math.random() * 6; W.animated.push((dt, t) => { p.rotation.x = Math.sin(t * 1.6 + ph) * 0.35; });
+    // качели: А-образные стойки, перекладина, цепи и сиденья
+    const dk = col(0x3a4a6a), sx0 = 4.6, sx1 = 9.4, sz = 14, top = 2.5;
+    for (const x of [sx0, sx1]) {
+      for (const dz of [-0.75, 0.75]) { const leg = b.m(G.box, dk, x, top / 2, sz + dz / 2, 0.1, top + 0.15, 0.1); leg.rotation.x = -Math.sign(dz) * 0.3; }
+      b.solid(x, sz, 0.3, 1.8, 0, top);
+    }
+    b.m(G.box, dk, (sx0 + sx1) / 2, top, sz, sx1 - sx0 + 0.2, 0.12, 0.12);
+    for (const x of [6.2, 7.8]) {
+      const p = new THREE.Group(); p.position.set(b.X(x), b.Y + top - 0.05, b.Z(sz)); W.group.add(p);
+      for (const o of [-0.28, 0.28]) { const r = new THREE.Mesh(G.box, col(0x8a8d98)); r.position.set(o, -0.95, 0); r.scale.set(0.03, 1.9, 0.03); p.add(r); }
+      const seat = new THREE.Mesh(G.box, tmat(T.wood())); seat.position.y = -1.92; seat.scale.set(0.7, 0.07, 0.32); p.add(seat);
+      const ph = Math.random() * 6; W.animated.push((dt, t) => { p.rotation.x = Math.sin(t * 1.6 + ph) * 0.3; });
     }
     // горка: площадка, лесенка, скат
     b.box(14, 13, 1.2, 1.2, 0.12, col(0xd04a4a), { y: 1.25 });

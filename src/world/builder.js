@@ -7,6 +7,7 @@ import { addSolid, addZone } from './physics.js';
 import { addItem } from '../game/items.js';
 import { addBirds } from './birds.js';
 import { addOutline } from '../game/outline.js';
+import { addPushable } from './pushables.js';
 
 /* Конструктор района. Все координаты — локальные (0..24), высота от уровня тротуара.
    Районы описываются вызовами этих методов в своих файлах в world/districts. */
@@ -110,10 +111,8 @@ export class Builder {
   }
   crate(x, z, s = 1, y = 0) { this.box(x, z, s, s, s, tmat(T.crate()), { y }); }
   barrel(x, z) { this.m(G.cyl8, tmat(T.rust()), x, 0.5, z, 0.42, 1, 0.42); this.solid(x, z, 0.8, 0.8, 0, 1); }
-  bin(x, z) {
-    this.m(G.cyl8, col(0x3e5a4a), x, 0.5, z, 0.35, 1, 0.35); this.m(G.cyl8, col(0x2e4a3a), x, 1.03, z, 0.38, 0.06, 0.38);
-    this.solid(x, z, 0.7, 0.7, 0, 1.05);
-  }
+  // урна — толкаемая
+  bin(x, z) { addPushable(this, 'bin', x, z); }
   hydrant(x, z) { this.m(G.cyl6, col(0xc8243a), x, 0.35, z, 0.18, 0.7, 0.18); this.m(G.sph, col(0xc8243a), x, 0.72, z, 0.17, 0.12, 0.17); this.solid(x, z, 0.4, 0.4, 0, 0.8); }
   // Забор от (x0,z0) до (x1,z1) — только по одной оси
   fence(x0, z0, x1, z1, h = 1.6, kind = 'iron') {
@@ -130,10 +129,10 @@ export class Builder {
     if (kind === 'mesh') { const p = this.m(G.box, lam({ color: 0x8a8d98, transparent: true, opacity: 0.35 }), cx, h / 2, cz, along ? len : 0.02, h, along ? 0.02 : len); p.renderOrder = 1; }
     this.solid(cx, cz, along ? len : 0.2, along ? 0.2 : len, 0, h);
   }
+  // Тыквы — не декор, а настоящие предметы: их можно пнуть, взять и бросить. Не больше двух на район.
   pumpkin(x, z, s = 0.45, y = 0) {
-    this.m(G.sph10, tmat(T.pumpkin()), x, y + s * 0.75, z, s, s * 0.78, s);
-    this.m(G.cyl6, col(0x3f6b2a), x, y + s * 1.45, z, 0.06, 0.25, 0.06);
-    const f = this.m(G.plane, PFACE(), x, y + s * 0.78, z + s * 0.98, s * 1.1, s * 0.95, 1); f.renderOrder = 1;
+    this._pk = (this._pk || 0) + 1; if (this._pk > 2) return;
+    this.item('pumpkin', x, z, y);
   }
   grave(x, z, ry = 0) {
     const st = tmat(T.stone()), m = this.m(G.box, [st, st, st, st, tmat(T.grave()), st], x, 0.55, z, 0.8, 1.1, 0.22);

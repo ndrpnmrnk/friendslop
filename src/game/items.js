@@ -1,5 +1,6 @@
 import { THREE, G, V3, mesh, col, tmat, lam } from '../core/gfx.js';
 import { addOutline } from './outline.js';
+import { PFACE } from '../world/builder.js';
 import { T } from '../core/textures.js';
 import { CONFIG } from '../config.js';
 import { W } from '../world/state.js';
@@ -20,6 +21,7 @@ function build(type) {
   } else if (type === 'pumpkin') {
     mesh(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.26, 0.32, g);
     mesh(G.cyl6, col(0x3f6b2a), 0, 0.28, 0, 0.05, 0.14, 0.05, g);
+    const f = mesh(G.plane, PFACE(), 0, 0.01, 0.315, 0.36, 0.3, 1, g); f.userData.noOutline = true;
   } else if (type === 'ball') {
     mesh(G.sph10, tmat(T.ball()), 0, 0, 0, 0.24, 0.24, 0.24, g);
   } else if (type === 'brick') {

@@ -7,7 +7,7 @@ const MAT = new THREE.MeshBasicMaterial({ color: 0xfff1b0, side: THREE.BackSide,
 
 export function addOutline(target, thick = 0.05) {
   const list = [];
-  if (target.isMesh) list.push(target); else target.traverse(m => { if (m.isMesh) list.push(m); });
+  if (target.isMesh) list.push(target); else target.traverse(m => { if (m.isMesh && !m.userData.noOutline) list.push(m); });
   const shells = [];
   for (const m of list) {
     const c = new THREE.Mesh(m.geometry, MAT);
