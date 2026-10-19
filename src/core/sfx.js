@@ -59,31 +59,38 @@ const SND = {
   mantle: () => noise(0.1, 0.08, 900, 1),
   hide: () => noise(0.25, 0.1, 600, 1, 0, 'lowpass', 200),
   // «ква»: два коротких низких рыка с дрожанием
-  croak: s => frog([[150, 105, 0.13], [160, 110, 0.13]], s.v),
+  croak: s => frog([[170, 0.22], [150, 0.26, 0.3]], s.v),
   // голос рептилоида: разные «ква» под действия
-  frog_jump: s => frog([[220, 300, 0.09]], s.v),
-  frog_land: s => frog([[130, 80, 0.22]], s.v),
-  frog_hurt: s => frog([[200, 70, 0.45]], s.v, 0.08),
-  frog_throw: s => frog([[180, 120, 0.1], [240, 160, 0.08]], s.v),
-  frog_dive: s => frog([[260, 140, 0.16]], s.v),
-  frog_happy: s => frog([[150, 220, 0.1], [200, 280, 0.1], [260, 360, 0.12]], s.v),
-  frog_idle: s => frog([[150, 105, 0.13], [160, 110, 0.13]], s.v),
+  frog_jump: s => frog([[250, 0.14, 0, 0.95]], s.v),
+  frog_land: s => frog([[130, 0.22]], s.v),
+  frog_hurt: s => frog([[230, 0.5, 0, 0.5]], s.v),
+  frog_throw: s => frog([[200, 0.12], [235, 0.14, 0.15]], s.v),
+  frog_dive: s => frog([[270, 0.18, 0, 0.7]], s.v),
+  frog_happy: s => frog([[190, 0.12, 0, 1.05], [235, 0.12, 0.15, 1.05], [290, 0.2, 0.3, 1.1]], s.v),
+  frog_idle: s => frog(Math.random() < 0.5 ? [[165, 0.24], [150, 0.28, 0.32]] : [[180, 0.3]], s.v),
   fish: () => tone(500, 300, 0.1, 'triangle', 0.06),
 };
 // кваканье: низкая пила с «дрожанием» (быстрое повторение импульсов) + немного шума
-function frog(parts, v = 1, gap = 0.17) {
-  // «ква» = пила 300–700 Гц, которую «дёргает» модуляция ~40 Гц (характерное дребезжание лягушки),
-  // через полосовой фильтр — слышно даже на маленьких динамиках ноутбука и телефона
+/* «КВА» как слог: щелчок «к» (короткий шум) + голосовое «ва» — пила с высотой голоса проходит через
+   формантные фильтры, которые плывут от «у» к «а» (как рот открывается). Лёгкое горловое дребезжание.
+   parts: [высота Гц, длительность, задержка, падение высоты] */
+function frog(parts, v = 1) {
   if (!ac) return;
-  parts.forEach(([f0, f1, d], k) => {
-    const t = ac.currentTime + k * gap, o = ac.createOscillator(), am = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain(), bp = ac.createBiquadFilter(), env = ac.createGain();
-    o.type = 'sawtooth'; o.frequency.setValueAtTime(f0 * 2.6, t); o.frequency.exponentialRampToValueAtTime(f1 * 2.6, t + d);
-    lfo.type = 'square'; lfo.frequency.value = 38; lg.gain.value = 0.5; am.gain.value = 0.5; lfo.connect(lg); lg.connect(am.gain);
-    bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 1.4;
-    env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(0.5 * v, t + 0.012); env.gain.setValueAtTime(0.5 * v, t + d * 0.7); env.gain.exponentialRampToValueAtTime(0.0001, t + d);
-    o.connect(am); am.connect(bp); bp.connect(env); env.connect(master);
-    o.start(t); lfo.start(t); o.stop(t + d + 0.02); lfo.stop(t + d + 0.02);
-  });
+  const jit = 0.94 + Math.random() * 0.12;
+  for (const [f, d, at = 0, fall = 0.8] of parts) {
+    const t = ac.currentTime + at, f0 = f * jit;
+    noise(0.03, 0.18 * v, 2200, 1.2, at);
+    const o = ac.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * 0.92, t); o.frequency.linearRampToValueAtTime(f0 * 1.08, t + d * 0.3); o.frequency.exponentialRampToValueAtTime(f0 * fall, t + d);
+    const creak = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain(); creak.gain.value = 0.8; lfo.frequency.value = 26; lg.gain.value = 0.22; lfo.connect(lg); lg.connect(creak.gain);
+    const env = ac.createGain(); env.gain.setValueAtTime(0.0001, t + 0.012); env.gain.exponentialRampToValueAtTime(0.6 * v, t + 0.04); env.gain.setValueAtTime(0.6 * v, t + d * 0.65); env.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(creak);
+    for (const [fa, fb, q, g] of [[320, 780, 7, 1.0], [760, 1220, 9, 0.7], [2500, 2600, 12, 0.18]]) {
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q; bp.frequency.setValueAtTime(fa, t); bp.frequency.exponentialRampToValueAtTime(fb, t + Math.min(0.09, d * 0.5));
+      const fg = ac.createGain(); fg.gain.value = g * 2.2; creak.connect(bp); bp.connect(fg); fg.connect(env);
+    }
+    env.connect(master); o.start(t); lfo.start(t); o.stop(t + d + 0.03); lfo.stop(t + d + 0.03);
+  }
 }
 // мировой звук: громкость по расстоянию до слушателя
 let listener = { x: 0, y: 0, z: 0 };
