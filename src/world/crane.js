@@ -1,4 +1,4 @@
-import { THREE, G, V3, mesh, col, tmat, glow } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, glow, lam } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
 import { groundAt, impulsePushables, solidsNear } from './physics.js';
@@ -11,11 +11,9 @@ import { addOutline } from '../game/outline.js';
    Шар — маятник; стена из блоков рассыпается на обломки, верхние блоки без опоры падают. */
 export function buildCrane(b, mx, mz, aimAt) {
   const yellow = col(0xe0b02a), dark = col(0x2b2533), H = 10;
-  // мачта-решётка
-  b.m(G.box, yellow, mx, H / 2, mz, 1, H, 1);
-  for (let y = 0.5; y < H; y += 1) for (const [sx, sz] of [[1, 0], [0, 1]]) {
-    const brace = b.m(G.box, dark, mx, y, mz, sx ? 1.04 : 0.04, 0.06, sz ? 1.04 : 0.04); brace.rotation[sx ? 'z' : 'x'] = 0.6;
-  }
+  // мачта-решётка: одна коробка с ажурной текстурой (сквозь видно раскосы), без пересекающихся граней
+  { const tr = T.truss(); tr.wrapS = tr.wrapT = THREE.RepeatWrapping; const tt = tr.clone(); tt.needsUpdate = true; tt.repeat.set(1, H);
+    b.m(G.box, lam({ map: tt, alphaTest: 0.5, side: THREE.DoubleSide }, 'craneTruss'), mx, H / 2, mz, 1, H, 1); }
   b.solid(mx, mz, 1, 1, 0, H);
   b.ladder(mx, mz + 0.5, 's', H + 0.2);
   // площадка наверху (не над лестницей, чтобы не упираться головой)
@@ -54,7 +52,7 @@ export function buildCrane(b, mx, mz, aimAt) {
 const _a = new V3();
 function anchor(cr) { return cr.trolley.getWorldPosition(_a); }
 
-export function updateCrane(dt, input) {
+export function updateCrane(dt, input, pl) {
   const cr = W.crane; if (!cr) return;
   /* Управление: WASD двигает точку, куда надо подвести шар (относительно камеры),
      стрела сама поворачивается к ней с инерцией, тележка едет по стреле. */
@@ -93,6 +91,10 @@ export function updateCrane(dt, input) {
     impulsePushables(p.x, p.z, cr.ballR + 0.3, 6);
     for (const c of W.cats) { const q = c.root.position; if (Math.hypot(q.x - p.x, q.z - p.z) < 1 && Math.abs(q.y - p.y) < 1.2) c.hit(true, vel.x, vel.z); }
   }
+  // шар твёрдый для игрока: выталкивает, на скорости сбивает с ног
+  if (pl && !pl.ride) { const q = pl.pos, cy = clamp(p.y, q.y, q.y + pl.h), ex = q.x - p.x, ez = q.z - p.z, ey = cy - p.y, dd = Math.hypot(ex, ey, ez), m = cr.ballR + pl.r;
+    if (dd < m && Math.hypot(ex, ez) > 1e-3) { const hl = Math.hypot(ex, ez); q.x += ex / hl * (m - dd); q.z += ez / hl * (m - dd);
+      if (speed > 3.5 && pl.stun <= 0) { pl.vel.set(ex / hl * speed * 0.8, 5, ez / hl * speed * 0.8); pl.stun = 1.2; } } }
   cr.ball.position.copy(p);
   const mid = new V3().addVectors(a, p).multiplyScalar(0.5); cr.ropeM.position.copy(mid);
   cr.ropeM.scale.y = cr.rope; cr.ropeM.lookAt(a); cr.ropeM.rotateX(Math.PI / 2);

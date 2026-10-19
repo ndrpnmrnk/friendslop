@@ -49,11 +49,21 @@ export default {
     [3, 9, 23, 29].forEach((x, i) => b.planter(x, 18.5, 2.2, 1.2, 0.5, i % 2 ? 'shrub' : 'flowers'));
     b.bikeRack(30.2, 14.5, 4, Math.PI / 2); b.newsBox(13.2, 10.2); b.postBox(19, 10.2); b.graffiti(31.06, 1.4, 5, Math.PI / 2, 2.6, 1); b.puddle(8, 13, 1); b.puddle(24, 24, 0.9); b.trashBags(30.6, 9.8, 2); b.streetSign(1, 10.5, 'ТОРГОВАЯ', 'ЛЕСНАЯ');
     for (const x of [6, 11, 21, 26]) b.bollard(x, 11.2);
-    b.bench(6, 22, Math.PI); b.bench(26, 22, Math.PI);
+    b.bench(6, 22, Math.PI); b.bench(26, 22, Math.PI); b.parasol(6, 23.6, '#d8243a', '#f1e8ff');
     b.lamp(1, 18, Math.PI / 2); b.lamp(31, 18, -Math.PI / 2);
+    // веранда кафе: кадки по периметру, столики под зонтами
+    for (const x of [12.2, 19.8]) b.planter(x, 13.6, 0.8, 3.6, 0.6, 'shrub');
+    b.planter(16, 15.6, 6.8, 0.8, 0.6, 'flowers');
+    for (const [x, c1] of [[13.9, '#ff8a1f'], [18.1, '#9be36b']]) { b.parasol(x, 13.4, c1, '#2a1f3d'); b.table(x + 0.75, 12.6, 0.75); b.staticChair(x + 0.75, 11.9, 0); b.staticChair(x + 0.75, 13.3, Math.PI); }
+    // у пекарни — доска с меню, у «тыквенного» — ящики с овощами
+    b.chalkSign(7.6, 9.3, 0.25);
+    for (const [x, g] of [[24.4, 'pumpkin'], [25.8, 'apple']]) { b.box(x, 9.6, 1.2, 0.7, 0.55, tmat(T.wood())); b.m(G.box, tmat(T.produce(g)), x, 0.58, 9.6, 1.12, 0.05, 0.62); }
+    b.item('pumpkin', 27.2, 9.7); b.item('tomato', 24.2, 9.6, 0.6); b.item('tomato', 25.6, 9.7, 0.6);
+    // клумба-островок с деревом в центре площадки
+    b.planter(16, 21.5, 3, 3, 0.5, 'tree'); b.bench(16, 19.4, Math.PI); b.bench(16, 23.6, 0);
     b.tree(3, 29.5); b.tree(29, 29.5);
     b.zone('floor', 1, 10.5, 31, 31);
-    b.spawn(16, 16); b.spawn(5, 18);
+    b.spawn(16, 17.6); b.spawn(5, 18);
     b.hw(() => { b.pumpkin(4.2, 9.2); b.pumpkin(27.8, 9.2); b.stringLights(1.5, 8.9, 30.5, 8.9, 3.4); });
   },
 };

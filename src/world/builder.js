@@ -1,4 +1,4 @@
-import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat, paint } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat, paint, compose } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { rand, range, pick } from '../core/rng.js';
 import { HW, SEASON } from '../config.js';
@@ -8,6 +8,7 @@ import { addItem } from '../game/items.js';
 import { addBirds } from './birds.js';
 import { addOutline } from '../game/outline.js';
 import { addPushable } from './pushables.js';
+import { TIRE_GEO } from './props.js';
 import { brickWall, breakBox, breakModel, addPiece, breakPiece, glassMat } from './breakables.js';
 import { PropMethods, crateModel } from './props.js';
 import { TowerMethods } from './tower.js';
@@ -79,14 +80,26 @@ export class Builder {
 
   /* ---------- пропсы ---------- */
   // Дерево: ствол с корневым расширением, пара ветвей и несколько угловатых шапок листвы
-  tree(x, z, s = 1, y = 0) {
-    const i = (rand() * 3) | 0, lm = tmat(T.leaves(i)), bk = tmat(T.bark());
-    this.m(G.cyl6, bk, x, y + 0.9 * s, z, 0.2 * s, 1.8 * s, 0.2 * s);
-    this.m(G.cone6, bk, x, y + 0.18 * s, z, 0.38 * s, 0.36 * s, 0.38 * s);
-    for (const a of [rand() * 6, rand() * 6]) { const br = this.m(G.cyl5, bk, x + Math.cos(a) * 0.35 * s, y + 2.0 * s, z + Math.sin(a) * 0.35 * s, 0.07 * s, 0.9 * s, 0.07 * s); br.rotation.z = Math.cos(a) * 0.7; br.rotation.x = -Math.sin(a) * 0.7; }
-    const caps = [[0, 2.5, 0, 1.45, 1.1], [0.55, 2.9, 0.3, 0.95, 0.8], [-0.5, 3.0, -0.25, 0.9, 0.75], [0.1, 3.5, -0.1, 0.8, 0.7]];
-    for (const [dx, dy, dz, r, h] of caps) { const a = this.m(G.ico, lm, x + dx * s, y + dy * s, z + dz * s, r * s, h * s, r * s); a.rotation.set(rand(), rand() * 3, rand()); }
-    this.solid(x, z, 0.5, 0.5, y, 2);
+  tree(x, z, s = 1, y = 0, kind) {
+    // три породы: клён (рыхлая крона из шапок), дуб (плотная крона), ель (ярусы конусов)
+    kind = kind || (rand() < 0.2 ? 'spruce' : rand() < 0.55 ? 'maple' : 'oak');
+    const bk = tmat(T.bark());
+    if (kind === 'spruce') {
+      const lm = tmat(T.leaves(2));
+      this.m(G.cyl6, bk, x, y + 0.6 * s, z, 0.16 * s, 1.2 * s, 0.16 * s);
+      for (const [h, r, yy] of [[1.5, 1.35, 1.0], [1.3, 1.05, 1.9], [1.1, 0.75, 2.7], [0.8, 0.42, 3.4]]) { const c = this.m(G.cone8, lm, x, y + (yy + h / 2) * s, z, r * s, h * s, r * s); c.rotation.y = rand() * 3; }
+      this.solid(x, z, 0.4, 0.4, y, 2); return;
+    }
+    const lm = tmat(T.leaves(kind === 'maple' ? 0 : 1));
+    this.m(G.cyl6, bk, x, y + 1.0 * s, z, 0.19 * s, 2.0 * s, 0.19 * s);
+    this.m(G.cone6, bk, x, y + 0.18 * s, z, 0.36 * s, 0.36 * s, 0.36 * s);
+    for (const a of [rand() * 6, rand() * 6, rand() * 6]) { const br = this.m(G.cyl5, bk, x + Math.cos(a) * 0.32 * s, y + 2.1 * s, z + Math.sin(a) * 0.32 * s, 0.06 * s, 0.85 * s, 0.06 * s); br.rotation.z = Math.cos(a) * 0.75; br.rotation.x = -Math.sin(a) * 0.75; }
+    const n = kind === 'maple' ? 7 : 5;
+    for (let i = 0; i < n; i++) {
+      const a = i / n * 6.28 + rand() * 0.6, d = i === 0 ? 0 : (kind === 'maple' ? 0.75 : 0.55) * (0.7 + rand() * 0.4), r = (kind === 'maple' ? 0.72 : 0.95) * (0.8 + rand() * 0.35);
+      const c = this.m(LEAF_GEO, lm, x + Math.cos(a) * d * s, y + (2.7 + (i === 0 ? 0.55 : rand() * 0.6)) * s, z + Math.sin(a) * d * s, r * s, r * 0.82 * s, r * s); c.rotation.set(rand(), rand() * 3, rand());
+    }
+    this.solid(x, z, 0.45, 0.45, y, 2);
   }
   deadTree(x, z) {
     const b = tmat(T.bark());
@@ -102,22 +115,23 @@ export class Builder {
     this.solid(x, z, w * 0.85, d * 0.85, 0, h);
   }
   car(x, z, ry, c) {
+    // корпус с бамперами, арками, зеркалами, номерами; колёса — шины с колпаками
     const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
-    const side = tmat(T.carSide(c)), glass = tmat(T.carGlass(c)), top = col(c), dk = col(0x17111f);
-    mesh(G.box, [col(c), col(c), top, dk, side, side], 0, 0.62, 0, 4, 0.66, 1.8, g);
-    mesh(CAR_CABIN, [glass, glass, top, dk, glass, glass], -0.2, 1.17, 0, 2.2, 0.48, 1.6, g);
-    mesh(G.box, glow(0xfff1c0), 2.0, 0.7, 0.55, 0.04, 0.16, 0.3, g); mesh(G.box, glow(0xfff1c0), 2.0, 0.7, -0.55, 0.04, 0.16, 0.3, g);
-    mesh(G.box, glow(0xd8243a), -2.0, 0.72, 0.6, 0.04, 0.14, 0.25, g); mesh(G.box, glow(0xd8243a), -2.0, 0.72, -0.6, 0.04, 0.14, 0.25, g);
-    for (const [a, b] of [[1.3, 0.85], [1.3, -0.85], [-1.3, 0.85], [-1.3, -0.85]]) {
-      const wh = mesh(G.cyl8, dk, a, 0.32, b, 0.32, 0.22, 0.32, g); wh.rotation.x = Math.PI / 2;
-      const hub = mesh(G.disc, tmat(T.metal()), a, 0.32, Math.sign(b) * 0.968, 0.16, 0.16, 1, g); hub.rotation.y = b < 0 ? Math.PI : 0;
-    }
-    for (const xx of [-2.03, 2.03]) mesh(G.box, col(0x8a8790), xx, 0.43, 0, 0.08, 0.12, 1.65, g);
-    mesh(G.box, dk, 2.025, 0.68, 0, 0.02, 0.18, 0.55, g);
+    g.add(compose('car' + c, add => {
+      const side = tmat(T.carSide(c)), glass = tmat(T.carGlass(c)), body = col(c), dk = col(0x17111f), bump = col(0x2b2833), chrome = col(0x9a9da8);
+      add(G.box, body, 0, 0.66, 0, 3.9, 0.58, 1.76); add(G.box, side, 0, 0.66, 0.885, 3.6, 0.5, 0.01); add(G.box, side, 0, 0.66, -0.885, 3.6, 0.5, 0.01, 0, Math.PI);
+      add(CAR_CABIN, glass, -0.2, 1.18, 0, 2.2, 0.5, 1.58); add(G.box, body, -0.2, 1.44, 0, 1.52, 0.04, 1.32);
+      for (const sx of [-1, 1]) { add(G.box, bump, sx * 2.0, 0.48, 0, 0.14, 0.22, 1.8); add(G.box, tmat(T.plate()), sx * 2.075, 0.5, 0, 0.01, 0.12, 0.42); }
+      for (const sz of [-1, 1]) { add(G.box, chrome, 0.75, 1.0, sz * 0.92, 0.12, 0.08, 0.1); for (const sx of [-1.3, 1.3]) add(G.box, dk, sx, 0.52, sz * 0.86, 0.86, 0.36, 0.08); }
+      add(G.box, glow(0xfff1c0), 1.96, 0.72, 0.58, 0.04, 0.14, 0.32); add(G.box, glow(0xfff1c0), 1.96, 0.72, -0.58, 0.04, 0.14, 0.32);
+      add(G.box, glow(0xd8243a), -1.96, 0.74, 0.62, 0.04, 0.12, 0.26); add(G.box, glow(0xd8243a), -1.96, 0.74, -0.62, 0.04, 0.12, 0.26);
+      add(G.box, dk, 1.975, 0.66, 0, 0.02, 0.16, 0.6);
+      for (const [a, b] of [[1.3, 0.8], [1.3, -0.8], [-1.3, 0.8], [-1.3, -0.8]]) { add(TIRE_GEO, tmat(T.tread()), a, 0.33, b, 0.33, 0.24, 0.33, Math.PI / 2); add(G.cyl12, tmat(T.hubcap()), a, 0.33, b + Math.sign(b) * 0.06, 0.2, 0.02, 0.2, Math.PI / 2); }
+    }));
+    W.cars.push({ x: this.X(x), z: this.Z(z), y: this.Y, ry, alarm: 0 });
     const q = Math.abs(Math.sin(ry)) > 0.5;
     this.solid(x, z, q ? 1.8 : 4, q ? 4 : 1.8, 0, 0.95);
-    const cx = x - Math.cos(ry) * 0.2, cz = z + Math.sin(ry) * 0.2;
-    this.solid(cx, cz, q ? 1.6 : 2.2, q ? 2.2 : 1.6, 0.95, 0.46);
+    this.solid(x - Math.cos(ry) * 0.2, z + Math.sin(ry) * 0.2, q ? 1.5 : 2.2, q ? 2.2 : 1.5, 0.95, 0.5);
     return g;
   }
   bus(x, z, c = 0xd8a030) {
@@ -139,9 +153,12 @@ export class Builder {
   cabinet(x, z, w, d, h, c = 0x6a6d78, y = 0, ry = 0) {
     const mt = col(c); return this.box(x, z, w, d, h, [mt, mt, mt, mt, tmat(T.cabinet(c)), mt], { y, ry });
   }
-  vending(x, z) {
-    const body = col(0x9b293d); this.box(x, z, 1.2, 0.9, 2, [body, body, body, body, tmat(T.vending()), body]);
-    this.m(G.box, col(0x27212f), x, 0.06, z, 1.08, 0.12, 0.86);
+  vending(x, z, ry = 0) {
+    const body = col(0x9b293d), q = Math.abs(Math.sin(ry)) > 0.5;
+    this.box(x, z, 1.2, 0.9, 2, [body, body, body, body, tmat(T.vending()), body], { ry });
+    this.m(G.box, col(0x27212f), x, 0.06, z, q ? 0.86 : 1.08, 0.12, q ? 1.08 : 0.86);
+    const nx = Math.round(Math.sin(ry)), nz = Math.round(Math.cos(ry));
+    W.vendings.push({ x: this.X(x), z: this.Z(z), y: this.Y, nx, nz, cd: 0 });
   }
   pallet(x, z, w = 1.6, d = 1.2, y = 0) {
     const wd = tmat(T.wood());
@@ -237,10 +254,13 @@ export class Builder {
     this.item('pumpkin', x, z, y);
   }
   grave(x, z, ry = 0) {
-    const st = tmat(T.stone()), m = this.m(G.box, [st, st, st, st, tmat(T.grave()), st], x, 0.55, z, 0.8, 1.1, 0.22);
-    m.rotation.y = ry; m.rotation.z = (rand() - 0.5) * 0.18;
-    const t = this.m(G.cyl8, st, x, 1.1, z, 0.4, 0.22, 0.4); t.rotation.x = Math.PI / 2; t.rotation.y = ry; t.rotation.z = m.rotation.z;
-    const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.3 : 0.8, q ? 0.8 : 0.3, 0, 1.2);
+    // плита и полукруглый верх — одна группа (один наклон), верх тоньше плиты: без совпадающих граней
+    const st = tmat(T.stone()), tilt = (rand() - 0.5) * 0.18, g = this.prop(x, z, ry);
+    const slab = new THREE.Mesh(G.box, [st, st, st, st, tmat(T.grave()), st]); slab.position.y = 0.5; slab.scale.set(0.8, 1.0, 0.22);
+    const cap = new THREE.Mesh(G.cyl8, st); cap.position.y = 1.0; cap.scale.set(0.39, 0.2, 0.39); cap.rotation.x = Math.PI / 2;
+    const base = new THREE.Mesh(G.box, st); base.position.y = 0.06; base.scale.set(0.95, 0.12, 0.36);
+    const tg = new THREE.Group(); tg.rotation.z = tilt; tg.add(slab, cap); g.add(tg, base);
+    const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.36 : 0.95, q ? 0.95 : 0.36, 0, 1.25);
   }
   web(x, y, z, ry, s = 1.2) { const m = this.m(G.plane, alphaMat(T.web(), { side: THREE.DoubleSide, opacity: 0.7 }), x, y, z, s, s, 1); m.rotation.y = ry; }
   // гирлянда на столбах: столбы каждые ~8 м, провод провисает между ними, лампочки висят на проводе
@@ -321,6 +341,7 @@ export class Builder {
 Object.assign(Builder.prototype, PropMethods, TowerMethods);
 
 // У кабины машины наклонены стойки, при той же малой геометрии и старом хитбоксе.
+const LEAF_GEO = new THREE.IcosahedronGeometry(1, 1);
 const CAR_CABIN = G.box.clone();
 for (let i = 0; i < CAR_CABIN.attributes.position.count; i++) {
   const a = CAR_CABIN.attributes.position;

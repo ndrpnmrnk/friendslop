@@ -10,13 +10,14 @@ import { updatePushables, groundAt, raySolids } from './world/physics.js';
 import { updateParticles } from './world/particles.js';
 import { updateBirds } from './world/birds.js';
 import { updateCrane } from './world/crane.js';
+import { updateSwingers } from './world/swingers.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict } from './game/items.js';
 import { updateCamera, cam, resetCamera } from './game/camera.js';
 import { createArrow, updateArrow } from './game/arrow.js';
 import { M, resetMissions, spawnWave, spawnMission, removeMission, updateMissions, nearMission, ALL_GAMES, WORLD_GAMES } from './missions/missions.js';
-import { isFree } from './world/physics.js';
+import { isFree, solidsNear } from './world/physics.js';
 import { pulseOutline } from './game/outline.js';
 import { nearestRideable, mount, dismount, grab, release, hopIn } from './game/ride.js';
 import { updateBreakables } from './world/breakables.js';
@@ -313,23 +314,26 @@ function loop() {
       const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw); craneStick.ix = ix * cy + iz * sy; craneStick.iz = -ix * sy + iz * cy;
       cam.orbit.c.lerp(new V3().addVectors(W.crane.ball.position, W.crane.cab).multiplyScalar(0.5).setY(W.crane.ball.position.y + 3), 0.08);
     }
-    updateCrane(dt, S.crane ? craneStick : null);
+    updateCrane(dt, S.crane ? craneStick : null, S.state === 'play' ? P : null);
     if (S.state === 'play') updateArrow(arrow, P, M.list, dt, t, !S.mg && !S.crane, S.wm && S.wm.game.target ? S.wm.game.target() : null);
     for (const d of W.doors) {
       const want = d.open ? 1.65 * d.inward : 0; d.ang += (want - d.ang) * Math.min(1, dt * 8); d.pivot.rotation.y = d.ang;
       d.solid.on = !d.open && Math.abs(d.ang) < 0.5;
     }
     for (const f of W.animated) f(dt, t);
+    updateSwingers(dt, t, S.state === 'play' ? P : null);
     updateBreakables(dt);
     updateParticles(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
     { const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz); }
+    // камера вплотную к персонажу (у стены) — прячем его, чтобы голова не закрывала полэкрана
+    if (P && P.root.visible && !S.mg && !S.crane) { const hx = P.pos.x - camera.position.x, hy = P.pos.y + 1.0 - camera.position.y, hz = P.pos.z - camera.position.z; if (hx * hx + hy * hy + hz * hz < 0.95 * 0.95) P.root.visible = false; }
     present(scene, camera);
   }
   endFrame();
   requestAnimationFrame(loop);
 }
 // отладочный доступ из консоли браузера
-window.__fs = { renderer, S, EV, spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
+window.__fs = { renderer, S, EV, spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
 showMenu();
 loop();

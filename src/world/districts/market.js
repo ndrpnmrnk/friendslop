@@ -24,10 +24,16 @@ export default {
     b.hayBales(12, 26.5, 3, 0); b.pumpkinPile(16, 27.8); b.hw(() => b.scarecrow(18.5, 27.5, 0.4)); b.trashBags(30.8, 9.8, 2); b.puddle(22, 13, 0.9);
     b.planter(3, 27, 2.4, 1.2, 0.45, 'flowers'); b.newsBox(9.5, 30.8, Math.PI);
     b.ride('cart', 16, 13.5);
+    // пикап фермера, мешки, ящики с тыквами, весы
+    b.pickup(6.5, 24.2, Math.PI / 2 + 0.15);
+    for (const [x, z] of [[9.6, 23], [10.3, 23.3], [9.9, 23.8]]) b.m(G.sph10, tmat(T.cementBag()), x, 0.22, z, 0.4, 0.22, 0.3);
+    b.solid(9.95, 23.4, 1.3, 1.2, 0, 0.45);
+    for (const x of [13, 14.3]) { b.box(x, 23.4, 1.2, 0.8, 0.5, tmat(T.crate())); b.m(G.box, tmat(T.produce('pumpkin')), x, 0.53, 23.4, 1.1, 0.05, 0.7); }
+    b.table(19.6, 23.4, 0.9); b.m(G.box, col(0x6a6d78), 19.6, 0.95, 23.4, 0.5, 0.15, 0.4); b.m(G.cyl8, col(0xd8d8e0), 19.6, 1.06, 23.4, 0.25, 0.04, 0.25);
     b.bin(10, 11); b.bin(22, 24.5);
     b.lamp(1, 30.5, Math.PI / 2); b.lamp(31, 1.5, -Math.PI / 2); b.lamp(16, 30.5, Math.PI);
-    b.zone('floor', 1, 8.5, 31, 16.2); b.zone('floor', 1, 21.6, 22, 31);
-    b.spawn(16, 12); b.spawn(5, 27);
+    b.zone('floor', 1, 8.5, 31, 16.2); b.zone('floor', 11, 25, 22, 31);
+    b.spawn(16, 12); b.spawn(2.5, 30);
     b.hw(() => { b.pumpkin(8, 28.5); b.stringLights(2, 2.2, 30, 2.2, 3.2); b.stringLights(2, 15.4, 30, 15.4, 3.2); });
   },
 };

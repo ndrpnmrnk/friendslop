@@ -51,9 +51,22 @@ export default {
     W.keep.push(mixer); W.animated.push(dt => { drum.rotation.y += dt * 1.5; }); b.solid(7.5, 24, 1.4, 1.3, 0, 1.8);
     b.m(G.box, glow(0xff8a1f), 1.5, 2.6, 13.6, 0.25, 0.25, 0.25);
     // биотуалет, мешки цемента, шины, конусы
-    b.potty(29.6, 29.6, Math.PI); b.puddle(10, 17, 1.3); b.puddle(24, 26, 1); b.potty(28.2, 29.6, Math.PI); b.cementPallet(22, 16); b.brickStack(10, 14);
+    b.potty(29.6, 29.6, Math.PI); b.puddle(10, 17, 1.3); b.puddle(24, 26, 1); b.potty(28.2, 29.6, Math.PI); b.cementPallet(21.5, 17.4); b.brickStack(10, 14);
     W.spots.demo.push({ x: b.X(9.5), z: b.Z(1.8), y: b.Y, pieces: [] }); b.tires(2.2, 29.6, 3); b.cone(14.5, 21.5); b.cone(15.5, 23);
     b.lamp(31, 20, -Math.PI / 2); b.lamp(12.5, 15, 0);
+    // прожекторы на мачтах, светят на площадку
+    for (const [x, z, ry] of [[1.6, 21, Math.PI / 2], [30.4, 13, -Math.PI / 2]]) { b.m(G.cyl6, col(0x2b2533), x, 3, z, 0.08, 6, 0.08); b.solid(x, z, 0.3, 0.3, 0, 6);
+      const hd = b.m(G.box, col(0x2b2533), x + Math.sin(ry) * 0.3, 5.9, z, 0.5, 0.4, 0.7); hd.rotation.y = ry; b.m(G.box, glow(0xfff4d8), x + Math.sin(ry) * 0.56, 5.9, z, 0.04, 0.3, 0.55).rotation.y = ry;
+      b.light(x + Math.sin(ry) * 5, z, 4.5); }
+    // кучи песка и щебня, связка арматуры
+    { const sand = b.m(G.cone8, col(0xc8a868), 22, 0.55, 28.6, 1.8, 1.1, 1.5); sand.rotation.y = 0.4; b.solid(22, 28.6, 2.2, 1.8, 0, 0.8);
+      const gr = b.m(G.cone8, col(0x6a6670), 25.5, 0.45, 28.8, 1.4, 0.9, 1.2); gr.rotation.y = 1.1; b.solid(25.5, 28.8, 1.8, 1.4, 0, 0.7);
+      for (let i = 0; i < 7; i++) b.m(G.cyl5, tmat(T.rust()), 4.5, 0.08 + (i % 3) * 0.07, 28.5 + (i - 3) * 0.09, 0.025, 4, 0.025).rotation.z = Math.PI / 2; b.solid(4.5, 28.5, 4, 0.7, 0, 0.25); }
+    // баннер застройщика на сетке забора
+    b.m(G.box, tmat(T.sign('ЖК «ТЫКВА» · 2027', '#d8243a', '#f1e8ff')), 6.5, 1.1, 31.1, 4.4, 1.1, 0.03); b.m(G.box, tmat(T.sign('ОСТОРОЖНО · КРАН', '#f5c542', '#17111f')), 25.5, 1.1, 31.1, 4, 1.0, 0.03);
+    // огороженный котлован под фундамент: свежий бетон и ленты
+    { b.ground(18.5, 13.8, 26, 15.4, T.concrete(), 1.5); for (const x of [18.5, 22.25, 26]) for (const z of [13.8, 15.4]) { b.m(G.cyl6, col(0xd8243a), x, 0.45, z, 0.04, 0.9, 0.04); }
+      for (const z of [13.8, 15.4]) b.m(G.box, tmat(T.hazard()), 22.25, 0.8, z, 7.5, 0.08, 0.01); }
     b.zone('floor', 2, 13.5, 19, 30.5); b.zone('floor', 19, 13.5, 31, 22.5);
     b.spawn(16, 15); b.spawn(24, 29.5);
     b.hw(() => { b.pumpkin(13, 18.8, 0.35, 0.18); b.pumpkin(9, 28.6); });

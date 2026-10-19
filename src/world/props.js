@@ -4,6 +4,7 @@ import { HW } from '../config.js';
 import { W } from './state.js';
 import { breakBox } from './breakables.js';
 import { addZone } from './physics.js';
+import { addSwinger } from './swingers.js';
 
 /* Детальные модели пропсов. Каждая собирается из примитивов один раз и дальше
    копируется (compose): деталей много, а отрисовок на модель — по одной на материал.
@@ -15,6 +16,8 @@ const TAPER_POLE = new THREE.CylinderGeometry(0.045, 0.075, 1, 8);
 const HALF_SPH = new THREE.SphereGeometry(1, 10, 4, 0, Math.PI * 2, 0, Math.PI / 2);
 const TUB = (() => { const g = G.box.clone(), a = g.attributes.position; for (let i = 0; i < a.count; i++) if (a.getY(i) > 0) { a.setX(i, a.getX(i) * 1.35); a.setZ(i, a.getZ(i) * 1.3 + 0.08); } g.computeVertexNormals(); return g; })();
 const TORUS_W = new THREE.TorusGeometry(1, 0.32, 5, 12);
+// Шина: профиль «скруглённый прямоугольник», вращённый вокруг оси (ось — Y), протектор в текстуре
+export const TIRE_GEO = (() => { const pts = [[0.52, -0.36], [0.82, -0.42], [0.97, -0.33], [1, 0], [0.97, 0.33], [0.82, 0.42], [0.52, 0.36]].map(([r, y]) => new THREE.Vector2(r, y)); const g = new THREE.LatheGeometry(pts, 14); return g; })();
 const BIKE_TYRE = new THREE.TorusGeometry(1, 0.07, 4, 18), BIKE_RIM = new THREE.TorusGeometry(1, 0.035, 3, 18);
 
 // Магазинная тележка: сетчатая корзина на раме, нижняя полка, ручка с красной накладкой, 4 колёсика
@@ -137,7 +140,7 @@ export function potModel() {
 }
 // Стоящая шина (катится, если толкнуть)
 export function tireModel() {
-  return compose('tire', add => { add(TORUS_W, col(0x17141c), 0, 0, 0, 0.33, 0.33, 0.42, 0, Math.PI / 2); add(G.cyl12, col(0x3a3440), 0, 0, 0, 0.2, 0.16, 0.2, 0, 0, Math.PI / 2); });
+  return compose('tire2', add => { add(TIRE_GEO, tmat(T.tread()), 0, 0, 0, 0.33, 0.3, 0.33, 0, 0, Math.PI / 2); add(G.cyl12, col(0x2a2630), 0, 0, 0, 0.18, 0.2, 0.18, 0, 0, Math.PI / 2); add(G.cyl8, col(0x8a8d98), 0, 0, 0, 0.08, 0.22, 0.08, 0, 0, Math.PI / 2); });
 }
 
 /* ---------- статичный декор (строится Builder'ом, потом склеивается в общие куски) ---------- */
@@ -402,7 +405,7 @@ export const PropMethods = {
     this.solid(x, z, 0.8, 0.8, 0, 1.9);
   },
   // Граффити на стене (наклейка, чуть отступя от стены)
-  graffiti(x, y, z, ry, w = 3, i = (Math.random() * 6) | 0) { const m = this.m(G.plane, lam({ map: T.graffiti(i), transparent: true, alphaTest: 0.3, polygonOffset: true, polygonOffsetFactor: -2 }, 'graf' + i), x, y, z, w, w / 2, 1); m.rotation.y = ry; },
+  graffiti(x, y, z, ry, w = 3, i = (Math.random() * 6) | 0) { const m = this.m(G.plane, lam({ map: T.graffiti(i), alphaTest: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'graf' + i, true), x, y, z, w, w / 2, 1); m.rotation.y = ry; },
   // Лужа: отражает свет, на ней чуть скользко
   puddle(x, z, r = 1) {
     const m = this.m(G.plane, lam({ map: T.puddle(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, emissive: 0x1a2a40, emissiveIntensity: 1 }, 'puddle'), x, 0.025, z, r * 2, r * 2, 1);
@@ -450,6 +453,53 @@ export const PropMethods = {
     this.light(x, z + 0.5, 3.4, 0.8);
     this.zone('roof', x - w / 2 + 0.8, z - 1.2, x + w / 2 - 0.8, z + 1.5, 0.8);
   },
+  // Качели: две А-образные стойки, перекладина, два сиденья на цепях (раскачиваются от игрока и бросков)
+  swingSet(x, z, w = 5, ry = 0) {
+    const fr = col(0x3a4a6a), ch = col(0x8a8d98), top = 2.5, spread = 0.85, ax = Math.cos(ry), az = -Math.sin(ry);
+    const legL = Math.hypot(top, spread), legA = Math.atan2(spread, top);
+    for (const s2 of [-1, 1]) {
+      const g = this.prop(x + ax * s2 * w / 2, z + az * s2 * w / 2, ry);
+      for (const d of [-1, 1]) { const leg = new THREE.Mesh(G.box, fr); leg.position.set(0, top / 2, d * spread / 2); leg.scale.set(0.1, legL, 0.1); leg.rotation.x = -d * legA; g.add(leg); }
+      const tie = new THREE.Mesh(G.box, fr); tie.position.set(0, 0.9, 0); tie.scale.set(0.06, 0.06, spread * 1.3); g.add(tie);
+      this.solid(x + ax * s2 * w / 2, z + az * s2 * w / 2, Math.abs(ax) > 0.5 ? 0.2 : spread * 2, Math.abs(ax) > 0.5 ? spread * 2 : 0.2, 0, top);
+    }
+    const bar = this.prop(x, z, ry); const bm = new THREE.Mesh(G.cyl8, fr); bm.position.y = top; bm.rotation.z = Math.PI / 2; bm.scale.set(0.07, w + 0.2, 0.07); bar.add(bm);
+    for (const o of [-w / 4, w / 4]) {
+      const p = new THREE.Group(); p.position.set(this.X(x + ax * o), this.Y + top - 0.04, this.Z(z + az * o)); p.rotation.y = ry; W.group.add(p);
+      for (const c of [-0.27, 0.27]) { const r = new THREE.Mesh(G.box, ch); r.position.set(c, -0.86, 0); r.scale.set(0.025, 1.72, 0.025); p.add(r); }
+      const seat = new THREE.Mesh(G.box, tmat(T.wood())); seat.position.y = -1.74; seat.scale.set(0.66, 0.06, 0.3); p.add(seat);
+      const sw = addSwinger(p, { len: 1.74, damp: 0.35, max: 1.15, r: 0.45 }); sw.seatY = top - 1.7; (W.swingSeats || (W.swingSeats = [])).push(sw);
+    }
+  },
+  // Уличный зонт кафе: опора, полосатый купол-конус, утяжелитель
+  parasol(x, z, c1 = '#ff8a1f', c2 = '#2a1f3d') {
+    const dk = col(0x2b2533);
+    this.m(G.cyl8, dk, x, 0.06, z, 0.3, 0.12, 0.3); this.m(G.cyl6, dk, x, 1.2, z, 0.035, 2.3, 0.035);
+    const c = this.m(G.cone8, tmat(T.awning(c1, c2)), x, 2.35, z, 1.35, 0.5, 1.35); c.rotation.y = Math.PI / 8;
+    this.m(G.sph, dk, x, 2.62, z, 0.05, 0.05, 0.05);
+    this.solid(x, z, 0.15, 0.15, 0, 2.3);
+  },
+  // Грифельная доска-«домик» у входа
+  chalkSign(x, z, ry = 0, text = 'СВЕЖИЙ ХЛЕБ') {
+    const g = this.prop(x, z, ry), wd = tmat(T.wood()), bd = tmat(T.sign(text, '#1e2a24', '#f1e8ff'));
+    for (const s2 of [-1, 1]) { const p = new THREE.Mesh(G.box, [wd, wd, wd, wd, bd, wd]); p.position.set(0, 0.5, s2 * 0.16); p.rotation.x = s2 * 0.3; p.rotation.y = s2 < 0 ? Math.PI : 0; p.scale.set(0.6, 0.95, 0.04); g.add(p); }
+    this.solid(x, z, 0.6, 0.5, 0, 0.9);
+  },
+  // Пикап фермера: кабина, открытый кузов с откинутым бортом, внутри тыквы (предметы)
+  pickup(x, z, ry = 0, c = 0x6a8a5a) {
+    const g = this.prop(x, z, ry), body = col(c), dk = col(0x17111f), glass = tmat(T.carGlass(c));
+    g.add(compose('pickup' + c, add => {
+      add(G.box, body, 1.2, 0.75, 0, 1.7, 0.7, 1.8); add(G.box, glass, 1.0, 1.35, 0, 1.2, 0.5, 1.6); add(G.box, body, 1.0, 1.62, 0, 1.25, 0.05, 1.62);
+      add(G.box, body, -0.9, 0.5, 0, 2.5, 0.2, 1.8); for (const sz of [-1, 1]) add(G.box, body, -0.9, 0.85, sz * 0.86, 2.5, 0.5, 0.08); add(G.box, body, 0.36, 0.85, 0, 0.08, 0.5, 1.8);
+      add(G.box, body, -2.35, 0.45, 0, 0.4, 0.06, 1.7, 0, 0, -0.2);
+      add(G.box, col(0x2b2833), 2.1, 0.5, 0, 0.12, 0.22, 1.8); add(G.box, glow(0xfff1c0), 2.07, 0.8, 0.6, 0.04, 0.14, 0.3); add(G.box, glow(0xfff1c0), 2.07, 0.8, -0.6, 0.04, 0.14, 0.3);
+      for (const [a, b] of [[1.3, 0.8], [1.3, -0.8], [-1.3, 0.8], [-1.3, -0.8]]) { add(TIRE_GEO, tmat(T.tread()), a, 0.36, b, 0.36, 0.26, 0.36, Math.PI / 2); add(G.cyl12, tmat(T.hubcap()), a, 0.36, b + Math.sign(b) * 0.07, 0.22, 0.02, 0.22, Math.PI / 2); }
+    }));
+    const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 1.9 : 4.4, q ? 4.4 : 1.9, 0, 0.6);
+    const L = (lx, lz) => [x + lx * Math.cos(ry) + lz * Math.sin(ry), z - lx * Math.sin(ry) + lz * Math.cos(ry)];
+    { const [cx, cz] = L(1.1, 0); this.solid(cx, cz, q ? 1.8 : 1.8, q ? 1.8 : 1.8, 0.6, 1.05); }
+    for (const [lx, lz] of [[-0.5, -0.45], [-0.5, 0.45], [-1.4, 0], [-1.4, -0.5]]) { const [px, pz] = L(lx, lz); this.item('pumpkin', px, pz, 0.6); }
+  },
   // Ярмарочная палатка: каркас, полосатая крыша-шатёр, прилавок с товаром
   tent(x, z, ry = 0, c1 = '#d8243a', c2 = '#f1e8ff', goods = 'pumpkin', sign = '') {
     const g = this.prop(x, z, ry), dk = col(0x2b2533), wd = tmat(T.wood());
@@ -484,8 +534,10 @@ export const PropMethods = {
   },
   // Куча листьев: пробежишь — листья разлетаются
   leafPile(x, z, r = 1) {
-    const lm = tmat(T.leaves(0));
-    for (let i = 0; i < 4; i++) { const o = this.m(G.ico, lm, x + (Math.random() - 0.5) * r, 0.12, z + (Math.random() - 0.5) * r, r * (0.5 + Math.random() * 0.3), 0.25, r * (0.5 + Math.random() * 0.3)); o.rotation.y = Math.random() * 3; }
+    // невысокий холмик листвы + разлетевшиеся по земле листья (без «камней»)
+    const lm = tmat(T.leaves(0)), g = this.m(G.sph10, lm, x, 0.02, z, r * 0.95, r * 0.32, r * 0.8); g.rotation.y = Math.random() * 3;
+    for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, d = r * 0.5; const k = this.m(G.sph, lm, x + Math.cos(a) * d, 0.02, z + Math.sin(a) * d, r * 0.45, r * 0.2, r * 0.4); k.rotation.y = a; }
+    const lit = this.m(G.plane, lam({ map: T.leafLitter(), alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'leafLitter', true), x, 0.03, z, r * 3.4, r * 3.4, 1); lit.rotation.x = -Math.PI / 2; lit.rotation.z = Math.random() * 6;
     addZone('leaves', { c: [this.X(x), this.Z(z), r * 0.9] }, this.Y);
   },
   // Деревянный причал над водой

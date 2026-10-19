@@ -36,6 +36,8 @@ const inHole = (x, z) => { for (const h of W.holes) if (x > h.x0 && x < h.x1 && 
 export function groundAt(x, z, r, maxY) {
   let g = maxY >= 0 && !inHole(x, z) ? 0 : -60;
   for (const s of solidsNear(x - r, z - r, x + r, z + r)) if (s.on && s.y1 <= maxY && s.y1 > g && overlapXZ(s, x, z, r)) g = s.y1;
+  // на толкаемых предметах (бак, бочка, тележка) можно стоять, как на земле
+  for (const b of W.pushables) { if (b.rider || b.grabbed) continue; const top = b.y + b.h; if (top <= maxY && top > g && Math.hypot(x - b.x, z - b.z) < b.r * 0.92 + r * 0.5) g = top; }
   return g;
 }
 
@@ -117,15 +119,22 @@ export function updatePushables(dt, player) {
     b.x = p.x; b.z = p.z;
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9 }[b.kind])); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
-    const mv = Math.hypot(b.x - op.x, b.z - op.z);
     b.mesh.position.set(b.x, b.y, b.z);
-    if (mv > 1e-4) {
-      const ang = Math.atan2(b.x - op.x, b.z - op.z);
-      if (b.roller) { b.roller.rotation.x += mv / b.r; b.mesh.rotation.y = ang; }
-      else if (b.tipped) { /* лежит */ }
-      else if (b.rider) b.mesh.rotation.y = b.heading;
-      else if (b.kind !== 'chair') { let d = ang - b.mesh.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); b.mesh.rotation.y += d * Math.min(1, dt * 6); }
-      else b.mesh.rotation.y += mv * 2;
+    // движение по форме: стоячий бак скользит не поворачиваясь; бочка, шина и колёсное едут вдоль «колёс»,
+    // боковое скольжение гасится, направление плавно доворачивается к толчку
+    const sp = Math.hypot(b.vx, b.vz);
+    if (b.rider) b.mesh.rotation.y = b.heading;
+    else if (b.kind === 'chair') b.mesh.rotation.y += Math.hypot(b.x - op.x, b.z - op.z) * 2;
+    else if (b.kind !== 'bin' && sp > 0.02) {
+      let h = b.mesh.rotation.y; const fx = Math.sin(h), fz = Math.cos(h);
+      let vf = b.vx * fx + b.vz * fz, vs = b.vx * fz - b.vz * fx;
+      vs *= Math.exp(-dt * (b.roller ? 5 : 7));
+      let want = Math.atan2(b.vx, b.vz), d = want - h; d = Math.atan2(Math.sin(d), Math.cos(d));
+      if (Math.abs(d) > Math.PI / 2) d = Math.atan2(Math.sin(d + Math.PI), Math.cos(d + Math.PI));
+      h += Math.max(-1, Math.min(1, d)) * Math.min(1, dt * (b.roller ? 1.6 : 2.6) * Math.min(1, sp));
+      const nfx = Math.sin(h), nfz = Math.cos(h);
+      b.vx = nfx * vf + nfz * vs; b.vz = nfz * vf - nfx * vs; b.mesh.rotation.y = h;
+      if (b.roller) b.roller.rotation.x += vf * dt / b.r;
     }
   }
   for (let i = 0; i < W.pushables.length; i++) for (let j = i + 1; j < W.pushables.length; j++) {
@@ -139,15 +148,24 @@ export function bumpPushables(pl) {
   const p = pl.pos;
   for (const b of W.pushables) {
     if (b.rider || b.grabbed || pl.ride) continue;
-    if (p.y > b.y + b.h - 0.1 || p.y + pl.h < b.y) continue;
+    const top = b.y + b.h;
+    if (p.y > top - 0.06 || p.y + pl.h < b.y) {
+      // стоит сверху — предмет стоит как вкопанный
+      if (p.y >= top - 0.06 && p.y < top + 0.08 && Math.hypot(p.x - b.x, p.z - b.z) < b.r + pl.r * 0.5) { b.vx = 0; b.vz = 0; }
+      continue;
+    }
     const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz), m = b.r + pl.r;
     if (d >= m || d < 1e-4) continue;
-    const nx = dx / d, nz = dz / d, over = m - d, share = 1 / (1 + b.mass);
+    const nx = dx / d, nz = dz / d, over = m - d;
+    // запрыгивает/цепляется выше середины — предмет не двигается, персонажа мягко сдвигает
+    if (!pl.onGround && p.y > b.y + b.h * 0.45) { p.x -= nx * over; p.z -= nz * over; continue; }
+    const share = 1 / (1 + b.mass);
     // тяжёлое почти не сдвигается, а игрок упирается в него
     b.x += nx * over * share; b.z += nz * over * share; p.x -= nx * over * (1 - share); p.z -= nz * over * (1 - share);
     const vn = pl.vel.x * nx + pl.vel.z * nz;
     if (b.kind === 'bin' && vn > 8.5) tipBin(b, nx, nz);
     if (vn > 0) {
+      pl.pushing = 0.15;
       const target = vn * (b.mass > 3 ? 0.45 : 0.85);
       const cur = b.vx * nx + b.vz * nz;
       if (cur < target) { const add = (target - cur) * Math.min(1, 6 / b.mass * 0.25); b.vx += nx * add; b.vz += nz * add; }

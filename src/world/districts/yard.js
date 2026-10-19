@@ -1,4 +1,5 @@
-import { THREE, G, tmat, col } from '../../core/gfx.js';
+import { THREE, G, tmat, col, lam } from '../../core/gfx.js';
+import { addSwinger } from '../swingers.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
 
@@ -40,19 +41,10 @@ export default {
     for (const [x, z] of [[16.1, 4.1], [17.9, 4.1], [16.1, 5.9], [17.9, 5.9]]) b.m(G.box, col(0x3a3440), x, 13.5, z, 0.08, 0.6, 0.08);
     for (const x of [14, 19]) b.aircon(x, 2.6, 13.2);
     for (const x of [11, 21]) { b.m(G.cyl5, col(0x2b2533), x, 14.4, 6.5, 0.04, 2.4, 0.04); b.m(G.box, col(0x2b2533), x, 15.3, 6.5, 0.9, 0.04, 0.04); }
-    // качели
-    const dk = col(0x3a4a6a), sx0 = 6, sx1 = 11, sz = 16, top = 2.5;
-    for (const x of [sx0, sx1]) {
-      for (const dz of [-0.75, 0.75]) { const leg = b.m(G.box, dk, x, top / 2, sz + dz / 2, 0.1, top + 0.15, 0.1); leg.rotation.x = -Math.sign(dz) * 0.3; }
-      b.solid(x, sz, 0.3, 1.8, 0, top);
-    }
-    b.m(G.box, dk, (sx0 + sx1) / 2, top, sz, sx1 - sx0 + 0.2, 0.12, 0.12);
-    for (const x of [7.6, 9.4]) {
-      const p = new THREE.Group(); p.position.set(b.X(x), b.Y + top - 0.05, b.Z(sz)); W.group.add(p);
-      for (const o of [-0.28, 0.28]) { const r = new THREE.Mesh(G.box, col(0x8a8d98)); r.position.set(o, -0.95, 0); r.scale.set(0.03, 1.9, 0.03); p.add(r); }
-      const seat = new THREE.Mesh(G.box, tmat(T.wood())); seat.position.y = -1.92; seat.scale.set(0.7, 0.07, 0.32); p.add(seat);
-      const ph = Math.random() * 6; W.keep.push(p); W.animated.push((dt, t) => { p.rotation.x = Math.sin(t * 1.6 + ph) * 0.3; });
-    }
+    // детская площадка: резиновое покрытие, качели, турник
+    b.ground(4.5, 13.6, 12.5, 18.4, T.court(), 2);
+    b.swingSet(8.5, 16, 5.2, 0);
+    { const fr = col(0xd8243a); for (const x of [13.6, 15.2]) { b.m(G.cyl6, fr, x, 1.0, 17.6, 0.05, 2.0, 0.05); b.solid(x, 17.6, 0.15, 0.15, 0, 2); } b.m(G.cyl6, col(0x9a9da8), 14.4, 1.95, 17.6, 0.03, 1.7, 0.03).rotation.z = Math.PI / 2; }
     // горка
     b.box(17, 13, 1.2, 1.2, 0.12, col(0xd04a4a), { y: 1.25 });
     for (const [x, z] of [[16.45, 12.45], [17.55, 12.45], [16.45, 13.55], [17.55, 13.55]]) b.m(G.box, col(0xf5c542), x, 0.62, z, 0.08, 1.25, 0.08);
@@ -78,10 +70,10 @@ export default {
     b.ride('skate', 14, 22, 1);
     for (const x of [12, 18]) { b.m(G.cyl6, col(0x6a6d78), x, 1.1, 28, 0.05, 2.2, 0.05); b.solid(x, 28, 0.2, 0.2, 0, 2.2); }
     b.m(G.box, col(0xd8d0c0), 15, 2.1, 28, 6, 0.02, 0.02);
-    [[13, 0xd8243a], [14.3, 0xf1e8ff], [15.6, 0x4ab0f0], [16.9, 0xf5c542]].forEach(([x, c], i) => {
+    [[13, 0xd8243a], [14.3, 0xf1e8ff], [15.6, 0x4ab0f0], [16.9, 0xf5c542]].forEach(([x, c]) => {
       const p = new THREE.Group(); p.position.set(b.X(x), b.Y + 2.1, b.Z(28)); W.group.add(p);
-      const cl = new THREE.Mesh(G.plane, new THREE.MeshLambertMaterial({ map: T.laundry(c), transparent: true, alphaTest: 0.1, side: THREE.DoubleSide })); cl.position.y = -0.4; cl.scale.set(0.8, 0.8, 1); p.add(cl);
-      W.keep.push(p); W.animated.push((dt, t) => { p.rotation.x = Math.sin(t * 2 + i) * 0.25; });
+      const cl = new THREE.Mesh(G.plane, lam({ map: T.laundry(c), alphaTest: 0.4, side: THREE.DoubleSide }, 'laundry' + c)); cl.position.y = -0.42; cl.scale.set(0.8, 0.8, 1); p.add(cl);
+      addSwinger(p, { len: 0.5, damp: 1.4, max: 1.2, r: 0.45, idle: 0.06 });
     });
     b.bench(12, 9.6, 0); b.bench(21, 12, -Math.PI / 2);
     b.bikeRack(6, 9.6, 3, 0); b.graffiti(26.5, 1.2, 22.44, Math.PI, 2.2, 0); b.puddle(14, 18, 1.1); b.puddle(24, 15, 0.8);
