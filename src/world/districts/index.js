@@ -10,6 +10,7 @@ import parking from './parking.js';
 import school from './school.js';
 import foodcourt from './foodcourt.js';
 import industrial from './industrial.js';
+import sewer from './sewer.js';
 
 // Все районы города. Новый район — новый файл + строка здесь.
-export const DISTRICTS = [yard, park, plaza, shops, construction, cemetery, gas, market, parking, school, foodcourt, industrial];
+export const DISTRICTS = [yard, park, plaza, shops, construction, cemetery, gas, market, parking, school, foodcourt, industrial, sewer];

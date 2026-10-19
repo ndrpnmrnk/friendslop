@@ -36,7 +36,7 @@ export class Builder {
   zone(type, x0, z0, x1, z1, y = 0) { W.missionZones.push({ type, x0: this.X(x0), z0: this.Z(z0), x1: this.X(x1), z1: this.Z(z1), y: this.Y + y, district: this.d }); }
   spawn(x, z) { W.spawns.push({ x: this.X(x), z: this.Z(z), y: this.Y }); }
   cats(x0, z0, x1, z1) { W.catHomes.push({ x0: this.X(x0), z0: this.Z(z0), x1: this.X(x1), z1: this.Z(z1), y: this.Y, district: this.d }); }
-  item(type, x, z, y = 0) { addItem(type, this.X(x), this.Y + y, this.Z(z)); }
+  item(type, x, z, y = 0, ry = 0) { return addItem(type, this.X(x), this.Y + y, this.Z(z), ry); }
   birds(kind, x0, z0, x1, z1, n) { addBirds(kind, { x0: this.X(x0), z0: this.Z(z0), x1: this.X(x1), z1: this.Z(z1), y: this.Y }, n); }
   hw(fn) { if (HW) fn(); }
 
@@ -135,10 +135,10 @@ export class Builder {
     for (const s of [-1, 1]) this.m(G.box, col(0x6a6d78), cx + (along ? 0 : s * w / 2), y + 0.02, cz + (along ? s * w / 2 : 0), along ? len : 0.04, 0.04, along ? 0.04 : len);
   }
   // ступеньки: от (x,z) в направлении dir ('n','s','e','w'), с высоты y0 до y1, шириной w
-  stairs(x, z, dir, y0, y1, w = 1.2) {
+  stairs(x, z, dir, y0, y1, w = 1.2, base = 0) {
     const n = Math.max(1, Math.round((y1 - y0) / 0.3)), rise = (y1 - y0) / n, run = 0.42, v = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }[dir];
     for (let i = 0; i < n; i++) { const cx = x + v[0] * (i + 0.5) * run, cz = z + v[1] * (i + 0.5) * run;
-      this.box(cx, cz, v[0] ? run : w, v[0] ? w : run, y0 + rise * (i + 1), tmat(T.concrete()), { }); }
+      this.box(cx, cz, v[0] ? run : w, v[0] ? w : run, y0 + rise * (i + 1) - base, tmat(T.concrete()), { y: base }); }
   }
   barrel(x, z) { this.m(G.cyl8, tmat(T.rust()), x, 0.5, z, 0.42, 1, 0.42); this.solid(x, z, 0.8, 0.8, 0, 1); }
   // урна — толкаемая
@@ -177,17 +177,29 @@ export class Builder {
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.3 : 0.8, q ? 0.8 : 0.3, 0, 1.2);
   }
   web(x, y, z, ry, s = 1.2) { const m = this.m(G.plane, alphaMat(T.web(), { side: THREE.DoubleSide, opacity: 0.7 }), x, y, z, s, s, 1); m.rotation.y = ry; }
+  // гирлянда на столбах: столбы каждые ~8 м, провод провисает между ними, лампочки висят на проводе
   stringLights(x0, z0, x1, z1, y, colors = [0xff8a1f, 0xb18cff, 0x9be36b]) {
-    const n = Math.round(Math.hypot(x1 - x0, z1 - z0) / 0.7);
-    for (let i = 0; i <= n; i++) { const t = i / n; this.m(G.box, glow(colors[i % colors.length]), x0 + (x1 - x0) * t, y - Math.sin(t * Math.PI) * 0.5, z0 + (z1 - z0) * t, 0.12, 0.16, 0.12); }
+    const len = Math.hypot(x1 - x0, z1 - z0), spans = Math.max(1, Math.ceil(len / 8)), pole = col(0x2b2533);
+    for (let k = 0; k <= spans; k++) { const t = k / spans, px = x0 + (x1 - x0) * t, pz = z0 + (z1 - z0) * t;
+      this.m(G.cyl6, pole, px, (y + 0.15) / 2, pz, 0.06, y + 0.15, 0.06); this.solid(px, pz, 0.16, 0.16, 0, y); }
+    const pts = [];
+    for (let k = 0; k < spans; k++) {
+      const n = Math.max(4, Math.round(len / spans / 0.7));
+      for (let i = 0; i <= n; i++) { const t = (k + i / n) / spans, sag = Math.sin(i / n * Math.PI) * 0.35;
+        const px = x0 + (x1 - x0) * t, py = y - sag, pz = z0 + (z1 - z0) * t; pts.push(new THREE.Vector3(this.X(px), this.Y + py, this.Z(pz)));
+        if (i > 0 && i < n) { this.m(G.box, col(0x17111f), px, py - 0.06, pz, 0.03, 0.08, 0.03); this.m(G.box, glow(colors[(k * n + i) % colors.length]), px, py - 0.16, pz, 0.11, 0.14, 0.11); } }
+    }
+    this.g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x17111f })));
   }
   sign(x, y, z, ry, text, bg, fg, w = 3, h = 0.75) { const m = this.m(G.plane, tmat(T.sign(text, bg, fg)), x, y, z, w, h, 1); m.rotation.y = ry; return m; }
-  table(x, z, s = 1) {
-    const w = tmat(T.wood()); this.m(G.box, w, x, 0.78, z, 1.4 * s, 0.08, 0.9 * s);
-    for (const [a, b] of [[-0.6, -0.35], [0.6, -0.35], [-0.6, 0.35], [0.6, 0.35]]) this.m(G.box, col(0x2b2533), x + a * s, 0.38, z + b * s, 0.07, 0.76, 0.07);
-    this.solid(x, z, 1.4 * s, 0.9 * s, 0, 0.82);
+  table(x, z, s = 1, y = 0) {
+    const w = tmat(T.wood()); this.m(G.box, w, x, y + 0.78, z, 1.4 * s, 0.08, 0.9 * s);
+    for (const [a, b] of [[-0.6, -0.35], [0.6, -0.35], [-0.6, 0.35], [0.6, 0.35]]) this.m(G.box, col(0x2b2533), x + a * s, y + 0.38, z + b * s, 0.07, 0.76, 0.07);
+    this.solid(x, z, 1.4 * s, 0.9 * s, y, 0.82);
   }
-  chair(x, z, ry = 0) {
+  chair(x, z, ry = 0, y = 0) { return this.item('chair', x, z, y, ry); }
+  cone(x, z) { return this.item('cone', x, z); }
+  staticChair(x, z, ry = 0) {
     const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
     const w = tmat(T.wood()); mesh(G.box, w, 0, 0.45, 0, 0.5, 0.06, 0.5, g); mesh(G.box, w, 0, 0.75, -0.22, 0.5, 0.55, 0.05, g);
     for (const [a, b] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) mesh(G.box, col(0x2b2533), a, 0.22, b, 0.05, 0.45, 0.05, g);

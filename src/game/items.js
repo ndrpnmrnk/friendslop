@@ -27,12 +27,20 @@ function build(type) {
     mesh(G.sph10, tmat(T.ball()), 0, 0, 0, 0.24, 0.24, 0.24, g);
   } else if (type === 'brick') {
     mesh(G.box, tmat(T.brickItem()), 0, 0, 0, 0.42, 0.18, 0.22, g);
+  } else if (type === 'chair') {
+    const w = tmat(T.wood()), dk = col(0x2b2533);
+    mesh(G.box, w, 0, 0.15, 0, 0.5, 0.06, 0.5, g); mesh(G.box, w, 0, 0.45, -0.22, 0.5, 0.55, 0.05, g);
+    for (const [a, b] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) mesh(G.box, dk, a, -0.08, b, 0.05, 0.45, 0.05, g);
+  } else if (type === 'cone') {
+    mesh(G.cone8, col(0xff6a1a), 0, 0.05, 0, 0.2, 0.55, 0.2, g); mesh(G.cyl8, col(0xf1e8ff), 0, 0.08, 0, 0.13, 0.08, 0.13, g);
+    mesh(G.box, col(0xff6a1a), 0, -0.22, 0, 0.42, 0.05, 0.42, g);
   }
   return g;
 }
-export function addItem(type, x, y, z) {
+export function addItem(type, x, y, z, ry = 0) {
   const def = CONFIG.items[type], g = build(type); W.group.add(g);
-  const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g) };
+  const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z, ry }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g) };
+  g.rotation.y = ry;
   it.pos.set(x, y + def.r, z);
   W.items.push(it); return it;
 }
@@ -40,7 +48,7 @@ function vanish(it) {
   it.g.visible = false; it.state = 'gone'; it.respawnT = it.def.respawn || 0;
 }
 function respawn(it) {
-  const h = it.home; it.pos.set(h.x, h.y + it.def.r, h.z); it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0);
+  const h = it.home; it.pos.set(h.x, h.y + it.def.r, h.z); it.vel.set(0, 0, 0); it.g.rotation.set(0, h.ry || 0, 0);
   it.g.visible = true; it.state = 'rest';
   puff(h.x, h.y + 0.3, h.z, { size: 0.5, life: 0.5, vy: 0.4 });
 }
@@ -69,6 +77,11 @@ function impact(it, n, speed) {
     const m = tmat(T.pumpkin());
     for (let i = 0; i < 9; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5 + it.vel.x * 0.15, 2 + Math.random() * 3, (Math.random() - 0.5) * 5 + it.vel.z * 0.15], { mat: m, size: 0.18 + Math.random() * 0.1, life: 2.5 });
     burst(p.x, p.y, p.z, 6, { color: 0xffd25c, size: 0.2, speed: 2 });
+    vanish(it);
+  } else if (t === 'chair' && speed > 9) {
+    const m = tmat(T.wood());
+    for (let i = 0; i < 6; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 5], { mat: m, size: 0.14, sx: 3, sy: 0.4, sz: 0.8, life: 2.5 });
+    burst(p.pos ? p.x : p.x, p.y, p.z, 5, { color: 0x8a6a4a, size: 0.35, speed: 1.5 });
     vanish(it);
   } else if (t === 'brick' && speed > 12) {
     const m = tmat(T.brickItem());
@@ -107,8 +120,8 @@ function simulate(it, dt, flying) {
   if (!flying) {
     const onG = p.y - r <= groundAt(p.x, p.z, r * 0.5, p.y) + 0.02;
     // трение: круглые катятся, кирпич быстро останавливается
-    if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7 }[it.type])); v.x *= f; v.z *= f; }
-    if (it.type !== 'brick') { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
+    if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7, chair: 6, cone: 3 }[it.type])); v.x *= f; v.z *= f; }
+    if (!['brick', 'chair', 'cone'].includes(it.type)) { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
   } else { it.g.rotation.x += dt * 8; it.g.rotation.y += dt * 5; }
 }
 

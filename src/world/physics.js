@@ -9,8 +9,10 @@ export function addSolid(x0, z0, x1, z1, y0, y1, tag) {
 }
 export const overlapXZ = (s, x, z, r) => x + r > s.x0 && x - r < s.x1 && z + r > s.z0 && z - r < s.z1;
 
+// Проёмы в земле (люки, канал коллектора): там нет «нулевой» земли, можно провалиться вниз
+const inHole = (x, z) => { for (const h of W.holes) if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return true; return false; };
 export function groundAt(x, z, r, maxY) {
-  let g = 0;
+  let g = maxY >= 0 && !inHole(x, z) ? 0 : -60;
   for (const s of W.solids) if (s.on && s.y1 <= maxY && s.y1 > g && overlapXZ(s, x, z, r)) g = s.y1;
   return g;
 }

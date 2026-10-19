@@ -6,7 +6,7 @@ import { T } from '../../core/textures.js';
 export default {
   id: 'school', name: 'Школьный двор', ground: 'pave',
   build(b) {
-    b.house({ x: 3, z: 1, w: 26, d: 8, h: 3.4, upper: 3.4, wall: 0x9a6a5a, lit: 0.6, door: { side: 's', at: 0.5 }, sign: ['ШКОЛА №13', '#2a1f3d', '#f5c542'],
+    b.house({ x: 3, z: 1, w: 26, d: 8, h: 3.4, upper: 6.8, wall: 0x9a6a5a, lit: 0.6, door: { side: 's', at: 0.5 }, sign: ['ШКОЛА №13', '#2a1f3d', '#f5c542'],
       ladder: { side: 'w', at: 0.5 }, roof: true,
       interior(b, r) {
         b.m(G.plane, tmat(T.chalkboard()), 16, 1.8, r.z0 + 0.02, 4.4, 1.7, 1);
@@ -30,6 +30,11 @@ export default {
     b.ride('skate', 13, 13, 1.2);
     b.fence(17, 31.3, 21, 31.3, 1.2, 'wood');
     b.bench(23, 18, -Math.PI / 2);
+    // флагшток, велопарковка, деревья
+    b.m(G.cyl6, col(0xd8d8e0), 16.5, 3.5, 10.2, 0.05, 7, 0.05); b.solid(16.5, 10.2, 0.2, 0.2, 0, 7); b.m(G.box, col(0xff8a1f), 17.1, 6.4, 10.2, 1.1, 0.7, 0.02);
+    for (let i = 0; i < 4; i++) { const t = b.m(G.torus, col(0x6a6d78), 23 + i * 0.8, 0.5, 10.6, 0.4, 0.4, 0.4); }
+    b.solid(24.2, 10.6, 3.4, 0.2, 0, 0.9);
+    b.tree(30, 30); b.tree(16.5, 30); b.cone(13, 20); b.cone(13, 22);
     b.lamp(16.5, 10.6, 0); b.lamp(1, 30.5, Math.PI / 2); b.lamp(31, 11, -Math.PI / 2);
     b.zone('floor', 2.5, 11.5, 15.5, 27.5); b.zone('floor', 17.5, 14.5, 27.5, 29);
     b.cats(17.5, 11, 28, 30);

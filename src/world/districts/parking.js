@@ -21,6 +21,12 @@ export default {
     b.m(G.box, glow(0xd8243a), 7, 1.25, 29, 0.15, 0.15, 0.15);
     b.lamp(16, 12.6, 0); b.lamp(30.8, 30.8, -Math.PI * 0.75); b.lamp(1.2, 12.6, Math.PI / 2);
     b.bin(30.5, 12); b.hydrant(1.2, 15);
+    // паркомат, разделительные клумбы, конусы, автобус
+    b.box(14, 12.4, 0.4, 0.3, 1.4, col(0x3a7ac8)); b.m(G.box, tmat(T.screen()), 14, 1.1, 12.56, 0.25, 0.2, 0.02);
+    for (const x of [6, 22]) { b.box(x, 12.4, 4, 1, 0.3, tmat(T.concrete())); b.m(G.ico, tmat(T.bush()), x, 0.55, 12.4, 1.8, 0.4, 0.45); b.tree(x, 12.4, 0.8); }
+    for (const x of [10, 11, 12]) b.cone(x, 25);
+    b.box(23, 28, 9, 2.6, 2.9, tmat(T.carSide(0xd8a030))); b.m(G.box, tmat(T.carGlass(0xd8a030)), 23, 2.2, 26.68, 8, 0.8, 0.02); b.zone('roof', 19, 27, 27, 29, 2.9);
+    b.crate(17.5, 28.5, 1.2); b.crate(17.5, 28.5, 1.0, 1.2);
     b.zone('floor', 1, 8.6, 31, 16.6); b.zone('floor', 13, 23.6, 31, 31);
     b.cats(1, 9, 31, 16);
     b.spawn(16, 14.5); b.spawn(22, 28);

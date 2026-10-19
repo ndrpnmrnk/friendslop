@@ -28,6 +28,31 @@ export function makeCharacter(skinId) {
 
 const _up = new THREE.Vector3(0, 0.18, 0);
 // поза при катании: сидя (кресло, тележка, тачка) или стоя боком (скейт)
+// выпад (тело вытянуто вперёд), перекат (кувырок через голову), подкат (откинулся назад)
+function animateMove(c, dt, s) {
+  const d = c.d, f = damp(18, dt), ctr = 0.8;
+  let th, drop = 0;
+  if (s.dive === 'roll') { th = Math.PI * 2 * (s.roll || 0); drop = 0.35 * Math.sin(Math.PI * (s.roll || 0)); }
+  else if (s.dive === 'air') th = 1.25;
+  else th = -0.85;
+  const cc = s.slide ? 0.55 : ctr;
+  c.body.rotation.set(th, 0, 0); c.body.scale.set(1, 1, 1);
+  c.body.position.set(0, cc - cc * Math.cos(th) - drop - (s.slide ? 0.25 : 0), -cc * Math.sin(th));
+  c.stars.visible = false;
+  if (s.slide) {
+    setHand(c.footL, -d.footX, d.footY + 0.15, 0.55, f); setHand(c.footR, d.footX, d.footY + 0.15, 0.45, f);
+    setHand(c.handL, -d.handX - 0.1, 0.35, -0.2, f); setHand(c.handR, d.handX + 0.1, 0.35, -0.2, f);
+  } else if (s.dive === 'air') {
+    setHand(c.handL, -d.handX * 0.6, 0.9, 1.3, f); setHand(c.handR, d.handX * 0.6, 0.9, 1.3, f);
+    setHand(c.footL, -d.footX, 0.75, -0.7, f); setHand(c.footR, d.footX, 0.85, -0.6, f);
+  } else {
+    const k = s.roll || 0, a = th;
+    const ring = (r, o) => [Math.sin(a + o) * r, ctr - Math.cos(a + o) * r - drop];
+    const [hz, hy] = ring(0.55, 0.6), [fz, fy] = ring(0.55, Math.PI + 0.4);
+    setHand(c.handL, -d.handX * 0.7, hy, hz, 1); setHand(c.handR, d.handX * 0.7, hy, hz, 1);
+    setHand(c.footL, -d.footX, fy, fz, 1); setHand(c.footR, d.footX, fy, fz, 1);
+  }
+}
 function animateRide(c, dt, s) {
   const d = c.d, f = damp(14, dt), sp = Math.min(1, (s.rideSpeed || 0) / 10), t = s.t;
   c.stars.visible = false; c.body.scale.set(1, 1, 1); c.body.rotation.y += (0 - c.body.rotation.y) * f;
@@ -48,6 +73,8 @@ function setHand(h, x, y, z, k) { h.position.x += (x - h.position.x) * k; h.posi
 function animate(c, dt, s) {
   const d = c.d, t = s.t, k = clamp(s.speed || 0, 0, 1), run = !s.air && !s.climb && k > 0.05;
   if (s.ride) return animateRide(c, dt, s);
+  if (s.dive || s.slide) return animateMove(c, dt, s);
+  c.body.position.z = 0; c.body.rotation.x = Math.atan2(Math.sin(c.body.rotation.x), Math.cos(c.body.rotation.x));
   c.ph += dt * (s.climb ? 7 : 4 + k * 10) * (run || s.climb ? 1 : 0);
   const sn = Math.sin(c.ph), cs = Math.cos(c.ph), f = damp(16, dt);
   // тело
@@ -100,6 +127,8 @@ function animate(c, dt, s) {
     setHand(c.handR, hx, hy - fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? sn * 0.35 * k : 0), f);
   }
   c.handL.rotation.x = s.hold ? -0.6 : run ? sn * 0.5 * k : 0; c.handR.rotation.x = s.hold ? (s.charge ? 0.8 : -0.6) : run ? -sn * 0.5 * k : 0;
+  // присед: тело ниже и сжато, ручки ближе
+  if (s.crouch) { c.body.position.y -= 0.34; c.body.scale.y *= 0.85; c.body.rotation.x = 0.25; c.handL.position.y -= 0.3; c.handR.position.y -= 0.3; c.footL.position.x = -d.footX - 0.08; c.footR.position.x = d.footX + 0.08; }
   // точка, где держим предмет: между ладонями или в правой руке при замахе
   if (s.hold && s.charge) c.holdPoint.copy(c.handR.position).add(_up);
   else c.holdPoint.set(0, (c.handL.position.y + c.handR.position.y) / 2 + 0.12, (c.handL.position.z + c.handR.position.z) / 2 + 0.05);

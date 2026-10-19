@@ -58,6 +58,7 @@ export function buildEdges(half) {
         box(f, u, 66 + rand() * 6, w, 6, h, mats, -1, false); }
     } else {
       // забор большой стройки с плакатами, за ним каркасы и краны
+      { const [gx, gz] = f.P(0, 24), [gw, gd] = f.S(L + 60, 40); const gm = mesh(G.box, tmat(rep(T.dirt(), (L + 60) / 4, 10)), gx, -0.05, gz, gw, 0.1, gd, W.group); }
       box(f, 0, 3.8, L + 7, 0.2, 2.8, tmat(rep(T.corrugated(0x6a7a5a), (L + 7) / 4, 1)), base);
       for (let u = -half + 6; u < half - 6; u += 9) { const [x, z] = f.P(u, 3.68), [w, d] = f.S(3, 0.02);
         const p = mesh(G.box, tmat(T.sign(pick(['ЖК «ТЫКВА»', 'СТРОЙКА', 'ВХОД ЗАПРЕЩЁН', 'СДАЧА 2027']), pick(['#d8243a', '#2a1f3d', '#f5c542']), '#f1e8ff')), x, base + 1.6, z, w || 0.02, 0.8, d || 0.02, W.group); }

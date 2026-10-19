@@ -29,7 +29,8 @@ export const CONFIG = {
     accel: 9, decel: 7, sprintDecel: 3.2, sprintRamp: 0.9, sprintFade: 0.7,
     jump: 8, gravity: 22, climb: 3.4,
     stamina: { drain: 0.32, regen: 0.26, delay: 0.7, restart: 0.15 },
-    fallStun: 3.2, stunTime: 1.4,
+    fallStun: 4.5, stunTime: 1.4,
+    crouchH: 1.0, crouchSpeed: 3.2, slideTime: 0.75, slideSpeed: 12, diveSpeed: 10, diveUp: 4.5, rollTime: 0.45, diveCooldown: 0.9,
   },
   camera: { offset: [0, 12.5, 14], fov: 50, lookAhead: 0.3 },
   missionWave: [1, 2],            // миссии приходят волнами по 1–2, следующая — когда закончатся текущие
@@ -40,9 +41,9 @@ export const CONFIG = {
   missions: {
     cat:    { name: 'Погладить кота', icon: '🐈', points: 100, diff: 'easy', life: 40, max: 2, game: 'cat' },
     puzzle: { name: 'Собрать пазл на стенде', icon: '🧩', points: 200, diff: 'mid', life: 55, max: 1, game: 'puzzle',
-              zones: ['floor', 'inside', 'roof'], foot: [2.6, 0.6], clear: 2.4 },
+              zones: ['floor', 'inside', 'roof', 'tunnel'], foot: [2.6, 0.6], clear: 2.4 },
     ttt:    { name: 'Обыграть призрака в крестики-нолики', icon: '👻', points: 250, diff: 'hard', life: 0, max: 1, game: 'ttt',
-              zones: ['floor', 'inside', 'nook', 'roof'], foot: [1.8, 2.6], clear: 1.4 },
+              zones: ['floor', 'inside', 'nook', 'roof', 'tunnel'], foot: [1.8, 2.6], clear: 1.4 },
   },
   missionCooldown: 6,
   // предметы для броска
@@ -54,6 +55,8 @@ export const CONFIG = {
     pumpkin: { name: 'Тыква', icon: '🎃', heavy: true, r: 0.32, respawn: 12, mass: 3, drag: 0, bounce: 0.15 },
     ball:    { name: 'Мяч', icon: '🏀', heavy: false, r: 0.24, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.65 },
     brick:   { name: 'Кирпич', icon: '🧱', heavy: true, r: 0.2, respawn: 10, mass: 2.5, drag: 0, bounce: 0.1 },
+    chair:   { name: 'Стул', icon: '🪑', heavy: true, r: 0.3, respawn: 15, mass: 1.6, drag: 0.05, bounce: 0.2, rest: 0.0 },
+    cone:    { name: 'Конус', icon: '🔶', heavy: false, r: 0.22, respawn: 0, mass: 0.5, drag: 0.15, bounce: 0.45, rest: 0.0 },
   },
   throw: { minRange: 3, maxRange: 17, chargeTime: 0.9 },
 };

@@ -21,7 +21,7 @@ export function camForward() { return [-Math.sin(cam.yaw), -Math.cos(cam.yaw)]; 
 function castSolids(o, d, maxT) {
   let best = maxT;
   for (const s of W.solids) {
-    if (!s.on || s.y1 - s.y0 < 1.2) continue;
+    if (!s.on || s.y1 < o.y - 0.4) continue;
     let t0 = 0, t1 = best;
     const mins = [s.x0, s.y0, s.z0], maxs = [s.x1, s.y1, s.z1], oo = [o.x, o.y, o.z], dd = [d.x, d.y, d.z];
     let ok = true;
@@ -44,13 +44,6 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   let P, L;
   if (cam.pose) { P = cam.pose.p; L = cam.pose.l; }
   else {
-    // автодоводка за спину на бегу, если мышь не трогали
-    cam.idle = moved ? 0 : cam.idle + dt;
-    if (!aiming && cam.idle > 1.2 && p.speed > 2) {
-      const behind = Math.atan2(-p.vel.x, -p.vel.z);
-      let d = behind - cam.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
-      if (Math.abs(d) < 1.9) cam.yaw += d * damp(1.2, dt);
-    }
     cam.aimK += ((aiming ? 1 : 0) - cam.aimK) * damp(9, dt);
     const k = cam.aimK, N = cam.normal, A = cam.aim;
     const dist = N.dist + (A.dist - N.dist) * k, shoulder = N.shoulder + (A.shoulder - N.shoulder) * k, height = N.height + (A.height - N.height) * k;
@@ -81,6 +74,7 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   ray.set(camera.position, rd);
   const hp = new V3();
   for (const o of W.occluders) {
+    if (o.inside) continue; // здания не просвечиваем: камера сама заходит внутрь
     let block = false;
     const ins = o.inside;
     if (ins && target.x > ins.x0 && target.x < ins.x1 && target.z > ins.z0 && target.z < ins.z1 && target.y > ins.y0 && target.y < ins.y1) block = true;

@@ -6,7 +6,7 @@ import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook 
 import { DIFF } from './config.js';
 import { W } from './world/state.js';
 import { generateMap } from './world/world.js';
-import { updatePushables } from './world/physics.js';
+import { updatePushables, groundAt } from './world/physics.js';
 import { updateParticles } from './world/particles.js';
 import { updateBirds } from './world/birds.js';
 import { updateCrane } from './world/crane.js';
@@ -254,6 +254,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 // отладочный доступ из консоли браузера
-window.__fs = { S, arc, land, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
+window.__fs = { S, arc, land, phys: { groundAt }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
 showMenu();
 loop();

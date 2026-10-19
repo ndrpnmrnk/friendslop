@@ -7,7 +7,7 @@ import { W } from '../state.js';
 export default {
   id: 'yard', name: 'Двор', ground: 'pave',
   build(b) {
-    b.house({ x: 4, z: 1, w: 20, d: 7, h: 3.4, upper: 6.2, wall: 0x7c6a9c, roof: true,
+    b.house({ x: 4, z: 1, w: 20, d: 7, h: 3.4, upper: 9.8, wall: 0x7c6a9c, roof: true,
       door: { side: 's', at: 0.5, sign: ['ПОДЪЕЗД 3', '#2a1f3d', '#f5c542'] }, ladder: { side: 'w', at: 0.5 }, gaps: [{ side: 'e', at: 0.5 }],
       inner: T.plaster(), floor: T.floorTile(),
       interior(b, r) {
@@ -16,9 +16,13 @@ export default {
         b.box(r.x0 + 0.4, 4.5, 0.3, 1.6, 0.8, col(0xd8d0c0), { y: 0.3 });
         b.bench(9, r.z0 + 0.5, 0);
       } });
-    b.house({ x: 25, z: 1, w: 6, d: 7, h: 3.4, upper: 6.2, wall: 0x9c6a6a, roof: true, door: { side: 's', at: 0.5 }, gaps: [{ side: 'w', at: 0.5 }],
+    b.house({ x: 25, z: 1, w: 6, d: 7, h: 3.4, upper: 9.8, wall: 0x9c6a6a, roof: true, door: { side: 's', at: 0.5 }, gaps: [{ side: 'w', at: 0.5 }],
       interior(b, r) { b.shelf((r.x0 + r.x1) / 2, r.z0 + 0.3, 3.4, 0); } });
-    b.plank(24, 4.5, 25, 4.5, 9.6, 1.1);
+    b.plank(24, 4.5, 25, 4.5, 13.2, 1.1);
+    // на крыше: водонапорный бак, антенны, кондиционеры
+    b.box(8, 3, 2.4, 2.4, 0.6, tmat(T.metal()), { y: 13.2 }); b.m(G.cyl12, tmat(T.rust()), 8, 15.1, 3, 1.1, 2.2, 1.1); b.m(G.cone8, tmat(T.rust()), 8, 16.6, 3, 1.2, 0.8, 1.2);
+    for (const x of [14, 19]) { b.box(x, 2.6, 1.2, 0.8, 0.8, col(0xa8a8b0), { y: 13.2 }); }
+    for (const x of [11, 21]) { b.m(G.cyl5, col(0x2b2533), x, 14.4, 6.5, 0.04, 2.4, 0.04); b.m(G.box, col(0x2b2533), x, 15.3, 6.5, 0.9, 0.04, 0.04); }
     // качели
     const dk = col(0x3a4a6a), sx0 = 6, sx1 = 11, sz = 16, top = 2.5;
     for (const x of [sx0, sx1]) {

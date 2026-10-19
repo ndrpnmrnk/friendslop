@@ -9,7 +9,7 @@ import { GAMES } from './games.js';
    перед повтором. Объекты появляются в случайной точке подходящей зоны (пол, внутри, крыша, нычка),
    место проверяется: не в стене, не в воде, перед объектом есть свободное место. */
 export const M = { list: [], cooldown: {}, id: 0, waveT: 0 };
-const ZONE_RU = { floor: '', inside: 'внутри', roof: 'на крыше', nook: 'в нычке' };
+const ZONE_RU = { floor: '', inside: 'внутри', roof: 'на крыше', nook: 'в нычке', tunnel: '' };
 
 export function resetMissions() { M.list = []; M.cooldown = {}; M.waveT = 0; }
 

@@ -15,6 +15,8 @@ addEventListener('keydown', e => {
   if (!keys[e.code]) pressed.add(e.code);
   keys[e.code] = true;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+  // во время игры клавиши достаются только игре (кроме F5/F11/F12)
+  if (lock.want() && !/^F(5|11|12)$/.test(e.code)) e.preventDefault();
   handlers.key.forEach(f => f(e.code));
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
