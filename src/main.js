@@ -130,7 +130,7 @@ function prepareRound() {
   resetEvents();
   resetMissions();
   if (P) scene.remove(P.root);
-  P = createPlayer(menu.skin()); scene.add(P.root);
+  P = createPlayer(menu.skin()); scene.add(P.root); P.ch.onCroak = () => sfx('croak');
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
   W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), 3);

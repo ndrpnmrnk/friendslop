@@ -7,6 +7,7 @@ import { SKIN_IDS, SKINS } from '../characters/skins.js';
 import { nearestItem, pickUp, throwVelocity, launch } from './items.js';
 import { smoke, smokeRing } from '../world/particles.js';
 import { M } from '../missions/missions.js';
+import { sfx } from '../core/sfx.js';
 
 /* Простые боты-соперники (пока нет сети): бегут к миссии, «выполняют» её стоя рядом,
    иногда кидают предмет в игрока. Тот же риг, хитбокс и физика, что у игрока —
@@ -18,7 +19,7 @@ export function createBots(scene, playerSkin, n = 3) {
   W.bots = [];
   const others = SKIN_IDS.filter(s => s !== playerSkin);
   for (let i = 0; i < n; i++) {
-    const skin = others[i % others.length] || playerSkin, ch = makeCharacter(skin);
+    const skin = others[i % others.length] || playerSkin, ch = makeCharacter(skin); ch.onCroak = () => sfx('croak', { at: ch.root.position, v: 0.7 });
     const sp = W.spawns[(i + 1) % W.spawns.length] || { x: 0, y: 0.15, z: 0 };
     ch.root.position.set(sp.x + (Math.random() - 0.5) * 2, sp.y, sp.z + (Math.random() - 0.5) * 2); scene.add(ch.root);
     W.bots.push({ bot: true, name: NAMES[i], skin, ch, root: ch.root, pos: ch.root.position, vel: new V3(), push: new V3(), r: PC.radius, h: PC.height, step: PC.step,

@@ -4,6 +4,7 @@ import { SEASON, HW } from '../config.js';
 import { makeCharacter } from '../characters/rig.js';
 import { SKINS, SKIN_IDS } from '../characters/skins.js';
 import { PFACE } from '../world/builder.js';
+import { sfx } from '../core/sfx.js';
 
 /* Главное меню — живая сцена в том же PS1-рендере, что игра: персонаж на углу улицы под прожектором,
    за ним — дерево, фонарь, тыквы, дымка и город. Раз в 6–12 с — случайная сценка (мыши, призрак, кот,
@@ -65,7 +66,7 @@ export function createMenu() {
   try { const s = localStorage.getItem('friendslop.skin'); if (SKIN_IDS.includes(s)) st.idx = SKIN_IDS.indexOf(s); } catch (_) {}
   function show() {
     if (st.ch) scene.remove(st.ch.root);
-    st.ch = makeCharacter(SKIN_IDS[st.idx]); st.ch.root.position.set(0, 0.14, 0); scene.add(st.ch.root); st.ch.root.rotation.y = st.rot;
+    st.ch = makeCharacter(SKIN_IDS[st.idx]); st.ch.onCroak = () => sfx('croak'); st.ch.root.position.set(0, 0.14, 0); scene.add(st.ch.root); st.ch.root.rotation.y = st.rot;
     document.getElementById('skinName').textContent = SKINS[SKIN_IDS[st.idx]].name;
     try { localStorage.setItem('friendslop.skin', SKIN_IDS[st.idx]); } catch (_) {}
   }
