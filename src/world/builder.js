@@ -9,6 +9,7 @@ import { addBirds } from './birds.js';
 import { addOutline } from '../game/outline.js';
 import { addPushable } from './pushables.js';
 import { TIRE_GEO } from './props.js';
+import { addSwinger } from './swingers.js';
 import { brickWall, breakBox, breakModel, addPiece, breakPiece, glassMat } from './breakables.js';
 import { PropMethods, crateModel } from './props.js';
 import { TowerMethods } from './tower.js';
@@ -73,6 +74,12 @@ export class Builder {
     addZone('water', { r: [this.X(x0), this.Z(z0), this.X(x1), this.Z(z1)] }, this.Y + y);
     return m;
   }
+  // Стелющийся туман: два прозрачных слоя с бегущим шумом
+  mist(x0, z0, x1, z1, y = 0) {
+    for (const [hy, op, k] of [[0.25, 0.45, 1], [0.7, 0.3, 1.6]]) { const w = x1 - x0, d = z1 - z0;
+      const m = this.m(G.plane, mistMat(op), (x0 + x1) / 2, y + hy, (z0 + z1) / 2, w, d, 1); m.rotation.x = -Math.PI / 2;
+      m.geometry = G.plane.clone(); const uv = m.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / (8 * k), uv.getY(i) * d / (8 * k)); m.renderOrder = 3; W.keep.push(m); }
+  }
   slip(x, z, r) {
     const m = this.m(G.plane, alphaMat(T.splat('#120c18'), { opacity: 0.85 }), x, 0.025, z, r * 2.2, r * 2.2, 1); m.rotation.x = -Math.PI / 2; m.rotation.z = rand() * 6;
     addZone('oil', { c: [this.X(x), this.Z(z), r] }, this.Y);
@@ -99,6 +106,10 @@ export class Builder {
       const a = i / n * 6.28 + rand() * 0.6, d = i === 0 ? 0 : (kind === 'maple' ? 0.75 : 0.55) * (0.7 + rand() * 0.4), r = (kind === 'maple' ? 0.72 : 0.95) * (0.8 + rand() * 0.35);
       const c = this.m(LEAF_GEO, lm, x + Math.cos(a) * d * s, y + (2.7 + (i === 0 ? 0.55 : rand() * 0.6)) * s, z + Math.sin(a) * d * s, r * s, r * 0.82 * s, r * s); c.rotation.set(rand(), rand() * 3, rand());
     }
+    // Хэллоуин: на ветке висит «привидение» из простыни и покачивается
+    if (HW && rand() < 0.12) { const a = rand() * 6.28, p = new THREE.Group(); p.position.set(this.X(x + Math.cos(a) * 1.0 * s), this.Y + y + 2.2 * s, this.Z(z + Math.sin(a) * 1.0 * s)); p.rotation.y = a; this.g.add(p);
+      p.add(compose('ghostSheet', q => { const wm = lam({ color: 0xeee8ff, emissive: 0x6a6080, emissiveIntensity: 0.6 }, 'ghostSheet'); q(G.sph10, wm, 0, -0.35, 0, 0.26, 0.26, 0.26); q(G.cone8, wm, 0, -0.75, 0, 0.36, 0.6, 0.36); q(G.box, col(0x17111f), -0.09, -0.33, 0.24, 0.06, 0.09, 0.02); q(G.box, col(0x17111f), 0.09, -0.33, 0.24, 0.06, 0.09, 0.02); q(G.cyl5, col(0xd8d0c0), 0, -0.05, 0, 0.01, 0.15, 0.01); }));
+      addSwinger(p, { len: 0.7, damp: 1.2, max: 0.8, r: 0.4, idle: 0.12 }); }
     this.solid(x, z, 0.45, 0.45, y, 2);
   }
   deadTree(x, z) {
@@ -349,6 +360,7 @@ for (let i = 0; i < CAR_CABIN.attributes.position.count; i++) {
 }
 CAR_CABIN.computeVertexNormals();
 let _lm, _wm, _pf;
+const _mist = {}; const mistMat = op => _mist[op] || (_mist[op] = alphaMat(T.mist(), { color: SEASON.bg === 0x2a1f3d ? 0xb8a8e0 : 0xffffff, opacity: op, depthWrite: false }));
 export const LIGHTDIM = () => _ld || (_ld = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0x8a7a70 }));
 let _ld;
 export const LIGHTMAT = () => _lm || (_lm = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0xffffff }));

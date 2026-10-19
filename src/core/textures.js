@@ -168,6 +168,9 @@ export const T = {
   }),
   truss: (c = '#e0b02a') => pix('truss' + c, 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H); g.fillStyle = c; g.fillRect(0, 0, 3, H); g.fillRect(W - 3, 0, 3, H); g.fillRect(0, 0, W, 2); g.fillRect(0, H - 2, W, 2);
     g.fillStyle = '#b88a1a'; for (let i = 0; i < W; i++) { g.fillRect(i, (i * H / W) | 0, 2, 2); g.fillRect(i, H - 2 - ((i * H / W) | 0), 2, 2); } }),
+  mist: () => photo('mist', 64, 64, (g, W, H) => { g.clearRect(0, 0, W, H); for (let i = 0; i < 40; i++) { const x = R() * W, y = R() * H, r = W * (0.08 + R() * 0.16);
+    for (const [ox, oy] of [[0, 0], [W, 0], [-W, 0], [0, H], [0, -H]]) { const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r); gr.addColorStop(0, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); } } }, 2),
+  aoStrip: () => pix('aoStrip', 4, 16, (g, W, H) => { for (let y = 0; y < H; y++) { g.fillStyle = `rgba(10,6,16,${(0.55 * (1 - y / H) ** 1.6).toFixed(3)})`; g.fillRect(0, y, W, 1); } }),
   grate: () => pix('grate', 16, 16, (g, W, H) => { g.fillStyle = '#2b2533'; g.fillRect(0, 0, W, H); g.fillStyle = '#0a080c'; for (let x = 1; x < W; x += 3) g.fillRect(x, 1, 2, H - 2); }),
   carpet: (c = 0x3a4458) => photo('carpet' + c, 32, 32, (g, W, H) => { fill(g, W, H, shade(c, 0)); blobs(g, W, H, [shade(c, -14), shade(c, 12)], 900, 1, 2.5, 0.5);
     g.strokeStyle = shade(c, -22); g.lineWidth = 3; g.strokeRect(1.5, 1.5, W - 3, H - 3); grain(g, W, H, 10); }),

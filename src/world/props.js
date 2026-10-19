@@ -186,6 +186,11 @@ export const PropMethods = {
       s(G.box, 0, 0.44, -0.02, 0.06, 0.05, 0.5); s(G.box, 0, 0.66, 0.0, 0.06, 0.05, 0.46); s(G.box, 0, 0.56, 0.22, 0.05, 0.2, 0.05);
       s(G.cyl8, 0, 0.66, 0.24, 0.045, 0.06, 0.045, Math.PI / 2); s(G.box, 0, 0.02, 0.24, 0.12, 0.04, 0.12); s(G.box, 0, 0.02, -0.38, 0.12, 0.04, 0.12);
     }
+    // Хэллоуин: изредка на скамейке сидит скелет
+    if (HW && Math.random() < 0.1) g.add(compose('skeleton', a => { const b2 = col(0xe8e0d0), d2 = col(0x17111f);
+      a(G.sph10, b2, 0.35, 1.18, -0.08, 0.17, 0.19, 0.17); a(G.box, d2, 0.29, 1.2, 0.08, 0.05, 0.05, 0.02); a(G.box, d2, 0.41, 1.2, 0.08, 0.05, 0.05, 0.02);
+      a(G.cyl5, b2, 0.35, 0.98, -0.12, 0.03, 0.12, 0.03); for (let i = 0; i < 4; i++) a(G.box, b2, 0.35, 0.92 - i * 0.07, -0.12, 0.3 - i * 0.02, 0.025, 0.18);
+      a(G.cyl5, b2, 0.35, 0.72, -0.15, 0.025, 0.4, 0.025); for (const s2 of [-1, 1]) { a(G.cyl5, b2, 0.35 + s2 * 0.1, 0.5, 0.05, 0.025, 0.36, 0.025, Math.PI / 2); a(G.cyl5, b2, 0.35 + s2 * 0.1, 0.27, 0.24, 0.022, 0.42, 0.022); a(G.cyl5, b2, 0.35 + s2 * 0.2, 0.75, -0.05, 0.02, 0.36, 0.02, 0.6); } }));
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.6 : 2, q ? 2 : 0.6, 0, 0.55);
     return g;
   },
@@ -202,8 +207,11 @@ export const PropMethods = {
     const cap = this.m(G.cone4, d, lx, 3.27, lz, 0.26, 0.14, 0.26); cap.rotation.y = Math.PI / 4 + ry;
     this.m(G.box, d, lx, 2.98, lz, 0.26, 0.04, 0.26);
     // плафон бьётся от брошенного предмета — фонарь гаснет
-    const bulb = breakBox(this.X(lx), this.Y + 3.0, this.Z(lz), 0.22, 0.2, 0.22, 'bulb', glow(0xfff0c8)), pool = this.light(lx, lz, 3.2);
-    W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; };
+    // часть фонарей мигает: у них свой материал плафона и пятна света
+    const fl = Math.random() < 0.15, bm = fl ? lam({ color: 0xfff0c8, emissive: 0xfff0c8, emissiveIntensity: 0.9 }) : glow(0xfff0c8);
+    const bulb = breakBox(this.X(lx), this.Y + 3.0, this.Z(lz), 0.22, 0.2, 0.22, 'bulb', bm), pool = this.light(lx, lz, 3.2);
+    if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: Math.random() * 5, on: true }); }
+    W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; pool.userData.broken = true; };
     this.solid(x, z, 0.35, 0.35, 0, 3.4);
   },
   // Столбик-ограничитель со светоотражающей полосой

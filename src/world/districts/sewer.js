@@ -70,6 +70,7 @@ export default {
     b.crate(5, 5, 1.1); b.crate(6.1, 5.2, 0.9); b.barrel(3, 28); b.barrel(4, 28.6);
     b.bench(6, 16, Math.PI / 2); b.trashBags(1.5, 9, 2); b.puddle(6, 25, 1); b.graffiti(12.02, -2.2, 18, Math.PI / 2, 2.6, 4); b.utilityBox(10.6, 22, -Math.PI / 2); b.planter(5, 22.5, 2.2, 1.2, 0.45, 'shrub'); b.tree(3, 20); b.tree(8, 26); b.lamp(10.5, 16, -Math.PI / 2); b.lamp(22, 16, Math.PI / 2);
     b.ride('barrow', 25, 14, 1);
+    b.mist(12, 0, 20, 32, FLOOR + 0.1);
     // стена для граффити (расписана с обеих сторон), замки «на счастье» на перилах моста, лавочка и автомат
     b.box(5.5, 12.6, 7, 0.3, 2.2, conc); b.m(G.box, col(0x3a3440), 5.5, 2.24, 12.6, 7.1, 0.08, 0.38);
     b.graffiti(4.2, 1.1, 12.44, Math.PI, 3, 1); b.graffiti(6.8, 1.1, 12.76, 0, 3, 5);

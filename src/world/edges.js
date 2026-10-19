@@ -42,6 +42,7 @@ export function buildEdges(half) {
         } else {
           const mats = Array(6).fill(own({ color: c })); mats[f.inFace] = own({ map: facade(c, w, h, { lit: 0.5 }) }); mats[2] = tmat(T.roof());
           box(f, u + w / 2, 3.5 + 4, w, 8, h, mats, base);
+          if (rand() < 0.35) { const [cx, cz] = f.P(u + w * 0.3, 3.5 + 6); mesh(G.box, tmat(T.brickWall()), cx, base + h + 0.7, cz, 0.7, 1.4, 0.7, W.group); W.chimneys.push({ x: cx, y: base + h + 1.5, z: cz }); }
         }
         u += w;
       }

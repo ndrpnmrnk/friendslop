@@ -135,6 +135,7 @@ function tunnelNode(x, z, w0, w1, n0, n1, brick, conc) {
   lampAt(x, UG.ceil - 0.25, z);
 }
 function manhole(x, z, axis) {
+  W.manholes.push({ x, z });
   // люк: рамка, сдвинутая крышка, лестница вниз
   const iron = col(0x2b2533);
   for (const [dx, dz, w, d] of [[0, -0.65, 1.4, 0.1], [0, 0.65, 1.4, 0.1], [-0.65, 0, 0.1, 1.4], [0.65, 0, 0.1, 1.4]]) mesh(G.box, iron, x + dx, 0.02, z + dz, w, 0.04, d, W.group);

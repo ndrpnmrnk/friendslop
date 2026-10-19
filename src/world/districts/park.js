@@ -44,7 +44,8 @@ export default {
     b.bin(13.6, 10.5); b.bin(18.4, 21.5);
     b.streetSign(18.6, 18.6, 'ПАРКОВАЯ', 'АЛЛЕЯ ТЫКВ'); b.bikeRack(22.5, 13.9, 3, 0);
     b.item('balloon', 13.4, 26.6); b.item('balloon', 13.9, 27.1); b.item('balloon', 13.3, 27.5);
-    b.zone('floor', 1, 13, 13.5, 14); b.zone('floor', 18, 13, 31, 19.5); b.zone('floor', 14.6, 1, 17.4, 31);
+    b.zone('floor', 1, 13, 13.5, 14);
+    b.mist(0.5, 17.5, 14, 31.5); b.zone('floor', 18, 13, 31, 19.5); b.zone('floor', 14.6, 1, 17.4, 31);
     b.cats(18, 13, 31, 19);
     b.spawn(16, 6); b.spawn(23, 16);
     b.hw(() => { b.pumpkin(11.8, 4.2, 0.4); b.pumpkin(20.6, 9.0); b.pumpkin(15.2, 20.5); });

@@ -11,6 +11,8 @@ import { updateParticles } from './world/particles.js';
 import { updateBirds } from './world/birds.js';
 import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
+import { createSky } from './world/sky.js';
+import { buildLife, updateLife } from './world/life.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict } from './game/items.js';
@@ -38,8 +40,9 @@ sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.
 Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 150 }); sun.shadow.camera.updateProjectionMatrix();
 const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(), SUN_U = new V3().crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize();
 // фонарик персонажа (горит только в событии «Отключили свет»; свет есть всегда, чтобы не пересобирать шейдеры)
+const sky = createSky(scene);
 const flash = new THREE.SpotLight(0xfff0d0, 0, 26, 0.55, 0.5, 1.2); scene.add(flash, flash.target);
-initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene }) });
+initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }) });
 function eventUi(title, sub, big) {
   const bar = $('eventbar');
   if (title === null) { bar.classList.add('hidden'); return; }
@@ -82,6 +85,7 @@ $('mgexit').onclick = () => { if (S.wm) closeWorld(null); else closeMission(null
 /* ---------- раунд ---------- */
 function startRound() {
   generateMap(scene, (Math.random() * 1e9) | 0);
+  buildLife(scene);
   buildMinimap(DISTRICTS);
   resetEvents(); $('eventbar').classList.add('hidden');
   resetMissions();
@@ -322,6 +326,8 @@ function loop() {
     }
     for (const f of W.animated) f(dt, t);
     updateSwingers(dt, t, S.state === 'play' ? P : null);
+    sky.update(camera, t, dt, P, hemi, scene.fog);
+    updateLife(dt, t, S.state === 'play' ? P : null, camera);
     updateBreakables(dt);
     updateParticles(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
