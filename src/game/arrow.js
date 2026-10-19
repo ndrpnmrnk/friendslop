@@ -1,20 +1,19 @@
-import { THREE, G, mesh, ps1 } from '../core/gfx.js';
+import { THREE } from '../core/gfx.js';
 import { DIFF } from '../config.js';
 import { damp } from '../core/rng.js';
 
-/* 3D-стрелка над персонажем: показывает на ближайшую миссию.
-   Цвет — сложность миссии. Прячется, когда миссия рядом. */
+/* Указатель на ближайшую миссию: маленький светлый шеврон, который ходит по кругу
+   у ног персонажа, как стрелка компаса. Цвет — сложность миссии. Не закрывает обзор. */
 export function createArrow(scene) {
-  const g = new THREE.Group(), inner = new THREE.Group(); g.add(inner); scene.add(g);
-  const mat = ps1(new THREE.MeshLambertMaterial({ color: 0x9be36b, emissive: 0x9be36b, emissiveIntensity: 0.55 }));
-  const edge = ps1(new THREE.MeshBasicMaterial({ color: 0x17111f }));
-  // плоская угловатая стрелка, остриём по +z
-  const head = mesh(G.cone4, mat, 0, 0, 0.28, 0.32, 0.5, 0.12, inner); head.rotation.x = Math.PI / 2; head.rotation.y = Math.PI / 4;
-  head.scale.set(0.32, 0.5, 0.32);
-  mesh(G.box, mat, 0, 0, -0.12, 0.16, 0.08, 0.42, inner);
-  const sh = mesh(G.cone4, edge, 0, -0.04, 0.27, 0.36, 0.54, 0.12, inner); sh.rotation.copy(head.rotation); sh.scale.set(0.36, 0.56, 0.36); sh.position.y = -0.05;
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0.32); shape.lineTo(0.26, -0.06); shape.lineTo(0.13, -0.06); shape.lineTo(0, 0.13); shape.lineTo(-0.13, -0.06); shape.lineTo(-0.26, -0.06); shape.closePath();
+  const geo = new THREE.ShapeGeometry(shape); geo.rotateX(-Math.PI / 2); geo.rotateY(Math.PI); // остриём по +z, лежит на земле
+  const mat = new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4 });
+  const g = new THREE.Group(), chev = new THREE.Mesh(geo, mat); chev.position.z = 1.05; g.add(chev); scene.add(g);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.06, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; g.add(ring);
   g.visible = false;
-  return { g, inner, mat, yaw: 0 };
+  return { g, chev, mat, yaw: 0 };
 }
 
 export function updateArrow(a, p, missions, dt, t, show) {
@@ -29,9 +28,9 @@ export function updateArrow(a, p, missions, dt, t, show) {
   if (!vis) return;
   const q = best.obj.pos(), want = Math.atan2(q.x - p.pos.x, q.z - p.pos.z);
   let d = want - a.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); a.yaw += d * damp(10, dt);
-  a.g.position.set(p.pos.x, p.pos.y + p.ch.d.top + 0.55 + Math.sin(t * 4) * 0.06, p.pos.z);
+  a.g.position.set(p.pos.x, p.pos.y + 0.06, p.pos.z);
   a.g.rotation.y = a.yaw;
-  // наклон вниз, если миссия ниже (например, спрыгнуть с крыши), вверх — если выше
-  a.inner.rotation.x = -Math.max(-0.6, Math.min(0.6, (q.y - p.pos.y) / Math.max(bd, 1)));
-  const c = DIFF[best.def.diff]; if (a.mat.color.getHex() !== c) { a.mat.color.setHex(c); a.mat.emissive.setHex(c); }
+  a.chev.position.z = 1.05 + Math.sin(t * 5) * 0.06;
+  a.mat.opacity = 0.75 + Math.sin(t * 5) * 0.15;
+  const c = DIFF[best.def.diff]; if (a.mat.color.getHex() !== c) a.mat.color.setHex(c);
 }

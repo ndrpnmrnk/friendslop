@@ -6,14 +6,18 @@ import { clamp, damp } from '../core/rng.js';
    (по горизонтали — свободно, по вертикали — в пределах). Если между персонажем и камерой
    стена, камера подъезжает ближе. Здание, в котором стоит игрок, и то, что закрывает его,
    становятся прозрачными. Миссии и кран задают свою позу (cam.pose). */
-export const cam = { pose: null, yaw: 0, pitch: 0.5, dist: 8.5, curDist: 8.5, sens: 0.0026 };
-const pos = new V3(), look = new V3(), tgt = new V3(), want = new V3(), dir = new V3(), hit = new V3();
+/* Камера «из-за плеча»: персонаж слева от центра, прицел в центре свободен.
+   Пока зажата ПКМ (бросок), камера подъезжает к плечу и чуть выше — видно предмет и траекторию.
+   Камера мягко догоняет персонажа и сама плавно встаёт за спину при беге, если мышь не трогали. */
+export const cam = { pose: null, yaw: 0, pitch: 0.45, curDist: 6, sens: 0.0024, aimK: 0, idle: 0,
+  normal: { dist: 6.2, shoulder: 0.85, height: 1.75 }, aim: { dist: 3.4, shoulder: 0.95, height: 1.85 } };
+const pos = new V3(), look = new V3(), tgt = new V3(), want = new V3(), dir = new V3(), hit = new V3(), piv = new V3(), sh = new V3();
 const ray = new THREE.Ray();
 
-export function resetCamera(yaw) { cam.yaw = yaw; cam.pitch = 0.5; cam.curDist = cam.dist; }
+export function resetCamera(yaw) { cam.yaw = yaw; cam.pitch = 0.45; cam.curDist = cam.normal.dist; cam.aimK = 0; piv.set(0, 0, 0); }
 export function camForward() { return [-Math.sin(cam.yaw), -Math.cos(cam.yaw)]; }
 
-// Пересечение луча с твёрдыми объектами (для «отъезда» камеры от стен)
+// Пересечение луча с твёрдыми объектами (камера не уходит в стены)
 function castSolids(o, d, maxT) {
   let best = maxT;
   for (const s of W.solids) {
@@ -31,25 +35,44 @@ function castSolids(o, d, maxT) {
   return best;
 }
 
-export function updateCamera(camera, p, dt, snap, lookDelta) {
+export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
+  const moved = lookDelta && (lookDelta.dx || lookDelta.dy);
   if (lookDelta && !cam.pose) {
-    cam.yaw -= lookDelta.dx * cam.sens;
-    cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens, 0.08, 1.15);
+    cam.yaw -= lookDelta.dx * cam.sens * (aiming ? 0.7 : 1);
+    cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens * (aiming ? 0.7 : 1), -0.15, 1.1);
   }
   let P, L;
   if (cam.pose) { P = cam.pose.p; L = cam.pose.l; }
   else {
-    tgt.set(p.pos.x, p.pos.y + 1.9, p.pos.z);
+    // автодоводка за спину на бегу, если мышь не трогали
+    cam.idle = moved ? 0 : cam.idle + dt;
+    if (!aiming && cam.idle > 1.2 && p.speed > 2) {
+      const behind = Math.atan2(-p.vel.x, -p.vel.z);
+      let d = behind - cam.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
+      if (Math.abs(d) < 1.9) cam.yaw += d * damp(1.2, dt);
+    }
+    cam.aimK += ((aiming ? 1 : 0) - cam.aimK) * damp(9, dt);
+    const k = cam.aimK, N = cam.normal, A = cam.aim;
+    const dist = N.dist + (A.dist - N.dist) * k, shoulder = N.shoulder + (A.shoulder - N.shoulder) * k, height = N.height + (A.height - N.height) * k;
+    // мягкое следование за персонажем
+    tgt.set(p.pos.x, p.pos.y + height, p.pos.z);
+    if (snap || piv.lengthSq() === 0) piv.copy(tgt); else piv.lerp(tgt, damp(14, dt));
     dir.set(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
-    const free = castSolids(tgt, dir, cam.dist);
-    const d = Math.max(1.4, free - 0.35);
+    sh.set(Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)).multiplyScalar(shoulder); // вправо от взгляда
+    const head = hit.copy(piv);
+    const free = Math.min(castSolids(head, sh.clone().normalize(), shoulder) - 0.2, shoulder);
+    const pv = head.clone().addScaledVector(sh.clone().normalize(), Math.max(0, free));
+    const room = castSolids(pv, dir, dist);
+    const d = Math.max(1.2, room - 0.3);
     cam.curDist = d < cam.curDist ? d : cam.curDist + (d - cam.curDist) * damp(4, dt);
-    want.copy(tgt).addScaledVector(dir, cam.curDist);
-    P = want; L = tgt;
+    want.copy(pv).addScaledVector(dir, cam.curDist);
+    // точка взгляда — далеко вперёд по направлению камеры, чтобы прицел смотрел туда, куда смотришь
+    P = want; L = look.clone().copy(pv).addScaledVector(dir, -20);
   }
-  if (snap) { pos.copy(P); look.copy(L); }
-  else if (cam.pose) { const f = damp(5, dt); pos.lerp(P, f); look.lerp(L, f); }
-  else { const f = damp(18, dt); pos.lerp(P, f); look.lerp(L, f); }
+  // после миссии/крана камера плавно возвращается, дальше следует напрямую (сглаживание уже в piv)
+  if (cam.pose) cam.blend = 0; else cam.blend = Math.min(1, (cam.blend ?? 1) + dt * 1.5);
+  if (snap || (!cam.pose && cam.blend >= 1)) { pos.copy(P); look.copy(L); }
+  else { const f = damp(cam.pose ? 5 : 6, dt); pos.lerp(P, f); look.lerp(L, f); }
   camera.position.copy(pos); camera.lookAt(look);
 
   // затухание зданий

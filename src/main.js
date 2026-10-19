@@ -221,7 +221,7 @@ function loop() {
       $('dot').style.setProperty('--c', (P.charge * 100) + '%');
     }
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
-    const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; } pulseOutline(dt);
+    const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt);
     if (P) P.root.visible = !S.mg && !S.crane;
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
     if (dotHtml !== S.dotHtml) { $('dot').innerHTML = dotHtml; S.dotHtml = dotHtml; }
@@ -239,7 +239,7 @@ function loop() {
     }
     for (const f of W.animated) f(dt, t);
     updateParticles(dt);
-    updateCamera(camera, P, dt, false, S.state === 'play' && !S.crane ? lk : null);
+    updateCamera(camera, P, dt, false, S.state === 'play' && !S.crane ? lk : null, !!(P && P.charging));
     present(scene, camera);
   }
   endFrame();
