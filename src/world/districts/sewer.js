@@ -34,7 +34,8 @@ export default {
     for (const z of [14.6, 17.4]) { b.m(G.box, dk, 16, 0.75, z, 8, 0.06, 0.06); for (let x = 12.3; x < 20; x += 1) b.m(G.box, dk, x, 0.45, z, 0.05, 0.6, 0.05); b.solid(16, z, 8, 0.1, 0.15, 0.8); }
     // трубы в стенах, из которых течёт вода
     for (const [x, z, s] of [[11.7, 12, 1], [20.3, 4, -1], [11.7, 26, 1]]) {
-      const p = b.m(G.cyl12, tmat(T.rust()), x + s * 0.2, -1.6, z, 0.55, 0.8, 0.55); p.rotation.z = Math.PI / 2;
+      const p = b.m(G.pipe, tmat(T.rust()), x + s * 0.2, -1.6, z, 0.55, 0.8, 0.55); p.rotation.z = Math.PI / 2;
+      b.m(G.pipeRim, tmat(T.metal()), x + s * 0.61, -1.6, z, 0.55, 0.55, 1).rotation.y = s * Math.PI / 2;
       const wx = b.X(x + s * 0.6), wz = b.Z(z), wy = b.Y - 1.6; let ft = Math.random();
       W.animated.push(dt => { ft -= dt; if (ft <= 0) { ft = 0.1; burst(wx, wy, wz, 2, { color: 0x6a90b0, size: 0.2, speed: 0.6, up: -0.5, g: 9, life: 0.7 }); } });
     }
@@ -53,7 +54,7 @@ export default {
     S(r0[0] - 0.4, r0[1], r0[0], pz - 0.6, LEDGE, 0, brick); S(r0[0] - 0.4, pz + 0.6, r0[0], r0[3], LEDGE, 0, brick); S(r0[0] - 0.4, pz - 0.6, r0[0], pz + 0.6, -1.8, 0, brick);
     for (const [x0, z0, x1, z1] of [[r0[0], r0[1], r0[2], 23.4], [r0[0], 24.6, r0[2], r0[3]], [r0[0], 23.4, 27.4, 24.6], [28.6, 23.4, r0[2], 24.6]]) S(x0, z0, x1, z1, -0.4, 0, conc);
     b.ladder(28, 24.6, 'n', 0.15, LEDGE);
-    for (const x of [27, 29.6]) { b.m(G.cyl8, col(0x3a6a9a), x, LEDGE + 0.8, 20.6, 0.5, 1.6, 0.5); b.solid(x, 20.6, 1, 1, LEDGE, 1.6); }
+    for (const x of [27, 29.6]) b.pump(x, 20.6, 0.5, 1.6, LEDGE);
     b.m(G.box, glow(0x9be36b), 30.6, LEDGE + 1.4, 25.4, 0.05, 0.3, 0.6); b.m(G.box, glow(0xffc070), 28.5, -0.55, 21.5, 0.3, 0.1, 0.3);
     W.missionZones.push({ type: 'nook', x0: b.X(26.4), z0: b.Z(21.6), x1: b.X(30.6), z1: b.Z(25.6), y: b.Y + LEDGE, district: 'Коллектор' });
     // люк насосной на поверхности
@@ -61,7 +62,7 @@ export default {
     b.m(G.cyl12, tmat(T.metal()), 29.4, 0.18, 24.4, 0.55, 0.05, 0.55);
     // насосная станция наверху
     b.house({ x: 22, z: 2, w: 9, d: 8, h: 3.6, upper: 2.4, wall: 0x6a7a8a, lit: 0.6, door: { side: 'w', at: 0.5, sign: ['НАСОСНАЯ', '#3a6a9a', '#f1e8ff'] }, ladder: { side: 'e', at: 0.5 }, roof: true,
-      interior(b, r) { for (const x of [24.5, 28]) { b.m(G.cyl8, col(0x3a6a9a), x, 1, 6, 0.8, 2, 0.8); b.solid(x, 6, 1.6, 1.6, 0, 2); }
+      interior(b, r) { for (const x of [24.5, 28]) b.pump(x, 6, 0.8, 2);
         b.box(r.x1 - 0.4, 3, 0.4, 1.6, 1.6, col(0x4a4e66)); b.m(G.box, glow(0x9be36b), r.x1 - 0.62, 1.2, 3, 0.02, 0.5, 1); } });
     // ограждение канала наверху, кроме проходов к спускам
     for (const [x, z0, z1] of [[11.5, 0.5, 4.5], [11.5, 7.5, 14.4], [11.5, 17.6, 31.5], [20.5, 0.5, 7.5], [20.5, 11, 14.4], [20.5, 17.6, 25.5], [20.5, 28.5, 31.5]]) b.fence(x, z0, x, z1, 1.1, 'iron');

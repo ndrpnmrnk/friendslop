@@ -17,12 +17,17 @@ export default {
     b.light(11, 11, 6);
     for (const z of [8.5, 13.5]) {
       b.box(11, z, 5, 1, 0.18, tmat(T.concrete()));
-      for (const x of [9.4, 12.6]) { b.box(x, z, 0.8, 0.55, 1.5, col(0xd8d8e0), { y: 0.18 }); b.m(G.box, tmat(T.screen()), x, 1.4, z + 0.28, 0.4, 0.3, 0.02); b.m(G.box, col(0xd8243a), x, 1.75, z, 0.82, 0.12, 0.57); }
+      for (const x of [9.4, 12.6]) {
+        const mt = col(0xd8d8e0); b.box(x, z, 0.8, 0.55, 1.5, [mt, mt, mt, mt, tmat(T.fuelPump()), mt], { y: 0.18 }); b.m(G.box, col(0xd8243a), x, 1.75, z, 0.82, 0.12, 0.57);
+        const curve = new THREE.CatmullRomCurve3([[0, 1.4, 0], [0.35, 0.9, 0], [0.32, 0.35, 0.03], [0.05, 0.38, 0.1], [0.05, 1.05, 0.2]].map(a => new THREE.Vector3(...a)));
+        const hose = new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.035, 4, false), col(0x1b1721)); hose.position.set(b.X(x + 0.43), b.Y, b.Z(z)); b.g.add(hose);
+        const nozzle = b.m(G.box, col(0x24212b), x + 0.48, 1.12, z + 0.2, 0.08, 0.25, 0.1); nozzle.rotation.z = -0.3;
+      }
     }
     b.car(11, 11, 0, 0x4a7ac8);
     b.house({ x: 20, z: 1, w: 10, d: 6, h: 3.2, wall: 0xd8d0c0, brick: false, lit: 0.9, door: { side: 's', at: 0.25 }, sign: ['МАГАЗИН', '#d8243a', '#f1e8ff'], floor: T.floorTile(),
       ladder: { side: 'e', at: 0.5 }, roof: true,
-      interior(b, r) { b.shelf(r.x0 + 5, r.z0 + 2, 4, 0); b.box(r.x1 - 0.6, r.z1 - 1.8, 0.8, 2.4, 1.0, tmat(T.wood())); b.box(r.x0 + 0.5, r.z0 + 0.4, 0.6, 0.6, 1.5, col(0x3a3a40)); } });
+      interior(b, r) { b.shelf(r.x0 + 5, r.z0 + 2, 4, 0); b.box(r.x1 - 0.6, r.z1 - 1.8, 0.8, 2.4, 1.0, tmat(T.wood())); b.cabinet(r.x0 + 0.5, r.z0 + 0.4, 0.6, 0.6, 1.5, 0x3a3a40); } });
     b.vitrine(26.5, 7.16, 4.2, 1.8, 'x', 0.5);
     // автомойка
     const mt = col(0x4a6a8a);
@@ -30,7 +35,7 @@ export default {
     b.box(25.5, 23, 9.2, 7.9, 0.3, tmat(T.metal()), { y: 3, fade: true });
     b.sign(25.5, 3.6, 26.97, 0, 'МОЙКА', '#4ab0f0', '#f1e8ff', 2.4, 0.5);
     const brushes = [];
-    for (const z of [20.4, 25.6]) brushes.push(b.m(G.cyl8, col(0x2a7ac8), 25.5, 1.4, z, 0.55, 2.6, 0.55));
+    for (const z of [20.4, 25.6]) brushes.push(b.m(G.cyl8, tmat(T.corrugated(0x2a7ac8)), 25.5, 1.4, z, 0.55, 2.6, 0.55));
     const tb = b.m(G.cyl8, col(0xd8243a), 25.5, 2.5, 23, 0.5, 4.8, 0.5); tb.rotation.x = Math.PI / 2; brushes.push(tb);
     W.animated.push(dt => { brushes[0].rotation.y += dt * 9; brushes[1].rotation.y -= dt * 9; brushes[2].rotation.y += dt * 9; });
     addZone('wash', { r: [b.X(24.7), b.Z(21), b.X(26.3), b.Z(25)] }, b.Y, { cx: b.X(25.5), cz: b.Z(23) });

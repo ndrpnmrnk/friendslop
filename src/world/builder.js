@@ -1,4 +1,4 @@
-import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat, paint } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { rand, range, pick } from '../core/rng.js';
 import { HW, SEASON } from '../config.js';
@@ -10,7 +10,7 @@ import { addOutline } from '../game/outline.js';
 import { addPushable } from './pushables.js';
 import { brickWall, breakBox, addPiece, breakPiece, glassMat } from './breakables.js';
 
-/* Конструктор района. Все координаты — локальные (0..24), высота от уровня тротуара.
+/* Конструктор района. Все координаты — локальные (0..32), высота от уровня тротуара.
    Районы описываются вызовами этих методов в своих файлах в world/districts. */
 export class Builder {
   constructor(ox, oz, Y, district) {
@@ -32,6 +32,12 @@ export class Builder {
   ground(x0, z0, x1, z1, tex, tile = 3) {
     const w = x1 - x0, d = z1 - z0, m = this.m(G.plane, flat(rep(tex, w / tile, d / tile)), (x0 + x1) / 2, 0.01, (z0 + z1) / 2, w, d, 1);
     m.rotation.x = -Math.PI / 2; return m;
+  }
+  marking(x, z, w, d, color = 0xe5ddcf) {
+    const m = this.m(G.plane, paint(color), x, 0.03, z, w, d, 1); m.rotation.x = -Math.PI / 2; return m;
+  }
+  prop(x, z, ry = 0) {
+    const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g); return g;
   }
   zone(type, x0, z0, x1, z1, y = 0) { W.missionZones.push({ type, x0: this.X(x0), z0: this.Z(z0), x1: this.X(x1), z1: this.Z(z1), y: this.Y + y, district: this.d }); }
   spawn(x, z) { W.spawns.push({ x: this.X(x), z: this.Z(z), y: this.Y }); }
@@ -83,13 +89,16 @@ export class Builder {
   bench(x, z, ry = 0) {
     const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
     const w = tmat(T.wood()), dk = col(0x2b2533);
-    mesh(G.box, w, 0, 0.5, 0, 2, 0.1, 0.55, g); mesh(G.box, w, 0, 0.85, -0.25, 2, 0.4, 0.08, g);
-    for (const o of [-0.85, 0.85]) mesh(G.box, dk, o, 0.25, 0, 0.1, 0.5, 0.5, g);
+    // Доски крупные, зазоры читаются даже с игровой камеры.
+    for (const zz of [-0.19, 0, 0.19]) mesh(G.box, w, 0, 0.5, zz, 2, 0.09, 0.16, g);
+    for (const yy of [0.72, 0.94]) mesh(G.box, w, 0, yy, -0.25, 2, 0.17, 0.08, g);
+    for (const o of [-0.85, 0.85]) { mesh(G.box, dk, o, 0.25, 0, 0.1, 0.5, 0.5, g); mesh(G.box, dk, o, 0.75, -0.26, 0.08, 0.55, 0.08, g); mesh(G.box, dk, o, 0.69, 0, 0.08, 0.06, 0.5, g); }
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.6 : 2, q ? 2 : 0.6, 0, 0.55);
   }
   lamp(x, z, ry = 0) {
     const d = col(0x2b2533);
     this.m(G.cyl6, d, x, 1.7, z, 0.08, 3.4, 0.08);
+    this.m(G.cyl6, tmat(T.metal()), x, 0.12, z, 0.17, 0.24, 0.17);
     const dx = Math.sin(ry) * 0.5, dz = Math.cos(ry) * 0.5;
     const arm = this.m(G.box, d, x + dx / 2, 3.35, z + dz / 2, 0.08, 0.08, 0.6); arm.rotation.y = ry;
     this.m(G.box, glow(SEASON.lamp), x + dx, 3.2, z + dz, 0.3, 0.2, 0.3);
@@ -100,15 +109,64 @@ export class Builder {
     const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
     const side = tmat(T.carSide(c)), glass = tmat(T.carGlass(c)), top = col(c), dk = col(0x17111f);
     mesh(G.box, [col(c), col(c), top, dk, side, side], 0, 0.62, 0, 4, 0.66, 1.8, g);
-    mesh(G.box, [glass, glass, top, dk, glass, glass], -0.2, 1.17, 0, 2.2, 0.48, 1.6, g);
+    mesh(CAR_CABIN, [glass, glass, top, dk, glass, glass], -0.2, 1.17, 0, 2.2, 0.48, 1.6, g);
     mesh(G.box, glow(0xfff1c0), 2.0, 0.7, 0.55, 0.04, 0.16, 0.3, g); mesh(G.box, glow(0xfff1c0), 2.0, 0.7, -0.55, 0.04, 0.16, 0.3, g);
     mesh(G.box, glow(0xd8243a), -2.0, 0.72, 0.6, 0.04, 0.14, 0.25, g); mesh(G.box, glow(0xd8243a), -2.0, 0.72, -0.6, 0.04, 0.14, 0.25, g);
-    for (const [a, b] of [[1.3, 0.85], [1.3, -0.85], [-1.3, 0.85], [-1.3, -0.85]]) { const wh = mesh(G.cyl8, dk, a, 0.32, b, 0.32, 0.22, 0.32, g); wh.rotation.x = Math.PI / 2; }
+    for (const [a, b] of [[1.3, 0.85], [1.3, -0.85], [-1.3, 0.85], [-1.3, -0.85]]) {
+      const wh = mesh(G.cyl8, dk, a, 0.32, b, 0.32, 0.22, 0.32, g); wh.rotation.x = Math.PI / 2;
+      const hub = mesh(G.disc, tmat(T.metal()), a, 0.32, Math.sign(b) * 0.968, 0.16, 0.16, 1, g); hub.rotation.y = b < 0 ? Math.PI : 0;
+    }
+    for (const xx of [-2.03, 2.03]) mesh(G.box, col(0x8a8790), xx, 0.43, 0, 0.08, 0.12, 1.65, g);
+    mesh(G.box, dk, 2.025, 0.68, 0, 0.02, 0.18, 0.55, g);
     const q = Math.abs(Math.sin(ry)) > 0.5;
     this.solid(x, z, q ? 1.8 : 4, q ? 4 : 1.8, 0, 0.95);
     const cx = x - Math.cos(ry) * 0.2, cz = z + Math.sin(ry) * 0.2;
     this.solid(cx, cz, q ? 1.6 : 2.2, q ? 2.2 : 1.6, 0.95, 0.46);
     return g;
+  }
+  bus(x, z, c = 0xd8a030) {
+    const g = this.prop(x, z), side = tmat(T.busSide(c)), body = tmat(T.corrugated(c)), dk = col(0x17111f);
+    mesh(G.box, [tmat(T.busFront(c)), body, col(c), dk, side, side], 0, 1.675, 0, 9, 2.45, 2.6, g);
+    for (const xx of [-2.7, 2.7]) for (const zz of [-1.28, 1.28]) { mesh(G.cyl8, dk, xx, 0.45, zz, 0.45, 0.18, 0.45, g).rotation.x = Math.PI / 2; mesh(G.disc, tmat(T.metal()), xx, 0.45, Math.sign(zz) * 1.38, 0.24, 0.24, 1, g).rotation.y = zz < 0 ? Math.PI : 0; }
+    for (const zz of [-1.4, 1.4]) mesh(G.box, dk, 3.8, 2.15, zz, 0.18, 0.3, 0.12, g);
+    mesh(G.box, col(0x85818b), 4.53, 0.64, 0, 0.08, 0.15, 2.5, g);
+    this.solid(x, z, 9, 2.6, 0, 2.9); return g;
+  }
+  // Сохраняем прежние размеры/коллизии, добавляя назначение каждому «блоку».
+  aircon(x, z, y) {
+    const mt = tmat(T.metal()), front = tmat(T.vent());
+    this.box(x, z, 1.2, 0.8, 0.8, [mt, mt, mt, mt, front, mt], { y });
+    for (const xx of [-0.42, 0.42]) this.m(G.box, col(0x35303e), x + xx, y + 0.04, z, 0.1, 0.08, 0.95);
+  }
+  cabinet(x, z, w, d, h, c = 0x6a6d78, y = 0, ry = 0) {
+    const mt = col(c); return this.box(x, z, w, d, h, [mt, mt, mt, mt, tmat(T.cabinet(c)), mt], { y, ry });
+  }
+  vending(x, z) {
+    const body = col(0x9b293d); this.box(x, z, 1.2, 0.9, 2, [body, body, body, body, tmat(T.vending()), body]);
+    this.m(G.box, col(0x27212f), x, 0.06, z, 1.08, 0.12, 0.86);
+  }
+  pallet(x, z, w = 1.6, d = 1.2, y = 0) {
+    const wd = tmat(T.wood());
+    for (const xx of [-0.4, 0.4]) this.m(G.box, wd, x + xx * w, y + 0.065, z, w * 0.12, 0.13, d);
+    for (let i = 0; i < 5; i++) this.m(G.box, wd, x, y + 0.155, z + (i - 2) * d / 5, w, 0.05, d * 0.17);
+    this.solid(x, z, w, d, y, 0.18);
+  }
+  dumpster(x, z) {
+    const mt = tmat(T.corrugated(0x3e5a4a));
+    this.box(x, z, 1.4, 1.1, 1.05, mt, { y: 0.12 });
+    this.m(G.box, col(0x243d32), x, 1.2, z, 1.48, 0.1, 1.18);
+    this.solid(x, z, 1.48, 1.18, 1.15, 0.1);
+    this.m(G.box, col(0x22222c), x, 1.28, z + 0.18, 0.4, 0.06, 0.07);
+    for (const xx of [-0.55, 0.55]) this.m(G.cyl6, col(0x17111f), x + xx, 0.1, z - 0.35, 0.1, 0.08, 0.1).rotation.z = Math.PI / 2;
+  }
+  pump(x, z, r = 0.5, h = 1.6, y = 0) {
+    const mt = tmat(T.corrugated(0x3a6a9a)), dk = tmat(T.metal());
+    this.m(G.cyl8, dk, x, y + 0.09, z, r * 1.14, 0.18, r * 1.14);
+    this.m(G.cyl8, mt, x, y + h * 0.5, z, r, h, r);
+    this.m(G.cyl8, dk, x, y + h - 0.06, z, r * 1.05, 0.12, r * 1.05);
+    this.m(G.cyl6, dk, x, y + 0.4, z + r * 1.35, r * 0.32, r, r * 0.32).rotation.x = Math.PI / 2;
+    this.m(G.torus, col(0xb65a37), x, y + 0.65, z + r * 1.85, r * 0.35, r * 0.35, r * 0.35);
+    this.solid(x, z, r * 2, r * 2, y, h);
   }
   // ящик — разрушаемый (кидаешь тяжёлое — разлетается на доски)
   crate(x, z, s = 1, y = 0) { breakBox(this.X(x), this.Y + y, this.Z(z), s, s, s, 'wood', tmat(T.crate())); }
@@ -140,10 +198,20 @@ export class Builder {
     for (let i = 0; i < n; i++) { const cx = x + v[0] * (i + 0.5) * run, cz = z + v[1] * (i + 0.5) * run;
       this.box(cx, cz, v[0] ? run : w, v[0] ? w : run, y0 + rise * (i + 1) - base, tmat(T.concrete()), { y: base }); }
   }
-  barrel(x, z) { this.m(G.cyl8, tmat(T.rust()), x, 0.5, z, 0.42, 1, 0.42); this.solid(x, z, 0.8, 0.8, 0, 1); }
+  barrel(x, z) {
+    const mt = tmat(T.metal()); this.m(G.cyl8, tmat(T.rust()), x, 0.5, z, 0.42, 1, 0.42);
+    for (const yy of [0.13, 0.86]) this.m(G.cyl8, mt, x, yy, z, 0.433, 0.06, 0.433);
+    this.m(G.cyl6, col(0x27212f), x + 0.17, 1.008, z, 0.06, 0.016, 0.06); this.solid(x, z, 0.86, 0.86, 0, 1.02);
+  }
   // урна — толкаемая
   bin(x, z) { addPushable(this, 'bin', x, z); }
-  hydrant(x, z) { this.m(G.cyl6, col(0xc8243a), x, 0.35, z, 0.18, 0.7, 0.18); this.m(G.sph, col(0xc8243a), x, 0.72, z, 0.17, 0.12, 0.17); this.solid(x, z, 0.4, 0.4, 0, 0.8); }
+  hydrant(x, z) {
+    const red = col(0xc8243a), mt = tmat(T.metal());
+    this.m(G.cyl6, red, x, 0.35, z, 0.18, 0.7, 0.18); this.m(G.cone6, red, x, 0.76, z, 0.23, 0.18, 0.23);
+    this.m(G.cyl6, mt, x, 0.05, z, 0.25, 0.1, 0.25);
+    for (const sx of [-1, 1]) this.m(G.cyl6, red, x + sx * 0.2, 0.48, z, 0.105, 0.23, 0.105).rotation.z = Math.PI / 2;
+    this.solid(x, z, 0.6, 0.4, 0, 0.85);
+  }
   // Забор от (x0,z0) до (x1,z1) — только по одной оси
   fence(x0, z0, x1, z1, h = 1.6, kind = 'iron') {
     if (kind === 'wood') {
@@ -162,7 +230,7 @@ export class Builder {
     }
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     for (const y of kind === 'iron' ? [0.2, h - 0.15] : [0.4, h - 0.3]) this.m(G.box, mat, cx, y, cz, along ? len : 0.06, 0.06, along ? 0.06 : len);
-    if (kind === 'mesh') { const p = this.m(G.box, lam({ color: 0x8a8d98, transparent: true, opacity: 0.35 }), cx, h / 2, cz, along ? len : 0.02, h, along ? 0.02 : len); p.renderOrder = 1; }
+    if (kind === 'mesh') { const p = this.m(G.plane, lam({ map: rep(T.chainlink(), len / 1.5, h / 1.5), transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }), cx, h / 2, cz, len, h, 1); p.rotation.y = along ? 0 : Math.PI / 2; }
     this.solid(cx, cz, along ? len : 0.2, along ? 0.2 : len, 0, h);
   }
   // Тыквы — не декор, а настоящие предметы: их можно пнуть, взять и бросить. Не больше двух на район.
@@ -209,6 +277,7 @@ export class Builder {
     const goods = tmat(T.goods()), wd = col(0x4a3a2e);
     const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
     mesh(G.box, [wd, wd, wd, wd, goods, wd], 0, 0.95, 0, w, 1.9, 0.5, g);
+    for (const yy of [0.08, 0.65, 1.25, 1.91]) mesh(G.box, tmat(T.wood()), 0, yy, 0.04, w + 0.08, 0.06, 0.56, g);
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.5 : w, q ? w : 0.5, 0, 1.9);
   }
 
@@ -336,6 +405,13 @@ export class Builder {
   }
 }
 
+// У кабины машины наклонены стойки, при той же малой геометрии и старом хитбоксе.
+const CAR_CABIN = G.box.clone();
+for (let i = 0; i < CAR_CABIN.attributes.position.count; i++) {
+  const a = CAR_CABIN.attributes.position;
+  if (a.getY(i) > 0) { a.setX(i, a.getX(i) * 0.72); a.setZ(i, a.getZ(i) * 0.85); }
+}
+CAR_CABIN.computeVertexNormals();
 let _lm, _wm, _pf;
 const LIGHTMAT = () => _lm || (_lm = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0xffffff }));
 export const WATERMAT = () => _wm || (_wm = lam({ map: T.water(), transparent: true, opacity: 0.85 }));

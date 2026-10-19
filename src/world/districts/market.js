@@ -7,14 +7,14 @@ export default {
   build(b) {
     const stall = (x, z, kind, aw) => {
       const wd = tmat(T.wood());
-      b.box(x, z, 4.4, 1.2, 1, wd);
+      b.box(x, z, 4.4, 1.2, 1, tmat(T.crate()));
       b.m(G.box, tmat(T.produce(kind)), x, 1.06, z - 0.15, 4, 0.12, 0.7);
       for (const [a, c] of [[-2.1, -0.7], [2.1, -0.7], [-2.1, 0.7], [2.1, 0.7]]) { b.m(G.box, col(0x2b2533), x + a, 1.3, z + c - 0.5, 0.08, 2.6, 0.08); b.solid(x + a, z + c - 0.5, 0.2, 0.2, 0, 2.6); }
       const r = b.m(G.box, tmat(T.awning(...aw)), x, 2.7, z - 0.4, 4.8, 0.08, 2.4); r.rotation.x = -0.2;
       b.crate(x - 0.9, z - 1.6, 0.7); b.crate(x + 0.9, z - 1.6, 0.7);
       if (kind === 'tomato') { b.item('tomato', x - 1.4, z + 0.35, 1); b.item('tomato', x - 0.4, z + 0.4, 1); b.item('tomato', x + 0.7, z + 0.35, 1); }
       if (kind === 'pumpkin') { b.item('pumpkin', x - 1.1, z + 0.25, 1); b.item('pumpkin', x + 1, z + 0.25, 1); }
-      if (kind === 'apple') { b.box(x + 1.4, z + 0.2, 0.5, 0.4, 0.1, col(0x6a6d78), { y: 1, solid: false }); b.m(G.cyl8, col(0xd8d8e0), x + 1.4, 1.25, z + 0.2, 0.2, 0.04, 0.2); }
+      if (kind === 'apple') { b.box(x + 1.4, z + 0.2, 0.5, 0.4, 0.18, col(0x6a6d78), { y: 1, solid: false }); b.m(G.cyl8, col(0xd8d8e0), x + 1.4, 1.25, z + 0.2, 0.25, 0.04, 0.25); b.m(G.box, tmat(T.screen()), x + 1.4, 1.1, z + 0.41, 0.24, 0.09, 0.01); }
     };
     stall(5, 6, 'tomato', ['#d8243a', '#f1e8ff']); stall(16, 6, 'pumpkin', ['#ff8a1f', '#2a1f3d']); stall(27, 6, 'apple', ['#6aa84f', '#f1e8ff']);
     stall(5, 19, 'carrot', ['#4ab0f0', '#f1e8ff']); stall(16, 19, 'tomato', ['#d8243a', '#f5c542']); stall(27, 19, 'pumpkin', ['#7b4bc4', '#ff8a1f']);

@@ -8,10 +8,11 @@ export default {
     b.ground(15, 0, 17, 32, T.dirt(), 2); b.ground(0, 15, 32, 17, T.dirt(), 2);
     b.water(8, 24, 4.6);
     for (let i = 0; i < 18; i++) { const a = i / 18 * 6.28, r = 4.8; if (Math.abs(Math.sin(a)) > 0.92) continue; const s = b.m(G.ico, tmat(T.stone()), 8 + Math.cos(a) * r, 0.1, 24 + Math.sin(a) * r, 0.35, 0.22, 0.3); s.rotation.y = a; }
-    for (let i = 0; i < 10; i++) { const a = 0.3 + i * 0.16, r = 4.2; b.m(G.box, col(0x5a7a3a), 8 + Math.cos(a) * r, 0.5, 24 + Math.sin(a) * r, 0.05, 1, 0.05); }
+    for (let i = 0; i < 10; i++) { const a = 0.3 + i * 0.16, r = 4.2, x = 8 + Math.cos(a) * r, z = 24 + Math.sin(a) * r; b.m(G.box, col(0x5a7a3a), x, 0.5, z, 0.04, 1, 0.04); b.m(G.cyl5, tmat(T.bark()), x, 1.05, z, 0.065, 0.25, 0.065); }
     // мостик через пруд
     b.plank(8, 18.6, 8, 29.4, 0.45, 1.4);
     for (const z of [18.6, 29.4]) b.box(8, z, 1.4, 0.4, 0.3, tmat(T.wood()));
+    for (const x of [7.35, 8.65]) { for (const z of [19.2, 24, 28.8]) b.m(G.box, tmat(T.wood()), x, 0.85, z, 0.09, 0.8, 0.09); b.m(G.box, tmat(T.wood()), x, 1.18, 24, 0.08, 0.08, 9.8); }
     // беседка
     b.box(24, 8, 5, 5, 0.2, tmat(T.wood()));
     for (const [x, z] of [[21.8, 5.8], [26.2, 5.8], [21.8, 10.2], [26.2, 10.2]]) b.box(x, z, 0.25, 0.25, 2.6, tmat(T.wood()), { y: 0.2 });

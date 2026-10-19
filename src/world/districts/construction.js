@@ -30,18 +30,25 @@ export default {
     b.shed(3, 15, 4, 3.5);
     // бытовка
     b.house({ x: 20, z: 23.5, w: 6.5, d: 3.4, h: 2.6, wall: 0x3a6a9a, brick: false, door: { side: 'n', at: 0.3 }, parapet: false, web: false,
-      interior(b, r) { b.table((r.x0 + r.x1) / 2 + 0.6, (r.z0 + r.z1) / 2, 0.8); b.chair(r.x0 + 3.4, r.z1 - 0.5, Math.PI); b.box(r.x1 - 0.4, (r.z0 + r.z1) / 2, 0.5, 1.6, 1.6, col(0x4a3a2e)); } });
+      interior(b, r) { b.table((r.x0 + r.x1) / 2 + 0.6, (r.z0 + r.z1) / 2, 0.8); b.chair(r.x0 + 3.4, r.z1 - 0.5, Math.PI); b.cabinet(r.x1 - 0.4, (r.z0 + r.z1) / 2, 0.5, 1.6, 1.6, 0x58616b, 0, -Math.PI / 2); } });
     // поддон с кирпичами, тачка
-    b.box(12, 18, 1.6, 1.2, 0.18, wd);
+    b.pallet(12, 18);
     b.item('brick', 11.6, 17.8, 0.18); b.item('brick', 12.4, 17.8, 0.18); b.item('brick', 12, 18.3, 0.18); b.item('brick', 12, 17.6, 0.36);
     b.ride('barrow', 10, 21, 0.4);
     b.crate(16, 19, 1.1); b.crate(17.2, 19, 1.1); b.crate(16.6, 19, 1, 1.1);
     b.m(G.cone8, tmat(T.dirt()), 27, 0.7, 18, 2.2, 1.4, 2.2); b.solid(27, 18, 2.8, 2.8, 0, 1.2);
     for (const z of [27.6, 28.2, 28.8]) { const p = b.m(G.cyl8, tmat(T.rust()), 16, 0.3, z, 0.28, 3.6, 0.28); p.rotation.z = Math.PI / 2; }
     b.solid(16, 28.2, 3.6, 1.9, 0, 0.6);
-    b.box(7.5, 24, 1.4, 1, 0.6, col(0x2b2533));
-    const drum = b.m(G.cyl8, col(0xd04a2a), 7.5, 1.2, 24, 0.6, 1.3, 0.6); drum.rotation.z = 1.1;
-    W.animated.push(dt => { drum.rotation.y += dt * 1.5; }); b.solid(7.5, 24, 1.4, 1.2, 0.6, 1.1);
+    // Бетономешалка: рама, колёса, наклонённый барабан и открытая горловина.
+    const mixer = b.prop(7.5, 24), frame = col(0x2b2533);
+    for (const xx of [-0.48, 0.48]) { const leg = new THREE.Mesh(G.box, frame); leg.position.set(xx, 0.42, 0); leg.scale.set(0.09, 0.8, 0.1); leg.rotation.z = -xx * 0.55; mixer.add(leg); }
+    for (const xx of [-0.6, 0.6]) { const wh = new THREE.Mesh(G.cyl8, frame); wh.position.set(xx, 0.2, -0.2); wh.scale.set(0.2, 0.12, 0.2); wh.rotation.z = Math.PI / 2; mixer.add(wh); }
+    const tilt = new THREE.Group(); tilt.position.y = 1.15; tilt.rotation.x = 0.8; mixer.add(tilt);
+    const drum = new THREE.Group(); tilt.add(drum);
+    const geo = new THREE.CylinderGeometry(0.34, 0.58, 0.9, 8), shell = new THREE.Mesh(geo, tmat(T.corrugated(0xd04a2a))); drum.add(shell);
+    const mouth = new THREE.Mesh(G.disc, frame); mouth.position.y = 0.458; mouth.rotation.x = -Math.PI / 2; mouth.scale.setScalar(0.3); drum.add(mouth);
+    const wheel = new THREE.Mesh(G.torus, frame); wheel.position.set(0.66, 0.8, 0); wheel.rotation.y = Math.PI / 2; wheel.scale.setScalar(0.24); mixer.add(wheel);
+    W.animated.push(dt => { drum.rotation.y += dt * 1.5; }); b.solid(7.5, 24, 1.4, 1.3, 0, 1.8);
     b.m(G.box, glow(0xff8a1f), 1.5, 2.6, 13.6, 0.25, 0.25, 0.25);
     b.lamp(31, 20, -Math.PI / 2); b.lamp(12.5, 15, 0);
     b.zone('floor', 2, 13.5, 19, 30.5); b.zone('floor', 19, 13.5, 31, 22.5);

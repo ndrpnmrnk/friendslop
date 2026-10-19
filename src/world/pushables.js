@@ -23,7 +23,7 @@ export function addPushable(b, kind, x, z) {
     for (const [sx, sz] of [[0.3, 0.45], [-0.3, 0.45], [0.3, -0.45], [-0.3, -0.45]]) mesh(G.cyl8, col(0x17111f), sx, 0.1, sz, 0.08, 0.06, 0.08, g).rotation.z = Math.PI / 2;
     r = 0.6;
   } else if (kind === 'bin') {
-    mesh(G.cyl8, col(0x3e5a4a), 0, 0.5, 0, 0.35, 1, 0.35, g); mesh(G.cyl8, col(0x2e4a3a), 0, 1.03, 0, 0.38, 0.06, 0.38, g);
+    mesh(G.cyl8, tmat(T.corrugated(0x3e5a4a)), 0, 0.5, 0, 0.35, 1, 0.35, g); mesh(G.cyl8, col(0x2e4a3a), 0, 1.03, 0, 0.38, 0.06, 0.38, g);
     mesh(G.box, col(0x2e4a3a), 0, 1.08, 0, 0.2, 0.05, 0.05, g);
     r = 0.4;
   } else if (kind === 'skate') {

@@ -7,7 +7,11 @@ import { addPushable } from '../pushables.js';
 export default {
   id: 'industrial', name: 'Промзона', ground: 'concrete',
   build(b) {
-    const C = (x, z, w, d, c) => { const m = tmat(T.corrugated(c)); b.box(x, z, w, d, 2.6, m); b.m(G.box, col(0x2b2533), x, 2.62, z, w + 0.04, 0.04, d + 0.04); };
+    const C = (x, z, w, d, c) => {
+      const m = tmat(T.corrugated(c)), door = tmat(T.containerEnd(c));
+      b.box(x, z, w, d, 2.6, w > d ? [door, door, m, m, m, m] : [m, m, m, m, door, door]);
+      b.m(G.box, col(0x2b2533), x, 2.62, z, w + 0.04, 0.04, d + 0.04);
+    };
     const open = (x0, z0, w, d, openSide, c) => {
       const m = tmat(T.corrugated(c)), t = 0.15;
       b.box(x0 + w / 2, z0 + t / 2, w, t, 2.6, m); b.box(x0 + w / 2, z0 + d - t / 2, w, t, 2.6, m);
@@ -29,7 +33,10 @@ export default {
     b.shed(9, 21, 4, 3.5);
     for (const [x, z] of [[11, 15.5], [20.5, 21], [5, 26], [29, 29]]) addPushable(b, 'barrel', x, z);
     b.fence(1, 31.2, 10, 31.2, 2, 'mesh');
-    b.box(19, 30, 3, 1.4, 0.5, tmat(T.rust()));
+    // Вместо бесформенного ржавого блока — склад труб на поддоне.
+    b.pallet(19, 30, 3, 1.4);
+    for (const z of [29.6, 30, 30.4]) b.m(G.cyl8, tmat(T.rust()), 19, 0.43, z, 0.2, 2.8, 0.2).rotation.z = Math.PI / 2;
+    b.solid(19, 30, 3, 1.4, 0.18, 0.45);
     b.crate(17, 29.4, 1); b.crate(17.8, 30.4, 0.9);
     b.lamp(12, 1.2, 0); b.lamp(31, 8, -Math.PI / 2); b.lamp(1, 14, Math.PI / 2);
     b.zone('floor', 7, 13, 14.5, 17.5); b.zone('floor', 1, 22.5, 11, 31); b.zone('floor', 18.5, 13.5, 31, 18);

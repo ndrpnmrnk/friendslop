@@ -16,11 +16,17 @@ const rt = new THREE.WebGLRenderTarget(4, 4, { minFilter: THREE.NearestFilter, m
 export const SNAP = { value: new THREE.Vector2(256, 144) };
 
 // Дрожание вершин в стиле PS1: проекция вершины округляется до сетки экрана
-export function ps1(m) {
+export function ps1(m, stable = false) {
+  m.customProgramCacheKey = () => stable ? 'ps1-stable-v09' : 'ps1-distance-v09';
   m.onBeforeCompile = sh => {
     sh.uniforms.uSnap = SNAP;
     sh.vertexShader = 'uniform vec2 uSnap;\n' + sh.vertexShader.replace('#include <project_vertex>',
-      '#include <project_vertex>\nvec4 sp = gl_Position; sp.xy = floor(sp.xy / sp.w * uSnap + 0.5) / uSnap * sp.w; gl_Position = sp;');
+      `#include <project_vertex>
+      vec4 sp = gl_Position;
+      // Полы и разметка стабильны; вдали дрожание плавно исчезает и на пропсах.
+      float jitter = ${stable ? '0.0' : '(1.0 - smoothstep(8.0, 32.0, -mvPosition.z))'};
+      if (sp.w > 0.0) sp.xy = mix(sp.xy, floor(sp.xy / sp.w * uSnap + 0.5) / uSnap * sp.w, jitter);
+      gl_Position = sp;`);
   };
   return m;
 }
@@ -45,7 +51,7 @@ const post = new THREE.ShaderMaterial({
       c = mix(c * vec3(0.92, 0.9, 1.06), c * vec3(1.06, 1.0, 0.92), smoothstep(0.2, 0.8, l)) + vec3(0.012, 0.006, 0.02);
       // виньетка
       vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * 0.55;
-      c += (b4(gl_FragCoord.xy) - 0.5) / 40.0; c = floor(c * 40.0 + 0.5) / 40.0;
+      c += (b4(floor(v / px)) - 0.46875) / 64.0; c = floor(c * 40.0 + 0.5) / 40.0;
       gl_FragColor = vec4(c, 1.0); }`,
   depthTest: false, depthWrite: false,
 });
@@ -58,7 +64,7 @@ export function present(scene, camera) {
 }
 
 export const cameras = [];
-export function makeCamera(fov) { const c = new THREE.PerspectiveCamera(fov, 1, 0.4, 220); cameras.push(c); resize(); return c; }
+export function makeCamera(fov) { const c = new THREE.PerspectiveCamera(fov, 1, 0.12, 220); cameras.push(c); resize(); return c; }
 export function resize() {
   const s = CONFIG.pixelScale, w = Math.ceil(innerWidth / s), h = Math.ceil(innerHeight / s);
   renderer.setSize(w, h, false); rt.setSize(w, h); SNAP.value.set(w, h); post.uniforms.px.value.set(1 / w, 1 / h);
@@ -68,9 +74,9 @@ addEventListener('resize', resize);
 
 /* ---------- Материалы ---------- */
 const MC = new Map();
-export function lam(opts, key) {
+export function lam(opts, key, stable = false) {
   if (key && MC.has(key)) return MC.get(key);
-  const m = ps1(new THREE.MeshLambertMaterial(opts));
+  const m = ps1(new THREE.MeshLambertMaterial(opts), stable);
   if (key) MC.set(key, m);
   return m;
 }
@@ -80,7 +86,8 @@ export const basic = c => MC.get('b' + c) || (MC.set('b' + c, ps1(new THREE.Mesh
 export const glow = c => lam({ color: c, emissive: c, emissiveIntensity: 0.9 }, 'g' + c);
 export const alphaMat = (t, opts = {}) => ps1(new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, ...opts }));
 // Плоскости, лежащие на других поверхностях (пол, дорожки), чтобы не мерцали
-export const flat = t => lam({ map: t, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }, 'f' + t.uuid);
+export const flat = t => lam({ map: t, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }, 'f' + t.uuid, true);
+export const paint = c => lam({ color: c, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }, 'paint' + c, true);
 // Уникальный материал (для объектов, которые затухают, когда закрывают игрока)
 export const own = (opts) => ps1(new THREE.MeshLambertMaterial(opts));
 
@@ -94,6 +101,7 @@ export const G = {
   ico: new THREE.IcosahedronGeometry(1, 0), plane: new THREE.PlaneGeometry(1, 1),
   ring: new THREE.RingGeometry(0.8, 1, 16), beam: new THREE.CylinderGeometry(1, 1, 1, 12, 1, true),
   disc: new THREE.CircleGeometry(1, 12), torus: new THREE.TorusGeometry(1, 0.3, 4, 10),
+  pipe: new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), pipeRim: new THREE.RingGeometry(0.8, 1, 8),
   halfTorus: new THREE.TorusGeometry(1, 0.12, 4, 10, Math.PI),
 };
 

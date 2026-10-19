@@ -1,5 +1,5 @@
 import { THREE, renderer } from './gfx.js';
-const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+const ANISO = Math.min(16, renderer.capabilities.getMaxAnisotropy());
 import { HW, SEASON } from '../config.js';
 
 /* Текстуры «под фото»: рисуем мягко в высоком разрешении, затем ужимаем до 16–64 px.
@@ -65,10 +65,10 @@ export const T = {
   asphalt: () => photo('asphalt', 32, 32, (g, W, H) => {
     fill(g, W, H, HW ? '#302b38' : '#55525c');
     blobs(g, W, H, ['#25212c', '#3a3443', '#2b2633'], 60, W * 0.05, W * 0.2, 0.3);
-    blobs(g, W, H, ['#4a4452', '#1d1a22'], 400, 1, 3, 0.6);
+    blobs(g, W, H, ['#4a4452', '#1d1a22'], 180, 2, 5, 0.25);
     g.strokeStyle = 'rgba(10,8,14,.7)'; g.lineWidth = 3;
     for (let i = 0; i < 3; i++) { let x = R() * W, y = R() * H; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (R() - 0.5) * 40; y += 18 + R() * 10; g.lineTo(x, y); } g.stroke(); }
-    grain(g, W, H, 20);
+    grain(g, W, H, 8);
   }),
   pave: () => photo('pave', 32, 32, (g, W, H) => {
     fill(g, W, H, '#1f1a26'); const n = 4, s = W / n;
@@ -301,6 +301,71 @@ export const T = {
     fill(g, W, H, shade(c, -10)); const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, '#5a7aa0'); gr.addColorStop(0.5, '#1a2236'); gr.addColorStop(1, '#3a4a68');
     g.fillStyle = gr; g.fillRect(W * 0.08, H * 0.12, W * 0.84, H * 0.76); g.fillStyle = shade(c, -10); g.fillRect(W * 0.48, 0, W * 0.04, H);
     g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.moveTo(W * 0.2, H * 0.12); g.lineTo(W * 0.3, H * 0.12); g.lineTo(W * 0.15, H * 0.88); g.lineTo(W * 0.08, H * 0.88); g.fill();
+  }),
+  // Детали утилитарных объектов нарисованы в текстуре, а не россыпью мелких кубов.
+  vent: (c = 0xa8a8b0) => photo('vent' + c, 32, 24, (g, W, H) => {
+    fill(g, W, H, shade(c, -10));
+    g.fillStyle = '#34313f'; g.beginPath(); g.arc(W * 0.34, H * 0.5, H * 0.37, 0, 7); g.fill();
+    g.strokeStyle = '#777683'; g.lineWidth = W * 0.025;
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.beginPath(); g.moveTo(W * 0.34, H * 0.5); g.lineTo(W * 0.34 + Math.cos(a) * H * 0.33, H * 0.5 + Math.sin(a) * H * 0.33); g.stroke(); }
+    g.fillStyle = '#a6a3ad'; g.beginPath(); g.arc(W * 0.34, H * 0.5, H * 0.075, 0, 7); g.fill();
+    for (let y = 0.2; y < 0.9; y += 0.13) { g.fillStyle = '#4b4656'; g.fillRect(W * 0.71, H * y, W * 0.22, H * 0.055); }
+    grain(g, W, H, 8);
+  }),
+  cabinet: (c = 0x6a6d78) => photo('cabinet' + c, 32, 48, (g, W, H) => {
+    fill(g, W, H, shade(c, 0)); g.strokeStyle = shade(c, -45); g.lineWidth = W * 0.025;
+    g.strokeRect(W * 0.06, H * 0.04, W * 0.88, H * 0.91); g.beginPath(); g.moveTo(W / 2, H * 0.05); g.lineTo(W / 2, H * 0.94); g.stroke();
+    g.fillStyle = '#d1c7bd'; g.fillRect(W * 0.42, H * 0.45, W * 0.05, H * 0.12); g.fillRect(W * 0.55, H * 0.45, W * 0.05, H * 0.12);
+    for (const x of [0.12, 0.62]) for (let y = 0.12; y < 0.27; y += 0.04) { g.fillStyle = shade(c, -40); g.fillRect(W * x, H * y, W * 0.25, H * 0.015); }
+    grain(g, W, H, 9);
+  }),
+  containerEnd: c => photo('containerEnd' + c, 32, 32, (g, W, H) => {
+    fill(g, W, H, shade(c, 0)); g.strokeStyle = shade(c, -50); g.lineWidth = W * 0.035;
+    g.strokeRect(W * 0.05, H * 0.04, W * 0.9, H * 0.92); g.beginPath(); g.moveTo(W / 2, 0); g.lineTo(W / 2, H); g.stroke();
+    g.fillStyle = '#8a8790';
+    for (const x of [0.24, 0.76]) { g.fillRect(W * x, H * 0.08, W * 0.025, H * 0.84); g.fillRect(W * (x - 0.07), H * 0.58, W * 0.13, H * 0.035); }
+    for (const x of [0.05, 0.86]) for (const y of [0.22, 0.75]) { g.fillStyle = shade(c, -35); g.fillRect(W * x, H * y, W * 0.09, H * 0.06); }
+    blobs(g, W, H, ['#70452d'], 20, 2, 9, 0.25); grain(g, W, H, 8);
+  }),
+  busSide: c => photo('busSide' + c, 64, 24, (g, W, H) => {
+    fill(g, W, H, shade(c, 0)); g.fillStyle = '#e4d9c2'; g.fillRect(0, H * 0.62, W, H * 0.07);
+    for (let i = 0; i < 7; i++) { const x = W * (0.035 + i * 0.13); g.fillStyle = '#222233'; g.fillRect(x, H * 0.12, W * 0.112, H * 0.42); g.fillStyle = '#63758a'; g.fillRect(x + W * 0.007, H * 0.15, W * 0.035, H * 0.32); }
+    g.strokeStyle = '#3b303a'; g.lineWidth = W * 0.012; g.strokeRect(W * 0.73, H * 0.1, W * 0.18, H * 0.86);
+    for (const x of [0.2, 0.8]) { g.fillStyle = '#16121c'; g.beginPath(); g.arc(W * x, H, H * 0.27, Math.PI, 0); g.fill(); }
+    grain(g, W, H, 8);
+  }),
+  busFront: c => photo('busFront' + c, 32, 32, (g, W, H) => {
+    fill(g, W, H, shade(c, 0)); g.fillStyle = '#1d2436'; g.fillRect(W * 0.08, H * 0.15, W * 0.84, H * 0.42);
+    g.fillStyle = '#d3bb73'; g.fillRect(W * 0.17, H * 0.04, W * 0.66, H * 0.07);
+    g.fillStyle = '#37323f'; g.fillRect(W * 0.28, H * 0.72, W * 0.44, H * 0.15);
+    for (const x of [0.08, 0.78]) { g.fillStyle = '#fff1bf'; g.fillRect(W * x, H * 0.74, W * 0.14, H * 0.09); }
+    g.strokeStyle = '#11121c'; g.lineWidth = W * 0.025; g.beginPath(); g.moveTo(W * 0.2, H * 0.54); g.lineTo(W * 0.5, H * 0.39); g.moveTo(W * 0.6, H * 0.54); g.lineTo(W * 0.87, H * 0.39); g.stroke();
+    grain(g, W, H, 8);
+  }),
+  fuelPump: () => photo('fuelPump', 32, 48, (g, W, H) => {
+    fill(g, W, H, '#d1cec9'); g.fillStyle = '#c82d35'; g.fillRect(0, H * 0.76, W, H * 0.24);
+    g.fillStyle = '#262837'; g.fillRect(W * 0.12, H * 0.1, W * 0.76, H * 0.34);
+    g.fillStyle = '#b8d0aa'; g.font = `bold ${W * 0.2}px monospace`; g.textAlign = 'center'; g.fillText('59.90', W / 2, H * 0.26); g.fillText('95', W / 2, H * 0.41);
+    g.fillStyle = '#4a4c58'; g.fillRect(W * 0.17, H * 0.53, W * 0.34, H * 0.1);
+    for (let i = 0; i < 3; i++) { g.fillStyle = ['#9ab878', '#e7ba62', '#bf5959'][i]; g.fillRect(W * (0.58 + i * 0.1), H * 0.53, W * 0.07, H * 0.1); }
+    grain(g, W, H, 8);
+  }),
+  parkingMeter: () => photo('parkingMeter', 24, 48, (g, W, H) => {
+    fill(g, W, H, '#305c88'); g.fillStyle = '#e1e1d6'; g.font = `bold ${W * 0.75}px sans-serif`; g.textAlign = 'center'; g.fillText('P', W / 2, H * 0.34);
+    g.fillStyle = '#152934'; g.fillRect(W * 0.16, H * 0.44, W * 0.68, H * 0.18); g.fillStyle = '#a2c99a'; g.fillRect(W * 0.22, H * 0.48, W * 0.5, H * 0.07);
+    g.fillStyle = '#151823'; g.fillRect(W * 0.22, H * 0.73, W * 0.4, H * 0.035); g.fillStyle = '#e8bd65'; g.fillRect(W * 0.7, H * 0.7, W * 0.1, H * 0.1); grain(g, W, H, 8);
+  }),
+  chainlink: () => pix('chainlink', 32, 32, (g, W, H) => {
+    g.strokeStyle = 'rgba(175,175,185,.8)'; g.lineWidth = 1;
+    for (let x = -W; x < W * 2; x += 8) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + W, H); g.moveTo(x, 0); g.lineTo(x - W, H); g.stroke(); }
+  }),
+  grill: () => photo('grill', 32, 24, (g, W, H) => {
+    fill(g, W, H, '#37333b'); for (let y = 0.1; y < 0.95; y += 0.12) { g.fillStyle = '#8b7a70'; g.fillRect(W * 0.05, H * y, W * 0.9, H * 0.035); }
+    blobs(g, W, H, ['#ba6b35', '#51382f'], 14, 4, 12, 0.35); grain(g, W, H, 8);
+  }),
+  laundry: c => photo('laundry' + c, 24, 24, (g, W, H) => {
+    g.fillStyle = shade(c, 0); g.beginPath(); [[0.25, 0.08], [0.4, 0.02], [0.6, 0.02], [0.75, 0.08], [1, 0.35], [0.8, 0.5], [0.73, 0.38], [0.73, 0.96], [0.27, 0.96], [0.27, 0.38], [0.2, 0.5], [0, 0.35]].forEach(([x, y]) => g.lineTo(W * x, H * y)); g.closePath(); g.fill();
+    g.strokeStyle = shade(c, -40); g.lineWidth = W * 0.04; g.beginPath(); g.arc(W / 2, 0, W * 0.11, 0, Math.PI); g.stroke();
   }),
   vending: () => photo('vending', 32, 48, (g, W, H) => {
     fill(g, W, H, '#c82a3a'); g.fillStyle = '#1a1424'; g.fillRect(W * 0.08, H * 0.08, W * 0.6, H * 0.62);

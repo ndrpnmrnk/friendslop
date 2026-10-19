@@ -11,7 +11,7 @@ export default {
     b.fence(1, 1, 1, 14); b.fence(1, 18, 1, 31); b.fence(31, 1, 31, 14); b.fence(31, 18, 31, 31);
     b.house({ x: 11, z: 2, w: 10, d: 7, h: 3.6, wall: 0x8a8496, brick: false, windows: false, door: { side: 's', at: 0.5 }, parapet: false, inner: T.stone(), floor: T.cobble(),
       interior(b, r) {
-        b.box(16, 5.5, 2.2, 1.1, 0.9, tmat(T.stone())); b.box(16, 5.5, 2.3, 1.2, 0.08, tmat(T.stone()), { y: 0.9, solid: false });
+        const st = tmat(T.stone()); b.box(16, 5.5, 2.2, 1.1, 0.9, st); b.box(16, 5.5, 2.3, 1.2, 0.08, [st, st, tmat(T.grave()), st, st, st], { y: 0.9, solid: false });
         for (const [x, z] of [[r.x0 + 0.5, r.z0 + 0.5], [r.x1 - 0.5, r.z0 + 0.5], [r.x0 + 0.5, r.z1 - 0.6], [r.x1 - 0.5, r.z1 - 0.6]]) {
           b.box(x, z, 0.3, 0.3, 0.9, tmat(T.stone())); b.m(G.box, col(0xf1e8d0), x, 1.05, z, 0.08, 0.2, 0.08); b.m(G.box, glow(0xffb35c), x, 1.2, z, 0.05, 0.08, 0.05); b.light(x, z, 1.2, 0.95);
         }

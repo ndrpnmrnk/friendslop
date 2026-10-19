@@ -21,7 +21,7 @@ export default {
             b.box(r.x0 + 4.2, r.z0 + 0.6, 5, 1, 1.05, tmat(T.wood())); b.box(r.x0 + 5.5, r.z0 + 0.6, 0.5, 0.5, 0.6, col(0x3a3a40), { y: 1.05 });
             b.ride('chair', r.x1 - 1.8, r.z1 - 0.8, Math.PI); }
           if (s.kind === 'mart') { b.shelf(r.x0 + 2, r.z0 + 3, 3, Math.PI / 2); b.shelf(r.x1 - 2, r.z0 + 3, 3, Math.PI / 2);
-            b.box(r.x0 + 4.2, r.z0 + 0.35, 2.6, 0.6, 2, col(0xd8d8e0)); b.m(G.box, glow(0x9fd8ff), r.x0 + 4.2, 1.2, r.z0 + 0.67, 2.4, 1.4, 0.02); }
+            b.cabinet(r.x0 + 4.2, r.z0 + 0.35, 2.6, 0.6, 2, 0xd8d8e0); }
         } });
       for (const dx of [1.9, 7.1]) b.vitrine(s.x + dx, 8.16, 2.6, 1.7, 'x', 0.5);
     }
@@ -29,7 +29,7 @@ export default {
     // рекламный щит на крыше и кондиционеры
     for (const x of [24, 30]) b.box(x, 2, 0.15, 0.15, 2.5, col(0x2b2533), { y: 7.6 });
     b.m(G.box, tmat(T.sign('ТЫКВЕННЫЙ ЛАТТЕ', '#ff8a1f', '#2a1f3d')), 27, 9.6, 2, 6.4, 1.6, 0.12);
-    for (const x of [4, 15]) b.box(x, 2.5, 1.2, 0.8, 0.8, col(0xa8a8b0), { y: 7.6 });
+    for (const x of [4, 15]) b.aircon(x, 2.5, 7.6);
     b.ride('cart', 8, 14); b.ride('cart', 24, 15, 0.6);
     b.box(10.75, 9.3, 0.8, 0.6, 1.8, col(0x3a4a6a)); b.m(G.box, tmat(T.screen()), 10.75, 1.3, 9.61, 0.5, 0.35, 0.02); b.sign(10.75, 1.65, 9.61, 0, 'ATM', '#3a4a6a', '#9be36b', 0.6, 0.16);
     // остановка
@@ -39,7 +39,7 @@ export default {
     b.vitrine(16, 26.9, 5.4, 1.9, 'x', 0.45); b.bench(16, 27.8, Math.PI);
     b.bin(5, 10); b.bin(27, 10); b.hydrant(16, 10);
     b.crate(30.6, 12, 1); b.crate(30.6, 13.1, 1); b.crate(30.6, 12.5, 0.9, 1);
-    b.cone(14, 11.5); b.cone(18, 11.5);
+    // Проход между магазинами и остановкой свободен; ящики остаются у разгрузки.
     for (const x of [3, 9, 23, 29]) { b.box(x, 18.5, 2.2, 1.2, 0.45, tmat(T.stone())); b.m(G.ico, tmat(T.bush()), x, 0.75, 18.5, 0.9, 0.4, 0.5); }
     b.bench(6, 22, Math.PI); b.bench(26, 22, Math.PI);
     b.lamp(1, 18, Math.PI / 2); b.lamp(31, 18, -Math.PI / 2);

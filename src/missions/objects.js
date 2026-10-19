@@ -26,7 +26,7 @@ export function buildBoard(x, y, z, f) {
   }
   const s = footprint(x, z, f, 2.5, 0.5, y, 2.2);
   g.updateMatrixWorld(true);
-  return { type: 'board', g, f, slots, tiles, order: [...Array(9).keys()], center: wl(g, [0, 1.9, 0]), pos: () => g.position,
+  return { type: 'board', g, f, slots, tiles, solid: s, order: [...Array(9).keys()], center: wl(g, [0, 1.9, 0]), pos: () => g.position,
     dispose() { W.group.remove(g); s.on = false; } };
 }
 
@@ -43,7 +43,7 @@ export function buildTable(x, y, z, f) {
   const ghost = buildGhost(); ghost.position.set(0, 1.0, -1.1); g.add(ghost);
   const s = footprint(x, z, f, 1.6, 1.6, y, 0.95);
   g.updateMatrixWorld(true);
-  return { type: 'table', g, f, cells, pieces: [], ghost, pos: () => g.position, world: (a, b, c) => wl(g, [a, b, c]),
+  return { type: 'table', g, f, cells, pieces: [], ghost, solid: s, pos: () => g.position, world: (a, b, c) => wl(g, [a, b, c]),
     dispose() { W.group.remove(g); s.on = false; } };
 }
 

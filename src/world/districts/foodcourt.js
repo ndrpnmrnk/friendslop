@@ -10,7 +10,7 @@ export default {
   build(b) {
     const truck = (x, z, w, color, sign, signC) => {
       b.house({ x, z, w, d: 3.4, h: 2.7, wall: color, brick: false, windows: false, lit: 1, door: { side: 'w', at: 0.5 }, parapet: false, web: false, floor: T.metal(),
-        interior(b, r) { b.box((r.x0 + r.x1) / 2 + 0.5, r.z1 - 0.35, w - 4.5, 0.5, 0.95, col(0x6a6d78)); b.m(G.box, glow(0xff5a2a), (r.x0 + r.x1) / 2 + 0.5, 0.97, r.z1 - 0.35, w - 5, 0.03, 0.4); b.box(r.x1 - 0.4, r.z0 + 0.5, 0.6, 0.7, 1.9, col(0xd8d8e0)); } });
+        interior(b, r) { b.cabinet((r.x0 + r.x1) / 2 + 0.5, r.z1 - 0.35, w - 4.5, 0.5, 0.95); b.m(G.box, tmat(T.grill()), (r.x0 + r.x1) / 2 + 0.5, 0.97, r.z1 - 0.35, w - 5, 0.03, 0.4); b.cabinet(r.x1 - 0.4, r.z0 + 0.5, 0.6, 0.7, 1.9, 0xd8d8e0); } });
       b.zone('roof', x + 0.6, z + 0.6, x + w - 0.6, z + 2.8, 2.9);
       b.sign(x + w / 2, 2.25, z + 3.44, 0, sign, signC, '#f5c542', Math.min(4, w - 1), 0.6);
       b.m(G.box, glow(0xffd28a), x + w / 2, 1.4, z + 3.44, w - 3.5, 0.8, 0.02);
@@ -51,11 +51,11 @@ export default {
     b.zone('roof', 28.8, 12.4, 30.4, 19.6, 3.8);
     b.sign(30.55, 7.6, 16, -Math.PI / 2, 'ТЦ «ПОЛНОЧЬ»', '#2a1f3d', '#b18cff', 6, 1.2);
     // автоматы, клумбы, урны
-    b.box(14, 9.2, 1.2, 0.9, 2, tmat(T.vending())); b.light(14, 10.1, 1.6);
-    b.box(15.5, 9.2, 1.2, 0.9, 2, tmat(T.vending()));
+    b.vending(14, 9.2); b.light(14, 10.1, 1.6);
+    b.vending(15.5, 9.2);
     for (const [x, z] of [[2.5, 12], [2.5, 16], [13, 30]]) { b.box(x, z, 2, 2, 0.5, tmat(T.stone())); b.m(G.ico, tmat(T.bush()), x, 0.8, z, 0.9, 0.5, 0.9); }
     b.tree(6, 14); b.tree(28, 29);
-    b.bin(21.5, 9.5); b.bin(9, 17.5); b.cone(20, 31); b.cone(22, 31);
+    b.bin(21.5, 9.5); b.bin(9, 17.5);
     b.lamp(1, 30.5, Math.PI / 2); b.lamp(16, 17.5, 0);
     b.zone('floor', 14, 10.5, 28, 31); b.zone('floor', 1, 8, 12, 19.5);
     b.cats(1, 8, 28, 31);

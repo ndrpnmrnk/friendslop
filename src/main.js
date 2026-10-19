@@ -94,14 +94,14 @@ function openMission(m) {
   $('mghint').textContent = HINTS[m.def.game]; $('mgmsg').textContent = ''; $('mgmsg').className = 'msg';
   $('mgpanel').classList.remove('hidden');
   const api = {
-    pose: (p, l) => { cam.pose = { p, l }; },
+    pose: (p, l) => { cam.pose = { p, l, ignore: m.obj.solid }; updateCamera(camera, P, 0, true); },
     progress: v => { const bar = $('mgbar'); if (v === null) bar.classList.add('hidden'); else { bar.classList.remove('hidden'); bar.firstChild.style.width = (v * 100) + '%'; } },
     msg: (text, cls = '') => { $('mgmsg').textContent = text; $('mgmsg').className = 'msg ' + cls; },
     finish: res => { if (S.mg && S.mg.m === m) closeMission(res); },
   };
   S.mg = { m, game: null };
   unlock(); $('lockhint').classList.add('hidden');
-  S.mg.game = GAMES[m.def.game](m.obj, api, { cursor: setCursor });
+  S.mg.game = GAMES[m.def.game](m.obj, api, { cursor: setCursor, character: P.ch });
 }
 function closeMission(res) {
   if (!S.mg) return;
