@@ -89,12 +89,14 @@ export const SKINS = {
       // глаза-бугры сверху морды
       for (const s of [-1, 1]) mesh(G.sph, skin, s * 0.26, 1.42, 0.16, 0.16, 0.12, 0.14, head);
       // панамка с уточками: тулья чуть сужается кверху, поля опущены вниз
-      const hat = tmat(T.duckHat()), hatIn = lam({ map: T.duckHat(), side: THREE.DoubleSide }, 'duckHatIn');
-      HAT_CROWN = HAT_CROWN || new THREE.CylinderGeometry(0.36, 0.44, 0.26, 12);
-      HAT_BRIM = HAT_BRIM || new THREE.CylinderGeometry(0.46, 0.66, 0.14, 14, 1, true);
-      mesh(HAT_CROWN, hat, 0, 1.62, -0.02, 1, 1, 1, head); mesh(G.cyl12, hat, 0, 1.76, -0.02, 0.36, 0.02, 0.36, head);
-      mesh(HAT_BRIM, hatIn, 0, 1.47, -0.02, 1, 1, 1, head);
-      mesh(G.cyl12, col(0x8a7a50), 0, 1.52, -0.02, 0.445, 0.05, 0.445, head);
+      const tile = T.duckTile(), crownT = tile.clone(), brimT = tile.clone(); crownT.needsUpdate = brimT.needsUpdate = true; crownT.repeat.set(5, 1); brimT.repeat.set(7, 1);
+      const hat = lam({ map: crownT }, 'duckCrown'), brim = lam({ map: brimT, side: THREE.DoubleSide }, 'duckBrim'), plain = col(0xa8986a);
+      // тулья и поля стыкуются без щели: низ тульи = верх полей, стык закрыт лентой
+      HAT_CROWN = HAT_CROWN || new THREE.CylinderGeometry(0.36, 0.44, 0.26, 14, 1, true);
+      HAT_BRIM = HAT_BRIM || new THREE.CylinderGeometry(0.44, 0.66, 0.14, 14, 1, true);
+      mesh(HAT_CROWN, hat, 0, 1.62, -0.02, 1, 1, 1, head); mesh(G.cyl12, plain, 0, 1.75, -0.02, 0.37, 0.02, 0.37, head);
+      mesh(HAT_BRIM, brim, 0, 1.42, -0.02, 1, 1, 1, head);
+      mesh(G.cyl12, col(0x6a5a38), 0, 1.5, -0.02, 0.45, 0.05, 0.45, head);
       // язык (показывается в idle-«фишке»)
       const tongue = mesh(G.box, col(0xd85a7a), 0, 1.04, 0.44, 0.1, 0.03, 0.3, head); tongue.visible = false;
       head.userData = { h, faces, tongue };
@@ -109,12 +111,14 @@ export const SKINS = {
       mesh(FROG_HIPS, pants, 0, 0.31, 0, 1, 1, 0.84, torso);
       for (const sx of [-1, 1]) mesh(G.cyl8, pants, sx * 0.14, 0.2, 0.0, 0.1, 0.16, 0.1, torso);
       // тканевый платок на плече: свисает спереди и сзади, рваный край, лёгкий наклон
+      // платок: верх лежит на плече, полотнища висят на шарнирах и развеваются при беге и прыжках
       const rag = lam({ map: T.rag(), alphaTest: 0.5, side: THREE.DoubleSide }, 'ragCloth'), sh = new THREE.Group(); sh.position.set(-0.32, 1.0, 0); sh.rotation.z = 0.45; torso.add(sh);
       mesh(G.box, rag, 0, 0.03, 0, 0.32, 0.05, 0.5, sh);
-      for (const sz of [-1, 1]) { const p = mesh(G.plane, rag, -0.03, -0.26, sz * 0.25, 0.34, 0.58, 1, sh); p.rotation.x = sz * 0.18; p.rotation.y = sz < 0 ? Math.PI : 0; }
-      const side = mesh(G.plane, rag, -0.17, -0.2, 0, 0.5, 0.46, 1, sh); side.rotation.y = -Math.PI / 2;
+      const flaps = [];
+      for (const [px, pz, ry, w, hgt] of [[-0.03, 0.25, 0, 0.34, 0.58], [-0.03, -0.25, Math.PI, 0.34, 0.58], [-0.17, 0, -Math.PI / 2, 0.5, 0.46]]) {
+        const pv = new THREE.Group(); pv.position.set(px, 0.02, pz); sh.add(pv); const pl = mesh(G.plane, rag, 0, -hgt / 2, 0, w, hgt, 1, pv); pl.rotation.y = ry; flaps.push(pv); }
       mesh(G.sph, col(0x5a3820), 0.12, -0.05, 0.25, 0.07, 0.06, 0.06, sh);
-      torso.userData.rag = sh;
+      torso.userData.flaps = flaps;
       for (const hd of [handL, handR]) { mesh(G.box, shirt, 0, 0.07, -0.04, 0.17, 0.1, 0.17, hd); mesh(G.box, skin, 0, -0.03, 0.02, 0.15, 0.12, 0.16, hd); for (const o of [-0.05, 0, 0.05]) mesh(G.box, skin, o, -0.06, 0.12, 0.04, 0.05, 0.06, hd); }
       const boot = tmat(T.boot());
       for (const ft of [footL, footR]) { mesh(G.box, boot, 0, 0.08, 0.05, 0.19, 0.16, 0.28, ft); mesh(G.box, col(0x3a2414), 0, 0.17, 0.0, 0.18, 0.03, 0.2, ft); mesh(G.box, glow(0xffa030), 0.1, 0.11, 0.06, 0.02, 0.05, 0.06, ft); }

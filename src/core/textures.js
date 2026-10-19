@@ -328,6 +328,11 @@ export const T = {
       g.fillStyle = '#f5c542'; g.beginPath(); g.ellipse(x, y, u * 1.3, u * 0.9, 0, 0, 7); g.fill(); g.beginPath(); g.arc(x + u * 1.1, y - u * 0.9, u * 0.65, 0, 7); g.fill();
       g.fillStyle = '#ff8a1f'; g.fillRect(x + u * 1.6, y - u, u * 0.7, u * 0.35); g.fillStyle = '#17111f'; g.fillRect(x + u * 1.2, y - u * 1.1, u * 0.25, u * 0.25); }
     g.fillStyle = 'rgba(90,70,40,.5)'; g.fillRect(0, H * 0.94, W, H * 0.06); grain(g, W, H, 10); }),
+  // полоса панамки: одна уточка на плитку (плитка повторяется по кругу — уточки не растягиваются)
+  duckTile: () => photo('duckTile', 32, 14, (g, W, H) => { fill(g, W, H, '#a8986a'); blobs(g, W, H, ['#98885a', '#b8a87a'], 30, 1, 3, 0.5);
+    const x = W * 0.45, y = H * 0.58, u = H * 0.2;
+    g.fillStyle = '#f5c542'; g.beginPath(); g.ellipse(x, y, u * 1.4, u * 0.95, 0, 0, 7); g.fill(); g.beginPath(); g.arc(x + u * 1.15, y - u * 0.95, u * 0.7, 0, 7); g.fill();
+    g.fillStyle = '#ff8a1f'; g.fillRect(x + u * 1.7, y - u * 1.1, u * 0.8, u * 0.4); g.fillStyle = '#17111f'; g.fillRect(x + u * 1.25, y - u * 1.2, u * 0.3, u * 0.3); grain(g, W, H, 8); }),
   // кусок коричневой ткани с рваным краем и строчкой (альфа — рваный низ)
   boot: () => photo('boot', 24, 24, (g, W, H) => { fill(g, W, H, '#5a3a24'); blobs(g, W, H, ['#4a2e1a', '#6a4a2e', '#3a2414'], 60, 1, 3, 0.7); g.fillStyle = '#2a1a10'; g.fillRect(0, H * 0.82, W, H * 0.18); grain(g, W, H, 14); }),
   rag: () => photo('rag', 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H); g.fillStyle = '#6a4428'; g.beginPath(); g.moveTo(0, 0); g.lineTo(W, 0);
