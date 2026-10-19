@@ -1,11 +1,11 @@
 import { THREE, V3 } from '../core/gfx.js';
 import { W } from '../world/state.js';
+import { solidsNear, groundAt } from '../world/physics.js';
 import { clamp, damp } from '../core/rng.js';
 import { CONFIG } from '../config.js';
 
-/* Камера из-за плеча. В тесных местах проверяем весь объём камеры, включая ближнюю
-   плоскость: стены, полы и потолки одинаково мешают движению. Поза мини-игры фиксирована,
-   а обычная камера плавно следует за игроком без автоматического поворота. */
+/* Камера из-за плеча. Стены и потолки не пускают её внутрь себя, по полу она скользит.
+   Поза мини-игры фиксирована, обычная камера следует за игроком без автоповорота. */
 export const cam = { pose: null, yaw: 0, pitch: 0.45, curDist: 6, sens: 0.0024, aimK: 0, idle: 0,
   normal: { dist: 6.4, shoulder: 1.15, height: 2.05 }, aim: { dist: 3.5, shoulder: 1.15, height: 2.1 } };
 const pos = new V3(), look = new V3(), tgt = new V3(), want = new V3(), dir = new V3(), hit = new V3(), piv = new V3(), sh = new V3(), eye = new V3(), pv = new V3(), delta = new V3();
@@ -16,60 +16,70 @@ export function resetCamera(yaw) { cam.yaw = orbitYaw = yaw; cam.pitch = orbitPi
 export function camForward() { return [-Math.sin(cam.yaw), -Math.cos(cam.yaw)]; }
 
 // Луч по расширенным AABB = движение камеры с запасом по всем трём осям.
-// Нет минимального отступа 1.2 м: он проталкивал камеру за ближайшую стену.
-export function castCamera(o, d, maxT, radius, ignore = null) {
+// floorY: твёрдое, чей верх ниже этой высоты, не мешает (по полу и низким предметам камера скользит сверху)
+export function castCamera(o, d, maxT, radius, ignore = null, floorY = -Infinity) {
   let best = maxT;
-  for (const s of W.solids) {
-    if (!s.on || s === ignore) continue;
-    let t0 = 0, t1 = best;
-    const mins = [s.x0 - radius, s.y0 - radius, s.z0 - radius], maxs = [s.x1 + radius, s.y1 + radius, s.z1 + radius], oo = [o.x, o.y, o.z], dd = [d.x, d.y, d.z];
-    let ok = true;
+  const ex = o.x + d.x * maxT, ez = o.z + d.z * maxT;
+  for (const s of solidsNear(Math.min(o.x, ex) - radius, Math.min(o.z, ez) - radius, Math.max(o.x, ex) + radius, Math.max(o.z, ez) + radius)) {
+    if (!s.on || s === ignore || s.y1 <= floorY) continue;
+    let t0 = 0, t1 = best, ok = true;
     for (let a = 0; a < 3; a++) {
-      if (Math.abs(dd[a]) < 1e-6) { if (oo[a] < mins[a] || oo[a] > maxs[a]) { ok = false; break; } continue; }
-      let ta = (mins[a] - oo[a]) / dd[a], tb = (maxs[a] - oo[a]) / dd[a]; if (ta > tb) [ta, tb] = [tb, ta];
-      t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) { ok = false; break; }
+      const oo = a === 0 ? o.x : a === 1 ? o.y : o.z, dd = a === 0 ? d.x : a === 1 ? d.y : d.z;
+      const mn = (a === 0 ? s.x0 : a === 1 ? s.y0 : s.z0) - radius, mx = (a === 0 ? s.x1 : a === 1 ? s.y1 : s.z1) + radius;
+      if (Math.abs(dd) < 1e-6) { if (oo < mn || oo > mx) { ok = false; break; } continue; }
+      let ta = (mn - oo) / dd, tb = (mx - oo) / dd; if (ta > tb) { const q = ta; ta = tb; tb = q; }
+      if (ta > t0) t0 = ta; if (tb < t1) t1 = tb; if (t0 > t1) { ok = false; break; }
     }
     if (ok && t1 >= 0 && t0 < best) best = Math.max(0, t0 - 0.01);
   }
   return best;
 }
-function constrain(from, to, radius, ignore) {
+function constrain(from, to, radius, ignore, floorY) {
   delta.subVectors(to, from); const len = delta.length();
-  if (len > 1e-6) to.copy(from).addScaledVector(delta.multiplyScalar(1 / len), castCamera(from, delta, len, radius, ignore));
+  if (len > 1e-6) to.copy(from).addScaledVector(delta.multiplyScalar(1 / len), castCamera(from, delta, len, radius, ignore, floorY));
   return to;
 }
+// камера не уходит под пол: поднимается над землёй/низким предметом под собой
+function aboveGround(v, maxY, clear = 0.35) {
+  const g = groundAt(v.x, v.z, 0.2, maxY);
+  if (v.y < g + clear) v.y = g + clear;
+  return v;
+}
 
+/* Камера свободно наклоняется мышью: от взгляда снизу вверх (камера у самой земли) до вида
+   почти сверху. Стены и потолки её останавливают, а по полу и низким объектам она скользит. */
 export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
-  // Для фиксированной позы оставляем запас под расширенный обзор в маленькой комнате.
+  if (cam.free) { camera.position.copy(cam.free.p); camera.lookAt(cam.free.l); return; } // отладка: свободная камера
   const clearanceFov = cam.pose ? 105 : camera.fov;
   const radius = Math.max(0.2, camera.near * Math.hypot(1, Math.tan(clearanceFov * Math.PI / 360) * Math.hypot(camera.aspect, 1)) + 0.02);
   if (lookDelta && !cam.pose) {
-    cam.yaw -= lookDelta.dx * cam.sens * (aiming ? 0.7 : 1);
-    cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens * (aiming ? 0.7 : 1), -0.15, 1.48);
+    cam.yaw -= lookDelta.dx * cam.sens * (aiming ? 0.75 : 1);
+    cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens * (aiming ? 0.75 : 1), -0.75, 1.5);
   }
   let P, L;
   if (cam.pose) {
     P = constrain(cam.pose.l, want.copy(cam.pose.p), radius, cam.pose.ignore); L = cam.pose.l;
   }
   else {
-    cam.aimK += ((aiming ? 1 : 0) - cam.aimK) * damp(9, dt);
+    cam.aimK += ((aiming ? 1 : 0) - cam.aimK) * damp(10, dt);
     const k = cam.aimK, N = cam.normal, A = cam.aim;
     if (snap) { orbitPitch = cam.pitch; orbitYaw = cam.yaw; }
-    else { orbitPitch += (cam.pitch - orbitPitch) * damp(22, dt); orbitYaw += (cam.yaw - orbitYaw) * damp(22, dt); }
-    const dist = N.dist + (A.dist - N.dist) * k, shoulder = (N.shoulder + (A.shoulder - N.shoulder) * k) * Math.cos(Math.max(0, orbitPitch));
-    const height = Math.min(N.height + (A.height - N.height) * k, p.h + 0.25);
-    // Сначала безопасная точка над игроком; присед и низкие потолки опускают её.
+    else { orbitPitch += (cam.pitch - orbitPitch) * damp(30, dt); orbitYaw += (cam.yaw - orbitYaw) * damp(30, dt); }
+    const dist = N.dist + (A.dist - N.dist) * k, shoulder = (N.shoulder + (A.shoulder - N.shoulder) * k) * Math.cos(Math.max(0, orbitPitch) * 0.8);
+    const height = Math.min(N.height + (A.height - N.height) * k, p.h + 0.3);
     eye.set(p.pos.x, p.pos.y + Math.min(1.35, p.h * 0.72), p.pos.z);
-    tgt.set(p.pos.x, p.pos.y + height, p.pos.z); constrain(eye, tgt, radius);
-    if (snap || !following) { piv.copy(tgt); following = true; } else piv.lerp(tgt, damp(14, dt));
-    constrain(eye, piv, radius); // сглаживание тоже не может пересечь стену/перекрытие
+    const floorY = p.pos.y + 0.45; // всё ниже колен — «пол»: камера над ним скользит, а не упирается
+    tgt.set(p.pos.x, p.pos.y + height, p.pos.z); constrain(eye, tgt, radius, null, floorY);
+    if (snap || !following) { piv.copy(tgt); following = true; } else piv.lerp(tgt, damp(18, dt));
+    constrain(eye, piv, radius, null, floorY);
     dir.set(Math.sin(orbitYaw) * Math.cos(orbitPitch), Math.sin(orbitPitch), Math.cos(orbitYaw) * Math.cos(orbitPitch));
     sh.set(Math.cos(orbitYaw), 0, -Math.sin(orbitYaw));
-    pv.copy(piv).addScaledVector(sh, castCamera(piv, sh, shoulder, radius));
-    const d = castCamera(pv, dir, dist, radius);
-    cam.curDist = d < cam.curDist ? d : cam.curDist + (d - cam.curDist) * damp(4, dt);
-    want.copy(pv).addScaledVector(dir, cam.curDist); constrain(eye, want, radius);
-    // точка взгляда — далеко вперёд по направлению камеры, чтобы прицел смотрел туда, куда смотришь
+    pv.copy(piv).addScaledVector(sh, castCamera(piv, sh, shoulder, radius, null, floorY));
+    const d = castCamera(pv, dir, dist, radius, null, floorY);
+    cam.curDist = d < cam.curDist ? d : cam.curDist + (d - cam.curDist) * damp(7, dt);
+    want.copy(pv).addScaledVector(dir, cam.curDist);
+    aboveGround(want, pv.y);
+    constrain(eye, want, radius, null, floorY);
     P = want; L = tgt.copy(want).addScaledVector(dir, -20);
   }
   // Если стена придвинула камеру, сохраняем размер игровой области в кадре.
@@ -81,7 +91,7 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   // после миссии/крана камера плавно возвращается, дальше следует напрямую (сглаживание уже в piv)
   if (cam.pose) cam.blend = 0; else cam.blend = Math.min(1, (cam.blend ?? 1) + dt * 1.5);
   if (snap || cam.pose || cam.blend >= 1) { pos.copy(P); look.copy(L); }
-  else { const f = damp(6, dt); pos.lerp(P, f); look.lerp(L, f); constrain(eye, pos, radius); }
+  else { const f = damp(6, dt); pos.lerp(P, f); look.lerp(L, f); constrain(eye, pos, radius, null, p.pos.y + 0.45); }
   camera.position.copy(pos); camera.lookAt(look);
 
   // затухание зданий

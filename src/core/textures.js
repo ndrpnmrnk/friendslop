@@ -62,41 +62,51 @@ export function shade(c, a) {
 
 /* ---------- земля ---------- */
 export const T = {
-  asphalt: () => photo('asphalt', 32, 32, (g, W, H) => {
-    fill(g, W, H, HW ? '#302b38' : '#55525c');
-    blobs(g, W, H, ['#25212c', '#3a3443', '#2b2633'], 60, W * 0.05, W * 0.2, 0.3);
-    blobs(g, W, H, ['#4a4452', '#1d1a22'], 180, 2, 5, 0.25);
-    g.strokeStyle = 'rgba(10,8,14,.7)'; g.lineWidth = 3;
-    for (let i = 0; i < 3; i++) { let x = R() * W, y = R() * H; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (R() - 0.5) * 40; y += 18 + R() * 10; g.lineTo(x, y); } g.stroke(); }
-    grain(g, W, H, 8);
+  asphalt: () => photo('asphalt', 64, 64, (g, W, H) => {
+    fill(g, W, H, HW ? '#2f2a37' : '#55525c');
+    blobs(g, W, H, ['#27222e', '#36303f', '#2b2633'], 50, W * 0.05, W * 0.18, 0.28);
+    blobs(g, W, H, ['#4a4452', '#1d1a22', '#5a5462'], 1400, 1.5, 4, 0.35);
+    g.strokeStyle = 'rgba(14,11,18,.65)'; g.lineWidth = 4;
+    for (let i = 0; i < 2; i++) { let x = R() * W, y = R() * H; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 7; k++) { x += (R() - 0.5) * 60; y += 30 + R() * 20; g.lineTo(x, y); } g.stroke(); }
+    blobs(g, W, H, ['#1a1620'], 6, 12, 30, 0.18);
+    grain(g, W, H, 10);
   }),
-  pave: () => photo('pave', 32, 32, (g, W, H) => {
-    fill(g, W, H, '#1f1a26'); const n = 4, s = W / n;
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      g.fillStyle = shade(HW ? 0x7a7389 : 0xb8b2a8, (R() - 0.5) * 22); g.fillRect(x * s + 3, y * s + 3, s - 6, s - 6);
+  pave: () => photo('pave', 64, 64, (g, W, H) => {
+    // тротуарная плитка «кирпичиком»: небольшие брусчатые плитки, тонкие швы, разный оттенок
+    fill(g, W, H, HW ? '#3d3747' : '#7a7468'); const rows = 8, rh = H / rows, cw = W / 4;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < 5; c++) {
+      const x = c * cw + (r % 2 ? cw / 2 : 0), y = r * rh;
+      g.fillStyle = shade(HW ? 0x77708a : 0xb8b2a8, (R() - 0.5) * 26); g.fillRect(x + 2, y + 2, cw - 4, rh - 4);
+      g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(x + 2, y + 2, cw - 4, 3);
+      g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(x + 2, y + rh - 5, cw - 4, 3);
     }
-    blobs(g, W, H, ['#4d4658', '#8b84a0'], 50, 4, 14, 0.18); grain(g, W, H, 22);
+    blobs(g, W, H, ['#4d4658', '#8b84a0', '#3a3444'], 70, 5, 22, 0.12); blobs(g, W, H, ['#2a2532'], 400, 1, 2.5, 0.35); grain(g, W, H, 14);
   }),
-  cobble: () => photo('cobble', 32, 32, (g, W, H) => {
-    fill(g, W, H, '#2a2433');
-    for (let i = 0; i < 70; i++) { g.fillStyle = shade(0x857c96, (R() - 0.5) * 40); g.beginPath(); g.ellipse(R() * W, R() * H, 9 + R() * 6, 7 + R() * 5, R() * 3, 0, 7); g.fill(); }
-    grain(g, W, H, 24);
-  }),
-  grass: () => photo('grass', 32, 32, (g, W, H) => {
-    fill(g, W, H, HW ? '#33502f' : '#4f8a40');
-    blobs(g, W, H, HW ? ['#2a4527', '#3f5e38', '#4a6a3c'] : ['#3f7a35', '#5a9a4a'], 40, 8, 30, 0.35);
-    strokes(g, W, H, HW ? ['#4f7444', '#24391f', '#5f7f4a'] : ['#6aaa55', '#3a6a30'], 900, 9, -Math.PI / 2, 0.8, 2, 0.55);
-    if (HW) blobs(g, W, H, ['#c96a25', '#a8452a', '#e0902e'], 40, 3, 6, 0.85);
+  cobble: () => photo('cobble', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#2a2433'); const n = 8, s2 = W / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const cx = (x + 0.5 + (y % 2 ? 0.5 : 0)) * s2, cy = (y + 0.5) * s2, rx = s2 * (0.38 + R() * 0.08), ry = s2 * (0.36 + R() * 0.08);
+      for (const ox of [0, -W, W]) { g.fillStyle = radial(g, cx + ox - rx * 0.3, cy - ry * 0.3, rx * 1.6, shade(0x9a91aa, (R() - 0.5) * 30), shade(0x5e566c, (R() - 0.5) * 20)); g.beginPath(); g.ellipse(cx + ox, cy, rx, ry, R(), 0, 7); g.fill(); }
+    }
     grain(g, W, H, 16);
   }),
-  dirt: () => photo('dirt', 32, 32, (g, W, H) => {
-    fill(g, W, H, '#5a4636'); blobs(g, W, H, ['#4a382b', '#6b5442', '#3e2f24'], 80, 6, 26, 0.35);
-    blobs(g, W, H, ['#8a7a6a', '#2e231b'], 300, 1, 4, 0.7); grain(g, W, H, 22);
+  grass: () => photo('grass', 64, 64, (g, W, H) => {
+    fill(g, W, H, HW ? '#33502f' : '#4f8a40');
+    blobs(g, W, H, HW ? ['#2a4527', '#3f5e38', '#4a6a3c'] : ['#3f7a35', '#5a9a4a'], 60, 12, 50, 0.3);
+    strokes(g, W, H, HW ? ['#4f7444', '#24391f', '#5f7f4a', '#6a8a50'] : ['#6aaa55', '#3a6a30'], 3200, 12, -Math.PI / 2, 0.7, 2.5, 0.5);
+    if (HW) blobs(g, W, H, ['#c96a25', '#a8452a', '#e0902e', '#8a3a1e'], 90, 4, 8, 0.85);
+    grain(g, W, H, 12);
   }),
-  concrete: () => photo('concrete', 32, 32, (g, W, H) => {
-    fill(g, W, H, '#6d6876'); blobs(g, W, H, ['#5d5866', '#7c7785', '#4e4a57'], 70, 8, 34, 0.25);
-    g.strokeStyle = 'rgba(30,26,36,.6)'; g.lineWidth = 2; g.strokeRect(1, 1, W - 2, H - 2);
-    blobs(g, W, H, ['#3a3542'], 12, 6, 16, 0.25); grain(g, W, H, 22);
+  dirt: () => photo('dirt', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#5a4636'); blobs(g, W, H, ['#4a382b', '#6b5442', '#3e2f24'], 90, 10, 40, 0.3);
+    blobs(g, W, H, ['#8a7a6a', '#2e231b', '#a08a72'], 1200, 1.5, 5, 0.65); strokes(g, W, H, ['#2e231b'], 30, 30, 0.3, 1, 3, 0.3); grain(g, W, H, 18);
+  }),
+  concrete: () => photo('concrete', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#6d6876'); blobs(g, W, H, ['#5d5866', '#7c7785', '#4e4a57'], 90, 10, 50, 0.22);
+    blobs(g, W, H, ['#3a3542', '#8a8592'], 700, 1, 3, 0.4);
+    g.strokeStyle = 'rgba(30,26,36,.5)'; g.lineWidth = 4; g.strokeRect(2, 2, W - 4, H - 4);
+    g.strokeStyle = 'rgba(20,16,26,.4)'; g.lineWidth = 2; g.beginPath(); let x = R() * W, y = 0; g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (R() - 0.5) * 40; y += H / 6; g.lineTo(x, y); } g.stroke();
+    grain(g, W, H, 14);
   }),
   court: () => photo('court', 32, 32, (g, W, H) => {
     fill(g, W, H, '#8a3b33'); blobs(g, W, H, ['#7a3029', '#9a4a40'], 60, 6, 20, 0.3); grain(g, W, H, 26);
@@ -105,12 +115,14 @@ export const T = {
     fill(g, W, H, '#28506e'); blobs(g, W, H, ['#1f4560', '#346282', '#2c5878'], 40, 10, 30, 0.4);
     strokes(g, W, H, ['#6aa0c8', '#9cc4e0'], 60, 18, 0, 0.3, 3, 0.45); grain(g, W, H, 12);
   }),
-  wood: () => photo('wood', 32, 32, (g, W, H) => {
-    const n = 4, s = H / n;
-    for (let i = 0; i < n; i++) { g.fillStyle = shade(0x7a5236, (R() - 0.5) * 30); g.fillRect(0, i * s, W, s); }
-    strokes(g, W, H, ['#5a3a24', '#94693c', '#4a2e1c'], 140, 40, 0, 0.08, 2, 0.45);
-    g.fillStyle = '#2e1c10'; for (let i = 1; i < n; i++) g.fillRect(0, i * s - 2, W, 4);
-    grain(g, W, H, 18);
+  wood: () => photo('wood', 64, 64, (g, W, H) => {
+    const n = 4, s2 = H / n;
+    for (let i = 0; i < n; i++) { g.fillStyle = shade(0x7a5236, (R() - 0.5) * 34); g.fillRect(0, i * s2, W, s2); }
+    strokes(g, W, H, ['#5a3a24', '#94693c', '#4a2e1c', '#a8784a'], 380, 70, 0, 0.06, 2.5, 0.4);
+    for (let i = 0; i < 5; i++) { g.strokeStyle = 'rgba(46,28,16,.6)'; g.lineWidth = 2; g.beginPath(); g.ellipse(R() * W, (((R() * n) | 0) + 0.5) * s2, 10, 4, 0, 0, 7); g.stroke(); }
+    g.fillStyle = '#2a190e'; for (let i = 0; i <= n; i++) g.fillRect(0, i * s2 - 3, W, 6);
+    g.fillStyle = '#1a120a'; for (let i = 0; i < n; i++) for (const x of [W * 0.06, W * 0.94]) { g.fillRect(x - 2, i * s2 + s2 * 0.3, 4, 4); g.fillRect(x - 2, i * s2 + s2 * 0.62, 4, 4); }
+    grain(g, W, H, 14);
   }),
   floorWood: () => photo('floorWood', 32, 32, (g, W, H) => {
     const n = 6, s = W / n;
@@ -121,9 +133,12 @@ export const T = {
   }),
   floorTile: () => photo('floorTile', 32, 32, (g, W, H) => {
     const n = 4, s = W / n;
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { g.fillStyle = (x + y) % 2 ? '#d6ccb8' : '#4e4658'; g.fillRect(x * s, y * s, s, s); }
-    blobs(g, W, H, ['#a89c88', '#2a2433'], 30, 6, 16, 0.15); grain(g, W, H, 16);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { g.fillStyle = shade((x + y) % 2 ? 0xb8ae9c : 0x6e6678, (R() - 0.5) * 14); g.fillRect(x * s, y * s, s, s); }
+    g.fillStyle = 'rgba(30,26,36,.45)'; for (let i = 0; i <= n; i++) { g.fillRect(i * s - 1, 0, 2, H); g.fillRect(0, i * s - 1, W, 2); }
+    blobs(g, W, H, ['#a89c88', '#2a2433'], 30, 6, 16, 0.12); grain(g, W, H, 12);
   }),
+  carpet: (c = 0x3a4458) => photo('carpet' + c, 32, 32, (g, W, H) => { fill(g, W, H, shade(c, 0)); blobs(g, W, H, [shade(c, -14), shade(c, 12)], 900, 1, 2.5, 0.5);
+    g.strokeStyle = shade(c, -22); g.lineWidth = 3; g.strokeRect(1.5, 1.5, W - 3, H - 3); grain(g, W, H, 10); }),
   plaster: () => photo('plaster', 32, 32, (g, W, H) => {
     fill(g, W, H, '#b8a68e'); blobs(g, W, H, ['#a8967e', '#c8b69e', '#9a8a74'], 60, 8, 30, 0.3);
     g.fillStyle = '#6a5a4a'; g.fillRect(0, H - 14, W, 14); grain(g, W, H, 14);
@@ -160,13 +175,12 @@ export const T = {
     g.fillStyle = '#3e3a4a'; g.fillRect(W * 0.44, H * 0.12, W * 0.12, H * 0.42); g.fillRect(W * 0.28, H * 0.22, W * 0.44, H * 0.08);
     g.font = `bold ${W * 0.22}px serif`; g.textAlign = 'center'; g.fillText('R.I.P', W / 2, H * 0.78); grain(g, W, H, 26);
   }),
-  brickWall: () => photo('brickWall', 32, 32, (g, W, H) => {
-    fill(g, W, H, '#4a3a38'); const bh = H / 8, bw = W / 4;
-    for (let r = 0; r < 8; r++) for (let c = -1; c < 5; c++) { g.fillStyle = shade(0x9a4a36, (R() - 0.5) * 40); g.fillRect(c * bw + (r % 2 ? bw / 2 : 0) + 2, r * bh + 2, bw - 4, bh - 4); }
-    grain(g, W, H, 20);
+  brickWall: () => photo('brickWall', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#5a4c48'); const rows = 10, bh = H / rows, bw = W / 4;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < 5; c++) { const x = c * bw + (r % 2 ? bw / 2 : 0); g.fillStyle = shade(0x9a4a36, (R() - 0.5) * 44); g.fillRect(x + 3, r * bh + 3, bw - 6, bh - 6);
+      g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x + 3, r * bh + bh - 7, bw - 6, 4); }
+    blobs(g, W, H, ['#3a2a28', '#c08a70'], 300, 1, 3, 0.35); grain(g, W, H, 16);
   }),
-
-  /* ---------- коты ---------- */
   fur: coat => photo('fur' + coat.name, 32, 32, (g, W, H) => {
     fill(g, W, H, coat.base);
     blobs(g, W, H, [coat.light, coat.dark], 40, 10, 30, 0.25);
@@ -273,11 +287,32 @@ export const T = {
   }),
   balloon: () => photo('balloon', 16, 16, (g, W, H) => { g.fillStyle = radial(g, W * 0.32, H * 0.3, W * 0.85, '#bfe8ff', '#1a5ab0'); g.fillRect(0, 0, W, H); }),
   brickItem: () => photo('brickItem', 16, 16, (g, W, H) => { fill(g, W, H, '#a04a32'); blobs(g, W, H, ['#7a3422', '#c06a4a', '#5a2a1e'], 50, 1, 5, 0.6); grain(g, W, H, 26); }),
-  crate: () => photo('crate', 32, 32, (g, W, H) => {
-    fill(g, W, H, '#8a6338'); strokes(g, W, H, ['#6a4a2a', '#a07a48'], 120, 30, 0, 0.1, 2, 0.4);
-    g.fillStyle = '#4e3620'; const b = W * 0.12; g.fillRect(0, 0, W, b); g.fillRect(0, H - b, W, b); g.fillRect(0, 0, b, H); g.fillRect(W - b, 0, b, H);
-    g.lineWidth = b * 0.8; g.strokeStyle = '#4e3620'; g.beginPath(); g.moveTo(b, b); g.lineTo(W - b, H - b); g.stroke(); grain(g, W, H, 16);
+  crate: () => photo('crate', 64, 64, (g, W, H) => {
+    // ящик из досок: горизонтальные доски с зазорами, по краям рамка
+    fill(g, W, H, '#2a1a0e'); const n = 5, s2 = H / n;
+    for (let i = 0; i < n; i++) { g.fillStyle = shade(0x9a7040, (R() - 0.5) * 36); g.fillRect(0, i * s2 + 3, W, s2 - 6); }
+    strokes(g, W, H, ['#6a4a2a', '#b08a58', '#5a3a1e'], 260, 60, 0, 0.06, 2, 0.4);
+    g.fillStyle = '#6a4826'; const b = W * 0.13; g.fillRect(0, 0, b, H); g.fillRect(W - b, 0, b, H);
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(b, 0, 3, H); g.fillRect(W - b - 3, 0, 3, H);
+    g.fillStyle = '#1a120a'; for (let i = 0; i < n; i++) for (const x of [b / 2, W - b / 2]) g.fillRect(x - 2, i * s2 + s2 / 2 - 2, 4, 4);
+    g.fillStyle = 'rgba(30,20,10,.55)'; g.font = `bold ${W * 0.13}px monospace`; g.textAlign = 'center'; g.fillText('FRAGILE', W / 2, H * 0.56);
+    grain(g, W, H, 14);
   }),
+  // сетка тележки (прозрачная, только прутья)
+  wire: () => pix('wire', 32, 32, (g, W, H) => { g.fillStyle = '#c8ccd6'; for (let i = 0; i < W; i += 4) { g.fillRect(i, 0, 1, H); g.fillRect(0, i, W, 1); } }),
+  binBody: (c = 0x2e5a44) => photo('bin' + c, 32, 48, (g, W, H) => {
+    for (let x = 0; x < W; x += 8) { const gr = g.createLinearGradient(x, 0, x + 8, 0); gr.addColorStop(0, shade(c, -30)); gr.addColorStop(0.5, shade(c, 25)); gr.addColorStop(1, shade(c, -30)); g.fillStyle = gr; g.fillRect(x, 0, 8, H); }
+    g.fillStyle = shade(c, -45); g.fillRect(0, 0, W, H * 0.08); g.fillRect(0, H * 0.92, W, H * 0.08);
+    g.fillStyle = '#e8e2d4'; g.fillRect(W * 0.2, H * 0.3, W * 0.6, H * 0.22); g.fillStyle = shade(c, 0); g.font = `bold ${W * 0.22}px sans-serif`; g.textAlign = 'center'; g.fillText('♻', W / 2, H * 0.47);
+    blobs(g, W, H, ['#1a1a1a', '#6a5a4a'], 30, 2, 8, 0.25); grain(g, W, H, 14);
+  }),
+  soil: () => photo('soil', 32, 32, (g, W, H) => { fill(g, W, H, '#2e2018'); blobs(g, W, H, ['#4a3424', '#1e140e', '#5a4030', '#6a4a2a'], 500, 1, 5, 0.75); strokes(g, W, H, ['#7a5a34'], 40, 10, 0, 3, 2, 0.5); grain(g, W, H, 16); }),
+  planter: () => photo('planter', 32, 32, (g, W, H) => {
+    fill(g, W, H, '#8a8494'); blobs(g, W, H, ['#7a7486', '#9a94a4', '#6a6476'], 80, 4, 16, 0.3);
+    g.fillStyle = 'rgba(40,34,48,.35)'; for (let i = 0; i < 6; i++) g.fillRect(R() * W, H * 0.2, 2, H * 0.8);
+    g.fillStyle = 'rgba(30,26,36,.5)'; g.fillRect(0, H - 4, W, 4); grain(g, W, H, 20);
+  }),
+  trashBag: () => photo('trashBag', 16, 16, (g, W, H) => { fill(g, W, H, '#16141a'); strokes(g, W, H, ['#3a3844', '#0a080c', '#4a4854'], 40, 20, 1, 2, 3, 0.6); grain(g, W, H, 10); }),
   produce: kind => photo('prod' + kind, 32, 16, (g, W, H) => {
     fill(g, W, H, '#3a2618');
     const c = kind === 'tomato' ? ['#d8301a', '#ff5a3a', '#a01a0a'] : kind === 'apple' ? ['#9ab83a', '#c8d84a', '#6a8a2a'] : kind === 'carrot' ? ['#ff8a1f', '#e86a10'] : ['#e8731a', '#f08a2a', '#b8520c'];
@@ -342,6 +377,18 @@ export const T = {
     g.strokeStyle = '#11121c'; g.lineWidth = W * 0.025; g.beginPath(); g.moveTo(W * 0.2, H * 0.54); g.lineTo(W * 0.5, H * 0.39); g.moveTo(W * 0.6, H * 0.54); g.lineTo(W * 0.87, H * 0.39); g.stroke();
     grain(g, W, H, 8);
   }),
+  busRear: c => photo('busRear' + c, 32, 32, (g, W, H) => {
+    fill(g, W, H, shade(c, -10)); g.fillStyle = '#1d2436'; g.fillRect(W * 0.12, H * 0.12, W * 0.76, H * 0.3);
+    g.fillStyle = '#37323f'; g.fillRect(W * 0.3, H * 0.55, W * 0.4, H * 0.12); g.fillStyle = '#e8e2d4'; g.fillRect(W * 0.38, H * 0.57, W * 0.24, H * 0.08);
+    for (const x of [0.06, 0.8]) { g.fillStyle = '#d8243a'; g.fillRect(W * x, H * 0.62, W * 0.14, H * 0.14); g.fillStyle = '#f5a030'; g.fillRect(W * x, H * 0.78, W * 0.14, H * 0.06); }
+    g.fillStyle = shade(c, -45); g.fillRect(0, H * 0.88, W, H * 0.12); grain(g, W, H, 8);
+  }),
+  hay: () => photo('hay', 32, 32, (g, W, H) => { fill(g, W, H, '#b8913a'); strokes(g, W, H, ['#d8b050', '#8a6a24', '#e8c868', '#6a5018'], 700, 14, 0, 0.5, 2, 0.6);
+    g.fillStyle = 'rgba(60,40,10,.6)'; g.fillRect(W * 0.28, 0, W * 0.05, H); g.fillRect(W * 0.68, 0, W * 0.05, H); grain(g, W, H, 14); }),
+  potty: () => photo('potty', 24, 48, (g, W, H) => { fill(g, W, H, '#2a7ac8'); g.fillStyle = '#1e5a98'; g.fillRect(W * 0.1, H * 0.06, W * 0.8, H * 0.9);
+    g.fillStyle = '#9be36b'; g.fillRect(W * 0.62, H * 0.5, W * 0.18, H * 0.05); g.fillStyle = '#f1e8ff'; g.font = `bold ${W * 0.22}px sans-serif`; g.textAlign = 'center'; g.fillText('WC', W / 2, H * 0.2);
+    for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(W * 0.3, H * (0.26 + i * 0.03), W * 0.4, H * 0.012); } grain(g, W, H, 10); }),
+  cementBag: () => photo('cementBag', 24, 16, (g, W, H) => { fill(g, W, H, '#c8bca0'); g.fillStyle = '#d8243a'; g.fillRect(W * 0.1, H * 0.3, W * 0.8, H * 0.35); g.fillStyle = '#f1e8ff'; g.font = `bold ${H * 0.28}px sans-serif`; g.textAlign = 'center'; g.fillText('M500', W / 2, H * 0.57); grain(g, W, H, 16); }),
   fuelPump: () => photo('fuelPump', 32, 48, (g, W, H) => {
     fill(g, W, H, '#d1cec9'); g.fillStyle = '#c82d35'; g.fillRect(0, H * 0.76, W, H * 0.24);
     g.fillStyle = '#262837'; g.fillRect(W * 0.12, H * 0.1, W * 0.76, H * 0.34);
@@ -446,7 +493,8 @@ export function facade(base, wM, hM, opt = {}) {
     // окна
     if (opt.windows !== false) {
       const per = 6; // м на этаж-ряд ~2.4
-      for (let fy = 0.9; fy < hM - 1.3; fy += 2.4) for (let fx = 0.7; fx < wM - 1; fx += 2.0) {
+      const rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9;
+      for (let fy = r0; fy < hM - 1.3; fy += rs) for (let fx = 0.7; fx < wM - 1; fx += 2.0) {
         if (opt.door && fy < 2.2 && fx + 1.1 > opt.door[0] && fx - 0.2 < opt.door[1]) continue;
         const x = fx * per * s, y = (hM - fy - 1.4) * per * s, w = 6 * s, h = 7.5 * s;
         g.fillStyle = '#1a1420'; g.fillRect(x - s, y - s, w + 2 * s, h + 2 * s);

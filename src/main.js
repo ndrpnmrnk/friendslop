@@ -1,12 +1,12 @@
 import './styles.css';
-import { THREE, V3, G, present, makeCamera, basic, mesh, sprite } from './core/gfx.js';
+import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS } from './config.js';
 import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook } from './core/input.js';
 import { DIFF } from './config.js';
 import { W } from './world/state.js';
 import { generateMap } from './world/world.js';
-import { updatePushables, groundAt } from './world/physics.js';
+import { updatePushables, groundAt, raySolids } from './world/physics.js';
 import { updateParticles } from './world/particles.js';
 import { updateBirds } from './world/birds.js';
 import { updateCrane } from './world/crane.js';
@@ -17,7 +17,7 @@ import { updateCamera, cam, resetCamera } from './game/camera.js';
 import { createArrow, updateArrow } from './game/arrow.js';
 import { M, resetMissions, spawnWave, removeMission, updateMissions, nearMission, GAMES } from './missions/missions.js';
 import { pulseOutline } from './game/outline.js';
-import { nearestRideable, mount, dismount } from './game/ride.js';
+import { nearestRideable, mount, dismount, grab, release, hopIn } from './game/ride.js';
 import { updateBreakables } from './world/breakables.js';
 import { $, pop, renderHud, renderStamina } from './ui/hud.js';
 import { createMenu } from './ui/menu.js';
@@ -27,7 +27,17 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(SEASON.bg);
 scene.fog = new THREE.Fog(...SEASON.fog);
 const hemi = new THREE.HemisphereLight(SEASON.hemi[0], SEASON.hemi[1], SEASON.hemi[2] * Math.PI); scene.add(hemi);
-const sun = new THREE.DirectionalLight(SEASON.sun[0], SEASON.sun[1] * Math.PI); sun.position.set(-30, 50, 25); scene.add(sun);
+const sun = new THREE.DirectionalLight(SEASON.sun[0], SEASON.sun[1] * Math.PI); sun.position.set(-30, 50, 25); scene.add(sun, sun.target);
+// жёсткие пиксельные тени: карта теней 2048 на квадрат ~64 м вокруг игрока
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
+Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 150 }); sun.shadow.camera.updateProjectionMatrix();
+const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(), SUN_U = new V3().crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize();
+function followSun(x, y, z) {
+  // привязка к текселю карты теней, чтобы края теней не дрожали при движении
+  const tx = 64 / 2048, c = new V3(x, y, z), a = Math.round(c.dot(SUN_R) / tx) * tx, b = Math.round(c.dot(SUN_U) / tx) * tx, f = c.dot(SUN_DIR);
+  const t = SUN_R.clone().multiplyScalar(a).addScaledVector(SUN_U, b).addScaledVector(SUN_DIR, f);
+  sun.target.position.copy(t); sun.position.copy(t).addScaledVector(SUN_DIR, 70);
+}
 const camera = makeCamera(CONFIG.camera.fov);
 const menu = createMenu();
 const arrow = createArrow(scene);
@@ -88,6 +98,7 @@ on('move', () => { const d = $('dot'); d.style.transform = `translate(${mouse.x}
 /* ---------- миссии ---------- */
 function openMission(m) {
   if (P.ride) dismount(P, false);
+  if (P.grab) release(P, 0);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   m.busy = true; P.root.visible = false; P.charging = false;
   $('mgicon').textContent = m.def.icon; $('mgtitle').textContent = m.def.name; $('mgpts').textContent = `+${m.def.points}`;
@@ -120,6 +131,7 @@ function nearCrane() { const c = W.crane; return c && !S.crane && Math.hypot(c.c
 const craneStick = { nx: 0, ny: 0 };
 function enterCrane() {
   if (P.ride) dismount(P, false);
+  if (P.grab) release(P, 0);
   craneStick.nx = 0; craneStick.ny = 0;
   const c = W.crane; if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   S.crane = true; c.active = true; P.frozen = true; P.root.visible = false;
@@ -141,6 +153,12 @@ on('down', btn => {
   if (S.state !== 'play') return;
   if (S.mg) { if (btn === 0 && S.mg.game.down) S.mg.game.down(aim(camera)); return; }
   if (S.crane) return;
+  // тележку/тачку хватаешь любой кнопкой мыши, ей же отпускаешь (с толчком)
+  if (P.grab && (btn === 0 || btn === 2)) { release(P, 1.1); return; }
+  if (!P.held && !P.ride && (btn === 0 || btn === 2)) {
+    const c = nearestRideable(P, 1.7, true), d = btn === 0 ? nearDoor() : null;
+    if (c && (!d || Math.hypot(c.x - P.pos.x, c.z - P.pos.z) < Math.hypot(d.x - P.pos.x, d.z - P.pos.z))) { grab(P, c); return; }
+  }
   if (btn === 0) { const d = nearDoor(); if (d) d.open = !d.open; }
   if (btn === 2 && P.held && P.stun <= 0) { P.charging = true; P.charge = 0; P.aimYaw = P.root.rotation.y; $('dot').classList.add('charge'); }
 });
@@ -159,18 +177,21 @@ on('key', code => {
 });
 const _aimHit = new V3();
 function aimPoint() {
-  const r = aim(camera); r.far = 80;
-  const hits = r.intersectObjects(W.group.children, true);
-  for (const h of hits) { if (P.held && h.point.distanceTo(P.ch.holdPoint) < 0.7) continue; if (h.object.isSprite || (h.object.material && h.object.material.transparent && h.object.material.opacity < 0.5)) continue; return _aimHit.copy(h.point); }
+  const r = aim(camera);
+  // луч по твёрдым объектам (быстро и совпадает с тем, обо что предмет ударится)
+  const t = raySolids(r.ray.origin, r.ray.direction, 80);
+  if (t < 80) return _aimHit.copy(r.ray.origin).addScaledVector(r.ray.direction, t);
   const plane = new THREE.Plane(new V3(0, 1, 0), -P.pos.y);
-  return r.ray.intersectPlane(plane, _aimHit);
+  // смотришь в небо — целимся в точку далеко по лучу (бросок «навесом» на максимум)
+  return r.ray.intersectPlane(plane, _aimHit) || _aimHit.copy(r.ray.origin).addScaledVector(r.ray.direction, 40);
 }
 
 // ближайший объект, с которым можно взаимодействовать: его контур подсвечивается
 function focusTarget() {
   if (S.mg || S.crane || S.state !== 'play') return null;
   if (P.ride) return null;
-  if (!P.held) { const it = nearestItem(P.pos, 1.5); if (it) return it.outline; const rb = nearestRideable(P); if (rb) return rb.outline; }
+  if (P.grab) return null;
+  if (!P.held) { const it = nearestItem(P.pos, 1.5); if (it) return it.outline; const rb = nearestRideable(P) || nearestRideable(P, 1.7, true); if (rb) return rb.outline; }
   if (nearCrane()) return W.crane.outline;
   const d = nearDoor(); if (d) return d.outline;
   return null;
@@ -180,6 +201,7 @@ function interact() {
   if (S.mg) return;
   if (S.crane) { exitCrane(); return; }
   if (P.ride) { dismount(P, false); return; }
+  if (P.grab) { hopIn(P); return; }
   const m = nearMission(P);
   if (m) { openMission(m); return; }
   if (P.held) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; return; }
@@ -248,12 +270,13 @@ function loop() {
     updateBreakables(dt);
     updateParticles(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' && !S.crane ? lk : null, !!(P && P.charging));
+    { const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz); }
     present(scene, camera);
   }
   endFrame();
   requestAnimationFrame(loop);
 }
 // отладочный доступ из консоли браузера
-window.__fs = { S, arc, land, phys: { groundAt }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
+window.__fs = { renderer, S, grab, hopIn, release, arc, land, phys: { groundAt }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
 showMenu();
 loop();

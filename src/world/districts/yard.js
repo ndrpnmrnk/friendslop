@@ -7,20 +7,37 @@ import { W } from '../state.js';
 export default {
   id: 'yard', name: 'Двор', ground: 'pave',
   build(b) {
-    b.house({ x: 4, z: 1, w: 20, d: 7, h: 3.4, upper: 9.8, wall: 0x7c6a9c, roof: true,
-      door: { side: 's', at: 0.5, sign: ['ПОДЪЕЗД 3', '#2a1f3d', '#f5c542'] }, ladder: { side: 'w', at: 0.5 }, gaps: [{ side: 'e', at: 0.5 }],
-      inner: T.plaster(), floor: T.floorTile(),
-      interior(b, r) {
-        b.box(14, r.z0 + 0.15, 2.4, 0.3, 1.2, tmat(T.mailbox()), { y: 1.0 });
-        for (let i = 0; i < 6; i++) b.box(r.x1 - 0.9, r.z1 - 0.8 - i * 0.55, 1.6, 0.55, 0.3 * (i + 1), tmat(T.concrete()));
-        b.box(r.x0 + 0.4, 4.5, 0.3, 1.6, 0.8, tmat(T.vent(0xd8d0c0)), { y: 0.3 });
-        b.bench(9, r.z0 + 0.5, 0);
+    // жилой дом на 4 этажа: подъезд, квартиры, лестница до крыши
+    b.tower({ x: 4, z: 1, w: 20, d: 7, floors: 4, fh: 3.3, wall: 0x7c6a9c,
+      door: { side: 's', at: 0.5, sign: ['ПОДЪЕЗД 3', '#2a1f3d', '#f5c542'] }, ladder: { side: 'w', at: 0.5 }, gaps: [{ side: 'e', at: 0.5 }], floor: T.floorTile(),
+      interior(f, k, r) {
+        if (k === 0) {
+          f.box(17.5, 1.42, 2.6, 0.3, 1.1, tmat(T.mailbox()), { y: 1.0 });
+          f.bench(19.5, 7.3, Math.PI); f.plantPot(22.9, 7.2); f.plantPot(12, 7.2, 0.9); f.rug(14, 5.5, 2, 3);
+          f.box(r.x1 - 0.2, 4.6, 0.3, 1.6, 0.8, tmat(T.vent(0xd8d0c0)), { y: 0.3 }); f.trashBags(22.5, 2.0, 2);
+          return;
+        }
+        f.partition(15.5, 1.25, 15.5, 7.75, 3.1, 0.62);
+        if (k === 1) {
+          f.sofa(9, 7.1, Math.PI); f.tvStand(9, 4.3, 0); f.rug(9, 5.7, 2.6, 1.6, '#4a6a9a', '#f1e8ff');
+          f.table(13.5, 5.5, 0.8); f.chair(13.5, 6.4, Math.PI); f.chair(13.5, 4.6, 0);
+          f.kitchen(19.5, 1.6, 3); f.table(20, 5.4, 0.9); f.chair(19.2, 5.4, Math.PI / 2); f.chair(20.8, 5.4, -Math.PI / 2); f.plantPot(23.3, 7.3);
+        } else if (k === 2) {
+          f.bed(13.3, 6.4, Math.PI / 2, 0x7b4bc4); f.wardrobe(5, 7.1, 0); f.rug(9, 6, 3, 2);
+          f.bed(22.6, 6.6, Math.PI, 0x6aa84f); f.wardrobe(16.4, 2, Math.PI / 2); f.desk(19.5, 7.25, Math.PI, true); f.item('ball', 18.5, 4.5);
+        } else {
+          for (const [x, z, s2] of [[5.2, 7, 1], [6.3, 7.1, 0.9], [5.7, 7, 0.8, 1]]) f.crate(x, z, s2);
+          f.shelf(13, 7.45, 2.6, Math.PI); f.item('chair', 9, 5.5);
+          f.sofa(20, 7.1, Math.PI, 0x3a5a4a); f.tvStand(20, 4.2, 0); f.plantPot(23.3, 4.3);
+        }
       } });
-    b.house({ x: 25, z: 1, w: 6, d: 7, h: 3.4, upper: 9.8, wall: 0x9c6a6a, roof: true, door: { side: 's', at: 0.5 }, gaps: [{ side: 'w', at: 0.5 }],
-      interior(b, r) { b.shelf((r.x0 + r.x1) / 2, r.z0 + 0.3, 3.4, 0); } });
+    b.tower({ x: 25, z: 1, w: 6, d: 7, floors: 4, fh: 3.3, wall: 0x9c6a6a, door: { side: 's', at: 0.5 }, gaps: [{ side: 'w', at: 0.5 }],
+      run: 0.3, landing: 1.0, lane: 1.1, floor: T.floorWood(),
+      interior(f, k, r) { if (k % 2 === 0) f.shelf((r.x0 + r.x1) / 2, r.z1 - 0.3, 3.4, Math.PI); else { f.table((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, 0.8); f.chair((r.x0 + r.x1) / 2 + 0.9, (r.z0 + r.z1) / 2, -Math.PI / 2); } } });
     b.plank(24, 4.5, 25, 4.5, 13.2, 1.1);
     // на крыше: водонапорный бак, антенны, кондиционеры
-    b.box(8, 3, 2.4, 2.4, 0.6, tmat(T.metal()), { y: 13.2 }); b.m(G.cyl12, tmat(T.rust()), 8, 15.1, 3, 1.1, 2.2, 1.1); b.m(G.cone8, tmat(T.rust()), 8, 16.6, 3, 1.2, 0.8, 1.2);
+    b.box(17, 5, 2.4, 2.4, 0.6, tmat(T.metal()), { y: 13.2 }); b.m(G.cyl12, tmat(T.rust()), 17, 15.1, 5, 1.1, 2.2, 1.1); b.m(G.cone8, tmat(T.rust()), 17, 16.6, 5, 1.2, 0.8, 1.2); b.solid(17, 5, 2.2, 2.2, 13.8, 2.2);
+    for (const [x, z] of [[16.1, 4.1], [17.9, 4.1], [16.1, 5.9], [17.9, 5.9]]) b.m(G.box, col(0x3a3440), x, 13.5, z, 0.08, 0.6, 0.08);
     for (const x of [14, 19]) b.aircon(x, 2.6, 13.2);
     for (const x of [11, 21]) { b.m(G.cyl5, col(0x2b2533), x, 14.4, 6.5, 0.04, 2.4, 0.04); b.m(G.box, col(0x2b2533), x, 15.3, 6.5, 0.9, 0.04, 0.04); }
     // качели
@@ -34,7 +51,7 @@ export default {
       const p = new THREE.Group(); p.position.set(b.X(x), b.Y + top - 0.05, b.Z(sz)); W.group.add(p);
       for (const o of [-0.28, 0.28]) { const r = new THREE.Mesh(G.box, col(0x8a8d98)); r.position.set(o, -0.95, 0); r.scale.set(0.03, 1.9, 0.03); p.add(r); }
       const seat = new THREE.Mesh(G.box, tmat(T.wood())); seat.position.y = -1.92; seat.scale.set(0.7, 0.07, 0.32); p.add(seat);
-      const ph = Math.random() * 6; W.animated.push((dt, t) => { p.rotation.x = Math.sin(t * 1.6 + ph) * 0.3; });
+      const ph = Math.random() * 6; W.keep.push(p); W.animated.push((dt, t) => { p.rotation.x = Math.sin(t * 1.6 + ph) * 0.3; });
     }
     // горка
     b.box(17, 13, 1.2, 1.2, 0.12, col(0xd04a4a), { y: 1.25 });
@@ -64,9 +81,10 @@ export default {
     [[13, 0xd8243a], [14.3, 0xf1e8ff], [15.6, 0x4ab0f0], [16.9, 0xf5c542]].forEach(([x, c], i) => {
       const p = new THREE.Group(); p.position.set(b.X(x), b.Y + 2.1, b.Z(28)); W.group.add(p);
       const cl = new THREE.Mesh(G.plane, new THREE.MeshLambertMaterial({ map: T.laundry(c), transparent: true, alphaTest: 0.1, side: THREE.DoubleSide })); cl.position.y = -0.4; cl.scale.set(0.8, 0.8, 1); p.add(cl);
-      W.animated.push((dt, t) => { p.rotation.x = Math.sin(t * 2 + i) * 0.25; });
+      W.keep.push(p); W.animated.push((dt, t) => { p.rotation.x = Math.sin(t * 2 + i) * 0.25; });
     });
     b.bench(12, 9.6, 0); b.bench(21, 12, -Math.PI / 2);
+    b.bikeRack(6, 9.6, 3, 0); b.trashBags(18.6, 26.2, 3); b.postBox(26, 9.5, 0); b.planter(16, 9.4, 3, 0.9, 0.4, 'flowers');
     b.tree(30, 13); b.tree(1.8, 14); b.tree(29.5, 30); b.bin(2, 9.5);
     b.lamp(1.2, 19, Math.PI / 2); b.lamp(30.8, 20, -Math.PI / 2);
     b.zone('floor', 1, 9.5, 31, 19); b.zone('floor', 9, 19, 21, 30.5);

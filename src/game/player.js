@@ -3,10 +3,10 @@ import { CONFIG } from '../config.js';
 import { keys, tapped } from '../core/input.js';
 import { clamp, damp } from '../core/rng.js';
 import { W } from '../world/state.js';
-import { moveBody, zoneAt, bumpPushables } from '../world/physics.js';
-import { puff, burst } from '../world/particles.js';
+import { moveBody, zoneAt, bumpPushables, solidsNear, groundAt } from '../world/physics.js';
+import { puff, burst, smoke, smokeRing } from '../world/particles.js';
 import { makeCharacter } from '../characters/rig.js';
-import { updateRide, autoMount } from './ride.js';
+import { updateRide, autoMount, updateGrab, release } from './ride.js';
 
 const PC = CONFIG.player;
 export function createPlayer(skin) {
@@ -21,6 +21,11 @@ export function createPlayer(skin) {
   };
 }
 
+// Пятно-тень лежит на земле под персонажем и не подпрыгивает вместе с ним: чем выше, тем меньше и бледнее
+export function groundBlob(p) {
+  const g = p.onGround ? p.pos.y : groundAt(p.pos.x, p.pos.z, 0.1, p.pos.y + 0.05), h = Math.max(0, p.pos.y - g), k = Math.max(0, 1 - h / 6);
+  const b = p.ch.blob; b.position.y = g - p.pos.y + 0.03; b.scale.setScalar(p.ch.blobS * (0.55 + 0.45 * k)); b.material.opacity = 0.32 * k; b.visible = k > 0.02;
+}
 export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const ctrl = canMove && p.stun <= 0 && !p.frozen;
   let ix = 0, iz = 0;
@@ -37,6 +42,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     if (p.ride) {
       p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt);
       p.ch.animate(dt, { t, speed: 0, ride: pose, rideSpeed: p.speed, hold: false });
+      groundBlob(p);
       return;
     }
   }
@@ -45,18 +51,19 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   p.diveCD -= dt;
   if (ctrl && tapped('KeyC') && p.onGround && curSp > PC.walk + 1 && !p.climb && !p.dive) {
     p.slideT = PC.slideTime; p.slideDir = [p.vel.x / curSp, p.vel.z / curSp]; p.slideV = Math.max(curSp, PC.slideSpeed);
-    burst(p.pos.x, p.pos.y + 0.1, p.pos.z, 6, { size: 0.35, speed: 2, up: 0.4, g: 0, grow: 1.2, life: 0.5 });
+    smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 6, { speed: 2.2 });
   }
   if (ctrl && tapped('KeyQ') && !p.dive && p.diveCD <= 0 && !p.climb && p.slideT <= 0) {
     const f = p.root.rotation.y; p.dive = 'air'; p.diveCD = PC.diveCooldown;
     p.vel.x = Math.sin(f) * PC.diveSpeed + p.vel.x * 0.2; p.vel.z = Math.cos(f) * PC.diveSpeed + p.vel.z * 0.2;
     p.vel.y = p.onGround ? PC.diveUp : Math.max(p.vel.y, 2); p.onGround = false; p.airPeak = p.pos.y;
   }
-  const lowCeil = W.solids.some(s => s.on && p.pos.x + 0.3 > s.x0 && p.pos.x - 0.3 < s.x1 && p.pos.z + 0.3 > s.z0 && p.pos.z - 0.3 < s.z1 && s.y0 >= p.pos.y + PC.crouchH - 0.05 && s.y0 < p.pos.y + PC.height);
+  const lowCeil = solidsNear(p.pos.x - 0.3, p.pos.z - 0.3, p.pos.x + 0.3, p.pos.z + 0.3).some(s => s.on && p.pos.x + 0.3 > s.x0 && p.pos.x - 0.3 < s.x1 && p.pos.z + 0.3 > s.z0 && p.pos.z - 0.3 < s.z1 && s.y0 >= p.pos.y + PC.crouchH - 0.05 && s.y0 < p.pos.y + PC.height);
   p.crouch = !p.climb && (p.slideT > 0 || !!p.dive || (ctrl && keys.KeyC && p.onGround) || (p.crouch && lowCeil));
   p.h = p.crouch ? PC.crouchH : PC.height;
   // спринт и стамина
   const wantSprint = ctrl && il > 0 && (keys.ShiftLeft || keys.ShiftRight) && !p.climb && !p.crouch;
+  if (p.grab && tapped('KeyC')) release(p, 1);
   if (p.exhausted && p.stamina > PC.stamina.restart) p.exhausted = false;
   p.sprinting = wantSprint && !p.exhausted && p.stamina > 0;
   if (p.sprinting) { p.stamina -= PC.stamina.drain * dt; p.stDelay = PC.stamina.delay; if (p.stamina <= 0) { p.stamina = 0; p.exhausted = true; } }
@@ -70,6 +77,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const ramp = p.boost * p.boost * (3 - 2 * p.boost);
   let top = (PC.walk + (PC.sprint - PC.walk) * (p.sprinting ? ramp : 0)) * (water ? 0.5 : 1) * (p.held && p.held.def.heavy ? 0.85 : 1);
   if (p.crouch) top = Math.min(top, PC.crouchSpeed);
+  if (p.grab) top *= p.grab.kind === 'barrow' ? 0.82 : 0.92;
   const cur = Math.hypot(p.vel.x, p.vel.z);
   let acc;
   if (!p.onGround) acc = 3;
@@ -81,7 +89,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     p.slideT -= dt; p.slideV = Math.max(3, p.slideV - 11 * dt);
     if (il) { const a = Math.atan2(p.slideDir[0], p.slideDir[1]); let d = Math.atan2(ix, iz) - a; d = Math.atan2(Math.sin(d), Math.cos(d)); const na = a + Math.max(-1.2 * dt, Math.min(1.2 * dt, d)); p.slideDir = [Math.sin(na), Math.cos(na)]; }
     p.vel.x = p.slideDir[0] * p.slideV; p.vel.z = p.slideDir[1] * p.slideV;
-    if (Math.random() < dt * 20) puff(p.pos.x, p.pos.y + 0.08, p.pos.z, { size: 0.3, life: 0.4, vy: 0.2, opacity: 0.5, grow: 0.8 });
+    if (Math.random() < dt * 22) smoke(p.pos.x - p.slideDir[0] * 0.3, p.pos.y + 0.12, p.pos.z - p.slideDir[1] * 0.3, { size: 0.16, grow: 0.55, life: 0.55, vy: 0.5, vx: -p.slideDir[0] * 1.2 + (Math.random() - 0.5), vz: -p.slideDir[1] * 1.2 + (Math.random() - 0.5) });
   } else if (p.dive === 'air') { /* в выпаде управление не действует */ }
   else if (p.dive === 'roll') { p.rollT -= dt; p.vel.x *= Math.exp(-dt * 2); p.vel.z *= Math.exp(-dt * 2); if (p.rollT <= 0) p.dive = null; }
   else { p.vel.x += (ix * top - p.vel.x) * damp(acc, dt); p.vel.z += (iz * top - p.vel.z) * damp(acc, dt); }
@@ -105,21 +113,23 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     if (p.slideT > 0) { p.slideT = 0; }
     p.vel.y = PC.jump * (water ? 0.75 : 1);
     if (p.climb) { p.vel.x += p.climb.nx * 3; p.vel.z += p.climb.nz * 3; p.climb = null; }
-    burst(p.pos.x, p.pos.y + 0.1, p.pos.z, 5, { size: 0.35, speed: 1.5, up: 0.5, g: 0, grow: 1.2, life: 0.5 });
+    smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 5, { speed: 1.6, size: 0.14, grow: 0.42, life: 0.5 });
   }
   p.noGrav = !!p.climb && p.vel.y === 0;
   const wasGround = p.onGround;
   moveBody(p, dt, PC.gravity);
   bumpPushables(p);
+  if (p.grab && (p.stun > 0 || p.climb || p.dive || !p.onGround && p.vel.y > 1)) release(p, 0.5);
+  updateGrab(p, dt);
   autoMount(p);
   // падение с высоты оглушает
   if (!p.onGround) p.airPeak = Math.max(p.airPeak, p.pos.y);
   if (p.onGround && !wasGround) {
     const drop = p.airPeak - p.pos.y;
-    if (p.dive === 'air' && drop <= PC.fallStun) { p.dive = 'roll'; p.rollT = PC.rollTime; p.vel.x *= 0.8; p.vel.z *= 0.8; burst(p.pos.x, p.pos.y + 0.1, p.pos.z, 6, { size: 0.4, speed: 2, up: 0.4, g: 0, grow: 1.2, life: 0.5 }); }
+    if (p.dive === 'air' && drop <= PC.fallStun) { p.dive = 'roll'; p.rollT = PC.rollTime; p.vel.x *= 0.8; p.vel.z *= 0.8; smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 7, { speed: 2.4 }); }
     else if (p.dive === 'air') p.dive = null;
-    if (drop > PC.fallStun) { p.stun = PC.stunTime; burst(p.pos.x, p.pos.y + 0.1, p.pos.z, 10, { size: 0.5, speed: 3, up: 0.6, g: 0, grow: 1.5, life: 0.7 }); }
-    else if (drop > 0.4) burst(p.pos.x, p.pos.y + 0.1, p.pos.z, 6, { size: 0.4, speed: 2, up: 0.4, g: 0, grow: 1.2, life: 0.5 });
+    if (drop > PC.fallStun) { p.stun = PC.stunTime; smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 12, { speed: 3.2, size: 0.24, grow: 0.8, life: 0.8 }); }
+    else if (drop > 0.4) smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 7, { speed: 2, size: 0.16, grow: 0.5, life: 0.55 });
     p.landedNow = true;
   } else p.landedNow = false;
   if (p.onGround) p.airPeak = p.pos.y;
@@ -133,16 +143,23 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   let dy = p.facing - p.root.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); p.root.rotation.y += dy * damp(14, dt);
   // дым при беге, брызги в воде
   // дым из-под ног: небольшой, позади персонажа и у самой земли, чтобы не закрывать его
+  // бег: объёмные клубы дыма позади; шаг: только редкие крошки пыли из-под ног
   p.smokeT -= dt;
-  if (p.onGround && spd > 6 && p.smokeT <= 0) {
-    p.smokeT = p.sprinting ? 0.09 : 0.16;
-    const bx = spd ? -p.vel.x / spd : 0, bz = spd ? -p.vel.z / spd : 0;
-    if (water) burst(p.pos.x, p.pos.y + 0.15, p.pos.z, 3, { color: 0x8ac0e8, size: 0.2, speed: 1.4, up: 2, life: 0.45 });
-    else puff(p.pos.x + bx * 0.55 + (Math.random() - 0.5) * 0.2, p.pos.y + 0.1, p.pos.z + bz * 0.55, { size: p.sprinting ? 0.32 : 0.24, life: 0.45, vy: 0.15, vx: bx * 0.6, vz: bz * 0.6, grow: 0.9, opacity: 0.55 });
+  const running = p.boost > 0.35 && spd > PC.walk + 0.5;
+  if (p.onGround && !p.crouch && p.smokeT <= 0 && spd > 2.5) {
+    const bx = -p.vel.x / spd, bz = -p.vel.z / spd;
+    if (water) { p.smokeT = 0.14; burst(p.pos.x, p.pos.y + 0.15, p.pos.z, 3, { color: 0x8ac0e8, size: 0.2, speed: 1.4, up: 2, life: 0.45 }); }
+    else if (running) {
+      p.smokeT = 0.055;
+      const n = Math.random() < 0.35 ? 2 : 1;
+      for (let i = 0; i < n; i++) smoke(p.pos.x + bx * 0.45 + (Math.random() - 0.5) * 0.35, p.pos.y + 0.12 + Math.random() * 0.1, p.pos.z + bz * 0.45 + (Math.random() - 0.5) * 0.35,
+        { size: 0.12 + Math.random() * 0.06, grow: 0.45 + Math.random() * 0.25, life: 0.55 + Math.random() * 0.25, vx: bx * 1.4 + (Math.random() - 0.5) * 0.6, vz: bz * 1.4 + (Math.random() - 0.5) * 0.6, vy: 0.35 + Math.random() * 0.4 });
+    } else { p.smokeT = 0.22 + Math.random() * 0.2; smoke(p.pos.x + bx * 0.3, p.pos.y + 0.04, p.pos.z + bz * 0.3, { dust: true, vx: bx * 0.8 + (Math.random() - 0.5) * 0.6, vz: bz * 0.8 + (Math.random() - 0.5) * 0.6 }); }
   }
   if (p.throwT > 0) p.throwT -= dt;
+  groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
   p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, climb: !!p.climb,
-    hold: !!p.held, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
+    hold: !!p.held || !!p.grab, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null });
 }

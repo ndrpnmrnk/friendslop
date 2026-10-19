@@ -38,6 +38,8 @@ export default {
     for (const z of [29.6, 30, 30.4]) b.m(G.cyl8, tmat(T.rust()), 19, 0.43, z, 0.2, 2.8, 0.2).rotation.z = Math.PI / 2;
     b.solid(19, 30, 3, 1.4, 0.18, 0.45);
     b.crate(17, 29.4, 1); b.crate(17.8, 30.4, 0.9);
+    // погрузчик, поддоны, бочки у стены, мусор
+    b.forklift(23, 29, Math.PI / 2); b.pallet(27.5, 15.5); b.pallet(27.5, 15.5, 1.6, 1.2, 0.18); b.barrel(30.6, 21.5); b.barrel(30.6, 22.5); b.trashBags(2.2, 13.2, 3);
     b.lamp(12, 1.2, 0); b.lamp(31, 8, -Math.PI / 2); b.lamp(1, 14, Math.PI / 2);
     b.zone('floor', 7, 13, 14.5, 17.5); b.zone('floor', 1, 22.5, 11, 31); b.zone('floor', 18.5, 13.5, 31, 18);
     b.spawn(10, 7.5); b.spawn(20, 16);

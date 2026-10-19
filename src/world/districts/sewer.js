@@ -61,13 +61,13 @@ export default {
     for (const [dx, dz, w, d] of [[0, -0.65, 1.4, 0.1], [0, 0.65, 1.4, 0.1], [-0.65, 0, 0.1, 1.4], [0.65, 0, 0.1, 1.4]]) b.m(G.box, dk, 28 + dx, 0.17, 24 + dz, w, 0.04, d);
     b.m(G.cyl12, tmat(T.metal()), 29.4, 0.18, 24.4, 0.55, 0.05, 0.55);
     // насосная станция наверху
-    b.house({ x: 22, z: 2, w: 9, d: 8, h: 3.6, upper: 2.4, wall: 0x6a7a8a, lit: 0.6, door: { side: 'w', at: 0.5, sign: ['НАСОСНАЯ', '#3a6a9a', '#f1e8ff'] }, ladder: { side: 'e', at: 0.5 }, roof: true,
+    b.house({ x: 22, z: 2, w: 9, d: 8, h: 4.4, wall: 0x6a7a8a, lit: 0.6, door: { side: 'w', at: 0.5, sign: ['НАСОСНАЯ', '#3a6a9a', '#f1e8ff'] }, ladder: { side: 'e', at: 0.5 }, roof: true,
       interior(b, r) { for (const x of [24.5, 28]) b.pump(x, 6, 0.8, 2);
         b.box(r.x1 - 0.4, 3, 0.4, 1.6, 1.6, col(0x4a4e66)); b.m(G.box, glow(0x9be36b), r.x1 - 0.62, 1.2, 3, 0.02, 0.5, 1); } });
     // ограждение канала наверху, кроме проходов к спускам
     for (const [x, z0, z1] of [[11.5, 0.5, 4.5], [11.5, 7.5, 14.4], [11.5, 17.6, 31.5], [20.5, 0.5, 7.5], [20.5, 11, 14.4], [20.5, 17.6, 25.5], [20.5, 28.5, 31.5]]) b.fence(x, z0, x, z1, 1.1, 'iron');
     b.crate(5, 5, 1.1); b.crate(6.1, 5.2, 0.9); b.barrel(3, 28); b.barrel(4, 28.6);
-    b.bench(6, 16, Math.PI / 2); b.tree(3, 20); b.tree(8, 26); b.lamp(10.5, 16, -Math.PI / 2); b.lamp(22, 16, Math.PI / 2);
+    b.bench(6, 16, Math.PI / 2); b.trashBags(1.5, 9, 2); b.utilityBox(10.6, 22, -Math.PI / 2); b.planter(5, 22.5, 2.2, 1.2, 0.45, 'shrub'); b.tree(3, 20); b.tree(8, 26); b.lamp(10.5, 16, -Math.PI / 2); b.lamp(22, 16, Math.PI / 2);
     b.ride('barrow', 25, 14, 1);
     b.zone('floor', 1, 1, 11, 31); b.zone('floor', 21, 11, 31, 18);
     W.missionZones.push({ type: 'tunnel', x0: b.X(13.6), z0: b.Z(2), x1: b.X(18.4), z1: b.Z(30), y: b.Y + FLOOR, district: 'Коллектор' });

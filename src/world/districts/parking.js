@@ -22,7 +22,9 @@ export default {
     b.bin(30.5, 12); b.hydrant(1.2, 15);
     // паркомат, разделительные клумбы, конусы, автобус
     const pm = col(0x305c88); b.box(14, 12.4, 0.48, 0.4, 1.55, [pm, pm, pm, pm, tmat(T.parkingMeter()), pm]);
-    for (const x of [6, 22]) { b.box(x, 12.4, 4, 1, 0.3, tmat(T.concrete())); b.m(G.ico, tmat(T.bush()), x, 0.55, 12.4, 1.8, 0.4, 0.45); b.tree(x, 12.4, 0.8); }
+    for (const x of [6, 22]) b.planter(x, 12.4, 4, 1.2, 0.4, 'tree');
+    for (let x = 2; x <= 30; x += 4) if (x !== 14) b.bollard(x, 1.6);
+    b.trashBags(5.8, 30.6, 3); b.utilityBox(9, 30.8, Math.PI); b.ride('cart', 27, 13.5, 1.2); b.tires(29.5, 30.3, 4);
     // Конусы отмечают стоянку автобуса, а не стоят поперёк свободного проезда.
     b.cone(28.5, 26.5); b.cone(28.5, 29.5);
     b.bus(23, 28); b.zone('roof', 19, 27, 27, 29, 2.9);

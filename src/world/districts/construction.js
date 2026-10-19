@@ -48,8 +48,10 @@ export default {
     const geo = new THREE.CylinderGeometry(0.34, 0.58, 0.9, 8), shell = new THREE.Mesh(geo, tmat(T.corrugated(0xd04a2a))); drum.add(shell);
     const mouth = new THREE.Mesh(G.disc, frame); mouth.position.y = 0.458; mouth.rotation.x = -Math.PI / 2; mouth.scale.setScalar(0.3); drum.add(mouth);
     const wheel = new THREE.Mesh(G.torus, frame); wheel.position.set(0.66, 0.8, 0); wheel.rotation.y = Math.PI / 2; wheel.scale.setScalar(0.24); mixer.add(wheel);
-    W.animated.push(dt => { drum.rotation.y += dt * 1.5; }); b.solid(7.5, 24, 1.4, 1.3, 0, 1.8);
+    W.keep.push(mixer); W.animated.push(dt => { drum.rotation.y += dt * 1.5; }); b.solid(7.5, 24, 1.4, 1.3, 0, 1.8);
     b.m(G.box, glow(0xff8a1f), 1.5, 2.6, 13.6, 0.25, 0.25, 0.25);
+    // биотуалет, мешки цемента, шины, конусы
+    b.potty(29.6, 29.6, Math.PI); b.potty(28.2, 29.6, Math.PI); b.cementPallet(22, 16); b.tires(2.2, 29.6, 3); b.cone(14.5, 21.5); b.cone(15.5, 23);
     b.lamp(31, 20, -Math.PI / 2); b.lamp(12.5, 15, 0);
     b.zone('floor', 2, 13.5, 19, 30.5); b.zone('floor', 19, 13.5, 31, 22.5);
     b.spawn(16, 15); b.spawn(24, 29.5);

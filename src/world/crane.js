@@ -36,6 +36,7 @@ export function buildCrane(b, mx, mz, aimAt) {
   const ballR = 0.6, rope = 9.4;
   const ball = mesh(G.sph10, tmat(T.metal()), 0, 0, 0, ballR, ballR, ballR, W.group);
   const ropeM = mesh(G.box, dark, 0, 0, 0, 0.05, 1, 0.05, W.group);
+  W.keep.push(pivot, ball, ropeM);
   const cr = {
     pivot, trolley, ball, ropeM,
     yaw: Math.atan2(-(b.Z(aimAt[1]) - b.Z(mz)), b.X(aimAt[0]) - b.X(mx)) + 0.5, yawV: 0, tr: 8, ballR, rope,

@@ -18,7 +18,10 @@ export default {
       } });
     const pd = b.m(G.cone4, tmat(T.stone()), 16, 4.3, 9.05, 1, 1, 1); pd.rotation.y = Math.PI / 4; pd.scale.set(4, 1.4, 0.3);
     for (let z = 13; z <= 28; z += 3) for (let x = 3.5; x <= 29; x += 3.4) if (Math.abs(x - 16) > 2 && Math.random() < 0.85) b.grave(x + (Math.random() - 0.5) * 0.5, z);
-    b.deadTree(28, 6);
+    b.deadTree(28, 6); b.deadTree(4, 22);
+    b.gateArch(16, 31, 3.6, 'ПОКОЙ');
+    for (const [x, z] of [[14.2, 18], [17.8, 18], [14.2, 27], [17.8, 27]]) b.lantern(x, z);
+    b.bench(24, 12, Math.PI); b.bench(8, 12, Math.PI);
     b.shed(3, 3, 4, 3.5);
     b.lamp(14.2, 14, Math.PI / 2); b.lamp(17.8, 24, -Math.PI / 2);
     b.zone('nook', 22, 2, 30.4, 9.4);

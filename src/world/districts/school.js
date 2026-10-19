@@ -1,4 +1,4 @@
-import { THREE, G, tmat, col, lam, paint } from '../../core/gfx.js';
+import { THREE, G, tmat, col, lam, paint, glow } from '../../core/gfx.js';
 import { T, rep } from '../../core/textures.js';
 
 // Школьный двор: класс с креслами на колёсиках, крыша школы по лестнице, мячи, кольцо,
@@ -6,13 +6,25 @@ import { T, rep } from '../../core/textures.js';
 export default {
   id: 'school', name: 'Школьный двор', ground: 'pave',
   build(b) {
-    b.house({ x: 3, z: 1, w: 26, d: 8, h: 3.4, upper: 6.8, wall: 0x9a6a5a, lit: 0.6, door: { side: 's', at: 0.5 }, sign: ['ШКОЛА №13', '#2a1f3d', '#f5c542'],
-      ladder: { side: 'w', at: 0.5 }, roof: true,
-      interior(b, r) {
-        b.m(G.plane, tmat(T.chalkboard()), 16, 1.8, r.z0 + 0.02, 4.4, 1.7, 1);
-        b.box(16, r.z0 + 1.3, 1.8, 0.8, 0.85, tmat(T.wood()));
-        for (const x of [6, 9.5, 22.5, 26]) for (const z of [r.z0 + 3, r.z0 + 5]) b.table(x, z, 0.75);
-        b.ride('chair', 18, r.z0 + 1.5, 0); b.ride('chair', 12, r.z1 - 1, Math.PI);
+    // трёхэтажная школа: класс, библиотека, кабинет химии; лестница до крыши
+    b.tower({ x: 3, z: 1, w: 26, d: 8, floors: 3, fh: 3.4, wall: 0x9a6a5a, lit: 0.6, door: { side: 's', at: 0.5, sign: ['ШКОЛА №13', '#2a1f3d', '#f5c542'] },
+      ladder: { side: 'w', at: 0.5 }, floor: T.floorWood(),
+      interior(f, k, r) {
+        f.m(G.plane, tmat(k === 2 ? T.chalkboard() : T.chalkboard()), 18, 1.75, r.sx1 > 18 ? r.z0 : 1.27, 4.4, 1.6, 1);
+        if (k === 0) {
+          f.box(18, 2.9, 1.8, 0.8, 0.85, tmat(T.wood()));
+          for (const x of [13, 16.5, 20, 23.5]) for (const z of [5.4, 7.6]) f.desk(x, z, Math.PI, false);
+          f.ride('chair', 19.2, 2.5, 0); f.ride('chair', 23.5, 6.5, Math.PI);
+          f.plantPot(27.6, 8.4); f.cabinet(27.9, 3, 0.6, 1.6, 1.8, 0x6a5a4a, 0, -Math.PI / 2);
+        } else if (k === 1) {
+          for (const x of [13.5, 18, 22.5]) f.shelf(x, 5.6, 3.2, 0);
+          f.table(15.8, 7.9, 0.8); f.table(20.3, 7.9, 0.8); f.chair(15.8, 7.1, 0); f.chair(20.3, 7.1, 0);
+          f.rug(26, 6, 2.4, 3, '#2a6a4a', '#f5c542'); f.sofa(26, 8.2, Math.PI, 0x4a5a8a); f.plantPot(11.4, 8.4);
+        } else {
+          for (const x of [14, 19, 24]) { f.box(x, 6, 2.6, 1.1, 0.9, tmat(T.cabinet(0xd8d8e0))); f.m(G.box, col(0x2b2533), x, 0.93, 6, 2.62, 0.05, 1.12);
+            for (const dx of [-0.8, 0, 0.8]) { f.m(G.cyl8, glow([0x9be36b, 0x4ab0f0, 0xff5a6e][((x + dx * 3) | 0) % 3]), x + dx, 1.08, 6, 0.06, 0.24, 0.06); } }
+          f.whiteboard(25, 1.8, 1.3, 0, 2.5); f.item('ball', 20, 8); f.cabinet(27.9, 5.5, 0.6, 2, 1.9, 0xd8d8e0, 0, -Math.PI / 2);
+        }
       } });
     b.ground(2, 11, 16, 31, T.court(), 3);
     for (const x of [2.3, 15.7]) b.marking(x, 21, 0.18, 19.4);

@@ -37,12 +37,13 @@ export default {
     const brushes = [];
     for (const z of [20.4, 25.6]) brushes.push(b.m(G.cyl8, tmat(T.corrugated(0x2a7ac8)), 25.5, 1.4, z, 0.55, 2.6, 0.55));
     const tb = b.m(G.cyl8, col(0xd8243a), 25.5, 2.5, 23, 0.5, 4.8, 0.5); tb.rotation.x = Math.PI / 2; brushes.push(tb);
-    W.animated.push(dt => { brushes[0].rotation.y += dt * 9; brushes[1].rotation.y -= dt * 9; brushes[2].rotation.y += dt * 9; });
+    W.keep.push(...brushes); W.animated.push(dt => { brushes[0].rotation.y += dt * 9; brushes[1].rotation.y -= dt * 9; brushes[2].rotation.y += dt * 9; });
     addZone('wash', { r: [b.X(24.7), b.Z(21), b.X(26.3), b.Z(25)] }, b.Y, { cx: b.X(25.5), cz: b.Z(23) });
     b.slip(7, 22, 1.4); b.slip(14, 27, 1.1);
     for (let i = 0; i < 4; i++) b.m(G.cyl12, col(0x17111f), 2, 0.17 + i * 0.32, 26, 0.45, 0.3, 0.45);
     b.solid(2, 26, 0.9, 0.9, 0, 1.3);
     b.barrel(1.8, 2.5); b.barrel(2.8, 2.2); b.crate(2.3, 4.2, 1);
+    b.tires(19.2, 8.4, 4); b.tires(19.2, 9.4, 3); b.trashBags(30.6, 8.6, 2); b.planter(23, 9.2, 2.2, 0.9, 0.4, 'flowers'); b.bollard(4.5, 17.5); b.bollard(17.5, 17.5);
     b.m(G.cyl6, col(0x2b2533), 2, 2.5, 9, 0.1, 5, 0.1); b.solid(2, 9, 0.3, 0.3, 0, 5);
     b.box(2, 9, 1.6, 0.2, 1.4, col(0xd8243a), { y: 4.2, solid: false }); b.sign(2, 4.9, 9.12, 0, '95  59.90', '#17111f', '#f5c542', 1.4, 0.4);
     b.lamp(1, 30.5, Math.PI / 2); b.lamp(19, 30.5, Math.PI);

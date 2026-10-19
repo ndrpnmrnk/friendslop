@@ -1,7 +1,8 @@
-import { THREE, G, mesh, col, tmat } from '../core/gfx.js';
+import { THREE, G, mesh, col, tmat, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
 import { addOutline } from '../game/outline.js';
+import { cartModel, barrowModel, binModel } from './props.js';
 
 // Тележки и бочки: их можно толкать телом
 /* На чём можно кататься: seat — высота посадки, pose — сидя или стоя,
@@ -9,47 +10,42 @@ import { addOutline } from '../game/outline.js';
 export const RIDE = {
   skate:  { seat: 0.16, pose: 'stand', max: 13, acc: 9, turn: 3.2, fric: 0.25 },
   chair:  { seat: 0.55, pose: 'sit', max: 6.5, acc: 6, turn: 4.5, fric: 1.0 },
-  cart:   { seat: 0.62, pose: 'sit', max: 10, acc: 6, turn: 2.6, fric: 0.6 },
-  barrow: { seat: 0.62, pose: 'sit', max: 7, acc: 5, turn: 2.2, fric: 1.1 },
+  // тележку и тачку нельзя «завести» на месте: сначала разгоняешь её руками, потом запрыгиваешь (coast)
+  cart:   { seat: 0.62, pose: 'sit', max: 14, acc: 0, turn: 1.5, fric: 0.32, coast: true },
+  barrow: { seat: 0.62, pose: 'sit', max: 11, acc: 0, turn: 1.2, fric: 0.55, coast: true },
 };
 export function addPushable(b, kind, x, z) {
   const g = new THREE.Group(); W.group.add(g);
   let roller = null, r;
-  if (kind === 'cart') {
-    const m = col(0x8a8d98);
-    mesh(G.box, m, 0, 0.75, 0, 0.75, 0.04, 1.1, g);
-    for (const [sx, sz, w, d] of [[0.37, 0, 0.03, 1.1], [-0.37, 0, 0.03, 1.1], [0, 0.55, 0.75, 0.03], [0, -0.55, 0.75, 0.03]]) mesh(G.box, m, sx, 0.98, sz, w, 0.45, d, g);
-    mesh(G.box, col(0xd8243a), 0, 1.15, -0.72, 0.6, 0.05, 0.05, g);
-    for (const [sx, sz] of [[0.3, 0.45], [-0.3, 0.45], [0.3, -0.45], [-0.3, -0.45]]) mesh(G.cyl8, col(0x17111f), sx, 0.1, sz, 0.08, 0.06, 0.08, g).rotation.z = Math.PI / 2;
-    r = 0.6;
-  } else if (kind === 'bin') {
-    mesh(G.cyl8, tmat(T.corrugated(0x3e5a4a)), 0, 0.5, 0, 0.35, 1, 0.35, g); mesh(G.cyl8, col(0x2e4a3a), 0, 1.03, 0, 0.38, 0.06, 0.38, g);
-    mesh(G.box, col(0x2e4a3a), 0, 1.08, 0, 0.2, 0.05, 0.05, g);
-    r = 0.4;
+  if (kind === 'cart') { g.add(cartModel()); r = 0.6; }
+  else if (kind === 'barrow') { g.add(barrowModel()); r = 0.55; }
+  else if (kind === 'bin') { g.add(binModel()); r = 0.4;
   } else if (kind === 'skate') {
-    const deck = tmat(T.wood());
-    mesh(G.box, [deck, deck, col(0x2a2230), deck, deck, deck], 0, 0.12, 0, 0.26, 0.04, 0.9, g);
-    mesh(G.box, col(0xff5a6e), 0, 0.142, 0, 0.2, 0.005, 0.5, g);
-    for (const z of [-0.3, 0.3]) { mesh(G.box, col(0x8a8d98), 0, 0.08, z, 0.22, 0.03, 0.05, g); for (const x of [-0.12, 0.12]) mesh(G.cyl8, col(0xf5c542), x, 0.05, z, 0.05, 0.05, 0.05, g).rotation.z = Math.PI / 2; }
+    g.add(compose('skate', add => {
+      const deck = tmat(T.wood()), grip = col(0x23202a), tr = col(0x9a9da8), wh = col(0xf5c542);
+      add(G.box, deck, 0, 0.12, 0, 0.24, 0.035, 0.66); for (const s2 of [-1, 1]) add(G.box, deck, 0, 0.135, s2 * 0.38, 0.24, 0.035, 0.12, s2 * -0.35);
+      add(G.box, grip, 0, 0.14, 0, 0.23, 0.006, 0.64); add(G.box, col(0xff5a6e), 0, 0.103, 0, 0.18, 0.004, 0.4);
+      for (const z of [-0.26, 0.26]) { add(G.box, tr, 0, 0.085, z, 0.2, 0.03, 0.05); add(G.box, tr, 0, 0.065, z, 0.04, 0.03, 0.06); for (const x of [-0.12, 0.12]) add(G.cyl8, wh, x, 0.045, z, 0.045, 0.045, 0.045, 0, 0, Math.PI / 2); }
+    }));
     r = 0.35;
   } else if (kind === 'chair') {
-    const dk = col(0x2b2533), seat = col(0x3a4a8a);
-    mesh(G.box, seat, 0, 0.5, 0, 0.5, 0.08, 0.5, g); mesh(G.box, seat, 0, 0.85, -0.24, 0.48, 0.6, 0.07, g);
-    mesh(G.cyl6, dk, 0, 0.3, 0, 0.04, 0.4, 0.04, g);
-    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2, l = mesh(G.box, dk, Math.sin(a) * 0.15, 0.08, Math.cos(a) * 0.15, 0.05, 0.04, 0.3, g); l.rotation.y = a; mesh(G.sph, col(0x17111f), Math.sin(a) * 0.28, 0.04, Math.cos(a) * 0.28, 0.045, 0.045, 0.045, g); }
-    for (const x of [-0.27, 0.27]) mesh(G.box, dk, x, 0.68, 0, 0.04, 0.04, 0.35, g);
+    g.add(compose('officeChair', add => {
+      const dk = col(0x2b2533), seat = col(0x3a4a8a), seat2 = col(0x2e3c72), mt = col(0x9a9da8);
+      add(G.box, seat, 0, 0.5, 0.02, 0.5, 0.08, 0.48); add(G.box, seat2, 0, 0.46, 0.02, 0.46, 0.04, 0.44);
+      add(G.box, seat, 0, 0.88, -0.25, 0.46, 0.55, 0.07, -0.08); add(G.box, dk, 0, 0.62, -0.26, 0.06, 0.2, 0.04);
+      add(G.cyl8, mt, 0, 0.28, 0, 0.035, 0.36, 0.035); add(G.cyl8, dk, 0, 0.42, 0, 0.06, 0.06, 0.06);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; add(G.box, dk, Math.sin(a) * 0.15, 0.09, Math.cos(a) * 0.15, 0.05, 0.04, 0.3, 0, a); add(G.sph, col(0x17111f), Math.sin(a) * 0.28, 0.045, Math.cos(a) * 0.28, 0.045, 0.045, 0.045); }
+      for (const x of [-0.27, 0.27]) { add(G.box, dk, x, 0.68, 0, 0.05, 0.04, 0.32); add(G.box, dk, x, 0.6, -0.08, 0.03, 0.16, 0.03); }
+    }));
     r = 0.38;
-  } else if (kind === 'barrow') {
-    const m = col(0x3a7a4a), dk = col(0x2b2533);
-    mesh(G.box, m, 0, 0.55, 0.1, 0.65, 0.3, 0.8, g); mesh(G.box, tmat(T.dirt()), 0, 0.68, 0.1, 0.55, 0.05, 0.7, g);
-    const wh = mesh(G.cyl12, col(0x17111f), 0, 0.22, 0.6, 0.22, 0.1, 0.22, g); wh.rotation.z = Math.PI / 2;
-    for (const x of [-0.25, 0.25]) { mesh(G.box, dk, x, 0.55, -0.45, 0.05, 0.05, 0.9, g); mesh(G.box, dk, x, 0.25, -0.1, 0.05, 0.4, 0.05, g); }
-    r = 0.5;
   } else {
     roller = new THREE.Group(); roller.position.y = 0.42; g.add(roller);
-    const br = mesh(G.cyl8, tmat(T.rust()), 0, 0, 0, 0.42, 1.0, 0.42, roller); br.rotation.z = Math.PI / 2;
-    mesh(G.cyl8, col(0x2b2533), 0.3, 0, 0, 0.44, 0.06, 0.44, roller).rotation.z = Math.PI / 2;
-    mesh(G.cyl8, col(0x2b2533), -0.3, 0, 0, 0.44, 0.06, 0.44, roller).rotation.z = Math.PI / 2;
+    const rl = compose('barrelRoll', add => {
+      add(G.cyl12, tmat(T.rust()), 0, 0, 0, 0.42, 1.0, 0.42, 0, 0, Math.PI / 2);
+      for (const x of [-0.33, 0, 0.33]) add(G.cyl12, col(0x2b2533), x, 0, 0, 0.435, 0.05, 0.435, 0, 0, Math.PI / 2);
+      for (const x of [-0.505, 0.505]) add(G.cyl12, col(0x3a3440), x, 0, 0, 0.4, 0.01, 0.4, 0, 0, Math.PI / 2);
+      add(G.cyl6, col(0x17141c), 0.505, 0.2, 0, 0.05, 0.02, 0.05, 0, 0, Math.PI / 2);
+    }); roller.add(rl);
     r = 0.5;
   }
   // mass: тележка катится легко, урна потяжелее, бочка тяжёлая

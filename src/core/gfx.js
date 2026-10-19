@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 THREE.ColorManagement.enabled = false;
 export { THREE };
@@ -9,6 +10,9 @@ export const V3 = THREE.Vector3;
 export const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setPixelRatio(1);
+// Тени: жёсткие пиксельные (как в играх конца 90-х), карта теней ездит за игроком
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.BasicShadowMap;
 export const canvas = renderer.domElement;
 document.getElementById('game').appendChild(canvas);
 
@@ -17,6 +21,7 @@ export const SNAP = { value: new THREE.Vector2(256, 144) };
 
 // Дрожание вершин в стиле PS1: проекция вершины округляется до сетки экрана
 export function ps1(m, stable = false) {
+  m.userData.ps1Stable = stable;
   m.customProgramCacheKey = () => stable ? 'ps1-stable-v09' : 'ps1-distance-v09';
   m.onBeforeCompile = sh => {
     sh.uniforms.uSnap = SNAP;
@@ -128,6 +133,30 @@ export function frontBack(geo, split = 0) {
   geo.setIndex([...front, ...back]); geo.clearGroups();
   geo.addGroup(0, front.length, 0); geo.addGroup(front.length, back.length, 1);
   return geo;
+}
+
+/* Сборка детальной модели из примитивов в одну геометрию на материал.
+   Модель собирается один раз (по ключу), дальше копии делят геометрию: десятки деталей —
+   всего несколько отрисовок. add(geo, mat, x, y, z, sx, sy, sz, rx, ry, rz) */
+const COMP = new Map(), _m4 = new THREE.Matrix4(), _q4 = new THREE.Quaternion(), _e4 = new THREE.Euler(), _p4 = new THREE.Vector3(), _s4 = new THREE.Vector3();
+export function compose(key, fn) {
+  let parts = COMP.get(key);
+  if (!parts) {
+    const by = new Map();
+    fn((geo, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) => {
+      let g = geo.index ? geo.toNonIndexed() : geo.clone();
+      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k);
+      g.clearGroups();
+      _m4.compose(_p4.set(x, y, z), _q4.setFromEuler(_e4.set(rx, ry, rz)), _s4.set(sx, sy, sz)); g.applyMatrix4(_m4);
+      if (sx * sy * sz < 0) { const a = g.attributes; for (const k of ['position', 'normal', 'uv']) { const at = a[k], it = at.itemSize, arr = at.array; for (let i = 0; i < at.count; i += 3) for (let j = 0; j < it; j++) { const t = arr[(i + 1) * it + j]; arr[(i + 1) * it + j] = arr[(i + 2) * it + j]; arr[(i + 2) * it + j] = t; } } }
+      let l = by.get(mat); if (!l) by.set(mat, l = []); l.push(g);
+    });
+    parts = [...by].map(([mat, list]) => ({ mat, geo: mergeGeometries(list, false) }));
+    COMP.set(key, parts);
+  }
+  const g = new THREE.Group();
+  for (const p of parts) { const m = new THREE.Mesh(p.geo, p.mat); m.castShadow = !p.mat.transparent; m.receiveShadow = true; g.add(m); }
+  return g;
 }
 
 export function sprite(tex, size, opts = {}) {

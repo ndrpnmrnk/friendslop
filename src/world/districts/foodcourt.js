@@ -53,7 +53,8 @@ export default {
     // автоматы, клумбы, урны
     b.vending(14, 9.2); b.light(14, 10.1, 1.6);
     b.vending(15.5, 9.2);
-    for (const [x, z] of [[2.5, 12], [2.5, 16], [13, 30]]) { b.box(x, z, 2, 2, 0.5, tmat(T.stone())); b.m(G.ico, tmat(T.bush()), x, 0.8, z, 0.9, 0.5, 0.9); }
+    b.planter(2.5, 12, 2, 2, 0.5, 'flowers'); b.planter(2.5, 16, 2, 2, 0.5, 'shrub'); b.planter(13, 30, 2, 2, 0.5, 'flowers');
+    b.bikeRack(6.5, 9.2, 3, 0); b.trashBags(12.5, 1.0, 2); b.picnic(8.5, 30.2, 0);
     b.tree(6, 14); b.tree(28, 29);
     b.bin(21.5, 9.5); b.bin(9, 17.5);
     b.lamp(1, 30.5, Math.PI / 2); b.lamp(16, 17.5, 0);

@@ -1,7 +1,7 @@
 import { THREE, G, V3, mesh, tmat, lam, frontBack, sprite } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
-import { pushOut, groundAt } from '../world/physics.js';
+import { pushOut, groundAt, solidsNear } from '../world/physics.js';
 import { damp } from '../core/rng.js';
 
 export const COATS = [
@@ -48,7 +48,7 @@ export function buildCat(coat) {
 function freeSpot(h) {
   for (let i = 0; i < 40; i++) {
     const x = h.x0 + Math.random() * (h.x1 - h.x0), z = h.z0 + Math.random() * (h.z1 - h.z0);
-    if (!W.solids.some(s => s.on && s.y1 > h.y + 0.05 && s.y0 < h.y + 0.6 && x > s.x0 - 0.5 && x < s.x1 + 0.5 && z > s.z0 - 0.5 && z < s.z1 + 0.5)) return { x, z };
+    if (!solidsNear(x - 0.5, z - 0.5, x + 0.5, z + 0.5).some(s => s.on && s.y1 > h.y + 0.05 && s.y0 < h.y + 0.6 && x > s.x0 - 0.5 && x < s.x1 + 0.5 && z > s.z0 - 0.5 && z < s.z1 + 0.5)) return { x, z };
   }
   return { x: (h.x0 + h.x1) / 2, z: (h.z0 + h.z1) / 2 };
 }

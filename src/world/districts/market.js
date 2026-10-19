@@ -20,6 +20,9 @@ export default {
     stall(5, 19, 'carrot', ['#4ab0f0', '#f1e8ff']); stall(16, 19, 'tomato', ['#d8243a', '#f5c542']); stall(27, 19, 'pumpkin', ['#7b4bc4', '#ff8a1f']);
     b.crate(1.2, 12, 1); b.crate(1.2, 13.1, 0.9); b.crate(1.2, 12.5, 0.8, 1); b.crate(30.8, 12, 1); b.crate(30.8, 13, 1);
     b.shed(24, 26.5, 5, 4);
+    // сено (можно забраться), пугало, мусор, весы с ящиками
+    b.hayBales(12, 26.5, 3, 0); b.hw(() => b.scarecrow(18.5, 27.5, 0.4)); b.trashBags(30.8, 9.8, 2);
+    b.planter(3, 27, 2.4, 1.2, 0.45, 'flowers'); b.newsBox(9.5, 30.8, Math.PI);
     b.ride('cart', 16, 13.5);
     b.bin(10, 11); b.bin(22, 24.5);
     b.lamp(1, 30.5, Math.PI / 2); b.lamp(31, 1.5, -Math.PI / 2); b.lamp(16, 30.5, Math.PI);

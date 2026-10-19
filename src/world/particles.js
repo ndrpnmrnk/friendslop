@@ -1,11 +1,33 @@
-import { THREE, G, mesh, alphaMat } from '../core/gfx.js';
+import { THREE, G, mesh, alphaMat, ps1 } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
 import { groundAt } from './physics.js';
 
 /* Пиксельные частицы: дым, пыль, брызги. Спрайты переиспользуются. */
-let pool = [];
-export const resetParticles = () => { pool = []; };
+let pool = [], smokes = [];
+export const resetParticles = () => { pool = []; smokes = []; };
+
+/* Объёмный стилизованный дым: угловатые клубы (низкополигональные), растут, крутятся и тают.
+   Мелкая пыль — крошечные кубики, которые подпрыгивают и падают. */
+const SMOKE_GEO = new THREE.IcosahedronGeometry(1, 0), DUST_GEO = new THREE.BoxGeometry(1, 1, 1);
+export function smoke(x, y, z, o = {}) {
+  const dust = !!o.dust, geo = dust ? DUST_GEO : SMOKE_GEO;
+  let p = smokes.find(q => !q.alive && q.dust === dust);
+  if (!p) {
+    const mat = ps1(new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, depthWrite: false, flatShading: true }));
+    const m = new THREE.Mesh(geo, mat); W.group.add(m); p = { m, dust }; smokes.push(p);
+  }
+  p.alive = true; p.t = 0; p.life = o.life ?? (dust ? 0.35 : 0.7); p.s0 = o.size ?? (dust ? 0.05 : 0.22); p.s1 = o.grow ?? (dust ? 0.05 : 0.6);
+  p.v = [o.vx ?? (Math.random() - 0.5) * 0.5, o.vy ?? (dust ? 1.6 + Math.random() : 0.5), o.vz ?? (Math.random() - 0.5) * 0.5]; p.g = o.g ?? (dust ? 9 : -0.4);
+  p.spin = [(Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3]; p.a0 = o.opacity ?? (dust ? 0.9 : 0.8);
+  p.m.material.color.setHex(o.color ?? (dust ? 0x8a7a8e : 0xd6cfe2)); p.m.material.opacity = p.a0;
+  p.m.position.set(x, y, z); p.m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); p.m.scale.setScalar(p.s0); p.m.visible = true;
+}
+// кольцо клубов вокруг точки (прыжок, приземление, подкат)
+export function smokeRing(x, y, z, n, o = {}) {
+  for (let i = 0; i < n; i++) { const a = i / n * 6.28 + Math.random() * 0.5, sp = (o.speed ?? 2) * (0.6 + Math.random() * 0.5);
+    smoke(x + Math.cos(a) * 0.2, y, z + Math.sin(a) * 0.2, { vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: o.up ?? 0.4, size: o.size ?? 0.18, grow: o.grow ?? 0.5, life: o.life ?? 0.6, g: -0.2, color: o.color }); }
+}
 export function puff(x, y, z, o = {}) {
   let p = pool.find(q => !q.alive);
   if (!p) {
@@ -29,7 +51,7 @@ export function chunk(x, y, z, vel, o = {}) {
   const s = o.size ?? 0.18;
   const m = mesh(o.geo || G.box, o.mat, x, y, z, s * (o.sx ?? 1), s * (o.sy ?? 1), s * (o.sz ?? 1), W.group);
   m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-  W.debris.push({ m, v: vel.slice(), spin: [(Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10], life: o.life ?? 3, r: s * 0.5, s0: m.scale.clone() });
+  W.debris.push({ m, v: vel.slice(), spin: [(Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10], life: o.life ?? 3, r: o.r ?? s * 0.5, s0: m.scale.clone() });
   return m;
 }
 
@@ -48,6 +70,17 @@ export function updateParticles(dt) {
     p.v[1] -= p.g * dt;
     p.s.position.x += p.v[0] * dt; p.s.position.y += p.v[1] * dt; p.s.position.z += p.v[2] * dt;
     p.s.scale.setScalar(p.size * (1 + p.grow * k)); p.s.material.opacity = p.a0 * (1 - k * k);
+  }
+  for (const p of smokes) {
+    if (!p.alive) continue;
+    p.t += dt; const k = p.t / p.life;
+    if (k >= 1) { p.alive = false; p.m.visible = false; continue; }
+    p.v[1] -= p.g * dt; const drag = Math.exp(-dt * (p.dust ? 0.5 : 2.5)); p.v[0] *= drag; p.v[2] *= drag;
+    p.m.position.x += p.v[0] * dt; p.m.position.y += p.v[1] * dt; p.m.position.z += p.v[2] * dt;
+    if (p.dust) { const gy = groundAt(p.m.position.x, p.m.position.z, 0, p.m.position.y + 0.3); if (p.m.position.y < gy + 0.02) { p.m.position.y = gy + 0.02; p.v[1] = 0; p.v[0] *= 0.5; p.v[2] *= 0.5; } }
+    p.m.rotation.x += p.spin[0] * dt; p.m.rotation.y += p.spin[1] * dt; p.m.rotation.z += p.spin[2] * dt;
+    const e = 1 - (1 - k) * (1 - k); p.m.scale.setScalar(p.s0 + (p.s1 - p.s0) * e);
+    p.m.material.opacity = p.a0 * (k < 0.4 ? 1 : 1 - (k - 0.4) / 0.6);
   }
   for (let i = W.debris.length - 1; i >= 0; i--) {
     const d = W.debris[i], m = d.m;

@@ -31,6 +31,7 @@ export function renderStamina(P) {
   st.classList.toggle('low', P.exhausted || P.stamina < 0.25);
   st.classList.toggle('full', P.stamina >= 1);
   const h = $('held');
-  if (P.held) { h.innerHTML = `${P.held.def.icon} ${P.held.def.name}<small>ПКМ — бросок · E — положить</small>`; h.classList.remove('hidden'); }
+  if (P.grab) { const nm = P.grab.kind === 'cart' ? '🛒 Тележка' : '🚧 Тачка'; h.innerHTML = `${nm}<small>разгонись · E — запрыгнуть · ЛКМ — отпустить</small>`; h.classList.remove('hidden'); }
+  else if (P.held) { h.innerHTML = `${P.held.def.icon} ${P.held.def.name}<small>ПКМ — бросок · E — положить</small>`; h.classList.remove('hidden'); }
   else h.classList.add('hidden');
 }

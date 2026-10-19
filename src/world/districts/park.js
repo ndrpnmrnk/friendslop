@@ -28,6 +28,10 @@ export default {
     b.shed(1.5, 1.5, 4, 3.5);
     b.fence(6.5, 1, 13, 1, 1.2, 'wood');
     b.bench(13.6, 24, -Math.PI / 2); b.bench(8, 30.6, Math.PI);
+    // игровая башенка с горкой, пикник, клумбы вдоль дорожки, лодка у пруда
+    b.playTower(5.5, 12.5); b.picnic(21, 26, 0.3); b.picnic(27, 27.5, -0.2);
+    b.planter(13.2, 13.2, 1.4, 1.4, 0.45, 'flowers'); b.planter(18.8, 18.8, 1.4, 1.4, 0.45, 'flowers');
+    b.rowboat(4.2, 21.5, 0.8); b.streetSign(18.6, 13.4, 'ПАРКОВАЯ', 'АЛЛЕЯ ТЫКВ'); b.bikeRack(20.5, 13.6, 3, 0);
     b.lamp(17.6, 13.6, 0); b.lamp(14.4, 18.4, Math.PI); b.lamp(30.6, 17.6, -Math.PI / 2);
     b.item('balloon', 13.6, 27.4); b.item('balloon', 13, 28); b.item('balloon', 14.2, 28.2);
     b.zone('floor', 1, 6, 14.5, 14.5); b.zone('floor', 17.5, 12, 31, 19.5);

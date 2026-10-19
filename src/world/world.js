@@ -11,6 +11,7 @@ import { spawnCat } from '../game/cats.js';
 import { resetBreakables } from './breakables.js';
 import { buildEdges } from './edges.js';
 import { buildRoadsAndTunnels } from './underground.js';
+import { bakeStatic } from './bake.js';
 
 const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dirt(), concrete: () => T.concrete(), asphalt: () => T.asphalt(), cobble: () => T.cobble() };
 
@@ -30,7 +31,10 @@ export function generateMap(scene, s) {
     const c = -half + road / 2 + i * (chunk + road);
     for (let k = -half; k < half; k += 3) { mark(c, k + 0.9, 0.28, 1.8, i === 0 || i === grid ? line : yl); mark(k + 0.9, c, 1.8, 0.28, i === 0 || i === grid ? line : yl); }
   }
-  const picks = shuffle(DISTRICTS.slice()).slice(0, grid * grid);
+  let picks = shuffle(DISTRICTS.slice());
+  // отладка: window.__forceDistricts = ['yard', ...] ставит эти районы первыми
+  const force = globalThis.__forceDistricts; if (force) picks = [...force.map(id => picks.find(d => d.id === id)).filter(Boolean), ...picks.filter(d => !force.includes(d.id))];
+  picks = picks.slice(0, grid * grid);
   const curb = tmat(T.concrete());
   for (let gx = 0; gx < grid; gx++) for (let gz = 0; gz < grid; gz++) {
     const d = picks[gx * grid + gz];
@@ -66,5 +70,6 @@ export function generateMap(scene, s) {
   const used = new Set();
   for (const h of homes) { if (W.cats.length >= CONFIG.cats) break; if (used.has(h.district)) continue; used.add(h.district); spawnCat(h); }
   setParent(null);
+  W.bakeInfo = bakeStatic(group);
   return picks.map(d => d.name);
 }

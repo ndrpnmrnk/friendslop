@@ -15,9 +15,10 @@ export default {
       b.solid(x, z, 0.75, 0.75, 0, 0.55);
     }
     b.m(G.cyl8, st, cx, 0.8, cz, 0.35, 1.6, 0.35); b.solid(cx, cz, 0.7, 0.7, 0, 1.6);
-    b.m(G.cyl12, st, cx, 1.45, cz, 1.0, 0.18, 1.0);
-    b.m(G.cone8, tmat(T.water()), cx, 1.9, cz, 0.25, 0.7, 0.25);
-    const wx = b.X(cx), wz = b.Z(cz), wy = b.Y + 2.1; let ft = 0;
+    b.m(G.cyl12, st, cx, 1.45, cz, 1.0, 0.18, 1.0); b.m(G.cyl12, tmat(T.water()), cx, 1.55, cz, 0.85, 0.04, 0.85);
+    b.m(G.cyl8, st, cx, 1.95, cz, 0.18, 0.8, 0.18); b.m(G.cyl12, st, cx, 2.35, cz, 0.55, 0.12, 0.55); b.m(G.cyl12, tmat(T.water()), cx, 2.42, cz, 0.45, 0.03, 0.45);
+    b.m(G.cone8, tmat(T.water()), cx, 2.75, cz, 0.18, 0.55, 0.18);
+    const wx = b.X(cx), wz = b.Z(cz), wy = b.Y + 2.9; let ft = 0;
     W.animated.push(dt => { ft -= dt; if (ft <= 0) { ft = 0.12; burst(wx, wy, wz, 2, { color: 0x8ac0e8, size: 0.18, speed: 1.6, up: 2, g: 9, life: 0.8 }); } });
     // памятник: на постамент можно запрыгнуть
     b.box(16, 5, 3, 3, 1.2, st);
@@ -39,7 +40,11 @@ export default {
     b.bench(6, 27.8, Math.PI);
     b.sign(6, 2.9, 28.42, 0, 'АВТОБУС 13', '#f5c542', '#17111f', 2.2, 0.4);
     // клумбы
-    for (const [x, z] of [[6, 12], [26, 12]]) { b.box(x, z, 3, 3, 0.45, tmat(T.stone())); b.m(G.ico, tmat(T.bush()), x, 0.7, z, 1.1, 0.5, 1.1); }
+    b.planter(6, 12, 3, 3, 0.5, 'flowers'); b.planter(26, 12, 3, 3, 0.5, 'shrub');
+    // уличные мелочи: газеты, почта, указатель, столбики у памятника, велопарковка
+    b.newsBox(9.5, 30.8, Math.PI); b.postBox(22, 30.8, Math.PI); b.streetSign(30.7, 30.7, 'ПЛОЩАДЬ', 'ТЫКВЕННЫЙ ПР.');
+    for (const [x, z] of [[13.8, 3], [18.2, 3], [13.8, 7], [18.2, 7]]) b.bollard(x, z);
+    b.bikeRack(26.5, 2, 4, 0); b.utilityBox(31, 9, -Math.PI / 2);
     b.m(G.cyl6, col(0x2b2533), 5, 1.6, 7, 0.1, 3.2, 0.1); b.solid(5, 7, 0.3, 0.3, 0, 3.2);
     b.m(G.box, col(0x2b2533), 5, 3.3, 7, 0.9, 0.9, 0.3); b.sign(5, 3.3, 7.16, 0, '12:00', '#f1e8ff', '#17111f', 0.7, 0.7);
     b.bench(10, 18, Math.PI / 2); b.bench(22, 18, -Math.PI / 2); b.bench(16, 24.2, Math.PI);

@@ -1,5 +1,6 @@
 import { THREE, G, V3, mesh, col, tmat, lam } from '../core/gfx.js';
 import { addOutline } from './outline.js';
+import { chairModel, coneModel } from '../world/props.js';
 import { PFACE } from '../world/builder.js';
 import { T } from '../core/textures.js';
 import { CONFIG } from '../config.js';
@@ -27,14 +28,9 @@ function build(type) {
     mesh(G.sph10, tmat(T.ball()), 0, 0, 0, 0.24, 0.24, 0.24, g);
   } else if (type === 'brick') {
     mesh(G.box, tmat(T.brickItem()), 0, 0, 0, 0.42, 0.18, 0.22, g);
-  } else if (type === 'chair') {
-    const w = tmat(T.wood()), dk = col(0x2b2533);
-    mesh(G.box, w, 0, 0.15, 0, 0.5, 0.06, 0.5, g); mesh(G.box, w, 0, 0.45, -0.22, 0.5, 0.55, 0.05, g);
-    for (const [a, b] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) mesh(G.box, dk, a, -0.08, b, 0.05, 0.45, 0.05, g);
-  } else if (type === 'cone') {
-    mesh(G.cone8, col(0xff6a1a), 0, 0.05, 0, 0.2, 0.55, 0.2, g); mesh(G.cyl8, col(0xf1e8ff), 0, 0.08, 0, 0.13, 0.08, 0.13, g);
-    mesh(G.box, col(0xff6a1a), 0, -0.22, 0, 0.42, 0.05, 0.42, g);
-  }
+    mesh(G.box, col(0x6a2a1c), 0, 0.091, 0, 0.24, 0.005, 0.1, g);
+  } else if (type === 'chair') g.add(chairModel());
+  else if (type === 'cone') g.add(coneModel());
   return g;
 }
 export function addItem(type, x, y, z, ry = 0) {
