@@ -1,0 +1,155 @@
+import { THREE, G, V3, mesh, col, tmat, lam } from '../core/gfx.js';
+import { T } from '../core/textures.js';
+import { CONFIG } from '../config.js';
+import { W } from '../world/state.js';
+import { groundAt, solidHit, addZone, impulsePushables } from '../world/physics.js';
+import { puff, burst, chunk, decal } from '../world/particles.js';
+import { scareBirds } from '../world/birds.js';
+
+/* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
+const GRAV = 22;
+function build(type) {
+  const g = new THREE.Group();
+  if (type === 'balloon') {
+    mesh(G.sph, lam({ map: T.balloon(), transparent: true, opacity: 0.92 }, 'balloon'), 0, 0, 0, 0.22, 0.26, 0.22, g);
+    mesh(G.cone4, col(0x1a5ab0), 0, -0.27, 0, 0.05, 0.07, 0.05, g);
+  } else if (type === 'tomato') {
+    mesh(G.sph, tmat(T.tomato()), 0, 0, 0, 0.16, 0.14, 0.16, g);
+    mesh(G.cone4, col(0x3f6b2a), 0, 0.14, 0, 0.08, 0.05, 0.08, g);
+  } else if (type === 'pumpkin') {
+    mesh(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.26, 0.32, g);
+    mesh(G.cyl6, col(0x3f6b2a), 0, 0.28, 0, 0.05, 0.14, 0.05, g);
+  } else if (type === 'ball') {
+    mesh(G.sph10, tmat(T.ball()), 0, 0, 0, 0.24, 0.24, 0.24, g);
+  } else if (type === 'brick') {
+    mesh(G.box, tmat(T.brickItem()), 0, 0, 0, 0.42, 0.18, 0.22, g);
+  }
+  return g;
+}
+export function addItem(type, x, y, z) {
+  const def = CONFIG.items[type], g = build(type); W.group.add(g);
+  const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z }, respawnT: 0, spin: new V3(), noHit: 0 };
+  it.pos.set(x, y + def.r, z);
+  W.items.push(it); return it;
+}
+function vanish(it) {
+  it.g.visible = false; it.state = 'gone'; it.respawnT = it.def.respawn || 0;
+}
+function respawn(it) {
+  const h = it.home; it.pos.set(h.x, h.y + it.def.r, h.z); it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0);
+  it.g.visible = true; it.state = 'rest';
+  puff(h.x, h.y + 0.3, h.z, { size: 0.5, life: 0.5, vy: 0.4 });
+}
+
+/* Попадания */
+function hitActors(it, p, heavy) {
+  const r = heavy ? 1.1 : 0.9;
+  for (const c of W.cats) { const cp = c.root.position; if (Math.hypot(cp.x - p.x, cp.z - p.z) < r && Math.abs(cp.y - p.y) < 1.2) c.hit(heavy, it.vel.x, it.vel.z); }
+  scareBirds(p.x, p.z, heavy ? 5 : 3.5);
+  impulsePushables(p.x, p.z, 0.6, heavy ? 4 : 1.5);
+}
+function impact(it, n, speed) {
+  const p = it.pos, t = it.type, gy = groundAt(p.x, p.z, 0.1, p.y + 0.3);
+  hitActors(it, p, it.def.heavy);
+  if (t === 'balloon') {
+    burst(p.x, p.y, p.z, 14, { color: 0x6ab8f0, size: 0.28, speed: 3, up: 2.5 });
+    decal(T.splat('#4a90d0'), p.x, gy, p.z, 2.4, 7, 0xffffff);
+    addZone('puddle', { c: [p.x, p.z, 1.15] }, gy, { expires: 7 });
+    vanish(it);
+  } else if (t === 'tomato') {
+    burst(p.x, p.y, p.z, 10, { color: 0xd8301a, size: 0.22, speed: 2.5 });
+    decal(T.splat('#b8200e'), p.x, gy, p.z, 1.1, 6);
+    vanish(it);
+  } else if (t === 'pumpkin') {
+    const m = tmat(T.pumpkin());
+    for (let i = 0; i < 9; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5 + it.vel.x * 0.15, 2 + Math.random() * 3, (Math.random() - 0.5) * 5 + it.vel.z * 0.15], { mat: m, size: 0.18 + Math.random() * 0.1, life: 2.5 });
+    burst(p.x, p.y, p.z, 6, { color: 0xffd25c, size: 0.2, speed: 2 });
+    vanish(it);
+  } else if (t === 'brick' && speed > 12) {
+    const m = tmat(T.brickItem());
+    for (let i = 0; i < 6; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 4, 1.5 + Math.random() * 2, (Math.random() - 0.5) * 4], { mat: m, size: 0.1 + Math.random() * 0.06, life: 2 });
+    burst(p.x, p.y, p.z, 6, { color: 0xa06a5a, size: 0.25, speed: 1.5 });
+    vanish(it);
+  } else {
+    // мяч и не разбившийся кирпич отскакивают
+    const e = t === 'ball' ? 0.62 : 0.15, vn = it.vel.x * n[0] + it.vel.y * n[1] + it.vel.z * n[2];
+    it.vel.x -= (1 + e) * vn * n[0]; it.vel.y -= (1 + e) * vn * n[1]; it.vel.z -= (1 + e) * vn * n[2];
+    if (t !== 'ball') { it.vel.x *= 0.4; it.vel.z *= 0.4; }
+    puff(p.x, p.y - it.def.r * 0.5, p.z, { size: 0.35, life: 0.4, vy: 0.3 });
+    it.state = 'rest';
+  }
+}
+
+function simulate(it, dt, flying) {
+  const r = it.def.r, p = it.pos, v = it.vel;
+  const steps = Math.min(6, Math.ceil(v.length() * dt / (r * 0.8)) || 1), h = dt / steps;
+  for (let s = 0; s < steps; s++) {
+    v.y -= GRAV * h; p.addScaledVector(v, h);
+    const gy = groundAt(p.x, p.z, r * 0.5, p.y + r * 0.5);
+    if (p.y - r < gy) {
+      p.y = gy + r;
+      if (flying) { const sp = v.length(); impact(it, [0, 1, 0], sp); return; }
+      if (v.y < -1.5 && it.type === 'ball') v.y = -v.y * 0.6; else v.y = 0;
+    }
+    const hit = solidHit(p, r);
+    if (hit) {
+      p.x += hit.n[0] * hit.depth; p.y += hit.n[1] * hit.depth; p.z += hit.n[2] * hit.depth;
+      if (flying) { impact(it, hit.n, v.length()); return; }
+      const vn = v.x * hit.n[0] + v.z * hit.n[2]; if (vn < 0) { v.x -= 1.6 * vn * hit.n[0]; v.z -= 1.6 * vn * hit.n[2]; }
+    }
+  }
+  if (!flying) {
+    const onG = p.y - r <= groundAt(p.x, p.z, r * 0.5, p.y) + 0.02;
+    if (onG) { const f = Math.exp(-dt * (it.type === 'ball' ? 0.9 : 6)); v.x *= f; v.z *= f; }
+    if (it.type === 'ball') { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
+  } else { it.g.rotation.x += dt * 8; it.g.rotation.y += dt * 5; }
+}
+
+export function updateItems(dt, pl) {
+  for (const it of W.items) {
+    if (it.state === 'gone') { if (it.def.respawn) { it.respawnT -= dt; if (it.respawnT <= 0) respawn(it); } continue; }
+    if (it.state === 'held') continue;
+    if (it.state === 'fly') { simulate(it, dt, true); continue; }
+    // лежит: мяч и упавшие предметы живут по физике
+    const moving = it.vel.lengthSq() > 0.01 || it.pos.y - it.def.r > groundAt(it.pos.x, it.pos.z, it.def.r * 0.5, it.pos.y) + 0.05;
+    if (moving) simulate(it, dt, false);
+    if (it.type === 'ball' && pl) {
+      const dx = it.pos.x - pl.pos.x, dz = it.pos.z - pl.pos.z, d = Math.hypot(dx, dz), m = it.def.r + pl.r;
+      if (d < m && d > 1e-3 && Math.abs(it.pos.y - pl.pos.y - 0.3) < 0.9) {
+        const nx = dx / d, nz = dz / d; it.pos.x += nx * (m - d); it.pos.z += nz * (m - d);
+        const vn = pl.vel.x * nx + pl.vel.z * nz; if (vn > 0) { it.vel.x = nx * vn * 1.3; it.vel.z = nz * vn * 1.3; it.vel.y = 2.5; }
+      }
+    }
+  }
+  for (let i = W.zones.length - 1; i >= 0; i--) { const z = W.zones[i]; if (z.expires !== undefined) { z.expires -= dt; if (z.expires <= 0) W.zones.splice(i, 1); } }
+}
+
+export function nearestItem(p, r) {
+  let best = null, bd = r;
+  for (const it of W.items) {
+    if (it.state !== 'rest') continue;
+    const d = Math.hypot(it.pos.x - p.x, it.pos.z - p.z);
+    if (d < bd && it.pos.y > p.y - 0.6 && it.pos.y < p.y + 1.8) { bd = d; best = it; }
+  }
+  return best;
+}
+export function pickUp(it) { it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
+export function drop(it, x, y, z) { it.state = 'rest'; it.pos.set(x, y + it.def.r + 0.05, z); it.vel.set(0, 0, 0); }
+
+/* Расчёт броска по дуге к точке прицела */
+export function throwVelocity(from, target, charge) {
+  const dx = target.x - from.x, dz = target.z - from.z, dist = Math.hypot(dx, dz) || 0.001;
+  const { minRange, maxRange } = CONFIG.throw, range = minRange + (maxRange - minRange) * charge, d = Math.min(dist, range);
+  const T = 0.32 + d * 0.035, vh = d / T, dy = (dist <= range ? target.y : from.y - 0.5) - from.y;
+  return new V3(dx / dist * vh, (dy + 0.5 * GRAV * T * T) / T, dz / dist * vh);
+}
+export function launch(it, from, vel) { it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true; }
+export function predict(from, vel, out, n) {
+  const p = from.clone(), v = vel.clone(), h = 0.045; let k = 0;
+  for (let i = 0; i < 80 && k < n; i++) {
+    v.y -= GRAV * h; p.addScaledVector(v, h);
+    if (i % 2 === 0) out[k++].position.copy(p);
+    if (p.y < groundAt(p.x, p.z, 0.05, p.y + 0.2) || solidHit(p, 0.05)) break;
+  }
+  return k;
+}

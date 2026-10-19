@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Friendslop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="game"></div>
+<div id="dot" class="hidden"><i></i></div>
+
+<!-- Главное меню -->
+<div id="menu" class="hidden">
+  <div class="mtitle">Friendslop</div>
+  <div class="msub">Город в канун Хэллоуина</div>
+  <div class="mpick">
+    <button class="marr" id="skinPrev" aria-label="Предыдущий персонаж">◀</button>
+    <div class="mname px" id="skinName">Котик</div>
+    <button class="marr" id="skinNext" aria-label="Следующий персонаж">▶</button>
+  </div>
+  <button class="btn" id="playBtn">Играть</button>
+  <div class="keys px">
+    <span><kbd>WASD</kbd> бег</span><span><kbd>Shift</kbd> спринт</span><span><kbd>Пробел</kbd> прыжок</span>
+    <span><kbd>E</kbd> взять / миссия</span><span><kbd>ЛКМ</kbd> дверь</span><span><kbd>ПКМ</kbd> зажать и бросить</span>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="missions"></div>
+  <div id="timer" class="px">2:00</div>
+  <div id="scorebox" class="px"><div id="score">0</div><small>очков</small></div>
+  <div id="stamina">
+    <svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true">
+      <circle cx="32" cy="32" r="26" class="sbg"/>
+      <circle cx="32" cy="32" r="26" class="sfg" id="staminaArc"/>
+      <path d="M35 12 L21 35 H31 L28 52 L43 27 H33 Z" class="sbolt"/>
+    </svg>
+  </div>
+  <div id="held" class="px hidden"></div>
+  <div id="prompt" class="px hidden"></div>
+  <div id="pops"></div>
+  <div id="mgpanel" class="px hidden">
+    <div class="mgrow"><span id="mgicon"></span><b id="mgtitle"></b><span id="mgpts"></span></div>
+    <div class="pbar" id="mgbar"><i></i></div>
+    <div class="msg" id="mgmsg"></div>
+    <div id="mghint"></div>
+    <button id="mgexit">Выйти (Esc)</button>
+  </div>
+</div>
+
+<!-- Результаты -->
+<div id="results" class="overlay hidden">
+  <div class="card px">
+    <h1>Время вышло</h1>
+    <div class="big" id="resScore">0</div>
+    <p id="resInfo"></p>
+    <div class="row">
+      <button class="btn" id="againBtn">Ещё раунд</button>
+      <button class="btn alt" id="menuBtn">В меню</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
