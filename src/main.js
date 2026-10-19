@@ -13,6 +13,8 @@ import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
 import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
+import { resetGadgets, updateGadgets, useGadget } from './game/gadgets.js';
+import { createBots, updateBots, botHitHook } from './game/bots.js';
 import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide } from './game/worldfx.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
@@ -88,6 +90,7 @@ function startRound() {
   generateMap(scene, (Math.random() * 1e9) | 0);
   buildLife(scene);
   registerInteracts();
+  resetGadgets();
   buildMinimap(DISTRICTS);
   resetEvents(); $('eventbar').classList.add('hidden');
   resetMissions();
@@ -95,6 +98,7 @@ function startRound() {
   P = createPlayer(menu.skin()); scene.add(P.root);
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
+  W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), 3);
   spawnWave(P);
   Object.assign(S, { state: 'play', time: CONFIG.roundTime, score: 0, done: 0, mg: null, wm: null, crane: false });
   cam.pose = null; resetCamera(Math.random() * Math.PI * 2);
@@ -287,6 +291,7 @@ function loop() {
     if (S.state === 'play') {
       S.time -= dt;
       if (tapped('KeyE')) interact();
+      if (tapped('KeyF') && !S.mg && !S.crane && P.gadget) useGadget(P, aimPoint());
       if (P.charging) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
       updatePlayer(P, dt, t, !S.mg && !S.crane, cam.yaw);
       if (P.held) { P.held.pos.copy(P.ch.holdPoint); P.held.g.rotation.y = P.root.rotation.y; }
@@ -339,8 +344,10 @@ function loop() {
     sky.update(camera, t, dt, P, hemi, scene.fog);
     updateLife(dt, t, S.state === 'play' ? P : null, camera);
     updateWorldFx(dt, t, S.state === 'play' ? P : null);
+    updateGadgets(dt, t, S.state === 'play' ? P : null);
+    if (S.state === 'play') updateBots(dt, t, P);
     cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play' ? P.boost * 6 : 0;
-    updateBreakables(dt);
+    updateBreakables(dt, S.state === 'play' ? P : null);
     updateParticles(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
     { const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz); }

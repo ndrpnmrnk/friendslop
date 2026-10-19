@@ -65,6 +65,7 @@ export function breakPiece(p, vel = [0, 0, 0]) {
     }
     for (let i = 0; i < 8; i++) chunk(pos.x, pos.y, pos.z, [(Math.random() - 0.5) * 6, 1 + Math.random() * 4, (Math.random() - 0.5) * 6], { mat: PLANK(), size: 1, sx: 0.04, sy: 0.04, sz: 0.18, r: 0.03, life: 2.5 });
     burst(pos.x, pos.y, pos.z, 5, { color: 0x9a7a52, size: 0.4, speed: 1.6, up: 1, g: 2, grow: 1.2, life: 0.8 });
+    p.respawnT = 40; if (W.crateHook) W.crateHook(pos.clone(), p);
   } else if (p.kind === 'pot') {
     const [w, h] = p.size;
     for (let i = 0; i < 7; i++) chunk(pos.x, pos.y + 0.2, pos.z, [(Math.random() - 0.5) * 4 + vel[0] * 0.3, 1 + Math.random() * 3, (Math.random() - 0.5) * 4 + vel[2] * 0.3], { mat: col(0xb05a3a), size: 0.08 + Math.random() * 0.06, sy: 0.4, life: 3 });
@@ -104,8 +105,16 @@ export function hitBreakables(pos, r, vel, mass, kinds = null) {
   return hit;
 }
 
-export function updateBreakables(dt) {
-  for (const p of breakables) if (p.alive && p.fall > 0) { p.fall -= dt; if (p.fall <= 0) breakPiece(p, [(Math.random() - 0.5), 0, (Math.random() - 0.5)]); }
+export function updateBreakables(dt, player) {
+  for (const p of breakables) {
+    if (p.alive && p.fall > 0) { p.fall -= dt; if (p.fall <= 0) breakPiece(p, [(Math.random() - 0.5), 0, (Math.random() - 0.5)]); }
+    // ящики появляются снова на своём месте (если там никто не стоит)
+    if (!p.alive && p.respawnT > 0) { p.respawnT -= dt; if (p.respawnT <= 0) {
+      const s = p.solid; if (player && player.pos.x > s.x0 - 0.5 && player.pos.x < s.x1 + 0.5 && player.pos.z > s.z0 - 0.5 && player.pos.z < s.z1 + 0.5) { p.respawnT = 2; continue; }
+      p.alive = true; s.on = true;
+      if (p.inst) for (const q of p.inst) { q.im.setMatrixAt(q.i, q.mx); q.im.instanceMatrix.needsUpdate = true; } else W.group.add(p.mesh);
+      burst((s.x0 + s.x1) / 2, s.y0 + 0.4, (s.z0 + s.z1) / 2, 6, { color: 0xd8d0e4, size: 0.35, speed: 1, up: 1, g: 1, grow: 1, life: 0.6 }); } }
+  }
 }
 /* Оптимизация: все целые куски одного вида рисуются одной инстанс-отрисовкой.
    Сломанный кусок просто сжимается в ноль и пропадает из батча. */
@@ -126,7 +135,7 @@ export function bakeBreakables(group) {
   }
   for (const b of by.values()) {
     const im = new THREE.InstancedMesh(b.geo, b.mat, b.items.length); im.castShadow = !b.mat.transparent; im.receiveShadow = !b.mat.transparent;
-    b.items.forEach((it, i) => { im.setMatrixAt(i, it.mx); it.p.inst.push({ im, i }); });
+    b.items.forEach((it, i) => { im.setMatrixAt(i, it.mx); it.p.inst.push({ im, i, mx: it.mx }); });
     im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); group.add(im);
   }
 }

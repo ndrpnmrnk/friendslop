@@ -86,7 +86,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.grab && tapped('KeyC')) release(p, 1);
   if (p.exhausted && p.stamina > PC.stamina.restart) p.exhausted = false;
   p.sprinting = wantSprint && !p.exhausted && p.stamina > 0;
-  if (p.sprinting) { p.stamina -= PC.stamina.drain * dt; p.stDelay = PC.stamina.delay; if (p.stamina <= 0) { p.stamina = 0; p.exhausted = true; } }
+  if (p.sprinting && !(p.energy > 0)) { p.stamina -= PC.stamina.drain * dt; p.stDelay = PC.stamina.delay; if (p.stamina <= 0) { p.stamina = 0; p.exhausted = true; } }
   else { p.stDelay -= dt; if (p.stDelay <= 0) p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt); }
   // поверхность под ногами
   const water = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'water');
@@ -96,12 +96,14 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.sprinting) p.boost = Math.min(1, p.boost + dt / PC.sprintRamp); else p.boost = Math.max(0, p.boost - dt / PC.sprintFade);
   const ramp = p.boost * p.boost * (3 - 2 * p.boost);
   let top = (PC.walk + (PC.sprint - PC.walk) * (p.sprinting ? ramp : 0)) * (water ? 0.5 : 1) * (p.held && p.held.def.heavy ? 0.85 : 1);
+  if (p.energy > 0) top *= 1.2; else if (p.tired > 0) top *= 0.8;
+  if (p.webT > 0) { p.webT -= dt; top *= 0.4; }
   if (p.crouch) top = Math.min(top, PC.crouchSpeed);
   if (p.grab) top *= p.grab.kind === 'barrow' ? 0.82 : 0.92;
   const cur = Math.hypot(p.vel.x, p.vel.z);
   let acc;
   if (!p.onGround) acc = 3;
-  else if (slick) acc = 1.2;
+  else if (slick || p.slipT > 0) acc = 1.2;
   else if (il) acc = PC.accel;
   else acc = cur > PC.walk + 0.5 ? PC.sprintDecel : PC.decel;
   if (p.slideT > 0) {
@@ -198,6 +200,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   }
   if (p.throwT > 0) p.throwT -= dt;
   if (p.pushing > 0) p.pushing -= dt;
+  if (p.slipT > 0) p.slipT -= dt;
   // куча листьев: пробежал — разлетелись
   if (spd > 3 && p.onGround && Math.random() < dt * 12 && zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves')) burst(p.pos.x, p.pos.y + 0.2, p.pos.z, 3, { color: [0xc96a25, 0xa8452a, 0xe0902e][(Math.random() * 3) | 0], size: 0.14, speed: 2.2, up: 2.5, g: 5, life: 1.0, grow: 0.1 });
   // вода: стоишь — расходятся круги; приземлился — всплеск; вышел — мокрые следы

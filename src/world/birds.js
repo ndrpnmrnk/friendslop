@@ -29,7 +29,7 @@ export function scareBirds(x, z, r) {
   }
 }
 export function updateBirds(dt, t, player) {
-  if (player && player.speed > 4.5) scareBirds(player.pos.x, player.pos.z, 3.2);
+  if (player && player.speed > 4.5 && !(player.ghost > 0)) scareBirds(player.pos.x, player.pos.z, 3.2);
   for (const bd of W.birds) {
     if (bd.state === 'peck') {
       bd.t -= dt;
