@@ -70,7 +70,7 @@ export function createMenu() {
     document.getElementById('skinName').textContent = SKINS[SKIN_IDS[st.idx]].name;
     try { localStorage.setItem('friendslop.skin', SKIN_IDS[st.idx]); } catch (_) {}
   }
-  st.next = d => { st.idx = (st.idx + d + SKIN_IDS.length) % SKIN_IDS.length; show(); st.ch.vy = 5; st.air = 0.01; spot.intensity = 60; st.puffT = 0.25; };
+  st.next = d => { st.idx = (st.idx + d + SKIN_IDS.length) % SKIN_IDS.length; show(); if (st.ch.skinId === 'frog') { st.ch.croakNow(); sfx('frog_happy'); } st.ch.vy = 5; st.air = 0.01; spot.intensity = 60; st.puffT = 0.25; };
   st.skin = () => SKIN_IDS[st.idx];
   // вращение мышью
   addEventListener('pointerdown', e => { if (!st.active || (e.target.closest && e.target.closest('button'))) return; st.drag = true; st.lastX = e.clientX; });

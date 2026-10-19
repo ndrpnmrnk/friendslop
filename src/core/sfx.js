@@ -59,9 +59,22 @@ const SND = {
   mantle: () => noise(0.1, 0.08, 900, 1),
   hide: () => noise(0.25, 0.1, 600, 1, 0, 'lowpass', 200),
   // «ква»: два коротких низких рыка с дрожанием
-  croak: s => { for (let k = 0; k < 2; k++) { const t0 = k * 0.2; tone(150, 105, 0.13, 'sawtooth', 0.09 * (s.v ?? 1), t0); tone(300, 210, 0.11, 'square', 0.035 * (s.v ?? 1), t0); noise(0.12, 0.04 * (s.v ?? 1), 500, 3, t0); } },
+  croak: s => frog([[150, 105, 0.13], [160, 110, 0.13]], s.v),
+  // голос рептилоида: разные «ква» под действия
+  frog_jump: s => frog([[220, 300, 0.09]], s.v),
+  frog_land: s => frog([[130, 80, 0.22]], s.v),
+  frog_hurt: s => frog([[200, 70, 0.45]], s.v, 0.08),
+  frog_throw: s => frog([[180, 120, 0.1], [240, 160, 0.08]], s.v),
+  frog_dive: s => frog([[260, 140, 0.16]], s.v),
+  frog_happy: s => frog([[150, 220, 0.1], [200, 280, 0.1], [260, 360, 0.12]], s.v),
+  frog_idle: s => frog([[150, 105, 0.13], [160, 110, 0.13]], s.v),
   fish: () => tone(500, 300, 0.1, 'triangle', 0.06),
 };
+// кваканье: низкая пила с «дрожанием» (быстрое повторение импульсов) + немного шума
+function frog(parts, v = 1, gap = 0.17) {
+  parts.forEach(([f0, f1, d], k) => { const t0 = k * gap; for (let j = 0; j < Math.ceil(d / 0.03); j++) { const a = j * 0.03, f = f0 + (f1 - f0) * (a / d);
+    tone(f, f * 0.92, 0.028, 'sawtooth', 0.16 * v, t0 + a); } tone(f0 * 2, f1 * 2, d, 'square', 0.03 * v, t0); noise(d, 0.05 * v, 600, 3, t0); });
+}
 // мировой звук: громкость по расстоянию до слушателя
 let listener = { x: 0, y: 0, z: 0 };
 export function setListener(x, y, z) { listener.x = x; listener.y = y; listener.z = z; }

@@ -8,6 +8,7 @@ import { nearestItem, pickUp, throwVelocity, launch } from './items.js';
 import { smoke, smokeRing } from '../world/particles.js';
 import { M } from '../missions/missions.js';
 import { sfx } from '../core/sfx.js';
+import { voice } from './voice.js';
 
 /* Простые боты-соперники (пока нет сети): бегут к миссии, «выполняют» её стоя рядом,
    иногда кидают предмет в игрока. Тот же риг, хитбокс и физика, что у игрока —
@@ -19,7 +20,7 @@ export function createBots(scene, playerSkin, n = 3) {
   W.bots = [];
   const others = SKIN_IDS.filter(s => s !== playerSkin);
   for (let i = 0; i < n; i++) {
-    const skin = others[i % others.length] || playerSkin, ch = makeCharacter(skin); ch.onCroak = () => sfx('croak', { at: ch.root.position, v: 0.7 });
+    const skin = others[i % others.length] || playerSkin, ch = makeCharacter(skin); ch.onCroak = () => sfx('croak', { at: ch.root.position, v: 0.6 });
     const sp = W.spawns[(i + 1) % W.spawns.length] || { x: 0, y: 0.15, z: 0 };
     ch.root.position.set(sp.x + (Math.random() - 0.5) * 2, sp.y, sp.z + (Math.random() - 0.5) * 2); scene.add(ch.root);
     W.bots.push({ bot: true, name: NAMES[i], skin, ch, root: ch.root, pos: ch.root.position, vel: new V3(), push: new V3(), r: PC.radius, h: PC.height, step: PC.step,
@@ -58,7 +59,7 @@ export function updateBots(dt, t, P) {
     // иногда швыряет предмет в игрока
     if (P && b.throwCD <= 0 && b.stun <= 0 && Math.hypot(P.pos.x - b.pos.x, P.pos.z - b.pos.z) < 11) {
       const it = nearestItem(b.pos, 2.2);
-      if (it && it.state === 'rest') { b.throwCD = 9 + Math.random() * 8; const from = new V3(b.pos.x, b.pos.y + 1.4, b.pos.z); it.state = 'held'; it.pos.copy(from); const v = throwVelocity(from, P.pos.clone().setY(P.pos.y + 1), 0.6 + Math.random() * 0.3, it.def); it.owner = b; launch(it, from, v); b.throwT = 0.3; }
+      if (it && it.state === 'rest') { b.throwCD = 9 + Math.random() * 8; const from = new V3(b.pos.x, b.pos.y + 1.4, b.pos.z); it.state = 'held'; it.pos.copy(from); const v = throwVelocity(from, P.pos.clone().setY(P.pos.y + 1), 0.6 + Math.random() * 0.3, it.def); it.owner = b; launch(it, from, v); voice(b.ch, 'throw', b.pos); b.throwT = 0.3; }
       else b.throwCD = 2;
     }
     const sp = (b.webT > 0 ? 0.4 : 1) * PC.sprint * 0.78, k = b.onGround ? 8 : 2;
@@ -67,7 +68,7 @@ export function updateBots(dt, t, P) {
     // толкотня с игроком, выпад игрока сбивает бота
     if (P) { const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z, d = Math.hypot(dx, dz);
       if (d < b.r + P.r && d > 1e-3 && Math.abs(b.pos.y - P.pos.y) < 1.2) { const o = (b.r + P.r - d) / 2; b.pos.x += dx / d * o; b.pos.z += dz / d * o; P.pos.x -= dx / d * o; P.pos.z -= dz / d * o;
-        if (P.dive === 'air' && b.stun <= 0) { b.stun = 1.3; b.vel.set(P.vel.x * 0.7, 5, P.vel.z * 0.7); b.onGround = false; } } }
+        if (P.dive === 'air' && b.stun <= 0) { voice(b.ch, 'hurt', b.pos); b.stun = 1.3; b.vel.set(P.vel.x * 0.7, 5, P.vel.z * 0.7); b.onGround = false; } } }
     const was = b.onGround;
     moveBody(b, dt, PC.gravity);
     if (b.onGround && !was && b.airPeak - b.pos.y > 0.6) smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1.6, size: 0.14 });
@@ -88,7 +89,7 @@ export function updateBots(dt, t, P) {
 export function botHitHook(it, p, heavy, r) {
   const P = W.player;
   if (P && it.owner && it.owner.bot && Math.hypot(P.pos.x - p.x, P.pos.z - p.z) < r && p.y > P.pos.y - 0.3 && p.y < P.pos.y + P.h + 0.4) {
-    if (heavy) { P.stun = Math.max(P.stun, 1.2); P.vel.set(it.vel.x * 0.4, 4, it.vel.z * 0.4); P.onGround = false; } else { P.push.set(it.vel.x * 0.15, 0, it.vel.z * 0.15); if (it.type === 'balloon') { P.wetT = 4; P.slipT = 2; } }
+    if (heavy) { voice(P.ch, 'hurt'); P.stun = Math.max(P.stun, 1.2); P.vel.set(it.vel.x * 0.4, 4, it.vel.z * 0.4); P.onGround = false; } else { P.push.set(it.vel.x * 0.15, 0, it.vel.z * 0.15); if (it.type === 'balloon') { P.wetT = 4; P.slipT = 2; } }
   }
   for (const b of W.bots || []) {
     if (it.owner === b) continue;

@@ -24,6 +24,8 @@ export function makeCharacter(skinId) {
   for (let i = 0; i < 4; i++) { const s = sprite(T.star(), 0.22); s.position.set(Math.cos(i * 1.57) * 0.4, 0, Math.sin(i * 1.57) * 0.4); stars.add(s); }
   const ch = { ...parts, skinId, skin, d, stars, blob: sh, blobS: d.shadow ?? 0.55, ph: 0, squash: 0, blinkT: 2, expr: 'idle', holdPoint: new THREE.Vector3() };
   ch.animate = (dt, st) => animate(ch, dt, st);
+  // голос: мешок надувается сразу (звук включает тот, кто вызвал)
+  ch.croakNow = () => { if (ch.head.userData.sac) ch.sacT = -0.0001; };
   return ch;
 }
 

@@ -124,7 +124,6 @@ export const SKINS = {
       const rag = lam({ map: T.rag(), alphaTest: 0.5, side: THREE.DoubleSide }, 'ragCloth'), flaps = [], R0 = 0.37;
       SHAWL = SHAWL || new THREE.CylinderGeometry(0.36, 0.4, 0.12, 14, 1, true);
       const band = mesh(SHAWL, rag, 0, 0.75, 0, 1, 1, 0.86, torso); band.rotation.z = 0.12;
-      mesh(G.sph, col(0x5a3820), -0.16, 0.71, 0.31, 0.06, 0.05, 0.05, torso);
       for (let i = 0; i < 3; i++) {
         const a = -Math.PI * (0.3 + 0.2 * i), pv = new THREE.Group();
         pv.position.set(Math.sin(a) * R0, 0.72 + (i === 1 ? -0.02 : 0), Math.cos(a) * R0 * 0.86); pv.rotation.order = 'YXZ'; pv.rotation.y = a; torso.add(pv);

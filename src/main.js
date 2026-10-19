@@ -18,6 +18,7 @@ import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
 import { resetGadgets, updateGadgets, useGadget } from './game/gadgets.js';
 import { createBots, updateBots, botHitHook } from './game/bots.js';
+import { voice } from './game/voice.js';
 import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide } from './game/worldfx.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
@@ -131,6 +132,7 @@ function prepareRound() {
   resetMissions();
   if (P) scene.remove(P.root);
   P = createPlayer(menu.skin()); scene.add(P.root); P.ch.onCroak = () => sfx('croak');
+  P.ch.onCroak = null; // в игре «ква» звучит через голос (voice), мешок сам по себе не квакает
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
   W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), 3);
@@ -250,7 +252,7 @@ function closeMission(res) {
 
 // очки за миссию: «+N» вылетает из места миссии на экране и летит в счёт
 function scored(m, pts) {
-  markWon(m.id); sfx('done');
+  markWon(m.id); sfx('done'); voice(P.ch, 'happy');
   const p = (m.obj.pos && m.obj.pos()) || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   const sx = Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), sy = Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight));
   flyScore(sx, sy, pts); setTimeout(() => sfx('points'), 700);
@@ -305,7 +307,7 @@ on('up', btn => {
   if (btn === 2 && P.charging) {
     P.charging = false; $('dot').classList.remove('charge');
     const it = P.held, from = P.ch.holdPoint.clone(), tgt = aimPoint();
-    if (it && tgt) { const v = throwVelocity(from, tgt, P.charge, it.def); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; launch(it, from, v); P.held = null; P.throwT = 0.3; }
+    if (it && tgt) { const v = throwVelocity(from, tgt, P.charge, it.def); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; launch(it, from, v); P.held = null; P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
   }
 });
 on('key', code => {
