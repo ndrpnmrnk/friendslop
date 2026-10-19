@@ -22,6 +22,9 @@ import { nearestRideable, mount, dismount, grab, release, hopIn } from './game/r
 import { updateBreakables } from './world/breakables.js';
 import { $, pop, renderHud, renderStamina } from './ui/hud.js';
 import { createMenu } from './ui/menu.js';
+import { buildMinimap, drawMinimap } from './ui/minimap.js';
+import { initEvents, resetEvents, updateEvents, stopEvent, EV } from './game/events.js';
+import { DISTRICTS } from './world/districts/index.js';
 
 /* ---------- сцена игры ---------- */
 const scene = new THREE.Scene();
@@ -33,6 +36,15 @@ const sun = new THREE.DirectionalLight(SEASON.sun[0], SEASON.sun[1] * Math.PI); 
 sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.07;
 Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 150 }); sun.shadow.camera.updateProjectionMatrix();
 const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(), SUN_U = new V3().crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize();
+// фонарик персонажа (горит только в событии «Отключили свет»; свет есть всегда, чтобы не пересобирать шейдеры)
+const flash = new THREE.SpotLight(0xfff0d0, 0, 26, 0.55, 0.5, 1.2); scene.add(flash, flash.target);
+initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene }) });
+function eventUi(title, sub, big) {
+  const bar = $('eventbar');
+  if (title === null) { bar.classList.add('hidden'); return; }
+  bar.textContent = title; bar.classList.remove('hidden');
+  if (big) { const e = $('eventbig'); e.innerHTML = `${title}<small>${sub}</small>`; e.classList.remove('hidden'); e.style.animation = 'none'; void e.offsetWidth; e.style.animation = ''; setTimeout(() => e.classList.add('hidden'), 3000); }
+}
 function followSun(x, y, z) {
   // привязка к текселю карты теней, чтобы края теней не дрожали при движении
   const tx = 64 / 2048, c = new V3(x, y, z), a = Math.round(c.dot(SUN_R) / tx) * tx, b = Math.round(c.dot(SUN_U) / tx) * tx, f = c.dot(SUN_DIR);
@@ -69,6 +81,8 @@ $('mgexit').onclick = () => { if (S.wm) closeWorld(null); else closeMission(null
 /* ---------- раунд ---------- */
 function startRound() {
   generateMap(scene, (Math.random() * 1e9) | 0);
+  buildMinimap(DISTRICTS);
+  resetEvents(); $('eventbar').classList.add('hidden');
   resetMissions();
   if (P) scene.remove(P.root);
   P = createPlayer(menu.skin()); scene.add(P.root);
@@ -83,6 +97,7 @@ function startRound() {
   updateCamera(camera, P, 0, true);
 }
 function endRound() {
+  stopEvent(); $('eventbar').classList.add('hidden');
   if (S.mg) closeMission(null);
   if (S.wm) closeWorld(null);
   if (S.crane) exitCrane();
@@ -109,19 +124,20 @@ function openWorld(m) {
   const api = {
     msg: (text, cls = '') => { $('mgmsg').textContent = text; $('mgmsg').className = 'msg ' + cls; },
     progress: v => { $('mgbar').firstChild.style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; },
+    where: t => { m.where = t; },
     timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))} с`; },
     finish: res => { if (S.wm && S.wm.m === m) closeWorld(res); },
   };
   const ctx = { player: P, give: it => { pickUp(it); P.held = it; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
     enterCrane: () => { if (!S.crane) enterCrane(); }, exitCrane: () => { if (S.crane) exitCrane(); } };
   S.wm.game = WORLD_GAMES[m.def.game](m.obj, api, ctx);
+  m.track = S.wm.game.target ? () => S.wm.game.target() : null;
 }
 function closeWorld(res) {
   if (!S.wm) return;
   const { m, game } = S.wm; S.wm = null; game.stop(); m.busy = false;
   $('mgpanel').classList.add('hidden'); $('mgexit').textContent = 'Выйти (Esc)';
   if (res && res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; pop(`+${pts} ${m.def.icon}`, 'good'); }
-  else pop('Миссия провалена', 'bad');
   removeMission(m);
 }
 function openMission(m) {
@@ -151,7 +167,6 @@ function closeMission(res) {
   $('mgpanel').classList.add('hidden');
   if (!res) return;
   if (res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; pop(`+${pts} ${m.def.icon}`, 'good'); }
-  else pop('Миссия провалена', 'bad');
   removeMission(m);
 }
 
@@ -266,6 +281,9 @@ function loop() {
       if (S.wm) S.wm.game.update(dt);
       S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText()); S.hudT = 0.1; }
       renderStamina(P);
+      updateEvents(dt, eventUi);
+      if (flash.intensity > 0) { const f = P.root.rotation.y; flash.position.set(P.pos.x, P.pos.y + 1.6, P.pos.z); flash.target.position.set(P.pos.x + Math.sin(f) * 6, P.pos.y, P.pos.z + Math.cos(f) * 6); }
+      drawMinimap(P, M.list, S.wm && S.wm.game.target ? S.wm.game.target() : null);
       if (S.time <= 0) { S.time = 0; renderHud(S, P, ''); endRound(); }
     }
     // траектория броска
@@ -312,6 +330,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 // отладочный доступ из консоли браузера
-window.__fs = { renderer, S, spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
+window.__fs = { renderer, S, EV, spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
 showMenu();
 loop();

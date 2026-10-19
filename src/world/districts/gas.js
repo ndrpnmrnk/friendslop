@@ -28,7 +28,6 @@ export default {
     b.house({ x: 20, z: 1, w: 10, d: 6, h: 3.2, wall: 0xd8d0c0, brick: false, lit: 0.9, door: { side: 's', at: 0.25 }, sign: ['МАГАЗИН', '#d8243a', '#f1e8ff'], floor: T.floorTile(),
       ladder: { side: 'e', at: 0.5 }, roof: true,
       interior(b, r) { b.shelf(r.x0 + 5, r.z0 + 2, 4, 0); b.box(r.x1 - 0.6, r.z1 - 1.8, 0.8, 2.4, 1.0, tmat(T.wood())); b.cabinet(r.x0 + 0.5, r.z0 + 0.4, 0.6, 0.6, 1.5, 0x3a3a40); b.safe(r.x1 - 0.5, r.z0 + 0.5, -Math.PI / 2); } });
-    b.vitrine(26.5, 7.16, 4.2, 1.8, 'x', 0.5);
     // автомойка
     const mt = col(0x4a6a8a);
     b.box(25.5, 19.2, 9, 0.3, 3, mt); b.box(25.5, 26.8, 9, 0.3, 3, mt);

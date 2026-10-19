@@ -73,7 +73,7 @@ function tunnelSegment(s, P, brick, conc) {
   const box = (u0, v0, u1, v1, fn) => { const [x0, z0] = P(u0, v0), [x1, z1] = P(u1, v1); fn(Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1)); };
   const u0 = s.a - 1.5 + 1.5, u1 = s.b + 1.5 - 1.5; // сегмент от узла до узла
   const ua = s.a - (6 - UG.inner) / 2 + 0.0, ub = s.b + (6 - UG.inner) / 2;
-  box(ua, s.c - half, ub, s.c + half, (x0, z0, x1, z1) => floorPiece(x0, z0, x1, z1, conc));
+  box(ua, s.c - half, ub, s.c + half, (x0, z0, x1, z1) => { floorPiece(x0, z0, x1, z1, conc); W.floodRects.push([x0, z0, x1, z1]); });
   // стены с обеих сторон, с проёмами для входов из районов
   for (const side of [-1, 1]) {
     const v = s.c + side * (half + t / 2);
@@ -124,7 +124,7 @@ function tunnelSegment(s, P, brick, conc) {
 }
 function tunnelNode(x, z, w0, w1, n0, n1, brick, conc) {
   const half = UG.inner / 2, t = UG.wall, e = 1.5; // узел 3×3 + стены
-  floorPiece(x - e, z - e, x + e, z + e, conc);
+  floorPiece(x - e, z - e, x + e, z + e, conc); W.floodRects.push([x - e, z - e, x + e, z + e]);
   // глухие стены на краях сетки
   if (w0) wallPiece(x - e - t, z - e - t, x - e, z + e + t, brick);
   if (w1) wallPiece(x + e, z - e - t, x + e + t, z + e + t, brick);

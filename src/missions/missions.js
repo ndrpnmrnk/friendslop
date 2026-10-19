@@ -111,7 +111,7 @@ export function updateMissions(dt, t, player, pop) {
     const p = m.obj.pos(); m.marker.g.position.set(p.x, p.y, p.z); m.marker.g.visible = !m.busy;
     if (m.def.life > 0 && !m.busy) {
       m.life -= dt;
-      if (m.life <= 0) { pop(`${m.def.icon} Миссия исчезла`, 'info'); removeMission(m); continue; }
+      if (m.life <= 0) { removeMission(m); continue; }
       m.marker.bm.opacity = m.life < 8 ? (Math.sin(t * 12) > 0 ? 0.45 : 0.1) : 0.28;
     }
     m.marker.sp.position.y = 4.2 + Math.sin(t * 3 + m.id) * 0.2;

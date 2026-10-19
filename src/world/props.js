@@ -414,6 +414,101 @@ export const PropMethods = {
     for (let k = 0; k < n; k++) { const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push(new THREE.Vector3(this.X(x0 + (x1 - x0) * t), this.Y + y0 + (y1 - y0) * t - Math.sin(t * Math.PI) * (0.6 + k * 0.25) - k * 0.2, this.Z(z0 + (z1 - z0) * t + k * 0.15))); }
       this.g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x17111f }))); }
   },
+  // Карусель: платформа крутится, на шестах качаются тыквы-сиденья и летучие мыши, сверху полосатый шатёр
+  carousel(x, z, r = 3) {
+    const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); W.group.add(g); W.keep.push(g);
+    const add = (geo, m, px, py, pz, sx, sy, sz, ry = 0, p2 = g) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.y = ry; p2.add(o); return o; };
+    const base = col(0x3a3046), gold = col(0xd8a030), deck = tmat(T.floorWood());
+    this.m(G.cyl12, base, x, 0.12, z, r + 0.2, 0.24, r + 0.2); this.solid(x, z, 0.5, 0.5, 0, 4.2);
+    const rot = new THREE.Group(); rot.position.y = 0.24; g.add(rot);
+    add(G.cyl12, deck, 0, 0.05, 0, r, 0.1, r, 0, rot); add(G.cyl12, gold, 0, 2.1, 0, 0.18, 4.2, 0.18, 0, rot);
+    const roof = add(G.cone8, tmat(T.awning('#ff8a1f', '#2a1f3d')), 0, 4.4, 0, r + 0.5, 1.4, r + 0.5, 0, rot); roof.rotation.y = Math.PI / 8;
+    add(G.cyl12, col(0x2a1f3d), 0, 3.7, 0, r + 0.5, 0.18, r + 0.5, 0, rot);
+    const riders = [];
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2, px = Math.cos(a) * (r - 0.7), pz = Math.sin(a) * (r - 0.7);
+      add(G.cyl6, gold, px, 1.9, pz, 0.035, 3.6, 0.035, 0, rot);
+      const s2 = new THREE.Group(); s2.position.set(px, 1.0, pz); s2.rotation.y = -a; rot.add(s2);
+      if (i % 2) { add(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.26, 0.32, 0, s2); add(G.box, col(0x3f6b2a), 0, 0.3, 0, 0.06, 0.12, 0.06, 0, s2); }
+      else { add(G.sphL, col(0x2a2232), 0, 0, 0, 0.22, 0.2, 0.3, 0, s2); for (const sd of [-1, 1]) { const wg = add(G.box, col(0x3a3046), sd * 0.35, 0.1, 0, 0.5, 0.03, 0.3, 0, s2); wg.rotation.z = sd * 0.3; } }
+      riders.push(s2);
+    }
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; add(G.box, glow(i % 2 ? 0xffd28a : 0xff8a1f), Math.cos(a) * (r + 0.45), 3.65, Math.sin(a) * (r + 0.45), 0.14, 0.14, 0.14, 0, rot); }
+    this.light(x, z, r + 1.2);
+    W.animated.push((dt, t) => { rot.rotation.y += dt * 0.5; riders.forEach((q, i) => (q.position.y = 1.0 + Math.sin(t * 2 + i) * 0.3)); });
+  },
+  // Летняя эстрада-ракушка: сцена со ступенями, полукупол сзади, прожекторы
+  bandshell(x, z, w = 7, ry = 0) {
+    const wd = tmat(T.floorWood()), sh = tmat(T.plaster());
+    this.box(x, z, w, 4, 0.8, wd);
+    const sm = this.m(new THREE.SphereGeometry(1, 12, 6, 0, Math.PI, 0, Math.PI / 2), sh, x, 0.8, z - 0.2, w / 2, 3.6, 2.6); sm.rotation.y = Math.PI; sm.material = lam({ map: T.plaster(), side: THREE.DoubleSide }, 'shellIn');
+    this.solid(x, z - 1.8, w, 0.4, 0.8, 3.6);
+    for (let i = 0; i < 5; i++) { const a = Math.PI * (0.15 + i * 0.175); this.m(G.box, glow([0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff][i]), x + Math.cos(a) * (w / 2 - 0.3), 0.8 + Math.sin(a) * 3.2, z - 0.4, 0.25, 0.25, 0.25); }
+    this.stairs(x - 1.2, z + 3.26, 'n', 0, 0.8, 1.6); this.stairs(x + 1.2, z + 3.26, 'n', 0, 0.8, 1.6);
+    for (const s2 of [-1, 1]) { this.box(x + s2 * (w / 2 - 0.5), z + 1.2, 0.8, 0.6, 1.4, col(0x17111f), { y: 0.8 }); this.m(G.cyl12, col(0x3a3a40), x + s2 * (w / 2 - 0.5), 1.8, z + 1.52, 0.25, 0.02, 0.25).rotation.x = Math.PI / 2; }
+    this.m(G.cyl6, col(0x2b2533), x, 1.5, z + 0.8, 0.03, 1.4, 0.03); this.m(G.sph, col(0x17111f), x, 2.25, z + 0.8, 0.08, 0.1, 0.08);
+    this.light(x, z + 0.5, 3.4, 0.8);
+    this.zone('roof', x - w / 2 + 0.8, z - 1.2, x + w / 2 - 0.8, z + 1.5, 0.8);
+  },
+  // Ярмарочная палатка: каркас, полосатая крыша-шатёр, прилавок с товаром
+  tent(x, z, ry = 0, c1 = '#d8243a', c2 = '#f1e8ff', goods = 'pumpkin', sign = '') {
+    const g = this.prop(x, z, ry), dk = col(0x2b2533), wd = tmat(T.wood());
+    const add = (geo, m, px, py, pz, sx, sy, sz, rx = 0, ryy = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.set(rx, ryy, 0); g.add(o); return o; };
+    for (const [a, b2] of [[-1.3, -1], [1.3, -1], [-1.3, 1], [1.3, 1]]) add(G.box, dk, a, 1.2, b2, 0.07, 2.4, 0.07);
+    add(G.cone4, tmat(T.awning(c1, c2)), 0, 2.85, 0, 2.05, 0.9, 1.6, 0, Math.PI / 4);
+    for (const s2 of [-1, 1]) add(G.box, tmat(T.awning(c1, c2)), 0, 2.3, s2 * 1.02, 2.7, 0.3, 0.03);
+    add(G.box, wd, 0, 0.5, 0.75, 2.5, 1.0, 0.5); add(G.box, tmat(T.produce(goods)), 0, 1.03, 0.75, 2.4, 0.06, 0.45);
+    if (sign) add(G.box, tmat(T.sign(sign, c1, '#f1e8ff')), 0, 2.15, 1.05, 1.8, 0.32, 0.02);
+    add(G.box, glow(0xffd28a), 0, 2.2, 0, 0.18, 0.12, 0.18);
+    const nx = Math.round(Math.sin(ry)), nz = Math.round(Math.cos(ry));
+    this.solid(x + nx * 0.75, z + nz * 0.75, Math.abs(nx) ? 0.5 : 2.5, Math.abs(nx) ? 2.5 : 0.5, 0, 1.05);
+    for (const [a, b2] of [[-1.3, -1], [1.3, -1], [-1.3, 1], [1.3, 1]]) { const wx = x + a * Math.cos(ry) + b2 * Math.sin(ry), wz = z - a * Math.sin(ry) + b2 * Math.cos(ry); this.solid(wx, wz, 0.15, 0.15, 0, 2.4); }
+    this.light(x + nx * 1.5, z + nz * 1.5, 1.8);
+    return g;
+  },
+  // Часовая башня: на балкон с часами — по лестнице
+  clockTower(x, z) {
+    const st = tmat(T.stone()), dk = col(0x2b2533);
+    this.box(x, z, 2.4, 2.4, 6.5, st);
+    this.box(x, z, 2.4, 2.4, 0.2, st, { y: 6.5 });
+    for (const [dx, dz, w, d] of [[0, -1.15, 2.4, 0.1], [-0.85, 1.15, 0.7, 0.1], [0.85, 1.15, 0.7, 0.1], [-1.15, 0, 0.1, 2.4], [1.15, 0, 0.1, 2.4]]) this.box(x + dx, z + dz, w, d, 0.9, dk, { y: 6.7 });
+    this.box(x, z - 0.2, 1.6, 1.2, 2.2, st, { y: 6.7 });
+    const roof = this.m(G.cone4, tmat(T.roof()), x, 10.0, z, 1.5, 1.4, 1.5); roof.rotation.y = Math.PI / 4;
+    for (const [nx, nz, off] of [[0, 1, 0.61], [0, -1, 0.61], [1, 0, 0.81], [-1, 0, 0.81]]) {
+      const fx = x + nx * off, fz = z - 0.2 + nz * off;
+      const f = this.m(G.cyl12, col(0xf1e8d0), fx + nx * 0.02, 7.9, fz + nz * 0.02, 0.5, 0.04, 0.5); f.rotation.set(nz ? Math.PI / 2 : 0, 0, nx ? Math.PI / 2 : 0);
+      this.m(G.box, dk, fx + nx * 0.05, 8.04, fz + nz * 0.05, nx ? 0.02 : 0.05, 0.3, nz ? 0.02 : 0.05);
+      this.m(G.box, dk, fx + nx * 0.05 + nz * 0.1, 7.9, fz + nz * 0.05 + nx * 0.1, nx ? 0.02 : 0.22, 0.05, nz ? 0.02 : 0.22);
+    }
+    this.ladder(x, z + 1.2, 's', 6.7);
+  },
+  // Куча листьев: пробежишь — листья разлетаются
+  leafPile(x, z, r = 1) {
+    const lm = tmat(T.leaves(0));
+    for (let i = 0; i < 4; i++) { const o = this.m(G.ico, lm, x + (Math.random() - 0.5) * r, 0.12, z + (Math.random() - 0.5) * r, r * (0.5 + Math.random() * 0.3), 0.25, r * (0.5 + Math.random() * 0.3)); o.rotation.y = Math.random() * 3; }
+    addZone('leaves', { c: [this.X(x), this.Z(z), r * 0.9] }, this.Y);
+  },
+  // Деревянный причал над водой
+  pier(x0, z0, x1, z1, y = 0.35) {
+    const wd = tmat(T.wood()), along = Math.abs(x1 - x0) > Math.abs(z1 - z0), len = along ? Math.abs(x1 - x0) : Math.abs(z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    this.box(cx, cz, along ? len : 1.6, along ? 1.6 : len, 0.1, wd, { y: y - 0.1 });
+    for (let t = 0; t <= 1.001; t += 0.5) for (const s2 of [-0.7, 0.7]) { const px = x0 + (x1 - x0) * t + (along ? 0 : s2), pz = z0 + (z1 - z0) * t + (along ? s2 : 0); this.m(G.cyl6, tmat(T.bark()), px, (y + 0.3) / 2 - 0.3, pz, 0.08, y + 0.6, 0.08); this.m(G.cyl6, tmat(T.bark()), px, y + 0.3, pz, 0.07, 0.6, 0.07); }
+    for (const s2 of [-0.75, 0.75]) this.m(G.box, wd, cx + (along ? 0 : s2), y + 0.55, cz + (along ? s2 : 0), along ? len : 0.06, 0.06, along ? 0.06 : len);
+  },
+  // Живая изгородь (стриженые кусты)
+  hedge(x0, z0, x1, z1, h = 1.2) {
+    const along = Math.abs(x1 - x0) > Math.abs(z1 - z0), len = along ? Math.abs(x1 - x0) : Math.abs(z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    this.box(cx, cz, along ? len : 0.9, along ? 0.9 : len, h, tmat(T.bush()));
+    for (let t = 0.5; t < len; t += 1.4) { const b = this.m(G.ico, tmat(T.bush()), along ? Math.min(x0, x1) + t : cx, h, along ? cz : Math.min(z0, z1) + t, 0.55, 0.3, 0.55); b.rotation.y = t; }
+  },
+  // Тыквенная грядка: земля, ботва, тыквы-предметы
+  pumpkinPatch(x, z, w, d, n = 4) {
+    this.ground(x - w / 2, z - d / 2, x + w / 2, z + d / 2, T.dirt(), 2);
+    const vm = tmat(T.leaves(2));
+    for (let i = 0; i < w * d * 1.2; i++) { const o = this.m(G.ico, vm, x + (Math.random() - 0.5) * w, 0.12, z + (Math.random() - 0.5) * d, 0.3, 0.12, 0.3); o.rotation.y = Math.random() * 3; }
+    for (let i = 0; i < n; i++) this.item('pumpkin', x + ((i % 3) - 1) * w * 0.3, z + (Math.floor(i / 3) - 0.5) * d * 0.45);
+    for (const s2 of [-1, 1]) this.box(x, z + s2 * (d / 2 + 0.05), w + 0.2, 0.1, 0.25, tmat(T.wood()), { solid: false });
+  },
   // Тёплая «уличная» деталь: электрощиток на стене / у столба
   utilityBox(x, z, ry = 0) {
     const nx = Math.round(Math.sin(ry)), nz = Math.round(Math.cos(ry));

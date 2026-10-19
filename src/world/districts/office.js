@@ -34,7 +34,7 @@ export default {
         const rot = k % 2;
         for (const x of [9.5, 12.5]) for (const z of [5.4, 7.6, 10.2]) f.desk(x, z, rot ? Math.PI : 0, true);
         for (const z of [5.4, 7.6]) f.desk(16.5, z, rot ? Math.PI : 0, true);
-        f.ride('chair', 12.5, rot ? 4.5 : 8.4, rot ? 0 : Math.PI);
+        f.ride('chair', 12.5, rot ? 4.75 : 8.4, rot ? 0 : Math.PI);
         if (k % 3 === 1) f.item('chair', 9.5, 11.4);
         // переговорка: стеклянные стены (бьются), стол, доска
         f.vitrine(21.5, 9.2, 6.2, 2.2, 'x', 0.2); f.vitrine(18.4, 11.9, 3.2, 2.2, 'z', 0.2);

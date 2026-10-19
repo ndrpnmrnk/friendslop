@@ -27,7 +27,7 @@ export default {
     W.tunnelOpenings.push({ axis: 'x', at: b.Z(32) + 1.5 + 0.2, from: b.X(12), to: b.X(20) });
     // спуски: лестницы и ступени
     b.ladder(12, 6, 'e', 0.15, LEDGE);
-    for (const z of [10, 24]) W.spots.fish.push({ x: b.X(12.9), z: b.Z(z), y: b.Y + LEDGE, f: [1, 0], wx: b.X(15.5), wz: b.Z(z), wy: b.Y + FLOOR + 0.25, district: 'Коллектор', label: 'в канале' });
+    for (const z of [10, 24]) W.spots.fish.push({ x: b.X(12.9), z: b.Z(z), y: b.Y + LEDGE, f: [1, 0], wx: b.X(15.5), wz: b.Z(z), wy: b.Y + FLOOR + 0.25, cx: b.X(16), cz: b.Z(z), R: 2.4, district: 'Коллектор', label: 'в канале' });
     b.ladder(20, 27, 'w', 0.15, LEDGE);
     b.stairs(19.25, 13.2, 'n', LEDGE, 0.15, 1.3, LEDGE);
     // мост через канал

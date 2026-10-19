@@ -17,17 +17,20 @@ export const TowerMethods = {
   tower(o) {
     const { x, z, w, d } = o, n = o.floors, fh = o.fh ?? 3.4, H = n * fh, t = 0.25, base = o.wall ?? 0x7c6a9c;
     const lit = o.lit ?? 0.5, brick = o.brick !== false, hasStairs = o.stairs !== false && n > 1;
-    const run = o.run ?? 0.42, land = o.landing ?? 1.2, lane = o.lane ?? 1.2;
-    const steps = Math.max(1, Math.round(fh / 0.3)), L = steps * run;
+    // лестница «с разворотом»: широкий марш до площадки на полэтажа, разворот, второй марш до этажа
+    const run = o.run ?? 0.42, lane = o.lane ?? 1.5, EL = o.entry ?? 1.2, ML = o.mid ?? lane;
+    const hsteps = Math.max(2, Math.round(fh / 2 / 0.28)), rise = fh / 2 / hsteps, Lh = hsteps * run;
     const ix0 = x + t, iz0 = z + t, ix1 = x + w - t, iz1 = z + d - t;
-    const sx0 = o.stairX ?? ix0, sz0 = iz0, sx1 = hasStairs ? sx0 + land * 2 + L : sx0, sz1 = hasStairs ? sz0 + lane * 2 : sz0;
+    const sx0 = o.stairX ?? ix0, sz0 = iz0, f0 = sx0 + EL, f1 = f0 + Lh, sx1 = hasStairs ? f1 + ML : sx0, sz1 = hasStairs ? sz0 + lane * 2 : sz0;
     const dw = o.doorW ?? 1.4, dh = 2.35, plain = col(base), inner = o.inner || T.plaster();
     const doors = o.doors || (o.door ? [o.door] : []);
     // настоящие окна: проём в стене + стекло, которое бьётся (выпад/бросок), снаружи подоконник
-    const SILL = o.sill ?? 0.75, WH = Math.min(1.55, fh - SILL - 0.45), WW = 1.1, STEP = o.winStep ?? 2.2;
+    // окна большие: персонаж пролезает (прыжок на подоконник и шаг наружу)
+    const SILL = o.sill ?? 0.55, WH = Math.min(1.95, fh - SILL - 0.42), WW = 1.3, STEP = o.winStep ?? 2.3;
     const sides = { s: { len: w, at: z + d - t / 2, axis: 'x', out: 4, inn: 5 }, n: { len: w, at: z + t / 2, axis: 'x', out: 5, inn: 4 },
       e: { len: d - 2 * t, at: x + w - t / 2, axis: 'z', out: 0, inn: 1 }, w: { len: d - 2 * t, at: x + t / 2, axis: 'z', out: 1, inn: 0 } };
     const frame = col(0x2a2232), sill = col(0xc8c0b4), curtain = lam({ color: 0xffb070, emissive: 0xff9a4a, emissiveIntensity: 0.55 }, 'curtain');
+    let doorOut = null;
     for (const [k, sd] of Object.entries(sides)) {
       const dr = doors.find(q => q.side === k);
       const g0 = dr ? dr.at * sd.len - dw / 2 : -1, g1 = g0 + dw;
@@ -100,6 +103,7 @@ export const TowerMethods = {
         const hinge = ax ? [Math.min(e0[0], e1[0]), sd.at] : [sd.at, Math.min(e0[1], e1[1])];
         this.door(hinge[0], hinge[1], sd.axis, { s: 1, n: -1, e: -1, w: 1 }[k], 0, dw, dh);
         const [cx, cz] = U((g0 + g1) / 2);
+        if (!doorOut) doorOut = [this.X(cx + nrm[0] * 1.3), this.Z(cz + nrm[1] * 1.3), this.X(cx - nrm[0] * 1.0), this.Z(cz - nrm[1] * 1.0)];
         if (!o.awning && o.canopy !== false) {
           this.m(G.box, col(0x2b2533), cx + nrm[0] * 0.78, dh + 0.36, cz + nrm[1] * 0.78, ax ? dw + 1 : 1.3, 0.12, ax ? 1.3 : dw + 1);
           this.m(G.box, glow(0xffd8a0), cx + nrm[0] * 0.78, dh + 0.27, cz + nrm[1] * 0.78, 0.3, 0.05, 0.3); this.light(cx + nrm[0] * 1.2, cz + nrm[1] * 1.2, 1.6);
@@ -109,8 +113,6 @@ export const TowerMethods = {
     }
     // перекрытия с проёмом над пролётом, который пришёл снизу
     const floorTex = o.floor || T.floorWood(), ceil = tmat(T.plaster());
-    const laneZ = k => k % 2 === 0 ? [sz0, sz0 + lane] : [sz0 + lane, sz1];
-    const fx0 = sx0 + land, fx1 = sx0 + land + L;
     const slab = (y, hole, tex, roof) => {
       const rects = hole ? [[ix0, iz0, ix1, hole[1]], [ix0, hole[3], ix1, iz1], [ix0, hole[1], hole[0], hole[3]], [hole[2], hole[1], ix1, hole[3]]] : [[ix0, iz0, ix1, iz1]];
       for (const [a, b2, c, e] of rects) {
@@ -123,35 +125,42 @@ export const TowerMethods = {
       for (const [a, b2, c, e] of rs) { if (c - a < 0.01 || e - b2 < 0.01) continue; const gfl = this.m(G.plane, flat(rep(floorTex, (c - a) / 3, (e - b2) / 3)), (a + c) / 2, 0.015, (b2 + e) / 2, c - a, e - b2, 1); gfl.rotation.x = -Math.PI / 2; } }
     const rail = col(0x3a3046), railM = (cx, cz, ww, dd, y) => { this.m(G.box, rail, cx, y + 0.95, cz, ww, 0.06, dd); this.solid(cx, cz, ww, dd, y, 1.0);
       const nPost = Math.max(2, Math.round(Math.max(ww, dd) / 0.6)); for (let i = 0; i <= nPost; i++) { const tt = i / nPost - 0.5; this.m(G.box, rail, cx + (ww > dd ? tt * ww : 0), y + 0.48, cz + (ww > dd ? 0 : tt * dd), 0.04, 0.95, 0.04); } };
+    // проём в перекрытии над всей лестницей (кроме входной площадки); вокруг перила, вход со стороны площадки открыт
+    const HOLE = [f0, sz0, sx1, sz1];
     for (let k = 1; k <= n; k++) {
-      const y = k * fh, [z0, z1] = hasStairs ? laneZ(k - 1) : [0, 0], hole = hasStairs ? [fx0, z0, fx1, z1] : null;
-      slab(y, hole, k < n ? floorTex : T.roof(), k === n);
+      const y = k * fh;
+      slab(y, hasStairs ? HOLE : null, k < n ? floorTex : T.roof(), k === n);
       if (!hasStairs) continue;
-      const even = (k - 1) % 2 === 0, inner2 = even ? z1 : z0;
-      railM((fx0 + fx1) / 2, inner2, L, 0.06, y);
-      if (!even) railM((fx0 + fx1) / 2, z1, L, 0.06, y);
-      railM(even ? fx0 : fx1, (z0 + z1) / 2, 0.06, z1 - z0, y);
+      railM((f0 + sx1) / 2, sz1 + 0.03, sx1 - f0, 0.06, y);
+      railM(sx1 - 0.03, (sz0 + sz1) / 2, 0.06, sz1 - sz0, y);
     }
     if (hasStairs) {
+      const sm = tmat(T.concrete()), nose = col(0x4a4458), zA = sz0 + lane / 2, zB = sz0 + lane * 1.5, mz = sz0 + lane;
+      const step = (cx, top, cz) => { const th = 0.3; this.m(G.box, sm, cx, top - th / 2, cz, run, th, lane - 0.08); this.solid(cx, cz, run, lane - 0.08, top - th, th);
+        this.m(G.box, nose, cx + 0, top - 0.01, cz, run + 0.01, 0.03, lane - 0.06); };
+      const soffit = (xa, ya, xb, yb, cz) => { const hl = Math.hypot(xb - xa, yb - ya), sl = this.m(G.box, sm, (xa + xb) / 2, (ya + yb) / 2 - 0.32, cz, hl, 0.12, lane - 0.1); sl.rotation.z = Math.atan2(yb - ya, xb - xa); };
+      const hand = (xa, ya, xb, yb, cz) => { const hl = Math.hypot(xb - xa, yb - ya), h2 = this.m(G.box, rail, (xa + xb) / 2, (ya + yb) / 2 + 0.92, cz, hl, 0.05, 0.05); h2.rotation.z = Math.atan2(yb - ya, xb - xa);
+        for (let i = 0; i <= 3; i++) { const tt = i / 3; this.m(G.box, rail, xa + (xb - xa) * tt, ya + (yb - ya) * tt + 0.46, cz, 0.04, 0.92, 0.04); } };
       for (let k = 0; k < n; k++) {
-        const [z0, z1] = laneZ(k), cz = (z0 + z1) / 2, y0 = k * fh;
-        if (k % 2 === 0) this.stairs(fx0, cz, 'e', y0, y0 + fh, lane - 0.1, y0, run);
-        else this.stairs(fx1, cz, 'w', y0, y0 + fh, lane - 0.1, y0, run);
-        const ang = Math.atan2(fh, L) * (k % 2 === 0 ? 1 : -1), hl = Math.hypot(L, fh), rz = z1 - 0.05;
-        const hr = this.m(G.box, rail, (fx0 + fx1) / 2, y0 + fh / 2 + 0.95, rz, hl, 0.05, 0.05); hr.rotation.z = ang;
-        for (let i = 1; i < 5; i++) { const tt = i / 5, px = k % 2 === 0 ? fx0 + L * tt : fx1 - L * tt; this.m(G.box, rail, px, y0 + fh * tt + 0.48, rz, 0.04, 0.95, 0.04); }
+        const y0 = k * fh, ym = y0 + fh / 2;
+        for (let i = 0; i < hsteps; i++) step(f0 + (i + 0.5) * run, y0 + rise * (i + 1), zA);
+        soffit(f0, y0, f1, ym, zA);
+        this.m(G.box, sm, (f1 + sx1) / 2, ym - 0.13, (sz0 + sz1) / 2, sx1 - f1, 0.26, sz1 - sz0); this.solid((f1 + sx1) / 2, (sz0 + sz1) / 2, sx1 - f1, sz1 - sz0, ym - 0.26, 0.26);
+        for (let i = 0; i < hsteps; i++) step(f1 - (i + 0.5) * run, ym + rise * (i + 1), zB);
+        soffit(f1, ym, f0, y0 + fh, zB);
+        // поручни: вдоль середины (между маршами) и по краю второго марша со стороны зала
+        hand(f0, y0, f1, ym, mz - 0.04); hand(f1, ym, f0, y0 + fh, mz + 0.04); hand(f1, ym, f0, y0 + fh, sz1 - 0.04);
+        this.m(G.box, rail, sx1 - 0.03, ym + 0.95, (sz0 + sz1) / 2, 0.05, 0.05, sz1 - sz0); this.solid(sx1 - 0.03, (sz0 + sz1) / 2, 0.08, sz1 - sz0, ym, 1.0);
+        this.light((f0 + sx1) / 2, mz, 1.4, ym, true);
       }
-      // выход на крышу — будка над лестницей
-      const [z0, z1] = laneZ(n - 1), top = H, bh = 2.6, bm = col(shadeHex(base, -20));
-      const even = (n - 1) % 2 === 0;
-      const bx0 = fx0 - (even ? 0 : land), bx1 = fx1 + (even ? land : 0);
-      this.box((bx0 + bx1) / 2, z0 - 0.1, bx1 - bx0, 0.2, bh, bm, { y: top });
-      this.box(even ? bx0 - 0.1 : bx1 + 0.1, (z0 + z1) / 2, 0.2, z1 - z0 + 0.4, bh, bm, { y: top });
-      this.box((bx0 + bx1) / 2, (z0 + z1) / 2, bx1 - bx0 + 0.4, z1 - z0 + 0.4, 0.15, tmat(T.roof()), { y: top + bh });
-      const gapA = even ? bx1 - land : bx0, gapB = gapA + land;
-      if (gapA - bx0 > 0.05) this.box((bx0 + gapA) / 2, z1 + 0.1, gapA - bx0, 0.2, bh, bm, { y: top });
-      if (bx1 - gapB > 0.05) this.box((gapB + bx1) / 2, z1 + 0.1, bx1 - gapB, 0.2, bh, bm, { y: top });
-      this.m(G.box, glow(0xffd8a0), (gapA + gapB) / 2, top + bh - 0.15, z1 + 0.25, 0.3, 0.06, 0.2);
+      // выход на крышу — будка над лестницей, проём над входной площадкой
+      const top = H, bh = 2.6, bm = col(shadeHex(base, -20)), ex1 = f0;
+      this.box((sx0 + sx1) / 2 + 0.1, sz0 + 0.1, sx1 - sx0 + 0.2, 0.2, bh, bm, { y: top });
+      this.box(sx0 + 0.1, (sz0 + sz1) / 2 + 0.1, 0.2, sz1 - sz0 - 0.2, bh, bm, { y: top });
+      this.box(sx1 + 0.1, (sz0 + sz1) / 2, 0.2, sz1 - sz0, bh, bm, { y: top });
+      this.box((ex1 + sx1) / 2 + 0.1, sz1 + 0.1, sx1 - ex1 + 0.2, 0.2, bh, bm, { y: top });
+      this.box((sx0 + sx1) / 2, (sz0 + sz1) / 2, sx1 - sx0 + 0.6, sz1 - sz0 + 0.6, 0.15, tmat(T.roof()), { y: top + bh });
+      this.m(G.box, glow(0xffd8a0), (sx0 + ex1) / 2, top + bh - 0.15, sz1 + 0.25, 0.3, 0.06, 0.2);
     }
     // парапет стоит прямо на стенах, по их толщине
     if (o.parapet !== false) {
@@ -172,13 +181,15 @@ export const TowerMethods = {
       this.ladder(k === 'e' ? x + w : k === 'w' ? x : x + at * w, k === 's' ? z + d : k === 'n' ? z : z + at * d, k, H);
     }
     if (o.roof !== false) this.zone('roof', x + 0.8, sz1 + 0.6, x + w - 0.8, z + d - 0.8, H);
+    if (hasStairs) this._stairs = { f0, zA: sz0 + lane / 2, fh, n };
     if (o.sign) this.sign(x + w / 2, Math.min(fh, 3.4) - 0.45, z + d + 0.03, 0, ...o.sign, Math.min(w * 0.7, 4.5), 0.7);
     if (o.awning) { const a = this.m(G.box, tmat(T.awning(...o.awning)), x + w / 2, 2.72, z + d + 0.62, w - 0.6, 0.1, 1.2); a.rotation.x = 0.25; }
     // этажи: свет на потолке + наполнение
     for (let k = 0; k < n; k++) {
       const fb = this.at(k * fh), r = { x0: ix0, z0: sz1 + (hasStairs ? 0.15 : 0), x1: ix1, z1: iz1, sx0, sx1, h: fh, k, top: H };
       if (o.lights !== false) for (let lx = ix0 + 2.2; lx < ix1 - 1; lx += 4.5) { fb.m(G.box, glow(0xfff0d0), lx, fh - 0.23, (r.z0 + r.z1) / 2, 1.2, 0.04, 0.3); fb.light(lx, (r.z0 + r.z1) / 2, 2.0, 0, true); }
-      if (k > 0 && r.z1 - r.z0 > 2) W.spots.deliver.push({ x: fb.X((r.x0 + r.x1) / 2), z: fb.Z((r.z0 + r.z1) / 2), y: fb.Y, name: `${this.d}, ${k + 1} этаж` });
+      if (k > 0 && r.z1 - r.z0 > 2) W.spots.deliver.push({ x: fb.X((r.x0 + r.x1) / 2), z: fb.Z((r.z0 + r.z1) / 2), y: fb.Y, name: `${this.d}, ${k + 1} этаж`, floor: k,
+        guide: { box: [this.X(ix0), this.Z(iz0), this.X(ix1), this.Z(iz1)], y0: this.Y, fh, door: doorOut, stair: [this.X(sx0 + 0.5), this.Z(sz0 + lane * 1.5), this.X(f0 + 0.4), this.Z(sz0 + lane / 2)] } });
       if (o.interior) o.interior(fb, k, r);
       if (o.zoneInside !== false && r.z1 - r.z0 > 2) fb.zone('inside', ix0 + 0.5, r.z0 + 0.4, ix1 - 0.5, r.z1 - 0.5);
       if (HW && o.web !== false && k % 2 === 1) fb.web(ix1 - 0.3, fh - 0.6, iz1 - 0.02, Math.PI, 0.9);

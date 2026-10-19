@@ -9,14 +9,14 @@ export default {
   id: 'shops', name: 'Торговая улица', ground: 'pave',
   build(b) {
     const shops = [
-      { x: 1, wall: 0x9c7a5a, sign: ['ХЛЕБ', '#f1e8ff', '#3a2458'], aw: ['#f1e8ff', '#d8243a'], kind: 'bakery', up: 4.2, gaps: [{ side: 'e', at: 0.5 }] },
-      { x: 11.5, wall: 0x6a7c9c, sign: ['КАФЕ', '#2a1f3d', '#ff8a1f'], aw: ['#ff8a1f', '#2a1f3d'], kind: 'cafe', up: 4.2, gaps: [{ side: 'w', at: 0.5 }, { side: 'e', at: 0.5 }] },
-      { x: 22, wall: 0x8a6a8c, sign: [HW ? 'ТЫКВЫ' : '24/7', '#ff8a1f', '#17111f'], aw: ['#7b4bc4', '#f5c542'], kind: 'mart', up: 4.2, gaps: [{ side: 'w', at: 0.5 }] },
+      { x: 1, wall: 0x9c7a5a, sign: ['ХЛЕБ', '#f1e8ff', '#3a2458'], aw: ['#f1e8ff', '#d8243a'], kind: 'bakery', up: 4.2, gaps: [{ side: 'e', at: 0.6 }] },
+      { x: 11.5, wall: 0x6a7c9c, sign: ['КАФЕ', '#2a1f3d', '#ff8a1f'], aw: ['#ff8a1f', '#2a1f3d'], kind: 'cafe', up: 4.2, gaps: [{ side: 'w', at: 0.6 }, { side: 'e', at: 0.6 }] },
+      { x: 22, wall: 0x8a6a8c, sign: [HW ? 'ТЫКВЫ' : '24/7', '#ff8a1f', '#17111f'], aw: ['#7b4bc4', '#f5c542'], kind: 'mart', up: 4.2, gaps: [{ side: 'w', at: 0.6 }] },
     ];
     for (const s of shops) {
       // двухэтажный магазин: торговый зал внизу, наверху — склад/квартира/офис, лестница до крыши
       b.tower({ x: s.x, z: 1, w: 9, d: 7, floors: 2, fh: 3.8, wall: s.wall, lit: 0.7, door: { side: 's', at: 0.5 }, sign: s.sign, awning: s.aw, floor: T.floorTile(),
-        gaps: s.gaps, ladder: s.kind === 'bakery' ? { side: 'w', at: 0.3 } : null,
+        gaps: s.gaps, ladder: s.kind === 'bakery' ? { side: 'w', at: 0.75 } : null,
         interior(f, k, r) {
           const cx = (r.x0 + r.x1) / 2;
           if (k === 0) {
@@ -30,9 +30,8 @@ export default {
             if (s.kind === 'mart') { f.desk(cx, r.z1 - 0.7, Math.PI); f.ride('chair', cx, r.z1 - 1.6, 0); f.cabinet(r.x0 + 0.4, r.z0 + 1.2, 0.6, 1.4, 1.5, 0x6a6d78, 0, Math.PI / 2); }
           }
         } });
-      for (const dx of [1.9, 7.1]) b.vitrine(s.x + dx, 8.16, 2.6, 1.7, 'x', 0.5);
     }
-    b.plank(10, 4.5, 11.5, 4.5, 7.6, 1.1); b.plank(20.5, 4.5, 22, 4.5, 7.6, 1.1);
+    b.plank(10, 5.2, 11.5, 5.2, 7.6, 1.1); b.plank(20.5, 5.2, 22, 5.2, 7.6, 1.1);
     // рекламный щит на крыше и кондиционеры
     for (const x of [24, 30]) b.box(x, 2, 0.15, 0.15, 2.5, col(0x2b2533), { y: 7.6 });
     b.m(G.box, tmat(T.sign('ТЫКВЕННЫЙ ЛАТТЕ', '#ff8a1f', '#2a1f3d')), 27, 9.6, 2, 6.4, 1.6, 0.12);

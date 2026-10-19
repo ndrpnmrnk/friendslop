@@ -1,4 +1,5 @@
 import { THREE, ps1, G } from '../core/gfx.js';
+import { T } from '../core/textures.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { W } from './state.js';
 import { bakeBreakables } from './breakables.js';
@@ -31,7 +32,7 @@ export function bakeStatic(group) {
         g.applyMatrix4(o.matrixWorld);
         if (o.matrixWorld.determinant() < 0) flip(g);
         const c = new THREE.Vector3(); g.computeBoundingBox(); g.boundingBox.getCenter(c);
-        if (o.geometry === G.box && axisAligned(o.matrixWorld)) boxes.push({ g, bb: g.boundingBox.clone() });
+        if (o.geometry === G.box && axisAligned(o.matrixWorld)) { boxes.push({ g, bb: g.boundingBox.clone() }); worldUV(g, mats, Array.isArray(o.material)); }
         const cell = Math.floor(c.x / CELL) + ':' + Math.floor(c.z / CELL);
         pending.push({ o, g, mats, cell }); removed.push(o); return;
       }
@@ -118,6 +119,22 @@ function axisAligned(m) {
   for (const c of [0, 4, 8]) { const a = [Math.abs(e[c]), Math.abs(e[c + 1]), Math.abs(e[c + 2])], mx = Math.max(...a); if (a.filter(v => v > mx * 1e-3).length !== 1) return false; }
   return true;
 }
+/* Плиточные текстуры (бетон, кирпич, плитка, асфальт…) на коробках раскладываются по миру:
+   1 повтор на 3 м по каждой грани, а не одна картинка, растянутая на 30-метровую стену. */
+let TILE = null;
+function worldUV(g, mats, multi) {
+  if (!TILE) TILE = new Set(['concrete', 'stone', 'oldBrick', 'tunnelTile', 'brickWall', 'metal', 'rust', 'roof', 'dirt', 'asphalt', 'pave', 'cobble', 'grass', 'planter', 'soil', 'water', 'floorWood', 'floorTile'].map(k => T[k]().source.uuid));
+  const pos = g.attributes.position, nor = g.attributes.normal, uv = g.attributes.uv;
+  const ranges = multi && g.groups.length ? g.groups : [{ start: 0, count: pos.count, materialIndex: 0 }];
+  for (const r of ranges) {
+    const m = mats[r.materialIndex]; if (!m || !m.map || !TILE.has(m.map.source.uuid) || m.map.repeat.x !== 1 || m.map.repeat.y !== 1) continue;
+    for (let i = r.start; i < r.start + r.count; i++) {
+      const nx = Math.abs(nor.getX(i)), ny = Math.abs(nor.getY(i)), x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      if (ny >= nx && ny >= Math.abs(nor.getZ(i))) uv.setXY(i, x / 3, z / 3); else if (nx >= Math.abs(nor.getZ(i))) uv.setXY(i, z / 3, y / 3); else uv.setXY(i, x / 3, y / 3);
+    }
+    uv.needsUpdate = true;
+  }
+}
 function fixCoplanar(boxes) {
   const faces = new Map(), E = 0.015;
   const K = (a, s, v) => a + '|' + s + '|' + Math.round(v * 100);
@@ -130,15 +147,15 @@ function fixCoplanar(boxes) {
   }
   const moved = new Set();
   for (const [k, list] of faces) {
-    const [a, s, cm] = k.split('|'), near = [...list, ...(faces.get(a + '|' + s + '|' + (+cm + 1)) || [])];
+    const [a, s, cm] = k.split('|'), near = [...list, ...(faces.get(a + '|' + s + '|' + (+cm + 1)) || []), ...(faces.get(a + '|' + s + '|' + (+cm + 2)) || [])];
     for (let i = 0; i < list.length; i++) for (let j = 0; j < near.length; j++) {
-      const f = list[i], q = near[j]; if (f === q || f.b === q.b || Math.abs(f.v - q.v) > 0.008) continue;
+      const f = list[i], q = near[j]; if (f === q || f.b === q.b || Math.abs(f.v - q.v) > 0.025) continue;
       const ox = Math.min(f.r[1], q.r[1]) - Math.max(f.r[0], q.r[0]), oz = Math.min(f.r[3], q.r[3]) - Math.max(f.r[2], q.r[2]);
       if (ox <= 0.002 || oz <= 0.002) continue;
       const big = f.area >= q.area ? f : q;
       if (moved.has(big)) continue; moved.add(big);
       const pos = big.b.g.attributes.position, arr = pos.array, ai = big.a;
-      for (let v = 0; v < pos.count; v++) if (Math.abs(arr[v * 3 + ai] - big.v) < 1e-3) arr[v * 3 + ai] -= big.s * E;
+      for (let v = 0; v < pos.count; v++) if (Math.abs(arr[v * 3 + ai] - big.v) < 1e-3) arr[v * 3 + ai] -= big.s * (E + Math.max(0, big.s * (big.v - (big === f ? q.v : f.v)) > 0 ? Math.abs(f.v - q.v) : 0));
       pos.needsUpdate = true;
     }
   }

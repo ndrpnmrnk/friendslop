@@ -55,8 +55,9 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     p.slideT = PC.slideTime; p.slideDir = [p.vel.x / curSp, p.vel.z / curSp]; p.slideV = Math.max(curSp, PC.slideSpeed);
     smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 6, { speed: 2.2 });
   }
-  if (ctrl && tapped('KeyQ') && !p.dive && p.diveCD <= 0 && !p.climb && p.slideT <= 0) {
-    const f = p.root.rotation.y; p.dive = 'air'; p.diveCD = PC.diveCooldown;
+  // выпад стоит четверть стамины: без неё не прыгнешь, спамить нельзя
+  if (ctrl && tapped('KeyQ') && !p.dive && p.diveCD <= 0 && !p.climb && p.slideT <= 0 && p.stamina >= PC.diveCost && !p.exhausted) {
+    const f = p.root.rotation.y; p.dive = 'air'; p.diveCD = PC.diveCooldown; p.stamina -= PC.diveCost; p.stDelay = PC.stamina.delay;
     p.vel.x = Math.sin(f) * PC.diveSpeed + p.vel.x * 0.2; p.vel.z = Math.cos(f) * PC.diveSpeed + p.vel.z * 0.2;
     p.vel.y = p.onGround ? PC.diveUp : Math.max(p.vel.y, 2); p.onGround = false; p.airPeak = p.pos.y;
   }
@@ -161,6 +162,8 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     } else { p.smokeT = 0.22 + Math.random() * 0.2; smoke(p.pos.x + bx * 0.3, p.pos.y + 0.04, p.pos.z + bz * 0.3, { dust: true, vx: bx * 0.8 + (Math.random() - 0.5) * 0.6, vz: bz * 0.8 + (Math.random() - 0.5) * 0.6 }); }
   }
   if (p.throwT > 0) p.throwT -= dt;
+  // куча листьев: пробежал — разлетелись
+  if (spd > 3 && p.onGround && Math.random() < dt * 12 && zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves')) burst(p.pos.x, p.pos.y + 0.2, p.pos.z, 3, { color: [0xc96a25, 0xa8452a, 0xe0902e][(Math.random() * 3) | 0], size: 0.14, speed: 2.2, up: 2.5, g: 5, life: 1.0, grow: 0.1 });
   // вода: стоишь — расходятся круги; приземлился — всплеск; вышел — мокрые следы
   if (water) { p.wetT = 3; p.ripT = (p.ripT || 0) - dt; if (p.ripT <= 0) { p.ripT = 0.7; ripple(p.pos.x, p.pos.y, p.pos.z, 0.8, 1.2); } if (p.landedNow) splash(p.pos.x, p.pos.y, p.pos.z, 1); }
   else if (p.wetT > 0 && p.onGround) { p.wetT -= dt; p.stepT = (p.stepT || 0) - dt;

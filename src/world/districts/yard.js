@@ -19,7 +19,7 @@ export default {
         }
         f.partition(15.5, 1.25, 15.5, 7.75, 3.1, 0.62);
         if (k === 1) {
-          f.sofa(9, 7.1, Math.PI); f.tvStand(9, 4.3, 0); f.rug(9, 5.7, 2.6, 1.6, '#4a6a9a', '#f1e8ff');
+          f.sofa(9, 7.1, Math.PI); f.tvStand(9, 4.85, 0); f.rug(9, 5.7, 2.6, 1.6, '#4a6a9a', '#f1e8ff');
           f.table(13.5, 5.5, 0.8); f.chair(13.5, 6.4, Math.PI); f.chair(13.5, 4.6, 0);
           f.kitchen(19.5, 1.6, 3); f.table(20, 5.4, 0.9); f.chair(19.2, 5.4, Math.PI / 2); f.chair(20.8, 5.4, -Math.PI / 2); f.plantPot(23.3, 7.3);
         } else if (k === 2) {
@@ -32,7 +32,7 @@ export default {
         }
       } });
     b.tower({ x: 25, z: 1, w: 6, d: 7, floors: 4, fh: 3.3, wall: 0x9c6a6a, door: { side: 's', at: 0.5 }, gaps: [{ side: 'w', at: 0.5 }],
-      run: 0.3, landing: 1.0, lane: 1.1, floor: T.floorWood(),
+      run: 0.3, entry: 1.0, lane: 1.1, floor: T.floorWood(),
       interior(f, k, r) { if (k % 2 === 0) f.shelf((r.x0 + r.x1) / 2, r.z1 - 0.3, 3.4, Math.PI); else { f.table((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, 0.8); f.chair((r.x0 + r.x1) / 2 + 0.9, (r.z0 + r.z1) / 2, -Math.PI / 2); } } });
     b.plank(24, 4.5, 25, 4.5, 13.2, 1.1);
     // на крыше: водонапорный бак, антенны, кондиционеры

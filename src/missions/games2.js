@@ -1,6 +1,7 @@
 import { THREE, G, V3, mesh, col, tmat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
+import { zoneAt } from '../world/physics.js';
 import { clamp } from '../core/rng.js';
 import { burst, splash, ripple, smokeRing } from '../world/particles.js';
 import { addItem } from '../game/items.js';
@@ -45,40 +46,70 @@ export const PANEL_GAMES = {
     };
   },
 
-  // Рыбалка: ждёшь поклёвку и подсекаешь кликом, потом подматываешь (держи ЛКМ), когда рыба тянет — отпусти
+  // Рыбалка: мышью целишься — точка прицела и есть поплавок, клик — заброс. Рыбы плавают тенями,
+  // одна подплывает к поплавку и клюёт — кликни, чтобы подсечь. Дальше держи ЛКМ — подматываешь
+  // к берегу; когда рыба рвётся (поплавок дёргается) — отпусти, иначе леска лопнет.
   fish(o, api) {
-    const s = o.spot, w = new V3(s.wx, s.wy, s.wz), me = o.world(0, 1.2, 0);
-    api.pose(me.clone().add(new V3(0, 1.6, 0)).addScaledVector(new V3(s.wx - s.x, 0, s.wz - s.z).normalize(), -1.8), w);
-    let phase = 'wait', t = 0, waitT = 2 + Math.random() * 3, biteT = 0, prog = 0.15, down = false, pull = false, pullT = 1, strain = 0, endT = -1, res = null;
-    api.progress(null); api.msg('Ждём поклёвку...');
-    const end = (ok, txt) => { phase = 'end'; res = ok ? { success: true, mult: 1 } : { success: false }; api.msg(txt, ok ? 'good' : 'bad'); endT = 1.4; };
+    const s = o.spot, wy = s.wy, cx = s.cx ?? s.wx, cz = s.cz ?? s.wz, me = new V3(s.x, s.y, s.z);
+    const toW = new V3(cx - s.x, 0, cz - s.z).normalize();
+    api.pose(me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), new V3(cx, wy, cz).addScaledVector(toW, -0.5));
+    const inWater = (x, z) => !!zoneAt(x, z, wy - 0.08, 'water');
+    const aimRing = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xf5c542, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }), 0, wy + 0.04, 0, 0.35, 0.35, 1, W.group); aimRing.rotation.x = -Math.PI / 2;
+    const shadowM = new THREE.MeshBasicMaterial({ color: 0x0a1420, transparent: true, opacity: 0.55, depthWrite: false });
+    const fishes = [0, 1, 2].map(() => { const m = mesh(G.disc, shadowM, cx, wy + 0.03, cz, 0.32, 0.12, 1, W.group); m.rotation.x = -Math.PI / 2; const a = Math.random() * 6.28; return { m, a, r: Math.random() * (s.R ?? 2) * 0.6, sp: 0.4 + Math.random() * 0.4, t: Math.random() * 6 }; });
+    const catchFish = mesh(G.ico, col(0xff8a3a), 0, 0, 0, 0.24, 0.14, 0.12, W.group); catchFish.visible = false;
+    let phase = 'aim', t = 0, aim = null, castT = 0, from = new V3(), to = new V3(), hunter = null, huntT = 0, biteT = 0, down = false, pull = false, pullT = 1.2, tension = 0, d0 = 1, endT = -1, res = null;
+    api.progress(null); api.msg('Наведи мышь на воду и кликни — заброс');
+    const end = (ok, txt) => { phase = 'end'; res = ok ? { success: true, mult: 1 } : { success: false }; api.msg(txt, ok ? 'good' : 'bad'); endT = 1.6; };
+    const bp = o.bob.position;
     return {
-      down() {
+      move(ray) { const p = onPlane(ray, new V3(0, 1, 0), new V3(0, wy, 0)); if (!p) return; const d = Math.hypot(p.x - s.x, p.z - s.z); aim = d > 1.5 && d < 10 && inWater(p.x, p.z) ? p : null; },
+      down(ray) {
         down = true;
-        if (phase === 'wait') { api.msg('Рано! Рыба испугалась', 'bad'); waitT = 2 + Math.random() * 3; t = 0; }
-        else if (phase === 'bite') { phase = 'reel'; api.progress(prog); api.msg('Подсёк! Держи ЛКМ, чтобы мотать'); splash(o.bob.position.x, s.wy, o.bob.position.z, 0.6); }
+        if (phase === 'aim') { this.move(ray); if (!aim) { api.msg('Целься в воду (не слишком близко)', 'bad'); return; } phase = 'cast'; castT = 0; from.copy(o.tip()); to.copy(aim); api.msg('Заброс...'); }
+        else if (phase === 'wait') { api.msg('Рано! Рыба испугалась', 'bad'); if (hunter) { hunter.a += Math.PI; hunter = null; } huntT = 2 + Math.random() * 2; }
+        else if (phase === 'bite') { phase = 'reel'; d0 = Math.hypot(bp.x - s.x, bp.z - s.z); tension = 0; api.progress(0); api.msg('Подсёк! Держи ЛКМ — мотай'); splash(bp.x, wy, bp.z, 0.7); if (hunter) hunter.m.visible = false; }
       },
       up() { down = false; },
       update(dt) {
-        t += dt; const bp = o.bob.position;
-        if (phase === 'wait') { bp.y = s.wy + 0.12 + Math.sin(t * 2) * 0.02; if (t > waitT) { phase = 'bite'; biteT = 0.75; api.msg('КЛЮЁТ! Кликни!', 'good'); ripple(bp.x, s.wy, bp.z, 0.6, 0.6); } }
-        else if (phase === 'bite') { bp.y = s.wy + 0.02 + Math.sin(t * 30) * 0.05; biteT -= dt; if (biteT <= 0) { phase = 'wait'; waitT = 1.5 + Math.random() * 2.5; t = 0; api.msg('Сорвалась... ждём ещё'); } }
-        else if (phase === 'reel') {
-          pullT -= dt; if (pullT <= 0) { pull = !pull; pullT = pull ? 0.7 + Math.random() * 0.8 : 1.0 + Math.random() * 1.4; api.msg(pull ? 'Тянет! Отпусти!' : 'Мотай!', pull ? 'bad' : 'good'); }
-          if (down && !pull) prog += dt * 0.22; else if (down && pull) { strain += dt * 1.2; prog -= dt * 0.1; } else prog -= dt * (pull ? 0.08 : 0.03);
-          strain = Math.max(0, strain - dt * 0.4);
-          bp.x += (s.x - bp.x) * dt * (down && !pull ? 0.25 : 0) + (pull ? Math.sin(t * 9) * dt * 0.6 : 0); bp.z += (s.z - bp.z) * dt * (down && !pull ? 0.25 : 0);
-          bp.y = s.wy + 0.04 + (pull ? Math.sin(t * 25) * 0.05 : 0);
-          if (Math.random() < dt * (pull ? 8 : 2)) ripple(bp.x, s.wy, bp.z, 0.4, 0.5);
-          o.rod.rotation.x = 0.9 + (down ? -0.3 : 0) + (pull ? Math.sin(t * 20) * 0.08 : 0);
-          api.progress(clamp(prog, 0, 1));
-          if (strain > 1) end(false, 'Леска порвалась!');
-          else if (prog <= 0) end(false, 'Рыба ушла');
-          else if (prog >= 1) { end(true, 'Поймал рыбу!'); splash(bp.x, s.wy, bp.z, 1); }
-        } else { endT -= dt; if (endT <= 0) api.finish(res); }
+        t += dt;
+        // тени рыб плавают по кругу
+        for (const f of fishes) { if (f === hunter || !f.m.visible) continue; f.t += dt; f.a += dt * f.sp * 0.5; const R = (s.R ?? 2) * 0.55; const x = cx + Math.cos(f.a) * (R * 0.4 + f.r), z = cz + Math.sin(f.a) * (R * 0.4 + f.r);
+          if (inWater(x, z)) { f.m.position.x = x; f.m.position.z = z; } f.m.rotation.z = -f.a; }
+        aimRing.visible = phase === 'aim' && !!aim; if (aim) aimRing.position.set(aim.x, wy + 0.04, aim.z); aimRing.scale.setScalar(0.3 + Math.sin(t * 6) * 0.04);
+        if (phase === 'aim') { bp.copy(o.tip()); }
+        else if (phase === 'cast') {
+          castT += dt / 0.6; const k = Math.min(1, castT); bp.lerpVectors(from, to, k); bp.y = from.y + (to.y + 0.1 - from.y) * k + Math.sin(k * Math.PI) * 1.5;
+          if (k >= 1) { phase = 'wait'; huntT = 1.2 + Math.random() * 2.5; splash(to.x, wy, to.z, 0.3); api.msg('Ждём... рыба заметит поплавок'); }
+        } else if (phase === 'wait') {
+          bp.y = wy + 0.1 + Math.sin(t * 2) * 0.02; huntT -= dt;
+          if (!hunter && huntT <= 0) hunter = fishes.reduce((a, b) => (Math.hypot(a.m.position.x - bp.x, a.m.position.z - bp.z) < Math.hypot(b.m.position.x - bp.x, b.m.position.z - bp.z) ? a : b));
+          if (hunter) { const hp = hunter.m.position, dx = bp.x - hp.x, dz = bp.z - hp.z, d = Math.hypot(dx, dz); hp.x += dx / (d || 1) * Math.min(d, dt * 0.9); hp.z += dz / (d || 1) * Math.min(d, dt * 0.9); hunter.m.rotation.z = -Math.atan2(dz, dx);
+            if (d < 0.25) { phase = 'bite'; biteT = 0.9; api.msg('КЛЮЁТ! Кликни!', 'good'); ripple(bp.x, wy, bp.z, 0.6, 0.6); } }
+        } else if (phase === 'bite') {
+          bp.y = wy + 0.02 + Math.sin(t * 32) * 0.06; biteT -= dt;
+          if (biteT <= 0) { phase = 'wait'; hunter.a = Math.random() * 6.28; hunter = null; huntT = 1.5 + Math.random() * 2; api.msg('Сорвалась... ждём ещё'); }
+        } else if (phase === 'reel') {
+          pullT -= dt; if (pullT <= 0) { pull = !pull; pullT = pull ? 0.6 + Math.random() * 0.7 : 0.9 + Math.random() * 1.2; api.msg(pull ? 'Рвётся! Отпусти!' : 'Мотай!', pull ? 'bad' : 'good'); }
+          const dx = s.x - bp.x, dz = s.z - bp.z, d = Math.hypot(dx, dz) || 1;
+          if (down && !pull) { bp.x += dx / d * dt * 1.6; bp.z += dz / d * dt * 1.6; tension = Math.max(0, tension - dt * 0.3); }
+          else if (pull) { const a = t * 0.7; bp.x -= dx / d * dt * 0.8 - Math.cos(a) * dt * 0.5; bp.z -= dz / d * dt * 0.8 - Math.sin(a) * dt * 0.5; if (!inWater(bp.x, bp.z)) { bp.x += dx / d * dt * 0.8; bp.z += dz / d * dt * 0.8; } if (down) tension += dt * 1.3; }
+          tension = Math.max(0, tension - dt * 0.35);
+          bp.y = wy + 0.04 + (pull ? Math.sin(t * 28) * 0.06 : 0);
+          if (Math.random() < dt * (pull ? 10 : 3)) ripple(bp.x, wy, bp.z, 0.4, 0.5);
+          o.rod.rotation.x = 0.9 + (down ? -0.35 : 0) + (pull ? Math.sin(t * 22) * 0.1 : 0);
+          const prog = 1 - (Math.hypot(bp.x - s.x, bp.z - s.z) - 1.2) / Math.max(0.5, d0 - 1.2);
+          api.progress(Math.max(0, Math.min(1, prog)));
+          if (tension > 1) end(false, 'Леска лопнула!');
+          else if (Math.hypot(bp.x - s.x, bp.z - s.z) < 1.3) { end(true, 'Поймал рыбу!'); splash(bp.x, wy, bp.z, 1.2); catchFish.visible = true; catchFish.position.copy(bp); }
+          else if (d > (s.R ?? 3) * 2.5 + 4) end(false, 'Рыба ушла');
+        } else {
+          if (catchFish.visible) { catchFish.position.lerp(o.tip(), dt * 3); catchFish.rotation.z = Math.sin(t * 20) * 0.6; }
+          endT -= dt; if (endT <= 0) api.finish(res);
+        }
         o.upd();
       },
-      stop() { o.bob.position.set(s.wx, s.wy + 0.12, s.wz); o.rod.rotation.x = 0.9; o.upd(); },
+      stop() { W.group.remove(aimRing); fishes.forEach(f => W.group.remove(f.m)); W.group.remove(catchFish); bp.set(s.wx, wy + 0.12, s.wz); o.rod.rotation.x = 0.9; o.upd(); },
     };
   },
 
@@ -185,9 +216,10 @@ export const WORLD_GAMES = {
   cleanup(o, api, ctx) {
     const c = o.pos(), N = 5; let time = 45, got = 0;
     for (let i = 0; i < N; i++) { let x, z, tries = 0; do { const a = Math.random() * 6.28, r = 3 + Math.random() * 4; x = c.x + Math.cos(a) * r; z = c.z + Math.sin(a) * r; tries++; } while (tries < 20 && !ctx.free(x, z, c.y));
-      o.litter.push(spawnLitter(x, c.y, z)); }
+      const it = spawnLitter(x, c.y, z); o.litter.push(it); it.outline.set(true);
+      const rg = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, 0.35, 0.35, 1, W.group); rg.rotation.x = -Math.PI / 2; it.ring = rg; }
     api.msg('Собери мусор в урну (бросай или клади рядом)');
-    const take = it => { it.state = 'gone'; it.g.visible = false; got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
+    const take = it => { it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) it.ring.visible = false; got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
     const hook = (it, p) => { if (o.litter.includes(it) && Math.hypot(p.x - c.x, p.z - c.z) < 0.9) take(it); };
     W.hitHooks.push(hook);
     return {
@@ -195,35 +227,49 @@ export const WORLD_GAMES = {
       update(dt) {
         time -= dt; api.timer(time);
         for (const it of o.litter) if (it.state === 'rest' && Math.hypot(it.pos.x - c.x, it.pos.z - c.z) < 1.0) take(it);
+        const pul = 0.3 + Math.abs(Math.sin(performance.now() * 0.005)) * 0.12;
+        for (const it of o.litter) if (it.ring) { it.ring.visible = it.state !== 'gone' && it.state !== 'held'; it.ring.position.set(it.pos.x, it.pos.y - it.def.r + 0.04, it.pos.z); it.ring.scale.setScalar(pul); it.outline.set(it.state !== 'gone'); }
         o.ring.material.opacity = 0.35 + Math.sin(performance.now() * 0.006) * 0.25;
         api.progress(got / N);
         if (got >= N) return api.finish({ success: true, mult: 1 });
         if (time <= 0) return api.finish({ success: false });
       },
-      stop() { W.hitHooks.splice(W.hitHooks.indexOf(hook), 1); },
+      stop() { W.hitHooks.splice(W.hitHooks.indexOf(hook), 1); for (const it of o.litter) { if (it.ring) W.group.remove(it.ring); it.outline.set(false); } },
     };
   },
 
-  // Доставка: бери заказ у раздачи и отнеси на этаж здания, пока не остыл. Посылку можно бросить и снова поднять
+  // Доставка: взял заказ — сразу видно куда: слева в списке адрес и расстояние, у ног стрелка,
+  // над домом зелёный луч. Стрелка ведёт к двери, потом к лестнице, потом к нужной комнате.
   delivery(o, api, ctx) {
     const P = ctx.player, from = o.pos(), dests = W.spots.deliver.filter(d => Math.hypot(d.x - from.x, d.z - from.z) > 14);
-    const dest = (dests.length ? dests : W.spots.deliver)[(Math.random() * (dests.length || W.spots.deliver.length)) | 0];
+    const pool = dests.length ? dests : W.spots.deliver, dest = pool[(Math.random() * pool.length) | 0], g = dest.guide;
     const parcel = addItem('parcel', from.x, from.y + 0.2, from.z, 0); parcel.def = { ...parcel.def, respawn: 0 };
     ctx.give(parcel);
-    const beam = mesh(G.beam, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }), dest.x, dest.y + 1.5, dest.z, 0.8, 3, 0.8, W.group);
-    let time = 55;
-    api.msg(`Отнеси заказ: ${dest.name}`);
+    const beamM = new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide });
+    const beam = mesh(G.beam, beamM, dest.x, dest.y + 1.5, dest.z, 0.8, 3, 0.8, W.group);
+    const sky = mesh(G.beam, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }), dest.x, dest.y + 20, dest.z, 0.35, 40, 0.35, W.group);
+    let time = 70, hint = '';
+    api.where(`→ ${dest.name}`);
+    const inside = () => g && P.pos.x > g.box[0] && P.pos.x < g.box[2] && P.pos.z > g.box[1] && P.pos.z < g.box[3] && P.pos.y > g.y0 - 0.6;
+    const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     return {
-      target: () => (P.held === parcel ? new V3(dest.x, dest.y, dest.z) : parcel.pos),
+      target() {
+        if (P.held !== parcel) { say('Подбери заказ (E)'); return parcel.pos; }
+        if (!g) return new V3(dest.x, dest.y, dest.z);
+        if (!inside()) { say(`Неси в ${dest.name}: вход с улицы`); const dd = Math.hypot(P.pos.x - g.door[0], P.pos.z - g.door[1]); return dd < 1.2 ? new V3(g.door[2], g.y0, g.door[3]) : new V3(g.door[0], g.y0, g.door[1]); }
+        const floor = Math.floor((P.pos.y - g.y0 + 0.6) / g.fh);
+        if (floor < dest.floor) { say(`Поднимись по лестнице на ${dest.floor + 1} этаж`); return new V3(g.stair[2], P.pos.y, g.stair[3]); }
+        say('Отдай заказ у зелёного луча'); return new V3(dest.x, dest.y, dest.z);
+      },
       update(dt) {
-        time -= dt; api.timer(time); beam.rotation.y += dt;
+        time -= dt; api.timer(time); beam.rotation.y += dt; sky.visible = !inside();
         api.progress(1 - Math.min(1, Math.hypot(P.pos.x - dest.x, P.pos.z - dest.z) / 40));
-        const near = Math.hypot(parcel.pos.x - dest.x, parcel.pos.z - dest.z) < 2.0 && Math.abs(parcel.pos.y - dest.y) < 1.6;
+        const near = Math.hypot(parcel.pos.x - dest.x, parcel.pos.z - dest.z) < 2.2 && Math.abs(parcel.pos.y - dest.y) < 1.8;
         if (near && (P.held === parcel || parcel.state === 'rest')) { burst(dest.x, dest.y + 1, dest.z, 12, { color: 0x9be36b, size: 0.2, speed: 2 }); return api.finish({ success: true, mult: 1 }); }
         if (parcel.state === 'gone') return api.finish({ success: false });
         if (time <= 0) return api.finish({ success: false });
       },
-      stop() { W.group.remove(beam); if (P.held === parcel) P.held = null; parcel.state = 'gone'; parcel.g.visible = false; },
+      stop() { W.group.remove(beam); W.group.remove(sky); if (P.held === parcel) P.held = null; parcel.state = 'gone'; parcel.g.visible = false; },
     };
   },
 

@@ -58,8 +58,8 @@ export class Builder {
     const hi = this.m(new THREE.CircleGeometry(1, 24), WATERHI(), x, y + 0.09, z, r, r, 1); hi.rotation.x = -Math.PI / 2;
     const fm = this.m(new THREE.RingGeometry(0.88, 1, 28, 1), FOAM(), x, y + 0.1, z, r, r, 1); fm.rotation.x = -Math.PI / 2;
     addZone('water', { c: [this.X(x), this.Z(z), r] }, this.Y + y);
-    if (fish && r >= 2.5) for (const a of [0.4, 2.0, 3.6, 5.2]) { const dx = Math.cos(a), dz = Math.sin(a);
-      W.spots.fish.push({ x: this.X(x + dx * (r + 0.8)), z: this.Z(z + dz * (r + 0.8)), y: this.Y + y, f: [-dx, -dz], wx: this.X(x + dx * (r - 1.4)), wz: this.Z(z + dz * (r - 1.4)), wy: this.Y + y + 0.08, district: this.d, label: 'у воды' }); }
+    if (fish && r >= 2.5) for (const a of (Array.isArray(fish) ? fish : [0.15, 0.8, 2.45, 5.75])) { const dx = Math.cos(a), dz = Math.sin(a);
+      W.spots.fish.push({ x: this.X(x + dx * (r + 0.8)), z: this.Z(z + dz * (r + 0.8)), y: this.Y + y, f: [-dx, -dz], wx: this.X(x + dx * (r - 1.4)), wz: this.Z(z + dz * (r - 1.4)), wy: this.Y + y + 0.08, cx: this.X(x), cz: this.Z(z), R: r, district: this.d, label: 'у воды' }); }
     return m;
   }
   waterRect(x0, z0, x1, z1, y = 0, foam = true) {
@@ -328,9 +328,9 @@ for (let i = 0; i < CAR_CABIN.attributes.position.count; i++) {
 }
 CAR_CABIN.computeVertexNormals();
 let _lm, _wm, _pf;
-const LIGHTDIM = () => _ld || (_ld = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0x8a7a70 }));
+export const LIGHTDIM = () => _ld || (_ld = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0x8a7a70 }));
 let _ld;
-const LIGHTMAT = () => _lm || (_lm = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0xffffff }));
+export const LIGHTMAT = () => _lm || (_lm = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0xffffff }));
 export const WATERMAT = () => _wm || (_wm = lam({ map: T.water(), transparent: true, opacity: 0.88 }));
 let _wh, _fo;
 export const WATERHI = () => _wh || (_wh = alphaMat(T.waterHi(), { blending: THREE.AdditiveBlending, opacity: 0.55 }));

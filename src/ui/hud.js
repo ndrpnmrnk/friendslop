@@ -14,7 +14,7 @@ export function renderHud(S, P, prompt) {
   $('timer').classList.toggle('low', tm <= 15);
   $('score').textContent = S.score;
   $('missions').innerHTML = M.list.map(m => {
-    const p = m.obj.pos(), dx = p.x - P.pos.x, dz = p.z - P.pos.z;
+    const p = (m.busy && m.track && m.track()) || m.obj.pos(), dx = p.x - P.pos.x, dz = p.z - P.pos.z;
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = -fz, rz = fx;
     const dist = Math.round(Math.hypot(dx, dz)), ang = Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz), timed = m.def.life > 0;
     const bar = timed ? `<div class="bar${m.life < 8 ? ' warn' : ''}"><i style="width:${Math.max(0, m.life / m.def.life * 100)}%"></i></div>` : '';

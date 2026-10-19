@@ -23,7 +23,7 @@ export default {
             W.spots.pickup.push({ x: f.X(r.x1 - 1.6), z: f.Z(z), y: f.Y, f: [1, 0], district: 'Фудкорт', label: nm.toLowerCase() });
           });
           for (const [x, z] of [[23.5, 14], [23.5, 18.5], [23.5, 23], [26.2, 27.5]]) { f.table(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); f.bottles(x, 0.82, z, 2); }
-          f.plantPot(21.3, 29.5, 1.2); f.vending(21.4, 12.2);
+          f.plantPot(21.3, 29.5, 1.2); f.vending(21.4, 13.3);
           return;
         }
         // второй этаж: игровые автоматы, диваны

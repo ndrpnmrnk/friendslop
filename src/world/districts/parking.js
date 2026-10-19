@@ -14,7 +14,6 @@ export default {
     b.house({ x: 1, z: 26.5, w: 4, d: 4, h: 2.7, wall: 0xd8d0c0, brick: false, lit: 1, door: { side: 'e', at: 0.5 }, parapet: false,
       interior(b, r) { b.box((r.x0 + r.x1) / 2, r.z0 + 0.4, 2.8, 0.6, 0.85, tmat(T.wood())); b.m(G.box, tmat(T.screen()), (r.x0 + r.x1) / 2, 1.15, r.z0 + 0.3, 0.6, 0.45, 0.3);
         b.ride('chair', (r.x0 + r.x1) / 2, r.z0 + 1.6, Math.PI); } });
-    b.vitrine(3, 30.62, 2.4, 1.2, 'x', 1.0);
     b.box(7, 29, 0.4, 0.4, 1.1, col(0x6a6d78));
     b.m(G.box, tmat(T.stripe()), 10.2, 1.0, 29, 6, 0.12, 0.12); b.solid(10.2, 29, 6, 0.2, 0.92, 0.16);
     b.m(G.box, glow(0xd8243a), 7, 1.25, 29, 0.15, 0.15, 0.15);
