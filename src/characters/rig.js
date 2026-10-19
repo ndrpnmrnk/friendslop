@@ -22,7 +22,7 @@ export function makeCharacter(skinId) {
   root.traverse(o => { if (o.isMesh && o !== sh && !o.material.transparent) o.castShadow = true; });
   const stars = new THREE.Group(); stars.position.y = d.top + 0.15; root.add(stars); stars.visible = false;
   for (let i = 0; i < 4; i++) { const s = sprite(T.star(), 0.22); s.position.set(Math.cos(i * 1.57) * 0.4, 0, Math.sin(i * 1.57) * 0.4); stars.add(s); }
-  const ch = { ...parts, skin, d, stars, blob: sh, blobS: d.shadow ?? 0.55, ph: 0, squash: 0, blinkT: 2, expr: 'idle', holdPoint: new THREE.Vector3() };
+  const ch = { ...parts, skinId, skin, d, stars, blob: sh, blobS: d.shadow ?? 0.55, ph: 0, squash: 0, blinkT: 2, expr: 'idle', holdPoint: new THREE.Vector3() };
   ch.animate = (dt, st) => animate(ch, dt, st);
   return ch;
 }
@@ -75,7 +75,7 @@ function animate(c, dt, s) {
   const d = c.d, t = s.t, k = clamp(s.speed || 0, 0, 1), run = !s.air && !s.climb && k > 0.05;
   if (s.ride) return animateRide(c, dt, s);
   if (s.dive || s.slide) return animateMove(c, dt, s);
-  c.body.position.z = 0; c.body.rotation.x = Math.atan2(Math.sin(c.body.rotation.x), Math.cos(c.body.rotation.x));
+  c.body.position.z = 0; c.body.position.x = 0; c.body.rotation.x = Math.atan2(Math.sin(c.body.rotation.x), Math.cos(c.body.rotation.x));
   c.ph += dt * (s.climb ? 7 : 4 + k * 10) * (run || s.climb ? 1 : 0);
   const sn = Math.sin(c.ph), cs = Math.cos(c.ph), f = damp(16, dt);
   // тело
@@ -121,12 +121,22 @@ function animate(c, dt, s) {
     setHand(c.handL, -hx * 0.8, d.top - 0.2 + sn * 0.22, 0.4, f); setHand(c.handR, hx * 0.8, d.top - 0.2 - sn * 0.22, 0.4, f);
   } else if (s.air) {
     setHand(c.handL, -hx - 0.1, hy + 0.35, hz, f); setHand(c.handR, hx + 0.1, hy + 0.35, hz, f);
+  } else if (s.act === 'stretch') {
+    const a = Math.sin(Math.min(1, s.actK) * Math.PI);
+    setHand(c.handL, -hx - 0.15 * a, hy + (d.top - hy + 0.35) * a, hz, f); setHand(c.handR, hx + 0.15 * a, hy + (d.top - hy + 0.35) * a, hz, f); c.body.scale.y *= 1 + 0.08 * a;
+  } else if (s.act === 'scratch') {
+    setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx * 0.8, d.top - 0.2 + Math.sin(t * 16) * 0.04, 0.05, f); c.body.rotation.z = 0.08;
+  } else if (s.act === 'special') {
+    if (c.skinId === 'shark') { setHand(c.handL, -hx * 0.9, d.top - 0.25, 0, f); setHand(c.handR, hx * 0.9, d.top - 0.25, 0, f); c.body.rotation.z = Math.sin(t * 8) * 0.12; }
+    else if (c.skinId === 'tv') { setHand(c.handL, -hx, hy, hz, f); setHand(c.handR, hx, hy, hz, f); c.body.position.x = (Math.random() - 0.5) * 0.03; c.body.rotation.z = (Math.random() - 0.5) * 0.06; }
+    else { setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx * 0.3, d.top - 0.45 + Math.sin(t * 12) * 0.05, 0.35, f); c.body.rotation.x = 0.12; }
   } else if (s.wave) {
     setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx + 0.1, d.top - 0.1 + Math.sin(t * 9) * 0.06, 0.1 + Math.sin(t * 9) * 0.12, f);
   } else {
     setHand(c.handL, -hx, hy + fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? -sn * 0.35 * k : 0), f);
     setHand(c.handR, hx, hy - fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? sn * 0.35 * k : 0), f);
   }
+  if (s.look !== undefined) c.head.rotation.y += (s.look - c.head.rotation.y) * damp(6, dt); else c.head.rotation.y *= 0.9;
   c.handL.rotation.x = s.hold ? -0.6 : run ? sn * 0.5 * k : 0; c.handR.rotation.x = s.hold ? (s.charge ? 0.8 : -0.6) : run ? -sn * 0.5 * k : 0;
   // присед: тело ниже и сжато, ручки ближе
   if (s.crouch) { c.body.position.y -= 0.34; c.body.scale.y *= 0.85; c.body.rotation.x = 0.25; c.handL.position.y -= 0.3; c.handR.position.y -= 0.3; c.footL.position.x = -d.footX - 0.08; c.footR.position.x = d.footX + 0.08; }

@@ -30,22 +30,29 @@ export function drawMinimap(P, missions, target) {
   const g = c.getContext('2d'), S = c.width, R = S / 2;
   g.imageSmoothingEnabled = false;
   g.fillStyle = '#17111f'; g.fillRect(0, 0, S, S);
-  // простое преобразование мир → экран
-  const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw), k = 2.4; // пикселей на метр → видно ~±37 м
+  // мир → экран (верх — куда смотрит камера)
+  const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw), k = 2.2;
   const toS = (x, z) => { const dx = x - P.pos.x, dz = z - P.pos.z; return [R + (dx * rx + dz * rz) * k, R - (dx * fx + dz * fz) * k]; };
   g.save(); g.translate(R, R); g.rotate(cam.yaw); g.scale(k / PX, k / PX); g.translate(-(P.pos.x + half) * PX, -(P.pos.z + half) * PX); g.drawImage(plan, 0, 0); g.restore();
-  // миссии
-  const dot = (x, z, color, star) => {
-    let [sx, sy] = toS(x, z); const dx = sx - R, dy = sy - R, d = Math.hypot(dx, dy), lim = R - 9;
-    if (d > lim) { sx = R + dx / d * lim; sy = R + dy / d * lim; }
-    g.fillStyle = color; g.strokeStyle = '#17111f'; g.lineWidth = 2;
-    if (star) { g.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? 3.5 : 8; g.lineTo(sx + Math.cos(a) * rr, sy + Math.sin(a) * rr); } g.closePath(); g.stroke(); g.fill(); }
-    else { g.beginPath(); g.arc(sx, sy, 5, 0, 7); g.stroke(); g.fill(); }
+  const lim = R - 7;
+  const mark = (x, z, color, kind) => {
+    let [sx, sy] = toS(x, z); const dx = sx - R, dy = sy - R, m = Math.max(Math.abs(dx), Math.abs(dy)), out = m > lim;
+    if (out) { sx = R + dx / m * lim; sy = R + dy / m * lim; }
+    sx = Math.round(sx); sy = Math.round(sy);
+    g.fillStyle = '#17111f';
+    if (out) { const a = Math.atan2(dy, dx); g.save(); g.translate(sx, sy); g.rotate(a); g.fillRect(-4, -5, 9, 10); g.fillStyle = color; g.beginPath(); g.moveTo(4, 0); g.lineTo(-3, -4); g.lineTo(-3, 4); g.fill(); g.restore(); return; }
+    if (kind === 'star') { g.fillRect(sx - 5, sy - 5, 11, 11); g.fillStyle = color; g.fillRect(sx - 4, sy - 1, 9, 3); g.fillRect(sx - 1, sy - 4, 3, 9); }
+    else if (kind === 'bot') { g.fillRect(sx - 3, sy - 3, 6, 6); g.fillStyle = color; g.fillRect(sx - 2, sy - 2, 4, 4); }
+    else { g.fillRect(sx - 4, sy - 4, 9, 9); g.fillStyle = color; g.fillRect(sx - 3, sy - 3, 7, 7); }
   };
-  for (const m of missions) if (!m.busy) { const p = m.obj.pos(); dot(p.x, p.z, '#' + DIFF[m.def.diff].toString(16).padStart(6, '0')); }
-  if (target) dot(target.x, target.z, '#9be36b', true);
-  // игрок: стрелка по направлению взгляда персонажа
+  for (const m of missions) if (!m.busy) { const p = m.obj.pos(); mark(p.x, p.z, '#' + DIFF[m.def.diff].toString(16).padStart(6, '0')); }
+  for (const b of W.bots || []) mark(b.pos.x, b.pos.z, '#b18cff', 'bot');
+  if (target) mark(target.x, target.z, '#9be36b', 'star');
+  // игрок
   const a = P.root.rotation.y, la = Math.atan2(Math.sin(a) * rx + Math.cos(a) * rz, Math.sin(a) * fx + Math.cos(a) * fz);
   g.save(); g.translate(R, R); g.rotate(la); g.fillStyle = '#ff8a1f'; g.strokeStyle = '#17111f'; g.lineWidth = 2;
-  g.beginPath(); g.moveTo(0, -8); g.lineTo(6, 6); g.lineTo(0, 3); g.lineTo(-6, 6); g.closePath(); g.stroke(); g.fill(); g.restore();
+  g.beginPath(); g.moveTo(0, -7); g.lineTo(5, 5); g.lineTo(0, 2); g.lineTo(-5, 5); g.closePath(); g.stroke(); g.fill(); g.restore();
+  // «С» — север на краю рамки
+  const n = document.querySelector('#minimap .north'); if (n) { const [nx, ny] = toS(P.pos.x, P.pos.z - 1000), dx = nx - R, dy = ny - R, m = Math.max(Math.abs(dx), Math.abs(dy)) || 1, sc = c.clientWidth / S;
+    n.style.left = (2 + (R + dx / m * (R - 6)) * sc) + 'px'; n.style.top = (2 + (R + dy / m * (R - 6)) * sc) + 'px'; }
 }

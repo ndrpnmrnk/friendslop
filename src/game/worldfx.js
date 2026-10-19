@@ -6,6 +6,7 @@ import { burst, puff, smokeRing, splash, chunk } from '../world/particles.js';
 import { scareBirds } from '../world/birds.js';
 import { addItem, launch } from './items.js';
 import { cam } from './camera.js';
+import { sfx } from '../core/sfx.js';
 
 /* Взаимодействия с миром и «сочность»:
    - общий список того, с чем можно сделать E (W.interacts): лестницы, укрытия, качели;
@@ -35,16 +36,16 @@ export function bounceAt(x, z, y) {
 // ---------- удары по объектам мира (вызывается из бросков, выпада, гаджетов) ----------
 export function worldHit(p, power, vel) {
   // гидрант: сбили крышку — струя
-  for (const h of W.hydrants) if (!h.on && power >= 3 && Math.hypot(h.x - p.x, h.z - p.z) < 0.7 && p.y < h.y + 1.3) { h.on = 8; h.t = 0; burst(h.x, h.y + 0.8, h.z, 10, { color: 0x9ccbec, size: 0.3, speed: 3, up: 4 }); if (h.cap) h.cap.visible = false; addZone('puddle', { c: [h.x, h.z, 1.6] }, h.y, { expires: 14 }); }
+  for (const h of W.hydrants) if (!h.on && power >= 3 && Math.hypot(h.x - p.x, h.z - p.z) < 0.7 && p.y < h.y + 1.3) { h.on = 8; h.t = 0; sfx('hydrant', { at: h }); burst(h.x, h.y + 0.8, h.z, 10, { color: 0x9ccbec, size: 0.3, speed: 3, up: 4 }); if (h.cap) h.cap.visible = false; addZone('puddle', { c: [h.x, h.z, 1.6] }, h.y, { expires: 14 }); }
   // машина: сигнализация
-  for (const c of W.cars) if (Math.abs(p.x - c.x) < 2.3 && Math.abs(p.z - c.z) < 2.3 && p.y < c.y + 1.8 && power >= 1) { if (c.alarm <= 0) scareBirds(c.x, c.z, 12); c.alarm = 4; }
+  for (const c of W.cars) if (Math.abs(p.x - c.x) < 2.3 && Math.abs(p.z - c.z) < 2.3 && p.y < c.y + 1.8 && power >= 1) { if (c.alarm <= 0) { scareBirds(c.x, c.z, 12); sfx('alarm', { at: c }); } c.alarm = 4; }
   // автомат: выпадает банка
   for (const v of W.vendings) if (v.cd <= 0 && power >= 1.5 && Math.hypot(v.x - p.x, v.z - p.z) < 1.1 && p.y < v.y + 2.2) {
-    v.cd = 10; const it = addItem('can', v.x + v.nx * 0.7, v.y + 0.4, v.z + v.nz * 0.7, 0); it.def = { ...it.def, respawn: 0 };
+    v.cd = 10; sfx('can', { at: v }); const it = addItem('can', v.x + v.nx * 0.7, v.y + 0.4, v.z + v.nz * 0.7, 0); it.def = { ...it.def, respawn: 0 };
     launch(it, it.pos.clone(), new V3(v.nx * 2.5, 2, v.nz * 2.5)); burst(v.x + v.nx * 0.5, v.y + 0.5, v.z + v.nz * 0.5, 4, { color: 0xd8d8e0, size: 0.15 });
   }
   // колокол
-  for (const b of W.bells) if (Math.hypot(b.x - p.x, b.z - p.z) < 0.9 && Math.abs(b.y - p.y) < 0.9) { b.ring = 3; scareBirds(b.x, b.z, 30); for (const c of W.cats) if (Math.hypot(c.root.position.x - b.x, c.root.position.z - b.z) < 16) c.hit && c.hit(false, 0, 0); }
+  for (const b of W.bells) if (Math.hypot(b.x - p.x, b.z - p.z) < 0.9 && Math.abs(b.y - p.y) < 0.9) { if (b.ring <= 0) sfx('bell', { at: { x: b.x, y: b.y - 6, z: b.z } }); b.ring = 3; scareBirds(b.x, b.z, 30); for (const c of W.cats) if (Math.hypot(c.root.position.x - b.x, c.root.position.z - b.z) < 16) c.hit && c.hit(false, 0, 0); }
   // красные лестницы: защёлка
   for (const l of W.dropLadders) if (!l.down && Math.hypot(l.lx - p.x, l.lz - p.z) < 0.6 && Math.abs(l.ly - p.y) < 0.6) l.drop = true;
   // ящики-генераторы гаджетов отрабатывают сами (breakables)
@@ -83,7 +84,7 @@ export function updateWorldFx(dt, t, P) {
   // красные лестницы
   for (const l of W.dropLadders) {
     const want = l.down ? 1 : 0;
-    if (l.drop && !l.down) { l.down = true; l.drop = false; burst(l.lx, l.ly, l.lz, 6, { color: 0xd8243a, size: 0.12, speed: 2 }); }
+    if (l.drop && !l.down) { l.down = true; l.drop = false; sfx('ladder', { at: { x: l.bx, y: l.by, z: l.bz } }); burst(l.lx, l.ly, l.lz, 6, { color: 0xd8243a, size: 0.12, speed: 2 }); }
     const prev = l.k; l.k += (want - l.k) * Math.min(1, dt * (l.down ? 7 : 3)); if (Math.abs(l.k - want) < 0.01) l.k = want;
     l.seg.position.y = l.y0 + (1 - l.k) * l.low;
     if (l.down && prev < 0.98 && l.k >= 0.98) { smokeRing(l.bx, l.by + 0.1, l.bz, 8, { speed: 2 }); shake(0.25); }
@@ -119,7 +120,7 @@ export function driveSwing(P, iz, dt) {
 }
 
 /* Укрытия: куча листьев, шкаф, мусорный бак. E — залезть (невидим), E/пробел — выскочить с рывком */
-export function hideIn(P, h) { P.hidden = h; P.vel.set(0, 0, 0); burst(h.x, h.y + 0.6, h.z, 8, { color: h.kind === 'leaves' ? 0xc96a25 : 0x8a7e90, size: 0.2, speed: 2, up: 2 });
+export function hideIn(P, h) { sfx('hide'); P.hidden = h; P.vel.set(0, 0, 0); burst(h.x, h.y + 0.6, h.z, 8, { color: h.kind === 'leaves' ? 0xc96a25 : 0x8a7e90, size: 0.2, speed: 2, up: 2 });
   if (h.kind === 'wardrobe') P.pos.set(h.x + h.out[0] * 0.95, h.y, h.z + h.out[1] * 0.95); else P.pos.set(h.x, h.y + (h.kind === 'bin' ? 1.25 : 0), h.z); }
 export function leaveHide(P) {
   const h = P.hidden; if (!h) return; P.hidden = null;

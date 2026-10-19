@@ -44,17 +44,17 @@ const EVENTS = {
   },
 };
 
-export function updateEvents(dt, show) {
+export function updateEvents(dt, ui) {
   EV.t += dt;
   if (!EV.cur && EV.t >= EV.next) {
     const keys = Object.keys(EVENTS).filter(k => k !== EV.last), key = keys[(Math.random() * keys.length) | 0];
     EV.cur = { key, def: EVENTS[key], s: {} }; EV.left = DUR; EV.last = key; EV.cur.def.start(EV.cur.s);
-    show(`${EV.cur.def.icon} ${EV.cur.def.title}`, EV.cur.def.sub, true);
+    ui.start(key);
   }
   if (EV.cur) {
     EV.cur.def.update(EV.cur.s, dt); EV.left -= dt;
-    show(`${EV.cur.def.icon} ${EV.cur.def.title} · ${Math.ceil(EV.left)} с`, '', false);
-    if (EV.left <= 0) { stopEvent(); EV.next = EV.t + 40 + Math.random() * 20; show(null); }
+    ui.tick(EV.cur.key, Math.ceil(EV.left));
+    if (EV.left <= 0) { stopEvent(); EV.next = EV.t + 40 + Math.random() * 20; ui.end(); }
   }
 }
 export function stopEvent() { if (!EV.cur) return; EV.cur.def.stop(EV.cur.s); EV.cur = null; }

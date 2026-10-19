@@ -10,6 +10,7 @@ import { puff, burst, chunk, decal, splash, ripple } from '../world/particles.js
 import { scareBirds } from '../world/birds.js';
 import { hitBreakables } from '../world/breakables.js';
 import { worldHit, shake, hitFreeze } from './worldfx.js';
+import { sfx } from '../core/sfx.js';
 
 /* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
 const GRAV = 22;
@@ -68,6 +69,7 @@ function impact(it, n, speed) {
   hitBreakables(p, it.def.r + 0.12, [it.vel.x, it.vel.y, it.vel.z], it.def.mass);
   hitActors(it, p, it.def.heavy);
   worldHit(p, speed * it.def.mass * 0.35, it.vel);
+  sfx(t === 'can' ? 'can' : 'hit', { at: p, v: Math.min(1.4, speed * it.def.mass * 0.08 + 0.3) });
   const wall = Math.abs(n[1]) < 0.5;
   // следы ударов: брызги на стене, искры и пыль от тяжёлого
   if (wall && speed > 8 && it.def.heavy) { burst(p.x, p.y, p.z, 5, { color: 0xffd25c, size: 0.08, speed: 4, up: 1.5, g: 14, life: 0.35, grow: 0 }); burst(p.x, p.y, p.z, 3, { color: 0x8a7e90, size: 0.35, speed: 0.8, up: 0.4, g: 1, life: 0.7, grow: 1.4 }); }
@@ -75,12 +77,13 @@ function impact(it, n, speed) {
   if (it.def.heavy && speed > 10) shake(0.12);
   // попал в воду: всплеск; тяжёлое тонет, лёгкое остаётся плавать
   if (n[1] > 0.5 && zoneAt(p.x, p.z, gy, 'water')) {
-    splash(p.x, gy, p.z, Math.min(1.5, 0.4 + speed * it.def.mass * 0.06));
+    splash(p.x, gy, p.z, Math.min(1.5, 0.4 + speed * it.def.mass * 0.06)); sfx('splash', { at: p });
     if (t === 'balloon') { vanish(it); return; }
     if (it.def.sinks) { it.state = 'sink'; it.sinkT = 1.2; it.vel.set(0, -0.6, 0); return; }
     it.vel.set(it.vel.x * 0.3, 0, it.vel.z * 0.3); it.state = 'rest'; it.floatY = gy; return;
   }
   if (t === 'balloon') {
+    sfx('splash', { at: p });
     burst(p.x, p.y, p.z, 14, { color: 0x6ab8f0, size: 0.28, speed: 3, up: 2.5 });
     decal(T.splat('#4a90d0'), p.x, gy, p.z, 2.4, 20, 0xffffff);
     addZone('puddle', { c: [p.x, p.z, 1.15] }, gy, { expires: 7 });

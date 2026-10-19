@@ -6,6 +6,7 @@ import { burst, puff, smokeRing, decal, splash } from '../world/particles.js';
 import { scareBirds } from '../world/birds.js';
 import { hitBreakables } from '../world/breakables.js';
 import { worldHit, shake, hitFreeze } from './worldfx.js';
+import { sfx } from '../core/sfx.js';
 
 /* Гаджеты из ящиков: один карман (F), отдельно от предмета в руках.
    Логика не зависит от рендера и ввода — потом её можно перенести на сервер. */
@@ -89,7 +90,7 @@ function explode(p, owner) {
   for (const a of actors(W.player)) { const dx = a.pos.x - p.x, dz = a.pos.z - p.z, d = Math.hypot(dx, dz); if (d < 3 && Math.abs(a.pos.y - p.y) < 2.5) { a.vel.set(dx / (d || 1) * 7, 7, dz / (d || 1) * 7); a.onGround = false; a.stun = Math.max(a.stun, 1.3); hitFreeze(0.07); } }
   hitBreakables({ x: p.x, y: p.y + 0.8, z: p.z }, 2.5, [0, 8, 0], 1, ['glass', 'bottle', 'bulb', 'pot']);
   for (const c of W.cats) { const q = c.root.position; if (Math.hypot(q.x - p.x, q.z - p.z) < 6) c.hit && c.hit(false, q.x - p.x, q.z - p.z); }
-  scareBirds(p.x, p.z, 20); impulsePushables(p.x, p.z, 3, 6); worldHit(p, 5, new V3()); shake(0.45);
+  sfx('boom', { at: p }); scareBirds(p.x, p.z, 20); impulsePushables(p.x, p.z, 3, 6); worldHit(p, 5, new V3()); shake(0.45);
 }
 
 export function updateGadgets(dt, t, P) {
@@ -114,7 +115,7 @@ export function updateGadgets(dt, t, P) {
     let taker = null;
     for (const a of actors(P)) if (Math.hypot(a.pos.x - q.x, a.pos.z - q.z) < 0.8 && Math.abs(a.pos.y - q.y) < 1.2) { taker = a; break; }
     if (taker || q.life <= 0) {
-      if (taker) { taker.gadget = { kind: q.kind, n: GADGETS[q.kind].n }; burst(q.x, q.y + 0.6, q.z, 10, { color: GADGETS[q.kind].color, size: 0.16, speed: 2.5, up: 2 }); if (taker === P && W.onGadget) W.onGadget(q.kind); }
+      if (taker) { taker.gadget = { kind: q.kind, n: GADGETS[q.kind].n }; burst(q.x, q.y + 0.6, q.z, 10, { color: GADGETS[q.kind].color, size: 0.16, speed: 2.5, up: 2 }); if (taker === P) sfx('pickup'); }
       W.group.remove(q.g); GS.pickups.splice(i, 1);
     }
   }
@@ -133,7 +134,7 @@ export function updateGadgets(dt, t, P) {
         if (s.kind === 'water') { burst(pt.x, pt.y, pt.z, 3, { color: 0x9ccbec, size: 0.12, speed: 1.5 }); if (hitA) { hitA.push && hitA.push.set(s.v.x * 0.06, 0, s.v.z * 0.06); hitA.wetT = 4; hitA.slipT = 2; } hitBreakables(pt, 0.2, [s.v.x, s.v.y, s.v.z], 0.15, ['bulb']); worldHit(pt, 0.5, s.v); for (const h of W.hitHooks.slice()) h({ type: 'water', vel: s.v, def: { mass: 0.6, r: 0.1, heavy: false }, pos: pt }, pt); if (!hitA && Math.random() < 0.3) decal(T.splat('#4a90d0'), pt.x, gy, pt.z, 0.5, 5, 0xffffff); }
         else if (s.kind === 'candy') { burst(pt.x, pt.y, pt.z, 4, { color: 0xff5a9e, size: 0.1, speed: 2 }); if (hitA) { hitA.push && hitA.push.set(s.v.x * 0.08, 0, s.v.z * 0.08); hitFreeze(0.04); } hitBreakables(pt, 0.2, [s.v.x, s.v.y, s.v.z], 0.3, ['glass', 'bulb', 'bottle']); worldHit(pt, 1.2, s.v); for (const h of W.hitHooks.slice()) h({ type: 'candy', vel: s.v, def: { mass: 0.6, r: 0.1, heavy: false }, pos: pt }, pt); }
         else if (s.kind === 'firework') { s.rest = true; s.v.set(0, 0, 0); s.p.y = gy + 0.12; if (wall) s.p.addScaledVector(new V3(wall.n[0], 0, wall.n[2]), 0.2); }
-        else if (s.kind === 'popper') { GS.clouds.push({ x: pt.x, y: pt.y, z: pt.z, t: 2.2 }); const cs = [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff]; for (const c of cs) burst(pt.x, pt.y + 1, pt.z, 10, { color: c, size: 0.12, speed: 3, up: 3, g: 2, life: 2, grow: 0 }); scareBirds(pt.x, pt.z, 6); }
+        else if (s.kind === 'popper') { GS.clouds.push({ x: pt.x, y: pt.y, z: pt.z, t: 2.2 }); sfx('pop', { at: pt }); const cs = [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff]; for (const c of cs) burst(pt.x, pt.y + 1, pt.z, 10, { color: c, size: 0.12, speed: 3, up: 3, g: 2, life: 2, grow: 0 }); scareBirds(pt.x, pt.z, 6); }
         else if (s.kind === 'web') { const m = decal(T.web(), pt.x, gy, pt.z, 3, 15, 0xffffff); GS.traps.push({ x: pt.x, y: gy, z: pt.z, r: 1.4, t: 15, m }); }
         if (s.kind !== 'firework') { W.group.remove(s.m); GS.shots.splice(i, 1); continue; }
       }
