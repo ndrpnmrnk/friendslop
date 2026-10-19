@@ -1,4 +1,5 @@
-import { THREE } from './gfx.js';
+import { THREE, renderer } from './gfx.js';
+const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 import { HW, SEASON } from '../config.js';
 
 /* Текстуры «под фото»: рисуем мягко в высоком разрешении, затем ужимаем до 16–64 px.
@@ -7,7 +8,7 @@ import { HW, SEASON } from '../config.js';
 const C = new Map();
 function finish(c, alpha) {
   const t = new THREE.CanvasTexture(c);
-  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = ANISO;
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   if (alpha) t.premultiplyAlpha = false;
   return t;
@@ -197,6 +198,10 @@ export const T = {
   }),
 
   /* ---------- скины ---------- */
+  catChest: () => photo('catChest', 16, 20, (g, W, H) => {
+    g.clearRect(0, 0, W, H); g.fillStyle = radial(g, W / 2, H * 0.35, W * 0.55, 'rgba(255,244,228,.95)', 'rgba(242,207,160,0)'); g.fillRect(0, 0, W, H);
+    strokes(g, W, H, ['rgba(255,250,240,.6)', 'rgba(216,154,90,.4)'], 120, 8, Math.PI / 2, 0.8, 2, 0.5);
+  }, 6),
   tvScreen: expr => pix('tv' + expr, 24, 18, (g, W, H) => {
     for (let y = 0; y < H; y++) { g.fillStyle = y < H * 0.45 ? (y % 2 ? '#1e6a3e' : '#22744a') : (y % 2 ? '#5aa83a' : '#64b444'); g.fillRect(0, y, W, 1); }
     g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(1, 1, W - 2, 2);

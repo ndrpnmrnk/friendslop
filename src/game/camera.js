@@ -10,7 +10,7 @@ import { clamp, damp } from '../core/rng.js';
    Пока зажата ПКМ (бросок), камера подъезжает к плечу и чуть выше — видно предмет и траекторию.
    Камера мягко догоняет персонажа и сама плавно встаёт за спину при беге, если мышь не трогали. */
 export const cam = { pose: null, yaw: 0, pitch: 0.45, curDist: 6, sens: 0.0024, aimK: 0, idle: 0,
-  normal: { dist: 6.2, shoulder: 0.85, height: 1.75 }, aim: { dist: 3.4, shoulder: 0.95, height: 1.85 } };
+  normal: { dist: 6.4, shoulder: 1.15, height: 2.05 }, aim: { dist: 3.5, shoulder: 1.15, height: 2.1 } };
 const pos = new V3(), look = new V3(), tgt = new V3(), want = new V3(), dir = new V3(), hit = new V3(), piv = new V3(), sh = new V3();
 const ray = new THREE.Ray();
 

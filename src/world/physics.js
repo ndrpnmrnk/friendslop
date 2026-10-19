@@ -87,15 +87,18 @@ export function updatePushables(dt, player) {
     const op = { x: b.x, z: b.z };
     b.x += b.vx * dt; b.z += b.vz * dt;
     const p = { x: b.x, z: b.z };
-    if (pushOut(p, b.r, b.y + 0.2, b.y + 1)) { b.vx *= -0.3; b.vz *= -0.3; }
+    b.hitSpeed = 0;
+    if (pushOut(p, b.r, b.y + 0.2, b.y + 1)) { b.hitSpeed = Math.hypot(b.vx, b.vz); b.vx *= -0.3; b.vz *= -0.3; }
     b.x = p.x; b.z = p.z;
-    const f = Math.exp(-dt * ({ barrel: 2.6, cart: 2.0, bin: 4 }[b.kind])); b.vx *= f; b.vz *= f;
+    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { barrel: 2.6, cart: 2.0, bin: 4, skate: 0.6, chair: 1.6, barrow: 2.4 }[b.kind])); b.vx *= f; b.vz *= f;
     const mv = Math.hypot(b.x - op.x, b.z - op.z);
     b.mesh.position.set(b.x, b.y, b.z);
     if (mv > 1e-4) {
       const ang = Math.atan2(b.x - op.x, b.z - op.z);
       if (b.kind === 'barrel') { b.roller.rotation.x += mv / b.r; b.mesh.rotation.y = ang; }
-      else { let d = ang - b.mesh.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); b.mesh.rotation.y += d * Math.min(1, dt * 6); }
+      else if (b.rider) b.mesh.rotation.y = b.heading;
+      else if (b.kind !== 'chair') { let d = ang - b.mesh.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); b.mesh.rotation.y += d * Math.min(1, dt * 6); }
+      else b.mesh.rotation.y += mv * 2;
     }
   }
   for (let i = 0; i < W.pushables.length; i++) for (let j = i + 1; j < W.pushables.length; j++) {
@@ -108,6 +111,7 @@ export function updatePushables(dt, player) {
 export function bumpPushables(pl) {
   const p = pl.pos;
   for (const b of W.pushables) {
+    if (b.rider || pl.ride) continue;
     if (p.y > b.y + b.h - 0.1 || p.y + pl.h < b.y) continue;
     const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz), m = b.r + pl.r;
     if (d >= m || d < 1e-4) continue;

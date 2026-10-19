@@ -8,6 +8,7 @@ import { addItem } from '../game/items.js';
 import { addBirds } from './birds.js';
 import { addOutline } from '../game/outline.js';
 import { addPushable } from './pushables.js';
+import { brickWall, breakBox, addPiece, breakPiece, glassMat } from './breakables.js';
 
 /* Конструктор района. Все координаты — локальные (0..24), высота от уровня тротуара.
    Районы описываются вызовами этих методов в своих файлах в world/districts. */
@@ -109,13 +110,48 @@ export class Builder {
     this.solid(cx, cz, q ? 1.6 : 2.2, q ? 2.2 : 1.6, 0.95, 0.46);
     return g;
   }
-  crate(x, z, s = 1, y = 0) { this.box(x, z, s, s, s, tmat(T.crate()), { y }); }
+  // ящик — разрушаемый (кидаешь тяжёлое — разлетается на доски)
+  crate(x, z, s = 1, y = 0) { breakBox(this.X(x), this.Y + y, this.Z(z), s, s, s, 'wood', tmat(T.crate())); }
+  ride(kind, x, z, ry = 0) { const p = addPushable(this, kind, x, z); p.mesh.rotation.y = ry; return p; }
+  // кирпичная стена из блоков, axis 'x' — вдоль X
+  brickWall(x, z, len, h, axis, y = 0, o = {}) { return brickWall(this.X(x), this.Z(z), this.Y + y, len, h, axis, o); }
+  // витрина: стекло бьётся на осколки
+  vitrine(x, z, w, h, axis = 'x', y = 0.4) { return breakBox(this.X(x), this.Y + y, this.Z(z), axis === 'x' ? w : 0.06, h, axis === 'x' ? 0.06 : w, 'glass', glassMat()); }
+  // деревянный сарай: стены из досок, крыша падает, если выбить половину стен
+  shed(x, z, w, d, h = 2.2) {
+    const wood = tmat(T.wood()), pieces = [];
+    const wall = (cx, cz, len, axis) => { const n = Math.max(2, Math.round(len / 0.7)); for (let i = 0; i < n; i++) { const o = -len / 2 + (i + 0.5) * len / n;
+      pieces.push(breakBox(this.X(axis === 'x' ? cx + o : cx), this.Y, this.Z(axis === 'x' ? cz : cz + o), axis === 'x' ? len / n - 0.02 : 0.12, h, axis === 'x' ? 0.12 : len / n - 0.02, 'wood', wood)); } };
+    wall(x + w / 2, z, w, 'x'); wall(x + w / 2, z + d, w, 'x'); wall(x, z + d / 2, d - 0.12, 'z'); wall(x + w, z + d / 2, d - 0.12, 'z');
+    const roof = breakBox(this.X(x + w / 2), this.Y + h, this.Z(z + d / 2), w + 0.4, 0.14, d + 0.4, 'wood', tmat(T.roof()));
+    let broken = 0; for (const p of pieces) p.onBreak = () => { broken++; if (broken > pieces.length * 0.4) breakPiece(roof, [0, -2, 0]); };
+    this.zone('inside', x + 0.5, z + 0.5, x + w - 0.5, z + d - 0.5);
+  }
+  // мостик-доска между крышами на высоте y (верх доски)
+  plank(x0, z0, x1, z1, y, w = 0.8) {
+    const along = Math.abs(x1 - x0) > Math.abs(z1 - z0), len = along ? Math.abs(x1 - x0) : Math.abs(z1 - z0);
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    this.box(cx, cz, along ? len : w, along ? w : len, 0.1, tmat(T.wood()), { y: y - 0.1 });
+    for (const s of [-1, 1]) this.m(G.box, col(0x6a6d78), cx + (along ? 0 : s * w / 2), y + 0.02, cz + (along ? s * w / 2 : 0), along ? len : 0.04, 0.04, along ? 0.04 : len);
+  }
+  // ступеньки: от (x,z) в направлении dir ('n','s','e','w'), с высоты y0 до y1, шириной w
+  stairs(x, z, dir, y0, y1, w = 1.2) {
+    const n = Math.max(1, Math.round((y1 - y0) / 0.3)), rise = (y1 - y0) / n, run = 0.42, v = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }[dir];
+    for (let i = 0; i < n; i++) { const cx = x + v[0] * (i + 0.5) * run, cz = z + v[1] * (i + 0.5) * run;
+      this.box(cx, cz, v[0] ? run : w, v[0] ? w : run, y0 + rise * (i + 1), tmat(T.concrete()), { }); }
+  }
   barrel(x, z) { this.m(G.cyl8, tmat(T.rust()), x, 0.5, z, 0.42, 1, 0.42); this.solid(x, z, 0.8, 0.8, 0, 1); }
   // урна — толкаемая
   bin(x, z) { addPushable(this, 'bin', x, z); }
   hydrant(x, z) { this.m(G.cyl6, col(0xc8243a), x, 0.35, z, 0.18, 0.7, 0.18); this.m(G.sph, col(0xc8243a), x, 0.72, z, 0.17, 0.12, 0.17); this.solid(x, z, 0.4, 0.4, 0, 0.8); }
   // Забор от (x0,z0) до (x1,z1) — только по одной оси
   fence(x0, z0, x1, z1, h = 1.6, kind = 'iron') {
+    if (kind === 'wood') {
+      const along = Math.abs(x1 - x0) > Math.abs(z1 - z0), len = along ? Math.abs(x1 - x0) : Math.abs(z1 - z0), n = Math.max(1, Math.round(len / 1.2));
+      for (let i = 0; i < n; i++) { const t = (i + 0.5) / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
+        breakBox(this.X(x), this.Y, this.Z(z), along ? len / n - 0.05 : 0.08, h, along ? 0.08 : len / n - 0.05, 'wood', tmat(T.wood())); }
+      return;
+    }
     const along = Math.abs(x1 - x0) > Math.abs(z1 - z0), len = along ? Math.abs(x1 - x0) : Math.abs(z1 - z0);
     const mat = kind === 'iron' ? col(0x1e1a24) : kind === 'mesh' ? col(0x6a6d78) : tmat(T.wood());
     const n = Math.max(1, Math.round(len / (kind === 'iron' ? 0.35 : 2)));
@@ -249,21 +285,21 @@ export class Builder {
       this.solid(x + w / 2, z + d / 2, w + 0.1, d + 0.1, h, 0.2);
       occ.boxes.push(this.aabb(x + w / 2, z + d / 2, w + 0.1, d + 0.1, h, 0.2));
     }
-    // парапет
+    // парапет (с проёмами для лестницы и мостков: o.gaps = [{side, at}])
     if (o.parapet !== false) {
       const pm = own({ color: 0x3a3046 }); occ.mats.push(pm);
-      const lad = o.ladder, gapAt = lad ? lad.at : -1;
+      const gaps = (o.gaps || []).concat(o.ladder ? [o.ladder] : []);
       const edges = { s: [x + w / 2, z + d - 0.1, w, 0.2], n: [x + w / 2, z + 0.1, w, 0.2], e: [x + w - 0.1, z + d / 2, 0.2, d - 0.4], w: [x + 0.1, z + d / 2, 0.2, d - 0.4] };
       for (const [k, [cx, cz, ew, ed]] of Object.entries(edges)) {
-        if (lad && lad.side === k) {
-          const along = k === 's' || k === 'n', len = along ? w : d, gc = gapAt * len, g0 = gc - 0.7, g1 = gc + 0.7;
-          for (const [a, b] of [[0, g0], [g1, len]]) {
-            if (b - a < 0.05) continue;
-            const c = (a + b) / 2;
-            const px = along ? x + c : cx, pz = along ? cz : z + c;
-            this.m(G.box, pm, px, top + 0.25, pz, along ? b - a : 0.2, 0.5, along ? 0.2 : b - a); this.solid(px, pz, along ? b - a : 0.2, along ? 0.2 : b - a, top, 0.5);
-          }
-        } else { this.m(G.box, pm, cx, top + 0.25, cz, ew, 0.5, ed); this.solid(cx, cz, ew, ed, top, 0.5); }
+        const along = k === 's' || k === 'n', len = along ? ew : ed, start = along ? x + (w - ew) / 2 : z + (d - ed) / 2;
+        const cuts = gaps.filter(g => g.side === k).map(g => (along ? x + g.at * w : z + g.at * d) - start).sort((a, b) => a - b);
+        let a0 = 0; const segs = [];
+        for (const c of cuts) { segs.push([a0, c - 0.7]); a0 = c + 0.7; } segs.push([a0, len]);
+        for (const [a, b2] of segs) {
+          if (b2 - a < 0.05) continue;
+          const c = start + (a + b2) / 2, px = along ? c : cx, pz = along ? cz : c;
+          this.m(G.box, pm, px, top + 0.25, pz, along ? b2 - a : 0.2, 0.5, along ? 0.2 : b2 - a); this.solid(px, pz, along ? b2 - a : 0.2, along ? 0.2 : b2 - a, top, 0.5);
+        }
       }
     }
     if (o.ladder) {

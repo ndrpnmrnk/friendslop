@@ -9,6 +9,8 @@ import { DISTRICTS } from './districts/index.js';
 import { resetParticles } from './particles.js';
 import { spawnCat } from '../game/cats.js';
 import { buildGhost } from '../missions/objects.js';
+import { resetBreakables } from './breakables.js';
+import { buildEdges } from './edges.js';
 
 const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dirt(), concrete: () => T.concrete(), asphalt: () => T.asphalt(), cobble: () => T.cobble() };
 
@@ -17,10 +19,10 @@ const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dir
 export function generateMap(scene, s) {
   if (W.group) scene.remove(W.group);
   const group = new THREE.Group(); scene.add(group);
-  resetWorld(group); resetParticles(); setParent(group);
+  resetWorld(group); resetParticles(); resetBreakables(); setParent(group);
   seed(s);
   const { grid, chunk, road, base } = CONFIG, total = grid * chunk + (grid + 1) * road, half = total / 2;
-  W.bounds = half - 0.5;
+  W.bounds = half + 3.4;
   const gnd = mesh(G.plane, tmat(rep(T.asphalt(), total / 3, total / 3)), 0, 0, 0, total + 40, total + 40, 1, group); gnd.rotation.x = -Math.PI / 2;
   // разметка
   const line = col(0xd8d0b8), yl = col(0xe0b02a);
@@ -46,6 +48,7 @@ export function generateMap(scene, s) {
     W.districts.push({ id: d.id, name: d.name, ox, oz });
     d.build(new Builder(ox, oz, base, d.name));
   }
+  buildEdges(half);
   // коты: по одному в разных районах
   const homes = shuffle(W.catHomes.slice());
   const used = new Set();

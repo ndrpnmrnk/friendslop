@@ -15,12 +15,9 @@ kbd{font-family:inherit;background:var(--panel2);padding:1px 7px;box-shadow:0 3p
 /* прицел-точка */
 #dot{position:fixed;left:0;top:0;width:0;height:0;pointer-events:none;z-index:20}
 #dot i{position:absolute;left:-3px;top:-3px;width:6px;height:6px;background:var(--text);box-shadow:0 0 0 2px rgba(23,17,31,.6)}
-body.locked #dot i{left:-11px;top:-11px;width:22px;height:22px;background:none;border:2px solid rgba(241,232,255,.85);border-radius:50%;box-shadow:0 0 0 2px rgba(23,17,31,.35),inset 0 0 0 2px rgba(23,17,31,.35)}
-body.locked #dot i::after{content:'';position:absolute;left:8px;top:8px;width:2px;height:2px;background:var(--text)}
-#dot.focus i{border-color:var(--gold)!important;background:var(--gold)}
-body.locked #dot.focus i{background:none}
-#dot.charge i{border-color:var(--pumpkin)!important;background:var(--pumpkin)}
-body.locked #dot.charge i{background:none}
+body.locked #dot i{left:-2.5px;top:-2.5px;width:5px;height:5px;border-radius:50%;background:rgba(241,232,255,.9);box-shadow:0 0 0 1.5px rgba(23,17,31,.55)}
+#dot.focus i{background:var(--gold)!important}
+#dot.charge i{background:var(--pumpkin)!important}
 #dot b{position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:50%;
   background:conic-gradient(var(--pumpkin) var(--c,0%),transparent 0);-webkit-mask:radial-gradient(circle,transparent 10px,#000 11px);mask:radial-gradient(circle,transparent 10px,#000 11px)}
 
@@ -69,7 +66,7 @@ body.locked #dot.charge i{background:none}
 #held small{display:block;color:var(--muted);font-size:13px}
 #prompt{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);padding:10px 18px;font-size:20px;white-space:nowrap}
 #prompt b{display:inline-block;background:var(--pumpkin);color:var(--night);padding:0 9px;margin-right:8px}
-#lockhint{position:absolute;bottom:110px;left:50%;transform:translateX(-50%);padding:10px 16px;font-size:16px;pointer-events:none}
+#lockhint{position:absolute;top:90px;left:50%;transform:translateX(-50%);padding:10px 16px;font-size:16px;pointer-events:none}
 body.locked #dot{transform:translate(50vw,50vh)!important}
 #pops{position:absolute;top:110px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px}
 .pop{font-size:26px;font-weight:700;text-shadow:3px 3px 0 var(--night);animation:pop 1.5s steps(12) forwards;white-space:nowrap}

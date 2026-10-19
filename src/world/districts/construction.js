@@ -3,41 +3,49 @@ import { T } from '../../core/textures.js';
 import { W } from '../state.js';
 import { buildCrane } from '../crane.js';
 
-// Стройка: кран с шар-бабой ломает стену, леса с лестницей, бытовка, кирпичи
+// Стройка: кран с шар-бабой (ломает стены недостроя и сарай), двухэтажный каркас со ступенями,
+// леса с мостком на перекрытие, бытовка, тачка (можно кататься), кирпичи
 export default {
   id: 'construction', name: 'Стройка', ground: 'dirt',
   build(b) {
-    b.fence(1, 23, 9, 23, 1.8, 'mesh'); b.fence(15, 23, 23, 23, 1.8, 'mesh'); b.fence(1, 10, 1, 23, 1.8, 'mesh');
-    buildCrane(b, 4, 5, { x0: 11, z: 9, cols: 8, rows: 5, bw: 0.85, bh: 0.7, bd: 0.5 });
-    // каркас недостроя
+    b.fence(1, 31.2, 12, 31.2, 1.8, 'mesh'); b.fence(20, 31.2, 31, 31.2, 1.8, 'mesh'); b.fence(0.8, 14, 0.8, 31, 1.8, 'mesh');
+    buildCrane(b, 5, 5, [17, 6]);
+    // недострой: колонны, перекрытие на 3.2 м, кирпичные стены ломаются
     const cc = tmat(T.concrete());
-    for (const x of [10.5, 18.3]) b.box(x, 5, 0.5, 0.5, 4.2, cc);
-    b.box(14.4, 5, 8.3, 0.3, 0.25, cc, { y: 4.2 });
-    b.m(G.box, tmat(T.hazard()), 14.4, 0.6, 10.2, 7, 0.25, 0.04);
-    // леса
+    for (const x of [13, 19, 25]) for (const z of [4, 12]) b.box(x, z, 0.5, 0.5, 3.2, cc);
+    b.box(19, 8, 12.5, 8.5, 0.25, cc, { y: 3.2 });
+    b.zone('roof', 13.6, 4.6, 24.4, 11.4, 3.45);
+    b.brickWall(16, 4, 5.5, 3.2, 'x'); b.brickWall(22, 4, 5.5, 3.2, 'x');
+    b.brickWall(16, 4, 5.5, 1.8, 'x', 3.45); 
+    b.brickWall(13, 8, 7.4, 3.2, 'z');
+    b.stairs(8.2, 10.6, 'e', 0, 3.2, 1.4);
+    b.m(G.box, tmat(T.hazard()), 19, 0.6, 12.4, 11, 0.25, 0.04);
+    // леса и мосток на перекрытие
     const wd = tmat(T.wood()), mt = col(0x6a6d78);
-    for (const [x, z] of [[19.2, 12.2], [22.8, 12.2], [19.2, 13.8], [22.8, 13.8]]) b.box(x, z, 0.1, 0.1, 3.4, mt);
-    for (const y of [1.6, 3.2]) b.box(21, 13, 3.8, 1.6, 0.1, wd, { y });
-    b.ladder(21, 13.8, 's', 3.3);
+    for (const [x, z] of [[26.2, 6.2], [29.8, 6.2], [26.2, 9.8], [29.8, 9.8]]) b.box(x, z, 0.1, 0.1, 3.4, mt);
+    for (const y of [1.6, 3.2]) b.box(28, 8, 3.8, 3.8, 0.1, wd, { y });
+    b.ladder(30, 8, 'e', 3.3);
+    b.plank(25.25, 8, 26, 8, 3.3, 1.2);
+    // сарай в зоне досягаемости крана
+    b.shed(3, 15, 4, 3.5);
     // бытовка
-    b.house({ x: 15, z: 17.5, w: 6, d: 3.2, h: 2.6, wall: 0x3a6a9a, brick: false, door: { side: 'n', at: 0.3 }, parapet: false, web: false,
-      interior(b, r) { b.table((r.x0 + r.x1) / 2 + 0.6, (r.z0 + r.z1) / 2, 0.8); b.chair(r.x0 + 3.2, r.z1 - 0.5, Math.PI); b.box(r.x1 - 0.4, (r.z0 + r.z1) / 2, 0.5, 1.6, 1.6, col(0x4a3a2e));
-        b.m(G.sph, col(0xf5c542), r.x1 - 0.4, 1.75, (r.z0 + r.z1) / 2, 0.2, 0.14, 0.2); } });
-    // поддон с кирпичами
-    b.box(10, 16, 1.6, 1.2, 0.18, wd);
-    b.item('brick', 9.6, 15.8, 0.18); b.item('brick', 10.4, 15.8, 0.18); b.item('brick', 10, 16.3, 0.18); b.item('brick', 10, 15.6, 0.36);
-    // куча песка, трубы, бетономешалка
-    b.m(G.cone8, tmat(T.dirt()), 5.5, 0.7, 19, 2, 1.4, 2); b.solid(5.5, 19, 2.6, 2.6, 0, 1.2);
-    for (const z of [20.6, 21.2, 21.8]) { const p = b.m(G.cyl8, tmat(T.rust()), 12.5, 0.3, z, 0.28, 3.4, 0.28); p.rotation.z = Math.PI / 2; }
-    b.solid(12.5, 21.2, 3.4, 1.9, 0, 0.6);
-    b.box(7.5, 13, 1.4, 1, 0.6, col(0x2b2533));
-    const drum = b.m(G.cyl8, col(0xd04a2a), 7.5, 1.2, 13, 0.6, 1.3, 0.6); drum.rotation.z = 1.1;
-    W.animated.push(dt => { drum.rotation.y += dt * 1.5; });
-    b.solid(7.5, 13, 1.4, 1.2, 0.6, 1.1);
-    b.m(G.box, glow(0xff8a1f), 1.5, 2.6, 9.6, 0.25, 0.25, 0.25);
-    b.lamp(23, 16.5, -Math.PI / 2);
-    b.zone('floor', 2, 10.5, 15, 23); b.zone('floor', 13, 11, 23, 16.8);
-    b.spawn(10, 20); b.spawn(14, 12.5);
-    b.hw(() => { b.pumpkin(11, 15.4, 0.35, 0.18); b.pumpkin(6.4, 20.6, 0.4); });
+    b.house({ x: 20, z: 23.5, w: 6.5, d: 3.4, h: 2.6, wall: 0x3a6a9a, brick: false, door: { side: 'n', at: 0.3 }, parapet: false, web: false,
+      interior(b, r) { b.table((r.x0 + r.x1) / 2 + 0.6, (r.z0 + r.z1) / 2, 0.8); b.chair(r.x0 + 3.4, r.z1 - 0.5, Math.PI); b.box(r.x1 - 0.4, (r.z0 + r.z1) / 2, 0.5, 1.6, 1.6, col(0x4a3a2e)); } });
+    // поддон с кирпичами, тачка
+    b.box(12, 18, 1.6, 1.2, 0.18, wd);
+    b.item('brick', 11.6, 17.8, 0.18); b.item('brick', 12.4, 17.8, 0.18); b.item('brick', 12, 18.3, 0.18); b.item('brick', 12, 17.6, 0.36);
+    b.ride('barrow', 10, 21, 0.4);
+    b.crate(16, 19, 1.1); b.crate(17.2, 19, 1.1); b.crate(16.6, 19, 1, 1.1);
+    b.m(G.cone8, tmat(T.dirt()), 27, 0.7, 18, 2.2, 1.4, 2.2); b.solid(27, 18, 2.8, 2.8, 0, 1.2);
+    for (const z of [27.6, 28.2, 28.8]) { const p = b.m(G.cyl8, tmat(T.rust()), 16, 0.3, z, 0.28, 3.6, 0.28); p.rotation.z = Math.PI / 2; }
+    b.solid(16, 28.2, 3.6, 1.9, 0, 0.6);
+    b.box(7.5, 24, 1.4, 1, 0.6, col(0x2b2533));
+    const drum = b.m(G.cyl8, col(0xd04a2a), 7.5, 1.2, 24, 0.6, 1.3, 0.6); drum.rotation.z = 1.1;
+    W.animated.push(dt => { drum.rotation.y += dt * 1.5; }); b.solid(7.5, 24, 1.4, 1.2, 0.6, 1.1);
+    b.m(G.box, glow(0xff8a1f), 1.5, 2.6, 13.6, 0.25, 0.25, 0.25);
+    b.lamp(31, 20, -Math.PI / 2); b.lamp(12.5, 15, 0);
+    b.zone('floor', 2, 13.5, 19, 30.5); b.zone('floor', 19, 13.5, 31, 22.5);
+    b.spawn(16, 15); b.spawn(24, 29.5);
+    b.hw(() => { b.pumpkin(13, 18.8, 0.35, 0.18); b.pumpkin(9, 28.6); });
   },
 };

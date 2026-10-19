@@ -17,6 +17,8 @@ import { updateCamera, cam, resetCamera } from './game/camera.js';
 import { createArrow, updateArrow } from './game/arrow.js';
 import { M, resetMissions, spawnWave, removeMission, updateMissions, nearMission, GAMES } from './missions/missions.js';
 import { pulseOutline } from './game/outline.js';
+import { nearestRideable, mount, dismount } from './game/ride.js';
+import { updateBreakables } from './world/breakables.js';
 import { $, pop, renderHud, renderStamina } from './ui/hud.js';
 import { createMenu } from './ui/menu.js';
 
@@ -85,6 +87,7 @@ on('move', () => { const d = $('dot'); d.style.transform = `translate(${mouse.x}
 
 /* ---------- миссии ---------- */
 function openMission(m) {
+  if (P.ride) dismount(P, false);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   m.busy = true; P.root.visible = false; P.charging = false;
   $('mgicon').textContent = m.def.icon; $('mgtitle').textContent = m.def.name; $('mgpts').textContent = `+${m.def.points}`;
@@ -116,6 +119,7 @@ function closeMission(res) {
 function nearCrane() { const c = W.crane; return c && !S.crane && Math.hypot(c.cab.x - P.pos.x, c.cab.z - P.pos.z) < 1.9 && Math.abs(c.cab.y - P.pos.y) < 0.6; }
 const craneStick = { nx: 0, ny: 0 };
 function enterCrane() {
+  if (P.ride) dismount(P, false);
   craneStick.nx = 0; craneStick.ny = 0;
   const c = W.crane; if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   S.crane = true; c.active = true; P.frozen = true; P.root.visible = false;
@@ -165,7 +169,8 @@ function aimPoint() {
 // ближайший объект, с которым можно взаимодействовать: его контур подсвечивается
 function focusTarget() {
   if (S.mg || S.crane || S.state !== 'play') return null;
-  if (!P.held) { const it = nearestItem(P.pos, 1.5); if (it) return it.outline; }
+  if (P.ride) return null;
+  if (!P.held) { const it = nearestItem(P.pos, 1.5); if (it) return it.outline; const rb = nearestRideable(P); if (rb) return rb.outline; }
   if (nearCrane()) return W.crane.outline;
   const d = nearDoor(); if (d) return d.outline;
   return null;
@@ -174,11 +179,13 @@ let lastFocus = null;
 function interact() {
   if (S.mg) return;
   if (S.crane) { exitCrane(); return; }
+  if (P.ride) { dismount(P, false); return; }
   const m = nearMission(P);
   if (m) { openMission(m); return; }
   if (P.held) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; return; }
   const it = nearestItem(P.pos, 1.5);
   if (it) { pickUp(it); P.held = it; return; }
+  const rb = nearestRideable(P); if (rb) { mount(P, rb); return; }
   if (nearCrane()) enterCrane();
 }
 function promptText() {
@@ -238,6 +245,7 @@ function loop() {
       d.solid.on = !d.open && Math.abs(d.ang) < 0.5;
     }
     for (const f of W.animated) f(dt, t);
+    updateBreakables(dt);
     updateParticles(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' && !S.crane ? lk : null, !!(P && P.charging));
     present(scene, camera);

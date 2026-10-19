@@ -27,12 +27,26 @@ export function ps1(m) {
 
 // Постобработка: дизеринг Bayer 4x4 и урезанная палитра
 const post = new THREE.ShaderMaterial({
-  uniforms: { t: { value: rt.texture } },
+  uniforms: { t: { value: rt.texture }, px: { value: new THREE.Vector2(1 / 256, 1 / 144) } },
   vertexShader: 'varying vec2 v; void main(){ v = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-  fragmentShader: `uniform sampler2D t; varying vec2 v;
+  fragmentShader: `uniform sampler2D t; uniform vec2 px; varying vec2 v;
     float b2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
     float b4(vec2 a){ return b2(0.5 * a) * 0.25 + b2(a); }
-    void main(){ vec3 c = texture2D(t, v).rgb; c += (b4(gl_FragCoord.xy) - 0.5) / 40.0; c = floor(c * 40.0 + 0.5) / 40.0; gl_FragColor = vec4(c, 1.0); }`,
+    vec3 bright(vec2 o){ vec3 s = texture2D(t, v + o).rgb; return max(s - 0.74, 0.0); }
+    void main(){
+      vec3 c = texture2D(t, v).rgb;
+      // свечение ярких мест (фонари, окна, огоньки)
+      vec3 g = vec3(0.0);
+      for (int i = 0; i < 8; i++) { float a = float(i) * 0.785; vec2 d = vec2(cos(a), sin(a));
+        g += bright(d * px * 3.0) * 0.6 + bright(d * px * 7.0) * 0.4; }
+      c += g * 0.26 * vec3(1.0, 0.85, 0.7);
+      // сумеречная цветокоррекция: тени в сливовый, свет в тёплый
+      float l = dot(c, vec3(0.299, 0.587, 0.114));
+      c = mix(c * vec3(0.92, 0.9, 1.06), c * vec3(1.06, 1.0, 0.92), smoothstep(0.2, 0.8, l)) + vec3(0.012, 0.006, 0.02);
+      // виньетка
+      vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * 0.55;
+      c += (b4(gl_FragCoord.xy) - 0.5) / 40.0; c = floor(c * 40.0 + 0.5) / 40.0;
+      gl_FragColor = vec4(c, 1.0); }`,
   depthTest: false, depthWrite: false,
 });
 const postScene = new THREE.Scene(), postCam = new THREE.Camera();
@@ -47,7 +61,7 @@ export const cameras = [];
 export function makeCamera(fov) { const c = new THREE.PerspectiveCamera(fov, 1, 0.4, 220); cameras.push(c); resize(); return c; }
 export function resize() {
   const s = CONFIG.pixelScale, w = Math.ceil(innerWidth / s), h = Math.ceil(innerHeight / s);
-  renderer.setSize(w, h, false); rt.setSize(w, h); SNAP.value.set(w, h);
+  renderer.setSize(w, h, false); rt.setSize(w, h); SNAP.value.set(w, h); post.uniforms.px.value.set(1 / w, 1 / h);
   for (const c of cameras) { c.aspect = innerWidth / innerHeight; c.updateProjectionMatrix(); }
 }
 addEventListener('resize', resize);

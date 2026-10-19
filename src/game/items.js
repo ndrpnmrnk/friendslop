@@ -7,6 +7,7 @@ import { W } from '../world/state.js';
 import { groundAt, solidHit, addZone, impulsePushables } from '../world/physics.js';
 import { puff, burst, chunk, decal } from '../world/particles.js';
 import { scareBirds } from '../world/birds.js';
+import { hitBreakables } from '../world/breakables.js';
 
 /* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
 const GRAV = 22;
@@ -53,6 +54,7 @@ function hitActors(it, p, heavy) {
 }
 function impact(it, n, speed) {
   const p = it.pos, t = it.type, gy = groundAt(p.x, p.z, 0.1, p.y + 0.3);
+  hitBreakables(p, it.def.r + 0.12, [it.vel.x, it.vel.y, it.vel.z], it.def.mass);
   hitActors(it, p, it.def.heavy);
   if (t === 'balloon') {
     burst(p.x, p.y, p.z, 14, { color: 0x6ab8f0, size: 0.28, speed: 3, up: 2.5 });

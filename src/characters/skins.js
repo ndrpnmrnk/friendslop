@@ -1,4 +1,4 @@
-import { THREE, G, mesh, tmat, col, lam, frontBack, basic } from '../core/gfx.js';
+import { THREE, G, mesh, tmat, col, lam, frontBack, basic, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { COATS } from '../game/cats.js';
 
@@ -18,10 +18,17 @@ export const SKINS = {
       // уши торчат в стороны, как на референсе
       for (const s of [-1, 1]) { const e = mesh(G.cone4, fur, s * 0.42, 1.62, 0, 0.22, 0.5, 0.1, head); e.rotation.z = -s * 0.6; mesh(G.cone4, col(0xe8a8a0), s * 0.42, 1.6, 0.06, 0.12, 0.32, 0.04, head).rotation.z = -s * 0.6; }
       const tb = mesh(G.cyl6, fur, 0, 0.62, 0, 0.3, 0.62, 0.24, torso); tb.rotation.y = Math.PI / 6;
-      mesh(G.sph, tmat(T.fur({ ...ginger, name: 'belly', base: '#f2d8b8', light: '#fff0dc', dark: '#d8b490', stripes: false })), 0, 0.6, 0.12, 0.2, 0.24, 0.12, torso);
-      const tail = mesh(G.box, fur, 0, 0.42, -0.3, 0.08, 0.08, 0.36, torso); tail.rotation.x = -0.7;
-      for (const hd of [handL, handR]) { mesh(G.box, fur, 0, 0, 0, 0.15, 0.13, 0.17, hd); mesh(G.box, col(0x3a2418), 0, -0.04, 0.085, 0.1, 0.02, 0.01, hd); }
-      for (const ft of [footL, footR]) mesh(G.box, fur, 0, 0.06, 0.04, 0.17, 0.12, 0.24, ft);
+      // светлая грудка — плоская накладка на тело, без шаров
+      const chest = mesh(G.plane, lam({ map: T.catChest(), transparent: true, alphaTest: 0.05 }), 0, 0.66, 0.225, 0.34, 0.44, 1, torso); chest.userData.noOutline = true;
+      // хвост из трёх сегментов, загнут вверх
+      const t1 = new THREE.Group(); t1.position.set(0, 0.42, -0.2); torso.add(t1); t1.rotation.x = -0.5;
+      mesh(G.box, fur, 0, 0, -0.16, 0.08, 0.08, 0.32, t1);
+      const t2 = new THREE.Group(); t2.position.z = -0.3; t1.add(t2); t2.rotation.x = -0.7; mesh(G.box, fur, 0, 0, -0.13, 0.07, 0.07, 0.26, t2);
+      const t3 = new THREE.Group(); t3.position.z = -0.24; t2.add(t3); t3.rotation.x = -0.6; mesh(G.box, tmat(T.fur({ ...ginger, name: 'tip', base: '#a8682e' })), 0, 0, -0.08, 0.06, 0.06, 0.16, t3);
+      torso.userData.tail = [t1, t2, t3];
+      const pad = col(0xe8a0a0);
+      for (const hd of [handL, handR]) { mesh(G.box, fur, 0, 0, 0, 0.15, 0.13, 0.17, hd); mesh(G.box, pad, 0, -0.066, 0.02, 0.09, 0.01, 0.08, hd); for (const o of [-0.045, 0, 0.045]) mesh(G.box, col(0x3a2418), o, -0.02, 0.086, 0.012, 0.05, 0.005, hd); }
+      for (const ft of [footL, footR]) { mesh(G.box, fur, 0, 0.06, 0.04, 0.17, 0.12, 0.24, ft); mesh(G.box, pad, 0, 0.001, 0.05, 0.1, 0.004, 0.12, ft); }
       return { top: 1.82, handX: 0.43, handY: 0.62, handZ: 0.08, footX: 0.15, footY: 0, holdX: 0.26, holdY: 1.0, holdZ: 0.42, shadow: 0.45 };
     },
     face(c, e) { const u = c.head.userData; u.h.material[0] = e === 'blink' || e === 'dizzy' ? u.faces.closed : u.faces.open; },
@@ -35,6 +42,11 @@ export const SKINS = {
       const scr = mesh(G.plane, basic(0xffffff), 0, 0.85, 0.415, 0.86, 0.6, 1, head);
       scr.material = new THREE.MeshBasicMaterial({ map: T.tvScreen('idle') });
       head.userData = { scr };
+      // вентиляция по бокам и ручки настройки
+      for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) mesh(G.box, dk, sx * 0.565, 0.98 - i * 0.09, -0.05, 0.01, 0.03, 0.4, head);
+      mesh(G.cyl8, col(0x8a8ea8), 0.36, 0.42, 0.42, 0.045, 0.04, 0.045, head).rotation.x = Math.PI / 2;
+      mesh(G.cyl8, col(0x8a8ea8), 0.47, 0.42, 0.42, 0.045, 0.04, 0.045, head).rotation.x = Math.PI / 2;
+      mesh(G.box, glow(0x9be36b), -0.42, 0.42, 0.43, 0.04, 0.03, 0.01, head);
       for (const s of [-1, 1]) { const a = mesh(G.cyl5, dk, s * 0.18, 1.42, -0.2, 0.025, 0.42, 0.025, head); a.rotation.z = -s * 0.5; mesh(G.sph, col(0xff5a6e), s * 0.29, 1.62, -0.2, 0.05, 0.05, 0.05, head); }
       const glove = tmat(T.glove());
       for (const hd of [handL, handR]) { mesh(G.box, glove, 0, 0, 0, 0.22, 0.22, 0.24, hd); mesh(G.box, glove, 0, 0.04, -0.17, 0.18, 0.16, 0.12, hd); }
@@ -54,6 +66,8 @@ export const SKINS = {
       sharkGeo = sharkGeo || frontBack(new THREE.SphereGeometry(1, 10, 7), 0.25);
       const b = new THREE.Mesh(sharkGeo, [face, skin]); b.scale.set(0.62, 0.66, 0.58); b.position.y = 0.8; head.add(b);
       const fin = mesh(G.cone4, skin, 0, 1.52, -0.22, 0.12, 0.42, 0.3, head); fin.rotation.x = -0.45;
+      // жабры
+      for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) { const gl = mesh(G.box, col(0x3a4a70), sx * 0.555, 0.78 - i * 0.02, 0.12 - i * 0.1, 0.01, 0.22, 0.02, head); gl.rotation.y = sx * 0.5; }
       const tail = mesh(G.cone4, skin, 0, 0.72, -0.72, 0.1, 0.42, 0.3, head); tail.rotation.x = -1.6;
       // наушники
       const hp = tmat(T.headphone());

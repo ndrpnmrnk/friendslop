@@ -2,14 +2,14 @@ import { THREE, G, V3, mesh, col, tmat, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
 import { groundAt, impulsePushables } from './physics.js';
-import { chunk, burst } from './particles.js';
+import { hitBreakables } from './breakables.js';
 import { clamp, damp } from '../core/rng.js';
 import { addOutline } from '../game/outline.js';
 
 /* Башенный кран с шар-бабой. Залезаешь по лестнице на мачту, садишься в кабину (E),
    мышь влево-вправо крутит стрелу с инерцией, вверх-вниз двигает тележку.
    Шар — маятник; стена из блоков рассыпается на обломки, верхние блоки без опоры падают. */
-export function buildCrane(b, mx, mz, wall) {
+export function buildCrane(b, mx, mz, aimAt) {
   const yellow = col(0xe0b02a), dark = col(0x2b2533), H = 10;
   // мачта-решётка
   b.m(G.box, yellow, mx, H / 2, mz, 1, H, 1);
@@ -36,20 +36,12 @@ export function buildCrane(b, mx, mz, wall) {
   const ballR = 0.6, rope = 9.4;
   const ball = mesh(G.sph10, tmat(T.metal()), 0, 0, 0, ballR, ballR, ballR, W.group);
   const ropeM = mesh(G.box, dark, 0, 0, 0, 0.05, 1, 0.05, W.group);
-  // стена из блоков
-  const bm = tmat(T.brickWall()), bricks = [];
-  for (let r = 0; r < wall.rows; r++) for (let c = 0; c < wall.cols; c++) {
-    const x = wall.x0 + (c + 0.5) * wall.bw, y = (r + 0.5) * wall.bh;
-    const m = b.m(G.box, bm, x, y, wall.z, wall.bw - 0.02, wall.bh - 0.02, wall.bd);
-    const s = b.solid(x, wall.z, wall.bw, wall.bd, r * wall.bh, wall.bh);
-    bricks.push({ m, s, r, c, alive: true, fall: -1 });
-  }
   const cr = {
-    pivot, trolley, ball, ropeM, bricks, wall, cols: wall.cols,
-    yaw: Math.atan2(-(b.Z(wall.z) - b.Z(mz)), b.X(wall.x0 + wall.cols * wall.bw / 2) - b.X(mx)) + 0.5, yawV: 0, tr: 8, ballR, rope,
+    pivot, trolley, ball, ropeM,
+    yaw: Math.atan2(-(b.Z(aimAt[1]) - b.Z(mz)), b.X(aimAt[0]) - b.X(mx)) + 0.5, yawV: 0, tr: 8, ballR, rope,
     seat: new V3(b.X(mx + 0.2), b.Y + H + 0.2, b.Z(mz - 0.3)), cab: new V3(b.X(mx - 0.75), b.Y + H + 0.2, b.Z(mz - 0.6)),
     outline: addOutline(cab, 0.06),
-    look: new V3(b.X(wall.x0 + wall.cols * wall.bw / 2), b.Y + 2, b.Z(wall.z)), active: false,
+    look: new V3(b.X(aimAt[0]), b.Y + 2, b.Z(aimAt[1])), active: false,
     p: new V3(), prev: new V3(),
   };
   pivot.rotation.y = cr.yaw;
@@ -76,29 +68,21 @@ export function updateCrane(dt, input) {
   p.x = a.x + dx / d * cr.rope; p.y = a.y + dy / d * cr.rope; p.z = a.z + dz / d * cr.rope;
   const gy = groundAt(p.x, p.z, 0.3, p.y) + cr.ballR; if (p.y < gy) { p.y = gy; cr.prev.y = p.y; }
   const vel = new V3(p.x - cr.prev.x, p.y - cr.prev.y, p.z - cr.prev.z).divideScalar(Math.max(dt, 1e-3)), speed = vel.length();
-  // удары по стене
-  for (const bk of cr.bricks) {
-    if (!bk.alive) continue;
-    const s = bk.s, cx = clamp(p.x, s.x0, s.x1), cy = clamp(p.y, s.y0, s.y1), cz = clamp(p.z, s.z0, s.z1);
+  // удары: разрушаемое ломается, остальное отталкивает шар
+  if (speed > 2.2 && hitBreakables(p, cr.ballR, [vel.x, vel.y, vel.z], 25)) cr.prev.lerp(p, 0.18);
+  for (const s of W.solids) {
+    if (!s.on) continue;
+    const cx = clamp(p.x, s.x0, s.x1), cy = clamp(p.y, s.y0, s.y1), cz = clamp(p.z, s.z0, s.z1);
     const ex = p.x - cx, ey = p.y - cy, ez = p.z - cz, dd = Math.hypot(ex, ey, ez);
-    if (dd >= cr.ballR) continue;
-    if (speed > 2.2) { breakBrick(cr, bk, vel); cr.prev.lerp(p, 0.18); }
-    else if (dd > 1e-4) { const k = (cr.ballR - dd) / dd; p.x += ex * k; p.y += ey * k; p.z += ez * k; }
+    if (dd >= cr.ballR || dd < 1e-4) continue;
+    const k = (cr.ballR - dd) / dd; p.x += ex * k; p.y += ey * k; p.z += ez * k;
+    cr.prev.x = p.x - (p.x - cr.prev.x) * -0.3; cr.prev.z = p.z - (p.z - cr.prev.z) * -0.3;
   }
   if (speed > 3) {
     impulsePushables(p.x, p.z, cr.ballR + 0.3, 6);
     for (const c of W.cats) { const q = c.root.position; if (Math.hypot(q.x - p.x, q.z - p.z) < 1 && Math.abs(q.y - p.y) < 1.2) c.hit(true, vel.x, vel.z); }
   }
-  // падение блоков без опоры
-  for (const bk of cr.bricks) if (bk.alive && bk.fall > 0) { bk.fall -= dt; if (bk.fall <= 0) breakBrick(cr, bk, new V3((Math.random() - 0.5), 0, (Math.random() - 0.5))); }
   cr.ball.position.copy(p);
   const mid = new V3().addVectors(a, p).multiplyScalar(0.5); cr.ropeM.position.copy(mid);
   cr.ropeM.scale.y = cr.rope; cr.ropeM.lookAt(a); cr.ropeM.rotateX(Math.PI / 2);
-}
-function breakBrick(cr, bk, vel) {
-  bk.alive = false; bk.s.on = false; W.group.remove(bk.m); bk.m.parent?.remove(bk.m);
-  const p = bk.m.position, mat = bk.m.material;
-  for (let i = 0; i < 3; i++) chunk(p.x + (Math.random() - 0.5) * 0.4, p.y + (Math.random() - 0.5) * 0.3, p.z, [vel.x * 0.5 + (Math.random() - 0.5) * 3, Math.abs(vel.y) * 0.3 + Math.random() * 3, vel.z * 0.5 + (Math.random() - 0.5) * 3], { mat, size: 0.32, sx: 1.2, sy: 0.8, sz: 1, life: 4 });
-  burst(p.x, p.y, p.z, 4, { color: 0xa08a7a, size: 0.5, speed: 1.5, up: 1, g: 2, grow: 1.2, life: 0.9 });
-  for (const o of cr.bricks) if (o.alive && o.c === bk.c && o.r === bk.r + 1 && o.fall < 0) o.fall = 0.12;
 }

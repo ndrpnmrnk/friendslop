@@ -27,10 +27,27 @@ export function makeCharacter(skinId) {
 }
 
 const _up = new THREE.Vector3(0, 0.18, 0);
+// поза при катании: сидя (кресло, тележка, тачка) или стоя боком (скейт)
+function animateRide(c, dt, s) {
+  const d = c.d, f = damp(14, dt), sp = Math.min(1, (s.rideSpeed || 0) / 10), t = s.t;
+  c.stars.visible = false; c.body.scale.set(1, 1, 1); c.body.rotation.y += (0 - c.body.rotation.y) * f;
+  if (s.ride === 'stand') {
+    c.body.position.y = -0.12 + Math.sin(t * 6) * 0.015 * sp; c.body.rotation.x += (0.1 + sp * 0.12 - c.body.rotation.x) * f;
+    c.body.rotation.z = Math.sin(t * 2.5) * 0.06;
+    setHand(c.footL, -0.05, d.footY, 0.22, f); setHand(c.footR, 0.05, d.footY, -0.22, f);
+    setHand(c.handL, -d.handX - 0.25, d.handY + 0.2 + Math.sin(t * 3) * 0.05, 0.1, f); setHand(c.handR, d.handX + 0.25, d.handY + 0.2 - Math.sin(t * 3) * 0.05, -0.1, f);
+  } else {
+    c.body.position.y = -0.38; c.body.rotation.x += (-0.08 - sp * 0.1 - c.body.rotation.x) * f; c.body.rotation.z = 0;
+    setHand(c.footL, -d.footX, d.footY + 0.05, 0.42, f); setHand(c.footR, d.footX, d.footY + 0.05, 0.42, f);
+    setHand(c.handL, -d.handX, d.handY - 0.2, 0.25, f); setHand(c.handR, d.handX, d.handY - 0.2, 0.25, f);
+  }
+  c.footL.rotation.x = 0; c.footR.rotation.x = 0; c.handL.rotation.x = 0; c.handR.rotation.x = 0;
+}
 function setHand(h, x, y, z, k) { h.position.x += (x - h.position.x) * k; h.position.y += (y - h.position.y) * k; h.position.z += (z - h.position.z) * k; }
 
 function animate(c, dt, s) {
   const d = c.d, t = s.t, k = clamp(s.speed || 0, 0, 1), run = !s.air && !s.climb && k > 0.05;
+  if (s.ride) return animateRide(c, dt, s);
   c.ph += dt * (s.climb ? 7 : 4 + k * 10) * (run || s.climb ? 1 : 0);
   const sn = Math.sin(c.ph), cs = Math.cos(c.ph), f = damp(16, dt);
   // тело

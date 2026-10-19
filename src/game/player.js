@@ -6,6 +6,7 @@ import { W } from '../world/state.js';
 import { moveBody, zoneAt, bumpPushables } from '../world/physics.js';
 import { puff, burst } from '../world/particles.js';
 import { makeCharacter } from '../characters/rig.js';
+import { updateRide, autoMount } from './ride.js';
 
 const PC = CONFIG.player;
 export function createPlayer(skin) {
@@ -29,6 +30,15 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   // ввод относительно камеры: W — от камеры вперёд
   { const sx = ix, sz = iz, s = Math.sin(yaw), c = Math.cos(yaw); ix = sx * c + sz * s; iz = -sx * s + sz * c; }
   const il = Math.hypot(ix, iz); if (il) { ix /= il; iz /= il; }
+  if (p.ride) {
+    const pose = p.ride.ride.pose;
+    updateRide(p, dt, t, ix, iz, ctrl);
+    if (p.ride) {
+      p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt);
+      p.ch.animate(dt, { t, speed: 0, ride: pose, rideSpeed: p.speed, hold: false });
+      return;
+    }
+  }
   // спринт и стамина
   const wantSprint = ctrl && il > 0 && (keys.ShiftLeft || keys.ShiftRight) && !p.climb;
   if (p.exhausted && p.stamina > PC.stamina.restart) p.exhausted = false;
@@ -75,6 +85,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const wasGround = p.onGround;
   moveBody(p, dt, PC.gravity);
   bumpPushables(p);
+  autoMount(p);
   // падение с высоты оглушает
   if (!p.onGround) p.airPeak = Math.max(p.airPeak, p.pos.y);
   if (p.onGround && !wasGround) {
