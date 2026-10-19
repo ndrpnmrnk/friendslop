@@ -99,7 +99,9 @@ export const SKINS = {
       mesh(G.cyl12, col(0x6a5a38), 0, 1.5, -0.02, 0.45, 0.05, 0.45, head);
       // язык (показывается в idle-«фишке»)
       const tongue = mesh(G.box, col(0xd85a7a), 0, 1.04, 0.44, 0.1, 0.03, 0.3, head); tongue.visible = false;
-      head.userData = { h, faces, tongue };
+      // горловой мешок: светлый, время от времени надувается
+      const sac = mesh(G.sph10, lam({ color: 0x7ab862 }, 'frogSac'), 0, 0.99, 0.4, 0.22, 0.11, 0.13, head);
+      head.userData = { h, faces, tongue, sac };
       // тело: рубашка хаки (плечи шире), воротник, портупея, ремень с пряжкой, штаны с карманами и штанинами до ботинок
       const shirt = tmat(T.frogShirt()), pants = tmat(T.pants());
       FROG_TORSO = FROG_TORSO || new THREE.CylinderGeometry(0.34, 0.29, 0.56, 10);
@@ -112,12 +114,12 @@ export const SKINS = {
       for (const sx of [-1, 1]) mesh(G.cyl8, pants, sx * 0.14, 0.2, 0.0, 0.1, 0.16, 0.1, torso);
       // тканевый платок на плече: свисает спереди и сзади, рваный край, лёгкий наклон
       // платок: верх лежит на плече, полотнища висят на шарнирах и развеваются при беге и прыжках
-      const rag = lam({ map: T.rag(), alphaTest: 0.5, side: THREE.DoubleSide }, 'ragCloth'), sh = new THREE.Group(); sh.position.set(-0.32, 1.0, 0); sh.rotation.z = 0.45; torso.add(sh);
-      mesh(G.box, rag, 0, 0.03, 0, 0.32, 0.05, 0.5, sh);
+      const rag = lam({ map: T.rag(), alphaTest: 0.5, side: THREE.DoubleSide }, 'ragCloth'), sh = new THREE.Group(); sh.position.set(-0.36, 1.0, 0); sh.rotation.z = 0.55; torso.add(sh);
+      mesh(G.box, rag, 0, 0.03, 0, 0.32, 0.05, 0.62, sh);
       const flaps = [];
-      for (const [px, pz, ry, w, hgt] of [[-0.03, 0.25, 0, 0.34, 0.58], [-0.03, -0.25, Math.PI, 0.34, 0.58], [-0.17, 0, -Math.PI / 2, 0.5, 0.46]]) {
-        const pv = new THREE.Group(); pv.position.set(px, 0.02, pz); sh.add(pv); const pl = mesh(G.plane, rag, 0, -hgt / 2, 0, w, hgt, 1, pv); pl.rotation.y = ry; flaps.push(pv); }
-      mesh(G.sph, col(0x5a3820), 0.12, -0.05, 0.25, 0.07, 0.06, 0.06, sh);
+      for (const [px, pz, ry, w, hgt, base] of [[-0.03, 0.3, 0, 0.34, 0.54, -0.28], [-0.03, -0.3, Math.PI, 0.34, 0.58, 0.28], [-0.18, 0, -Math.PI / 2, 0.56, 0.46, 0]]) {
+        const pv = new THREE.Group(); pv.position.set(px, 0.02, pz); pv.userData.base = base; pv.rotation.x = base; sh.add(pv); const pl = mesh(G.plane, rag, 0, -hgt / 2, 0, w, hgt, 1, pv); pl.rotation.y = ry; flaps.push(pv); }
+      mesh(G.sph, col(0x5a3820), 0.1, -0.05, 0.31, 0.07, 0.06, 0.06, sh);
       torso.userData.flaps = flaps;
       for (const hd of [handL, handR]) { mesh(G.box, shirt, 0, 0.07, -0.04, 0.17, 0.1, 0.17, hd); mesh(G.box, skin, 0, -0.03, 0.02, 0.15, 0.12, 0.16, hd); for (const o of [-0.05, 0, 0.05]) mesh(G.box, skin, o, -0.06, 0.12, 0.04, 0.05, 0.06, hd); }
       const boot = tmat(T.boot());
