@@ -15,7 +15,7 @@ export function createPlayer(skin) {
     r: PC.radius, h: PC.height, step: PC.step, onGround: true, landed: false,
     stamina: 1, stDelay: 0, exhausted: false, sprinting: false, speed: 0,
     stun: 0, airPeak: 0, climb: null, held: null, charge: 0, charging: false,
-    smokeT: 0, facing: 0, frozen: false, splashT: 0,
+    smokeT: 0, facing: 0, frozen: false, splashT: 0, boost: 0, throwT: 0, accel: 0, lastSpd: 0,
   };
 }
 
@@ -37,8 +37,16 @@ export function updatePlayer(p, dt, t, canMove) {
   const water = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'water');
   const slick = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'oil') || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle');
   const wash = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'wash');
-  let top = (p.sprinting ? PC.sprint : PC.walk) * (water ? 0.5 : 1) * (p.held && p.held.def.heavy ? 0.85 : 1);
-  const acc = !p.onGround ? 5 : slick ? 1.6 : 14;
+  // разгон спринта: сначала разбег, потом набор скорости; после спринта — плавное торможение
+  if (p.sprinting) p.boost = Math.min(1, p.boost + dt / PC.sprintRamp); else p.boost = Math.max(0, p.boost - dt / PC.sprintFade);
+  const ramp = p.boost * p.boost * (3 - 2 * p.boost);
+  const top = (PC.walk + (PC.sprint - PC.walk) * (p.sprinting ? ramp : 0)) * (water ? 0.5 : 1) * (p.held && p.held.def.heavy ? 0.85 : 1);
+  const cur = Math.hypot(p.vel.x, p.vel.z);
+  let acc;
+  if (!p.onGround) acc = 3;
+  else if (slick) acc = 1.2;
+  else if (il) acc = PC.accel;
+  else acc = cur > PC.walk + 0.5 ? PC.sprintDecel : PC.decel;
   p.vel.x += (ix * top - p.vel.x) * damp(acc, dt); p.vel.z += (iz * top - p.vel.z) * damp(acc, dt);
   // щётки автомойки отбрасывают
   if (wash && p.onGround) { const dx = p.pos.x - wash.cx, dz = p.pos.z - wash.cz, d = Math.hypot(dx, dz) || 1; p.push.set(dx / d * 9, 0, dz / d * 9); p.vel.y = 4.5; burst(p.pos.x, p.pos.y + 0.8, p.pos.z, 8, { color: 0x9fd0f0, size: 0.25 }); }
@@ -77,17 +85,22 @@ export function updatePlayer(p, dt, t, canMove) {
   if (p.stun > 0) { p.stun -= dt; p.vel.x *= 0.85; p.vel.z *= 0.85; }
   // поворот и анимация
   const spd = Math.hypot(p.vel.x, p.vel.z); p.speed = spd;
-  if (p.charging) p.facing = p.aimYaw;
+  if (p.charging && Number.isFinite(p.aimYaw)) p.facing = p.aimYaw;
   else if (spd > 0.6 && !p.climb) p.facing = Math.atan2(p.vel.x, p.vel.z);
   else if (p.climb) p.facing = Math.atan2(-p.climb.nx, -p.climb.nz);
+  if (!Number.isFinite(p.facing)) p.facing = p.root.rotation.y;
   let dy = p.facing - p.root.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); p.root.rotation.y += dy * damp(14, dt);
   // дым при беге, брызги в воде
+  // дым из-под ног: небольшой, позади персонажа и у самой земли, чтобы не закрывать его
   p.smokeT -= dt;
-  if (p.onGround && spd > 5.5 && p.smokeT <= 0) {
-    p.smokeT = p.sprinting ? 0.05 : 0.11;
-    if (water) burst(p.pos.x, p.pos.y + 0.15, p.pos.z, 3, { color: 0x8ac0e8, size: 0.22, speed: 1.4, up: 2, life: 0.5 });
-    else puff(p.pos.x - p.vel.x * 0.04 + (Math.random() - 0.5) * 0.3, p.pos.y + 0.15, p.pos.z - p.vel.z * 0.04, { size: p.sprinting ? 0.55 : 0.4, life: 0.6, vy: 0.5, grow: 1.4 });
+  if (p.onGround && spd > 6 && p.smokeT <= 0) {
+    p.smokeT = p.sprinting ? 0.09 : 0.16;
+    const bx = spd ? -p.vel.x / spd : 0, bz = spd ? -p.vel.z / spd : 0;
+    if (water) burst(p.pos.x, p.pos.y + 0.15, p.pos.z, 3, { color: 0x8ac0e8, size: 0.2, speed: 1.4, up: 2, life: 0.45 });
+    else puff(p.pos.x + bx * 0.55 + (Math.random() - 0.5) * 0.2, p.pos.y + 0.1, p.pos.z + bz * 0.55, { size: p.sprinting ? 0.32 : 0.24, life: 0.45, vy: 0.15, vx: bx * 0.6, vz: bz * 0.6, grow: 0.9, opacity: 0.55 });
   }
+  if (p.throwT > 0) p.throwT -= dt;
+  p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
   p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, climb: !!p.climb,
-    hold: !!p.held, charge: p.charging ? p.charge : 0, landed: p.landedNow });
+    hold: !!p.held, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost });
 }

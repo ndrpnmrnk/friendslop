@@ -1,4 +1,4 @@
-import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { rand, range, pick } from '../core/rng.js';
 import { HW, SEASON } from '../config.js';
@@ -6,6 +6,7 @@ import { W } from './state.js';
 import { addSolid, addZone } from './physics.js';
 import { addItem } from '../game/items.js';
 import { addBirds } from './birds.js';
+import { addOutline } from '../game/outline.js';
 
 /* Конструктор района. Все координаты — локальные (0..24), высота от уровня тротуара.
    Районы описываются вызовами этих методов в своих файлах в world/districts. */
@@ -27,7 +28,7 @@ export class Builder {
     return m;
   }
   ground(x0, z0, x1, z1, tex, tile = 3) {
-    const w = x1 - x0, d = z1 - z0, m = this.m(G.plane, tmat(rep(tex, w / tile, d / tile)), (x0 + x1) / 2, 0.012, (z0 + z1) / 2, w, d, 1);
+    const w = x1 - x0, d = z1 - z0, m = this.m(G.plane, flat(rep(tex, w / tile, d / tile)), (x0 + x1) / 2, 0.01, (z0 + z1) / 2, w, d, 1);
     m.rotation.x = -Math.PI / 2; return m;
   }
   zone(type, x0, z0, x1, z1, y = 0) { W.missionZones.push({ type, x0: this.X(x0), z0: this.Z(z0), x1: this.X(x1), z1: this.Z(z1), y: this.Y + y, district: this.d }); }
@@ -188,7 +189,7 @@ export class Builder {
     mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : 0.07, 1.05, axis === 'x' ? 0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);
     mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : -0.07, 1.05, axis === 'x' ? -0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);
     const s = axis === 'x' ? this.solid(hx + w / 2, hz, w, 0.16, y, h) : this.solid(hx, hz + w / 2, 0.16, w, y, h);
-    const d = { pivot, solid: s, open: false, ang: 0, inward, x: this.X(hx + px), z: this.Z(hz + pz), y: this.Y + y };
+    const d = { pivot, solid: s, open: false, ang: 0, inward, x: this.X(hx + px), z: this.Z(hz + pz), y: this.Y + y, outline: addOutline(pivot, 0.04) };
     W.doors.push(d); return d;
   }
 
@@ -202,14 +203,14 @@ export class Builder {
     occ.mats.push(plain);
     const dw = o.doorW ?? 1.4, dh = 2.35;
     const sides = { s: { len: w, at: z + d - t / 2, axis: 'x', out: 4, inn: 5 }, n: { len: w, at: z + t / 2, axis: 'x', out: 5, inn: 4 },
-      e: { len: d, at: x + w - t / 2, axis: 'z', out: 0, inn: 1 }, w: { len: d, at: x + t / 2, axis: 'z', out: 1, inn: 0 } };
+      e: { len: d - 2 * t, at: x + w - t / 2, axis: 'z', out: 0, inn: 1 }, w: { len: d - 2 * t, at: x + t / 2, axis: 'z', out: 1, inn: 0 } };
     const doors = o.doors || (o.door ? [o.door] : []);
     for (const [k, sd] of Object.entries(sides)) {
       const dr = doors.find(q => q.side === k);
       const g0 = dr ? dr.at * sd.len - dw / 2 : 0, g1 = g0 + dw;
       const fac = facade(base, sd.len, h, { door: dr ? [g0, g1] : null, lit, brick, windows: o.windows !== false });
       // u — координата вдоль фасада (как в текстуре); переводим в мировую по стороне
-      const U = u => k === 's' ? [x + u, sd.at] : k === 'n' ? [x + w - u, sd.at] : k === 'e' ? [sd.at, z + d - u] : [sd.at, z + u];
+      const U = u => k === 's' ? [x + u, sd.at] : k === 'n' ? [x + w - u, sd.at] : k === 'e' ? [sd.at, z + d - t - u] : [sd.at, z + t + u];
       const pieces = dr ? [[0, g0, 0, h], [g1, sd.len, 0, h], [g0, g1, dh, h]] : [[0, sd.len, 0, h]];
       for (const [a, b, y0, y1] of pieces) {
         if (b - a < 0.01) continue;
@@ -235,7 +236,7 @@ export class Builder {
       }
     }
     // пол и потолок
-    const fl = this.m(G.plane, tmat(rep(o.floor || T.floorWood(), w / 3, d / 3)), x + w / 2, 0.02, z + d / 2, w - 0.1, d - 0.1, 1); fl.rotation.x = -Math.PI / 2;
+    const fl = this.m(G.plane, flat(rep(o.floor || T.floorWood(), w / 3, d / 3)), x + w / 2, 0.01, z + d / 2, w - 0.1, d - 0.1, 1); fl.rotation.x = -Math.PI / 2;
     let top = h + 0.2;
     const roofM = own({ map: T.roof() }); occ.mats.push(roofM);
     if (upper > 0) {
@@ -253,7 +254,7 @@ export class Builder {
     if (o.parapet !== false) {
       const pm = own({ color: 0x3a3046 }); occ.mats.push(pm);
       const lad = o.ladder, gapAt = lad ? lad.at : -1;
-      const edges = { s: [x + w / 2, z + d - 0.1, w, 0.2], n: [x + w / 2, z + 0.1, w, 0.2], e: [x + w - 0.1, z + d / 2, 0.2, d], w: [x + 0.1, z + d / 2, 0.2, d] };
+      const edges = { s: [x + w / 2, z + d - 0.1, w, 0.2], n: [x + w / 2, z + 0.1, w, 0.2], e: [x + w - 0.1, z + d / 2, 0.2, d - 0.4], w: [x + 0.1, z + d / 2, 0.2, d - 0.4] };
       for (const [k, [cx, cz, ew, ed]] of Object.entries(edges)) {
         if (lad && lad.side === k) {
           const along = k === 's' || k === 'n', len = along ? w : d, gc = gapAt * len, g0 = gc - 0.7, g1 = gc + 0.7;

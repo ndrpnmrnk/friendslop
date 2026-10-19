@@ -6,7 +6,7 @@ export function pop(text, cls = 'good') {
   const d = document.createElement('div'); d.className = 'pop ' + cls; d.textContent = text; $('pops').appendChild(d); setTimeout(() => d.remove(), 1500);
 }
 const ARROW = '<svg viewBox="0 0 10 10" width="24" height="24"><path d="M5 0L9.5 9L5 6.8L0.5 9Z" fill="currentColor"/></svg>';
-const CIRC = 163.4;
+const CIRC = 150.8;
 export function renderHud(S, P, prompt) {
   const tm = Math.max(0, Math.ceil(S.time));
   $('timer').textContent = `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`;
@@ -29,6 +29,6 @@ export function renderStamina(P) {
   st.classList.toggle('low', P.exhausted || P.stamina < 0.25);
   st.classList.toggle('full', P.stamina >= 1);
   const h = $('held');
-  if (P.held) { h.innerHTML = `${P.held.def.icon} ${P.held.def.name}<small>ПКМ — зажать и бросить · E — положить</small>`; h.classList.remove('hidden'); }
+  if (P.held) { h.innerHTML = `${P.held.def.icon} ${P.held.def.name}<small>ПКМ — бросок · E — положить</small>`; h.classList.remove('hidden'); }
   else h.classList.add('hidden');
 }

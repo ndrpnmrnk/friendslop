@@ -8,10 +8,10 @@ import { GAMES } from './games.js';
 /* Миссии: не больше CONFIG.activeMissions одновременно, у каждого типа свой лимит и пауза
    перед повтором. Объекты появляются в случайной точке подходящей зоны (пол, внутри, крыша, нычка),
    место проверяется: не в стене, не в воде, перед объектом есть свободное место. */
-export const M = { list: [], queue: [], cooldown: {}, id: 0 };
+export const M = { list: [], cooldown: {}, id: 0, waveT: 0 };
 const ZONE_RU = { floor: '', inside: 'внутри', roof: 'на крыше', nook: 'в нычке' };
 
-export function resetMissions() { M.list = []; M.queue = []; M.cooldown = {}; }
+export function resetMissions() { M.list = []; M.cooldown = {}; M.waveT = 0; }
 
 const emojiTex = {};
 function emoji(e) {
@@ -61,6 +61,11 @@ function canSpawn(key, def) {
   if (key === 'cat') return W.cats.some(c => !M.list.some(m => m.obj === c));
   return true;
 }
+export function spawnWave(player) {
+  const [a, b] = CONFIG.missionWave, n = a + Math.floor(Math.random() * (b - a + 1));
+  let k = 0; for (let i = 0; i < n; i++) if (spawnMission(player)) k++;
+  M.waveT = 0; return k;
+}
 export function spawnMission(player) {
   const keys = Object.keys(CONFIG.missions).filter(k => canSpawn(k, CONFIG.missions[k]));
   keys.sort(() => Math.random() - 0.5);
@@ -87,7 +92,6 @@ export function removeMission(m) {
   if (m.obj.dispose) m.obj.dispose();
   M.list = M.list.filter(x => x !== m);
   M.cooldown[m.key] = CONFIG.missionCooldown;
-  M.queue.push(2 + Math.random() * 2);
 }
 
 export function updateMissions(dt, t, player, pop) {
@@ -101,10 +105,11 @@ export function updateMissions(dt, t, player, pop) {
     }
     m.marker.sp.position.y = 4.2 + Math.sin(t * 3 + m.id) * 0.2;
   }
-  M.queue = M.queue.map(x => x - dt);
-  const ready = M.queue.filter(x => x <= 0).length; M.queue = M.queue.filter(x => x > 0);
-  for (let i = 0; i < ready; i++) if (M.list.length < CONFIG.activeMissions) spawnMission(player);
-  if (M.list.length + M.queue.length < CONFIG.activeMissions) M.queue.push(1);
+  // волны: когда все миссии закончились — через паузу приходит новая волна из 1–2 миссий
+  if (M.list.length === 0) {
+    if (M.waveT <= 0) M.waveT = CONFIG.waveDelay[0] + Math.random() * (CONFIG.waveDelay[1] - CONFIG.waveDelay[0]);
+    else { M.waveT -= dt; if (M.waveT <= 0) { const n = spawnWave(player); if (n) pop(n > 1 ? 'Новые миссии: выбирай!' : 'Новая миссия!', 'info'); } }
+  }
 }
 
 export function nearMission(player) {

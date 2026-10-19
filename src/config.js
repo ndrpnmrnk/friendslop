@@ -23,15 +23,17 @@ export const CONFIG = {
   season: 'halloween',            // 'halloween' | 'none'
   grid: 3,                        // 3x3 районов на карте
   chunk: 24, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара
-  pixelScale: 3,
+  pixelScale: 2,
   player: {
-    walk: 7, sprint: 10.5, radius: 0.45, height: 1.6, step: 0.42,
+    walk: 6.5, sprint: 11, radius: 0.45, height: 1.6, step: 0.42,
+    accel: 9, decel: 7, sprintDecel: 3.2, sprintRamp: 0.9, sprintFade: 0.7,
     jump: 8, gravity: 22, climb: 3.4,
     stamina: { drain: 0.32, regen: 0.26, delay: 0.7, restart: 0.15 },
     fallStun: 3.2, stunTime: 1.4,
   },
   camera: { offset: [0, 12.5, 14], fov: 50, lookAhead: 0.3 },
-  activeMissions: 3,
+  missionWave: [1, 2],            // миссии приходят волнами по 1–2, следующая — когда закончатся текущие
+  waveDelay: [1.5, 3],
   interact: 2.2,
   cats: 2,
   // zones: где миссия может появиться; foot: размер объекта; clear: свободное место перед ним
@@ -45,11 +47,13 @@ export const CONFIG = {
   missionCooldown: 6,
   // предметы для броска
   items: {
-    balloon: { name: 'Шарик с водой', icon: '💧', heavy: false, r: 0.22, respawn: 9 },
-    tomato:  { name: 'Помидор', icon: '🍅', heavy: false, r: 0.16, respawn: 8 },
-    pumpkin: { name: 'Тыква', icon: '🎃', heavy: true, r: 0.32, respawn: 12 },
-    ball:    { name: 'Мяч', icon: '🏀', heavy: false, r: 0.24, respawn: 0 },
-    brick:   { name: 'Кирпич', icon: '🧱', heavy: true, r: 0.2, respawn: 10 },
+    // mass — масса: тяжёлые летят ближе, их почти не сдвинуть; лёгкие летят дальше и разлетаются от пинка
+    // drag — сопротивление воздуха, bounce — упругость
+    balloon: { name: 'Шарик с водой', icon: '💧', heavy: false, r: 0.22, respawn: 9, mass: 0.5, drag: 0.35, bounce: 0.3 },
+    tomato:  { name: 'Помидор', icon: '🍅', heavy: false, r: 0.16, respawn: 8, mass: 0.25, drag: 0.1, bounce: 0.2 },
+    pumpkin: { name: 'Тыква', icon: '🎃', heavy: true, r: 0.32, respawn: 12, mass: 3, drag: 0, bounce: 0.15 },
+    ball:    { name: 'Мяч', icon: '🏀', heavy: false, r: 0.24, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.65 },
+    brick:   { name: 'Кирпич', icon: '🧱', heavy: true, r: 0.2, respawn: 10, mass: 2.5, drag: 0, bounce: 0.1 },
   },
   throw: { minRange: 3, maxRange: 17, chargeTime: 0.9 },
 };

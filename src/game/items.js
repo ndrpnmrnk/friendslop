@@ -1,4 +1,5 @@
 import { THREE, G, V3, mesh, col, tmat, lam } from '../core/gfx.js';
+import { addOutline } from './outline.js';
 import { T } from '../core/textures.js';
 import { CONFIG } from '../config.js';
 import { W } from '../world/state.js';
@@ -28,7 +29,7 @@ function build(type) {
 }
 export function addItem(type, x, y, z) {
   const def = CONFIG.items[type], g = build(type); W.group.add(g);
-  const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z }, respawnT: 0, spin: new V3(), noHit: 0 };
+  const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g) };
   it.pos.set(x, y + def.r, z);
   W.items.push(it); return it;
 }
@@ -72,9 +73,9 @@ function impact(it, n, speed) {
     vanish(it);
   } else {
     // мяч и не разбившийся кирпич отскакивают
-    const e = t === 'ball' ? 0.62 : 0.15, vn = it.vel.x * n[0] + it.vel.y * n[1] + it.vel.z * n[2];
+    const e = it.def.bounce, vn = it.vel.x * n[0] + it.vel.y * n[1] + it.vel.z * n[2];
     it.vel.x -= (1 + e) * vn * n[0]; it.vel.y -= (1 + e) * vn * n[1]; it.vel.z -= (1 + e) * vn * n[2];
-    if (t !== 'ball') { it.vel.x *= 0.4; it.vel.z *= 0.4; }
+    const fr = 1 - Math.min(0.7, it.def.mass * 0.25); it.vel.x *= fr; it.vel.z *= fr;
     puff(p.x, p.y - it.def.r * 0.5, p.z, { size: 0.35, life: 0.4, vy: 0.3 });
     it.state = 'rest';
   }
@@ -83,13 +84,14 @@ function impact(it, n, speed) {
 function simulate(it, dt, flying) {
   const r = it.def.r, p = it.pos, v = it.vel;
   const steps = Math.min(6, Math.ceil(v.length() * dt / (r * 0.8)) || 1), h = dt / steps;
+  const drag = Math.exp(-it.def.drag * h);
   for (let s = 0; s < steps; s++) {
-    v.y -= GRAV * h; p.addScaledVector(v, h);
+    v.y -= GRAV * h; v.multiplyScalar(drag); p.addScaledVector(v, h);
     const gy = groundAt(p.x, p.z, r * 0.5, p.y + r * 0.5);
     if (p.y - r < gy) {
       p.y = gy + r;
       if (flying) { const sp = v.length(); impact(it, [0, 1, 0], sp); return; }
-      if (v.y < -1.5 && it.type === 'ball') v.y = -v.y * 0.6; else v.y = 0;
+      if (v.y < -1.5) v.y = -v.y * it.def.bounce; else v.y = 0;
     }
     const hit = solidHit(p, r);
     if (hit) {
@@ -100,8 +102,9 @@ function simulate(it, dt, flying) {
   }
   if (!flying) {
     const onG = p.y - r <= groundAt(p.x, p.z, r * 0.5, p.y) + 0.02;
-    if (onG) { const f = Math.exp(-dt * (it.type === 'ball' ? 0.9 : 6)); v.x *= f; v.z *= f; }
-    if (it.type === 'ball') { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
+    // трение: круглые катятся, кирпич быстро останавливается
+    if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7 }[it.type])); v.x *= f; v.z *= f; }
+    if (it.type !== 'brick') { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
   } else { it.g.rotation.x += dt * 8; it.g.rotation.y += dt * 5; }
 }
 
@@ -113,11 +116,13 @@ export function updateItems(dt, pl) {
     // лежит: мяч и упавшие предметы живут по физике
     const moving = it.vel.lengthSq() > 0.01 || it.pos.y - it.def.r > groundAt(it.pos.x, it.pos.z, it.def.r * 0.5, it.pos.y) + 0.05;
     if (moving) simulate(it, dt, false);
-    if (it.type === 'ball' && pl) {
+    if (pl && pl.held !== it) {
       const dx = it.pos.x - pl.pos.x, dz = it.pos.z - pl.pos.z, d = Math.hypot(dx, dz), m = it.def.r + pl.r;
-      if (d < m && d > 1e-3 && Math.abs(it.pos.y - pl.pos.y - 0.3) < 0.9) {
-        const nx = dx / d, nz = dz / d; it.pos.x += nx * (m - d); it.pos.z += nz * (m - d);
-        const vn = pl.vel.x * nx + pl.vel.z * nz; if (vn > 0) { it.vel.x = nx * vn * 1.3; it.vel.z = nz * vn * 1.3; it.vel.y = 2.5; }
+      if (d < m && d > 1e-3 && it.pos.y - it.def.r < pl.pos.y + 0.6 && it.pos.y > pl.pos.y - 0.2) {
+        const nx = dx / d, nz = dz / d, k = 1 / Math.sqrt(it.def.mass);
+        it.pos.x += nx * (m - d); it.pos.z += nz * (m - d);
+        const vn = pl.vel.x * nx + pl.vel.z * nz;
+        if (vn > 0.5) { it.vel.x = nx * vn * 0.8 * k; it.vel.z = nz * vn * 0.8 * k; it.vel.y = Math.min(3.5, vn * 0.35 * k); }
       }
     }
   }
@@ -137,19 +142,24 @@ export function pickUp(it) { it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotati
 export function drop(it, x, y, z) { it.state = 'rest'; it.pos.set(x, y + it.def.r + 0.05, z); it.vel.set(0, 0, 0); }
 
 /* Расчёт броска по дуге к точке прицела */
-export function throwVelocity(from, target, charge) {
+export function throwVelocity(from, target, charge, def) {
   const dx = target.x - from.x, dz = target.z - from.z, dist = Math.hypot(dx, dz) || 0.001;
-  const { minRange, maxRange } = CONFIG.throw, range = minRange + (maxRange - minRange) * charge, d = Math.min(dist, range);
-  const T = 0.32 + d * 0.035, vh = d / T, dy = (dist <= range ? target.y : from.y - 0.5) - from.y;
-  return new V3(dx / dist * vh, (dy + 0.5 * GRAV * T * T) / T, dz / dist * vh);
+  const { minRange, maxRange } = CONFIG.throw, mk = Math.max(0.45, Math.min(1.25, 0.8 / Math.sqrt(def.mass)));
+  const range = (minRange + (maxRange - minRange) * charge) * mk, d = Math.min(dist, range);
+  // тяжёлое летит медленнее и ниже по дуге
+  const T = (0.32 + d * 0.035) * (def.mass > 1.5 ? 1.15 : 1), vh = d / T, dy = (dist <= range ? target.y : from.y - 0.5) - from.y;
+  // поправка на сопротивление воздуха, чтобы лёгкое прилетало в прицел
+  const dragK = 1 + def.drag * T * 0.5;
+  return new V3(dx / dist * vh * dragK, (dy + 0.5 * GRAV * T * T) / T, dz / dist * vh * dragK);
 }
 export function launch(it, from, vel) { it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true; }
-export function predict(from, vel, out, n) {
-  const p = from.clone(), v = vel.clone(), h = 0.045; let k = 0;
-  for (let i = 0; i < 80 && k < n; i++) {
-    v.y -= GRAV * h; p.addScaledVector(v, h);
+export function predict(from, vel, out, n, def, end) {
+  const p = from.clone(), v = vel.clone(), h = 0.04, drag = Math.exp(-def.drag * h); let k = 0;
+  for (let i = 0; i < 120 && k < n; i++) {
+    v.y -= GRAV * h; v.multiplyScalar(drag); p.addScaledVector(v, h);
+    const gy = groundAt(p.x, p.z, 0.05, p.y + 0.2);
+    if (p.y < gy || solidHit(p, 0.05)) { if (end) { end.position.set(p.x, Math.max(gy, p.y) + 0.04, p.z); end.visible = true; } break; }
     if (i % 2 === 0) out[k++].position.copy(p);
-    if (p.y < groundAt(p.x, p.z, 0.05, p.y + 0.2) || solidHit(p, 0.05)) break;
   }
   return k;
 }

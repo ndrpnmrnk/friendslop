@@ -32,7 +32,7 @@ const post = new THREE.ShaderMaterial({
   fragmentShader: `uniform sampler2D t; varying vec2 v;
     float b2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
     float b4(vec2 a){ return b2(0.5 * a) * 0.25 + b2(a); }
-    void main(){ vec3 c = texture2D(t, v).rgb; c += (b4(gl_FragCoord.xy) - 0.5) / 24.0; c = floor(c * 24.0 + 0.5) / 24.0; gl_FragColor = vec4(c, 1.0); }`,
+    void main(){ vec3 c = texture2D(t, v).rgb; c += (b4(gl_FragCoord.xy) - 0.5) / 40.0; c = floor(c * 40.0 + 0.5) / 40.0; gl_FragColor = vec4(c, 1.0); }`,
   depthTest: false, depthWrite: false,
 });
 const postScene = new THREE.Scene(), postCam = new THREE.Camera();
@@ -44,10 +44,10 @@ export function present(scene, camera) {
 }
 
 export const cameras = [];
-export function makeCamera(fov) { const c = new THREE.PerspectiveCamera(fov, 1, 0.1, 300); cameras.push(c); resize(); return c; }
+export function makeCamera(fov) { const c = new THREE.PerspectiveCamera(fov, 1, 0.4, 220); cameras.push(c); resize(); return c; }
 export function resize() {
   const s = CONFIG.pixelScale, w = Math.ceil(innerWidth / s), h = Math.ceil(innerHeight / s);
-  renderer.setSize(w, h, false); rt.setSize(w, h); SNAP.value.set(w * 0.6, h * 0.6);
+  renderer.setSize(w, h, false); rt.setSize(w, h); SNAP.value.set(w, h);
   for (const c of cameras) { c.aspect = innerWidth / innerHeight; c.updateProjectionMatrix(); }
 }
 addEventListener('resize', resize);
@@ -64,7 +64,9 @@ export const col = c => lam({ color: c }, 'c' + c);
 export const tmat = (t, extra) => lam({ map: t, ...(extra || {}) }, extra ? null : 't' + t.uuid);
 export const basic = c => MC.get('b' + c) || (MC.set('b' + c, ps1(new THREE.MeshBasicMaterial({ color: c }))), MC.get('b' + c));
 export const glow = c => lam({ color: c, emissive: c, emissiveIntensity: 0.9 }, 'g' + c);
-export const alphaMat = (t, opts = {}) => ps1(new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, ...opts }));
+export const alphaMat = (t, opts = {}) => ps1(new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, ...opts }));
+// Плоскости, лежащие на других поверхностях (пол, дорожки), чтобы не мерцали
+export const flat = t => lam({ map: t, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }, 'f' + t.uuid);
 // Уникальный материал (для объектов, которые затухают, когда закрывают игрока)
 export const own = (opts) => ps1(new THREE.MeshLambertMaterial(opts));
 

@@ -4,6 +4,7 @@ import { W } from './state.js';
 import { groundAt, impulsePushables } from './physics.js';
 import { chunk, burst } from './particles.js';
 import { clamp, damp } from '../core/rng.js';
+import { addOutline } from '../game/outline.js';
 
 /* Башенный кран с шар-бабой. Залезаешь по лестнице на мачту, садишься в кабину (E),
    мышь влево-вправо крутит стрелу с инерцией, вверх-вниз двигает тележку.
@@ -47,6 +48,7 @@ export function buildCrane(b, mx, mz, wall) {
     pivot, trolley, ball, ropeM, bricks, wall, cols: wall.cols,
     yaw: Math.atan2(-(b.Z(wall.z) - b.Z(mz)), b.X(wall.x0 + wall.cols * wall.bw / 2) - b.X(mx)) + 0.5, yawV: 0, tr: 8, ballR, rope,
     seat: new V3(b.X(mx + 0.2), b.Y + H + 0.2, b.Z(mz - 0.3)), cab: new V3(b.X(mx - 0.75), b.Y + H + 0.2, b.Z(mz - 0.6)),
+    outline: addOutline(cab, 0.06),
     look: new V3(b.X(wall.x0 + wall.cols * wall.bw / 2), b.Y + 2, b.Z(wall.z)), active: false,
     p: new V3(), prev: new V3(),
   };

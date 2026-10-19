@@ -24,7 +24,7 @@ export function buildCat(coat) {
   const tail = new THREE.Group(); tail.position.set(0, 0.42, -0.32); root.add(tail);
   mesh(G.box, fur, 0, 0, -0.15, 0.05, 0.05, 0.3, tail);
   const tail2 = new THREE.Group(); tail2.position.set(0, 0, -0.3); tail.add(tail2); mesh(G.box, fur, 0, 0, -0.12, 0.045, 0.045, 0.25, tail2);
-  const sh = new THREE.Mesh(G.disc, new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.3, depthWrite: false }));
+  const sh = new THREE.Mesh(G.disc, new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.03; sh.scale.set(0.25, 0.42, 1); root.add(sh);
   const stars = new THREE.Group(); stars.position.set(0, 0.85, 0.3); root.add(stars); stars.visible = false;
   for (let i = 0; i < 3; i++) { const s = sprite(T.star(), 0.18); s.position.set(Math.cos(i * 2.1) * 0.25, 0, Math.sin(i * 2.1) * 0.25); stars.add(s); }

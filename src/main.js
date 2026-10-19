@@ -1,5 +1,5 @@
 import './styles.css';
-import { THREE, V3, G, present, makeCamera, basic, mesh } from './core/gfx.js';
+import { THREE, V3, G, present, makeCamera, basic, mesh, sprite } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS } from './config.js';
 import { keys, tapped, endFrame, mouse, on, aim } from './core/input.js';
@@ -13,7 +13,8 @@ import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict } from './game/items.js';
 import { updateCamera, cam } from './game/camera.js';
-import { M, resetMissions, spawnMission, removeMission, updateMissions, nearMission, GAMES } from './missions/missions.js';
+import { M, resetMissions, spawnWave, removeMission, updateMissions, nearMission, GAMES } from './missions/missions.js';
+import { pulseOutline } from './game/outline.js';
 import { $, pop, renderHud, renderStamina } from './ui/hud.js';
 import { createMenu } from './ui/menu.js';
 
@@ -30,7 +31,9 @@ const S = { state: 'menu', time: 0, score: 0, done: 0, mg: null, crane: false, h
 let P = null;
 
 // точки траектории броска
-const arc = []; for (let i = 0; i < 16; i++) { const m = mesh(G.box, basic(0xff8a1f), 0, 0, 0, 0.09, 0.09, 0.09, scene); m.visible = false; arc.push(m); }
+const arc = []; for (let i = 0; i < 22; i++) { const m = sprite(T.dot(), 0.2, { color: 0xffb45a, depthTest: false, opacity: 0.95 }); m.renderOrder = 10; m.visible = false; scene.add(m); arc.push(m); }
+const land = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xff8a1f, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+land.rotation.x = -Math.PI / 2; land.scale.setScalar(0.5); land.material.depthTest = false; land.renderOrder = 10; land.visible = false; scene.add(land);
 
 /* ---------- меню ---------- */
 function showMenu() {
@@ -52,7 +55,7 @@ function startRound() {
   P = createPlayer(menu.skin()); scene.add(P.root);
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
-  for (let i = 0; i < CONFIG.activeMissions; i++) spawnMission(P);
+  spawnWave(P);
   Object.assign(S, { state: 'play', time: CONFIG.roundTime, score: 0, done: 0, mg: null, crane: false });
   cam.pose = null;
   $('menu').classList.add('hidden'); $('results').classList.add('hidden'); $('hud').classList.remove('hidden'); $('mgpanel').classList.add('hidden');
@@ -124,7 +127,7 @@ on('down', btn => {
   if (S.mg) { if (btn === 0 && S.mg.game.down) S.mg.game.down(aim(camera)); return; }
   if (S.crane) return;
   if (btn === 0) { const d = nearDoor(); if (d) d.open = !d.open; }
-  if (btn === 2 && P.held && P.stun <= 0) { P.charging = true; P.charge = 0; $('dot').classList.add('charge'); }
+  if (btn === 2 && P.held && P.stun <= 0) { P.charging = true; P.charge = 0; P.aimYaw = P.root.rotation.y; $('dot').classList.add('charge'); }
 });
 on('up', btn => {
   if (S.state !== 'play') return;
@@ -132,7 +135,7 @@ on('up', btn => {
   if (btn === 2 && P.charging) {
     P.charging = false; $('dot').classList.remove('charge');
     const it = P.held, from = P.ch.holdPoint.clone(), tgt = aimPoint();
-    if (it && tgt) { const v = throwVelocity(from, tgt, P.charge); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; launch(it, from, v); P.held = null; }
+    if (it && tgt) { const v = throwVelocity(from, tgt, P.charge, it.def); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; launch(it, from, v); P.held = null; P.throwT = 0.3; }
   }
 });
 on('key', code => {
@@ -148,7 +151,17 @@ function aimPoint() {
   return r.ray.intersectPlane(plane, _aimHit);
 }
 
+// ближайший объект, с которым можно взаимодействовать: его контур подсвечивается
+function focusTarget() {
+  if (S.mg || S.crane || S.state !== 'play') return null;
+  if (!P.held) { const it = nearestItem(P.pos, 1.5); if (it) return it.outline; }
+  if (nearCrane()) return W.crane.outline;
+  const d = nearDoor(); if (d) return d.outline;
+  return null;
+}
+let lastFocus = null;
 function interact() {
+  if (S.mg) return;
   if (S.crane) { exitCrane(); return; }
   const m = nearMission(P);
   if (m) { openMission(m); return; }
@@ -161,9 +174,6 @@ function promptText() {
   if (S.mg) return '';
   if (S.crane) return '<b>E</b>выйти из крана';
   const m = nearMission(P); if (m) return `<b>E</b>${m.def.name}`;
-  if (!P.held) { const it = nearestItem(P.pos, 1.5); if (it) return `<b>E</b>взять: ${it.def.name}`; }
-  if (nearCrane()) return '<b>E</b>сесть в кран';
-  const d = nearDoor(); if (d) return `<b>ЛКМ</b>${d.open ? 'закрыть' : 'открыть'} дверь`;
   return '';
 }
 
@@ -194,12 +204,14 @@ function loop() {
       const tgt = aimPoint();
       if (tgt) {
         P.aimYaw = Math.atan2(tgt.x - P.pos.x, tgt.z - P.pos.z);
-        const from = P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3;
-        shown = predict(from, v, arc, arc.length);
+        const from = P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge, P.held.def); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3;
+        shown = predict(from, v, arc, arc.length, P.held.def, land);
       }
       $('dot').style.setProperty('--c', (P.charge * 100) + '%');
     }
-    arc.forEach((m, i) => (m.visible = i < shown));
+    arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
+    const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; } pulseOutline(dt);
+    if (P) P.root.visible = !S.mg && !S.crane;
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
     if (dotHtml !== S.dotHtml) { $('dot').innerHTML = dotHtml; S.dotHtml = dotHtml; }
     updateItems(dt, P);
@@ -220,6 +232,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 // отладочный доступ из консоли браузера
-window.__fs = { S, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
+window.__fs = { S, arc, land, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
 showMenu();
 loop();

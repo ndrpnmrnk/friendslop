@@ -17,7 +17,7 @@ export function makeCharacter(skinId) {
   root.add(handL, handR, footL, footR);
   const parts = { root, body, head, torso, handL, handR, footL, footR };
   const d = skin.build(parts);
-  const sh = new THREE.Mesh(G.disc, new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.35, depthWrite: false }));
+  const sh = new THREE.Mesh(G.disc, new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.35, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.03; sh.scale.setScalar(d.shadow ?? 0.55); root.add(sh);
   const stars = new THREE.Group(); stars.position.y = d.top + 0.15; root.add(stars); stars.visible = false;
   for (let i = 0; i < 4; i++) { const s = sprite(T.star(), 0.22); s.position.set(Math.cos(i * 1.57) * 0.4, 0, Math.sin(i * 1.57) * 0.4); stars.add(s); }
@@ -26,6 +26,7 @@ export function makeCharacter(skinId) {
   return ch;
 }
 
+const _up = new THREE.Vector3(0, 0.18, 0);
 function setHand(h, x, y, z, k) { h.position.x += (x - h.position.x) * k; h.position.y += (y - h.position.y) * k; h.position.z += (z - h.position.z) * k; }
 
 function animate(c, dt, s) {
@@ -39,7 +40,12 @@ function animate(c, dt, s) {
   const sy = 1 + stretch - c.squash * 0.18, sxz = 1 - stretch * 0.5 + c.squash * 0.12;
   c.body.scale.set(sxz, sy, sxz);
   c.body.position.y = run ? Math.abs(sn) * 0.08 : Math.sin(t * 2.2) * 0.025;
-  c.body.rotation.x += ((run ? 0.14 * k : 0) - c.body.rotation.x) * f;
+  // наклон: сильнее на разгоне и в спринте, назад при резком торможении
+  const lean = run ? 0.1 * k + 0.12 * (s.sprint || 0) + clamp((s.accel || 0) * 0.012, -0.15, 0.12) : 0;
+  c.body.rotation.x += (lean - c.body.rotation.x) * damp(8, dt);
+  // замах: корпус чуть разворачивается
+  const twist = s.charge ? -0.35 * s.charge : (s.throwT > 0 ? 0.3 * (s.throwT / 0.3) : 0);
+  c.body.rotation.y += (twist - c.body.rotation.y) * damp(14, dt);
   c.body.rotation.z = s.stun ? Math.sin(t * 9) * 0.2 : c.body.rotation.z * 0.85 + (run ? sn * 0.04 : 0) * 0.15;
   c.stars.visible = !!s.stun; if (s.stun) c.stars.rotation.y += dt * 5;
   // ножки
@@ -53,10 +59,19 @@ function animate(c, dt, s) {
   c.footL.rotation.x = run ? -sn * 0.4 * k : 0; c.footR.rotation.x = run ? sn * 0.4 * k : 0;
   // ручки
   const hx = d.handX, hy = d.handY + c.body.position.y, hz = d.handZ, fl = Math.sin(t * 2.2) * 0.04;
-  if (s.hold) {
-    const up = s.charge ? 0.15 + s.charge * 0.25 : 0;
-    setHand(c.handL, -d.holdX, d.holdY + up, d.holdZ - (s.charge || 0) * 0.35, f);
-    setHand(c.handR, d.holdX, d.holdY + up, d.holdZ - (s.charge || 0) * 0.35, f);
+  if (s.throwT > 0) {
+    // бросок: правая рука резко уходит вперёд
+    const k2 = s.throwT / 0.3;
+    setHand(c.handR, d.holdX * 0.6, d.top - 0.35 * (1 - k2), d.holdZ + 0.45, damp(30, dt));
+    setHand(c.handL, -hx, hy, hz - 0.15, f);
+  } else if (s.hold && s.charge) {
+    // замах: предмет в правой руке, рука уходит назад и вверх, левая указывает цель
+    const ch = s.charge;
+    setHand(c.handR, hx * 0.9, d.top - 0.1 + ch * 0.25, -0.15 - ch * 0.4, damp(12, dt));
+    setHand(c.handL, -hx * 0.7, hy + 0.3, hz + 0.45, f);
+  } else if (s.hold) {
+    setHand(c.handL, -d.holdX, d.holdY, d.holdZ, f);
+    setHand(c.handR, d.holdX, d.holdY, d.holdZ, f);
   } else if (s.climb) {
     setHand(c.handL, -hx * 0.8, d.top - 0.2 + sn * 0.22, 0.4, f); setHand(c.handR, hx * 0.8, d.top - 0.2 - sn * 0.22, 0.4, f);
   } else if (s.air) {
@@ -67,9 +82,10 @@ function animate(c, dt, s) {
     setHand(c.handL, -hx, hy + fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? -sn * 0.35 * k : 0), f);
     setHand(c.handR, hx, hy - fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? sn * 0.35 * k : 0), f);
   }
-  c.handL.rotation.x = s.hold ? -0.6 : run ? sn * 0.5 * k : 0; c.handR.rotation.x = s.hold ? -0.6 : run ? -sn * 0.5 * k : 0;
-  // точка, где держим предмет (в мировых координатах)
-  c.holdPoint.set(0, d.holdY + 0.1 + (s.charge || 0) * 0.25, d.holdZ + 0.05 - (s.charge || 0) * 0.35);
+  c.handL.rotation.x = s.hold ? -0.6 : run ? sn * 0.5 * k : 0; c.handR.rotation.x = s.hold ? (s.charge ? 0.8 : -0.6) : run ? -sn * 0.5 * k : 0;
+  // точка, где держим предмет: между ладонями или в правой руке при замахе
+  if (s.hold && s.charge) c.holdPoint.copy(c.handR.position).add(_up);
+  else c.holdPoint.set(0, (c.handL.position.y + c.handR.position.y) / 2 + 0.12, (c.handL.position.z + c.handR.position.z) / 2 + 0.05);
   c.root.localToWorld(c.holdPoint);
   // выражение лица
   c.blinkT -= dt;

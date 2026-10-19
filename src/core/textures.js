@@ -339,6 +339,7 @@ export const T = {
     for (let r = 6; r < W; r += 6) { g.beginPath(); for (let i = 0; i <= 6; i++) { const a = i / 6 * Math.PI / 2, rr = r * (0.9 + (i % 2) * 0.1); i ? g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.stroke(); }
   }),
   fog: () => photo('fog', 32, 32, (g, W, H) => { g.fillStyle = radial(g, W / 2, H / 2, W / 2, 'rgba(210,200,230,.5)', 'rgba(210,200,230,0)'); g.fillRect(0, 0, W, H); }, 4),
+  dot: () => pix('dot', 6, 6, (g) => { g.fillStyle = '#ffffff'; g.fillRect(1, 0, 4, 6); g.fillRect(0, 1, 6, 4); }),
   star: () => pix('star', 9, 9, (g) => { g.fillStyle = '#f5c542'; g.fillRect(4, 0, 1, 9); g.fillRect(0, 4, 9, 1); g.fillRect(3, 3, 3, 3); g.fillStyle = '#fff'; g.fillRect(4, 4, 1, 1); }),
   puzzle: () => photo('puzzleImg', 48, 48, (g, W, H) => {
     const s = W / 96; g.scale(s, s);
