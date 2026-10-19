@@ -1,12 +1,12 @@
 import { THREE, G, V3, mesh, col, tmat, lam } from '../core/gfx.js';
 import { addOutline } from './outline.js';
-import { chairModel, coneModel } from '../world/props.js';
+import { chairModel, coneModel, trashModel, litterModel } from '../world/props.js';
 import { PFACE } from '../world/builder.js';
 import { T } from '../core/textures.js';
 import { CONFIG } from '../config.js';
 import { W } from '../world/state.js';
-import { groundAt, solidHit, addZone, impulsePushables } from '../world/physics.js';
-import { puff, burst, chunk, decal } from '../world/particles.js';
+import { groundAt, solidHit, addZone, impulsePushables, zoneAt } from '../world/physics.js';
+import { puff, burst, chunk, decal, splash, ripple } from '../world/particles.js';
 import { scareBirds } from '../world/birds.js';
 import { hitBreakables } from '../world/breakables.js';
 
@@ -29,7 +29,10 @@ function build(type) {
   } else if (type === 'brick') {
     mesh(G.box, tmat(T.brickItem()), 0, 0, 0, 0.42, 0.18, 0.22, g);
     mesh(G.box, col(0x6a2a1c), 0, 0.091, 0, 0.24, 0.005, 0.1, g);
-  } else if (type === 'chair') g.add(chairModel());
+  } else if (type === 'trash') g.add(trashModel());
+  else if (type === 'litter') g.add(litterModel());
+  else if (type === 'parcel') { mesh(G.box, col(0xc8a070), 0, -0.05, 0, 0.5, 0.14, 0.5, g); mesh(G.box, col(0xc8a070), 0, 0.1, 0, 0.46, 0.14, 0.46, g); mesh(G.box, col(0xd8243a), 0, 0.03, 0.252, 0.3, 0.06, 0.01, g); mesh(G.box, col(0xf1e8ff), 0, 0.172, 0, 0.47, 0.005, 0.08, g); }
+  else if (type === 'chair') g.add(chairModel());
   else if (type === 'cone') g.add(coneModel());
   return g;
 }
@@ -58,8 +61,16 @@ function hitActors(it, p, heavy) {
 }
 function impact(it, n, speed) {
   const p = it.pos, t = it.type, gy = groundAt(p.x, p.z, 0.1, p.y + 0.3);
+  for (const h of W.hitHooks.slice()) h(it, p);
   hitBreakables(p, it.def.r + 0.12, [it.vel.x, it.vel.y, it.vel.z], it.def.mass);
   hitActors(it, p, it.def.heavy);
+  // попал в воду: всплеск; тяжёлое тонет, лёгкое остаётся плавать
+  if (n[1] > 0.5 && zoneAt(p.x, p.z, gy, 'water')) {
+    splash(p.x, gy, p.z, Math.min(1.5, 0.4 + speed * it.def.mass * 0.06));
+    if (t === 'balloon') { vanish(it); return; }
+    if (it.def.sinks) { it.state = 'sink'; it.sinkT = 1.2; it.vel.set(0, -0.6, 0); return; }
+    it.vel.set(it.vel.x * 0.3, 0, it.vel.z * 0.3); it.state = 'rest'; it.floatY = gy; return;
+  }
   if (t === 'balloon') {
     burst(p.x, p.y, p.z, 14, { color: 0x6ab8f0, size: 0.28, speed: 3, up: 2.5 });
     decal(T.splat('#4a90d0'), p.x, gy, p.z, 2.4, 7, 0xffffff);
@@ -73,6 +84,14 @@ function impact(it, n, speed) {
     const m = tmat(T.pumpkin());
     for (let i = 0; i < 9; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5 + it.vel.x * 0.15, 2 + Math.random() * 3, (Math.random() - 0.5) * 5 + it.vel.z * 0.15], { mat: m, size: 0.18 + Math.random() * 0.1, life: 2.5 });
     burst(p.x, p.y, p.z, 6, { color: 0xffd25c, size: 0.2, speed: 2 });
+    vanish(it);
+  } else if (t === 'trash' && speed > 6) {
+    // пакет рвётся: бумажки, банки, пятно
+    const cols = [0xd8d0c0, 0x8a8d98, 0xc83a3a, 0x6aa84f, 0xf5c542];
+    for (let i = 0; i < 10; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5 + it.vel.x * 0.2, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 5 + it.vel.z * 0.2], { mat: col(cols[i % cols.length]), size: 0.1 + Math.random() * 0.06, sy: 0.4, life: 5 });
+    for (let i = 0; i < 3; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3], { mat: tmat(T.trashBag()), size: 0.22, sy: 0.15, life: 5 });
+    decal(T.splat('#2a2418'), p.x, gy, p.z, 1.4, 10, 0xffffff);
+    burst(p.x, p.y, p.z, 5, { color: 0x6a6a5a, size: 0.35, speed: 1.6, up: 1, g: 2, grow: 1.2, life: 0.8 });
     vanish(it);
   } else if (t === 'chair' && speed > 9) {
     const m = tmat(T.wood());
@@ -116,8 +135,8 @@ function simulate(it, dt, flying) {
   if (!flying) {
     const onG = p.y - r <= groundAt(p.x, p.z, r * 0.5, p.y) + 0.02;
     // трение: круглые катятся, кирпич быстро останавливается
-    if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7, chair: 6, cone: 3 }[it.type])); v.x *= f; v.z *= f; }
-    if (!['brick', 'chair', 'cone'].includes(it.type)) { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
+    if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7, chair: 6, cone: 3, trash: 5, litter: 3, parcel: 6 }[it.type] ?? 4)); v.x *= f; v.z *= f; }
+    if (!['brick', 'chair', 'cone', 'trash', 'parcel'].includes(it.type)) { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
   } else { it.g.rotation.x += dt * 8; it.g.rotation.y += dt * 5; }
 }
 
@@ -126,6 +145,14 @@ export function updateItems(dt, pl) {
     if (it.state === 'gone') { if (it.def.respawn) { it.respawnT -= dt; if (it.respawnT <= 0) respawn(it); } continue; }
     if (it.state === 'held') continue;
     if (it.state === 'fly') { simulate(it, dt, true); continue; }
+    if (it.state === 'sink') { it.sinkT -= dt; it.pos.y -= dt * 0.5; it.g.rotation.x += dt; if (Math.random() < dt * 4) ripple(it.pos.x, it.pos.y + 0.4, it.pos.z, 0.4, 0.6); if (it.sinkT <= 0) vanish(it); continue; }
+    // плавает: покачивается и медленно дрейфует
+    if (it.floatY !== undefined && it.state === 'rest') {
+      if (zoneAt(it.pos.x, it.pos.z, it.floatY, 'water')) { it.pos.y = it.floatY + it.def.r * 0.6 + Math.sin(performance.now() * 0.003 + it.home.x) * 0.04; it.g.rotation.z = Math.sin(performance.now() * 0.002 + it.home.z) * 0.15;
+        it.pos.x += (it.vel.x + Math.sin(performance.now() * 0.0005 + it.home.x) * 0.15) * dt; it.pos.z += (it.vel.z + Math.cos(performance.now() * 0.0004) * 0.15) * dt; it.vel.multiplyScalar(Math.exp(-dt));
+        if (Math.random() < dt * 0.6) ripple(it.pos.x, it.floatY, it.pos.z, 0.5, 1); continue; }
+      it.floatY = undefined;
+    }
     // лежит: мяч и упавшие предметы живут по физике
     const moving = it.vel.lengthSq() > 0.01 || it.pos.y - it.def.r > groundAt(it.pos.x, it.pos.z, it.def.r * 0.5, it.pos.y) + 0.05;
     if (moving) simulate(it, dt, false);
@@ -151,7 +178,7 @@ export function nearestItem(p, r) {
   }
   return best;
 }
-export function pickUp(it) { it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
+export function pickUp(it) { it.floatY = undefined; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
 export function drop(it, x, y, z) { it.state = 'rest'; it.pos.set(x, y + it.def.r + 0.05, z); it.vel.set(0, 0, 0); }
 
 /* Расчёт броска по дуге к точке прицела */

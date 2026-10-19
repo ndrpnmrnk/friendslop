@@ -1,3 +1,4 @@
+import { tipBin, animateTip } from './pushables.js';
 import { W } from './state.js';
 import { clamp } from '../core/rng.js';
 
@@ -114,12 +115,14 @@ export function updatePushables(dt, player) {
     b.hitSpeed = 0;
     if (pushOut(p, b.r, b.y + 0.2, b.y + 1)) { b.hitSpeed = Math.hypot(b.vx, b.vz); b.vx *= -0.3; b.vz *= -0.3; }
     b.x = p.x; b.z = p.z;
-    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { barrel: 2.6, cart: 2.0, bin: 4, skate: 0.6, chair: 1.6, barrow: 2.4 }[b.kind])); b.vx *= f; b.vz *= f;
+    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9 }[b.kind])); b.vx *= f; b.vz *= f;
+    if (b.tipped) animateTip(b, dt);
     const mv = Math.hypot(b.x - op.x, b.z - op.z);
     b.mesh.position.set(b.x, b.y, b.z);
     if (mv > 1e-4) {
       const ang = Math.atan2(b.x - op.x, b.z - op.z);
-      if (b.kind === 'barrel') { b.roller.rotation.x += mv / b.r; b.mesh.rotation.y = ang; }
+      if (b.roller) { b.roller.rotation.x += mv / b.r; b.mesh.rotation.y = ang; }
+      else if (b.tipped) { /* лежит */ }
       else if (b.rider) b.mesh.rotation.y = b.heading;
       else if (b.kind !== 'chair') { let d = ang - b.mesh.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); b.mesh.rotation.y += d * Math.min(1, dt * 6); }
       else b.mesh.rotation.y += mv * 2;
@@ -143,6 +146,7 @@ export function bumpPushables(pl) {
     // тяжёлое почти не сдвигается, а игрок упирается в него
     b.x += nx * over * share; b.z += nz * over * share; p.x -= nx * over * (1 - share); p.z -= nz * over * (1 - share);
     const vn = pl.vel.x * nx + pl.vel.z * nz;
+    if (b.kind === 'bin' && vn > 8.5) tipBin(b, nx, nz);
     if (vn > 0) {
       const target = vn * (b.mass > 3 ? 0.45 : 0.85);
       const cur = b.vx * nx + b.vz * nz;
@@ -154,7 +158,7 @@ export function bumpPushables(pl) {
 export function impulsePushables(x, z, r, power) {
   for (const b of W.pushables) {
     const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz);
-    if (d < r + b.r && d > 1e-4) { b.vx += dx / d * power / b.mass; b.vz += dz / d * power / b.mass; }
+    if (d < r + b.r && d > 1e-4) { b.vx += dx / d * power / b.mass; b.vz += dz / d * power / b.mass; if (power >= 3.5) tipBin(b, dx / d, dz / d); }
   }
 }
 

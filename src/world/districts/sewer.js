@@ -21,12 +21,13 @@ export default {
     S(20, 21.4, 20.4, 22.6, -1.8, 0.15, brick);
     S(12, za, 20, zb, FLOOR - 0.3, FLOOR, conc);
     S(12, za, 13.5, zb, FLOOR, LEDGE, conc); S(18.5, za, 20, zb, FLOOR, LEDGE, conc);
-    b.m(G.box, tmat(T.water()), 16, FLOOR + 0.25, 16, 5, 0.04, zb - za);
-    W.zones.push({ type: 'water', r: [b.X(13.5), b.Z(za), b.X(18.5), b.Z(zb)], y: b.Y + FLOOR });
+    b.waterRect(13.5, za, 18.5, zb, FLOOR + 0.18);
+    W.zones[W.zones.length - 1].y = b.Y + FLOOR;
     W.tunnelOpenings.push({ axis: 'x', at: b.Z(0) - 1.5 - 0.2, from: b.X(12), to: b.X(20) });
     W.tunnelOpenings.push({ axis: 'x', at: b.Z(32) + 1.5 + 0.2, from: b.X(12), to: b.X(20) });
     // спуски: лестницы и ступени
     b.ladder(12, 6, 'e', 0.15, LEDGE);
+    for (const z of [10, 24]) W.spots.fish.push({ x: b.X(12.9), z: b.Z(z), y: b.Y + LEDGE, f: [1, 0], wx: b.X(15.5), wz: b.Z(z), wy: b.Y + FLOOR + 0.25, district: 'Коллектор', label: 'в канале' });
     b.ladder(20, 27, 'w', 0.15, LEDGE);
     b.stairs(19.25, 13.2, 'n', LEDGE, 0.15, 1.3, LEDGE);
     // мост через канал
@@ -67,7 +68,7 @@ export default {
     // ограждение канала наверху, кроме проходов к спускам
     for (const [x, z0, z1] of [[11.5, 0.5, 4.5], [11.5, 7.5, 14.4], [11.5, 17.6, 31.5], [20.5, 0.5, 7.5], [20.5, 11, 14.4], [20.5, 17.6, 25.5], [20.5, 28.5, 31.5]]) b.fence(x, z0, x, z1, 1.1, 'iron');
     b.crate(5, 5, 1.1); b.crate(6.1, 5.2, 0.9); b.barrel(3, 28); b.barrel(4, 28.6);
-    b.bench(6, 16, Math.PI / 2); b.trashBags(1.5, 9, 2); b.utilityBox(10.6, 22, -Math.PI / 2); b.planter(5, 22.5, 2.2, 1.2, 0.45, 'shrub'); b.tree(3, 20); b.tree(8, 26); b.lamp(10.5, 16, -Math.PI / 2); b.lamp(22, 16, Math.PI / 2);
+    b.bench(6, 16, Math.PI / 2); b.trashBags(1.5, 9, 2); b.puddle(6, 25, 1); b.graffiti(12.02, -2.2, 18, Math.PI / 2, 2.6, 4); b.utilityBox(10.6, 22, -Math.PI / 2); b.planter(5, 22.5, 2.2, 1.2, 0.45, 'shrub'); b.tree(3, 20); b.tree(8, 26); b.lamp(10.5, 16, -Math.PI / 2); b.lamp(22, 16, Math.PI / 2);
     b.ride('barrow', 25, 14, 1);
     b.zone('floor', 1, 1, 11, 31); b.zone('floor', 21, 11, 31, 18);
     W.missionZones.push({ type: 'tunnel', x0: b.X(13.6), z0: b.Z(2), x1: b.X(18.4), z1: b.Z(30), y: b.Y + FLOOR, district: 'Коллектор' });

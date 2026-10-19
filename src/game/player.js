@@ -4,9 +4,11 @@ import { keys, tapped } from '../core/input.js';
 import { clamp, damp } from '../core/rng.js';
 import { W } from '../world/state.js';
 import { moveBody, zoneAt, bumpPushables, solidsNear, groundAt } from '../world/physics.js';
-import { puff, burst, smoke, smokeRing } from '../world/particles.js';
+import { puff, burst, smoke, smokeRing, splash, ripple, decal } from '../world/particles.js';
+import { T } from '../core/textures.js';
 import { makeCharacter } from '../characters/rig.js';
 import { updateRide, autoMount, updateGrab, release } from './ride.js';
+import { hitBreakables } from '../world/breakables.js';
 
 const PC = CONFIG.player;
 export function createPlayer(skin) {
@@ -117,6 +119,8 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   }
   p.noGrav = !!p.climb && p.vel.y === 0;
   const wasGround = p.onGround;
+  // выпадом можно пробить стекло и ящик (вылететь в окно)
+  if (p.dive === 'air') hitBreakables({ x: p.pos.x + p.vel.x * 0.05, y: p.pos.y + 0.6, z: p.pos.z + p.vel.z * 0.05 }, 0.6, [p.vel.x, p.vel.y, p.vel.z], 1, ['glass', 'crate']);
   moveBody(p, dt, PC.gravity);
   bumpPushables(p);
   if (p.grab && (p.stun > 0 || p.climb || p.dive || !p.onGround && p.vel.y > 1)) release(p, 0.5);
@@ -148,7 +152,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const running = p.boost > 0.35 && spd > PC.walk + 0.5;
   if (p.onGround && !p.crouch && p.smokeT <= 0 && spd > 2.5) {
     const bx = -p.vel.x / spd, bz = -p.vel.z / spd;
-    if (water) { p.smokeT = 0.14; burst(p.pos.x, p.pos.y + 0.15, p.pos.z, 3, { color: 0x8ac0e8, size: 0.2, speed: 1.4, up: 2, life: 0.45 }); }
+    if (water) { p.smokeT = running ? 0.12 : 0.22; splash(p.pos.x, p.pos.y, p.pos.z, running ? 0.45 : 0.2); }
     else if (running) {
       p.smokeT = 0.055;
       const n = Math.random() < 0.35 ? 2 : 1;
@@ -157,6 +161,11 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     } else { p.smokeT = 0.22 + Math.random() * 0.2; smoke(p.pos.x + bx * 0.3, p.pos.y + 0.04, p.pos.z + bz * 0.3, { dust: true, vx: bx * 0.8 + (Math.random() - 0.5) * 0.6, vz: bz * 0.8 + (Math.random() - 0.5) * 0.6 }); }
   }
   if (p.throwT > 0) p.throwT -= dt;
+  // вода: стоишь — расходятся круги; приземлился — всплеск; вышел — мокрые следы
+  if (water) { p.wetT = 3; p.ripT = (p.ripT || 0) - dt; if (p.ripT <= 0) { p.ripT = 0.7; ripple(p.pos.x, p.pos.y, p.pos.z, 0.8, 1.2); } if (p.landedNow) splash(p.pos.x, p.pos.y, p.pos.z, 1); }
+  else if (p.wetT > 0 && p.onGround) { p.wetT -= dt; p.stepT = (p.stepT || 0) - dt;
+    if (p.stepT <= 0 && spd > 1.5) { p.stepT = 0.32; p.stepS = -(p.stepS || 1); const f = p.root.rotation.y, sx = Math.cos(f) * 0.14 * p.stepS, sz = -Math.sin(f) * 0.14 * p.stepS;
+      const d = decal(T.foot(), p.pos.x + sx, p.pos.y, p.pos.z + sz, 0.32, 4 + p.wetT, 0xffffff); d.rotation.z = f; d.material.opacity = 0.3 + 0.2 * p.wetT / 3; } }
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
   p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, climb: !!p.climb,

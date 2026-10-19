@@ -1,6 +1,7 @@
 import { THREE, G, tmat, col, glow } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { HW } from '../../config.js';
+import { W } from '../state.js';
 
 // Торговая улица: магазины с интерьерами и витринами (бьются), по крышам — через мостики,
 // тележки (можно толкать или запрыгнуть и кататься), стеклянная остановка
@@ -19,7 +20,7 @@ export default {
         interior(f, k, r) {
           const cx = (r.x0 + r.x1) / 2;
           if (k === 0) {
-            if (s.kind === 'bakery') { f.box(r.x0 + 2.2, r.z0 + 0.8, 3, 0.8, 1.0, tmat(T.wood())); f.m(G.box, tmat(T.produce('pumpkin')), r.x0 + 2.2, 1.03, r.z0 + 0.8, 2.8, 0.06, 0.6); f.shelf(r.x1 - 0.3, r.z0 + 2, 2.6, -Math.PI / 2); }
+            if (s.kind === 'bakery') { W.spots.pickup.push({ x: f.X(r.x0 + 2.2), z: f.Z(r.z0 + 1.9), y: f.Y, f: [0, -1], district: 'Торговая улица', label: 'пекарня' }); f.box(r.x0 + 2.2, r.z0 + 0.8, 3, 0.8, 1.0, tmat(T.wood())); f.m(G.box, tmat(T.produce('pumpkin')), r.x0 + 2.2, 1.03, r.z0 + 0.8, 2.8, 0.06, 0.6); f.shelf(r.x1 - 0.3, r.z0 + 2, 2.6, -Math.PI / 2); }
             if (s.kind === 'cafe') { f.table(r.x0 + 1.6, r.z1 - 1.3, 0.8); f.chair(r.x0 + 1.6, r.z1 - 0.5, Math.PI); f.table(r.x1 - 1.6, r.z1 - 1.3, 0.8);
               f.box(cx, r.z0 + 0.45, 4, 0.8, 1.05, tmat(T.wood())); f.box(cx + 1.2, r.z0 + 0.45, 0.5, 0.5, 0.6, col(0x3a3a40), { y: 1.05 }); f.ride('chair', r.x1 - 1.6, r.z1 - 0.5, Math.PI); }
             if (s.kind === 'mart') { f.shelf(r.x0 + 2, r.z0 + 1.5, 2.6, Math.PI / 2); f.shelf(r.x0 + 4.2, r.z0 + 1.5, 2.6, Math.PI / 2); f.cabinet(r.x1 - 0.5, r.z0 + 1.2, 0.6, 1.8, 2, 0xd8d8e0, 0, -Math.PI / 2); }
@@ -42,12 +43,12 @@ export default {
     const mt = col(0x3a4a6a);
     for (const x of [13.2, 18.8]) b.box(x, 27, 0.15, 0.15, 2.6, mt);
     b.box(16, 27.6, 6, 1.6, 0.12, mt, { y: 2.6 });
-    b.vitrine(16, 26.9, 5.4, 1.9, 'x', 0.45); b.bench(16, 27.8, Math.PI);
+    b.vitrine(16, 26.9, 5.4, 1.9, 'x', 0.45); b.bench(16, 27.8, 0);
     b.bin(5, 10); b.bin(27, 10); b.hydrant(16, 10);
     b.crate(30.6, 12, 1); b.crate(30.6, 13.1, 1); b.crate(30.6, 12.5, 0.9, 1);
     // Проход между магазинами и остановкой свободен; ящики остаются у разгрузки.
     [3, 9, 23, 29].forEach((x, i) => b.planter(x, 18.5, 2.2, 1.2, 0.5, i % 2 ? 'shrub' : 'flowers'));
-    b.bikeRack(16, 20.5, 4, 0); b.newsBox(13.2, 10.2); b.postBox(19, 10.2); b.trashBags(30.6, 9.8, 2); b.streetSign(1, 10.5, 'ТОРГОВАЯ', 'ЛЕСНАЯ');
+    b.bikeRack(30.2, 14.5, 4, Math.PI / 2); b.newsBox(13.2, 10.2); b.postBox(19, 10.2); b.graffiti(31.06, 1.4, 5, Math.PI / 2, 2.6, 1); b.puddle(8, 13, 1); b.puddle(24, 24, 0.9); b.trashBags(30.6, 9.8, 2); b.streetSign(1, 10.5, 'ТОРГОВАЯ', 'ЛЕСНАЯ');
     for (const x of [6, 11, 21, 26]) b.bollard(x, 11.2);
     b.bench(6, 22, Math.PI); b.bench(26, 22, Math.PI);
     b.lamp(1, 18, Math.PI / 2); b.lamp(31, 18, -Math.PI / 2);

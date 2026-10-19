@@ -24,7 +24,7 @@ export default {
     const pm = col(0x305c88); b.box(14, 12.4, 0.48, 0.4, 1.55, [pm, pm, pm, pm, tmat(T.parkingMeter()), pm]);
     for (const x of [6, 22]) b.planter(x, 12.4, 4, 1.2, 0.4, 'tree');
     for (let x = 2; x <= 30; x += 4) if (x !== 14) b.bollard(x, 1.6);
-    b.trashBags(5.8, 30.6, 3); b.utilityBox(9, 30.8, Math.PI); b.ride('cart', 27, 13.5, 1.2); b.tires(29.5, 30.3, 4);
+    b.trashBags(5.8, 30.6, 3); b.utilityBox(9, 30.8, Math.PI); b.cartCorral(30.2, 26.5, 3); b.graffiti(16, 0.55, 0.85, 0, 1.8, 5); b.puddle(9, 16, 1.2); b.puddle(20, 9, 0.9); b.tires(29.5, 30.3, 4);
     // Конусы отмечают стоянку автобуса, а не стоят поперёк свободного проезда.
     b.cone(28.5, 26.5); b.cone(28.5, 29.5);
     b.bus(23, 28); b.zone('roof', 19, 27, 27, 29, 2.9);

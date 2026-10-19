@@ -84,7 +84,8 @@ export default {
       W.keep.push(p); W.animated.push((dt, t) => { p.rotation.x = Math.sin(t * 2 + i) * 0.25; });
     });
     b.bench(12, 9.6, 0); b.bench(21, 12, -Math.PI / 2);
-    b.bikeRack(6, 9.6, 3, 0); b.trashBags(18.6, 26.2, 3); b.postBox(26, 9.5, 0); b.planter(16, 9.4, 3, 0.9, 0.4, 'flowers');
+    b.bikeRack(6, 9.6, 3, 0); b.graffiti(26.5, 1.2, 22.44, Math.PI, 2.2, 0); b.puddle(14, 18, 1.1); b.puddle(24, 15, 0.8);
+    b.wires(9, 12, 8.05, 1.2, 3.4, 19, 2); b.trashBags(18.6, 26.2, 3); b.postBox(26, 9.5, 0); b.planter(16, 9.4, 3, 0.9, 0.4, 'flowers');
     b.tree(30, 13); b.tree(1.8, 14); b.tree(29.5, 30); b.bin(2, 9.5);
     b.lamp(1.2, 19, Math.PI / 2); b.lamp(30.8, 20, -Math.PI / 2);
     b.zone('floor', 1, 9.5, 31, 19); b.zone('floor', 9, 19, 21, 30.5);

@@ -111,10 +111,18 @@ export const T = {
   court: () => photo('court', 32, 32, (g, W, H) => {
     fill(g, W, H, '#8a3b33'); blobs(g, W, H, ['#7a3029', '#9a4a40'], 60, 6, 20, 0.3); grain(g, W, H, 26);
   }),
-  water: () => photo('water', 32, 32, (g, W, H) => {
-    fill(g, W, H, '#28506e'); blobs(g, W, H, ['#1f4560', '#346282', '#2c5878'], 40, 10, 30, 0.4);
-    strokes(g, W, H, ['#6aa0c8', '#9cc4e0'], 60, 18, 0, 0.3, 3, 0.45); grain(g, W, H, 12);
+  water: () => photo('water', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#244a68'); blobs(g, W, H, ['#1c405c', '#2e5a7c', '#285474', '#1a3a54'], 120, 10, 40, 0.35);
+    // мелкая рябь: изогнутые блики
+    g.lineCap = 'round';
+    for (let i = 0; i < 70; i++) { const x = R() * W, y = R() * H, l = 10 + R() * 26; g.strokeStyle = R() < 0.5 ? 'rgba(120,170,210,.45)' : 'rgba(70,120,160,.5)'; g.lineWidth = 2 + R() * 2;
+      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + l / 2, y - 4 - R() * 4, x + l, y); g.stroke(); }
+    grain(g, W, H, 8);
   }),
+  waterHi: () => pix('waterHi', 32, 32, (g, W, H) => { for (let i = 0; i < 26; i++) { const x = (R() * W) | 0, y = (R() * H) | 0, l = 2 + ((R() * 5) | 0); g.fillStyle = R() < 0.3 ? 'rgba(230,240,255,.9)' : 'rgba(150,200,240,.6)'; g.fillRect(x, y, l, 1); } }),
+  foam: () => pix('foam', 32, 8, (g, W, H) => { for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(220,235,250,${0.3 + R() * 0.5})`; g.fillRect((R() * W) | 0, (R() * H * R()) | 0, 1 + ((R() * 3) | 0), 1); } g.fillStyle = 'rgba(220,235,250,.55)'; g.fillRect(0, 0, W, 2); }),
+  ripple: () => pix('ripple', 32, 32, (g, W, H) => { g.strokeStyle = 'rgba(210,230,250,.9)'; g.lineWidth = 2; g.beginPath(); g.arc(W / 2, H / 2, W / 2 - 2, 0, 7); g.stroke(); g.strokeStyle = 'rgba(210,230,250,.4)'; g.lineWidth = 1; g.beginPath(); g.arc(W / 2, H / 2, W / 2 - 6, 0, 7); g.stroke(); }),
+  foot: () => pix('foot', 8, 12, (g) => { g.fillStyle = 'rgba(20,26,40,.8)'; g.beginPath(); g.ellipse(4, 7, 3, 4.5, 0, 0, 7); g.fill(); }),
   wood: () => photo('wood', 64, 64, (g, W, H) => {
     const n = 4, s2 = H / n;
     for (let i = 0; i < n; i++) { g.fillStyle = shade(0x7a5236, (R() - 0.5) * 34); g.fillRect(0, i * s2, W, s2); }
@@ -137,6 +145,28 @@ export const T = {
     g.fillStyle = 'rgba(30,26,36,.45)'; for (let i = 0; i <= n; i++) { g.fillRect(i * s - 1, 0, 2, H); g.fillRect(0, i * s - 1, W, 2); }
     blobs(g, W, H, ['#a89c88', '#2a2433'], 30, 6, 16, 0.12); grain(g, W, H, 12);
   }),
+  graffiti: i => photo('graffiti' + i, 48, 24, (g, W, H) => {
+    const pals = [['#ff5a6e', '#f5c542', '#17111f'], ['#4ab0f0', '#9be36b', '#17111f'], ['#b18cff', '#ff8a1f', '#f1e8ff'], ['#9be36b', '#ff5a6e', '#2a1f3d']][i % 4];
+    const words = ['ТЫКВА', 'BOO', 'FRIENDS', 'СЛОП', 'КОТ', 'RIP'][i % 6];
+    g.font = `900 ${H * 0.55}px Impact, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    g.lineWidth = H * 0.14; g.strokeStyle = pals[2]; g.strokeText(words, W / 2, H * 0.55); g.fillStyle = pals[0]; g.fillText(words, W / 2, H * 0.55);
+    g.globalAlpha = 0.6; g.fillStyle = pals[1]; g.fillRect(W * 0.1, H * 0.5, W * 0.8, H * 0.1); g.globalAlpha = 1;
+    for (let k = 0; k < 6; k++) { g.fillStyle = pals[0]; g.fillRect(W * (0.2 + R() * 0.6), H * 0.75, W * 0.012, H * (0.1 + R() * 0.15)); }
+  }),
+  puddle: () => photo('puddle', 32, 32, (g, W, H) => { g.fillStyle = radial(g, W / 2, H / 2, W / 2, 'rgba(40,60,90,.75)', 'rgba(40,60,90,0)'); g.beginPath(); g.ellipse(W / 2, H / 2, W * 0.48, H * 0.36, 0.3, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(160,190,230,.35)'; g.lineWidth = 3; g.beginPath(); g.ellipse(W * 0.45, H * 0.45, W * 0.2, H * 0.1, 0.3, 0, 3); g.stroke(); }),
+  tunnelTile: () => photo('tunnelTile', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#5a5662'); const n = 8, s2 = W / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { g.fillStyle = shade(y < 3 ? 0x2e5a4a : 0xb8b4a8, (R() - 0.5) * 22); g.fillRect(x * s2 + 2, y * s2 + 2, s2 - 4, s2 - 4); }
+    g.fillStyle = '#c8a030'; g.fillRect(0, 3 * s2 - 3, W, 5);
+    blobs(g, W, H, ['#3a3226', '#4a4030', '#6a5a3a'], 50, 3, 14, 0.35); strokes(g, W, H, ['rgba(60,48,30,.6)'], 20, 30, Math.PI / 2, 0.2, 3, 0.5); grain(g, W, H, 14);
+  }),
+  oldBrick: () => photo('oldBrick', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#3a302c'); const rows = 10, bh = H / rows, bw = W / 4;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < 5; c++) { g.fillStyle = shade(0x6a3a2c, (R() - 0.5) * 40); g.fillRect(c * bw + (r % 2 ? bw / 2 : 0) + 3, r * bh + 3, bw - 6, bh - 6); }
+    blobs(g, W, H, ['#2a3a2a', '#3a4a30', '#1a1614'], 60, 4, 18, 0.4); strokes(g, W, H, ['rgba(30,40,24,.6)'], 25, 40, Math.PI / 2, 0.15, 4, 0.5); grain(g, W, H, 16);
+  }),
+  grate: () => pix('grate', 16, 16, (g, W, H) => { g.fillStyle = '#2b2533'; g.fillRect(0, 0, W, H); g.fillStyle = '#0a080c'; for (let x = 1; x < W; x += 3) g.fillRect(x, 1, 2, H - 2); }),
   carpet: (c = 0x3a4458) => photo('carpet' + c, 32, 32, (g, W, H) => { fill(g, W, H, shade(c, 0)); blobs(g, W, H, [shade(c, -14), shade(c, 12)], 900, 1, 2.5, 0.5);
     g.strokeStyle = shade(c, -22); g.lineWidth = 3; g.strokeRect(1.5, 1.5, W - 3, H - 3); grain(g, W, H, 10); }),
   plaster: () => photo('plaster', 32, 32, (g, W, H) => {

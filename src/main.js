@@ -15,7 +15,8 @@ import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict } from './game/items.js';
 import { updateCamera, cam, resetCamera } from './game/camera.js';
 import { createArrow, updateArrow } from './game/arrow.js';
-import { M, resetMissions, spawnWave, removeMission, updateMissions, nearMission, GAMES } from './missions/missions.js';
+import { M, resetMissions, spawnWave, spawnMission, removeMission, updateMissions, nearMission, ALL_GAMES, WORLD_GAMES } from './missions/missions.js';
+import { isFree } from './world/physics.js';
 import { pulseOutline } from './game/outline.js';
 import { nearestRideable, mount, dismount, grab, release, hopIn } from './game/ride.js';
 import { updateBreakables } from './world/breakables.js';
@@ -29,7 +30,7 @@ scene.fog = new THREE.Fog(...SEASON.fog);
 const hemi = new THREE.HemisphereLight(SEASON.hemi[0], SEASON.hemi[1], SEASON.hemi[2] * Math.PI); scene.add(hemi);
 const sun = new THREE.DirectionalLight(SEASON.sun[0], SEASON.sun[1] * Math.PI); sun.position.set(-30, 50, 25); scene.add(sun, sun.target);
 // жёсткие пиксельные тени: карта теней 2048 на квадрат ~64 м вокруг игрока
-sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.07;
 Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 150 }); sun.shadow.camera.updateProjectionMatrix();
 const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(), SUN_U = new V3().crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize();
 function followSun(x, y, z) {
@@ -45,7 +46,7 @@ const arrow = createArrow(scene);
 lock.want = () => S.state === 'play' && !S.mg;
 document.addEventListener('pointerlockchange', () => { $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
 
-const S = { state: 'menu', time: 0, score: 0, done: 0, mg: null, crane: false, hudT: 0, cursor: true };
+const S = { state: 'menu', time: 0, score: 0, done: 0, mg: null, wm: null, crane: false, hudT: 0, cursor: true };
 let P = null;
 
 // точки траектории броска
@@ -63,7 +64,7 @@ $('skinNext').onclick = () => menu.next(1);
 $('playBtn').onclick = () => startRound();
 $('againBtn').onclick = () => startRound();
 $('menuBtn').onclick = () => showMenu();
-$('mgexit').onclick = () => closeMission(null);
+$('mgexit').onclick = () => { if (S.wm) closeWorld(null); else closeMission(null); };
 
 /* ---------- раунд ---------- */
 function startRound() {
@@ -74,7 +75,7 @@ function startRound() {
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
   spawnWave(P);
-  Object.assign(S, { state: 'play', time: CONFIG.roundTime, score: 0, done: 0, mg: null, crane: false });
+  Object.assign(S, { state: 'play', time: CONFIG.roundTime, score: 0, done: 0, mg: null, wm: null, crane: false });
   cam.pose = null; resetCamera(Math.random() * Math.PI * 2);
   $('lockhint').classList.toggle('hidden', locked());
   $('menu').classList.add('hidden'); $('results').classList.add('hidden'); $('hud').classList.remove('hidden'); $('mgpanel').classList.add('hidden');
@@ -83,6 +84,7 @@ function startRound() {
 }
 function endRound() {
   if (S.mg) closeMission(null);
+  if (S.wm) closeWorld(null);
   if (S.crane) exitCrane();
   S.state = 'results'; document.body.classList.remove('playing'); $('dot').classList.add('hidden'); unlock(); $('lockhint').classList.add('hidden');
   $('hud').classList.add('hidden');
@@ -96,7 +98,34 @@ function setCursor(v) { S.cursor = v; $('dot').classList.toggle('hidden', !v || 
 on('move', () => { const d = $('dot'); d.style.transform = `translate(${mouse.x}px,${mouse.y}px)`; if (S.mg && S.mg.game.move) S.mg.game.move(aim(camera)); });
 
 /* ---------- миссии ---------- */
+/* Уличная миссия: игрок бегает как обычно, справа внизу панель с таймером и прогрессом */
+function openWorld(m) {
+  if (P.ride) dismount(P, false);
+  if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
+  m.busy = true; S.wm = { m, game: null };
+  $('mgicon').textContent = m.def.icon; $('mgtitle').textContent = m.def.name; $('mgpts').textContent = `+${m.def.points}`;
+  $('mghint').textContent = HINTS[m.def.game]; $('mgmsg').textContent = ''; $('mgmsg').className = 'msg'; $('mgexit').textContent = 'Бросить (Esc)';
+  $('mgpanel').classList.remove('hidden'); $('mgbar').classList.remove('hidden'); $('mgbar').firstChild.style.width = '0%';
+  const api = {
+    msg: (text, cls = '') => { $('mgmsg').textContent = text; $('mgmsg').className = 'msg ' + cls; },
+    progress: v => { $('mgbar').firstChild.style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; },
+    timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))} с`; },
+    finish: res => { if (S.wm && S.wm.m === m) closeWorld(res); },
+  };
+  const ctx = { player: P, give: it => { pickUp(it); P.held = it; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
+    enterCrane: () => { if (!S.crane) enterCrane(); }, exitCrane: () => { if (S.crane) exitCrane(); } };
+  S.wm.game = WORLD_GAMES[m.def.game](m.obj, api, ctx);
+}
+function closeWorld(res) {
+  if (!S.wm) return;
+  const { m, game } = S.wm; S.wm = null; game.stop(); m.busy = false;
+  $('mgpanel').classList.add('hidden'); $('mgexit').textContent = 'Выйти (Esc)';
+  if (res && res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; pop(`+${pts} ${m.def.icon}`, 'good'); }
+  else pop('Миссия провалена', 'bad');
+  removeMission(m);
+}
 function openMission(m) {
+  if (m.def.world) return openWorld(m);
   if (P.ride) dismount(P, false);
   if (P.grab) release(P, 0);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
@@ -112,7 +141,7 @@ function openMission(m) {
   };
   S.mg = { m, game: null };
   unlock(); $('lockhint').classList.add('hidden');
-  S.mg.game = GAMES[m.def.game](m.obj, api, { cursor: setCursor, character: P.ch });
+  S.mg.game = ALL_GAMES[m.def.game](m.obj, api, { cursor: setCursor, character: P.ch });
 }
 function closeMission(res) {
   if (!S.mg) return;
@@ -128,18 +157,17 @@ function closeMission(res) {
 
 /* ---------- кран ---------- */
 function nearCrane() { const c = W.crane; return c && !S.crane && Math.hypot(c.cab.x - P.pos.x, c.cab.z - P.pos.z) < 1.9 && Math.abs(c.cab.y - P.pos.y) < 0.6; }
-const craneStick = { nx: 0, ny: 0 };
+const craneStick = { ix: 0, iz: 0 };
 function enterCrane() {
   if (P.ride) dismount(P, false);
   if (P.grab) release(P, 0);
-  craneStick.nx = 0; craneStick.ny = 0;
+  craneStick.ix = 0; craneStick.iz = 0;
   const c = W.crane; if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   S.crane = true; c.active = true; P.frozen = true; P.root.visible = false;
-  const mid = new V3().addVectors(c.look, c.cab).multiplyScalar(0.5); mid.y = c.look.y;
-  cam.pose = { p: mid.clone().add(new V3(0, 15, 14)), l: mid };
-  pop('Мышь: влево-вправо — стрела, вверх-вниз — тележка', 'info');
+  cam.orbit = { c: c.ball.position.clone(), dist: 17 }; cam.pitch = 0.6;
+  pop('WASD — двигать шар · мышь — камера · E — выйти', 'info');
 }
-function exitCrane() { const c = W.crane; S.crane = false; c.active = false; P.frozen = false; P.root.visible = true; P.pos.copy(c.seat); P.vel.set(0, 0, 0); cam.pose = null; }
+function exitCrane() { const c = W.crane; S.crane = false; c.active = false; P.frozen = false; P.root.visible = true; P.pos.copy(c.seat); P.vel.set(0, 0, 0); cam.pose = null; cam.orbit = null; cam.pitch = 0.45; }
 
 /* ---------- двери ---------- */
 function nearDoor() {
@@ -164,7 +192,7 @@ on('down', btn => {
 });
 on('up', btn => {
   if (S.state !== 'play') return;
-  if (S.mg) { if (btn === 0 && S.mg.game.up) S.mg.game.up(); return; }
+  if (S.mg) { if (btn === 0 && S.mg.game.up) S.mg.game.up(aim(camera)); return; }
   if (btn === 2 && P.charging) {
     P.charging = false; $('dot').classList.remove('charge');
     const it = P.held, from = P.ch.holdPoint.clone(), tgt = aimPoint();
@@ -173,7 +201,7 @@ on('up', btn => {
 });
 on('key', code => {
   if (S.state !== 'play') return;
-  if (code === 'Escape') { if (S.mg) closeMission(null); else if (S.crane) exitCrane(); }
+  if (code === 'Escape') { if (S.mg) closeMission(null); else if (S.crane) exitCrane(); else if (S.wm) closeWorld(null); }
 });
 const _aimHit = new V3();
 function aimPoint() {
@@ -202,7 +230,7 @@ function interact() {
   if (S.crane) { exitCrane(); return; }
   if (P.ride) { dismount(P, false); return; }
   if (P.grab) { hopIn(P); return; }
-  const m = nearMission(P);
+  const m = S.wm ? null : nearMission(P);
   if (m) { openMission(m); return; }
   if (P.held) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; return; }
   const it = nearestItem(P.pos, 1.5);
@@ -213,16 +241,17 @@ function interact() {
 function promptText() {
   if (S.mg) return '';
   if (S.crane) return '<b>E</b>выйти из крана';
+  if (S.wm) return '';
   const m = nearMission(P); if (m) return `<b>E</b>${m.def.name}`;
   return '';
 }
 
 /* ---------- цикл ---------- */
 const clock = new THREE.Timer(); let t = 0;
-const waterTex = T.water();
+const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function loop() {
   clock.update(); const dt = Math.min(0.05, clock.getDelta()); t += dt;
-  waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015;
+  waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'menu') { menu.update(dt); present(menu.scene, menu.camera); }
   else {
     if (S.state === 'play') {
@@ -234,6 +263,7 @@ function loop() {
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
       updateMissions(dt, t, P, pop);
       if (S.mg) S.mg.game.update(dt);
+      if (S.wm) S.wm.game.update(dt);
       S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText()); S.hudT = 0.1; }
       renderStamina(P);
       if (S.time <= 0) { S.time = 0; renderHud(S, P, ''); endRound(); }
@@ -259,9 +289,14 @@ function loop() {
     for (const c of W.cats) updateCat(c, dt, t, S.state === 'play' ? P : null);
     updateBirds(dt, t, S.state === 'play' ? P : null);
     const lk = takeLook();
-    if (S.crane) { craneStick.nx = Math.max(-1, Math.min(1, craneStick.nx + lk.dx * 0.004)); craneStick.ny = Math.max(-1, Math.min(1, craneStick.ny - lk.dy * 0.004)); }
-    updateCrane(dt, S.crane ? (locked() ? craneStick : mouse) : null);
-    if (S.state === 'play') updateArrow(arrow, P, M.list, dt, t, !S.mg && !S.crane);
+    if (S.crane) {
+      // WASD относительно камеры
+      let ix = 0, iz = 0; if (keys.KeyA || keys.ArrowLeft) ix--; if (keys.KeyD || keys.ArrowRight) ix++; if (keys.KeyW || keys.ArrowUp) iz--; if (keys.KeyS || keys.ArrowDown) iz++;
+      const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw); craneStick.ix = ix * cy + iz * sy; craneStick.iz = -ix * sy + iz * cy;
+      cam.orbit.c.lerp(new V3().addVectors(W.crane.ball.position, W.crane.cab).multiplyScalar(0.5).setY(W.crane.ball.position.y + 3), 0.08);
+    }
+    updateCrane(dt, S.crane ? craneStick : null);
+    if (S.state === 'play') updateArrow(arrow, P, M.list, dt, t, !S.mg && !S.crane, S.wm && S.wm.game.target ? S.wm.game.target() : null);
     for (const d of W.doors) {
       const want = d.open ? 1.65 * d.inward : 0; d.ang += (want - d.ang) * Math.min(1, dt * 8); d.pivot.rotation.y = d.ang;
       d.solid.on = !d.open && Math.abs(d.ang) < 0.5;
@@ -269,7 +304,7 @@ function loop() {
     for (const f of W.animated) f(dt, t);
     updateBreakables(dt);
     updateParticles(dt);
-    updateCamera(camera, P, dt, false, S.state === 'play' && !S.crane ? lk : null, !!(P && P.charging));
+    updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
     { const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz); }
     present(scene, camera);
   }
@@ -277,6 +312,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 // отладочный доступ из консоли браузера
-window.__fs = { renderer, S, grab, hopIn, release, arc, land, phys: { groundAt }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
+window.__fs = { renderer, S, spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
 showMenu();
 loop();

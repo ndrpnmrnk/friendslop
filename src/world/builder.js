@@ -52,14 +52,24 @@ export class Builder {
   light(x, z, r = 3, y = 0, dim = false) {
     const m = this.m(G.plane, dim ? LIGHTDIM() : LIGHTMAT(), x, y + 0.03, z, r * 2, r * 2, 1); m.rotation.x = -Math.PI / 2; m.renderOrder = 2; return m;
   }
-  water(x, z, r) {
-    const m = this.m(G.cyl12, WATERMAT(), x, 0.06, z, r, 0.04, r);
-    addZone('water', { c: [this.X(x), this.Z(z), r] }, this.Y);
+  // вода: тёмная толща + бегущие блики + пена у берега
+  water(x, z, r, y = 0, fish = true) {
+    const m = this.m(G.cyl12, WATERMAT(), x, y + 0.06, z, r, 0.04, r);
+    const hi = this.m(new THREE.CircleGeometry(1, 24), WATERHI(), x, y + 0.09, z, r, r, 1); hi.rotation.x = -Math.PI / 2;
+    const fm = this.m(new THREE.RingGeometry(0.88, 1, 28, 1), FOAM(), x, y + 0.1, z, r, r, 1); fm.rotation.x = -Math.PI / 2;
+    addZone('water', { c: [this.X(x), this.Z(z), r] }, this.Y + y);
+    if (fish && r >= 2.5) for (const a of [0.4, 2.0, 3.6, 5.2]) { const dx = Math.cos(a), dz = Math.sin(a);
+      W.spots.fish.push({ x: this.X(x + dx * (r + 0.8)), z: this.Z(z + dz * (r + 0.8)), y: this.Y + y, f: [-dx, -dz], wx: this.X(x + dx * (r - 1.4)), wz: this.Z(z + dz * (r - 1.4)), wy: this.Y + y + 0.08, district: this.d, label: 'у воды' }); }
     return m;
   }
-  waterRect(x0, z0, x1, z1) {
-    const m = this.m(G.box, WATERMAT(), (x0 + x1) / 2, 0.06, (z0 + z1) / 2, x1 - x0, 0.04, z1 - z0);
-    addZone('water', { r: [this.X(x0), this.Z(z0), this.X(x1), this.Z(z1)] }, this.Y);
+  waterRect(x0, z0, x1, z1, y = 0, foam = true) {
+    const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const m = this.m(G.box, WATERMAT(), cx, y + 0.06, cz, w, 0.04, d);
+    const hm = WATERHI(), hi = this.m(G.plane, hm, cx, y + 0.09, cz, w, d, 1); hi.rotation.x = -Math.PI / 2;
+    hi.geometry = G.plane.clone(); const uv = hi.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 4, uv.getY(i) * d / 4);
+    if (foam) for (const [fx, fz, fw, fd, rz] of [[cx, z0 + 0.15, w, 0.3, 0], [cx, z1 - 0.15, w, 0.3, Math.PI], [x0 + 0.15, cz, d, 0.3, Math.PI / 2], [x1 - 0.15, cz, d, 0.3, -Math.PI / 2]]) {
+      const f = this.m(G.plane, FOAM(), fx, y + 0.1, fz, fw, fd, 1); f.rotation.x = -Math.PI / 2; f.rotation.z = rz; }
+    addZone('water', { r: [this.X(x0), this.Z(z0), this.X(x1), this.Z(z1)] }, this.Y + y);
     return m;
   }
   slip(x, z, r) {
@@ -297,96 +307,11 @@ export class Builder {
     W.doors.push(d); return d;
   }
 
-  /* ---------- здание с интерьером ---------- */
+  /* ---------- одноэтажное здание с интерьером ---------- */
+  // Обёртка над tower(): настоящие окна-проёмы со стеклом, дверь, крыша, интерьер interior(b, r)
   house(o) {
-    const { x, z, w, d } = o, h = o.h ?? 3.4, t = 0.25, upper = o.upper ?? 0, base = o.wall ?? 0x7c6a9c;
-    const lit = o.lit ?? 0.45, brick = o.brick !== false;
-    const occ = { mats: [], boxes: [], op: 1, inside: null };
-    const inner = tmat(o.inner ? o.inner : T.plaster());
-    const plain = own({ color: base });
-    occ.mats.push(plain);
-    const dw = o.doorW ?? 1.4, dh = 2.35;
-    const sides = { s: { len: w, at: z + d - t / 2, axis: 'x', out: 4, inn: 5 }, n: { len: w, at: z + t / 2, axis: 'x', out: 5, inn: 4 },
-      e: { len: d - 2 * t, at: x + w - t / 2, axis: 'z', out: 0, inn: 1 }, w: { len: d - 2 * t, at: x + t / 2, axis: 'z', out: 1, inn: 0 } };
-    const doors = o.doors || (o.door ? [o.door] : []);
-    for (const [k, sd] of Object.entries(sides)) {
-      const dr = doors.find(q => q.side === k);
-      const g0 = dr ? dr.at * sd.len - dw / 2 : 0, g1 = g0 + dw;
-      const fac = facade(base, sd.len, h, { door: dr ? [g0, g1] : null, lit, brick, windows: o.windows !== false });
-      // u — координата вдоль фасада (как в текстуре); переводим в мировую по стороне
-      const U = u => k === 's' ? [x + u, sd.at] : k === 'n' ? [x + w - u, sd.at] : k === 'e' ? [sd.at, z + d - t - u] : [sd.at, z + t + u];
-      const pieces = dr ? [[0, g0, 0, h], [g1, sd.len, 0, h], [g0, g1, dh, h]] : [[0, sd.len, 0, h]];
-      for (const [a, b, y0, y1] of pieces) {
-        if (b - a < 0.01) continue;
-        const ft = fac.clone(); ft.needsUpdate = true; ft.repeat.set((b - a) / sd.len, (y1 - y0) / h); ft.offset.set(a / sd.len, y0 / h);
-        const fm = own({ map: ft }), im = own({ map: inner.map });
-        occ.mats.push(fm, im);
-        const mats = [plain, plain, plain, plain, plain, plain]; mats[sd.out] = fm; mats[sd.inn] = im;
-        const [bx, bz] = U((a + b) / 2), len = b - a, hh = y1 - y0;
-        const bw = sd.axis === 'x' ? len : t, bd = sd.axis === 'x' ? t : len;
-        this.m(G.box, mats, bx, y0 + hh / 2, bz, bw, hh, bd);
-        this.solid(bx, bz, bw, bd, y0, hh);
-        occ.boxes.push(this.aabb(bx, bz, bw, bd, y0, hh));
-      }
-      if (dr) {
-        const e0 = U(g0), e1 = U(g1);
-        const hinge = sd.axis === 'x' ? [Math.min(e0[0], e1[0]), sd.at] : [sd.at, Math.min(e0[1], e1[1])];
-        const inward = { s: 1, n: -1, e: -1, w: 1 }[k];
-        this.door(hinge[0], hinge[1], sd.axis, inward, 0, dw, dh);
-        if (dr.sign) {
-          const [cx, cz] = U((g0 + g1) / 2), off = t / 2 + 0.03, nrm = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }[k];
-          this.sign(cx + nrm[0] * off, dh + 0.45, cz + nrm[1] * off, { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[k], ...dr.sign, 2.2, 0.55);
-        }
-      }
-    }
-    // пол и потолок
-    const fl = this.m(G.plane, flat(rep(o.floor || T.floorWood(), w / 3, d / 3)), x + w / 2, 0.01, z + d / 2, w - 0.1, d - 0.1, 1); fl.rotation.x = -Math.PI / 2;
-    let top = h + 0.2;
-    const roofM = own({ map: T.roof() }); occ.mats.push(roofM);
-    if (upper > 0) {
-      const fs = ['e', 'w', 's', 'n'].map(k => { const len = k === 'e' || k === 'w' ? d : w; const m = own({ map: facade(base, len, upper, { lit, brick }) }); occ.mats.push(m); return m; });
-      this.m(G.box, [fs[0], fs[1], roofM, plain, fs[2], fs[3]], x + w / 2, h + upper / 2, z + d / 2, w, upper, d);
-      this.solid(x + w / 2, z + d / 2, w, d, h, upper);
-      occ.boxes.push(this.aabb(x + w / 2, z + d / 2, w, d, h, upper));
-      top = h + upper;
-    } else {
-      this.m(G.box, [plain, plain, roofM, inner, plain, plain], x + w / 2, h + 0.1, z + d / 2, w + 0.1, 0.2, d + 0.1);
-      this.solid(x + w / 2, z + d / 2, w + 0.1, d + 0.1, h, 0.2);
-      occ.boxes.push(this.aabb(x + w / 2, z + d / 2, w + 0.1, d + 0.1, h, 0.2));
-    }
-    // парапет (с проёмами для лестницы и мостков: o.gaps = [{side, at}])
-    if (o.parapet !== false) {
-      const pm = own({ color: 0x3a3046 }); occ.mats.push(pm);
-      const gaps = (o.gaps || []).concat(o.ladder ? [o.ladder] : []);
-      const edges = { s: [x + w / 2, z + d - 0.1, w, 0.2], n: [x + w / 2, z + 0.1, w, 0.2], e: [x + w - 0.1, z + d / 2, 0.2, d - 0.4], w: [x + 0.1, z + d / 2, 0.2, d - 0.4] };
-      for (const [k, [cx, cz, ew, ed]] of Object.entries(edges)) {
-        const along = k === 's' || k === 'n', len = along ? ew : ed, start = along ? x + (w - ew) / 2 : z + (d - ed) / 2;
-        const cuts = gaps.filter(g => g.side === k).map(g => (along ? x + g.at * w : z + g.at * d) - start).sort((a, b) => a - b);
-        let a0 = 0; const segs = [];
-        for (const c of cuts) { segs.push([a0, c - 0.7]); a0 = c + 0.7; } segs.push([a0, len]);
-        for (const [a, b2] of segs) {
-          if (b2 - a < 0.05) continue;
-          const c = start + (a + b2) / 2, px = along ? c : cx, pz = along ? cz : c;
-          this.m(G.box, pm, px, top + 0.25, pz, along ? b2 - a : 0.2, 0.5, along ? 0.2 : b2 - a); this.solid(px, pz, along ? b2 - a : 0.2, along ? 0.2 : b2 - a, top, 0.5);
-        }
-      }
-    }
-    if (o.ladder) {
-      const k = o.ladder.side, at = o.ladder.at;
-      const lx = k === 'e' ? x + w : k === 'w' ? x : x + at * w, lz = k === 's' ? z + d : k === 'n' ? z : z + at * d;
-      this.ladder(lx, lz, k, top);
-    }
-    if (o.roof) this.zone('roof', x + 0.8, z + 0.8, x + w - 0.8, z + d - 0.8, top);
-    if (o.sign) this.sign(x + w / 2, h - 0.5, z + d + 0.02, 0, ...o.sign, Math.min(w * 0.7, 4.5), 0.75);
-    if (o.awning) { const a = this.m(G.box, tmat(T.awning(...o.awning)), x + w / 2, 2.75, z + d + 0.6, w - 0.6, 0.12, 1.2); a.rotation.x = 0.25; }
-    const ix0 = x + t + 0.05, iz0 = z + t + 0.05, ix1 = x + w - t - 0.05, iz1 = z + d - t - 0.05;
-    occ.inside = { x0: this.X(ix0), z0: this.Z(iz0), x1: this.X(ix1), z1: this.Z(iz1), y0: this.Y - 0.2, y1: this.Y + h };
-    W.occluders.push(occ);
-    if (o.zoneInside !== false) this.zone('inside', ix0 + 0.4, iz0 + 0.4, ix1 - 0.4, iz1 - 0.4);
-    const info = { x0: ix0, z0: iz0, x1: ix1, z1: iz1, top, h };
-    if (o.interior) o.interior(this, info);
-    if (HW && o.web !== false) this.web(ix0 + 0.4, h - 0.4, iz0 + 0.02, 0, 1);
-    return info;
+    const cb = o.interior;
+    return this.tower({ canopy: false, ...o, roof: !!o.roof, floors: 1, fh: o.h ?? 3.4, stairs: false, interior: cb ? (f, k, r) => cb(f, r) : null });
   }
   aabb(cx, cz, w, d, y0, h) {
     return new THREE.Box3(new V3(this.X(cx - w / 2), this.Y + y0, this.Z(cz - d / 2)), new V3(this.X(cx + w / 2), this.Y + y0 + h, this.Z(cz + d / 2)));
@@ -406,5 +331,8 @@ let _lm, _wm, _pf;
 const LIGHTDIM = () => _ld || (_ld = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0x8a7a70 }));
 let _ld;
 const LIGHTMAT = () => _lm || (_lm = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0xffffff }));
-export const WATERMAT = () => _wm || (_wm = lam({ map: T.water(), transparent: true, opacity: 0.85 }));
+export const WATERMAT = () => _wm || (_wm = lam({ map: T.water(), transparent: true, opacity: 0.88 }));
+let _wh, _fo;
+export const WATERHI = () => _wh || (_wh = alphaMat(T.waterHi(), { blending: THREE.AdditiveBlending, opacity: 0.55 }));
+export const FOAM = () => _fo || (_fo = alphaMat(T.foam(), { opacity: 0.75 }));
 export const PFACE = () => _pf || (_pf = new THREE.MeshBasicMaterial({ map: T.pumpkinFace(), transparent: true, alphaTest: 0.5 }));

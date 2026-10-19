@@ -8,7 +8,7 @@ export default {
   id: 'plaza', name: 'Площадь', ground: 'cobble',
   build(b) {
     const st = tmat(T.stone()), cx = 16, cz = 18, R = 3.8;
-    b.water(cx, cz, R - 0.15);
+    b.water(cx, cz, R - 0.15, 0, false);
     for (let i = 0; i < 14; i++) {
       const a = i / 14 * Math.PI * 2, x = cx + Math.cos(a) * R, z = cz + Math.sin(a) * R;
       const m = b.m(G.box, st, x, 0.27, z, 0.4, 0.55, 1.75); m.rotation.y = -a;
@@ -37,14 +37,15 @@ export default {
     for (const x of [3.2, 8.8]) b.box(x, 27, 0.15, 0.15, 2.6, mt);
     b.box(6, 27.6, 6, 1.6, 0.12, mt, { y: 2.6 });
     b.vitrine(6, 26.9, 5.4, 1.9, 'x', 0.45);
-    b.bench(6, 27.8, Math.PI);
+    b.bench(6, 27.8, 0);
     b.sign(6, 2.9, 28.42, 0, 'АВТОБУС 13', '#f5c542', '#17111f', 2.2, 0.4);
     // клумбы
+    W.spots.pickup.push({ x: b.X(22.6), z: b.Z(25.8), y: b.Y, f: [-1, 0], district: 'Площадь', label: 'киоск' });
     b.planter(6, 12, 3, 3, 0.5, 'flowers'); b.planter(26, 12, 3, 3, 0.5, 'shrub');
     // уличные мелочи: газеты, почта, указатель, столбики у памятника, велопарковка
     b.newsBox(9.5, 30.8, Math.PI); b.postBox(22, 30.8, Math.PI); b.streetSign(30.7, 30.7, 'ПЛОЩАДЬ', 'ТЫКВЕННЫЙ ПР.');
     for (const [x, z] of [[13.8, 3], [18.2, 3], [13.8, 7], [18.2, 7]]) b.bollard(x, z);
-    b.bikeRack(26.5, 2, 4, 0); b.utilityBox(31, 9, -Math.PI / 2);
+    b.bikeRack(26.5, 2, 4, 0); b.puddle(10, 26, 1); b.utilityBox(31, 9, -Math.PI / 2);
     b.m(G.cyl6, col(0x2b2533), 5, 1.6, 7, 0.1, 3.2, 0.1); b.solid(5, 7, 0.3, 0.3, 0, 3.2);
     b.m(G.box, col(0x2b2533), 5, 3.3, 7, 0.9, 0.9, 0.3); b.sign(5, 3.3, 7.16, 0, '12:00', '#f1e8ff', '#17111f', 0.7, 0.7);
     b.bench(10, 18, Math.PI / 2); b.bench(22, 18, -Math.PI / 2); b.bench(16, 24.2, Math.PI);

@@ -4,8 +4,20 @@ import { W } from './state.js';
 import { groundAt } from './physics.js';
 
 /* Пиксельные частицы: дым, пыль, брызги. Спрайты переиспользуются. */
-let pool = [], smokes = [];
-export const resetParticles = () => { pool = []; smokes = []; };
+let pool = [], smokes = [], ripples = [];
+export const resetParticles = () => { pool = []; smokes = []; ripples = []; };
+// круги на воде
+export function ripple(x, y, z, size = 1, life = 0.9) {
+  let p = ripples.find(q => !q.alive);
+  if (!p) { const m = new THREE.Mesh(G.plane, alphaMat(T.ripple(), { opacity: 0.8 })); m.rotation.x = -Math.PI / 2; W.group.add(m); p = { m }; ripples.push(p); }
+  p.alive = true; p.t = 0; p.life = life; p.size = size; p.m.position.set(x, y + 0.11, z); p.m.visible = true; p.m.scale.setScalar(0.1);
+}
+// всплеск: капли + круг
+export function splash(x, y, z, power = 1) {
+  burst(x, y + 0.1, z, Math.round(6 + 8 * power), { color: 0x9ccbec, size: 0.16 + 0.08 * power, speed: 1.2 + 1.6 * power, up: 2 + 2 * power, g: 12, life: 0.6 });
+  ripple(x, y, z, 1 + power * 1.2, 0.8 + power * 0.4);
+  if (power > 0.6) ripple(x, y, z, 0.6 + power, 0.6);
+}
 
 /* Объёмный стилизованный дым: угловатые клубы (низкополигональные), растут, крутятся и тают.
    Мелкая пыль — крошечные кубики, которые подпрыгивают и падают. */
@@ -70,6 +82,12 @@ export function updateParticles(dt) {
     p.v[1] -= p.g * dt;
     p.s.position.x += p.v[0] * dt; p.s.position.y += p.v[1] * dt; p.s.position.z += p.v[2] * dt;
     p.s.scale.setScalar(p.size * (1 + p.grow * k)); p.s.material.opacity = p.a0 * (1 - k * k);
+  }
+  for (const p of ripples) {
+    if (!p.alive) continue;
+    p.t += dt; const k = p.t / p.life;
+    if (k >= 1) { p.alive = false; p.m.visible = false; continue; }
+    p.m.scale.setScalar(0.2 + p.size * 2 * (1 - (1 - k) * (1 - k))); p.m.material.opacity = 0.8 * (1 - k);
   }
   for (const p of smokes) {
     if (!p.alive) continue;

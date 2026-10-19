@@ -41,6 +41,7 @@ export default {
         f.table(21.5, 11.6, 1.1); f.chair(20.4, 11.6, Math.PI / 2); f.chair(22.6, 11.6, -Math.PI / 2); f.whiteboard(24.6, 1.6, 11.6, -Math.PI / 2, 2.4);
         f.waterCooler(24.3, 4); f.cabinet(24.3, 6, 0.6, 1.2, 1.1, 0xd8d8e0, 0, -Math.PI / 2); f.plantPot(8, 13.2); f.plantPot(17, 13.2, 0.9);
         f.cabinet(16.5, 13.4, 2, 0.5, 1.6, 0x6a6d78, 0, Math.PI);
+        if (k % 2 === 1) f.safe(7.75, 11.4, Math.PI / 2);
       } });
     const H = N * FH;
     // крыша: вертолётная площадка, мачта с огнём, кондиционеры, бак
@@ -62,7 +63,7 @@ export default {
     for (const [x, c] of [[3, 0xff8a1f], [4.5, 0x7b4bc4], [6, 0x9be36b]]) { b.m(G.cyl6, col(0xd8d8e0), x, 3.5, 25, 0.05, 7, 0.05); b.solid(x, 25, 0.2, 0.2, 0, 7); b.m(G.box, col(c), x + 0.55, 6.3, 25, 1.0, 0.65, 0.02); }
     // курилка: стеклянная стенка, навес, скамья, урна
     b.vitrine(28.5, 27.5, 4, 1.9, 'x', 0.3); for (const x of [26.5, 30.5]) b.box(x, 27.6, 0.12, 0.12, 2.4, col(0x3a4a6a));
-    b.box(28.5, 28.3, 4.3, 1.6, 0.1, col(0x3a4a6a), { y: 2.4 }); b.bench(28.5, 28.5, Math.PI); b.bin(30.8, 29.6);
+    b.box(28.5, 28.3, 4.3, 1.6, 0.1, col(0x3a4a6a), { y: 2.4 }); b.bench(28.5, 28.5, 0); b.bin(30.8, 29.6);
     // боковые проходы: велопарковка, мусорка, кондиционеры
     b.bikeRack(3, 9, 4, Math.PI / 2); b.dumpster(28.5, 4); b.trashBags(28.5, 6.2, 3); b.aircon(28.7, 10, 0); b.aircon(28.7, 11.4, 0);
     b.newsBox(13, 30.6); b.postBox(19, 30.6); b.streetSign(1.3, 30.6, 'ДЕЛОВАЯ', 'ЛУННЫЙ БУЛ.'); b.utilityBox(1.2, 14, Math.PI / 2);

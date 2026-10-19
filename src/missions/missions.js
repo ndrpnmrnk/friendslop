@@ -4,6 +4,8 @@ import { W } from '../world/state.js';
 import { isFree, groundAt } from '../world/physics.js';
 import { buildBoard, buildTable } from './objects.js';
 import { GAMES } from './games.js';
+import { PANEL_GAMES, WORLD_GAMES } from './games2.js';
+import { buildShells, buildFishing, buildSpot, buildTargets, buildCleanup } from './objects2.js';
 
 /* Миссии: не больше CONFIG.activeMissions одновременно, у каждого типа свой лимит и пауза
    перед повтором. Объекты появляются в случайной точке подходящей зоны (пол, внутри, крыша, нычка),
@@ -59,15 +61,18 @@ function canSpawn(key, def) {
   const n = M.list.filter(m => m.key === key).length;
   if (n >= def.max) return false;
   if (key === 'cat') return W.cats.some(c => !M.list.some(m => m.obj === c));
+  if (def.needs && !(W.spots[def.needs] || []).length) return false;
+  if (def.spot) return freeSpots(def.spot).length > 0;
   return true;
 }
+const freeSpots = kind => (W.spots[kind] || []).filter(sp => !M.list.some(m => m.obj.spot === sp) && isFree(sp.x - 0.3, sp.z - 0.3, sp.x + 0.3, sp.z + 0.3, sp.y + 0.05, sp.y + 1.5) && Math.abs(groundAt(sp.x, sp.z, 0.2, sp.y + 0.4) - sp.y) < 0.25);
 export function spawnWave(player) {
   const [a, b] = CONFIG.missionWave, n = a + Math.floor(Math.random() * (b - a + 1));
   let k = 0; for (let i = 0; i < n; i++) if (spawnMission(player)) k++;
   M.waveT = 0; return k;
 }
-export function spawnMission(player) {
-  const keys = Object.keys(CONFIG.missions).filter(k => canSpawn(k, CONFIG.missions[k]));
+export function spawnMission(player, only = null) {
+  const keys = Object.keys(CONFIG.missions).filter(k => (!only || k === only) && canSpawn(k, CONFIG.missions[k]));
   keys.sort(() => Math.random() - 0.5);
   for (const key of keys) {
     const def = CONFIG.missions[key];
@@ -76,10 +81,16 @@ export function spawnMission(player) {
       const free = W.cats.filter(c => !M.list.some(m => m.obj === c));
       free.sort((a, b) => b.root.position.distanceTo(player.pos) - a.root.position.distanceTo(player.pos));
       obj = free[0]; if (!obj) continue; where = obj.home.district;
+    } else if (def.spot) {
+      const list = freeSpots(def.spot).sort((a, b) => Math.hypot(b.x - player.pos.x, b.z - player.pos.z) - Math.hypot(a.x - player.pos.x, a.z - player.pos.z));
+      const sp = list[(Math.random() * Math.min(3, list.length)) | 0]; if (!sp) continue;
+      obj = key === 'fish' ? buildFishing(sp) : buildSpot(sp); obj.spot = sp;
+      where = sp.district + (sp.label ? ' · ' + sp.label : '');
     } else {
       const pl = findPlace(def, player.pos, M.list.map(m => m.obj.pos()));
       if (!pl) continue;
-      obj = key === 'puzzle' ? buildBoard(pl.x, pl.y, pl.z, pl.f) : buildTable(pl.x, pl.y, pl.z, pl.f);
+      const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup }[key];
+      obj = key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
       where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
     }
     M.list.push({ id: ++M.id, key, def, obj, where, life: def.life, busy: false, marker: marker(def) });
@@ -121,4 +132,5 @@ export function nearMission(player) {
   }
   return best;
 }
-export { GAMES };
+export const ALL_GAMES = { ...GAMES, ...PANEL_GAMES };
+export { GAMES, WORLD_GAMES };

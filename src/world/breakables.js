@@ -8,7 +8,7 @@ import { chunk, burst } from './particles.js';
    Удар (кран, тяжёлый предмет) передаёт энергию = скорость × масса.
    Если энергия больше прочности — часть разлетается на куски.
    У кирпичных стен и сараев есть опора: без неё верхние части падают. */
-export const STRENGTH = { glass: 3.5, wood: 8, brick: 18, crate: 6 };
+export const STRENGTH = { glass: 3.5, wood: 8, brick: 18, crate: 6, pot: 2.5, bottle: 1.2, bulb: 2 };
 let breakables = [];
 export const resetBreakables = () => { breakables = []; W.breakables = breakables; };
 
@@ -41,8 +41,9 @@ export function breakBox(x, y, z, w, h, d, kind, mat) {
 }
 
 // Разрушаемая детальная модель (ящик): obj — группа единичного размера, масштабируется под w×h×d
-export function breakModel(x, y, z, w, h, d, kind, obj) {
-  obj.position.set(x, y + h / 2, z); obj.scale.set(w, h, d); W.group.add(obj);
+export function breakModel(x, y, z, w, h, d, kind, obj, o = null) {
+  if (o) { obj.position.set(x, y + o.oy, z); obj.scale.setScalar(o.unit); } else { obj.position.set(x, y + h / 2, z); obj.scale.set(w, h, d); }
+  W.group.add(obj);
   const s = addSolid(x - w / 2, z - d / 2, x + w / 2, z + d / 2, y, y + h);
   return addPiece(obj, s, kind, { size: [w, h, d] });
 }
@@ -64,6 +65,15 @@ export function breakPiece(p, vel = [0, 0, 0]) {
     }
     for (let i = 0; i < 8; i++) chunk(pos.x, pos.y, pos.z, [(Math.random() - 0.5) * 6, 1 + Math.random() * 4, (Math.random() - 0.5) * 6], { mat: PLANK(), size: 1, sx: 0.04, sy: 0.04, sz: 0.18, r: 0.03, life: 2.5 });
     burst(pos.x, pos.y, pos.z, 5, { color: 0x9a7a52, size: 0.4, speed: 1.6, up: 1, g: 2, grow: 1.2, life: 0.8 });
+  } else if (p.kind === 'pot') {
+    const [w, h] = p.size;
+    for (let i = 0; i < 7; i++) chunk(pos.x, pos.y + 0.2, pos.z, [(Math.random() - 0.5) * 4 + vel[0] * 0.3, 1 + Math.random() * 3, (Math.random() - 0.5) * 4 + vel[2] * 0.3], { mat: col(0xb05a3a), size: 0.08 + Math.random() * 0.06, sy: 0.4, life: 3 });
+    for (let i = 0; i < 4; i++) chunk(pos.x, pos.y + h * 0.4, pos.z, [(Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3], { mat: tmat(T.leaves(2)), geo: G.ico, size: 0.14, life: 3 });
+    burst(pos.x, pos.y + 0.2, pos.z, 5, { color: 0x4a3424, size: 0.3, speed: 1.4, up: 1, g: 4, life: 0.7 });
+    void w;
+  } else if (p.kind === 'bottle' || p.kind === 'bulb') {
+    for (let i = 0; i < 6; i++) chunk(pos.x, pos.y, pos.z, [(Math.random() - 0.5) * 3, Math.random() * 2.5, (Math.random() - 0.5) * 3], { mat: p.kind === 'bulb' ? GLASS() : m.material, size: 0.05 + Math.random() * 0.04, sy: 0.3, life: 1.5 });
+    burst(pos.x, pos.y, pos.z, p.kind === 'bulb' ? 8 : 3, { color: p.kind === 'bulb' ? 0xffe0a0 : 0xd8f0ff, size: 0.12, speed: 2, up: 1, g: 9, life: 0.5 });
   } else if (p.kind === 'glass') {
     for (let i = 0; i < 10; i++) chunk(pos.x + (Math.random() - 0.5) * sc.x, pos.y + (Math.random() - 0.5) * sc.y, pos.z + (Math.random() - 0.5) * sc.z,
       [vel[0] * 0.4 + (Math.random() - 0.5) * 3, Math.random() * 3, vel[2] * 0.4 + (Math.random() - 0.5) * 3], { mat: GLASS(), size: 0.12 + Math.random() * 0.1, sy: 1.4, sz: 0.2, life: 1.6 });
@@ -80,11 +90,11 @@ export function breakPiece(p, vel = [0, 0, 0]) {
 }
 
 // Удар сферой: кран, летящий предмет
-export function hitBreakables(pos, r, vel, mass) {
+export function hitBreakables(pos, r, vel, mass, kinds = null) {
   const speed = Math.hypot(vel[0], vel[1], vel[2]), energy = speed * mass;
   let hit = false;
   for (const p of breakables) {
-    if (!p.alive || !p.solid) continue;
+    if (!p.alive || !p.solid || (kinds && !kinds.includes(p.kind))) continue;
     const s = p.solid;
     const cx = Math.max(s.x0, Math.min(pos.x, s.x1)), cy = Math.max(s.y0, Math.min(pos.y, s.y1)), cz = Math.max(s.z0, Math.min(pos.z, s.z1));
     if ((pos.x - cx) ** 2 + (pos.y - cy) ** 2 + (pos.z - cz) ** 2 > r * r) continue;
@@ -106,7 +116,7 @@ export function bakeBreakables(group) {
   for (const p of breakables) {
     if (!p.alive || !p.mesh.parent) continue;
     const list = []; p.mesh.traverse(o => { if (o.isMesh) list.push(o); });
-    if (!list.length || list.some(o => Array.isArray(o.material) || o.material.transparent)) continue;
+    if (!list.length || list.some(o => Array.isArray(o.material))) continue;
     p.inst = [];
     for (const o of list) {
       const k = o.geometry.uuid + o.material.uuid; let b = by.get(k); if (!b) by.set(k, b = { geo: o.geometry, mat: o.material, items: [] });
@@ -115,7 +125,7 @@ export function bakeBreakables(group) {
     p.mesh.parent.remove(p.mesh);
   }
   for (const b of by.values()) {
-    const im = new THREE.InstancedMesh(b.geo, b.mat, b.items.length); im.castShadow = true; im.receiveShadow = true;
+    const im = new THREE.InstancedMesh(b.geo, b.mat, b.items.length); im.castShadow = !b.mat.transparent; im.receiveShadow = !b.mat.transparent;
     b.items.forEach((it, i) => { im.setMatrixAt(i, it.mx); it.p.inst.push({ im, i }); });
     im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); group.add(im);
   }

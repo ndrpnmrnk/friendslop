@@ -19,7 +19,7 @@ export default {
         } else if (k === 1) {
           for (const x of [13.5, 18, 22.5]) f.shelf(x, 5.6, 3.2, 0);
           f.table(15.8, 7.9, 0.8); f.table(20.3, 7.9, 0.8); f.chair(15.8, 7.1, 0); f.chair(20.3, 7.1, 0);
-          f.rug(26, 6, 2.4, 3, '#2a6a4a', '#f5c542'); f.sofa(26, 8.2, Math.PI, 0x4a5a8a); f.plantPot(11.4, 8.4);
+          f.rug(26, 6, 2.4, 3, '#2a6a4a', '#f5c542'); f.safe(28.3, 4.4, -Math.PI / 2); f.sofa(26, 8.2, Math.PI, 0x4a5a8a); f.plantPot(11.4, 8.4);
         } else {
           for (const x of [14, 19, 24]) { f.box(x, 6, 2.6, 1.1, 0.9, tmat(T.cabinet(0xd8d8e0))); f.m(G.box, col(0x2b2533), x, 0.93, 6, 2.62, 0.05, 1.12);
             for (const dx of [-0.8, 0, 0.8]) { f.m(G.cyl8, glow([0x9be36b, 0x4ab0f0, 0xff5a6e][((x + dx * 3) | 0) % 3]), x + dx, 1.08, 6, 0.06, 0.24, 0.06); } }

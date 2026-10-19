@@ -1,4 +1,4 @@
-import { THREE, ps1 } from '../core/gfx.js';
+import { THREE, ps1, G } from '../core/gfx.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { W } from './state.js';
 import { bakeBreakables } from './breakables.js';
@@ -20,7 +20,7 @@ export function bakeStatic(group) {
   for (const c of W.cats) keep.add(c.root);
   for (const o of W.occluders) if (!o.inside) for (const m of o.mats) keep.add(m);
   group.updateMatrixWorld(true);
-  const buckets = new Map(), removed = [];
+  const buckets = new Map(), removed = [], boxes = [];
   const ok = m => m && (!m.transparent || m.blending === THREE.AdditiveBlending) && !keep.has(m) && m.visible !== false;
   const visit = o => {
     if (keep.has(o)) return;
@@ -31,7 +31,19 @@ export function bakeStatic(group) {
         g.applyMatrix4(o.matrixWorld);
         if (o.matrixWorld.determinant() < 0) flip(g);
         const c = new THREE.Vector3(); g.computeBoundingBox(); g.boundingBox.getCenter(c);
+        if (o.geometry === G.box && axisAligned(o.matrixWorld)) boxes.push({ g, bb: g.boundingBox.clone() });
         const cell = Math.floor(c.x / CELL) + ':' + Math.floor(c.z / CELL);
+        pending.push({ o, g, mats, cell }); removed.push(o); return;
+      }
+    }
+    for (const c of o.children.slice()) visit(c);
+  };
+  const pending = [];
+  for (const c of group.children.slice()) visit(c);
+  fixCoplanar(boxes);
+  for (const { o, g, mats, cell } of pending) {
+    {
+      {
         const parts = Array.isArray(o.material) ? (g.groups.length ? g.groups : [{ start: 0, count: g.attributes.position.count, materialIndex: 0 }]) : [{ start: 0, count: g.attributes.position.count, materialIndex: 0 }];
         for (const gr of parts) {
           const mat = mats[gr.materialIndex]; if (!mat) continue;
@@ -41,13 +53,9 @@ export function bakeStatic(group) {
           let bk = buckets.get(key); if (!bk) buckets.set(key, bk = { mat: cm, list: [], ro: o.renderOrder || 0, shadow: o.castShadow !== false });
           bk.list.push(strip(sub));
         }
-        removed.push(o);
-        return;
       }
     }
-    for (const c of o.children.slice()) visit(c);
-  };
-  for (const c of group.children.slice()) visit(c);
+  }
   for (const o of removed) o.parent && o.parent.remove(o);
   let n = 0;
   for (const bk of buckets.values()) {
@@ -98,5 +106,40 @@ function flip(g) {
   for (const k of ['position', 'normal', 'uv']) {
     const a = g.attributes[k]; if (!a) continue; const s = a.itemSize, arr = a.array;
     for (let i = 0; i < a.count; i += 3) for (let j = 0; j < s; j++) { const t = arr[(i + 1) * s + j]; arr[(i + 1) * s + j] = arr[(i + 2) * s + j]; arr[(i + 2) * s + j] = t; }
+  }
+}
+
+/* Против мерцания: если две коробки имеют совпадающие грани, смотрящие в одну сторону
+   (верх стены и верх крыши, земля и бортик клумбы, доска на крыше), большая грань
+   утапливается на 1.5 см — сверху остаётся меньший объект, полосы исчезают. */
+function axisAligned(m) {
+  const e = m.elements;
+  // каждая ось локальной коробки должна идти вдоль мировой оси
+  for (const c of [0, 4, 8]) { const a = [Math.abs(e[c]), Math.abs(e[c + 1]), Math.abs(e[c + 2])], mx = Math.max(...a); if (a.filter(v => v > mx * 1e-3).length !== 1) return false; }
+  return true;
+}
+function fixCoplanar(boxes) {
+  const faces = new Map(), E = 0.015;
+  const K = (a, s, v) => a + '|' + s + '|' + Math.round(v * 100);
+  const AX = ['x', 'y', 'z'];
+  for (const b of boxes) for (let a = 0; a < 3; a++) for (const s of [-1, 1]) {
+    const v = s > 0 ? b.bb.max[AX[a]] : b.bb.min[AX[a]], o1 = (a + 1) % 3, o2 = (a + 2) % 3;
+    const f = { b, a, s, v, r: [b.bb.min[AX[o1]], b.bb.max[AX[o1]], b.bb.min[AX[o2]], b.bb.max[AX[o2]]] };
+    f.area = (f.r[1] - f.r[0]) * (f.r[3] - f.r[2]);
+    const k = K(a, s, v); let l = faces.get(k); if (!l) faces.set(k, l = []); l.push(f);
+  }
+  const moved = new Set();
+  for (const [k, list] of faces) {
+    const [a, s, cm] = k.split('|'), near = [...list, ...(faces.get(a + '|' + s + '|' + (+cm + 1)) || [])];
+    for (let i = 0; i < list.length; i++) for (let j = 0; j < near.length; j++) {
+      const f = list[i], q = near[j]; if (f === q || f.b === q.b || Math.abs(f.v - q.v) > 0.008) continue;
+      const ox = Math.min(f.r[1], q.r[1]) - Math.max(f.r[0], q.r[0]), oz = Math.min(f.r[3], q.r[3]) - Math.max(f.r[2], q.r[2]);
+      if (ox <= 0.002 || oz <= 0.002) continue;
+      const big = f.area >= q.area ? f : q;
+      if (moved.has(big)) continue; moved.add(big);
+      const pos = big.b.g.attributes.position, arr = pos.array, ai = big.a;
+      for (let v = 0; v < pos.count; v++) if (Math.abs(arr[v * 3 + ai] - big.v) < 1e-3) arr[v * 3 + ai] -= big.s * E;
+      pos.needsUpdate = true;
+    }
   }
 }

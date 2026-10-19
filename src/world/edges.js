@@ -52,7 +52,8 @@ export function buildEdges(half) {
       new Builder(0, 0, base + 1.0, 'Набережная').fence(along ? -half - 3.5 : rx, along ? rz : -half - 3.5, along ? half + 3.5 : rx, along ? rz : half + 3.5, 1.1, 'iron');
       W.solids[W.solids.length - 1].y0 = 0; W.solids[W.solids.length - 1].y1 = 2.6;
       const [wx, wz] = f.P(0, 34), [ww, wd] = f.S(L + 120, 60);
-      const water = mesh(G.box, lam({ map: rep(T.water(), 20, 10), color: 0x6a7aa8 }), wx, -1.2, wz, ww, 0.2, wd, W.group);
+      const water = mesh(G.box, lam({ map: T.water(), color: 0x6a7aa8 }, 'riverWater'), wx, -1.2, wz, ww, 0.2, wd, W.group);
+      water.geometry = G.box.clone(); { const uv = water.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * ww / 5, uv.getY(i) * wd / 5); }
       for (let u = -half - 30; u < half + 30; u += 6 + rand() * 8) { const h = 10 + rand() * 22, w = 5 + rand() * 6, c = pick([0x3a3050, 0x2a2440]);
         const mats = Array(6).fill(own({ color: c })); mats[f.inFace] = own({ map: facade(c, w, h, { lit: 0.35, brick: false }) });
         box(f, u, 66 + rand() * 6, w, 6, h, mats, -1, false); }

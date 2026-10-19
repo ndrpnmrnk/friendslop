@@ -51,7 +51,8 @@ export default {
     W.keep.push(mixer); W.animated.push(dt => { drum.rotation.y += dt * 1.5; }); b.solid(7.5, 24, 1.4, 1.3, 0, 1.8);
     b.m(G.box, glow(0xff8a1f), 1.5, 2.6, 13.6, 0.25, 0.25, 0.25);
     // биотуалет, мешки цемента, шины, конусы
-    b.potty(29.6, 29.6, Math.PI); b.potty(28.2, 29.6, Math.PI); b.cementPallet(22, 16); b.tires(2.2, 29.6, 3); b.cone(14.5, 21.5); b.cone(15.5, 23);
+    b.potty(29.6, 29.6, Math.PI); b.puddle(10, 17, 1.3); b.puddle(24, 26, 1); b.potty(28.2, 29.6, Math.PI); b.cementPallet(22, 16); b.brickStack(10, 14);
+    W.spots.demo.push({ x: b.X(9.5), z: b.Z(1.8), y: b.Y, pieces: [] }); b.tires(2.2, 29.6, 3); b.cone(14.5, 21.5); b.cone(15.5, 23);
     b.lamp(31, 20, -Math.PI / 2); b.lamp(12.5, 15, 0);
     b.zone('floor', 2, 13.5, 19, 30.5); b.zone('floor', 19, 13.5, 31, 22.5);
     b.spawn(16, 15); b.spawn(24, 29.5);

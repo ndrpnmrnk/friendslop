@@ -57,8 +57,22 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
     cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens * (aiming ? 0.75 : 1), -0.75, 1.5);
   }
   let P, L;
+  if (cam.orbit && !cam.pose) {
+    // свободная камера вокруг крана: мышь вращает, стены не пускают
+    if (lookDelta) { cam.yaw -= lookDelta.dx * cam.sens; cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens, 0.05, 1.45); }
+    orbitPitch += (cam.pitch - orbitPitch) * damp(20, dt); orbitYaw += (cam.yaw - orbitYaw) * damp(20, dt);
+    dir.set(Math.sin(orbitYaw) * Math.cos(orbitPitch), Math.sin(orbitPitch), Math.cos(orbitYaw) * Math.cos(orbitPitch));
+    piv.lerp(cam.orbit.c, snap ? 1 : damp(6, dt));
+    want.copy(piv).addScaledVector(dir, cam.orbit.dist); aboveGround(want, want.y + 50); constrain(piv, want, radius);
+    P = want; L = look.copy(piv); following = false;
+    if (Math.abs(camera.fov - CONFIG.camera.fov) > 0.01) { camera.fov = CONFIG.camera.fov; camera.updateProjectionMatrix(); }
+    camera.position.lerp(P, snap ? 1 : damp(10, dt)); camera.lookAt(L); pos.copy(camera.position); look.copy(L); cam.blend = 0;
+    return;
+  }
   if (cam.pose) {
-    P = constrain(cam.pose.l, want.copy(cam.pose.p), radius, cam.pose.ignore); L = cam.pose.l;
+    // луч от объекта к камере начинаем чуть впереди объекта, чтобы сам объект не «прилипал» камеру
+    const st = delta.subVectors(cam.pose.p, cam.pose.l), sl = st.length(); const from = eye.copy(cam.pose.l).addScaledVector(st.normalize(), Math.min(0.5, sl * 0.4));
+    P = constrain(from, want.copy(cam.pose.p), radius, cam.pose.ignore, cam.pose.l.y + 0.35); L = cam.pose.l;
   }
   else {
     cam.aimK += ((aiming ? 1 : 0) - cam.aimK) * damp(10, dt);

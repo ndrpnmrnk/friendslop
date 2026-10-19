@@ -2,7 +2,8 @@ import { THREE, G, mesh, col, tmat, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
 import { addOutline } from '../game/outline.js';
-import { cartModel, barrowModel, binModel } from './props.js';
+import { cartModel, barrowModel, binModel, tireModel } from './props.js';
+import { chunk, decal, burst } from './particles.js';
 
 // Тележки и бочки: их можно толкать телом
 /* На чём можно кататься: seat — высота посадки, pose — сидя или стоя,
@@ -38,6 +39,8 @@ export function addPushable(b, kind, x, z) {
       for (const x of [-0.27, 0.27]) { add(G.box, dk, x, 0.68, 0, 0.05, 0.04, 0.32); add(G.box, dk, x, 0.6, -0.08, 0.03, 0.16, 0.03); }
     }));
     r = 0.38;
+  } else if (kind === 'tire') {
+    roller = new THREE.Group(); roller.position.y = 0.33; g.add(roller); roller.add(tireModel()); r = 0.35;
   } else {
     roller = new THREE.Group(); roller.position.y = 0.42; g.add(roller);
     const rl = compose('barrelRoll', add => {
@@ -49,9 +52,26 @@ export function addPushable(b, kind, x, z) {
     r = 0.5;
   }
   // mass: тележка катится легко, урна потяжелее, бочка тяжёлая
-  const mass = { cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6 }[kind];
-  const h = { cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8 }[kind];
+  const mass = { cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7 }[kind];
+  const h = { cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7 }[kind];
   const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y, vx: 0, vz: 0, r, mass, h, ride: RIDE[kind] || null, heading: 0 };
   if (p.ride) p.outline = addOutline(g, 0.04);
   g.position.set(p.x, p.y, p.z); W.pushables.push(p); return p;
+}
+
+/* Урна опрокидывается от сильного удара или тарана на бегу: ложится набок, мусор высыпается */
+export function tipBin(b, dx = 0, dz = 1) {
+  if (b.kind !== 'bin' || b.tipped) return;
+  b.tipped = true; b.tipT = 0; b.tipDir = Math.atan2(dx, dz);
+  const cols = [0xd8d0c0, 0x8a8d98, 0xc83a3a, 0x6aa84f];
+  for (let i = 0; i < 8; i++) chunk(b.x, b.y + 0.6, b.z, [dx * 3 + (Math.random() - 0.5) * 3, 1 + Math.random() * 2, dz * 3 + (Math.random() - 0.5) * 3], { mat: col(cols[i % 4]), size: 0.1, sy: 0.4, life: 6 });
+  decal(T.splat('#2a2418'), b.x + dx * 0.8, b.y, b.z + dz * 0.8, 1.3, 12, 0xffffff);
+  burst(b.x, b.y + 0.4, b.z, 4, { color: 0x6a6a5a, size: 0.3, speed: 1.2, up: 0.8, g: 2, life: 0.6 });
+}
+export function animateTip(b, dt) {
+  if (!b.tipped || b.tipT >= 1) return;
+  b.tipT = Math.min(1, b.tipT + dt * 3);
+  const m = b.mesh.children[0], k = b.tipT * b.tipT;
+  b.mesh.rotation.y = b.tipDir; m.rotation.x = k * Math.PI / 2; m.position.y = k * 0.36;
+  b.h = 0.75;
 }

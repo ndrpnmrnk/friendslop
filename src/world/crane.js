@@ -1,7 +1,7 @@
 import { THREE, G, V3, mesh, col, tmat, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
-import { groundAt, impulsePushables } from './physics.js';
+import { groundAt, impulsePushables, solidsNear } from './physics.js';
 import { hitBreakables } from './breakables.js';
 import { clamp, damp } from '../core/rng.js';
 import { addOutline } from '../game/outline.js';
@@ -48,6 +48,7 @@ export function buildCrane(b, mx, mz, aimAt) {
   pivot.rotation.y = cr.yaw;
   const a = anchor(cr); cr.p.set(a.x, a.y - rope, a.z); cr.prev.copy(cr.p);
   W.crane = cr;
+  W.spots.crane.push({ x: b.X(mx + 1.6), z: b.Z(mz + 2.8), y: b.Y, f: [0, 1], district: b.d, label: 'кран' });
   return cr;
 }
 const _a = new V3();
@@ -55,11 +56,20 @@ function anchor(cr) { return cr.trolley.getWorldPosition(_a); }
 
 export function updateCrane(dt, input) {
   const cr = W.crane; if (!cr) return;
+  /* Управление: WASD двигает точку, куда надо подвести шар (относительно камеры),
+     стрела сама поворачивается к ней с инерцией, тележка едет по стреле. */
+  const mx = cr.pivot.position.x, mz = cr.pivot.position.z;
+  if (!cr.target) { const a0 = anchor(cr); cr.target = { x: a0.x, z: a0.z }; }
   if (cr.active && input) {
-    cr.yawV += (input.nx * 1.3 - cr.yawV) * damp(2.2, dt);
-    cr.tr += clamp((5 + (input.ny + 1) * 3.6) - cr.tr, -3 * dt, 3 * dt);
-  } else cr.yawV *= Math.exp(-dt * 2);
-  cr.pivot.rotation.y -= cr.yawV * dt;
+    cr.target.x += input.ix * 7 * dt; cr.target.z += input.iz * 7 * dt;
+    let dx = cr.target.x - mx, dz = cr.target.z - mz, r = Math.hypot(dx, dz) || 1;
+    const rr = clamp(r, 3, 12.4); cr.target.x = mx + dx / r * rr; cr.target.z = mz + dz / r * rr;
+    const want = Math.atan2(-(cr.target.z - mz), cr.target.x - mx);
+    let dd = want - cr.pivot.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd));
+    cr.yawV += (clamp(dd * 2.2, -1.1, 1.1) - cr.yawV) * damp(3, dt);
+    cr.tr += clamp(rr - cr.tr, -3.5 * dt, 3.5 * dt);
+  } else { cr.yawV *= Math.exp(-dt * 2); if (cr.target && !cr.active) { const a0 = anchor(cr); cr.target.x = a0.x; cr.target.z = a0.z; } }
+  cr.pivot.rotation.y += cr.yawV * dt;
   cr.trolley.position.x = cr.tr;
   cr.pivot.updateMatrixWorld();
   // маятник (Верле)
@@ -71,7 +81,7 @@ export function updateCrane(dt, input) {
   const vel = new V3(p.x - cr.prev.x, p.y - cr.prev.y, p.z - cr.prev.z).divideScalar(Math.max(dt, 1e-3)), speed = vel.length();
   // удары: разрушаемое ломается, остальное отталкивает шар
   if (speed > 2.2 && hitBreakables(p, cr.ballR, [vel.x, vel.y, vel.z], 25)) cr.prev.lerp(p, 0.18);
-  for (const s of W.solids) {
+  for (const s of solidsNear(p.x - 1, p.z - 1, p.x + 1, p.z + 1)) {
     if (!s.on) continue;
     const cx = clamp(p.x, s.x0, s.x1), cy = clamp(p.y, s.y0, s.y1), cz = clamp(p.z, s.z0, s.z1);
     const ex = p.x - cx, ey = p.y - cy, ez = p.z - cz, dd = Math.hypot(ex, ey, ez);

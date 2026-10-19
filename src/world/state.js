@@ -3,10 +3,11 @@ export const W = {
   group: null,
   solids: [], zones: [], doors: [], ladders: [], pushables: [], items: [],
   occluders: [], birds: [], cats: [], catHomes: [], missionZones: [], spawns: [],
-  debris: [], decals: [], animated: [], crane: null, bounds: 50, districts: [], breakables: [], holes: [], tunnelOpenings: [], keep: [],
+  debris: [], decals: [], animated: [], crane: null, bounds: 50, districts: [], breakables: [], holes: [], tunnelOpenings: [], keep: [], hitHooks: [],
+  spots: { fish: [], fuse: [], safe: [], pickup: [], deliver: [], demo: [], crane: [] },
 };
 export function resetWorld(group) {
   W.group = group;
   for (const k of ['solids', 'zones', 'doors', 'ladders', 'pushables', 'items', 'occluders', 'birds', 'cats', 'catHomes', 'missionZones', 'spawns', 'debris', 'decals', 'animated', 'districts', 'breakables', 'holes', 'tunnelOpenings', 'keep']) W[k] = [];
-  W.crane = null; W.grid = new Map();
+  W.crane = null; W.grid = new Map(); W.hitHooks = []; W.spots = { fish: [], fuse: [], safe: [], pickup: [], deliver: [], demo: [], crane: [] };
 }

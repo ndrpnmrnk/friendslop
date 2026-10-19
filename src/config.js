@@ -33,7 +33,7 @@ export const CONFIG = {
     crouchH: 1.0, crouchSpeed: 3.2, slideTime: 0.75, slideSpeed: 12, diveSpeed: 10, diveUp: 4.5, rollTime: 0.45, diveCooldown: 0.9,
   },
   camera: { offset: [0, 12.5, 14], fov: 50, lookAhead: 0.3 },
-  missionWave: [1, 2],            // миссии приходят волнами по 1–2, следующая — когда закончатся текущие
+  missionWave: [2, 3],            // миссии приходят волнами по 2–3, следующая — когда закончатся текущие
   waveDelay: [1.5, 3],
   interact: 2.2,
   cats: 2,
@@ -44,6 +44,19 @@ export const CONFIG = {
               zones: ['floor', 'inside', 'roof', 'tunnel'], foot: [2.6, 0.6], clear: 2.4 },
     ttt:    { name: 'Обыграть призрака в крестики-нолики', icon: '👻', points: 250, diff: 'hard', life: 0, max: 1, game: 'ttt',
               zones: ['floor', 'inside', 'nook', 'roof', 'tunnel'], foot: [1.8, 2.6], clear: 1.4 },
+    // spot — миссия ставится в заранее отмеченное место (есть только если такое место есть на карте)
+    // world — уличная миссия: бегаешь как обычно, сверху таймер
+    shells: { name: 'Наперстки: найди тыковку', icon: '🥤', points: 150, diff: 'easy', life: 45, max: 1, game: 'shells',
+              zones: ['floor', 'inside', 'nook', 'tunnel'], foot: [1.9, 1.0], clear: 1.6 },
+    targets: { name: 'Меткий бросок: сбей 3 мишени', icon: '🎯', points: 150, diff: 'easy', life: 50, max: 1, game: 'targets', world: true,
+              zones: ['floor'], foot: [6, 7], clear: 1.2 },
+    cleanup: { name: 'Уборка: мусор в урну', icon: '🧹', points: 120, diff: 'easy', life: 50, max: 1, game: 'cleanup', world: true,
+              zones: ['floor'], foot: [1, 1], clear: 1.5 },
+    fish:   { name: 'Рыбалка', icon: '🎣', points: 200, diff: 'mid', life: 50, max: 1, game: 'fish', spot: 'fish' },
+    fuse:   { name: 'Почини щиток', icon: '⚡', points: 200, diff: 'mid', life: 50, max: 1, game: 'fuse', spot: 'fuse' },
+    delivery: { name: 'Доставка заказа', icon: '📦', points: 220, diff: 'mid', life: 45, max: 1, game: 'delivery', spot: 'pickup', world: true, needs: 'deliver' },
+    safe:   { name: 'Взломай сейф', icon: '🔐', points: 280, diff: 'hard', life: 0, max: 1, game: 'safe', spot: 'safe' },
+    demolition: { name: 'Снос краном', icon: '🏗️', points: 300, diff: 'hard', life: 60, max: 1, game: 'demolition', spot: 'crane', world: true, needs: 'demo' },
   },
   missionCooldown: 6,
   // предметы для броска
@@ -54,8 +67,11 @@ export const CONFIG = {
     tomato:  { name: 'Помидор', icon: '🍅', heavy: false, r: 0.16, respawn: 8, mass: 0.25, drag: 0.1, bounce: 0.2 },
     pumpkin: { name: 'Тыква', icon: '🎃', heavy: true, r: 0.32, respawn: 12, mass: 3, drag: 0, bounce: 0.15 },
     ball:    { name: 'Мяч', icon: '🏀', heavy: false, r: 0.24, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.65 },
-    brick:   { name: 'Кирпич', icon: '🧱', heavy: true, r: 0.2, respawn: 10, mass: 2.5, drag: 0, bounce: 0.1 },
+    brick:   { name: 'Кирпич', icon: '🧱', heavy: true, r: 0.2, respawn: 10, mass: 2.5, drag: 0, bounce: 0.1, sinks: true },
     chair:   { name: 'Стул', icon: '🪑', heavy: true, r: 0.3, respawn: 15, mass: 1.6, drag: 0.05, bounce: 0.2, rest: 0.0 },
+    trash:   { name: 'Мусорный пакет', icon: '🗑️', heavy: false, r: 0.28, respawn: 25, mass: 1.0, drag: 0.12, bounce: 0.2 },
+    litter:  { name: 'Мусор', icon: '🥫', heavy: false, r: 0.12, respawn: 0, mass: 0.2, drag: 0.15, bounce: 0.35 },
+    parcel:  { name: 'Заказ', icon: '📦', heavy: false, r: 0.24, respawn: 0, mass: 0.8, drag: 0.1, bounce: 0.2 },
     cone:    { name: 'Конус', icon: '🔶', heavy: false, r: 0.22, respawn: 0, mass: 0.5, drag: 0.15, bounce: 0.45, rest: 0.0 },
   },
   throw: { minRange: 3, maxRange: 17, chargeTime: 0.9 },
@@ -64,6 +80,14 @@ export const CONFIG = {
 export const HINTS = {
   cat: 'Зажми кнопку мыши и гладь кота, водя рукой туда-сюда. От головы к хвосту приятнее всего. Резкие движения его злят.',
   puzzle: 'Кликни по двум плиткам, чтобы поменять их местами, и собери картинку.',
+  shells: 'Запомни, под каким стаканом тыковка, следи за перемешиванием и кликни по нужному.',
+  fish: 'Жди поклёвку и кликни, когда поплавок задёргается. Потом держи ЛКМ, чтобы мотать, а когда рыба тянет — отпусти.',
+  fuse: 'Тяни провод слева мышью к клемме того же цвета справа.',
+  safe: 'Зажми ЛКМ на диске и крути. На нужной цифре слышен щелчок — тогда нажми на ручку. Нужно три цифры.',
+  targets: 'Бери помидоры и мячи из ящика (E) и бросай (ПКМ) в мишени.',
+  cleanup: 'Подбирай мусор (E) и бросай в урну или клади рядом с ней.',
+  delivery: 'Неси заказ к зелёному лучу. Его можно бросить и снова поднять, но время идёт.',
+  demolition: 'Ты в кране: WASD двигает шар, мышь — камера. Снеси 3/4 красной стены.',
   ttt: 'Ты ставишь крестики. Победа даёт все очки, ничья половину, поражение проваливает миссию.',
 };
 

@@ -7,10 +7,10 @@ import { addPushable } from '../pushables.js';
 export default {
   id: 'industrial', name: 'Промзона', ground: 'concrete',
   build(b) {
-    const C = (x, z, w, d, c) => {
+    const C = (x, z, w, d, c, y = 0) => {
       const m = tmat(T.corrugated(c)), door = tmat(T.containerEnd(c));
-      b.box(x, z, w, d, 2.6, w > d ? [door, door, m, m, m, m] : [m, m, m, m, door, door]);
-      b.m(G.box, col(0x2b2533), x, 2.62, z, w + 0.04, 0.04, d + 0.04);
+      b.box(x, z, w, d, 2.6, w > d ? [door, door, m, m, m, m] : [m, m, m, m, door, door], { y });
+      b.m(G.box, col(0x2b2533), x, y + 2.63, z, w + 0.04, 0.05, d + 0.04);
     };
     const open = (x0, z0, w, d, openSide, c) => {
       const m = tmat(T.corrugated(c)), t = 0.15;
@@ -23,7 +23,10 @@ export default {
     C(5, 4, 7, 2.6, 0x3a6a9a); C(14, 4, 7, 2.6, 0xd8a030); C(23, 4, 7, 2.6, 0x4a7a4a);
     b.plank(8.5, 4, 10.5, 4, 2.62, 1); b.plank(17.5, 4, 19.5, 4, 2.62, 1);
     b.crate(2, 6.4, 1.3); b.crate(1.5, 7.8, 1.1);
-    C(5, 10, 7, 2.6, 0xc84a2a); C(16, 11, 2.6, 7, 0x6a4a8a); C(27, 12, 7, 2.6, 0x3a6a9a);
+    C(5, 10, 7, 2.6, 0xc84a2a);
+    // ФИШКА: башня из контейнеров — лестница наверх, оттуда видно всю промзону
+    C(5.6, 10, 5.8, 2.6, 0x3a6a9a, 2.65); b.ladder(8.5, 10, 'e', 2.65); b.ladder(8.5, 10.85, 'e', 5.25, 2.65);
+    b.zone('roof', 3.2, 9.2, 8, 10.8, 5.25); b.item('brick', 4, 10, 5.25); C(16, 11, 2.6, 7, 0x6a4a8a); C(27, 12, 7, 2.6, 0x3a6a9a);
     b.plank(5, 5.3, 5, 8.7, 2.62, 1);
     b.crate(18, 9.5, 1.3); b.crate(23, 13.8, 1.2);
     open(2, 18, 7, 2.6, 'e', 0x8a4a2a); open(23, 24, 7, 2.6, 'w', 0x4a6a8a);
@@ -39,7 +42,7 @@ export default {
     b.solid(19, 30, 3, 1.4, 0.18, 0.45);
     b.crate(17, 29.4, 1); b.crate(17.8, 30.4, 0.9);
     // погрузчик, поддоны, бочки у стены, мусор
-    b.forklift(23, 29, Math.PI / 2); b.pallet(27.5, 15.5); b.pallet(27.5, 15.5, 1.6, 1.2, 0.18); b.barrel(30.6, 21.5); b.barrel(30.6, 22.5); b.trashBags(2.2, 13.2, 3);
+    b.forklift(23, 29, Math.PI / 2); b.graffiti(26, 1.4, 19.24, 0, 3, 2); b.graffiti(14, 1.3, 2.68, Math.PI, 2.4, 3); b.puddle(10, 15, 1.2); b.puddle(20, 22, 0.9); b.pallet(27.5, 15.5); b.pallet(27.5, 15.5, 1.6, 1.2, 0.18); b.barrel(30.6, 21.5); b.barrel(30.6, 22.5); b.trashBags(2.2, 13.2, 3);
     b.lamp(12, 1.2, 0); b.lamp(31, 8, -Math.PI / 2); b.lamp(1, 14, Math.PI / 2);
     b.zone('floor', 7, 13, 14.5, 17.5); b.zone('floor', 1, 22.5, 11, 31); b.zone('floor', 18.5, 13.5, 31, 18);
     b.spawn(10, 7.5); b.spawn(20, 16);
