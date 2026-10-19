@@ -6,7 +6,7 @@ import { COATS } from '../game/cats.js';
    телевизор и акула чуть шире и ниже. Хитбокс и скорость у всех одинаковые. */
 const ginger = { ...COATS[0], name: 'skinGinger', base: '#d89a5a', light: '#f2cfa0', dark: '#a8682e', eye: '#9aa870' };
 
-let headGeo, sharkGeo;
+let headGeo, sharkGeo, frogGeo;
 export const SKINS = {
   cat: {
     name: 'Котик',
@@ -77,6 +77,38 @@ export const SKINS = {
       for (const ft of [footL, footR]) { const fl = mesh(G.sph, skin, 0, 0.07, 0.1, 0.17, 0.07, 0.26, ft); }
       return { top: 1.62, handX: 0.78, handY: 0.66, handZ: 0, footX: 0.22, footY: 0, holdX: 0.3, holdY: 0.95, holdZ: 0.72, shadow: 0.7 };
     },
+  },
+  // Лягушка-рептилоид в камуфляжной кепке: зелёная морда с белыми глазами, рубашка хаки с кожаной портупеей,
+  // наплечник, зелёные ладони в рукавах, ботинки с горящими пряжками
+  frog: {
+    name: 'Рептилоид',
+    build({ head, torso, handL, handR, footL, footR }) {
+      const skin = tmat(T.frogSkin()), faces = { open: tmat(T.frogFace('open')), closed: tmat(T.frogFace('closed')), wow: tmat(T.frogFace('wow')) };
+      frogGeo = frogGeo || frontBack(new THREE.SphereGeometry(1, 8, 6), 0.15);
+      const h = new THREE.Mesh(frogGeo, [faces.open, skin]); h.scale.set(0.58, 0.44, 0.5); h.position.set(0, 1.18, 0.02); head.add(h);
+      // глаза-бугры сверху морды
+      for (const s of [-1, 1]) mesh(G.sph, skin, s * 0.26, 1.42, 0.16, 0.16, 0.12, 0.14, head);
+      // камуфляжная кепка с чёрной лентой и козырьком
+      const camo = tmat(T.camo()), band = col(0x17111f);
+      mesh(G.cyl8, camo, 0, 1.6, -0.02, 0.48, 0.24, 0.44, head); mesh(G.cyl8, camo, 0, 1.73, -0.02, 0.42, 0.06, 0.38, head);
+      mesh(G.cyl8, band, 0, 1.5, -0.02, 0.5, 0.06, 0.46, head);
+      mesh(G.box, camo, 0, 1.49, 0.44, 0.5, 0.04, 0.22, head).rotation.x = 0.12;
+      mesh(G.box, glow(0xff8a1f), -0.2, 1.66, 0.39, 0.08, 0.06, 0.02, head);
+      // язык (показывается в idle-«фишке»)
+      const tongue = mesh(G.box, col(0xd85a7a), 0, 1.04, 0.44, 0.1, 0.03, 0.3, head); tongue.visible = false;
+      head.userData = { h, faces, tongue };
+      // тело: рубашка хаки, портупея, наплечник
+      const shirt = tmat(T.frogShirt());
+      const tb = mesh(G.cyl8, shirt, 0, 0.56, 0, 0.32, 0.6, 0.26, torso); tb.rotation.y = Math.PI / 8;
+      mesh(G.box, col(0x3a3440), -0.3, 0.8, -0.02, 0.18, 0.12, 0.3, torso);
+      mesh(G.box, col(0x6a6d78), 0, 0.24, 0, 0.6, 0.08, 0.48, torso);
+      mesh(G.box, col(0x5a3a24), 0, 0.29, 0, 0.62, 0.05, 0.5, torso);
+      for (const hd of [handL, handR]) { mesh(G.box, shirt, 0, 0.07, -0.04, 0.17, 0.1, 0.17, hd); mesh(G.box, skin, 0, -0.03, 0.02, 0.15, 0.12, 0.16, hd); for (const o of [-0.05, 0, 0.05]) mesh(G.box, skin, o, -0.06, 0.12, 0.04, 0.05, 0.06, hd); }
+      const boot = tmat(T.boot());
+      for (const ft of [footL, footR]) { mesh(G.box, col(0x4a4a52), 0, 0.2, 0.0, 0.16, 0.1, 0.18, ft); mesh(G.box, boot, 0, 0.08, 0.05, 0.19, 0.16, 0.28, ft); mesh(G.box, glow(0xffa030), 0.1, 0.11, 0.06, 0.02, 0.05, 0.06, ft); }
+      return { top: 1.78, handX: 0.5, handY: 0.6, handZ: 0.08, footX: 0.17, footY: 0, holdX: 0.28, holdY: 0.98, holdZ: 0.48, shadow: 0.52 };
+    },
+    face(c, e) { const u = c.head.userData; u.h.material[0] = e === 'blink' || e === 'dizzy' ? u.faces.closed : e === 'wow' ? u.faces.wow : u.faces.open; },
   },
 };
 export const SKIN_IDS = Object.keys(SKINS);

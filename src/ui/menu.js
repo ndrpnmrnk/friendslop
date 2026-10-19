@@ -72,7 +72,7 @@ export function createMenu() {
   st.next = d => { st.idx = (st.idx + d + SKIN_IDS.length) % SKIN_IDS.length; show(); st.ch.vy = 5; st.air = 0.01; spot.intensity = 60; st.puffT = 0.25; };
   st.skin = () => SKIN_IDS[st.idx];
   // вращение мышью
-  addEventListener('pointerdown', e => { if (!st.active || e.target.closest('button')) return; st.drag = true; st.lastX = e.clientX; });
+  addEventListener('pointerdown', e => { if (!st.active || (e.target.closest && e.target.closest('button'))) return; st.drag = true; st.lastX = e.clientX; });
   addEventListener('pointermove', e => { if (!st.drag) return; st.rot += (e.clientX - st.lastX) * 0.012; st.lastX = e.clientX; });
   addEventListener('pointerup', () => { st.drag = false; });
 

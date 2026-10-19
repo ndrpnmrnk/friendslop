@@ -128,6 +128,7 @@ function animate(c, dt, s) {
     setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx * 0.8, d.top - 0.2 + Math.sin(t * 16) * 0.04, 0.05, f); c.body.rotation.z = 0.08;
   } else if (s.act === 'special') {
     if (c.skinId === 'shark') { setHand(c.handL, -hx * 0.9, d.top - 0.25, 0, f); setHand(c.handR, hx * 0.9, d.top - 0.25, 0, f); c.body.rotation.z = Math.sin(t * 8) * 0.12; }
+    else if (c.skinId === 'frog') { const tg = c.head.userData.tongue, k = Math.sin(Math.min(1, s.actK) * Math.PI * 3); if (tg) { tg.visible = k > 0.2; tg.scale.z = 0.3 + Math.max(0, k) * 0.5; tg.position.z = 0.44 + Math.max(0, k) * 0.25; } setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx, hy - fl, hz, f); }
     else if (c.skinId === 'tv') { setHand(c.handL, -hx, hy, hz, f); setHand(c.handR, hx, hy, hz, f); c.body.position.x = (Math.random() - 0.5) * 0.03; c.body.rotation.z = (Math.random() - 0.5) * 0.06; }
     else { setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx * 0.3, d.top - 0.45 + Math.sin(t * 12) * 0.05, 0.35, f); c.body.rotation.x = 0.12; }
   } else if (s.wave) {
@@ -136,6 +137,7 @@ function animate(c, dt, s) {
     setHand(c.handL, -hx, hy + fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? -sn * 0.35 * k : 0), f);
     setHand(c.handR, hx, hy - fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? sn * 0.35 * k : 0), f);
   }
+  if (s.act !== 'special' && c.head.userData.tongue) c.head.userData.tongue.visible = false;
   if (s.look !== undefined) c.head.rotation.y += (s.look - c.head.rotation.y) * damp(6, dt); else c.head.rotation.y *= 0.9;
   c.handL.rotation.x = s.hold ? -0.6 : run ? sn * 0.5 * k : 0; c.handR.rotation.x = s.hold ? (s.charge ? 0.8 : -0.6) : run ? -sn * 0.5 * k : 0;
   // присед: тело ниже и сжато, ручки ближе
