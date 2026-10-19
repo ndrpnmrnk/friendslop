@@ -1,3 +1,6 @@
+import '@fontsource/press-start-2p/400.css';
+import '@fontsource/rubik/500.css';
+import '@fontsource/rubik/700.css';
 import './styles.css';
 import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer } from './core/gfx.js';
 import { T } from './core/textures.js';
@@ -10,17 +13,27 @@ import { updatePushables, groundAt, raySolids } from './world/physics.js';
 import { updateParticles } from './world/particles.js';
 import { updateBirds } from './world/birds.js';
 import { updateCrane } from './world/crane.js';
+import { updateSwingers } from './world/swingers.js';
+import { createSky } from './world/sky.js';
+import { buildLife, updateLife } from './world/life.js';
+import { resetGadgets, updateGadgets, useGadget } from './game/gadgets.js';
+import { createBots, updateBots, botHitHook } from './game/bots.js';
+import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide } from './game/worldfx.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict } from './game/items.js';
 import { updateCamera, cam, resetCamera } from './game/camera.js';
 import { createArrow, updateArrow } from './game/arrow.js';
 import { M, resetMissions, spawnWave, spawnMission, removeMission, updateMissions, nearMission, ALL_GAMES, WORLD_GAMES } from './missions/missions.js';
-import { isFree } from './world/physics.js';
+import { isFree, solidsNear } from './world/physics.js';
 import { pulseOutline } from './game/outline.js';
 import { nearestRideable, mount, dismount, grab, release, hopIn } from './game/ride.js';
 import { updateBreakables } from './world/breakables.js';
-import { $, pop, renderHud, renderStamina } from './ui/hud.js';
+import { $, renderHud, renderStamina, resetHud, markWon, flyScore, sparks, eventBanner, eventChip } from './ui/hud.js';
+import { TEXT } from './ui/text.js';
+import { img } from './ui/icons.js';
+import { initAudio, sfx, ambience, setListener, toggleMute } from './core/sfx.js';
+import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
 import { initEvents, resetEvents, updateEvents, stopEvent, EV } from './game/events.js';
@@ -37,14 +50,10 @@ sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.
 Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 150 }); sun.shadow.camera.updateProjectionMatrix();
 const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(), SUN_U = new V3().crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize();
 // фонарик персонажа (горит только в событии «Отключили свет»; свет есть всегда, чтобы не пересобирать шейдеры)
+const sky = createSky(scene);
 const flash = new THREE.SpotLight(0xfff0d0, 0, 26, 0.55, 0.5, 1.2); scene.add(flash, flash.target);
-initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene }) });
-function eventUi(title, sub, big) {
-  const bar = $('eventbar');
-  if (title === null) { bar.classList.add('hidden'); return; }
-  bar.textContent = title; bar.classList.remove('hidden');
-  if (big) { const e = $('eventbig'); e.innerHTML = `${title}<small>${sub}</small>`; e.classList.remove('hidden'); e.style.animation = 'none'; void e.offsetWidth; e.style.animation = ''; setTimeout(() => e.classList.add('hidden'), 3000); }
-}
+initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }) });
+const eventUi = { start: key => { eventBanner(key); sfx('event'); }, tick: (key, sec) => eventChip(key, sec), end: () => eventChip(null) };
 function followSun(x, y, z) {
   // привязка к текселю карты теней, чтобы края теней не дрожали при движении
   const tx = 64 / 2048, c = new V3(x, y, z), a = Math.round(c.dot(SUN_R) / tx) * tx, b = Math.round(c.dot(SUN_U) / tx) * tx, f = c.dot(SUN_DIR);
@@ -58,7 +67,7 @@ const arrow = createArrow(scene);
 lock.want = () => S.state === 'play' && !S.mg;
 document.addEventListener('pointerlockchange', () => { $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
 
-const S = { state: 'menu', time: 0, score: 0, done: 0, mg: null, wm: null, crane: false, hudT: 0, cursor: true };
+const S = { state: 'menu', intro: null, time: 0, score: 0, done: 0, mg: null, wm: null, crane: false, hudT: 0, cursor: true };
 let P = null;
 
 // точки траектории броска
@@ -66,46 +75,115 @@ const arc = []; for (let i = 0; i < 22; i++) { const m = sprite(T.dot(), 0.2, { 
 const land = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xff8a1f, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
 land.rotation.x = -Math.PI / 2; land.scale.setScalar(0.5); land.material.depthTest = false; land.renderOrder = 10; land.visible = false; scene.add(land);
 
-/* ---------- меню ---------- */
+/* ---------- экраны: меню → режим → рулетка → пролёт → игра → итоги ---------- */
+const SCREENS = ['menu', 'mode', 'roulette', 'results'];
+function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k !== id); }
+function buildLogo() { const l = $('logo'); if (l.childElementCount) return; for (const ch of TEXT.title) { const s = document.createElement('span'); s.textContent = ch; l.appendChild(s); } }
+let logoT = 0;
 function showMenu() {
-  S.state = 'menu'; document.body.classList.remove('playing');
-  $('menu').classList.remove('hidden'); $('hud').classList.add('hidden'); $('results').classList.add('hidden'); $('dot').classList.add('hidden');
+  S.state = 'menu'; document.body.classList.remove('playing'); menu.active = true; buildLogo();
+  screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); $('dot').classList.add('hidden'); unlock();
 }
-$('skinPrev').onclick = () => menu.next(-1);
-$('skinNext').onclick = () => menu.next(1);
-$('playBtn').onclick = () => startRound();
-$('againBtn').onclick = () => startRound();
-$('menuBtn').onclick = () => showMenu();
+function showMode() {
+  S.state = 'mode'; menu.active = false; screen('mode'); drawCard($('modeArt'), 'mode'); $('modeCard').classList.remove('pressed'); $('modeCard').focus(); sfx('click');
+}
+for (const b of document.querySelectorAll('button')) { b.addEventListener('mouseenter', () => sfx('hover')); b.addEventListener('click', () => initAudio()); }
+addEventListener('pointerdown', () => { initAudio(); ambience(true); }, { once: true });
+$('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
+$('skinNext').onclick = () => { menu.next(1); sfx('click'); };
+$('playBtn').onclick = () => showMode();
+$('modeCard').onclick = () => { $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(startRoulette, 220); };
+$('modeBack').onclick = () => { sfx('click'); showMenu(); };
+$('againBtn').onclick = () => startRoulette();
+$('menuBtn').onclick = () => { sfx('click'); showMenu(); };
 $('mgexit').onclick = () => { if (S.wm) closeWorld(null); else closeMission(null); };
 
+/* Рулетка тематики: лента карточек крутится с замедлением, щёлкает на каждой, всегда останавливается на «ГОРОДЕ» */
+function startRoulette() {
+  S.state = 'roulette'; menu.active = false; screen('roulette'); $('roulette').classList.remove('done');
+  const strip = $('rstrip'); strip.innerHTML = '';
+  const N = 15, WIN = 12, CW = 170 + 18;
+  for (let i = 0; i < N; i++) { const city = i % 4 === 0 || i === WIN, c = document.createElement('div'); c.className = 'rcard' + (city ? '' : ' q') + (i === WIN ? ' win' : '');
+    const cv = document.createElement('canvas'); cv.width = 68; cv.height = 84; drawCard(cv, city ? 'city' : 'unknown', i); c.appendChild(cv);
+    const pl = document.createElement('div'); pl.className = 'plate'; pl.textContent = city ? TEXT.city : '?'; c.appendChild(pl); strip.appendChild(c); }
+  const cards = [...strip.children], end = -(WIN * CW + 85), dur = 3.2, t0 = performance.now(); let last = -1;
+  strip.style.transform = 'translateX(-85px)';
+  const step = () => {
+    if (S.state !== 'roulette') return;
+    const k = Math.min(1, (performance.now() - t0) / 1000 / dur), e = 1 - Math.pow(1 - k, 3.4), x = -85 + (end + 85) * e;
+    strip.style.transform = `translateX(${x}px)`;
+    const idx = Math.round((-x - 85) / CW); if (idx !== last) { last = idx; sfx('tick'); cards.forEach((c, i) => c.classList.toggle('flash', i === idx)); }
+    if (k < 1) requestAnimationFrame(step);
+    else { $('roulette').classList.add('done'); sfx('win'); const r = cards[WIN].getBoundingClientRect(); sparks(r.left + r.width / 2, r.top + r.height / 2, ['#ff8a1f', '#f5c542', '#9be36b', '#b18cff'], 22, $('rsparks'));
+      setTimeout(() => { $('fade').classList.add('on'); setTimeout(() => { prepareRound(); $('fade').classList.remove('on'); startIntro(); }, 420); }, 1100); }
+  };
+  requestAnimationFrame(step);
+}
+
 /* ---------- раунд ---------- */
-function startRound() {
+function prepareRound() {
   generateMap(scene, (Math.random() * 1e9) | 0);
+  buildLife(scene);
+  registerInteracts();
+  resetGadgets();
   buildMinimap(DISTRICTS);
-  resetEvents(); $('eventbar').classList.add('hidden');
+  resetEvents();
   resetMissions();
   if (P) scene.remove(P.root);
   P = createPlayer(menu.skin()); scene.add(P.root);
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
-  spawnWave(P);
-  Object.assign(S, { state: 'play', time: CONFIG.roundTime, score: 0, done: 0, mg: null, wm: null, crane: false });
+  W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), 3);
+  Object.assign(S, { time: CONFIG.roundTime, score: 0, done: 0, mg: null, wm: null, crane: false });
   cam.pose = null; resetCamera(Math.random() * Math.PI * 2);
-  $('lockhint').classList.toggle('hidden', locked());
-  $('menu').classList.add('hidden'); $('results').classList.add('hidden'); $('hud').classList.remove('hidden'); $('mgpanel').classList.add('hidden');
-  document.body.classList.add('playing'); setCursor(true);
-  updateCamera(camera, P, 0, true);
+  screen(null); $('mgpanel').classList.add('hidden'); resetHud();
+}
+/* 10 секунд до старта: пролёт над картой с названиями районов, персонаж падает с неба, отсчёт 3-2-1 */
+function startIntro() {
+  S.state = 'intro'; $('hud').classList.add('hidden'); $('intro').classList.remove('hidden'); $('count').textContent = ''; $('dname').textContent = '';
+  const names = W.districts.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+  S.intro = { t: 0, names, ni: -1, drop: false, landed: false, cd: 4 };
+  P.root.visible = false; P.frozen = true;
+  document.body.classList.add('playing');
+}
+function updateIntro(dt) {
+  const I = S.intro; I.t += dt; const t = I.t;
+  if (t < 4) {
+    // пролёт по дуге над городом
+    const a = t / 4 * 1.6 + 0.4, r = 46, cx = 0, cz = 0;
+    cam.free = { p: new V3(cx + Math.cos(a) * r, 34 - t * 3, cz + Math.sin(a) * r), l: new V3(cx + Math.cos(a + 1.2) * 12, 0, cz + Math.sin(a + 1.2) * 12) };
+    const ni = Math.floor(t / 1.33); if (ni !== I.ni && ni < I.names.length) { I.ni = ni; const d = $('dname'); d.textContent = I.names[ni].name.toUpperCase(); d.classList.remove('show'); void d.offsetWidth; d.classList.add('show'); }
+    return;
+  }
+  if (!I.drop) { I.drop = true; cam.free = null; P.root.visible = true; P.frozen = false; P.noRun = true; P.pos.y += 9; P.vel.set(0, -2, 0); P.airPeak = P.pos.y - 9; updateCamera(camera, P, 0, true); }
+  if (!I.landed && P.onGround && t > 4.2) { I.landed = true; sparks(innerWidth / 2, innerHeight * 0.6, ['#ff8a1f', '#f5c542'], 14); sfx('land', { v: 1.4 }); shakeCam(0.35); }
+  if (t > 5.2) {
+    const left = Math.ceil(8.2 - t), c = $('count');
+    if (left !== I.cd) { I.cd = left; c.classList.remove('tick', 'go'); void c.offsetWidth;
+      if (left > 0) { c.textContent = left; sfx('count'); } else { c.textContent = TEXT.go; c.classList.add('go'); sfx('go'); goRound(); }
+      c.classList.add('tick'); }
+  }
+}
+function goRound() {
+  S.state = 'play'; P.noRun = false; S.time = CONFIG.roundTime;
+  spawnWave(P);
+  const h = $('hud'); h.classList.remove('hidden'); h.classList.remove('enter'); void h.offsetWidth; h.classList.add('enter');
+  $('lockhint').classList.toggle('hidden', locked()); setCursor(true);
+  setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
 }
 function endRound() {
-  stopEvent(); $('eventbar').classList.add('hidden');
+  stopEvent(); eventChip(null);
   if (S.mg) closeMission(null);
   if (S.wm) closeWorld(null);
   if (S.crane) exitCrane();
   S.state = 'results'; document.body.classList.remove('playing'); $('dot').classList.add('hidden'); unlock(); $('lockhint').classList.add('hidden');
   $('hud').classList.add('hidden');
-  $('resScore').textContent = S.score;
-  $('resInfo').textContent = `Миссий выполнено: ${S.done}.`;
-  $('results').classList.remove('hidden'); $('againBtn').focus();
+  screen('results'); sfx('win');
+  const rows = [{ name: TEXT.you, sc: S.score, me: true }, ...(W.bots || []).map(b => ({ name: b.name, sc: b.score }))].sort((a, b) => b.sc - a.sc);
+  $('rank').innerHTML = rows.map((r, i) => `<div class="rrow${r.me ? ' me' : ''}" style="animation-delay:${0.15 + i * 0.12}s"><span class="pl">${i + 1}</span><span class="nm">${r.name}</span><span class="sc">${r.sc}</span></div>`).join('');
+  let shown = 0; const el = $('resScore'); el.textContent = '0';
+  const cnt = () => { shown = Math.min(S.score, shown + Math.max(1, Math.ceil(S.score / 40))); el.textContent = shown; if (shown < S.score) { sfx('tick'); setTimeout(cnt, 30); } else { const r = el.getBoundingClientRect(); sparks(r.left + r.width / 2, r.top + r.height / 2, ['#ff8a1f', '#f5c542', '#9be36b'], 20); } };
+  setTimeout(cnt, 300); $('againBtn').focus();
 }
 
 /* ---------- курсор-точка ---------- */
@@ -118,14 +196,14 @@ function openWorld(m) {
   if (P.ride) dismount(P, false);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   m.busy = true; S.wm = { m, game: null };
-  $('mgicon').textContent = m.def.icon; $('mgtitle').textContent = m.def.name; $('mgpts').textContent = `+${m.def.points}`;
-  $('mghint').textContent = HINTS[m.def.game]; $('mgmsg').textContent = ''; $('mgmsg').className = 'msg'; $('mgexit').textContent = 'Бросить (Esc)';
+  $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
+  $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; $('mgmsg').textContent = ''; $('mgmsg').className = 'msg';
   $('mgpanel').classList.remove('hidden'); $('mgbar').classList.remove('hidden'); $('mgbar').firstChild.style.width = '0%';
   const api = {
-    msg: (text, cls = '') => { $('mgmsg').textContent = text; $('mgmsg').className = 'msg ' + cls; },
+    msg: (text, cls = '') => { const e = $('mgmsg'); e.textContent = text; e.className = 'msg ' + cls; void e.offsetWidth; e.classList.add('pop'); },
     progress: v => { $('mgbar').firstChild.style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; },
     where: t => { m.where = t; },
-    timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))} с`; },
+    timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))}`; },
     finish: res => { if (S.wm && S.wm.m === m) closeWorld(res); },
   };
   const ctx = { player: P, give: it => { pickUp(it); P.held = it; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
@@ -136,8 +214,8 @@ function openWorld(m) {
 function closeWorld(res) {
   if (!S.wm) return;
   const { m, game } = S.wm; S.wm = null; game.stop(); m.busy = false;
-  $('mgpanel').classList.add('hidden'); $('mgexit').textContent = 'Выйти (Esc)';
-  if (res && res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; pop(`+${pts} ${m.def.icon}`, 'good'); }
+  $('mgpanel').classList.add('hidden');
+  if (res && res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; scored(m, pts); }
   removeMission(m);
 }
 function openMission(m) {
@@ -146,13 +224,13 @@ function openMission(m) {
   if (P.grab) release(P, 0);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   m.busy = true; P.root.visible = false; P.charging = false;
-  $('mgicon').textContent = m.def.icon; $('mgtitle').textContent = m.def.name; $('mgpts').textContent = `+${m.def.points}`;
-  $('mghint').textContent = HINTS[m.def.game]; $('mgmsg').textContent = ''; $('mgmsg').className = 'msg';
+  $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
+  $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; $('mgmsg').textContent = ''; $('mgmsg').className = 'msg';
   $('mgpanel').classList.remove('hidden');
   const api = {
     pose: (p, l) => { cam.pose = { p, l, ignore: m.obj.solid }; updateCamera(camera, P, 0, true); },
     progress: v => { const bar = $('mgbar'); if (v === null) bar.classList.add('hidden'); else { bar.classList.remove('hidden'); bar.firstChild.style.width = (v * 100) + '%'; } },
-    msg: (text, cls = '') => { $('mgmsg').textContent = text; $('mgmsg').className = 'msg ' + cls; },
+    msg: (text, cls = '') => { const e = $('mgmsg'); e.textContent = text; e.className = 'msg ' + cls; void e.offsetWidth; e.classList.add('pop'); },
     finish: res => { if (S.mg && S.mg.m === m) closeMission(res); },
   };
   S.mg = { m, game: null };
@@ -166,10 +244,27 @@ function closeMission(res) {
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden');
   if (!res) return;
-  if (res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; pop(`+${pts} ${m.def.icon}`, 'good'); }
+  if (res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; scored(m, pts); }
   removeMission(m);
 }
 
+// очки за миссию: «+N» вылетает из места миссии на экране и летит в счёт
+function scored(m, pts) {
+  markWon(m.id); sfx('done');
+  const p = (m.obj.pos && m.obj.pos()) || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
+  const sx = Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), sy = Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight));
+  flyScore(sx, sy, pts); setTimeout(() => sfx('points'), 700);
+}
+// маска-призрак: персонаж полупрозрачный (материалы скина запоминаем и возвращаем)
+let ghostOn = false;
+function setGhost(p, on) {
+  if (on === ghostOn) return; ghostOn = on;
+  p.root.traverse(o => { if (!o.isMesh || o === p.ch.blob) return; const m = o.material; if (!m || m.userData.ghostBase === undefined && !on) return;
+    if (on) { if (m.userData.ghostBase === undefined) m.userData.ghostBase = { t: m.transparent, o: m.opacity }; m.transparent = true; m.opacity = 0.32; m.depthWrite = false; }
+    else { const b = m.userData.ghostBase; m.transparent = b.t; m.opacity = b.o; m.depthWrite = true; delete m.userData.ghostBase; }
+    m.needsUpdate = true; });
+}
+function shakeCam(k) { FX.shake = Math.max(FX.shake, k); }
 /* ---------- кран ---------- */
 function nearCrane() { const c = W.crane; return c && !S.crane && Math.hypot(c.cab.x - P.pos.x, c.cab.z - P.pos.z) < 1.9 && Math.abs(c.cab.y - P.pos.y) < 0.6; }
 const craneStick = { ix: 0, iz: 0 };
@@ -180,7 +275,6 @@ function enterCrane() {
   const c = W.crane; if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   S.crane = true; c.active = true; P.frozen = true; P.root.visible = false;
   cam.orbit = { c: c.ball.position.clone(), dist: 17 }; cam.pitch = 0.6;
-  pop('WASD — двигать шар · мышь — камера · E — выйти', 'info');
 }
 function exitCrane() { const c = W.crane; S.crane = false; c.active = false; P.frozen = false; P.root.visible = true; P.pos.copy(c.seat); P.vel.set(0, 0, 0); cam.pose = null; cam.orbit = null; cam.pitch = 0.45; }
 
@@ -215,6 +309,10 @@ on('up', btn => {
   }
 });
 on('key', code => {
+  if (code === 'KeyM') { toggleMute(); return; }
+  if (code === 'Escape' && S.state === 'mode') { showMenu(); return; }
+  if (S.state === 'menu') { if (code === 'KeyA' || code === 'ArrowLeft') menu.next(-1); if (code === 'KeyD' || code === 'ArrowRight') menu.next(1); if (code === 'Enter') showMode(); return; }
+  if (S.state === 'mode' && code === 'Enter') { $('modeCard').click(); return; }
   if (S.state !== 'play') return;
   if (code === 'Escape') { if (S.mg) closeMission(null); else if (S.crane) exitCrane(); else if (S.wm) closeWorld(null); }
 });
@@ -244,9 +342,12 @@ function interact() {
   if (S.mg) return;
   if (S.crane) { exitCrane(); return; }
   if (P.ride) { dismount(P, false); return; }
+  if (P.swing) { leaveSwing(P, false); return; }
+  if (P.hidden) { leaveHide(P); return; }
   if (P.grab) { hopIn(P); return; }
   const m = S.wm ? null : nearMission(P);
   if (m) { openMission(m); return; }
+  { const q = nearInteract(P); if (q && !P.held) { q.act(P); return; } }
   if (P.held) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; return; }
   const it = nearestItem(P.pos, 1.5);
   if (it) { pickUp(it); P.held = it; return; }
@@ -258,6 +359,9 @@ function promptText() {
   if (S.crane) return '<b>E</b>выйти из крана';
   if (S.wm) return '';
   const m = nearMission(P); if (m) return `<b>E</b>${m.def.name}`;
+  if (P.swing) return '<b>E</b>Встать';
+  if (P.hidden) return '<b>E</b>Выскочить';
+  { const q = nearInteract(P); if (q && !P.held) return `<b>E</b>${q.label}`; }
   return '';
 }
 
@@ -265,27 +369,36 @@ function promptText() {
 const clock = new THREE.Timer(); let t = 0;
 const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function loop() {
-  clock.update(); const dt = Math.min(0.05, clock.getDelta()); t += dt;
+  clock.update(); let dt = Math.min(0.05, clock.getDelta());
+  if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
+  t += dt;
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
-  if (S.state === 'menu') { menu.update(dt); present(menu.scene, menu.camera); }
+  if (S.state === 'menu' || S.state === 'mode' || S.state === 'roulette') {
+    menu.update(dt); present(menu.scene, menu.camera);
+    // логотип: буквы по очереди подпрыгивают раз в несколько секунд
+    logoT -= dt; if (logoT <= 0 && S.state === 'menu') { logoT = 4; [...$('logo').children].forEach((sp, i) => setTimeout(() => { sp.classList.remove('hop'); void sp.offsetWidth; sp.classList.add('hop'); }, i * 70)); }
+  }
   else {
+    if (S.state === 'intro') { updateIntro(dt); updatePlayer(P, dt, t, true, cam.yaw); }
     if (S.state === 'play') {
       S.time -= dt;
       if (tapped('KeyE')) interact();
+      if (tapped('KeyF') && !S.mg && !S.crane && P.gadget) { const k = P.gadget.kind; if (useGadget(P, aimPoint())) sfx({ energy: 'drink', water: 'water', sling: 'candy', firework: 'throw', popper: 'throw', web: 'throw', boots: 'spring', mask: 'ghost' }[k]); }
       if (P.charging) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
       updatePlayer(P, dt, t, !S.mg && !S.crane, cam.yaw);
       if (P.held) { P.held.pos.copy(P.ch.holdPoint); P.held.g.rotation.y = P.root.rotation.y; }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
-      updateMissions(dt, t, P, pop);
+      updateMissions(dt, t, P, () => {});
       if (S.mg) S.mg.game.update(dt);
       if (S.wm) S.wm.game.update(dt);
-      S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText()); S.hudT = 0.1; }
-      renderStamina(P);
+      S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText(), 0.1); S.hudT = 0.1; }
+      renderStamina(P, dt);
       updateEvents(dt, eventUi);
       if (flash.intensity > 0) { const f = P.root.rotation.y; flash.position.set(P.pos.x, P.pos.y + 1.6, P.pos.z); flash.target.position.set(P.pos.x + Math.sin(f) * 6, P.pos.y, P.pos.z + Math.cos(f) * 6); }
       drawMinimap(P, M.list, S.wm && S.wm.game.target ? S.wm.game.target() : null);
-      if (S.time <= 0) { S.time = 0; renderHud(S, P, ''); endRound(); }
+      if (S.time <= 0) { S.time = 0; renderHud(S, P, '', 0); endRound(); }
     }
+    if (P) { setGhost(P, P.ghost > 0); setListener(P.pos.x, P.pos.y, P.pos.z); }
     // траектория броска
     let shown = 0;
     if (S.state === 'play' && P.charging && P.held) {
@@ -299,7 +412,7 @@ function loop() {
     }
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
     const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt);
-    if (P) P.root.visible = !S.mg && !S.crane;
+    if (P) P.root.visible = !S.mg && !S.crane && !P.hidden && !(S.state === 'intro' && !S.intro.drop);
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
     if (dotHtml !== S.dotHtml) { $('dot').innerHTML = dotHtml; S.dotHtml = dotHtml; }
     updateItems(dt, P);
@@ -313,23 +426,32 @@ function loop() {
       const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw); craneStick.ix = ix * cy + iz * sy; craneStick.iz = -ix * sy + iz * cy;
       cam.orbit.c.lerp(new V3().addVectors(W.crane.ball.position, W.crane.cab).multiplyScalar(0.5).setY(W.crane.ball.position.y + 3), 0.08);
     }
-    updateCrane(dt, S.crane ? craneStick : null);
+    updateCrane(dt, S.crane ? craneStick : null, S.state === 'play' ? P : null);
     if (S.state === 'play') updateArrow(arrow, P, M.list, dt, t, !S.mg && !S.crane, S.wm && S.wm.game.target ? S.wm.game.target() : null);
     for (const d of W.doors) {
       const want = d.open ? 1.65 * d.inward : 0; d.ang += (want - d.ang) * Math.min(1, dt * 8); d.pivot.rotation.y = d.ang;
       d.solid.on = !d.open && Math.abs(d.ang) < 0.5;
     }
     for (const f of W.animated) f(dt, t);
-    updateBreakables(dt);
+    updateSwingers(dt, t, S.state === 'play' ? P : null);
+    sky.update(camera, t, dt, P, hemi, scene.fog);
+    updateLife(dt, t, S.state === 'play' ? P : null, camera);
+    updateWorldFx(dt, t, S.state === 'play' ? P : null);
+    updateGadgets(dt, t, S.state === 'play' ? P : null);
+    if (S.state === 'play') updateBots(dt, t, P);
+    cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play' ? P.boost * 6 : 0;
+    updateBreakables(dt, S.state === 'play' ? P : null);
     updateParticles(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
     { const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz); }
-    present(scene, camera);
+    // камера вплотную к персонажу (у стены) — прячем его, чтобы голова не закрывала полэкрана
+    if (P && P.root.visible && !S.mg && !S.crane) { const hx = P.pos.x - camera.position.x, hy = P.pos.y + 1.0 - camera.position.y, hz = P.pos.z - camera.position.z; if (hx * hx + hy * hy + hz * hz < 0.95 * 0.95) P.root.visible = false; }
+    if (!window.__noRender) present(scene, camera);
   }
   endFrame();
   requestAnimationFrame(loop);
 }
 // отладочный доступ из консоли браузера
-window.__fs = { renderer, S, EV, spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt }, get P() { return P; }, W, M, cam, openMission, enterCrane, startRound, camera };
+window.__fs = { renderer, S, EV, spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 showMenu();
 loop();

@@ -9,6 +9,8 @@ import { groundAt, solidHit, addZone, impulsePushables, zoneAt } from '../world/
 import { puff, burst, chunk, decal, splash, ripple } from '../world/particles.js';
 import { scareBirds } from '../world/birds.js';
 import { hitBreakables } from '../world/breakables.js';
+import { worldHit, shake, hitFreeze } from './worldfx.js';
+import { sfx } from '../core/sfx.js';
 
 /* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
 const GRAV = 22;
@@ -32,6 +34,7 @@ function build(type) {
   } else if (type === 'trash') g.add(trashModel());
   else if (type === 'litter') g.add(litterModel());
   else if (type === 'parcel') { mesh(G.box, col(0xc8a070), 0, -0.05, 0, 0.5, 0.14, 0.5, g); mesh(G.box, col(0xc8a070), 0, 0.1, 0, 0.46, 0.14, 0.46, g); mesh(G.box, col(0xd8243a), 0, 0.03, 0.252, 0.3, 0.06, 0.01, g); mesh(G.box, col(0xf1e8ff), 0, 0.172, 0, 0.47, 0.005, 0.08, g); }
+  else if (type === 'can') { mesh(G.cyl8, lam({ color: 0xd8243a, emissive: 0x3a0808 }, 'canBody'), 0, 0, 0, 0.065, 0.2, 0.065, g); mesh(G.cyl8, col(0xd8d8e0), 0, 0.105, 0, 0.06, 0.012, 0.06, g); mesh(G.box, col(0xf1e8ff), 0, 0.02, 0.066, 0.06, 0.06, 0.004, g); }
   else if (type === 'chair') g.add(chairModel());
   else if (type === 'cone') g.add(coneModel());
   return g;
@@ -55,7 +58,8 @@ function respawn(it) {
 /* Попадания */
 function hitActors(it, p, heavy) {
   const r = heavy ? 1.1 : 0.9;
-  for (const c of W.cats) { const cp = c.root.position; if (Math.hypot(cp.x - p.x, cp.z - p.z) < r && Math.abs(cp.y - p.y) < 1.2) c.hit(heavy, it.vel.x, it.vel.z); }
+  for (const c of W.cats) { const cp = c.root.position; if (Math.hypot(cp.x - p.x, cp.z - p.z) < r && Math.abs(cp.y - p.y) < 1.2) { c.hit(heavy, it.vel.x, it.vel.z); hitFreeze(0.06); } }
+  for (const h of W.hitActors || []) h(it, p, heavy, r);
   scareBirds(p.x, p.z, heavy ? 5 : 3.5);
   impulsePushables(p.x, p.z, 0.6, heavy ? 4 : 1.5);
 }
@@ -64,21 +68,29 @@ function impact(it, n, speed) {
   for (const h of W.hitHooks.slice()) h(it, p);
   hitBreakables(p, it.def.r + 0.12, [it.vel.x, it.vel.y, it.vel.z], it.def.mass);
   hitActors(it, p, it.def.heavy);
+  worldHit(p, speed * it.def.mass * 0.35, it.vel);
+  sfx(t === 'can' ? 'can' : 'hit', { at: p, v: Math.min(1.4, speed * it.def.mass * 0.08 + 0.3) });
+  const wall = Math.abs(n[1]) < 0.5;
+  // следы ударов: брызги на стене, искры и пыль от тяжёлого
+  if (wall && speed > 8 && it.def.heavy) { burst(p.x, p.y, p.z, 5, { color: 0xffd25c, size: 0.08, speed: 4, up: 1.5, g: 14, life: 0.35, grow: 0 }); burst(p.x, p.y, p.z, 3, { color: 0x8a7e90, size: 0.35, speed: 0.8, up: 0.4, g: 1, life: 0.7, grow: 1.4 }); }
+  if (wall && (t === 'balloon' || t === 'tomato' || t === 'pumpkin')) wallDecal(T.splat(t === 'balloon' ? '#4a90d0' : t === 'tomato' ? '#b8200e' : '#e8731a'), p, n, t === 'balloon' ? 1.6 : 1.1);
+  if (it.def.heavy && speed > 10) shake(0.12);
   // попал в воду: всплеск; тяжёлое тонет, лёгкое остаётся плавать
   if (n[1] > 0.5 && zoneAt(p.x, p.z, gy, 'water')) {
-    splash(p.x, gy, p.z, Math.min(1.5, 0.4 + speed * it.def.mass * 0.06));
+    splash(p.x, gy, p.z, Math.min(1.5, 0.4 + speed * it.def.mass * 0.06)); sfx('splash', { at: p });
     if (t === 'balloon') { vanish(it); return; }
     if (it.def.sinks) { it.state = 'sink'; it.sinkT = 1.2; it.vel.set(0, -0.6, 0); return; }
     it.vel.set(it.vel.x * 0.3, 0, it.vel.z * 0.3); it.state = 'rest'; it.floatY = gy; return;
   }
   if (t === 'balloon') {
+    sfx('splash', { at: p });
     burst(p.x, p.y, p.z, 14, { color: 0x6ab8f0, size: 0.28, speed: 3, up: 2.5 });
-    decal(T.splat('#4a90d0'), p.x, gy, p.z, 2.4, 7, 0xffffff);
+    decal(T.splat('#4a90d0'), p.x, gy, p.z, 2.4, 20, 0xffffff);
     addZone('puddle', { c: [p.x, p.z, 1.15] }, gy, { expires: 7 });
     vanish(it);
   } else if (t === 'tomato') {
     burst(p.x, p.y, p.z, 10, { color: 0xd8301a, size: 0.22, speed: 2.5 });
-    decal(T.splat('#b8200e'), p.x, gy, p.z, 1.1, 6);
+    decal(T.splat('#b8200e'), p.x, gy, p.z, 1.1, 20);
     vanish(it);
   } else if (t === 'pumpkin') {
     const m = tmat(T.pumpkin());
@@ -113,7 +125,18 @@ function impact(it, n, speed) {
   }
 }
 
+function wallDecal(tex, p, n, size) {
+  const d = decal(tex, p.x, p.y, p.z, size, 20, 0xffffff); d.position.set(p.x + n[0] * 0.02, p.y, p.z + n[2] * 0.02);
+  d.rotation.set(0, 0, 0); d.lookAt(p.x + n[0], p.y, p.z + n[2]); d.rotateZ(Math.random() * 6.28);
+}
+// шлейф: короткие пиксельные клубки за летящим предметом
+const TRAIL = { balloon: 0x8ac8f0, tomato: 0xff6a4a, pumpkin: 0xffb04a, brick: 0xc89080, ball: 0xf5c542, can: 0xff5a6e };
+function trail(it, dt) {
+  it.trT = (it.trT || 0) - dt; if (it.trT > 0) return; it.trT = 0.025;
+  puff(it.pos.x, it.pos.y, it.pos.z, { size: it.def.r * 0.9, grow: -0.6, life: 0.22, vy: 0, vx: 0, vz: 0, color: TRAIL[it.type] ?? 0xd8d0e4, opacity: 0.6 });
+}
 function simulate(it, dt, flying) {
+  if (flying) trail(it, dt);
   const r = it.def.r, p = it.pos, v = it.vel;
   const steps = Math.min(6, Math.ceil(v.length() * dt / (r * 0.8)) || 1), h = dt / steps;
   const drag = Math.exp(-it.def.drag * h);
@@ -137,7 +160,7 @@ function simulate(it, dt, flying) {
     // трение: круглые катятся, кирпич быстро останавливается
     if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7, chair: 6, cone: 3, trash: 5, litter: 3, parcel: 6 }[it.type] ?? 4)); v.x *= f; v.z *= f; }
     if (!['brick', 'chair', 'cone', 'trash', 'parcel'].includes(it.type)) { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
-  } else { it.g.rotation.x += dt * 8; it.g.rotation.y += dt * 5; }
+  } else { const k = Math.min(3, 0.6 + v.length() / 8); it.g.rotation.x += dt * 8 * k; it.g.rotation.y += dt * 5 * k; }
 }
 
 export function updateItems(dt, pl) {

@@ -28,9 +28,9 @@ const EVENTS = {
   },
   dark: { title: 'ОТКЛЮЧИЛИ СВЕТ', sub: 'Фонари погасли. У тебя фонарик', icon: '🔦',
     start(s) { const L = ctx.lights(); s.h = L.hemi.intensity; s.sun = L.sun.intensity; s.fog = L.scene.fog.color.getHex(); L.flash.intensity = 0; LIGHTMAT().visible = false; LIGHTDIM().visible = false; s.k = 0; },
-    update(s, dt) { const L = ctx.lights(); s.k = Math.min(1, s.k + dt * 1.5); L.hemi.intensity = s.h * (1 - 0.6 * s.k); L.sun.intensity = s.sun * (1 - 0.75 * s.k); L.flash.intensity = 60 * s.k;
+    update(s, dt) { const L = ctx.lights(); s.k = Math.min(1, s.k + dt * 1.5); L.hemi.intensity = s.h * (1 - 0.6 * s.k); L.sun.intensity = s.sun * (1 - 0.75 * s.k); L.flash.intensity = 60 * s.k; L.sky.setDim(s.k);
       L.scene.fog.color.setHex(0x120c1c); L.scene.background.setHex(0x120c1c); },
-    stop(s) { const L = ctx.lights(); L.hemi.intensity = s.h; L.sun.intensity = s.sun; L.flash.intensity = 0; L.scene.fog.color.setHex(s.fog); L.scene.background.setHex(s.fog); LIGHTMAT().visible = true; LIGHTDIM().visible = true; },
+    stop(s) { const L = ctx.lights(); L.hemi.intensity = s.h; L.sun.intensity = s.sun; L.flash.intensity = 0; L.scene.fog.color.setHex(s.fog); L.scene.background.setHex(s.fog); LIGHTMAT().visible = true; LIGHTDIM().visible = true; L.sky.setDim(0); },
   },
   flood: { title: 'ПОТОП В ТОННЕЛЯХ', sub: 'Под дорогами вода по колено', icon: '🌊',
     start(s) {
@@ -44,17 +44,17 @@ const EVENTS = {
   },
 };
 
-export function updateEvents(dt, show) {
+export function updateEvents(dt, ui) {
   EV.t += dt;
   if (!EV.cur && EV.t >= EV.next) {
     const keys = Object.keys(EVENTS).filter(k => k !== EV.last), key = keys[(Math.random() * keys.length) | 0];
     EV.cur = { key, def: EVENTS[key], s: {} }; EV.left = DUR; EV.last = key; EV.cur.def.start(EV.cur.s);
-    show(`${EV.cur.def.icon} ${EV.cur.def.title}`, EV.cur.def.sub, true);
+    ui.start(key);
   }
   if (EV.cur) {
     EV.cur.def.update(EV.cur.s, dt); EV.left -= dt;
-    show(`${EV.cur.def.icon} ${EV.cur.def.title} · ${Math.ceil(EV.left)} с`, '', false);
-    if (EV.left <= 0) { stopEvent(); EV.next = EV.t + 40 + Math.random() * 20; show(null); }
+    ui.tick(EV.cur.key, Math.ceil(EV.left));
+    if (EV.left <= 0) { stopEvent(); EV.next = EV.t + 40 + Math.random() * 20; ui.end(); }
   }
 }
 export function stopEvent() { if (!EV.cur) return; EV.cur.def.stop(EV.cur.s); EV.cur = null; }

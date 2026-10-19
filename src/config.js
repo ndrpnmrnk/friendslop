@@ -72,6 +72,7 @@ export const CONFIG = {
     trash:   { name: 'Мусорный пакет', icon: '🗑️', heavy: false, r: 0.28, respawn: 25, mass: 1.0, drag: 0.12, bounce: 0.2 },
     litter:  { name: 'Мусор', icon: '🥫', heavy: false, r: 0.12, respawn: 0, mass: 0.2, drag: 0.15, bounce: 0.35 },
     parcel:  { name: 'Заказ', icon: '📦', heavy: false, r: 0.24, respawn: 0, mass: 0.8, drag: 0.1, bounce: 0.2 },
+    can:     { name: 'Банка газировки', icon: '🥤', heavy: false, r: 0.1, respawn: 0, mass: 0.4, drag: 0.1, bounce: 0.45 },
     cone:    { name: 'Конус', icon: '🔶', heavy: false, r: 0.22, respawn: 0, mass: 0.5, drag: 0.15, bounce: 0.45, rest: 0.0 },
   },
   throw: { minRange: 3, maxRange: 17, chargeTime: 0.9 },

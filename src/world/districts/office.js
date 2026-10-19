@@ -1,6 +1,8 @@
 import { THREE, G, tmat, col, glow, lam } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
+import { addZone } from '../physics.js';
+import { burst } from '../particles.js';
 
 /* Бизнес-центр: 8-этажная высотка, самое высокое здание города. Можно пройти по лестнице
    с этажа на этаж до самой крыши: лобби с ресепшеном и лифтами, офисы open-space с креслами
@@ -10,7 +12,7 @@ export default {
   id: 'office', name: 'Бизнес-центр', ground: 'pave',
   build(b) {
     const N = 8, FH = 3.4;
-    b.tower({ x: 7, z: 1, w: 18, d: 13, floors: N, fh: FH, wall: 0x4e5c7a, brick: false, lit: 0.75, floor: T.carpet(),
+    b.tower({ x: 7, z: 1, w: 18, d: 13, floors: N, fh: FH, fireEscape: { side: 'w', at: 0.55 }, wall: 0x4e5c7a, brick: false, lit: 0.75, floor: T.carpet(),
       door: { side: 's', at: 0.5, sign: ['БЦ «ПОЛНОЛУНИЕ»', '#17111f', '#b18cff'] },
       interior(f, k, r) {
         if (k === 0) {
@@ -67,12 +69,25 @@ export default {
     // боковые проходы: велопарковка, мусорка, кондиционеры
     b.bikeRack(3, 9, 4, Math.PI / 2); b.dumpster(28.5, 4); b.trashBags(28.5, 6.2, 3); b.aircon(28.7, 10, 0); b.aircon(28.7, 11.4, 0);
     b.newsBox(13, 30.6); b.postBox(19, 30.6); b.streetSign(1.3, 30.6, 'ДЕЛОВАЯ', 'ЛУННЫЙ БУЛ.'); b.utilityBox(1.2, 14, Math.PI / 2);
+    // стеклянный козырёк над входом на двух опорах
+    { const gl = lam({ color: 0x9ac8e8, transparent: true, opacity: 0.45, depthWrite: false }, 'canopyGlass'), dk = col(0x2b2533);
+      b.m(G.box, gl, 16, 3.05, 15.6, 5, 0.06, 3); b.m(G.box, dk, 16, 3.0, 17.1, 5.1, 0.12, 0.1); for (const x of [13.6, 18.4]) { b.m(G.box, dk, x, 1.5, 17.0, 0.12, 3.0, 0.12); b.solid(x, 17.0, 0.2, 0.2, 0, 3); }
+      b.m(G.box, glow(0xffe0b0), 16, 2.98, 15.6, 3.2, 0.03, 0.2); b.light(16, 15.6, 2.2); }
+    // «сухой» фонтан: гранитная площадка, струи бьют прямо из пола по очереди
+    { b.ground(12.5, 22.5, 19.5, 27, T.stone(), 1.5); const jets = [];
+      for (const x of [13.5, 15, 16.5, 18]) for (const z of [23.5, 26]) { b.m(G.cyl8, col(0x3a3440), x, 0.02, z, 0.12, 0.04, 0.12); jets.push([b.X(x), b.Z(z)]); }
+      const wet = b.m(G.plane, lam({ map: T.puddle(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, emissive: 0x1a2a40, emissiveIntensity: 1 }, 'puddle'), 15.75, 0.025, 24.75, 6, 3.6, 1); wet.rotation.x = -Math.PI / 2;
+      addZone('puddle', { r: [b.X(13), b.Z(23), b.X(18.5), b.Z(26.5)] }, b.Y);
+      let jt = 0; W.animated.push((dt, t) => { jt -= dt; if (jt > 0) return; jt = 0.09; const ph = Math.floor(t * 0.8) % 4;
+        for (let i = 0; i < jets.length; i++) if ((i >> 1) % 4 === ph || ph === 3 && i % 2 === 0) burst(jets[i][0], b.Y + 0.1, jets[i][1], 1, { color: 0x9ccbec, size: 0.16, speed: 0.25, up: 5.5, g: 12, life: 0.9, grow: 0.1 }); }); }
+    // скульптура-абстракция: наклонённые кубы на постаменте
+    { const st = tmat(T.stone()); b.box(16, 20, 1.4, 1.4, 0.5, st); const c1 = b.m(G.box, col(0xb18cff), 16, 1.15, 20, 0.9, 0.9, 0.9); c1.rotation.set(0.6, 0.5, 0.3); const c2 = b.m(G.box, col(0xff8a1f), 16.1, 1.95, 20, 0.6, 0.6, 0.6); c2.rotation.set(0.2, 1.1, 0.7); b.solid(16, 20, 1.2, 1.2, 0.5, 1.8); }
     b.car(3, 19.5, 0, 0x2a2a30); b.bin(8.5, 18.2); b.bin(23.5, 18.2);
     b.lamp(1.2, 15.5, Math.PI / 2); b.lamp(30.8, 15.5, -Math.PI / 2); b.lamp(8, 31, 0); b.lamp(24, 31, 0);
     b.crate(30.6, 1.2, 1); b.crate(30.6, 2.3, 0.9);
     b.zone('floor', 9, 17, 23, 28); b.zone('floor', 25, 14.5, 31, 24);
     b.cats(1, 14.5, 31, 31);
-    b.spawn(16, 19); b.spawn(4, 28);
+    b.spawn(12, 19); b.spawn(4, 28);
     b.hw(() => { b.pumpkin(13.2, 15.6); b.pumpkin(18.8, 15.6); b.stringLights(9, 15, 23, 15, 3.2); b.web(7.4, 2.6, 14.2, 0, 1); });
   },
 };

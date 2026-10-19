@@ -9,6 +9,9 @@ import { T } from '../core/textures.js';
 import { makeCharacter } from '../characters/rig.js';
 import { updateRide, autoMount, updateGrab, release } from './ride.js';
 import { hitBreakables } from '../world/breakables.js';
+import { bounceAt, worldHit, shake, leaveSwing, driveSwing, leaveHide } from './worldfx.js';
+import { isFree } from '../world/physics.js';
+import { sfx } from '../core/sfx.js';
 
 const PC = CONFIG.player;
 export function createPlayer(skin) {
@@ -37,7 +40,23 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   }
   // ввод относительно камеры: W — от камеры вперёд
   { const sx = ix, sz = iz, s = Math.sin(yaw), c = Math.cos(yaw); ix = sx * c + sz * s; iz = -sx * s + sz * c; }
+  if (p.noRun) { ix = 0; iz = 0; }
   const il = Math.hypot(ix, iz); if (il) { ix /= il; iz /= il; }
+  // в укрытии: стоим невидимыми, выскочить — E (в main) или пробел
+  if (p.hidden) { p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt); if (ctrl && tapped('Space')) leaveHide(p); else { groundBlob(p); return; } }
+  // на качелях: W/S — раскачиваться, пробел — спрыгнуть
+  if (p.swing) {
+    if (ctrl && tapped('Space')) leaveSwing(p, true);
+    else { driveSwing(p, ctrl && (keys.KeyW || keys.KeyS || keys.ArrowUp || keys.ArrowDown), dt); p.ch.animate(dt, { t, speed: 0, ride: 'sit', rideSpeed: 0, hold: true }); groundBlob(p); return; }
+  }
+  // подтягивание на уступ: короткая анимация, физика выключена
+  if (p.mantle) {
+    const m = p.mantle; m.t = Math.min(1, m.t + dt / 0.36); const k = m.t, e = k * k * (3 - 2 * k);
+    p.pos.set(m.fx + (m.tx - m.fx) * Math.max(0, (k - 0.4) / 0.6), m.fy + (m.ty - m.fy) * Math.min(1, e * 1.4), m.fz + (m.tz - m.fz) * Math.max(0, (k - 0.4) / 0.6));
+    p.vel.set(0, 0, 0); p.ch.animate(dt, { t, speed: 0, climb: true, air: false, vy: 2 });
+    if (k >= 1) { p.mantle = null; p.onGround = true; p.airPeak = p.pos.y; smokeRing(p.pos.x, p.pos.y + 0.05, p.pos.z, 4, { speed: 1.2, size: 0.12, grow: 0.3, life: 0.4 }); }
+    groundBlob(p); return;
+  }
   if (p.ride) {
     const pose = p.ride.ride.pose;
     updateRide(p, dt, t, ix, iz, ctrl);
@@ -57,7 +76,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   }
   // выпад стоит четверть стамины: без неё не прыгнешь, спамить нельзя
   if (ctrl && tapped('KeyQ') && !p.dive && p.diveCD <= 0 && !p.climb && p.slideT <= 0 && p.stamina >= PC.diveCost && !p.exhausted) {
-    const f = p.root.rotation.y; p.dive = 'air'; p.diveCD = PC.diveCooldown; p.stamina -= PC.diveCost; p.stDelay = PC.stamina.delay;
+    sfx('dive'); const f = p.root.rotation.y; p.dive = 'air'; p.diveCD = PC.diveCooldown; p.stamina -= PC.diveCost; p.stDelay = PC.stamina.delay;
     p.vel.x = Math.sin(f) * PC.diveSpeed + p.vel.x * 0.2; p.vel.z = Math.cos(f) * PC.diveSpeed + p.vel.z * 0.2;
     p.vel.y = p.onGround ? PC.diveUp : Math.max(p.vel.y, 2); p.onGround = false; p.airPeak = p.pos.y;
   }
@@ -69,7 +88,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.grab && tapped('KeyC')) release(p, 1);
   if (p.exhausted && p.stamina > PC.stamina.restart) p.exhausted = false;
   p.sprinting = wantSprint && !p.exhausted && p.stamina > 0;
-  if (p.sprinting) { p.stamina -= PC.stamina.drain * dt; p.stDelay = PC.stamina.delay; if (p.stamina <= 0) { p.stamina = 0; p.exhausted = true; } }
+  if (p.sprinting && !(p.energy > 0)) { p.stamina -= PC.stamina.drain * dt; p.stDelay = PC.stamina.delay; if (p.stamina <= 0) { p.stamina = 0; p.exhausted = true; } }
   else { p.stDelay -= dt; if (p.stDelay <= 0) p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt); }
   // поверхность под ногами
   const water = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'water');
@@ -79,12 +98,14 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.sprinting) p.boost = Math.min(1, p.boost + dt / PC.sprintRamp); else p.boost = Math.max(0, p.boost - dt / PC.sprintFade);
   const ramp = p.boost * p.boost * (3 - 2 * p.boost);
   let top = (PC.walk + (PC.sprint - PC.walk) * (p.sprinting ? ramp : 0)) * (water ? 0.5 : 1) * (p.held && p.held.def.heavy ? 0.85 : 1);
+  if (p.energy > 0) top *= 1.2; else if (p.tired > 0) top *= 0.8;
+  if (p.webT > 0) { p.webT -= dt; top *= 0.4; }
   if (p.crouch) top = Math.min(top, PC.crouchSpeed);
   if (p.grab) top *= p.grab.kind === 'barrow' ? 0.82 : 0.92;
   const cur = Math.hypot(p.vel.x, p.vel.z);
   let acc;
   if (!p.onGround) acc = 3;
-  else if (slick) acc = 1.2;
+  else if (slick || p.slipT > 0) acc = 1.2;
   else if (il) acc = PC.accel;
   else acc = cur > PC.walk + 0.5 ? PC.sprintDecel : PC.decel;
   if (p.slideT > 0) {
@@ -114,7 +135,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   // прыжок
   if (ctrl && tapped('Space') && (p.onGround || p.climb) && !p.dive) {
     if (p.slideT > 0) { p.slideT = 0; }
-    p.vel.y = PC.jump * (water ? 0.75 : 1);
+    p.vel.y = PC.jump * (water ? 0.75 : 1); sfx('jump');
     if (p.climb) { p.vel.x += p.climb.nx * 3; p.vel.z += p.climb.nz * 3; p.climb = null; }
     smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 5, { speed: 1.6, size: 0.14, grow: 0.42, life: 0.5 });
   }
@@ -122,8 +143,25 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const wasGround = p.onGround;
   // выпадом можно пробить стекло и ящик (вылететь в окно)
   if (p.dive === 'air') hitBreakables({ x: p.pos.x + p.vel.x * 0.05, y: p.pos.y + 0.6, z: p.pos.z + p.vel.z * 0.05 }, 0.6, [p.vel.x, p.vel.y, p.vel.z], 1, ['glass', 'crate']);
+  // шарик с водой в руках — как парашют: падаешь медленно и без оглушения
+  if (!p.onGround && p.held && p.held.type === 'balloon' && p.vel.y < -2.6) { p.vel.y = -2.6; p.airPeak = p.pos.y + 1; }
+  if (p.dive === 'air') worldHit({ x: p.pos.x + p.vel.x * 0.05, y: p.pos.y + 0.6, z: p.pos.z + p.vel.z * 0.05 }, 4, p.vel);
   moveBody(p, dt, PC.gravity);
   bumpPushables(p);
+  // батут: приземлился на маркизу / крышу машины / матрас — подбросило
+  if (p.landed) { const bo = bounceAt(p.pos.x, p.pos.z, p.pos.y); if (bo) { p.vel.y = bo.power; p.onGround = false; p.airPeak = p.pos.y; p.bounced = 0.3; p.dive = null;
+    sfx('bounce'); smokeRing(p.pos.x, p.pos.y + 0.05, p.pos.z, 6, { speed: 2, size: 0.14, grow: 0.4, life: 0.4 }); worldHit({ x: p.pos.x, y: p.pos.y - 0.4, z: p.pos.z }, 1.2, p.vel); shake(0.08); } }
+  // уступ на уровне груди в прыжке — подтянуться
+  if (!p.onGround && il > 0 && p.vel.y < 3 && !p.climb && !p.dive && !p.held && !p.grab && !p.ride) {
+    const qx = p.pos.x + ix * (p.r + 0.28), qz = p.pos.z + iz * (p.r + 0.28);
+    for (const so of solidsNear(qx - 0.15, qz - 0.15, qx + 0.15, qz + 0.15)) {
+      if (!so.on || qx < so.x0 || qx > so.x1 || qz < so.z0 || qz > so.z1) continue;
+      const rel = so.y1 - p.pos.y; if (rel < 0.9 || rel > 1.7 || so.y1 - so.y0 < 0.25) continue;
+      const tx = p.pos.x + ix * (p.r + 0.5), tz = p.pos.z + iz * (p.r + 0.5);
+      if (!isFree(tx - 0.28, tz - 0.28, tx + 0.28, tz + 0.28, so.y1 + 0.05, so.y1 + PC.crouchH) || groundAt(tx, tz, 0.2, so.y1 + 0.05) < so.y1 - 0.05) continue;
+      sfx('mantle'); p.mantleN = (p.mantleN || 0) + 1; p.mantle = { t: 0, fx: p.pos.x, fy: p.pos.y, fz: p.pos.z, tx, ty: so.y1, tz }; p.vel.set(0, 0, 0); break;
+    }
+  }
   if (p.grab && (p.stun > 0 || p.climb || p.dive || !p.onGround && p.vel.y > 1)) release(p, 0.5);
   updateGrab(p, dt);
   autoMount(p);
@@ -133,6 +171,8 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     const drop = p.airPeak - p.pos.y;
     if (p.dive === 'air' && drop <= PC.fallStun) { p.dive = 'roll'; p.rollT = PC.rollTime; p.vel.x *= 0.8; p.vel.z *= 0.8; smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 7, { speed: 2.4 }); }
     else if (p.dive === 'air') p.dive = null;
+    if (drop > 0.5) sfx('land', { v: Math.min(1.5, drop * 0.3) });
+    if (drop > 2.5) shake(Math.min(0.5, drop * 0.06));
     if (drop > PC.fallStun) { p.stun = PC.stunTime; smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 12, { speed: 3.2, size: 0.24, grow: 0.8, life: 0.8 }); }
     else if (drop > 0.4) smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 7, { speed: 2, size: 0.16, grow: 0.5, life: 0.55 });
     p.landedNow = true;
@@ -161,7 +201,11 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
         { size: 0.12 + Math.random() * 0.06, grow: 0.45 + Math.random() * 0.25, life: 0.55 + Math.random() * 0.25, vx: bx * 1.4 + (Math.random() - 0.5) * 0.6, vz: bz * 1.4 + (Math.random() - 0.5) * 0.6, vy: 0.35 + Math.random() * 0.4 });
     } else { p.smokeT = 0.22 + Math.random() * 0.2; smoke(p.pos.x + bx * 0.3, p.pos.y + 0.04, p.pos.z + bz * 0.3, { dust: true, vx: bx * 0.8 + (Math.random() - 0.5) * 0.6, vz: bz * 0.8 + (Math.random() - 0.5) * 0.6 }); }
   }
+  // шаги: звук зависит от поверхности
+  if (p.onGround && spd > 2 && !p.crouch) { p.stepSnd = (p.stepSnd || 0) - dt * spd; if (p.stepSnd <= 0) { p.stepSnd = 2.4; sfx('step', { surf: water ? 'water' : zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves') ? 'grass' : 'stone', v: 0.6 + spd / 22 }); } }
   if (p.throwT > 0) p.throwT -= dt;
+  if (p.pushing > 0) p.pushing -= dt;
+  if (p.slipT > 0) p.slipT -= dt;
   // куча листьев: пробежал — разлетелись
   if (spd > 3 && p.onGround && Math.random() < dt * 12 && zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves')) burst(p.pos.x, p.pos.y + 0.2, p.pos.z, 3, { color: [0xc96a25, 0xa8452a, 0xe0902e][(Math.random() * 3) | 0], size: 0.14, speed: 2.2, up: 2.5, g: 5, life: 1.0, grow: 0.1 });
   // вода: стоишь — расходятся круги; приземлился — всплеск; вышел — мокрые следы
@@ -172,6 +216,6 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
   p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, climb: !!p.climb,
-    hold: !!p.held || !!p.grab, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
+    hold: !!p.held || !!p.grab || p.pushing > 0, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null });
 }

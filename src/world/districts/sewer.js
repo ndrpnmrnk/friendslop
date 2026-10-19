@@ -70,7 +70,13 @@ export default {
     b.crate(5, 5, 1.1); b.crate(6.1, 5.2, 0.9); b.barrel(3, 28); b.barrel(4, 28.6);
     b.bench(6, 16, Math.PI / 2); b.trashBags(1.5, 9, 2); b.puddle(6, 25, 1); b.graffiti(12.02, -2.2, 18, Math.PI / 2, 2.6, 4); b.utilityBox(10.6, 22, -Math.PI / 2); b.planter(5, 22.5, 2.2, 1.2, 0.45, 'shrub'); b.tree(3, 20); b.tree(8, 26); b.lamp(10.5, 16, -Math.PI / 2); b.lamp(22, 16, Math.PI / 2);
     b.ride('barrow', 25, 14, 1);
-    b.zone('floor', 1, 1, 11, 31); b.zone('floor', 21, 11, 31, 18);
+    b.mist(12, 0, 20, 32, FLOOR + 0.1);
+    // стена для граффити (расписана с обеих сторон), замки «на счастье» на перилах моста, лавочка и автомат
+    b.box(5.5, 12.6, 7, 0.3, 2.2, conc); b.m(G.box, col(0x3a3440), 5.5, 2.24, 12.6, 7.1, 0.08, 0.38);
+    b.graffiti(4.2, 1.1, 12.44, Math.PI, 3, 1); b.graffiti(6.8, 1.1, 12.76, 0, 3, 5);
+    for (let i = 0; i < 14; i++) { const x = 12.6 + Math.random() * 6.8, z = i % 2 ? 14.55 : 17.45; b.m(G.box, col([0xd8243a, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff][i % 5]), x, 0.66, z, 0.08, 0.1, 0.05); }
+    b.picnic(26.5, 15.5, 0.1); b.vending(30.55, 13, -Math.PI / 2); b.dumpster(25, 29.6); b.trashBags(27, 29.8, 2);
+    b.zone('floor', 1, 1, 11, 11.8); b.zone('floor', 1, 13.4, 11, 31); b.zone('floor', 21, 11, 31, 18);
     W.missionZones.push({ type: 'tunnel', x0: b.X(13.6), z0: b.Z(2), x1: b.X(18.4), z1: b.Z(30), y: b.Y + FLOOR, district: 'Коллектор' });
     b.spawn(6, 10); b.spawn(26, 30);
     b.hw(() => { b.pumpkin(9, 3); b.pumpkin(24, 11.5); });

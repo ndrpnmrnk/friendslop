@@ -56,6 +56,7 @@ export default {
       const x0 = m.position.x, ph = Math.random() * 6; W.animated.push((dt, t) => { m.position.x = x0 + Math.sin(t * 0.25 + ph) * 1.5; });
     }
     b.spawn(16, 30); b.spawn(4.5, 12);
+    b.mist(1, 9, 31, 31);
     b.hw(() => { b.pumpkin(13.4, 10); b.pumpkin(18.6, 10); });
   },
 };

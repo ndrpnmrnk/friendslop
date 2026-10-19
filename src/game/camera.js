@@ -97,7 +97,7 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
     P = want; L = tgt.copy(want).addScaledVector(dir, -20);
   }
   // Если стена придвинула камеру, сохраняем размер игровой области в кадре.
-  const baseFov = CONFIG.camera.fov;
+  const baseFov = CONFIG.camera.fov + (cam.pose ? 0 : (cam.fovAdd || 0));
   const fov = cam.pose
     ? Math.min(105, Math.atan(Math.tan(baseFov * Math.PI / 360) * cam.pose.p.distanceTo(L) / Math.max(0.1, P.distanceTo(L))) * 360 / Math.PI)
     : snap ? baseFov : camera.fov + (baseFov - camera.fov) * damp(10, dt);
@@ -107,6 +107,8 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   if (snap || cam.pose || cam.blend >= 1) { pos.copy(P); look.copy(L); }
   else { const f = damp(6, dt); pos.lerp(P, f); look.lerp(L, f); constrain(eye, pos, radius, null, p.pos.y + 0.45); }
   camera.position.copy(pos); camera.lookAt(look);
+  // тряска: короткие пиксельные рывки, затухают сами
+  if (cam.shake > 0.001 && !cam.pose) { const k = cam.shake * 0.35; camera.position.x += (Math.random() - 0.5) * k; camera.position.y += (Math.random() - 0.5) * k; camera.rotation.z += (Math.random() - 0.5) * k * 0.15; }
 
   // затухание зданий
   const target = cam.pose ? cam.pose.l : hit.set(p.pos.x, p.pos.y + 1.1, p.pos.z).clone();

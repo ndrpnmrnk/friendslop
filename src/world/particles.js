@@ -63,7 +63,7 @@ export function chunk(x, y, z, vel, o = {}) {
   const s = o.size ?? 0.18;
   const m = mesh(o.geo || G.box, o.mat, x, y, z, s * (o.sx ?? 1), s * (o.sy ?? 1), s * (o.sz ?? 1), W.group);
   m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-  W.debris.push({ m, v: vel.slice(), spin: [(Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10], life: o.life ?? 3, r: o.r ?? s * 0.5, s0: m.scale.clone() });
+  W.debris.push({ m, v: vel.slice(), spin: [(Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10], life: Math.min(10, (o.life ?? 3) * 2.5), r: o.r ?? s * 0.5, s0: m.scale.clone() });
   return m;
 }
 

@@ -1,9 +1,9 @@
-import { THREE, G, mesh, tmat, flat, paint, setParent } from '../core/gfx.js';
+import { THREE, G, mesh, tmat, flat, paint, setParent, col, lam } from '../core/gfx.js';
 import { T, rep } from '../core/textures.js';
 import { CONFIG } from '../config.js';
 import { seed, shuffle } from '../core/rng.js';
 import { W, resetWorld } from './state.js';
-import { addSolid } from './physics.js';
+import { addSolid, isFree } from './physics.js';
 import { Builder } from './builder.js';
 import { DISTRICTS } from './districts/index.js';
 import { resetParticles } from './particles.js';
@@ -64,6 +64,7 @@ export function generateMap(scene, s) {
     d.build(new Builder(ox, oz, base, d.name));
   }
   buildRoadsAndTunnels(half);
+  streetFurniture(half);
   buildEdges(half);
   // коты: по одному в разных районах
   const homes = shuffle(W.catHomes.slice());
@@ -72,4 +73,35 @@ export function generateMap(scene, s) {
   setParent(null);
   W.bakeInfo = bakeStatic(group);
   return picks.map(d => d.name);
+}
+
+/* Светофоры на внутренних перекрёстках (мигают жёлтым ночью) и провода между столбами над дорогами */
+function streetFurniture(half) {
+  const { grid, chunk, road, base } = CONFIG, c = i => -half + road / 2 + i * (chunk + road);
+  const b = new Builder(0, 0, base, 'Улица'), dk = col(0x2b2533);
+  const yel = lam({ color: 0xffb020, emissive: 0xffb020, emissiveIntensity: 0.9 }, 'tlBlink');
+  W.flick.push({ mats: [yel], t: 0, on: true, period: 0.6 });
+  const poles = [];
+  for (let i = 1; i < grid; i++) for (let j = 1; j < grid; j++) {
+    const x = c(i), z = c(j);
+    for (const [sx, sz] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+      const px = x + sx * (road / 2 + 0.6), pz = z + sz * (road / 2 + 0.6);
+      if (!isFree(px - 0.3, pz - 0.3, px + 0.3, pz + 0.3, base + 0.1, base + 4)) continue;
+      b.m(G.cyl8, dk, px, 2.1, pz, 0.08, 4.2, 0.08); b.solid(px, pz, 0.25, 0.25, 0, 4.2);
+      const ax = -sx * 1.4, arm = b.m(G.box, dk, px + ax / 2, 4.1, pz, Math.abs(ax), 0.07, 0.07);
+      const hx = px + ax, head = b.m(G.box, dk, hx, 3.7, pz, 0.3, 0.8, 0.3);
+      b.m(G.box, col(0x3a1010), hx, 3.95, pz - sz * 0.16, 0.16, 0.16, 0.02); b.m(G.box, yel, hx, 3.7, pz - sz * 0.16, 0.16, 0.16, 0.02); b.m(G.box, col(0x103a10), hx, 3.45, pz - sz * 0.16, 0.16, 0.16, 0.02);
+      poles.push([px, pz]); break;
+    }
+  }
+  // провода через дороги: столбы у середины сторон районов, по одному пролёту на несколько улиц
+  let n = 0;
+  for (let i = 1; i < grid && n < 6; i++) for (let j = 0; j < grid && n < 6; j++) {
+    if (Math.random() < 0.4) continue;
+    const x = c(i), z = (c(j) + c(j + 1)) / 2 + 5;
+    const a = [x - road / 2 - 0.5, z], bq = [x + road / 2 + 0.5, z];
+    if (![a, bq].every(([px, pz]) => isFree(px - 0.3, pz - 0.3, px + 0.3, pz + 0.3, base + 0.1, base + 6))) continue;
+    for (const [px, pz] of [a, bq]) { b.m(G.cyl6, col(0x4a3a2e), px, 2.9, pz, 0.09, 5.8, 0.09); b.solid(px, pz, 0.25, 0.25, 0, 5.8); b.m(G.box, dk, px, 5.5, pz, 0.06, 0.06, 0.9); }
+    b.wires(a[0], 5.5, z - 0.35, bq[0], 5.5, z - 0.35, 2); n++;
+  }
 }

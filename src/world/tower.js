@@ -4,6 +4,7 @@ import { HW } from '../config.js';
 import { W } from './state.js';
 import { breakModel, breakBox } from './breakables.js';
 import { potModel } from './props.js';
+let _ao; const aoMat = () => _ao || (_ao = lam({ map: T.aoStrip(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }, 'aoStrip', true));
 const BM = {}; const bottleMat = c => BM[c] || (BM[c] = lam({ color: c, transparent: true, opacity: 0.8 }, 'bottle' + c));
 
 /* Многоэтажное здание, по которому можно ходить: наружные стены с окнами (окна совпадают
@@ -24,6 +25,11 @@ export const TowerMethods = {
     const sx0 = o.stairX ?? ix0, sz0 = iz0, f0 = sx0 + EL, f1 = f0 + Lh, sx1 = hasStairs ? f1 + ML : sx0, sz1 = hasStairs ? sz0 + lane * 2 : sz0;
     const dw = o.doorW ?? 1.4, dh = 2.35, plain = col(base), inner = o.inner || T.plaster();
     const doors = o.doors || (o.door ? [o.door] : []);
+    // пожарная лестница (только на боковых стенах e/w): площадки на каждом этаже «ёлочкой», марши между ними,
+    // снизу — красная откидная секция, сверху — лестница на крышу
+    const FE = o.fireEscape && n > 1 ? o.fireEscape : null;
+    const feZ = k => z + d * FE.at + (k % 2 ? 1.65 : -1.65);
+    if (FE) o.gaps = (o.gaps || []).concat([{ side: FE.side, at: (feZ(n - 1) - z) / d }]);
     // настоящие окна: проём в стене + стекло, которое бьётся (выпад/бросок), снаружи подоконник
     // окна большие: персонаж пролезает (прыжок на подоконник и шаг наружу)
     const SILL = o.sill ?? 0.55, WH = Math.min(1.95, fh - SILL - 0.42), WW = 1.3, STEP = o.winStep ?? 2.3;
@@ -93,9 +99,27 @@ export const TowerMethods = {
         this.vitrine(cx, cz, WW, WH, ax ? 'x' : 'z', h.y0);
         this.m(G.box, sill, cx + nrm[0] * 0.12, h.y0 - 0.04, cz + nrm[1] * 0.12, ax ? WW + 0.2 : 0.22, 0.08, ax ? 0.22 : WW + 0.2);
         this.m(G.box, frame, cx, h.y1 - 0.03, cz, ax ? WW : 0.08, 0.06, ax ? 0.08 : WW);
-        if (Math.random() < lit * 0.6) for (const s2 of [-1, 1]) {
+        const litW = Math.random() < lit * 0.6;
+        if (litW) for (const s2 of [-1, 1]) {
           const ox = ax ? s2 * (WW / 2 - 0.16) : 0, oz = ax ? 0 : s2 * (WW / 2 - 0.16);
           this.m(G.box, curtain, cx + ox - nrm[0] * 0.2, cy, cz + oz - nrm[1] * 0.2, ax ? 0.3 : 0.03, WH, ax ? 0.03 : 0.3);
+        }
+        // тёплое пятно света на земле под окном первого этажа
+        if (litW && h.f === 0 && o.windowPools !== false) this.light(cx + nrm[0] * 1.1, cz + nrm[1] * 1.1, 1.1, 0, true);
+        // снаружи: кондиционер под окном, на южной стороне — редкий балкон (на него можно выпрыгнуть)
+        if (h.f >= 1 && o.facadeProps !== false) {
+          const r = Math.random();
+          if (k === 's' && r < 0.14 && !(o.ladder && o.ladder.side === 's')) {
+            const by = h.f * fh, bm = col(0x3a3046);
+            this.box(cx + nrm[0] * 0.55, cz + nrm[1] * 0.55, ax ? WW + 0.5 : 0.9, ax ? 0.9 : WW + 0.5, 0.1, tmat(T.concrete()), { y: by - 0.1 });
+            for (const [ux, uz, uw, ud] of ax ? [[0, 0.95, WW + 0.5, 0.05], [-(WW + 0.5) / 2, 0.55, 0.05, 0.85], [(WW + 0.5) / 2, 0.55, 0.05, 0.85]] : [[0.95, 0, 0.05, WW + 0.5], [0.55, -(WW + 0.5) / 2, 0.85, 0.05], [0.55, (WW + 0.5) / 2, 0.85, 0.05]]) {
+              const px = cx + (ax ? ux : ux * nrm[0]), pz = cz + (ax ? uz * nrm[1] : uz);
+              this.m(G.box, bm, px, by + 0.95, pz, uw, 0.05, ud); this.m(G.box, bm, px, by + 0.5, pz, uw > 0.2 ? uw : 0.04, 0.9, ud > 0.2 ? ud : 0.04); this.solid(px, pz, Math.max(uw, 0.1), Math.max(ud, 0.1), by, 1.0); }
+          } else if (r < 0.32) {
+            const mt = tmat(T.metal()), fr = tmat(T.vent());
+            const ac = this.m(G.box, [mt, mt, mt, mt, fr, mt], cx + nrm[0] * 0.3, h.y0 - 0.45, cz + nrm[1] * 0.3, 0.7, 0.45, 0.32); ac.rotation.y = { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[k];
+            this.solid(cx + nrm[0] * 0.3, cz + nrm[1] * 0.3, ax ? 0.7 : 0.32, ax ? 0.32 : 0.7, h.y0 - 0.68, 0.45);
+          }
         }
       }
       if (dr) {
@@ -108,8 +132,40 @@ export const TowerMethods = {
           this.m(G.box, col(0x2b2533), cx + nrm[0] * 0.78, dh + 0.36, cz + nrm[1] * 0.78, ax ? dw + 1 : 1.3, 0.12, ax ? 1.3 : dw + 1);
           this.m(G.box, glow(0xffd8a0), cx + nrm[0] * 0.78, dh + 0.27, cz + nrm[1] * 0.78, 0.3, 0.05, 0.3); this.light(cx + nrm[0] * 1.2, cz + nrm[1] * 1.2, 1.6);
         }
+        if (HW && o.canopy !== false) { for (const s3 of [-1, 1]) if (Math.random() < 0.7) { const px = cx + nrm[0] * 0.7 + (ax ? s3 * (dw / 2 + 0.45) : 0), pz = cz + nrm[1] * 0.7 + (ax ? 0 : s3 * (dw / 2 + 0.45)); this.pumpkin(px, pz, 0.32); } }
         if (dr.sign) this.sign(cx + nrm[0] * (t / 2 + 0.03), dh + 0.78, cz + nrm[1] * (t / 2 + 0.03), { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[k], ...dr.sign, 2.4, 0.55);
       }
+    }
+    if (FE) {
+      const sg = FE.side === 'w' ? -1 : 1, wx = FE.side === 'w' ? x : x + w, cxL = wx + sg * 0.62, grate = tmat(T.grate()), mt = col(0x2b2533);
+      for (let k = 1; k < n; k++) {
+        const ly = k * fh, lz = feZ(k);
+        this.box(cxL, lz, 1.2, 1.3, 0.08, grate, { y: ly - 0.08 });
+        this.m(G.box, mt, wx + sg * 1.21, ly + 0.95, lz, 0.05, 0.05, 1.3);
+        if (k === 1) { for (const dz of [-0.53, 0.53]) this.solid(wx + sg * 1.21, lz + dz, 0.08, 0.24, ly, 1.0); } else this.solid(wx + sg * 1.21, lz, 0.08, 1.3, ly, 1.0);
+        for (const dz of [-0.62, 0.62]) this.m(G.box, mt, wx + sg * 1.21, ly + 0.48, lz + dz, 0.04, 0.95, 0.04);
+        if (k < n - 1) { // марш до следующей площадки
+          const z0 = lz + (feZ(k + 1) > lz ? 0.65 : -0.65), z1 = feZ(k + 1) + (feZ(k + 1) > lz ? -0.65 : 0.65), steps = Math.ceil(fh / 0.34), dzs = (z1 - z0) / steps;
+          for (let i = 0; i < steps; i++) { const sz = z0 + dzs * (i + 0.5), top = ly + fh * (i + 1) / steps; this.m(G.box, grate, cxL, top - 0.04, sz, 1.0, 0.08, Math.abs(dzs) + 0.02); this.solid(cxL, sz, 1.0, Math.abs(dzs), top - 0.12, 0.12); }
+          const hl = Math.hypot(z1 - z0, fh), hr = this.m(G.box, mt, wx + sg * 1.15, ly + fh / 2 + 0.9, (z0 + z1) / 2, 0.05, 0.05, hl); hr.rotation.x = -Math.atan2(fh, z1 - z0);
+        }
+      }
+      this.dropLadder(wx + sg * 1.22, feZ(1), FE.side, fh, Math.min(2.4, fh * 0.65));
+      this.ladder(wx, feZ(n - 1), FE.side, H, (n - 1) * fh);
+    }
+    // мягкое затенение земли у основания стен
+    if (o.ao !== false) for (const [k, sd] of Object.entries(sides)) {
+      const nrm = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }[k], len = sd.axis === 'x' ? w + 0.5 : d + 0.5;
+      const cx = sd.axis === 'x' ? x + w / 2 : sd.at + nrm[0] * (t / 2 + 0.45), cz = sd.axis === 'x' ? sd.at + nrm[1] * (t / 2 + 0.45) : z + d / 2;
+      const m = this.m(G.plane, aoMat(), cx, 0.02, cz, len, 0.9, 1); m.rotation.x = -Math.PI / 2; m.rotation.z = { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[k]; m.renderOrder = 1;
+    }
+    // водостоки по двум углам фасада
+    if (o.facadeProps !== false && n >= 1) for (const px of [x + 0.12, x + w - 0.12]) { this.m(G.cyl6, col(0x5a5d68), px, H / 2, z + d + 0.1, 0.06, H, 0.06); this.m(G.box, col(0x5a5d68), px, 0.08, z + d + 0.25, 0.14, 0.06, 0.3); }
+    // крыша: вентиляционная будка и антенна (подальше от лестничной будки и мостков)
+    if (o.roof !== false && o.facadeProps !== false && n >= 1) {
+      const mt = tmat(T.metal()); this.box(x + w - 1.3, z + d - 1.3, 0.9, 0.9, 0.7, [mt, mt, mt, mt, tmat(T.vent()), mt], { y: H });
+      this.m(G.cyl5, col(0x2b2533), x + 1.0, H + 1.2, z + d - 1.0, 0.03, 2.4, 0.03); for (const yy of [1.6, 2.1]) this.m(G.box, col(0x2b2533), x + 1.0, H + yy, z + d - 1.0, 0.7, 0.03, 0.03);
+      if (Math.random() < 0.5) { const dsh = this.m(G.sph, col(0xd8d8e0), x + 1.0, H + 0.5, z + d - 1.6, 0.35, 0.35, 0.12); dsh.rotation.x = 0.5; }
     }
     // перекрытия с проёмом над пролётом, который пришёл снизу
     const floorTex = o.floor || T.floorWood(), ceil = tmat(T.plaster());
@@ -182,8 +238,11 @@ export const TowerMethods = {
     }
     if (o.roof !== false) this.zone('roof', x + 0.8, sz1 + 0.6, x + w - 0.8, z + d - 0.8, H);
     if (hasStairs) this._stairs = { f0, zA: sz0 + lane / 2, fh, n };
-    if (o.sign) this.sign(x + w / 2, Math.min(fh, 3.4) - 0.45, z + d + 0.03, 0, ...o.sign, Math.min(w * 0.7, 4.5), 0.7);
-    if (o.awning) { const a = this.m(G.box, tmat(T.awning(...o.awning)), x + w / 2, 2.72, z + d + 0.62, w - 0.6, 0.1, 1.2); a.rotation.x = 0.25; }
+    if (o.sign && Math.random() < 0.4) { const sm = this.sign(x + w / 2, Math.min(fh, 3.4) - 0.45, z + d + 0.031, 0, ...o.sign, Math.min(w * 0.7, 4.5), 0.7); sm.material = sm.material.clone(); W.flick.push({ mats: [sm.material], sign: true, t: Math.random() * 4, on: true }); }
+    else if (o.sign) this.sign(x + w / 2, Math.min(fh, 3.4) - 0.45, z + d + 0.03, 0, ...o.sign, Math.min(w * 0.7, 4.5), 0.7);
+    if (o.awning) { const a = this.m(G.box, tmat(T.awning(...o.awning)), x + w / 2, 2.72, z + d + 0.62, w - 0.6, 0.1, 1.2); a.rotation.x = 0.25;
+      // маркиза-батут: упругая ткань подбрасывает
+      this.solid(x + w / 2, z + d + 0.62, w - 0.6, 1.1, 2.6, 0.12); this.bouncer(x + 0.3, z + d + 0.1, x + w - 0.3, z + d + 1.15, 2.72, 11); }
     // этажи: свет на потолке + наполнение
     for (let k = 0; k < n; k++) {
       const fb = this.at(k * fh), r = { x0: ix0, z0: sz1 + (hasStairs ? 0.15 : 0), x1: ix1, z1: iz1, sx0, sx1, h: fh, k, top: H };
@@ -228,7 +287,7 @@ export const TowerMethods = {
     a(0, 0.56, -0.72, 1.0, 0.12, 0.35, col(0xf1e8ff)); a(0, 0.65, -0.98, 1.4, 0.9, 0.08, wd);
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 2 : 1.4, q ? 1.4 : 2, 0, 0.58);
   },
-  wardrobe(x, z, ry = 0) { const wd = tmat(T.wood()); this.box(x, z, Math.abs(Math.sin(ry)) > 0.5 ? 0.6 : 1.2, Math.abs(Math.sin(ry)) > 0.5 ? 1.2 : 0.6, 2.0, [wd, wd, wd, wd, tmat(T.cabinet(0x6a4a30)), tmat(T.cabinet(0x6a4a30))]); },
+  wardrobe(x, z, ry = 0) { const wd = tmat(T.wood()); W.hides.push({ x: this.X(x), y: this.Y, z: this.Z(z), r: 1.3, kind: 'wardrobe', out: [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))] }); this.box(x, z, Math.abs(Math.sin(ry)) > 0.5 ? 0.6 : 1.2, Math.abs(Math.sin(ry)) > 0.5 ? 1.2 : 0.6, 2.0, [wd, wd, wd, wd, tmat(T.cabinet(0x6a4a30)), tmat(T.cabinet(0x6a4a30))]); },
   kitchen(x, z, len, ry = 0) {
     const g = this.prop(x, z, ry), wd = tmat(T.cabinet(0xd8d0c0)), top = col(0x3a3440), mt = tmat(T.metal());
     const a = (px, py, pz, sx, sy, sz, mm) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };

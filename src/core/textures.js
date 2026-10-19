@@ -166,6 +166,11 @@ export const T = {
     for (let r = 0; r < rows; r++) for (let c = -1; c < 5; c++) { g.fillStyle = shade(0x6a3a2c, (R() - 0.5) * 40); g.fillRect(c * bw + (r % 2 ? bw / 2 : 0) + 3, r * bh + 3, bw - 6, bh - 6); }
     blobs(g, W, H, ['#2a3a2a', '#3a4a30', '#1a1614'], 60, 4, 18, 0.4); strokes(g, W, H, ['rgba(30,40,24,.6)'], 25, 40, Math.PI / 2, 0.15, 4, 0.5); grain(g, W, H, 16);
   }),
+  truss: (c = '#e0b02a') => pix('truss' + c, 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H); g.fillStyle = c; g.fillRect(0, 0, 3, H); g.fillRect(W - 3, 0, 3, H); g.fillRect(0, 0, W, 2); g.fillRect(0, H - 2, W, 2);
+    g.fillStyle = '#b88a1a'; for (let i = 0; i < W; i++) { g.fillRect(i, (i * H / W) | 0, 2, 2); g.fillRect(i, H - 2 - ((i * H / W) | 0), 2, 2); } }),
+  mist: () => photo('mist', 64, 64, (g, W, H) => { g.clearRect(0, 0, W, H); for (let i = 0; i < 40; i++) { const x = R() * W, y = R() * H, r = W * (0.08 + R() * 0.16);
+    for (const [ox, oy] of [[0, 0], [W, 0], [-W, 0], [0, H], [0, -H]]) { const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r); gr.addColorStop(0, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); } } }, 2),
+  aoStrip: () => pix('aoStrip', 4, 16, (g, W, H) => { for (let y = 0; y < H; y++) { g.fillStyle = `rgba(10,6,16,${(0.55 * (1 - y / H) ** 1.6).toFixed(3)})`; g.fillRect(0, y, W, 1); } }),
   grate: () => pix('grate', 16, 16, (g, W, H) => { g.fillStyle = '#2b2533'; g.fillRect(0, 0, W, H); g.fillStyle = '#0a080c'; for (let x = 1; x < W; x += 3) g.fillRect(x, 1, 2, H - 2); }),
   carpet: (c = 0x3a4458) => photo('carpet' + c, 32, 32, (g, W, H) => { fill(g, W, H, shade(c, 0)); blobs(g, W, H, [shade(c, -14), shade(c, 12)], 900, 1, 2.5, 0.5);
     g.strokeStyle = shade(c, -22); g.lineWidth = 3; g.strokeRect(1.5, 1.5, W - 3, H - 3); grain(g, W, H, 10); }),
@@ -194,6 +199,11 @@ export const T = {
       : [['#3f8a45', '#2f6a3a', '#5aaa50', '#1f4a2a'], ['#4f9a3a', '#2f7a2e', '#6aaa4a', '#1f4a1c'], ['#2f7a40', '#1f5a30', '#3f8a50', '#14402a']][i];
     fill(g, W, H, pal[3]); blobs(g, W, H, pal, 260, 4, 12, 0.85); grain(g, W, H, 18);
   }),
+  tread: () => photo('tread', 32, 16, (g, W, H) => { fill(g, W, H, '#1a171f'); g.fillStyle = '#0a080c'; for (let x = 0; x < W; x += W / 8) { g.fillRect(x, 0, W / 20, H); g.fillRect(x + W / 16, H * 0.3, W / 24, H * 0.4); } grain(g, W, H, 14); }),
+  hubcap: () => photo('hubcap', 16, 16, (g, W, H) => { fill(g, W, H, '#2a2630'); g.fillStyle = radial(g, W * 0.4, H * 0.4, W * 0.5, '#d8d8e0', '#6a6d78'); g.beginPath(); g.arc(W / 2, H / 2, W * 0.42, 0, 7); g.fill(); g.fillStyle = '#3a3440'; for (let a = 0; a < 5; a++) { g.beginPath(); g.arc(W / 2 + Math.cos(a * 1.257) * W * 0.24, H / 2 + Math.sin(a * 1.257) * H * 0.24, W * 0.07, 0, 7); g.fill(); } }),
+  plate: () => pix('plate', 16, 4, (g, W, H) => { fill(g, W, H, '#e8e4d8'); g.fillStyle = '#17111f'; for (let x = 2; x < W - 2; x += 2) g.fillRect(x, 1, 1, 2); }),
+  leafLitter: () => pix('leafLitter', 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H); const pal = HW ? ['#c9662a', '#a8452a', '#e89a3a', '#d8b040'] : ['#5aaa50', '#3f8a45', '#7aba5a', '#9aaa4a'];
+    for (let i = 0; i < 70; i++) { const x = R() * W, y = R() * H, d = Math.hypot(x - W / 2, y - H / 2); if (d > W * 0.48 * (0.6 + R() * 0.4)) continue; g.fillStyle = pal[(R() * 4) | 0]; g.fillRect(x | 0, y | 0, 2, 1 + ((R() * 2) | 0)); } }),
   bush: () => photo('bush', 32, 32, (g, W, H) => {
     fill(g, W, H, '#1e3220'); blobs(g, W, H, ['#2e4a2a', '#3e5e34', '#24381f', HW ? '#7a4a24' : '#4a7a3a'], 300, 3, 9, 0.85); grain(g, W, H, 16);
   }),

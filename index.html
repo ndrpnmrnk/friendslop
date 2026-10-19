@@ -4,68 +4,70 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Friendslop</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rubik:wght@500;700&display=swap&subset=cyrillic" rel="stylesheet">
 </head>
 <body>
 <div id="game"></div>
 <div id="dot" class="hidden"><i></i></div>
+<div id="fade"></div>
 
-<!-- Главное меню -->
-<div id="menu" class="hidden">
-  <div class="mtitle">Friendslop</div>
-  <div class="msub">Город в канун Хэллоуина</div>
-  <div class="mpick">
-    <button class="marr" id="skinPrev" aria-label="Предыдущий персонаж">◀</button>
-    <div class="mname px" id="skinName">Котик</div>
-    <button class="marr" id="skinNext" aria-label="Следующий персонаж">▶</button>
+<!-- Главное меню: поверх 3D-сцены только логотип, имя скина и кнопка -->
+<div id="menu" class="screen hidden">
+  <div id="logo" aria-label="Friendslop"></div>
+  <div class="skinrow">
+    <button class="parr" id="skinPrev" aria-label="Предыдущий персонаж">◀</button>
+    <div class="plabel" id="skinName">Котик</div>
+    <button class="parr" id="skinNext" aria-label="Следующий персонаж">▶</button>
   </div>
-  <button class="btn" id="playBtn">Играть</button>
-  <div class="keys px">
-    <span><kbd>WASD</kbd> бег</span><span><kbd>Shift</kbd> спринт</span><span><kbd>Пробел</kbd> прыжок</span>
-    <span><kbd>E</kbd> взять / миссия</span><span><kbd>ЛКМ</kbd> дверь</span><span><kbd>ПКМ</kbd> зажать и бросить</span>
-  </div>
+  <button class="pbtn" id="playBtn">ИГРАТЬ</button>
 </div>
+
+<!-- Выбор режима -->
+<div id="mode" class="screen hidden">
+  <div class="sctitle">РЕЖИМ</div>
+  <button class="pcard" id="modeCard"><canvas id="modeArt" width="160" height="96"></canvas><b>ОБЫЧНЫЙ</b><small>3 минуты · миссии · хаос</small></button>
+  <button class="pback" id="modeBack">◀ <span class="key">Esc</span></button>
+</div>
+
+<!-- Рулетка тематики -->
+<div id="roulette" class="screen hidden">
+  <div id="rwin"><div id="rstrip"></div><div class="rframe"></div></div>
+  <div id="rsparks"></div>
+</div>
+
+<!-- Пролёт и отсчёт -->
+<div id="intro" class="hidden"><div id="dname"></div><div id="count"></div></div>
 
 <!-- HUD -->
 <div id="hud" class="hidden">
+  <div id="topbox" class="pframe"><div id="timer">3:00</div><div id="score">0</div></div>
+  <div id="evchip" class="hidden"></div>
   <div id="missions"></div>
-  <div id="timer" class="px">2:00</div>
-  <div id="scorebox" class="px"><div id="score">0</div><small>очков</small></div>
-  <div id="minimap"><canvas id="mapc" width="180" height="180"></canvas></div>
-  <div id="eventbar" class="px hidden"></div>
-  <div id="eventbig" class="hidden"></div>
-  <div id="stamina">
-    <svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true">
-      <circle cx="32" cy="32" r="24" class="sbg"/>
-      <circle cx="32" cy="32" r="24" class="sfg" id="staminaArc"/>
-    </svg>
+  <div id="minimap" class="pframe"><canvas id="mapc" width="168" height="168"></canvas><span class="north">С</span></div>
+  <div id="evbanner" class="hidden"></div>
+  <div id="bottom">
+    <div id="held" class="hidden"></div>
+    <div id="stamwrap"><canvas id="stam" width="40" height="40"></canvas><div id="stamnum">100</div></div>
+    <div id="gslot" class="hidden"></div>
   </div>
-  <div id="held" class="px hidden"></div>
-  <div id="prompt" class="px hidden"></div>
-  <div id="pops"></div>
-  <div id="lockhint" class="px hidden">Кликни по экрану, чтобы управлять камерой мышью</div>
-  <div id="mgpanel" class="px hidden">
+  <div id="prompt" class="hidden"></div>
+  <div id="flyers"></div>
+  <div id="lockhint" class="hidden"></div>
+  <div id="blind" class="hidden"></div>
+  <div id="mgpanel" class="pframe hidden">
     <div class="mgrow"><span id="mgicon"></span><b id="mgtitle"></b><span id="mgpts"></span></div>
     <div class="pbar" id="mgbar"><i></i></div>
     <div class="msg" id="mgmsg"></div>
     <div id="mghint"></div>
-    <button id="mgexit">Выйти (Esc)</button>
+    <button id="mgexit"><span class="key">Esc</span></button>
   </div>
 </div>
 
-<!-- Результаты -->
-<div id="results" class="overlay hidden">
-  <div class="card px">
-    <h1>Время вышло</h1>
-    <div class="big" id="resScore">0</div>
-    <p id="resInfo"></p>
-    <div class="row">
-      <button class="btn" id="againBtn">Ещё раунд</button>
-      <button class="btn alt" id="menuBtn">В меню</button>
-    </div>
-  </div>
+<!-- Итоги -->
+<div id="results" class="screen hidden">
+  <div class="sctitle">ИТОГИ</div>
+  <div id="resScore">0</div>
+  <div id="rank"></div>
+  <div class="row"><button class="pbtn" id="againBtn">ЕЩЁ</button><button class="pbtn alt" id="menuBtn">МЕНЮ</button></div>
 </div>
 
 <script type="module" src="./src/main.js"></script>
