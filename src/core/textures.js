@@ -48,6 +48,12 @@ function strokes(g, W, H, cols, n, len, ang, jit, width, a = 0.5) {
   }
   g.globalAlpha = 1;
 }
+// пятна лягушки: тёмные неровные кляксы с более светлой каймой (exclude — зоны без пятен)
+function frogSpots(g, W, H, n, exclude = []) {
+  for (let i = 0; i < n; i++) { const x = R() * W, y = R() * H; if (exclude.some(([a, b, c, d]) => x > a && x < c && y > b && y < d)) continue; const r = W * (0.05 + R() * 0.06);
+    g.fillStyle = '#6ab85a'; g.beginPath(); g.ellipse(x, y, r * 1.35, r * 1.15, R() * 3, 0, 7); g.fill();
+    g.fillStyle = '#1f4a1c'; g.beginPath(); for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28, rr = r * (0.75 + R() * 0.4); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.85); } g.fill(); }
+}
 function grain(g, W, H, amt) {
   const d = g.getImageData(0, 0, W, H), p = d.data;
   for (let i = 0; i < p.length; i += 4) { const n = (R() - 0.5) * amt; p[i] += n; p[i + 1] += n; p[i + 2] += n; }
@@ -300,28 +306,40 @@ export const T = {
     grain(g, W, H, 10);
   }),
   // лягушка-рептилоид: пятнистая зелёная кожа, широкая морда, камуфляжная кепка, рубашка с кожаной портупеей
-  frogSkin: () => photo('frogSkin', 32, 32, (g, W, H) => { fill(g, W, H, '#3f8a3a'); blobs(g, W, H, ['#2e6e2e', '#5aa84a', '#4a9a3e', '#24582a'], 160, 1, 4, 0.7); blobs(g, W, H, ['#6ab85a'], 30, 1, 2, 0.5); grain(g, W, H, 14); }),
+  // лягушка-рептилоид: ровная зелёная кожа с тёмными пятнами-пигментацией (со светлой каймой)
+  frogSkin: () => photo('frogSkin', 32, 32, (g, W, H) => { fill(g, W, H, '#4a9a3e'); frogSpots(g, W, H, 12); grain(g, W, H, 8); }),
   frogFace: (expr = 'open') => photo('frogFace' + expr, 48, 40, (g, W, H) => {
-    fill(g, W, H, '#3f8a3a'); blobs(g, W, H, ['#2e6e2e', '#5aa84a', '#24582a'], 120, 1, 4, 0.6);
-    g.fillStyle = '#7ac86a'; g.fillRect(W * 0.18, H * 0.66, W * 0.64, H * 0.14);
-    // глаза: белые прямоугольники, чёрные зрачки к центру
+    fill(g, W, H, '#4a9a3e');
+    frogSpots(g, W, H, 7, [[0, 0, W, H * 0.2], [0, 0, W * 0.12, H], [W * 0.88, 0, W, H]]);
+    g.fillStyle = '#86cc6e'; g.fillRect(W * 0.16, H * 0.67, W * 0.68, H * 0.16);
     for (const [x, px] of [[0.2, 0.32], [0.64, 0.64]]) {
       if (expr === 'closed') { g.fillStyle = '#1a2a14'; g.fillRect(W * x, H * 0.36, W * 0.16, H * 0.05); continue; }
       g.fillStyle = '#17111f'; g.fillRect(W * x - 1, H * 0.22 - 1, W * 0.16 + 2, H * 0.24 + 2);
       g.fillStyle = '#f1f1ea'; g.fillRect(W * x, H * 0.22, W * 0.16, H * 0.24);
       g.fillStyle = '#17111f'; g.fillRect(W * px, H * 0.28, W * 0.06, H * (expr === 'wow' ? 0.16 : 0.12));
     }
-    // широкий рот
     g.fillStyle = '#1a2a14'; g.fillRect(W * 0.14, H * 0.6, W * 0.72, H * 0.05); g.fillRect(W * 0.12, H * 0.55, W * 0.05, H * 0.08); g.fillRect(W * 0.83, H * 0.55, W * 0.05, H * 0.08);
     if (expr === 'wow') { g.fillStyle = '#5a1a2a'; g.fillRect(W * 0.4, H * 0.62, W * 0.2, H * 0.12); }
-    grain(g, W, H, 12);
+    grain(g, W, H, 8);
   }),
-  camo: () => photo('camo', 32, 32, (g, W, H) => { fill(g, W, H, '#5a6a3a'); blobs(g, W, H, ['#6a7a44', '#4a5630', '#7a8a52'], 60, 2, 6, 0.8); blobs(g, W, H, ['#f5c542', '#ff8a1f', '#e8a020'], 26, 3, 6, 1); grain(g, W, H, 14); }),
-  frogShirt: () => photo('frogShirt', 32, 32, (g, W, H) => { fill(g, W, H, '#a8a882'); blobs(g, W, H, ['#8a8a66', '#bcbc94', '#7a7a5a'], 120, 1, 4, 0.6);
-    g.fillStyle = '#5a3a24'; g.save(); g.translate(W / 2, H / 2); g.rotate(-0.7); g.fillRect(-W, -H * 0.1, W * 2, H * 0.2); g.restore();
-    g.fillStyle = '#3a2618'; g.fillRect(W * 0.15, H * 0.15, W * 0.22, H * 0.2); g.fillStyle = '#c8a040'; g.fillRect(W * 0.45, H * 0.46, W * 0.08, W * 0.08);
-    strokes(g, W, H, ['#6a4a2e'], 30, 6, -0.7, 0.3, 1, 0.5); grain(g, W, H, 16); }),
+  // панамка песочного цвета с жёлтыми уточками
+  duckHat: () => photo('duckHat', 48, 24, (g, W, H) => { fill(g, W, H, '#a8986a'); blobs(g, W, H, ['#98885a', '#b8a87a'], 60, 1, 3, 0.5);
+    for (let r = 0; r < 2; r++) for (let i = 0; i < 3; i++) { const x = W * (0.14 + i * 0.33 + r * 0.16), y = H * (0.34 + r * 0.4), u = W * 0.055;
+      g.fillStyle = '#f5c542'; g.beginPath(); g.ellipse(x, y, u * 1.3, u * 0.9, 0, 0, 7); g.fill(); g.beginPath(); g.arc(x + u * 1.1, y - u * 0.9, u * 0.65, 0, 7); g.fill();
+      g.fillStyle = '#ff8a1f'; g.fillRect(x + u * 1.6, y - u, u * 0.7, u * 0.35); g.fillStyle = '#17111f'; g.fillRect(x + u * 1.2, y - u * 1.1, u * 0.25, u * 0.25); }
+    g.fillStyle = 'rgba(90,70,40,.5)'; g.fillRect(0, H * 0.94, W, H * 0.06); grain(g, W, H, 10); }),
+  // кусок коричневой ткани с рваным краем и строчкой (альфа — рваный низ)
   boot: () => photo('boot', 24, 24, (g, W, H) => { fill(g, W, H, '#5a3a24'); blobs(g, W, H, ['#4a2e1a', '#6a4a2e', '#3a2414'], 60, 1, 3, 0.7); g.fillStyle = '#2a1a10'; g.fillRect(0, H * 0.82, W, H * 0.18); grain(g, W, H, 14); }),
+  rag: () => photo('rag', 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H); g.fillStyle = '#6a4428'; g.beginPath(); g.moveTo(0, 0); g.lineTo(W, 0);
+    for (let x = W; x >= 0; x -= W / 8) g.lineTo(x, H * (0.78 + Math.random() * 0.2)); g.closePath(); g.fill();
+    g.globalCompositeOperation = 'source-atop'; blobs(g, W, H, ['#5a3820', '#7a5232', '#4a2e18'], 80, 1, 4, 0.7); strokes(g, W, H, ['#4a2e18', '#8a6238'], 50, 10, 1.57, 0.2, 1, 0.5);
+    g.fillStyle = '#c8a070'; for (let x = 2; x < W; x += 4) g.fillRect(x, H * 0.08, 2, 1); g.globalCompositeOperation = 'source-over'; }),
+  frogShirt: () => photo('frogShirt', 32, 32, (g, W, H) => { fill(g, W, H, '#9a8f5e'); blobs(g, W, H, ['#8a7f50', '#aaa06c', '#7a7046'], 120, 1, 4, 0.55);
+    g.fillStyle = '#7a7046'; g.fillRect(W * 0.49, 0, W * 0.03, H); g.fillStyle = '#3a3428'; for (const y of [0.2, 0.42, 0.64]) g.fillRect(W * 0.53, H * y, W * 0.04, W * 0.04);
+    g.fillStyle = '#8a7f50'; g.fillRect(W * 0.12, H * 0.18, W * 0.24, H * 0.22); g.fillStyle = '#6a6040'; g.fillRect(W * 0.12, H * 0.18, W * 0.24, H * 0.05);
+    g.fillStyle = '#5a3a24'; g.save(); g.translate(W / 2, H / 2); g.rotate(-0.75); g.fillRect(-W, -H * 0.07, W * 2, H * 0.14); g.restore();
+    g.fillStyle = '#c8a040'; g.fillRect(W * 0.62, H * 0.3, W * 0.06, W * 0.06); grain(g, W, H, 12); }),
+  pants: () => photo('pants', 32, 16, (g, W, H) => { fill(g, W, H, '#5a5a62'); blobs(g, W, H, ['#4a4a52', '#6a6a72'], 60, 1, 3, 0.6); g.fillStyle = '#44444c'; g.fillRect(W * 0.08, H * 0.35, W * 0.2, H * 0.4); g.fillRect(W * 0.72, H * 0.35, W * 0.2, H * 0.4); grain(g, W, H, 12); }),
   sharkSkin: () => photo('sharkSkin', 32, 32, (g, W, H) => {
     const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#5a72a0'); gr.addColorStop(0.6, '#7a92c0'); gr.addColorStop(0.75, '#d8e0ee'); gr.addColorStop(1, '#c8d0e0');
     g.fillStyle = gr; g.fillRect(0, 0, W, H); blobs(g, W, H, ['#4a6290', '#8aa2d0'], 40, 4, 14, 0.2); grain(g, W, H, 12);
