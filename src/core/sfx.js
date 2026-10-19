@@ -72,8 +72,18 @@ const SND = {
 };
 // кваканье: низкая пила с «дрожанием» (быстрое повторение импульсов) + немного шума
 function frog(parts, v = 1, gap = 0.17) {
-  parts.forEach(([f0, f1, d], k) => { const t0 = k * gap; for (let j = 0; j < Math.ceil(d / 0.03); j++) { const a = j * 0.03, f = f0 + (f1 - f0) * (a / d);
-    tone(f, f * 0.92, 0.028, 'sawtooth', 0.16 * v, t0 + a); } tone(f0 * 2, f1 * 2, d, 'square', 0.03 * v, t0); noise(d, 0.05 * v, 600, 3, t0); });
+  // «ква» = пила 300–700 Гц, которую «дёргает» модуляция ~40 Гц (характерное дребезжание лягушки),
+  // через полосовой фильтр — слышно даже на маленьких динамиках ноутбука и телефона
+  if (!ac) return;
+  parts.forEach(([f0, f1, d], k) => {
+    const t = ac.currentTime + k * gap, o = ac.createOscillator(), am = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain(), bp = ac.createBiquadFilter(), env = ac.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(f0 * 2.6, t); o.frequency.exponentialRampToValueAtTime(f1 * 2.6, t + d);
+    lfo.type = 'square'; lfo.frequency.value = 38; lg.gain.value = 0.5; am.gain.value = 0.5; lfo.connect(lg); lg.connect(am.gain);
+    bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 1.4;
+    env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(0.5 * v, t + 0.012); env.gain.setValueAtTime(0.5 * v, t + d * 0.7); env.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(am); am.connect(bp); bp.connect(env); env.connect(master);
+    o.start(t); lfo.start(t); o.stop(t + d + 0.02); lfo.stop(t + d + 0.02);
+  });
 }
 // мировой звук: громкость по расстоянию до слушателя
 let listener = { x: 0, y: 0, z: 0 };
