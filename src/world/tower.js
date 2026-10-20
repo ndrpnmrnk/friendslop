@@ -16,14 +16,14 @@ export const TowerMethods = {
   at(y) { const B = this.constructor, b = new B(this.ox, this.oz, this.Y + y, this.d); b._pk = 99; return b; },
 
   tower(o) {
-    const { x, z, w, d } = o, n = o.floors, fh = o.fh ?? 3.4, H = n * fh, t = 0.25, base = o.wall ?? 0x7c6a9c;
+    const { x, z, w, d } = o, n = o.floors, fh = Math.max(3.8, o.fh ?? 3.8), H = n * fh, t = 0.25, base = o.wall ?? 0x7c6a9c;
     const lit = o.lit ?? 0.5, brick = o.brick !== false, hasStairs = o.stairs !== false && n > 1;
     // лестница «с разворотом»: широкий марш до площадки на полэтажа, разворот, второй марш до этажа
-    const run = o.run ?? 0.42, lane = o.lane ?? 1.5, EL = o.entry ?? 1.2, ML = o.mid ?? lane;
+    const run = o.run ?? 0.42, lane = o.lane ?? 2.25, EL = o.entry ?? 1.8, ML = o.mid ?? lane;
     const hsteps = Math.max(2, Math.round(fh / 2 / 0.28)), rise = fh / 2 / hsteps, Lh = hsteps * run;
     const ix0 = x + t, iz0 = z + t, ix1 = x + w - t, iz1 = z + d - t;
     const sx0 = o.stairX ?? ix0, sz0 = iz0, f0 = sx0 + EL, f1 = f0 + Lh, sx1 = hasStairs ? f1 + ML : sx0, sz1 = hasStairs ? sz0 + lane * 2 : sz0;
-    const dw = o.doorW ?? 1.4, dh = 2.35, plain = col(base), inner = o.inner || T.plaster();
+    const dw = o.doorW ?? 2.0, dh = 2.35, plain = col(base), inner = o.inner || T.plaster();
     const doors = o.doors || (o.door ? [o.door] : []);
     // пожарная лестница (только на боковых стенах e/w): площадки на каждом этаже «ёлочкой», марши между ними,
     // снизу — красная откидная секция, сверху — лестница на крышу
@@ -249,6 +249,9 @@ export const TowerMethods = {
     if (o.awning) { const a = this.m(G.box, tmat(T.awning(...o.awning)), x + w / 2, 2.72, z + d + 0.62, w - 0.6, 0.1, 1.2); a.rotation.x = 0.25;
       // маркиза-батут: упругая ткань подбрасывает
       this.solid(x + w / 2, z + d + 0.62, w - 0.6, 1.1, 2.6, 0.12); this.bouncer(x + 0.3, z + d + 0.1, x + w - 0.3, z + d + 1.15, 2.72, 11); }
+    const guide = { name: o.name || (o.sign && o.sign[0]) || this.d, box: [this.X(ix0), this.Z(iz0), this.X(ix1), this.Z(iz1)], y0: this.Y, fh, floors: n, door: doorOut,
+      stair: hasStairs ? [this.X(sx0 + EL / 2), this.Z(sz0 + lane * 1.5), this.X(f0 + 0.4), this.Z(sz0 + lane / 2)] : null };
+    W.buildings.push(guide);
     // этажи: свет на потолке + наполнение
     for (let k = 0; k < n; k++) {
       const fb = this.at(k * fh), r = { x0: ix0, z0: sz1 + (hasStairs ? 0.15 : 0), x1: ix1, z1: iz1, sx0, sx1, h: fh, k, top: H };
@@ -264,7 +267,7 @@ export const TowerMethods = {
 
   /* ---------- мебель ---------- */
   // перегородка с дверным проёмом (gapAt — доля длины), штукатурка с двух сторон
-  partition(x0, z0, x1, z1, h, gapAt = 0.5, gw = 1.1) {
+  partition(x0, z0, x1, z1, h, gapAt = 0.5, gw = 2.0) {
     const along = Math.abs(x1 - x0) > Math.abs(z1 - z0), len = along ? x1 - x0 : z1 - z0, pm = tmat(T.plaster()), th = 0.12;
     const g0 = len * gapAt - gw / 2, g1 = g0 + gw;
     for (const [a, b2, y0, y1] of [[0, g0, 0, h], [g1, len, 0, h], [g0, g1, 2.2, h]]) {

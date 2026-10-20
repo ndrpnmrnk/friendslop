@@ -19,7 +19,7 @@
    ===================================================================== */
 
 export const CONFIG = {
-  roundTime: 180,
+  roundTime: 300,
   season: 'halloween',            // 'halloween' | 'none'
   grid: 3,                        // 3x3 районов на карте
   chunk: 32, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара
@@ -34,7 +34,7 @@ export const CONFIG = {
   },
   camera: { offset: [0, 12.5, 14], fov: 50, lookAhead: 0.3 },
   // волны миссий: в волне «игроки − 1» общих миссий (не меньше 2); у каждой свой таймер 25–50 с (дальше — дольше)
-  wave: { min: 2, max: 5, life: [25, 50], gap: 3, gapBurnt: 1.5, spread: 12, personal: 0.35, outsiderFrom: 90, outsiderK: 0.6, outsiderMul: 1.5 },
+  wave: { min: 2, max: 5, life: [40, 75], gap: 3, gapBurnt: 1.5, spread: 12, personal: 0.35, outsiderFrom: 90, outsiderK: 0.6, outsiderMul: 1.5 },
   interact: 2.2,
   cats: 2,
   // zones: где миссия может появиться; foot: размер объекта; clear: свободное место перед ним
@@ -119,7 +119,7 @@ export const CONFIG = {
   },
   // инструменты, которые выпадают из ящиков (золотые ящики — только «редкие»)
   toolPool: ['net', 'glove', 'vacuum', 'badge', 'slipper', 'umbrella', 'extinguisher', 'banana', 'pillow', 'duck', 'bubbles', 'whistle', 'magnet', 'paint', 'energy', 'water', 'firework', 'popper', 'sling', 'web', 'boots', 'mask'],
-  toolRare: ['badge', 'vacuum', 'net', 'extinguisher', 'magnet', 'firework', 'boots', 'mask', 'bubbles', 'paint'],
+  toolRare: ['glove', 'badge', 'vacuum', 'net', 'extinguisher', 'magnet', 'firework', 'boots', 'mask', 'bubbles', 'paint'],
   throw: { minRange: 3, maxRange: 17, chargeTime: 0.9 },
 };
 

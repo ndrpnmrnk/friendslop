@@ -36,6 +36,7 @@ export function groundBlob(p) {
   const b = p.ch.blob; b.position.y = g - p.pos.y + 0.03; b.scale.setScalar(p.ch.blobS * (0.55 + 0.45 * k)); b.material.opacity = 0.32 * k; b.visible = k > 0.02;
 }
 export function updatePlayer(p, dt, t, canMove, yaw = 0) {
+  if (p.drone || p.returning) return;
   if (p.knockT > 0) p.knockT -= dt;
   // схвачен: вырываешься частыми нажатиями, сам не двигаешься
   if (p.heldBy) {

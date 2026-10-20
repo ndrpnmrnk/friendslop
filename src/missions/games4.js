@@ -1,3 +1,4 @@
+import { nearbyItemPoint } from './location.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose, sprite } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -59,31 +60,26 @@ function overlay(id, title, hint, w = 300, h = 300) {
   const cv = ui.querySelector('canvas'); return { ui, cv, g: cv.getContext('2d') };
 }
 // случайная точка в зонах «пол» в стороне от p (для табличек кода)
-function farFloor(p, a, b) {
-  const zs = W.missionZones.filter(z => z.type === 'floor' && Math.abs(z.y - p.y) < 0.4);
-  for (let t = 0; t < 80 && zs.length; t++) { const z = zs[(Math.random() * zs.length) | 0], x = z.x0 + Math.random() * (z.x1 - z.x0), zz = z.z0 + Math.random() * (z.z1 - z.z0), d = Math.hypot(x - p.x, zz - p.z);
-    if (d < a || d > b || !isFree(x - 0.4, zz - 0.4, x + 0.4, zz + 0.4, z.y + 0.05, z.y + 1.6)) continue; return new V3(x, groundAt(x, zz, 0.2, z.y + 0.4), zz); }
-  return new V3(p.x + a, p.y, p.z);
-}
+const farFloor = p => nearbyItemPoint(p);
 
 /* ---------- панельные игры ---------- */
 export const PANEL4 = {
   // Золотой билет: ЛКМ и веди — листья разлетаются; клик по находке — что это?
   leaves(o, api, ctx) {
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]);
-    api.pose(c.clone().addScaledVector(F, 1.35).add(new V3(0, 1.75, 0)), c.clone().add(new V3(0, 0.1, 0)));
-    o.g.visible = false; ctx.cursor(false);
+    api.pose(c.clone().addScaledVector(F, 2.1).add(new V3(0, 2.8, 0)), c.clone().add(new V3(0, 0.1, 0)));
+    o.g.visible = false; ctx.cursor(true);
     const grp = new THREE.Group(); grp.position.copy(c); W.group.add(grp);
     const JUNK = [['носок', 0xf1e8ff], ['жёлудь', 0x8a5a2a], ['банка', 0xc83a3a], ['пуговица', 0x4ab0f0], ['фантик', 0x9be36b]];
     const finds = [];
-    const spot = () => { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 0.7; return [Math.cos(a) * r, Math.sin(a) * r]; };
+    const spot = () => { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 1.05; return [Math.cos(a) * r, Math.sin(a) * r]; };
     for (const [name, cl] of JUNK) { const [x, z] = spot(); const m = mesh(G.box, col(cl), x, 0.03, z, 0.14, 0.05, 0.1, grp); m.rotation.y = Math.random() * 3; finds.push({ m, name, x, z }); }
     { const [x, z] = spot(); const m = mesh(G.box, lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.6 }, 'ticket'), x, 0.03, z, 0.2, 0.02, 0.11, grp); m.rotation.y = Math.random() * 3; finds.push({ m, name: 'БИЛЕТ', x, z, gold: true }); }
     // листья — слоями, по ним видно, что куча толстая
     const leaves = [];
-    for (let i = 0; i < 110; i++) { const [x, z] = spot(); const m = mesh(G.box, lam({ color: LEAF[i % 5] }, 'leafM' + (i % 5)), x * 1.15, 0.06 + Math.random() * 0.28, z * 1.15, 0.16, 0.012, 0.11, grp);
+    for (let i = 0; i < 360; i++) { const [x, z] = spot(); const m = mesh(G.box, lam({ color: LEAF[i % 5] }, 'leafM' + (i % 5)), x * 1.15, 0.07 + Math.random() * 0.65 * Math.max(0.2, 1 - Math.hypot(x, z) / 1.3), z * 1.15, 0.16, 0.012, 0.11, grp);
       m.rotation.set((Math.random() - 0.5) * 0.6, Math.random() * 6, (Math.random() - 0.5) * 0.6); leaves.push({ m, v: null }); }
-    let down = false, time = 35, endT = -1, rust = 0;
+    let down = false, time = 55, endT = -1, rust = 0;
     api.progress(0); api.msg('Зажми ЛКМ и разгребай. Кликни по находке');
     const covered = f => leaves.some(l => !l.v && Math.hypot(l.m.position.x - f.x, l.m.position.z - f.z) < 0.12);
     return {
@@ -92,13 +88,13 @@ export const PANEL4 = {
         else { api.msg(`Это ${f.name}…`, 'bad'); sfx('drop'); f.m.position.y = 0.5; f.m.visible = false; } } } },
       up() { down = false; },
       move(ray) { if (!down) return; const p = onPlaneY(ray, c.y + 0.2); if (!p) return; const lx = p.x - c.x, lz = p.z - c.z;
-        for (const l of leaves) { if (l.v) continue; const dx = l.m.position.x - lx, dz = l.m.position.z - lz, d = Math.hypot(dx, dz); if (d < 0.22) { l.v = new V3(dx / (d || 1) * (2 + Math.random() * 2), 2 + Math.random() * 2, dz / (d || 1) * (2 + Math.random() * 2)); rust -= 1; } }
+        let cleared = 0; for (const l of leaves.slice().sort((a, b) => b.m.position.y - a.m.position.y)) { if (l.v || cleared >= 5) continue; const dx = l.m.position.x - lx, dz = l.m.position.z - lz, d = Math.hypot(dx, dz); if (d < 0.22) { cleared++; l.v = new V3(dx / (d || 1) * (2 + Math.random() * 2), 2 + Math.random() * 2, dz / (d || 1) * (2 + Math.random() * 2)); rust -= 1; } }
         if (rust < 0) { rust = 6; sfx('step', { surf: 'grass', v: 0.8 }); } },
       update(dt) {
         time -= dt; if (endT < 0 && time <= 0) return api.finish({ success: false });
         for (const l of leaves) if (l.v) { l.v.y -= 9 * dt; l.m.position.addScaledVector(l.v, dt); l.m.rotation.x += dt * 8; if (l.m.position.y < -0.3) l.m.visible = false; }
         api.progress(leaves.filter(l => l.v).length / leaves.length);
-        if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 0.8 + Math.max(0, time) / 35 * 0.4 }); }
+        if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 0.8 + Math.max(0, time) / 55 * 0.4 }); }
       },
       stop() { W.group.remove(grp); o.g.visible = true; ctx.cursor(true); },
     };
@@ -108,7 +104,7 @@ export const PANEL4 = {
   graffiti(o, api, ctx) {
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]), CW = 88, CH = 60;
     const mid = c.clone().add(new V3(0, 1.0, 0)).addScaledVector(F, 0.12);
-    api.pose(mid.clone().addScaledVector(F, 2.2).add(new V3(0, 0.15, 0)), mid.clone()); ctx.cursor(false);
+    api.pose(mid.clone().addScaledVector(F, 2.2).add(new V3(0, 0.15, 0)), mid.clone()); ctx.cursor(true);
     // трафарет: случайный силуэт
     const mk = document.createElement('canvas'); mk.width = CW; mk.height = CH; const mg = mk.getContext('2d'); mg.fillStyle = '#fff';
     const SH = {
@@ -196,14 +192,14 @@ export const PANEL4 = {
   // Трубы: клик — повернуть секцию на 90°. Вода течёт от входа (слева) до выхода (справа)
   pipes(o, api, ctx) {
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.3).add(new V3(0, 1.1, 0)), c.clone().add(new V3(0, 0.6, 0)));
-    const N = 5, { ui, cv, g } = overlay('pipeui', 'ТРУБЫ', 'Кликай по секциям — поворачивай. Вода должна дойти до выхода'), CS = 300 / N;
+    const N = 3, { ui, cv, g } = overlay('pipeui', 'ТРУБЫ', 'Клик: поворот на 90°. Соедини синий вход слева с зелёным выходом справа'), CS = 300 / N;
     // биты выходов: 1 — верх, 2 — право, 4 — низ, 8 — лево
     const rot = m => ((m << 1) | (m >> 3)) & 15, grid = [], sy = (Math.random() * N) | 0;
-    // путь решения: случайное блуждание слева направо
-    let path; for (let t = 0; t < 200; t++) { path = [[0, sy]]; const seen = new Set(['0,' + sy]); let ok = false;
-      for (let s = 0; s < 60; s++) { const [x, y] = path[path.length - 1]; if (x === N - 1 && s > 4) { ok = true; break; } const opts = [[x + 1, y], [x, y - 1], [x, y + 1], [x - 1, y]].filter(([a, b]) => a >= 0 && b >= 0 && a < N && b < N && !seen.has(a + ',' + b));
-        if (!opts.length) break; const nx = opts.sort(() => Math.random() - 0.5)[0]; path.push(nx); seen.add(nx.join(',')); }
-      if (ok) break; }
+    // Монотонный путь: 3–5 клеток, всегда выходит справа, без тупика генератора.
+    const ey0 = (sy + 1 + ((Math.random() * 2) | 0)) % N;
+    const path = [[0, sy], [1, sy]];
+    for (let y = sy; y !== ey0;) { y += Math.sign(ey0 - y); path.push([1, y]); }
+    path.push([2, ey0]);
     const dirBit = (a, b) => b[0] > a[0] ? 2 : b[0] < a[0] ? 8 : b[1] > a[1] ? 4 : 1, opp = b => ({ 1: 4, 4: 1, 2: 8, 8: 2 })[b];
     for (let y = 0; y < N; y++) { grid.push([]); for (let x = 0; x < N; x++) grid[y].push([3, 5, 7, 6, 11][(Math.random() * 5) | 0]); }
     path.forEach((p, i) => { let m = 0; m |= i === 0 ? 8 : opp(dirBit(path[i - 1], p)); m |= i === path.length - 1 ? 2 : dirBit(p, path[i + 1]); grid[p[1]][p[0]] = m; });
@@ -238,7 +234,7 @@ export const WORLD4 = {
       const sp = sprite(t, 0.6); sp.scale.set(0.9, 0.6, 1); sp.position.y = 1.35; grp.add(sp); return { grp, p, got: false, i }; });
     let hint = ''; const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     const codeStr = () => o.code.map((d, i) => plates[i].got ? d : '_').join(' ');
-    const all = () => plates.every(q => q.got); let time = 80;
+    const all = () => plates.every(q => q.got); let time = 120;
     return {
       target() { const left = plates.filter(q => !q.got).sort((a, b) => a.p.distanceTo(P.pos) - b.p.distanceTo(P.pos)); if (left.length) { say(`Найди таблички с цифрами · код: ${codeStr()}`); return left[0].p; } say(`Код ${codeStr()} — беги к домофону, E`); return c; },
       prompt: () => all() && Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.8 ? '<b>E</b>Набрать код' : '',

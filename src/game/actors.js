@@ -4,7 +4,7 @@ import { burst } from '../world/particles.js';
 
 /* Общие действия над «актёрами» (игрок и боты; потом — живые игроки по сети):
    толчок, выронить предмет из рук, сбить с ног. Логика без рендера — её можно перенести на сервер. */
-export const actors = () => [W.player, ...(W.bots || [])].filter(Boolean);
+export const actors = () => [W.player, ...(W.bots || [])].filter(a => a && !a.drone && !a.returning);
 
 // выронить то, что в руках: предмет отлетает чуть вперёд и вверх
 export function dropHeld(a, vx = 0, vz = 0) {
@@ -18,6 +18,7 @@ export function dropHeld(a, vx = 0, vz = 0) {
 
 // толчок без оглушения (выпад, подушка, струя): отбрасывает и выбивает предмет из рук
 export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) {
+  if (a.drone || a.returning) return;
   const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
   a.vel.x = dx * power; a.vel.z = dz * power; a.vel.y = Math.max(a.vel.y, up); a.onGround = false;
   if (a.grab && a.grab.kind !== undefined && W.releaseCart) W.releaseCart(a);

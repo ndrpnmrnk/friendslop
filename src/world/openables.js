@@ -24,7 +24,7 @@ export const OpenMethods = {
     const inside = new THREE.Vector3(0, y + h * 0.5, d / 2 + 0.35); g.localToWorld(inside); const out = new THREE.Vector3(0, 0, 1).applyQuaternion(g.quaternion);
     W.interacts.push({ x: front.x, z: front.z, y: g.position.y, r: 1.1, dy: 1.2, get label() { return o.open ? 'Закрыть' : 'Открыть'; }, enabled: P => !P.held,
       act: () => { o.open = !o.open; sfx('open', { at: inside });
-        if (o.open && !o.looted) { o.looted = true; if (Math.random() < chance) { const l = LOOT[kind], type = l[(Math.random() * l.length) | 0], it = addItem(type, inside.x, inside.y - it_r(type), inside.z, g.rotation.y);
+        if (o.open && !o.looted) { o.looted = true; if (!(W.containerLoot && W.containerLoot(inside)) && Math.random() < chance * 0.5) { const l = LOOT[kind], type = l[(Math.random() * l.length) | 0], it = addItem(type, inside.x, inside.y - it_r(type), inside.z, g.rotation.y);
           if (it.def.tool) it.life = 60; it.noHitT = 0.6; launch(it, inside.clone(), new THREE.Vector3(out.x * 2, 2.5, out.z * 2)); burst(inside.x, inside.y + 0.2, inside.z, 6, { color: 0xf1e8ff, size: 0.12, speed: 1.2, up: 1 }); } } } });
     W.animated.push(dt => { const want = o.open ? 1 : 0; if (Math.abs(o.k - want) < 0.001) return; o.k += (want - o.k) * Math.min(1, dt * 9); pivot.rotation.y = -o.k * 1.85; });
     return o;

@@ -1,3 +1,7 @@
+import { updateOcclusion } from './game/occlusion.js';
+import { eliminate, updateDrones, resetDrones, droneAction } from './game/drone.js';
+import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies.js';
+import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
@@ -39,7 +43,7 @@ import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
 import { createPodium, assignAwards, AWARDS, skinName } from './ui/podium.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
-import { initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget, PHASE, phaseOf } from './game/events.js';
+import { throwPotato, initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget, PHASE, phaseOf } from './game/events.js';
 import { DISTRICTS } from './world/districts/index.js';
 import { startWeather, updateWeather, stopWeather, WX } from './world/weather.js';
 import { buildReflections, updateReflections } from './world/reflect.js';
@@ -217,7 +221,7 @@ function prepareRound(tut = false) {
   registerInteracts();
   resetTools(); resetTown(); startWeather(scene); buildReflections(); resetFun(() => S.score); hookFun(); W.toolImpact = toolImpact; W.letGo = letGo; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
   buildMinimap(DISTRICTS); CURTAIN = findMat('curtain');
-  resetEvents();
+  resetEvents(); resetSupplies(); resetDrones();
   resetMissions();
   if (P) scene.remove(P.root);
   P = createPlayer(menu.skin()); scene.add(P.root); P.ch.onCroak = () => sfx('croak');
@@ -266,6 +270,7 @@ function goRound() {
   setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
 }
 function endRound() {
+  resetDrones();
   stopEvent(); eventChip(null); stopWeather(scene); closeCageUI();
   if (S.mg) closeMission(null);
   if (S.wm) closeWorld(null);
@@ -348,7 +353,7 @@ function openMission(m) {
 function closeMission(res) {
   if (!S.mg) return;
   const { m, game } = S.mg;
-  game.stop(); S.mg = null; cam.pose = null; m.busy = false; P.root.visible = true; setCursor(true); requestLock();
+  game.stop(); S.mg = null; cam.pose = null; updateOcclusion(camera, null); m.busy = false; P.root.visible = true; setCursor(true); requestLock();
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden');
   if (!res) return;
@@ -392,6 +397,8 @@ function award(a, pts, at) {
 }
 // события «весёлых» действий: попадания, ловушки, перила — для комбо и короны
 function hookFun() {
+  W.onEliminate = a => { if (a === P) { if (S.mg) closeMission(null); if (S.wm) closeWorld(null); if (S.crane) exitCrane(); } else interruptBot(a); };
+
   // удар/попадание: мелкий бонус (по лидеру — чуть больше); ударил того, кто делает миссию, — СОРВАЛ
   W.onHit = (att, vic, kind) => {
     if (!att || att === vic || !vic) return;
@@ -458,6 +465,9 @@ function nearDoor() {
 /* ---------- ввод ---------- */
 on('down', btn => {
   if (S.state !== 'play') return;
+  if (P.drone) { droneAction(P, btn, aim(camera).ray.direction); return; }
+  if (P.returning) return;
+  if (btn === 2 && P.hotPotato) { throwPotato(P, aim(camera).ray.direction); return; }
   if (S.mg) { if (btn === 0 && S.mg.game.down) S.mg.game.down(aim(camera)); return; }
   if (S.crane || P.heldBy) return;
   // тележку/тачку хватаешь любой кнопкой мыши, ей же отпускаешь (с толчком)
@@ -510,7 +520,7 @@ function aimPoint() {
 
 // ближайший объект, с которым можно взаимодействовать: его контур подсвечивается
 function focusTarget() {
-  if (S.mg || S.crane || S.state !== 'play') return null;
+  if (P.drone || P.returning || S.mg || S.crane || S.state !== 'play') return null;
   if (P.ride) return null;
   if (P.grab) return null;
   if (!P.held) { const it = nearestItem(P.pos, 1.5); if (it) return it.outline; const rb = nearestRideable(P) || nearestRideable(P, 1.7, true); if (rb) return rb.outline; }
@@ -520,6 +530,7 @@ function focusTarget() {
 }
 let lastFocus = null;
 function interact() {
+  if (P.drone || P.returning) return;
   if (S.mg) return;
   if (S.wm && S.wm.game.interact && S.wm.game.interact()) return;
   if (S.crane) { exitCrane(); return; }
@@ -552,6 +563,8 @@ function stealItem(it) {
   const v = new V3(P.pos.x, P.pos.y + 1.2, P.pos.z).project(camera), sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight; flyScore(sx, sy, pts); confetti(sx, sy, P.pos);
 }
 function promptText() {
+  if (P.drone) return `ДРОН · ${Math.ceil(P.drone.left)}с · WASD · Пробел/C высота · ЛКМ дротик${P.drone.candy ? ' · ПКМ конфета' : ''}`;
+  if (P.returning) return 'Возвращение в игру';
   if (S.mg) return '';
   if (S.crane) return '<b>E</b>выйти из крана';
   if (S.wm) { const pr = S.wm.game.prompt ? S.wm.game.prompt() : ''; if (pr) return pr; }
@@ -584,7 +597,9 @@ function loop() {
   else {
     if (S.state === 'intro') { updateIntro(dt); updatePlayer(P, dt, t, true, cam.yaw); }
     if (S.state === 'play') {
+      updateDrones(dt, t);
       S.time -= dt;
+      if (S.time > 0 && S.time <= 10) { S.beep = (S.beep || 0) - dt; if (S.beep <= 0) { S.beep = 0.18 + 0.082 * S.time; sfx('deadline', { urgency: 1 - S.time / 10 }); } } else S.beep = 0;
       if (S.tut) updateTutorial(dt);
       if (tapped('KeyE')) interact();
       // инструмент, который действует пока зажата ЛКМ (огнетушитель, магнит)
@@ -606,14 +621,14 @@ function loop() {
       if (S.wm) S.wm.game.update(dt);
       S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText(), 0.1); S.hudT = 0.1; }
       renderStamina(P, dt);
-      if (!S.tut) updateEvents(dt, eventUi);
+      if (!S.tut) { updateEvents(dt, eventUi); updateSupplies(dt); }
       // ритм раунда: подпись под таймером, предупреждение о событии, финальный рывок ×2
       { const ph = phaseOf(EV.t); W.scoreMul = ph === 'final' ? 2 : 1;
         if (ph === 'final' && S.phase !== 'final') { eventBanner('final', true); sfx('crown'); glitch(); }
         if (ph === 'event' && S.phase === 'calm') glitch();
         S.phase = ph;
-        const left = Math.ceil(PHASE.event - EV.t), txt = ph === 'calm' ? (left <= PHASE.warn ? TEXT.phase.soon(left) : TEXT.phase.calm) : ph === 'event' ? (EV.big ? TEXT.events[EV.big.key].replace('!', '') : TEXT.phase.calm) : TEXT.phase.final;
-        const pe = $('phase'); if (pe.textContent !== txt) { pe.textContent = txt; pe.className = 'ph-' + ph + (ph === 'calm' && left <= PHASE.warn ? ' warn' : ''); } }
+        const left = Math.ceil(PHASE.event - EV.t), txt = ph === 'calm' ? (left > 0 && left <= PHASE.warn ? TEXT.phase.soon(left) : TEXT.phase.calm) : ph === 'event' ? (EV.big ? TEXT.events[EV.big.key].replace('!', '') : TEXT.phase.calm) : TEXT.phase.final;
+        const pe = $('phase'); if (pe.textContent !== txt) { pe.textContent = txt; pe.className = 'ph-' + ph + (ph === 'calm' && left > 0 && left <= PHASE.warn ? ' warn' : ''); } }
       if (flash.intensity > 0) { const f = P.root.rotation.y; flash.position.set(P.pos.x, P.pos.y + 1.6, P.pos.z); flash.target.position.set(P.pos.x + Math.sin(f) * 6, P.pos.y, P.pos.z + Math.cos(f) * 6); }
       { const bt = bigTarget(); drawMinimap(P, M.list.filter(m => visibleTo(m, P)), S.wm && S.wm.game.target ? S.wm.game.target() : null, bt ? [{ x: bt.x, z: bt.z, color: '#ff8a1f', icon: TEXT.eventIcon[EV.big.key] }] : null, S.nav); }
       if (S.time <= 0) { S.time = 0; renderHud(S, P, '', 0); endRound(); }
@@ -632,7 +647,7 @@ function loop() {
     }
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
     const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt);
-    if (P) P.root.visible = !S.mg && !S.crane && !P.hidden && !(S.state === 'intro' && !S.intro.drop);
+    if (P) P.root.visible = !P.drone && (!P.returning || P.returning.t >= 0.7) && !S.mg && !S.crane && !P.hidden && !(S.state === 'intro' && !S.intro.drop);
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
     if (dotHtml !== S.dotHtml) { $('dot').innerHTML = dotHtml; S.dotHtml = dotHtml; }
     updateItems(dt, P);
@@ -652,9 +667,10 @@ function loop() {
       const wt = S.wm && S.wm.game.target ? S.wm.game.target() : null, bt = bigTarget();
       let nt = null;
       if (S.mg) nt = null;
-      else if (wt) nt = { x: wt.x, y: wt.y ?? P.pos.y, z: wt.z, icon: S.wm.m.key, color: '#9be36b', label: TEXT.navHere };
+      else if (wt) nt = { ...wt, x: wt.x, y: wt.y ?? P.pos.y, z: wt.z, icon: S.wm.m.key, color: '#9be36b', label: wt.label || TEXT.navHere };
       else if (bt) nt = { x: bt.x, y: bt.y ?? P.pos.y, z: bt.z, icon: TEXT.eventIcon[EV.big.key], color: '#ff8a1f', label: TEXT.events[EV.big.key].replace('!', '') };
       else if (S.main) { const q = S.main.obj.pos(); nt = { x: q.x, y: q.y, z: q.z, icon: S.main.key, color: S.main.owner ? '#f5c542' : '#' + DIFF[S.main.def.diff].toString(16).padStart(6, '0'), label: (TEXT.missions[S.main.key] || [S.main.def.name])[0] }; }
+      if (nt && !bt && nt.floorDelta === undefined) nt = routeTo(P.pos, nt); if (P.drone || P.returning) nt = null;
       S.nav = nt; renderNav(camera, P, nt);
     }
     for (const d of W.doors) {
@@ -687,6 +703,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 // отладочный доступ из консоли браузера
-window.__fs = { POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
+window.__fs = { eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 showMenu();
 loop();

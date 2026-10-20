@@ -344,7 +344,7 @@ export class Builder {
 
   /* ---------- дверь ---------- */
   // Дверь в проёме: hinge — точка петли (локально), axis 'x' — проём вдоль X, inward — знак вращения при открытии
-  door(hx, hz, axis, inward, y = 0, w = 1.4, h = 2.35) {
+  door(hx, hz, axis, inward, y = 0, w = 2.0, h = 2.35) {
     const pivot = new THREE.Group(); pivot.position.set(this.X(hx), this.Y + y, this.Z(hz)); this.g.add(pivot);
     const wood = tmat(T.wood()), dk = col(0x3a2418);
     const px = axis === 'x' ? w / 2 : 0, pz = axis === 'x' ? 0 : w / 2;
@@ -360,7 +360,7 @@ export class Builder {
   // Обёртка над tower(): настоящие окна-проёмы со стеклом, дверь, крыша, интерьер interior(b, r)
   house(o) {
     const cb = o.interior;
-    return this.tower({ canopy: false, ...o, roof: !!o.roof, floors: 1, fh: o.h ?? 3.4, stairs: false, interior: cb ? (f, k, r) => cb(f, r) : null });
+    return this.tower({ canopy: false, ...o, roof: !!o.roof, floors: 1, fh: Math.max(3.8, o.h ?? 3.8), stairs: false, interior: cb ? (f, k, r) => cb(f, r) : null });
   }
   aabb(cx, cz, w, d, y0, h) {
     return new THREE.Box3(new V3(this.X(cx - w / 2), this.Y + y0, this.Z(cz - d / 2)), new V3(this.X(cx + w / 2), this.Y + y0 + h, this.Z(cz + d / 2)));

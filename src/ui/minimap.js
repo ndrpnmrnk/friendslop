@@ -52,8 +52,9 @@ export function drawMinimap(P, missions, target, extra, main) {
     const L = Math.hypot(mx - R, my - R), n = Math.floor(L / 6), ph = (performance.now() / 120) % 2; g.fillStyle = main.color || '#f1e8ff';
     for (let i = 1; i < n; i++) if ((i + Math.floor(ph)) % 2 === 0) { const k = i / n; g.fillRect(Math.round(R + (mx - R) * k) - 1, Math.round(R + (my - R) * k) - 1, 3, 3); }
     if (mm <= lim) { const pz = 11 + Math.round(Math.sin(performance.now() / 160) * 2); g.strokeStyle = main.color || '#f1e8ff'; g.lineWidth = 2; g.strokeRect(Math.round(mx) - pz, Math.round(my) - pz, pz * 2, pz * 2); } }
-  for (const b of W.bots || []) if (!b.hidden) mark(b.pos.x, b.pos.z, '#b18cff', 'bot');
+  for (const b of W.bots || []) if (!b.hidden) mark(b.pos.x, b.pos.z, b.marked > 0 ? '#f5c542' : '#b18cff', 'bot');
   for (const m of missions) if (!m.busy) { const p = m.obj.pos(); mark(p.x, p.z, '#' + DIFF[m.def.diff].toString(16).padStart(6, '0'), { icon: m.key }); }
+  for (const c of W.supplies || []) mark(c.p.x, c.p.z, '#b18cff', { icon: 'parcel' });
   for (const e of extra || []) mark(e.x, e.z, e.color, e.icon ? { icon: e.icon } : 'star');
   if (target) mark(target.x, target.z, '#9be36b', 'star');
   // игрок

@@ -13,15 +13,16 @@ export default {
   id: 'sewer', name: 'Коллектор', ground: 'concrete',
   holes: [[12, 0, 20, 32], [27.4, 23.4, 28.6, 24.6]],
   build(b) {
+    b = b.at(-b.Y);
     const conc = smat(T.concrete()), brick = smat(T.brickWall()), dk = col(0x2b2533);
     const S = (x0, z0, x1, z1, y0, y1, mat) => { b.m(G.box, mat, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0); b.solid((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, y0, y1 - y0); };
     // канал продолжается под дорогами до стен тоннелей (−1.3 и 33.3)
-    const za = -1.3, zb = 33.3;
+    const za = -1.49, zb = 33.49;
     S(11.6, za, 12, zb, FLOOR, 0.15, brick); S(20, za, 20.4, 21.4, FLOOR, 0.15, brick); S(20, 22.6, 20.4, zb, FLOOR, 0.15, brick);
     S(20, 21.4, 20.4, 22.6, -1.8, 0.15, brick);
     S(12, za, 20, zb, FLOOR - 0.3, FLOOR, conc);
     S(12, za, 13.5, zb, FLOOR, LEDGE, conc); S(18.5, za, 20, zb, FLOOR, LEDGE, conc);
-    b.waterRect(13.5, za, 18.5, zb, FLOOR + 0.18);
+    b.waterRect(13.5, za, 18.5, zb, FLOOR + 0.22);
     W.zones[W.zones.length - 1].y = b.Y + FLOOR;
     W.tunnelOpenings.push({ axis: 'x', at: b.Z(0) - 1.5 - 0.2, from: b.X(12), to: b.X(20) });
     W.tunnelOpenings.push({ axis: 'x', at: b.Z(32) + 1.5 + 0.2, from: b.X(12), to: b.X(20) });
@@ -51,7 +52,7 @@ export default {
     const r0 = [26, 19.5, 31, 26];
     S(r0[0], r0[1], r0[2], r0[3], LEDGE - 0.3, LEDGE, conc);
     // стены насосной чуть выше земли (кирпичный бортик), потолок — чуть ниже: верх не совпадает с плитой района, нет ряби
-    const RIM = 0.05, ROOF = -0.02;
+    const RIM = 0.22, ROOF = -0.08;
     S(r0[0] - 0.4, r0[1] - 0.4, r0[2] + 0.4, r0[1], LEDGE, RIM, brick); S(r0[0] - 0.4, r0[3], r0[2] + 0.4, r0[3] + 0.4, LEDGE, RIM, brick);
     S(r0[2], r0[1], r0[2] + 0.4, r0[3], LEDGE, RIM, brick);
     S(r0[0] - 0.4, r0[1], r0[0], pz - 0.6, LEDGE, RIM, brick); S(r0[0] - 0.4, pz + 0.6, r0[0], r0[3], LEDGE, RIM, brick); S(r0[0] - 0.4, pz - 0.6, r0[0], pz + 0.6, -1.8, RIM, brick);

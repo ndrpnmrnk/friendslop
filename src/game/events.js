@@ -1,3 +1,5 @@
+import { eliminate } from './drone.js';
+import { raySolids } from '../world/physics.js';
 import { THREE, V3, G, mesh, col, lam, tmat, compose, alphaMat } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -20,9 +22,9 @@ import { shake, hitFreeze } from './worldfx.js';
    объявляется баннером, видно стрелкой и на мини-карте. Пока идёт общее событие, таймеры миссий стоят. */
 /* Ритм раунда: 0:00–1:00 — спокойно, только миссии; 1:00–1:45 — общее событие; 1:45–3:00 — финальный рывок, очки ×2.
    Малые события (тыквопад, темнота, потоп) сейчас не запускаются. */
-export const PHASE = { event: 60, final: 105, warn: 5 };
-export const phaseOf = t => t < PHASE.event ? 'calm' : t < PHASE.final ? 'event' : 'final';
-export const EV = { t: 0, next: 1e9, cur: null, left: 0, big: null, bigAt: 60, bigDone: false };
+export const PHASE = { event: 120, resume: 180, final: 225, warn: 5 };
+export const phaseOf = t => t < PHASE.event ? 'calm' : t < PHASE.resume ? 'event' : t < PHASE.final ? 'calm' : 'final';
+export const EV = { t: 0, next: 1e9, cur: null, left: 0, big: null, bigAt: 120, bigDone: false };
 const DUR = 20;
 let ctx = null;
 export function initEvents(c) { ctx = c; }
@@ -165,7 +167,7 @@ const BIG = {
           s.cd = 2; s.score[1 - i]++; W.scoreboard && W.scoreboard(s.score[0], s.score[1]); sfx('goal');
           for (const c of [0xff8a1f, 0xf5c542, 0x9be36b, 0xb18cff]) burst(g.x, g.y + 1.5, g.z, 10, { color: c, size: 0.2, speed: 4, up: 4, g: 5, life: 1.4 });
           if (s.last) award(s.last, 100, b.pos);
-          setTimeout(() => { const p = W.pitch; if (b.state === 'held') { const h = actors().find(a => a.held === b); if (h) h.held = null; } b.state = 'fly'; b.pos.set(p.cx, p.y + 4, p.cz); b.vel.set(0, 0, 0); smokeRing(p.cx, p.y + 0.1, p.cz, 10, { speed: 2.5 }); }, 900);
+          setTimeout(() => { if (!EV.big || EV.big.s !== s || !W.pitch) return; const p = W.pitch; if (b.state === 'held') { const h = actors().find(a => a.held === b); if (h) h.held = null; } b.state = 'fly'; b.pos.set(p.cx, p.y + 4, p.cz); b.vel.set(0, 0, 0); smokeRing(p.cx, p.y + 0.1, p.cz, 10, { speed: 2.5 }); }, 900);
         } }
       return null;
     },
@@ -183,7 +185,7 @@ const BIG = {
   /* Зомби-заражение (как в Move or Die): один — зомби, касанием заражает. Люди отбиваются: попал предметом
      или ударом — зомби на 2 с падает. Зомби — +30 за заражение; кто дожил человеком до конца — +120. */
   zombie: { dur: 40,
-    start(s) { const all = actors(); s.z = new Set([all[(Math.random() * all.length) | 0]]); s.cd = new Map(); s.marks = new Map(); s.puffT = 0; for (const a of s.z) infect(s, a, null); },
+    start(s) { const all = actors(); s.z = new Set([all[(Math.random() * all.length) | 0]]); s.first = [...s.z][0]; s.cd = new Map(); s.marks = new Map(); s.puffT = 0; for (const a of s.z) infect(s, a, null); },
     target(s) { const P = ctx.player(), me = s.z.has(P), list = actors().filter(a => a !== P && s.z.has(a) !== me); list.sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos)); return (list[0] || P).pos; },
     update(s, dt, t) {
       for (const [a, v] of s.cd) s.cd.set(a, v - dt);
@@ -198,28 +200,42 @@ const BIG = {
     bot(s, b) { const zb = s.z.has(b), list = actors().filter(a => a !== b && s.z.has(a) !== zb && !a.hidden).sort((p, q) => p.pos.distanceTo(b.pos) - q.pos.distanceTo(b.pos)), o = list[0]; if (!o) return null;
       if (zb) return { who: o, kind: 'event', near: 0.5 };
       const dx = b.pos.x - o.pos.x, dz = b.pos.z - o.pos.z, d = Math.hypot(dx, dz) || 1; return d > 9 ? null : { x: b.pos.x + dx / d * 7, y: b.pos.y, z: b.pos.z + dz / d * 7, kind: 'event', near: 1 }; },
-    stop(s) { for (const a of actors()) if (!s.z.has(a)) award(a, 120, a.pos); for (const a of actors()) a.zombie = false; for (const m of s.marks.values()) W.group.remove(m); },
+    stop(s) { if (actors().every(a => s.z.has(a))) award(s.first, 250, s.first.pos); else for (const a of actors()) if (!s.z.has(a)) award(a, 120, a.pos); for (const a of actors()) a.zombie = false; for (const m of s.marks.values()) W.group.remove(m); },
     info: s => { const P = ctx.player(); return s.z.has(P) ? 'ТЫ ЗОМБИ' : `людей ${actors().filter(a => !s.z.has(a)).length}`; },
   },
 
   /* Горячая картошка: тыква-бомба с фитилём; передай касанием (или выпадом). Взорвалась в руках — −60. */
   potato: { dur: 40,
     start(s) { s.bomb = compose('potatoBomb', a => { a(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.28, 0.32); a(G.cyl6, col(0x2b2533), 0, 0.3, 0, 0.03, 0.18, 0.03); a(G.sph, lam({ color: 0xffd25c, emissive: 0xff8a1f, emissiveIntensity: 1 }, 'fuseSpark'), 0, 0.42, 0, 0.06, 0.06, 0.06); });
-      W.group.add(s.bomb); W.keep.push(s.bomb); s.cd = 0; s.boom = 0; give(s, actors()[(Math.random() * actors().length) | 0]); },
-    target(s) { const P = ctx.player(); if (s.h !== P) return s.h.pos; const o = actors().filter(a => a !== P).sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos))[0]; return (o || P).pos; },
+      W.group.add(s.bomb); W.keep.push(s.bomb); s.cd = 0; s.boom = 0; give(s, actors()[(Math.random() * actors().length) | 0], true); },
+    target(s) { if (s.flight) return s.bomb.position; const P = ctx.player(); if (s.h !== P) return s.h?.pos || P.pos; return (actors().filter(a => a !== P).sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos))[0] || P).pos; },
     update(s, dt, t) {
-      const h = s.h; s.cd -= dt; s.left -= dt;
-      s.bomb.position.set(h.pos.x, h.pos.y + (h.ch.d.top || 1.7) + 0.45 + Math.abs(Math.sin(t * 6)) * 0.08, h.pos.z); s.bomb.rotation.y += dt * 4;
-      const k = Math.max(0.08, s.left / s.T); s.tick -= dt; if (s.tick <= 0) { s.tick = 0.15 + k * 0.6; sfx('tick', { at: h.pos, v: 0.7 }); puff(s.bomb.position.x, s.bomb.position.y + 0.45, s.bomb.position.z, { color: 0xffd25c, size: 0.08, vy: 1, life: 0.3 }); }
-      if (s.cd <= 0) for (const o of actors()) { if (o === h || o.hidden) continue; if (Math.hypot(o.pos.x - h.pos.x, o.pos.z - h.pos.z) < 1.0 && Math.abs(o.pos.y - h.pos.y) < 1.2) { give(s, o); sfx('pop', { at: o.pos }); break; } }
-      if (s.left <= 0) { explode(s.bomb.position.clone(), null); award(h, -60, h.pos); s.boom++; const others = actors().filter(a => a !== h); give(s, others[(Math.random() * others.length) | 0] || h); }
+      s.cd -= dt; s.left -= dt;
+      if (s.flight) {
+        const f = s.flight; f.v.y -= dt * 15; const len = f.v.length() * dt, dir = f.v.clone().normalize(), travel = raySolids(s.bomb.position, dir, len);
+        s.bomb.position.addScaledVector(dir, travel); if (travel < len) f.v.multiplyScalar(-0.15);
+        const gy = groundAt(s.bomb.position.x, s.bomb.position.z, 0.25, s.bomb.position.y + 0.2); if (s.bomb.position.y < gy + 0.3) { s.bomb.position.y = gy + 0.3; f.v.set(0, 0, 0); }
+        if (s.cd <= 0) for (const a of actors()) if (!a.hidden && a.pos.clone().add(new V3(0, 0.8, 0)).distanceTo(s.bomb.position) < 1.25) { give(s, a); break; }
+      } else if (s.h) {
+        const h = s.h; s.bomb.position.set(h.pos.x, h.pos.y + 1.6, h.pos.z);
+        if (s.cd <= 0) for (const o of actors()) if (o !== h && !o.hidden && o.pos.distanceTo(h.pos) < 1.15) { give(s, o); sfx('pop', { at: o.pos }); break; }
+      }
+      s.bomb.rotation.y += dt * 4;
+      const k = Math.max(0, s.left / s.T); s.tick -= dt; if (s.tick <= 0) { s.tick = 0.15 + k * 0.6; sfx('tick', { at: s.bomb.position, v: 0.7 }); puff(s.bomb.position.x, s.bomb.position.y + 0.45, s.bomb.position.z, { color: 0xffd25c, size: 0.08, vy: 1, life: 0.3 }); }
+      if (s.left <= 0) {
+        const victim = s.flight ? s.flight.by : s.h, p = s.bomb.position.clone(); p.y = groundAt(p.x, p.z, 0.2, p.y) + 0.3;
+        explode(p, null); if (victim) { award(victim, -60, victim.pos); eliminate(victim, 25); } s.boom++;
+        const others = actors(); if (!others.length) return 'end'; give(s, others[(Math.random() * others.length) | 0], true);
+      }
       return null;
     },
-    onHit(s, att, vic) { if (vic === s.h && att && s.cd <= 0) give(s, att); },
-    bot(s, b) { if (s.h === b) { const o = actors().filter(a => a !== b && !a.hidden).sort((p, q) => p.pos.distanceTo(b.pos) - q.pos.distanceTo(b.pos))[0]; return o ? { who: o, kind: 'event', near: 0.4 } : null; }
+    onHit(s, att, vic) { if (att === s.h && vic && !vic.drone && s.cd <= 0) give(s, vic); },
+    bot(s, b) { if (s.flight) return { x: s.bomb.position.x, y: s.bomb.position.y, z: s.bomb.position.z, kind: 'event', near: 0.5 };
+      if (!s.h) return null;
+      if (s.h === b) { const o = actors().filter(a => a !== b && !a.hidden).sort((p, q) => p.pos.distanceTo(b.pos) - q.pos.distanceTo(b.pos))[0]; return o ? { who: o, kind: 'event', near: 0.4 } : null; }
       const dx = b.pos.x - s.h.pos.x, dz = b.pos.z - s.h.pos.z, d = Math.hypot(dx, dz) || 1; return d > 8 ? null : { x: b.pos.x + dx / d * 6, y: b.pos.y, z: b.pos.z + dz / d * 6, kind: 'event', near: 1 }; },
-    stop(s) { W.group.remove(s.bomb); s.h.hotPotato = false; },
-    info: s => s.h === ctx.player() ? `У ТЕБЯ! ${Math.ceil(s.left)}` : (s.h.name || ''),
+    stop(s) { W.group.remove(s.bomb); if (s.h) s.h.hotPotato = false; },
+    info: s => `${s.h === ctx.player() ? 'У ТЕБЯ! ПКМ — бросить' : s.h?.name || 'В полёте'} · ${Math.max(0, Math.ceil(s.left))}`,
   },
 
   /* Пол — лава: улица и полы участками раскаляются (оранжевое предупреждение → лава). Стой на машинах, скамейках,
@@ -238,7 +254,7 @@ const BIG = {
       if (s.mat) s.mat.color.setHSL(0.04 + Math.sin(t * 5) * 0.02, 1, 0.55);
       s.lavaT -= dt; if (s.lavaT <= 0) { s.lavaT = 0.12; const cs = [...s.cells.values()].filter(c => c.t > 1.5); const c = cs[(Math.random() * cs.length) | 0]; if (c) burst(c.m.position.x + (Math.random() - 0.5) * C, c.m.position.y, c.m.position.z + (Math.random() - 0.5) * C, 2, { color: 0xffd25c, size: 0.12, speed: 1, up: 3, g: 6, life: 0.6 }); }
       for (const a of actors()) { if (a.hidden || a.pos.y > s.base + 0.3 || !a.onGround) continue; const c = s.cells.get(Math.floor(a.pos.x / C) + ',' + Math.floor(a.pos.z / C));
-        if (c && c.t > 1.5 && !(a.burnCD > t)) { a.burnCD = t + 1.2; a.vel.y = 9; a.onGround = false; s.burn.set(a, (s.burn.get(a) || 0) + 1); award(a, -20, a.pos); burst(a.pos.x, a.pos.y + 0.3, a.pos.z, 10, { color: 0xff8a1f, size: 0.2, speed: 2, up: 3 }); sfx('hit', { at: a.pos }); voice(a.ch, 'hurt', a.pos); } }
+        if (c && c.t > 1.5 && !(a.burnCD > t)) { a.burnCD = t + 1.2; a.vel.y = 9; a.onGround = false; s.burn.set(a, (s.burn.get(a) || 0) + 1); award(a, -20, a.pos); eliminate(a, 15); burst(a.pos.x, a.pos.y + 0.3, a.pos.z, 10, { color: 0xff8a1f, size: 0.2, speed: 2, up: 3 }); sfx('hit', { at: a.pos }); voice(a.ch, 'hurt', a.pos); } }
       return null;
     },
     bot(s, b) { const C = 6, here = s.cells.get(Math.floor(b.pos.x / C) + ',' + Math.floor(b.pos.z / C)); if (!here || b.pos.y > s.base + 0.3) return null;
@@ -265,12 +281,21 @@ const BIG = {
 };
 // зомби: метка над головой и руки вперёд
 function infect(s, a, by) {
-  s.z.add(a); a.zombie = true; if (by) { award(by, 30, a.pos); sfx('ghost', { at: a.pos }); }
+  s.z.add(a); a.zombie = true; if (by) { sfx('ghost', { at: a.pos }); }
   burst(a.pos.x, a.pos.y + 1.2, a.pos.z, 12, { color: 0x7ad85a, size: 0.18, speed: 2.5, up: 2 });
   const t = new THREE.CanvasTexture(iconCanvas('zombie', 2)); t.magFilter = THREE.NearestFilter; const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false })); m.scale.set(0.6, 0.6, 1); m.renderOrder = 10; W.group.add(m); s.marks.set(a, m);
 }
 // горячая картошка: новый держатель, свежий фитиль
-function give(s, a) { if (s.h) s.h.hotPotato = false; s.h = a; a.hotPotato = true; s.cd = 1; s.T = s.left = 9 + Math.random() * 6; s.tick = 0; }
+function give(s, a, fresh = false) {
+  if (s.h) s.h.hotPotato = false; s.h = a; s.flight = null; a.hotPotato = true; s.cd = 1.35;
+  a.stun = Math.max(a.stun || 0, 1); a.vel.x = a.vel.z = 0;
+  if (fresh) { s.T = s.left = 10 + Math.random() * 5; s.tick = 0; }
+}
+export function throwPotato(a, direction) {
+  const b = EV.big; if (!b || b.key !== 'potato' || b.s.h !== a || b.s.cd > 0 || a.stun > 0) return false;
+  const s = b.s; s.bomb.position.copy(a.pos).add(new V3(0, 1.3, 0)); s.flight = { by: a, v: direction.clone().normalize().multiplyScalar(15).add(new V3(0, 3, 0)) }; s.h = null; a.hotPotato = false; s.cd = 0.35; sfx('throw', { at: a.pos }); return true;
+}
+
 // покраска: клетка 1×1 м на высоте пола/объекта
 function paintCell(s, a, x, z, y) {
   const k = x + ',' + z, c = s.cells.get(k), col3 = new THREE.Color(s.COL.get(a));
@@ -303,7 +328,7 @@ export function updateEvents(dt, ui) {
   // общее событие — один раз, около середины раунда
   if (!EV.big && !EV.bigDone && EV.t >= EV.bigAt && !EV.cur) startBig(ui);
   if (EV.big) { const B = EV.big; B.left -= dt; const r = B.def.update(B.s, dt, EV.t); ui.tick(B.key, Math.ceil(B.left), B.def.info ? B.def.info(B.s) : '');
-    if (B.left <= 0 || r === 'end' || EV.t >= PHASE.final) { stopBig(); ui.end(); } return; }
+    if (B.left <= 0 || r === 'end' || EV.t >= PHASE.resume) { stopBig(); ui.end(); } return; }
   if (!EV.cur && EV.t >= EV.next && EV.t < 170) {
     const keys = Object.keys(EVENTS).filter(k => k !== EV.last), key = keys[(Math.random() * keys.length) | 0];
     EV.cur = { key, def: EVENTS[key], s: {} }; EV.left = DUR; EV.last = key; EV.cur.def.start(EV.cur.s);
@@ -317,7 +342,7 @@ export function updateEvents(dt, ui) {
 }
 function startBig(ui) {
   const keys = Object.keys(BIG), key = globalThis.__forceBig || keys[(Math.random() * keys.length) | 0];
-  EV.big = { key, def: BIG[key], s: {}, left: Math.min(BIG[key].dur, PHASE.final - EV.t) }; EV.bigDone = true; EV.big.def.start(EV.big.s);
+  EV.big = { key, def: BIG[key], s: {}, left: Math.max(0, PHASE.resume - EV.t) }; EV.bigDone = true; EV.big.def.start(EV.big.s);
   W.eventBot = b => EV.big ? EV.big.def.bot(EV.big.s, b) : null;
   ui.start(key, true);
 }

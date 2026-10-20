@@ -2,7 +2,7 @@
 export const TEXT = {
   title: 'FRIENDSLOP',
   play: 'ИГРАТЬ', again: 'ЕЩЁ', menu: 'МЕНЮ', back: 'Назад',
-  modeTitle: 'РЕЖИМ', modeNormal: 'ОБЫЧНЫЙ', modeNormalSub: '3 минуты · миссии · хаос',
+  modeTitle: 'РЕЖИМ', modeNormal: 'ОБЫЧНЫЙ', modeNormalSub: '5 минут · миссии · хаос',
   city: 'ГОРОД', season: 'Хэллоуин', go: 'ВПЕРЁД!', timeUp: 'ВРЕМЯ!',
   results: 'ИТОГИ', you: 'Ты', missionsDone: n => `Миссий: ${n}`,
   pts: 'очк.',

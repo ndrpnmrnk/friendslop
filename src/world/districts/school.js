@@ -7,7 +7,7 @@ export default {
   id: 'school', name: 'Школьный двор', ground: 'pave',
   build(b) {
     // трёхэтажная школа: класс, библиотека, кабинет химии; лестница до крыши
-    b.tower({ x: 3, z: 1, w: 26, d: 8, floors: 3, fh: 3.4, wall: 0x9a6a5a, lit: 0.6, door: { side: 's', at: 0.5, sign: ['ШКОЛА №13', '#2a1f3d', '#f5c542'] },
+    b.tower({ x: 3, z: 1, w: 26, d: 9.5, floors: 3, fh: 3.8, wall: 0x9a6a5a, lit: 0.6, door: { side: 's', at: 0.5, sign: ['ШКОЛА №13', '#2a1f3d', '#f5c542'] },
       ladder: { side: 'w', at: 0.5 }, floor: T.floorWood(),
       interior(f, k, r) {
         if (k === 0) for (let i = 0; i < 5; i++) f.locker(r.x1 - 0.4 - i * 0.6, r.z1 - 0.3, Math.PI, 0x4a6a8a);

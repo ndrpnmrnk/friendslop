@@ -1,3 +1,4 @@
+import { nearbyItemPoint, routeTo } from './location.js';
 import { sfx } from '../core/sfx.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -213,7 +214,7 @@ export const WORLD_GAMES = {
   targets(o, api, ctx) {
     const box = o.world(1.6, 0.6, 0.6);
     o.items = ['tomato', 'ball', 'tomato', 'ball', 'tomato'].map((k, i) => { const it = addItem(k, box.x + (i - 2) * 0.12, box.y - 0.1, box.z, 0); it.def = { ...it.def, respawn: 0 }; return it; });
-    let time = 40, left = 3;
+    let time = 60, left = 3;
     const hook = (it, p) => { for (const t of o.targets) { if (t.hit) continue; const c = t.t.getWorldPosition(new V3()); if (c.distanceTo(p) < 0.85) { t.hit = true; o.sols[t.i].on = false; left--; burst(c.x, c.y, c.z, 10, { color: 0xff8a1f, size: 0.2, speed: 2.5 }); api.msg(left ? `Попал! Осталось ${left}` : 'Все мишени сбиты!', 'good'); } } };
     W.hitHooks.push(hook); api.msg('Сбей 3 мишени — бросай с линии (ПКМ)');
     return {
@@ -231,19 +232,19 @@ export const WORLD_GAMES = {
 
   // Уборка: вокруг урны раскиданы 5 бумажек и банок — закинь или донеси все в урну
   cleanup(o, api, ctx) {
-    const c = o.pos(), N = 5; let time = 45, got = 0;
-    for (let i = 0; i < N; i++) { let x, z, tries = 0; do { const a = Math.random() * 6.28, r = 3 + Math.random() * 4; x = c.x + Math.cos(a) * r; z = c.z + Math.sin(a) * r; tries++; } while (tries < 20 && !ctx.free(x, z, c.y));
-      const it = spawnLitter(x, c.y, z); o.litter.push(it); it.outline.set(true);
+    const c = o.pos(), N = 5; let time = 68, got = 0;
+    for (let i = 0; i < N; i++) { const { x, y, z } = nearbyItemPoint(c);
+      const it = spawnLitter(x, y, z); o.litter.push(it); it.outline.set(true);
       const rg = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, 0.35, 0.35, 1, W.group); rg.rotation.x = -Math.PI / 2; it.ring = rg; }
     api.msg('Собери мусор в урну (бросай или клади рядом)');
-    const take = it => { if (it.taken) return; it.taken = true; it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) it.ring.visible = false; got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
-    const hook = (it, p) => { if (o.litter.includes(it) && Math.hypot(p.x - c.x, p.z - c.z) < 0.9) take(it); };
+    const take = it => { if (it.taken) return; it.taken = true; it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) { W.group.remove(it.ring); it.ring.material.dispose(); it.ring = null; } got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
+    const hook = (it, p) => { if (o.litter.includes(it) && Math.hypot(p.x - c.x, p.z - c.z) < 0.9 && Math.abs(p.y - c.y) < 1.5) take(it); };
     W.hitHooks.push(hook);
     return {
       target: () => { const l = o.litter.find(it => it.state !== 'gone'); return l ? l.pos : c; },
       update(dt) {
         time -= dt; api.timer(time);
-        for (const it of o.litter) if (it.state === 'rest' && Math.hypot(it.pos.x - c.x, it.pos.z - c.z) < 1.0) take(it);
+        for (const it of o.litter) if (it.state === 'rest' && Math.hypot(it.pos.x - c.x, it.pos.z - c.z) < 1.0 && Math.abs(it.pos.y - c.y) < 1.5) take(it);
         const pul = 0.3 + Math.abs(Math.sin(performance.now() * 0.005)) * 0.12;
         for (const it of o.litter) if (it.ring) { it.ring.visible = it.state !== 'gone' && it.state !== 'held'; it.ring.position.set(it.pos.x, it.pos.y - it.def.r + 0.04, it.pos.z); it.ring.scale.setScalar(pul); it.outline.set(it.state !== 'gone'); }
         o.ring.material.opacity = 0.35 + Math.sin(performance.now() * 0.006) * 0.25;
@@ -274,22 +275,18 @@ function deliveryCore(o, api, ctx, kind) {
     const beamM = new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide });
     const beam = mesh(G.beam, beamM, dest.x, dest.y + 1.5, dest.z, 0.8, 3, 0.8, W.group);
     const sky = mesh(G.beam, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }), dest.x, dest.y + 20, dest.z, 0.35, 40, 0.35, W.group);
-    let time = kind === 'pizza' ? 60 : 70, hint = '';
+    let time = kind === 'pizza' ? 90 : 105, hint = '';
     api.where(`→ ${dest.name}`);
     const inside = () => g && P.pos.x > g.box[0] && P.pos.x < g.box[2] && P.pos.z > g.box[1] && P.pos.z < g.box[3] && P.pos.y > g.y0 - 0.6;
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     return {
       target() {
         if (P.held !== parcel) { say(kind === 'pizza' ? 'Подбери пиццу (E)' : 'Подбери заказ (E)'); return parcel.pos; }
-        if (!g) return new V3(dest.x, dest.y, dest.z);
-        if (!inside()) { say(`Неси в ${dest.name}: вход с улицы`); const dd = Math.hypot(P.pos.x - g.door[0], P.pos.z - g.door[1]); return dd < 1.2 ? new V3(g.door[2], g.y0, g.door[3]) : new V3(g.door[0], g.y0, g.door[1]); }
-        const floor = Math.floor((P.pos.y - g.y0 + 0.6) / g.fh);
-        if (floor < dest.floor) { say(`Поднимись по лестнице на ${dest.floor + 1} этаж`); return new V3(g.stair[2], P.pos.y, g.stair[3]); }
-        say('Отдай заказ у зелёного луча'); return new V3(dest.x, dest.y, dest.z);
+        return routeTo(P.pos, { x: dest.x, y: dest.y, z: dest.z });
       },
       update(dt) {
         time -= dt; api.timer(time); beam.rotation.y += dt; sky.visible = !inside();
-        if (kind === 'pizza') { heat -= dt / (P.held === parcel ? 50 : 16); api.progress(Math.max(0, heat)); steamT -= dt; if (steamT <= 0 && heat > 0.2) { steamT = 0.12; puff(parcel.pos.x, parcel.pos.y + 0.15, parcel.pos.z, { color: 0xf1e8ff, size: 0.15, vy: 1, life: 0.8, grow: 1.2, opacity: 0.5 * heat }); }
+        if (kind === 'pizza') { heat -= dt / (P.held === parcel ? 75 : 24); api.progress(Math.max(0, heat)); steamT -= dt; if (steamT <= 0 && heat > 0.2) { steamT = 0.12; puff(parcel.pos.x, parcel.pos.y + 0.15, parcel.pos.z, { color: 0xf1e8ff, size: 0.15, vy: 1, life: 0.8, grow: 1.2, opacity: 0.5 * heat }); }
           if (heat <= 0) { api.msg('Пицца остыла...', 'bad'); return api.finish({ success: false }); } }
         else api.progress(1 - Math.min(1, Math.hypot(P.pos.x - dest.x, P.pos.z - dest.z) / 40));
         const near = Math.hypot(parcel.pos.x - dest.x, parcel.pos.z - dest.z) < 2.2 && Math.abs(parcel.pos.y - dest.y) < 1.8;

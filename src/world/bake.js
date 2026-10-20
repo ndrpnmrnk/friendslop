@@ -1,3 +1,4 @@
+import { installOcclusion } from '../game/occlusion.js';
 import { THREE, ps1, G } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -68,6 +69,7 @@ export function bakeStatic(group) {
   }
   // подвижное тоже отбрасывает и принимает тени
   group.traverse(o => { if (o.isMesh && !o.userData.baked && !o.isInstancedMesh) { const m = Array.isArray(o.material) ? o.material[0] : o.material; o.castShadow = !m.transparent && !(m.emissive && m.emissiveIntensity > 0.5); o.receiveShadow = !m.transparent; } });
+  installOcclusion(group);
   return { meshes: removed.length, draws: n };
 }
 /* Одинаковые по виду материалы сводим к одному: повтор/сдвиг текстуры переносим в UV,

@@ -101,7 +101,7 @@ function tunnelSegment(s, P, brick, conc) {
   const tb = new Builder(0, 0, UG.floor, 'Тоннели');
   // пол: вода по центру (в затопленном — по всей ширине, там идёшь медленнее)
   if (kind === 'flooded') box(ua, s.c - half, ub, s.c + half, (x0, z0, x1, z1) => tb.waterRect(x0, z0, x1, z1, 0.08, false));
-  else box(ua, s.c - 0.4, ub, s.c + 0.4, (x0, z0, x1, z1) => { mesh(G.box, tmat(T.water()), (x0 + x1) / 2, UG.floor + 0.01, (z0 + z1) / 2, x1 - x0, 0.02, z1 - z0, W.group); });
+  else box(ua, s.c - 0.4, ub, s.c + 0.4, (x0, z0, x1, z1) => { mesh(G.box, tmat(T.water()), (x0 + x1) / 2, UG.floor + 0.045, (z0 + z1) / 2, x1 - x0, 0.02, z1 - z0, W.group); });
   // технический: мостки по бокам, кабели под потолком, щитки
   if (kind === 'tech') for (const sd of [-1, 1]) {
     box(ua, s.c + sd * (half - 0.55), ub, s.c + sd * half, (x0, z0, x1, z1) => { mesh(G.box, tmat(T.metal()), (x0 + x1) / 2, UG.floor + 0.12, (z0 + z1) / 2, x1 - x0, 0.24, z1 - z0, W.group); addSolid(x0, z0, x1, z1, UG.floor, UG.floor + 0.24); });
@@ -116,7 +116,7 @@ function tunnelSegment(s, P, brick, conc) {
   });
   // лампы в решётчатых плафонах + пятна света, решётки в полу, предметы
   for (let u = ua + 4; u < ub - 2; u += 8) { const [x, z] = P(u, s.c + half - 0.1); lampAt(x, UG.ceil - 0.25, z); const [lx, lz] = P(u, s.c); tb.light(lx, lz, 1.8, 0.02, true); }
-  for (let u = ua + 6; u < ub - 4; u += 11) { const [x, z] = P(u, s.c); const gr = mesh(G.plane, tmat(T.grate()), x, UG.floor + 0.035, z, 0.8, 0.8, 1, W.group); gr.rotation.x = -Math.PI / 2; }
+  for (let u = ua + 6; u < ub - 4; u += 11) { const [x, z] = P(u, s.c); const gr = mesh(G.plane, tmat(T.grate()), x, UG.floor + 0.08, z, 0.8, 0.8, 1, W.group); gr.rotation.x = -Math.PI / 2; }
   if (rand() < 0.45) { const [x, z] = P(ua + 3 + rand() * (ub - ua - 6), s.c + (rand() - 0.5) * 0.4); if (rand() < 0.5) tb.ride('barrel', x, z); else tb.crate(x, z, 0.9); }
   if (rand() < 0.2) { const [x, z] = P(ua + 4 + rand() * (ub - ua - 8), s.c); tb.item(rand() < 0.5 ? 'trash' : 'cone', x, z); }
   const [zx0, zz0] = P(ua + 2, s.c - half + 0.3), [zx1, zz1] = P(ub - 2, s.c + half - 0.3);

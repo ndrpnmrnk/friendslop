@@ -1,3 +1,4 @@
+import { locationLabel } from './location.js';
 import { THREE, G, V3, sprite } from '../core/gfx.js';
 import { iconCanvas } from '../ui/icons.js';
 import { raySolids } from '../world/physics.js';
@@ -147,7 +148,7 @@ export function spawnMission(player, only = null, opts = {}) {
       obj = key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
       where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
     }
-    const p = obj.pos(), life = lifeFor(p, opts.final), mult = opts.mult || 1;
+    const p = obj.pos(); where = locationLabel(p) || where; const life = lifeFor(p, opts.final), mult = opts.mult || 1;
     const m = { id: ++M.id, key, def, obj, where, life, maxLife: life, busy: false, owner: opts.owner || null, outsider: mult > 1, mult, pts: Math.round(def.points * mult), marker: marker(def, key) };
     drawPlate(m, 1); M.list.push(m);
     return m;
@@ -167,7 +168,7 @@ const shared = () => M.list.filter(m => !m.owner);
 
 /* opts: phase ('calm' | 'event' | 'final'), t — сколько прошло с начала раунда */
 export function updateMissions(dt, t, player, opts = {}) {
-  const phase = opts.phase || 'calm';
+  const phase = opts.phase || 'calm'; if (phase === 'event') dt = 0;
   for (const k in M.cooldown) M.cooldown[k] -= dt;
   for (const m of M.list.slice()) {
     const p = m.obj.pos(), mk = m.marker; mk.g.position.set(p.x, p.y, p.z);

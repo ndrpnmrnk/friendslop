@@ -99,6 +99,7 @@ export function addPushable(b, kind, x, z, y = 0) {
 /* Урна опрокидывается от сильного удара или тарана на бегу: ложится набок, мусор высыпается */
 export function tipBin(b, dx = 0, dz = 1) {
   if (b.kind !== 'bin' || b.tipped) return;
+  if (!b.looted) { b.looted = true; W.containerLoot && W.containerLoot(new THREE.Vector3(b.x, b.y + 0.4, b.z)); }
   b.tipped = true; b.tipT = 0; b.tipDir = Math.atan2(dx, dz);
   const cols = [0xd8d0c0, 0x8a8d98, 0xc83a3a, 0x6aa84f];
   for (let i = 0; i < 8; i++) chunk(b.x, b.y + 0.6, b.z, [dx * 3 + (Math.random() - 0.5) * 3, 1 + Math.random() * 2, dz * 3 + (Math.random() - 0.5) * 3], { mat: col(cols[i % 4]), size: 0.1, sy: 0.4, life: 6 });

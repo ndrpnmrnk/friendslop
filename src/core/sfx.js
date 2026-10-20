@@ -24,6 +24,7 @@ function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
 const SND = {
+  deadline: s => tone(700 + (s.urgency || 0) * 600, 660, 0.09, 'square', 0.12),
   step: s => noise(0.05, 0.05 * (s.v ?? 1), s.surf === 'grass' ? 700 : s.surf === 'metal' ? 3000 : s.surf === 'water' ? 900 : 1600, 2),
   jump: () => tone(220, 520, 0.12, 'square', 0.08),
   land: s => noise(0.09, 0.12 * Math.min(1, s.v ?? 1), 400, 1),

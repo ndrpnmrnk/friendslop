@@ -1,3 +1,4 @@
+import { updateOcclusion } from './occlusion.js';
 import { THREE, V3 } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { solidsNear, groundAt } from '../world/physics.js';
@@ -49,12 +50,17 @@ function aboveGround(v, maxY, clear = 0.35) {
 /* Камера свободно наклоняется мышью: от взгляда снизу вверх (камера у самой земли) до вида
    почти сверху. Стены и потолки её останавливают, а по полу и низким объектам она скользит. */
 export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
+  if (!cam.pose) updateOcclusion(camera, null);
   if (cam.free) { camera.position.copy(cam.free.p); camera.lookAt(cam.free.l); return; } // отладка: свободная камера
   const clearanceFov = cam.pose ? 105 : camera.fov;
   const radius = Math.max(0.2, camera.near * Math.hypot(1, Math.tan(clearanceFov * Math.PI / 360) * Math.hypot(camera.aspect, 1)) + 0.02);
   if (lookDelta && !cam.pose) {
     cam.yaw -= lookDelta.dx * cam.sens * (aiming ? 0.75 : 1);
     cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens * (aiming ? 0.75 : 1), -0.75, 1.5);
+  }
+  if (p.drone) {
+    const dir = new V3(-Math.sin(cam.yaw) * Math.cos(cam.pitch), -Math.sin(cam.pitch), -Math.cos(cam.yaw) * Math.cos(cam.pitch));
+    camera.position.copy(p.pos).addScaledVector(dir, -1.8).add(new V3(0, 0.45, 0)); camera.lookAt(p.pos.clone().addScaledVector(dir, 20)); return;
   }
   let P, L;
   if (cam.orbit && !cam.pose) {
@@ -72,7 +78,7 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   if (cam.pose) {
     // луч от объекта к камере начинаем чуть впереди объекта, чтобы сам объект не «прилипал» камеру
     const st = delta.subVectors(cam.pose.p, cam.pose.l), sl = st.length(); const from = eye.copy(cam.pose.l).addScaledVector(st.normalize(), Math.min(0.5, sl * 0.4));
-    P = constrain(from, want.copy(cam.pose.p), radius, cam.pose.ignore, cam.pose.l.y + 0.35); L = cam.pose.l;
+    P = want.copy(cam.pose.p); L = cam.pose.l;
   }
   else {
     cam.aimK += ((aiming ? 1 : 0) - cam.aimK) * damp(10, dt);
@@ -106,7 +112,7 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   if (cam.pose) cam.blend = 0; else cam.blend = Math.min(1, (cam.blend ?? 1) + dt * 1.5);
   if (snap || cam.pose || cam.blend >= 1) { pos.copy(P); look.copy(L); }
   else { const f = damp(6, dt); pos.lerp(P, f); look.lerp(L, f); constrain(eye, pos, radius, null, p.pos.y + 0.45); }
-  camera.position.copy(pos); camera.lookAt(look);
+  camera.position.copy(pos); camera.lookAt(look); updateOcclusion(camera, cam.pose && cam.pose.l);
   // тряска: короткие пиксельные рывки, затухают сами
   if (cam.shake > 0.001 && !cam.pose) { const k = cam.shake * 0.35; camera.position.x += (Math.random() - 0.5) * k; camera.position.y += (Math.random() - 0.5) * k; camera.rotation.z += (Math.random() - 0.5) * k * 0.15; }
 

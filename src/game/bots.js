@@ -106,6 +106,7 @@ function steer(b, tx, tz, dt) {
 /* ---------- обновление ---------- */
 export function updateBots(dt, t, P) {
   for (const b of W.bots || []) {
+    if (b.drone || b.returning) continue;
     if (b.stun > 0) b.stun -= dt;
     if (b.webT > 0) b.webT -= dt;
     if (b.knockT > 0) b.knockT -= dt;

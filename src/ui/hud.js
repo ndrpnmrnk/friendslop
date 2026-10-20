@@ -40,7 +40,7 @@ export function renderNav(camera, P, t) {
     const kx = (W2 / 2 - m) / Math.abs(dx || 1e-3), ky = (H2 / 2 - m - 30) / Math.abs(dy || 1e-3), k = Math.min(kx, ky); sx = cx + dx * k; sy = cy + dy * k; }
   el.style.transform = `translate(${Math.round(sx)}px,${Math.round(sy)}px)`;
   el.classList.toggle('edge', !on); el.querySelector('.na').style.transform = `rotate(${ang}rad)`;
-  const d = `${Math.round(Math.hypot(t.x - P.pos.x, t.z - P.pos.z))} м`, dd = el.querySelector('.nd'); if (dd.textContent !== d) dd.textContent = d;
+  const d = `${Math.round(Math.hypot(t.x - P.pos.x, t.z - P.pos.z))} м${t.floorDelta ? ' · ' + (t.floorDelta > 0 ? '▲' : '▼') + Math.abs(t.floorDelta) : ''}`, dd = el.querySelector('.nd'); if (dd.textContent !== d) dd.textContent = d;
   const lb = el.querySelector('.nl'), lt = t.label || ''; if (lb.textContent !== lt) lb.textContent = lt;
 }
 export function resetCompass() { NAV.key = ''; }
@@ -80,7 +80,7 @@ export function renderHud(S, P, prompt, dt) {
     const p = (m.busy && m.track && m.track()) || m.obj.pos(), dx = p.x - P.pos.x, dz = p.z - P.pos.z;
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), ang = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz);
     el.querySelector('.dist').textContent = `${Math.round(Math.hypot(dx, dz))}м`;
-    const w = el.querySelector('.where'), wt = m === nearest ? m.where : ''; if (w.textContent !== wt) w.textContent = wt;
+    const w = el.querySelector('.where'), wt = m.where || ''; if (w.textContent !== wt) w.textContent = wt;
     const bar = el.querySelector('.bar'); bar.firstChild.style.width = Math.max(0, m.life / m.maxLife * 100) + '%'; bar.classList.toggle('warn', m.life < m.maxLife * 0.25);
     el.classList.toggle('taken', !!m.doer);
     el.classList.toggle('active', !!m.busy); el.classList.toggle('main', m === nearest && !m.busy); el.classList.toggle('dim', m !== nearest);

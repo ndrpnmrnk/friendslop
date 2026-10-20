@@ -177,7 +177,7 @@ export function explode(p, owner) {
   for (const c of cols) burst(p.x, p.y + 0.5, p.z, 7, { color: c, size: 0.2, speed: 6, up: 5, g: 6, life: 1.1, grow: 0.2 });
   smokeRing(p.x, p.y + 0.1, p.z, 12, { speed: 4, size: 0.3, grow: 1, life: 0.9 });
   for (const a of actors()) { const dx = a.pos.x - p.x, dz = a.pos.z - p.z, d = Math.hypot(dx, dz); if (d < 3.2 && Math.abs(a.pos.y - p.y) < 2.5) { shove(a, dx || 0.1, dz, 8, 7, true); hitFreeze(0.07); } }
-  hitBreakables({ x: p.x, y: p.y + 0.8, z: p.z }, 2.5, [0, 8, 0], 1, ['glass', 'bottle', 'bulb', 'pot']);
+  hitBreakables({ x: p.x, y: p.y + 0.8, z: p.z }, 2.5, [0, 8, 0], 3);
   for (const c of W.cats) { const q = c.root.position; if (Math.hypot(q.x - p.x, q.z - p.z) < 6) c.hit && c.hit(false, q.x - p.x, q.z - p.z); }
   sfx('boom', { at: p }); scareBirds(p.x, p.z, 20); impulsePushables(p.x, p.z, 3, 6); worldHit(p, 5, new V3()); shake(0.45);
 }

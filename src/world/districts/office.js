@@ -4,14 +4,14 @@ import { W } from '../state.js';
 import { addZone } from '../physics.js';
 import { burst } from '../particles.js';
 
-/* Бизнес-центр: 8-этажная высотка, самое высокое здание города. Можно пройти по лестнице
+/* Бизнес-центр: 6-этажная высотка, самое высокое здание города. Можно пройти по лестнице
    с этажа на этаж до самой крыши: лобби с ресепшеном и лифтами, офисы open-space с креслами
    на колёсиках, переговорки за стеклом (бьётся), столовая наверху. На крыше — вертолётная
    площадка и мачта. Снаружи — площадь со скамейками, клумбами, флагами и курилкой. */
 export default {
   id: 'office', name: 'Бизнес-центр', ground: 'pave',
   build(b) {
-    const N = 8, FH = 3.4;
+    const N = 6, FH = 3.8;
     b.tower({ x: 7, z: 1, w: 18, d: 13, floors: N, fh: FH, fireEscape: { side: 'w', at: 0.55 }, wall: 0x4e5c7a, brick: false, lit: 0.75, floor: T.carpet(),
       door: { side: 's', at: 0.5, sign: ['БЦ «ПОЛНОЛУНИЕ»', '#17111f', '#b18cff'] },
       interior(f, k, r) {
@@ -29,15 +29,15 @@ export default {
         if (k === N - 1) {
           // столовая наверху
           f.kitchen(20, 1.6, 4); f.vending(24.1, 5);
-          for (const [x, z] of [[10, 6.5], [13.5, 6.5], [10, 10.5], [13.5, 10.5], [18, 10.5], [21.5, 10.5]]) { f.table(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); }
+          for (const [x, z] of [[10, 7], [13.5, 7], [10, 10.5], [13.5, 10.5], [18, 10.5], [21.5, 10.5]]) { f.table(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); }
           f.sofa(21, 13.1, Math.PI, 0x7b4bc4); f.plantPot(8, 13.2); f.plantPot(24.2, 13.2);
           return;
         }
         // офис open-space: ряды столов с мониторами, переговорка за стеклом в углу
         const rot = k % 2;
-        for (const x of [9.5, 12.5]) for (const z of [5.4, 7.6, 10.2]) f.desk(x, z, rot ? Math.PI : 0, true);
-        for (const z of [5.4, 7.6]) f.desk(16.5, z, rot ? Math.PI : 0, true);
-        f.ride('chair', 12.5, rot ? 4.75 : 8.4, rot ? 0 : Math.PI);
+        for (const x of [9.5, 12.5]) for (const z of [6.4, 9, 11.4]) f.desk(x, z, rot ? Math.PI : 0, true);
+        for (const z of [6.4, 9]) f.desk(16.5, z, rot ? Math.PI : 0, true);
+        f.ride('chair', 12.5, rot ? 5.65 : 9.8, rot ? 0 : Math.PI);
         if (k % 3 === 1) f.item('chair', 9.5, 11.4);
         // переговорка: стеклянные стены (бьются), стол, доска
         f.vitrine(21.5, 9.2, 6.2, 2.2, 'x', 0.2); f.vitrine(18.4, 11.9, 3.2, 2.2, 'z', 0.2);

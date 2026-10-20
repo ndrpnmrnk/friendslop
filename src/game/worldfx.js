@@ -137,7 +137,7 @@ export function registerInteracts() {
   for (const h of W.hides) W.interacts.push({ x: h.kind === 'wardrobe' ? h.x + h.out[0] * 0.8 : h.x, z: h.kind === 'wardrobe' ? h.z + h.out[1] * 0.8 : h.z, y: h.y, r: h.kind === 'wardrobe' ? 0.9 : h.r, dy: h.kind === 'bin' ? 1.5 : 0.9, label: 'Спрятаться', enabled: P => !P.held, act: P => hideIn(P, h) });
   // мусорный бак: порыться — иногда что-то выпадает
   for (const b of W.pushables) if (b.kind === 'bin') { let cd = 0; W.interacts.push({ get x() { return b.x; }, get z() { return b.z; }, y: b.y, r: 1.1, label: 'Порыться', enabled: P => !P.held && !b.tipped && !b.rider && cd <= performance.now(),
-    act: P => { cd = performance.now() + 25000; sfx('open', { at: P.pos }); burst(b.x, b.y + 1.1, b.z, 6, { color: 0x8a8d98, size: 0.14, speed: 1.5, up: 2 });
+    act: P => { if (!b.looted) { b.looted = true; W.containerLoot && W.containerLoot(new V3(b.x, b.y + 0.5, b.z)); } cd = performance.now() + 25000; sfx('open', { at: P.pos }); burst(b.x, b.y + 1.1, b.z, 6, { color: 0x8a8d98, size: 0.14, speed: 1.5, up: 2 });
       if (Math.random() < 0.5) { const l = ['banana', 'can', 'trash', 'litter', 'slipper', 'duck', 'cushion'], type = l[(Math.random() * l.length) | 0], it = addItem(type, b.x, b.y + 1.2, b.z); if (it.def.tool) it.life = 50; it.noHitT = 0.6; launch(it, it.pos.clone(), new V3((P.pos.x - b.x) * 1.5, 4, (P.pos.z - b.z) * 1.5)); } } }); }
   for (const s of W.swingSeats) W.interacts.push({ get x() { return s.pivot.position.x; }, get z() { return s.pivot.position.z; }, y: s.pivot.position.y - 2.46, r: 0.9, label: 'Сесть', enabled: P => !s.rider && !P.held, act: P => sitSwing(P, s) });
 }

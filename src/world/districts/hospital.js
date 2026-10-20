@@ -11,41 +11,44 @@ export default {
   id: 'hospital', name: 'Больница', ground: 'dirt',
   build(b) {
     b.ground(13.5, 16, 18.5, 31.5, T.concrete(), 3);
-    const FH = 3.6, X0 = 2, Z0 = 2, Wd = 26, D = 13;
-    b.tower({ x: X0, z: Z0, w: Wd, d: D, floors: 2, fh: FH, wall: 0x8a9a8c, lit: 0.12, lights: false, floor: T.floorTile(),
+    const FH = 3.8;
+    b.tower({ x: 2, z: 0.5, w: 26, d: 15.5, floors: 2, fh: FH, wall: 0x8a9a8c, lit: 0.12, lights: false, floor: T.floorTile(),
       door: { side: 's', at: 0.5, sign: ['БОЛЬНИЦА №13', '#2a5a4a', '#d8f0e0'] }, gaps: [{ side: 'e', at: 0.5 }], fireEscape: { side: 'w', at: 0.5 },
       interior(f, k, r) {
-        const h = FH - 0.2, cz0 = r.z0 + 3.0, cz1 = cz0 + 2.0; // коридор
-        f.box((r.sx1 + 0.2 + r.x1) / 2, r.z0 - 0.1, r.x1 - r.sx1 - 0.2, 0.12, h, tmat(T.plaster()));
-        // стены коридора: с севера — кабинеты, с юга — палаты; в каждой стене дверной проём
-        const xs = [r.x0, r.x0 + 6.2, r.x0 + 12.4, r.x0 + 18.4, r.x1];
-        for (let i = 0; i < xs.length - 1; i++) { f.partition(xs[i], cz1, xs[i + 1], cz1, h, 0.5); if (i > 0) f.box(xs[i], (cz1 + r.z1) / 2, 0.12, r.z1 - cz1, h, tmat(T.plaster())); }
-        f.partition(r.x0, cz0, r.x0 + 12, cz0, h, 0.5); f.partition(r.x0 + 12, cz0, r.x1, cz0, h, 0.3);
-        f.box(r.x0 + 12, (r.z0 + cz0) / 2, 0.12, cz0 - r.z0, h, tmat(T.plaster()));
-        // мигающие лампы по коридору
-        for (let x = r.x0 + 2; x < r.x1 - 1; x += 4.5) f.flickerLamp(x, (cz0 + cz1) / 2, FH - 0.2);
-        // палаты: койки, тумбочки, простыни-призраки
-        for (let i = 0; i < 4; i++) { const xa = xs[i] + 0.3, xb = xs[i + 1] - 0.3;
-          f.bed(xa + 1.2, r.z1 - 1.3, Math.PI, [0x8ab0a8, 0xd8d0c0, 0x7a9aa8][i % 3]); if (xb - xa > 4.5) f.bed(xb - 1.2, r.z1 - 1.3, Math.PI, 0xd8d0c0);
-          f.cupboard((xa + xb) / 2, r.z1 - 0.4, Math.PI);
-          if ((i + k) % 2 === 0) f.sheetGhost((xa + xb) / 2, cz1 + 1.6, FH - 0.3);
-          f.flickerLamp((xa + xb) / 2, (cz1 + r.z1) / 2, FH - 0.2);
-          // дверь палаты сама хлопает
-          if ((i + k) % 2 === 1) { const d = f.door((xs[i] + xs[i + 1]) / 2 - 0.55, cz1, 'x', 1, 0, 1.1, 2.2); d.haunted = true; }
+        const h = FH - 0.2, north = 8.5, south = 11.7, mid = (north + south) / 2;
+        // Сквозной коридор 3.2 м. Вход и лестница соединены свободным проходом.
+        for (const [xa, xb] of [[r.x0, 10.5], [10.5, 19], [19, r.x1]]) {
+          f.partition(xa, north, xb, north, h, 0.5, 2);
+          if (xa > r.x0) f.box(xa, (r.z0 + north) / 2, 0.12, north - r.z0, h, tmat(T.plaster()));
+          const cx = (xa + xb) / 2;
+          f.flickerLamp(cx, (r.z0 + north) / 2, FH - 0.2);
+          if (k === 0) {
+            if (xa === r.x0) { f.desk(cx, r.z0 + 0.7, 0, true); f.phoneSpot(cx, r.z0 + 0.7, [0, 1]); }
+            else if (xa === 10.5) { f.xray(cx, r.z0 + 0.5, 0); f.cupboard(xb - 0.65, r.z0 + 0.4); }
+            else { f.bed(cx, r.z0 + 1.3, Math.PI, 0x8ab0a8); f.sheetGhost(xb - 1.1, north - 0.9, FH - 0.3); }
+          } else {
+            if (xa === r.x0) f.kitchen(cx + 0.5, r.z0 + 0.45, 3, 0);
+            else if (xa === 10.5) for (let x = xa + 1; x < xb - 1; x += 0.8) f.locker(x, r.z0 + 0.4, 0, 0x4a7a6a);
+            else { f.bed(cx, r.z0 + 1.3, Math.PI, 0xd8d0c0); f.xray(xb - 0.6, north - 1, -Math.PI / 2); }
+          }
         }
-        if (k === 0) {
-          // регистратура с телефоном, рентген, лифт
-          f.desk(r.x0 + 3, r.z0 + 1.2, Math.PI, true); f.phoneSpot(r.x0 + 3, r.z0 + 1.2, [0, 1]);
-          f.xray(r.x0 + 15.5, r.z0 + 1.0, Math.PI);
-          f.elevator(r.x0 + 9.5, r.z0 + 0.06, 0, 0);
-          f.ride('gurney', r.x0 + 6, (cz0 + cz1) / 2, Math.PI / 2); f.ride('gurney', r.x1 - 3, (cz0 + cz1) / 2, -Math.PI / 2);
-        } else {
-          // кухня персонала, шкафчики, лифт
-          f.kitchen(r.x0 + 5.5, r.z0 + 0.4, 3, 0);
-          for (let i = 0; i < 4; i++) f.locker(r.x0 + 13 + i * 0.6, r.z0 + 0.3, 0, 0x4a7a6a);
-          f.elevator(r.x0 + 9.5, r.z0 + 0.06, 0, 0);
-          f.ride('gurney', r.x0 + 15, (cz0 + cz1) / 2, Math.PI / 2); f.ride('chair', r.x1 - 4, r.z0 + 1.6);
+        // Две большие палаты по сторонам центрального входного холла.
+        for (const [xa, xb] of [[r.x0, 12], [18, r.x1]]) {
+          const cx = (xa + xb) / 2;
+          f.partition(xa, south, xb, south, h, 0.5, 2);
+          const inner = xa === r.x0 ? xb : xa;
+          f.box(inner, (south + r.z1) / 2, 0.12, r.z1 - south, h, tmat(T.plaster()));
+          const door = f.door(cx - 1, south, 'x', 1, 0, 2, 2.2); door.haunted = true;
+          for (const x of [xa + 1.5, xb - 1.5]) f.bed(x, r.z1 - 1.4, Math.PI, k ? 0xd8d0c0 : 0x8ab0a8);
+          f.cupboard(cx, r.z1 - 0.4, Math.PI); f.flickerLamp(cx, (south + r.z1) / 2, FH - 0.2);
+          if (k === 1) f.sheetGhost(xa + 1.5, south + 0.9, FH - 0.3);
         }
+        for (let x = r.x0 + 2; x < r.x1 - 1; x += 5) f.flickerLamp(x, mid, FH - 0.2);
+        f.elevator(r.x1 - 2, r.z0 - 0.1, 0, 0);
+        // Каталки в боковых карманах, середина коридора остаётся свободной.
+        f.ride('gurney', r.x1 - 1.3, mid, Math.PI / 2);
+        f.ride('gurney', r.x0 + 1.3, mid, -Math.PI / 2);
+        f.sign(15, 2.5, south + 0.08, 0, k ? 'ПАЛАТЫ · ПЕРСОНАЛ' : 'РЕНТГЕН · РЕГИСТРАТУРА', '#2a5a4a', '#d8f0e0', 2.8, 0.35);
       } });
     // хлопающие двери: сами открываются и закрываются, когда кто-то рядом
     for (const d of W.doors) if (d.haunted) { let t = 2 + Math.random() * 4; W.animated.push(dt => { t -= dt; if (t > 0) return; t = 1.5 + Math.random() * 5; const P = W.player; if (!P || Math.hypot(P.pos.x - d.x, P.pos.z - d.z) > 14) return; d.open = !d.open; d.slam = 0.6; sfx('door', { at: d, v: 0.6 }); }); }

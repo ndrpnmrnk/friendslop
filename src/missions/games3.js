@@ -1,3 +1,4 @@
+import { nearbyItemPoint } from './location.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -22,12 +23,7 @@ const PL = new THREE.Plane(), HIT = new V3();
 const onPlane = (ray, n, p) => { PL.setFromNormalAndCoplanarPoint(n, p); return ray.ray.intersectPlane(PL, HIT) ? HIT.clone() : null; };
 const ringMark = (color = 0x9be36b) => { const r = mesh(G.ring, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, 0.4, 0.4, 1, W.group); r.rotation.x = -Math.PI / 2; return r; };
 // случайная свободная точка в зонах «пол» на расстоянии [a..b] от p
-function farPoint(p, a, b) {
-  const zs = W.missionZones.filter(z => z.type === 'floor' && Math.abs(z.y - p.y) < 0.3);
-  for (let i = 0; i < 80; i++) { const z = zs[(Math.random() * zs.length) | 0]; if (!z) break; const x = z.x0 + Math.random() * (z.x1 - z.x0), zz = z.z0 + Math.random() * (z.z1 - z.z0), d = Math.hypot(x - p.x, zz - p.z);
-    if (d > a && d < b && isFree(x - 0.4, zz - 0.4, x + 0.4, zz + 0.4, z.y + 0.05, z.y + 1.2)) return new V3(x, z.y, zz); }
-  return new V3(p.x + 3, p.y, p.z + 3);
-}
+const farPoint = p => nearbyItemPoint(p);
 
 /* ---------- объекты ---------- */
 // звонящий телефон на столе
@@ -172,12 +168,9 @@ export const PANEL3 = {
 export const WORLD3 = {
   // Салат: огурец и помидор где-то рядом (подсвечены), принеси оба к кухне — дальше нарезка
   salad(o, api, ctx) {
-    const s = o.spot, home = new V3(s.x, s.y, s.z), P = ctx.player, out = W.missionZones.filter(z => z.type === 'floor');
-    const base = out.length ? new V3((out[0].x0 + out[0].x1) / 2, out[0].y, (out[0].z0 + out[0].z1) / 2) : home;
-    const near = out.slice().sort((a, b) => Math.hypot((a.x0 + a.x1) / 2 - home.x, (a.z0 + a.z1) / 2 - home.z) - Math.hypot((b.x0 + b.x1) / 2 - home.x, (b.z0 + b.z1) / 2 - home.z))[0];
-    const from = near ? new V3((near.x0 + near.x1) / 2, near.y, (near.z0 + near.z1) / 2) : base;
+    const s = o.spot, home = new V3(s.x, s.y, s.z), P = ctx.player, from = home;
     const items = ['cucumber', 'tomato'].map(k => { const p = farPoint(from, 4, 22); const it = addItem(k, p.x, p.y, p.z, Math.random() * 6); it.def = { ...it.def, respawn: 0 }; it.ring = ringMark(); return it; });
-    let time = 75, hint = '';
+    let time = 112, hint = '';
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     const atHome = it => Math.hypot(it.pos.x - home.x, it.pos.z - home.z) < 1.8 && Math.abs(it.pos.y - home.y) < 1.6;
     return {
@@ -205,7 +198,7 @@ export const WORLD3 = {
       a(G.box, col(0xf5c542), 0, 2.52, 0.33, 0.66, 0.05, 0.3); for (const sx of [-0.3, 0.3]) a(G.box, al, sx, 0.75, 0.42, 0.02, 0.02, 0.5); }));
     const lz = { x0: hx - 0.55, x1: hx + 0.55, z0: hz - 0.55, z1: hz + 0.55, y0: L.y, y1: L.y + 2.25, nx: d.x, nz: d.z }; W.ladders.push(lz);
     const p0 = farPoint(new V3(L.x, L.y, L.z), 6, 18), bulb = addItem('bulb', p0.x, p0.y, p0.z); bulb.def = { ...bulb.def, respawn: 0 }; bulb.steal = { pts: ctx.mission ? ctx.mission.pts : 200, key: 'bulb' }; bulb.mine = P; const rg = ringMark(0xf5c542);
-    let time = 70, hint = '';
+    let time = 105, hint = '';
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     const up = () => P.pos.y > L.y + 1.7 && Math.hypot(P.pos.x - hx, P.pos.z - hz) < 1.4;
     return {
@@ -229,7 +222,7 @@ export const WORLD3 = {
     o.kittens = [0, 1].map(i => { const k = buildCat(COATS[(Math.random() * COATS.length) | 0]); k.root.scale.setScalar(0.85); const a = Math.random() * 6.28, r = 5 + Math.random() * 2.5;
       let x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; if (!isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, c.y + 0.05, c.y + 0.8)) { x = c.x + Math.cos(a) * 3; z = c.z + Math.sin(a) * 3; }
       k.root.position.set(x, c.y, z); W.group.add(k.root); return { root: k.root, cat: k, vx: 0, vz: 0, vy: 0, wt: 0, wx: 0, wz: 0, st: 'run', dash: 0, rest: 0, holdT: 0, ph: Math.random() * 6 }; });
-    let time = 60, got = 0, held = null;
+    let time = 90, got = 0, held = null;
     api.msg('Догони котёнка и возьми на руки (E) — неси или кидай в коробку (ПКМ)');
     const toBox = k => { k.st = 'box'; got++; sfx('candy'); burst(c.x, c.y + 0.8, c.z, 10, { color: 0xc8a070, size: 0.14, speed: 1.5, up: 2 }); api.msg(got < 2 ? 'Один в коробке!' : 'Оба котёнка дома!', 'good'); };
     const release = (k, vx, vy, vz) => { k.st = 'fly'; k.vx = vx; k.vy = vy; k.vz = vz; if (held === k) held = null; };
@@ -295,10 +288,10 @@ export const WORLD3 = {
     const P = ctx.player, f = o.fire;
     const hasTool = P.held && ['extinguisher', 'water', 'balloon'].includes(P.held.type);
     // огнетушитель рядом: подсвечен контуром, кольцом и стрелкой навигатора, пока не возьмёшь
-    let ext = null; if (!hasTool) { const p = o.pos(), a = Math.random() * 6.28; ext = spawnTool(p.x + Math.cos(a) * 2.5, p.y + 0.3, p.z + Math.sin(a) * 2.5, false, 'extinguisher'); ext.life = 999; }
+    let ext = null; if (!hasTool) { const p = nearbyItemPoint(o.pos()); ext = spawnTool(p.x, p.y + 0.3, p.z, false, 'extinguisher'); ext.life = 999; }
     const rg = ringMark(0xff8a1f); let hint = '';
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
-    let time = 45;
+    let time = 68;
     const hook = (it, p) => { if (it.type === 'balloon' && Math.hypot(p.x - f.x, p.z - f.z) < 1.6) { f.hp -= 0.45; splash(f.x, f.y + 1, f.z, 1); } };
     W.hitHooks.push(hook);
     const armed = () => P.held && ['extinguisher', 'water', 'balloon'].includes(P.held.type);

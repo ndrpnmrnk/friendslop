@@ -15,7 +15,7 @@ export default {
     ];
     for (const s of shops) {
       // двухэтажный магазин: торговый зал внизу, наверху — склад/квартира/офис, лестница до крыши
-      b.tower({ x: s.x, z: 1, w: 9, d: 7, floors: 2, fh: 3.8, wall: s.wall, lit: 0.7, door: { side: 's', at: 0.5 }, sign: s.sign, awning: s.aw, floor: T.floorTile(),
+      b.tower({ x: s.x, z: 0.3, w: 9, d: 9.4, floors: 2, fh: 3.8, wall: s.wall, lit: 0.7, door: { side: 's', at: 0.5 }, sign: s.sign, awning: s.aw, floor: T.floorTile(),
         gaps: s.kind === 'bakery' ? s.gaps.concat([{ side: 'w', at: 0.75 }]) : s.gaps,
         interior(f, k, r) {
           const cx = (r.x0 + r.x1) / 2;
@@ -35,10 +35,10 @@ export default {
     b.plank(10, 5.2, 11.5, 5.2, 7.6, 1.1); b.plank(20.5, 5.2, 22, 5.2, 7.6, 1.1);
     // рекламный щит на крыше и кондиционеры
     for (const x of [24, 30]) b.box(x, 2, 0.15, 0.15, 2.5, col(0x2b2533), { y: 7.6 });
-    b.m(G.box, tmat(T.sign('ТЫКВЕННЫЙ ЛАТТЕ', '#ff8a1f', '#2a1f3d')), 27, 9.6, 2, 6.4, 1.6, 0.12);
+    b.m(G.box, tmat(T.sign('ТЫКВЕННЫЙ ЛАТТЕ', '#ff8a1f', '#2a1f3d')), 27, 10.6, 2, 6.4, 1.6, 0.12);
     for (const x of [4, 15]) b.aircon(x, 6.2, 7.6);
     b.ride('cart', 8, 14); b.ride('cart', 24, 15, 0.6);
-    b.box(10.75, 9.3, 0.8, 0.6, 1.8, col(0x3a4a6a)); b.m(G.box, tmat(T.screen()), 10.75, 1.3, 9.61, 0.5, 0.35, 0.02); b.sign(10.75, 1.65, 9.61, 0, 'ATM', '#3a4a6a', '#9be36b', 0.6, 0.16);
+    b.box(10.75, 9.3, 0.8, 0.6, 1.8, col(0x3a4a6a)); b.m(G.box, tmat(T.screen()), 10.75, 1.3, 10.61, 0.5, 0.35, 0.02); b.sign(10.75, 1.65, 10.61, 0, 'ATM', '#3a4a6a', '#9be36b', 0.6, 0.16);
     // остановка
     const mt = col(0x3a4a6a);
     for (const x of [13.2, 18.8]) b.box(x, 27, 0.15, 0.15, 2.6, mt);
@@ -57,9 +57,9 @@ export default {
     b.planter(16, 15.6, 6.8, 0.8, 0.6, 'flowers');
     for (const [x, c1] of [[13.9, '#ff8a1f'], [18.1, '#9be36b']]) { b.parasol(x, 13.4, c1, '#2a1f3d'); b.table(x + 0.75, 12.6, 0.75); b.staticChair(x + 0.75, 11.9, 0); b.staticChair(x + 0.75, 13.3, Math.PI); }
     // у пекарни — доска с меню, у «тыквенного» — ящики с овощами
-    b.chalkSign(7.6, 9.3, 0.25);
-    for (const [x, g] of [[24.4, 'pumpkin'], [25.8, 'apple']]) { b.box(x, 9.6, 1.2, 0.7, 0.55, tmat(T.wood())); b.m(G.box, tmat(T.produce(g)), x, 0.58, 9.6, 1.12, 0.05, 0.62); }
-    b.item('pumpkin', 27.2, 9.7); b.item('tomato', 24.2, 9.6, 0.6); b.item('tomato', 25.6, 9.7, 0.6);
+    b.chalkSign(7.6, 10.6, 0.25);
+    for (const [x, g] of [[24.4, 'pumpkin'], [25.8, 'apple']]) { b.box(x, 10.6, 1.2, 0.7, 0.55, tmat(T.wood())); b.m(G.box, tmat(T.produce(g)), x, 0.58, 10.6, 1.12, 0.05, 0.62); }
+    b.item('pumpkin', 27.2, 10.7); b.item('tomato', 24.2, 10.6, 0.6); b.item('tomato', 25.6, 10.7, 0.6);
     // клумба-островок с деревом в центре площадки
     b.planter(16, 21.5, 3, 3, 0.5, 'tree'); b.bench(16, 19.4, Math.PI); b.bench(16, 23.6, 0);
     b.tree(3, 29.5); b.tree(29, 29.5);
