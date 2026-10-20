@@ -38,13 +38,14 @@ export default {
     b.m(G.box, tmat(T.sign('ТЫКВЕННЫЙ ЛАТТЕ', '#ff8a1f', '#2a1f3d')), 27, 10.6, 2, 6.4, 1.6, 0.12);
     for (const x of [4, 15]) b.aircon(x, 6.2, 7.6);
     b.ride('cart', 8, 14); b.ride('cart', 24, 15, 0.6);
-    b.box(10.75, 9.3, 0.8, 0.6, 1.8, col(0x3a4a6a)); b.m(G.box, tmat(T.screen()), 10.75, 1.3, 10.61, 0.5, 0.35, 0.02); b.sign(10.75, 1.65, 10.61, 0, 'ATM', '#3a4a6a', '#9be36b', 0.6, 0.16);
+    b.atm(10.75, 10.25, 0);
     // остановка
     const mt = col(0x3a4a6a);
     for (const x of [13.2, 18.8]) b.box(x, 27, 0.15, 0.15, 2.6, mt);
     b.box(16, 27.6, 6, 1.6, 0.12, mt, { y: 2.6 });
     b.vitrine(16, 26.9, 5.4, 1.9, 'x', 0.45); b.bench(16, 27.8, 0);
-    b.bin(5, 10); b.bin(27, 10); b.hydrant(16, 10);
+    // у входов в магазины свободно: урны и гидрант — между зданиями и по краям
+    b.bin(2.2, 10.5); b.bin(31.2, 10.5); b.hydrant(21.25, 10.5);
     b.crate(30.6, 12, 1); b.crate(30.6, 13.1, 1); b.crate(30.6, 12.5, 0.9, 1);
     // Проход между магазинами и остановкой свободен; ящики остаются у разгрузки.
     [3, 9, 23, 29].forEach((x, i) => b.planter(x, 18.5, 2.2, 1.2, 0.5, i % 2 ? 'shrub' : 'flowers'));
@@ -58,8 +59,8 @@ export default {
     for (const [x, c1] of [[13.9, '#ff8a1f'], [18.1, '#9be36b']]) { b.parasol(x, 13.4, c1, '#2a1f3d'); b.table(x + 0.75, 12.6, 0.75); b.staticChair(x + 0.75, 11.9, 0); b.staticChair(x + 0.75, 13.3, Math.PI); }
     // у пекарни — доска с меню, у «тыквенного» — ящики с овощами
     b.chalkSign(7.6, 10.6, 0.25);
-    for (const [x, g] of [[24.4, 'pumpkin'], [25.8, 'apple']]) { b.box(x, 10.6, 1.2, 0.7, 0.55, tmat(T.wood())); b.m(G.box, tmat(T.produce(g)), x, 0.58, 10.6, 1.12, 0.05, 0.62); }
-    b.item('pumpkin', 27.2, 10.7); b.item('tomato', 24.2, 10.6, 0.6); b.item('tomato', 25.6, 10.7, 0.6);
+    for (const [x, g] of [[23.4, 'pumpkin'], [29.6, 'apple']]) { b.box(x, 10.6, 1.2, 0.7, 0.55, tmat(T.wood())); b.m(G.box, tmat(T.produce(g)), x, 0.58, 10.6, 1.12, 0.05, 0.62); }
+    b.item('pumpkin', 28.5, 11.2); b.item('tomato', 23.2, 10.6, 0.6); b.item('tomato', 29.4, 10.7, 0.6);
     // клумба-островок с деревом в центре площадки
     b.planter(16, 21.5, 3, 3, 0.5, 'tree'); b.bench(16, 19.4, Math.PI); b.bench(16, 23.6, 0);
     b.tree(3, 29.5); b.tree(29, 29.5);

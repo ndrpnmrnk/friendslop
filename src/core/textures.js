@@ -560,7 +560,15 @@ export const T = {
     fill(g, W, H, '#4a6a5a'); for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) { g.fillStyle = '#2a3a32'; g.fillRect(c * W / 5 + 2, r * H / 3 + 2, W / 5 - 4, H / 3 - 4); g.fillStyle = '#c8c8b8'; g.fillRect(c * W / 5 + 5, r * H / 3 + 5, W / 5 - 10, 3); }
     grain(g, W, H, 12);
   }),
-  sign: (text, bg, fg) => pix('sign' + text + bg, 64, 16, (g, W, H) => {
+  // меловая доска-штендер: тёмная доска с рамкой, слова в столбик, мелом
+  chalk: text => pix('chalk' + text, 32, 48, (g, W, H) => {
+    g.fillStyle = '#1e2a24'; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(241,232,255,.12)'; for (let i = 0; i < 40; i++) g.fillRect((Math.random() * W) | 0, (Math.random() * H) | 0, 2, 1);
+    const words = text.split(' '); g.fillStyle = '#f1e8ff'; g.font = 'bold 8px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    words.forEach((w, i) => g.fillText(w, W / 2, H / 2 + (i - (words.length - 1) / 2) * 11, W - 4));
+    g.fillStyle = '#f5c542'; g.fillRect(6, H - 8, W - 12, 1); g.fillStyle = '#ff7aa8'; g.fillRect(9, 5, W - 18, 1);
+  }),
+  // ширина холста подстраивается под длину надписи — длинные вывески больше не обрезаются
+  sign: (text, bg, fg) => pix('sign' + text + bg, Math.max(64, Math.ceil(text.length * 6.8) + 8), 16, (g, W, H) => {
     g.fillStyle = bg; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, H - 2, W, 2);
     g.fillStyle = fg; g.font = 'bold 11px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, W / 2, H / 2 + 1);
   }),
@@ -570,7 +578,8 @@ export const T = {
   screen: () => photo('monitor', 16, 12, (g, W, H) => { fill(g, W, H, '#1a2a3a'); g.fillStyle = radial(g, W / 2, H / 2, W, '#4a8ab0', '#0a1a2a'); g.fillRect(W * 0.1, H * 0.1, W * 0.8, H * 0.8); }),
 
   /* ---------- эффекты (с прозрачностью) ---------- */
-  light: () => photo('lightpool', 32, 32, (g, W, H) => { g.fillStyle = radial(g, W / 2, H / 2, W / 2, 'rgba(255,170,90,.55)', 'rgba(255,140,60,0)'); g.fillRect(0, 0, W, H); }, 4),
+  // пятно света (v0.18): ступенчатые кольца вместо плавного градиента — чётко и «по-PS1»
+  light: () => photo('lightpool2', 32, 32, (g, W, H) => { for (const [r, a] of [[0.5, 0.11], [0.38, 0.12], [0.26, 0.13], [0.14, 0.14]]) { g.fillStyle = `rgba(255,165,85,${a})`; g.beginPath(); g.arc(W / 2, H / 2, W * r, 0, 6.29); g.fill(); } }, 1),
   puff: () => pix('puff', 16, 16, (g, W, H) => {
     const B = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const d = Math.hypot(x - 7.5, y - 7.5) / 7.5; if (d < 1 && (1 - d) * 16 > B[y % 4][x % 4]) { g.fillStyle = d < 0.5 ? '#ffffff' : '#cfc8dc'; g.fillRect(x, y, 1, 1); } }

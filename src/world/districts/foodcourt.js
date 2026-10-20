@@ -1,4 +1,4 @@
-import { THREE, G, tmat, col, glow } from '../../core/gfx.js';
+import { THREE, G, tmat, col, glow, lam } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
 
@@ -10,7 +10,7 @@ export default {
   id: 'foodcourt', name: 'Фудкорт', ground: 'pave',
   build(b) {
     // ТЦ
-    b.tower({ x: 20.5, z: 8.5, w: 11, d: 22, floors: 2, fh: 3.8, wall: 0x5a4a7a, brick: false, lit: 0.8, floor: T.floorTile(), winStep: 2.0,
+    b.tower({ x: 20.5, z: 8.5, w: 11, d: 22, floors: 2, fh: 3.8, wall: 0x5a4a7a, brick: false, lit: 0.8, floor: T.floorTile(), winStep: 2.0, doorStyle: 'glass',
       doors: [{ side: 'w', at: 0.55, sign: ['ТЦ «ПОЛНОЧЬ»', '#2a1f3d', '#b18cff'] }, { side: 's', at: 0.5 }],
       interior(f, k, r) {
         if (k === 0) {
@@ -20,10 +20,19 @@ export default {
             f.box(r.x1 - 0.5, z, 0.9, 3.4, 1.05, tmat(T.cabinet(0xd8d0c0))); f.m(G.box, col(0x3a3440), r.x1 - 0.5, 1.08, z, 0.95, 0.06, 3.45);
             f.sign(r.x1 - 0.02, 2.6, z, -Math.PI / 2, nm, c, '#f5c542', 2.4, 0.5); f.m(G.box, glow(0xffb070), r.x1 - 0.3, 2.95, z, 0.04, 0.12, 2.8);
             f.bottles(r.x1 - 0.5, 1.11, z - 1, 3);
+            // прилавок как в ТЦ: цветная полоса, стеклянная витрина, касса, табло-меню на стене
+            f.m(G.box, col(parseInt(c.slice(1), 16)), r.x1 - 0.96, 0.75, z, 0.02, 0.22, 3.36); f.m(G.box, col(0xf5c542), r.x1 - 0.96, 0.6, z, 0.02, 0.04, 3.36);
+            f.m(G.box, lam({ color: 0xbfe8ff, emissive: 0x1a3040, transparent: true, opacity: 0.35, depthWrite: false }, 'mallGlass'), r.x1 - 0.75, 1.32, z + 0.6, 0.04, 0.42, 1.6);
+            f.m(G.box, col(0x2b2533), r.x1 - 0.5, 1.2, z + 1.2, 0.3, 0.18, 0.26); f.m(G.box, tmat(T.screen()), r.x1 - 0.66, 1.34, z + 1.2, 0.02, 0.12, 0.18);
+            f.sign(r.x1 - 0.02, 1.9, z, -Math.PI / 2, 'МЕНЮ · КОМБО · НАПИТКИ', '#17111f', '#f1e8ff', 2.8, 0.4);
             W.spots.pickup.push({ x: f.X(r.x1 - 1.6), z: f.Z(z), y: f.Y, f: [1, 0], district: 'Фудкорт', label: nm.toLowerCase() });
           });
           for (const [x, z] of [[23.5, 14], [23.5, 18.5], [23.5, 23], [26.2, 27.5]]) { f.table(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); f.bottles(x, 0.82, z, 2); }
           f.plantPot(21.3, 29.5, 1.2); f.vending(21.4, 13.3);
+          // центр зала: островок с растением и указателем, навесные баннеры; проход от дверей свободен
+          f.box(27.4, 16.2, 1.6, 1.6, 0.5, tmat(T.planter())); f.m(G.ico, tmat(T.bush()), 27.4, 1.0, 16.2, 0.7, 0.6, 0.7);
+          f.m(G.cyl6, col(0x2b2533), 27.4, 1.6, 26, 0.04, 3.2, 0.04); f.sign(27.4, 2.6, 26.03, 0, 'ФУДКОРТ  ·  2 ЭТАЖ — ИГРЫ', '#2a1f3d', '#f5c542', 2.2, 0.3); f.sign(27.4, 2.6, 25.97, Math.PI, 'ФУДКОРТ  ·  2 ЭТАЖ — ИГРЫ', '#2a1f3d', '#f5c542', 2.2, 0.3);
+          for (const [z, t, c2, ry] of [[11, 'СКИДКИ', '#ff5a6e', 0], [30, 'ХЭЛЛОУИН', '#ff8a1f', Math.PI]]) f.sign(26, 3.1, z, ry, t, '#17111f', c2, 3, 0.5);
           return;
         }
         // второй этаж: игровые автоматы, диваны
@@ -68,6 +77,6 @@ export default {
     b.zone('floor', 3, 9, 19.5, 21); b.zone('floor', 13, 22, 19.5, 30);
     b.cats(1, 8, 19.5, 31);
     b.spawn(9, 15); b.spawn(15, 26);
-    b.hw(() => { b.stringLights(3, 8.4, 19.5, 8.4, 3.2); b.stringLights(3, 20.4, 19.5, 20.4, 3.2); b.pumpkin(23.5, 2.9, 0.3, 0.8); b.pumpkin(30.4, 4.5, 0.3, 0.8); });
+    b.hw(() => { b.stringLights(3, 8.4, 19.5, 8.4, 3.2); b.stringLights(3, 18.8, 18.4, 18.8, 3.2); b.pumpkin(23.5, 2.9, 0.3, 0.8); b.pumpkin(30.4, 4.5, 0.3, 0.8); });
   },
 };

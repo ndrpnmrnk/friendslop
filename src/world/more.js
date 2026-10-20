@@ -76,15 +76,22 @@ export const MoreMethods = {
     const fx = Math.sin(ry), fz = Math.cos(ry), q = Math.abs(fx) > 0.5;
     for (let i = 0; i < rows; i++) this.solid(x - fx * i * 0.8, z - fz * i * 0.8, q ? 0.8 : w, q ? w : 0.8, 0, (i + 1) * 0.45);
   },
+  // Футбольные ворота (v0.18): сетка как у настоящих — сверху от перекладины назад, задняя стенка наклонно к земле, боковины-трапеции
   goal(x, z, ry = 0, w = 4, h = 2) {
-    const g = this.prop(x, z, ry), wt = col(0xf1e8ff), net = lam({ map: rep(T.chainlink(), w / 1.2, h / 1.2), transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }, 'goalNet');
-    for (const sx of [-1, 1]) { const p2 = new THREE.Mesh(G.box, wt); p2.position.set(sx * w / 2, h / 2, 0); p2.scale.set(0.1, h, 0.1); g.add(p2); const b2 = new THREE.Mesh(G.box, wt); b2.position.set(sx * w / 2, 0.05, -0.6); b2.scale.set(0.06, 0.06, 1.2); g.add(b2); }
-    const bar = new THREE.Mesh(G.box, wt); bar.position.set(0, h, 0); bar.scale.set(w + 0.1, 0.1, 0.1); g.add(bar);
-    const back = new THREE.Mesh(G.plane, net); back.position.set(0, h / 2, -1.2); back.scale.set(w, h, 1); back.rotation.x = -0.5; back.position.y = h / 2; g.add(back);
-    for (const sx of [-1, 1]) { const sd = new THREE.Mesh(G.plane, net); sd.position.set(sx * w / 2, h / 2, -0.6); sd.rotation.y = Math.PI / 2; sd.scale.set(1.2, h, 1); g.add(sd); }
+    const g = this.prop(x, z, ry), wt = col(0xf1e8ff), D0 = 0.8, D1 = 1.6;
+    const net = lam({ map: rep(T.chainlink(), w / 1.2, h / 1.2), transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }, 'goalNet');
+    const netM = lam({ map: rep(T.chainlink(), 1 / 1.2, 1 / 1.2), transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }, 'goalNetM');
+    const bar = (px, py, pz, sx, sy, sz, rx = 0) => { const m = new THREE.Mesh(G.box, wt); m.position.set(px, py, pz); m.scale.set(sx, sy, sz); m.rotation.x = rx; g.add(m); };
+    for (const sx of [-1, 1]) { bar(sx * w / 2, h / 2, 0, 0.1, h, 0.1); bar(sx * w / 2, 0.03, -D1 / 2, 0.05, 0.05, D1); bar(sx * w / 2, h, -D0 / 2, 0.05, 0.05, D0);
+      const L = Math.hypot(h, D1 - D0); bar(sx * w / 2, h / 2, -(D0 + D1) / 2, 0.05, L, 0.05, Math.atan2(D1 - D0, h)); }
+    bar(0, h, 0, w + 0.1, 0.1, 0.1); bar(0, 0.03, -D1, w, 0.05, 0.05); bar(0, h, -D0, w, 0.05, 0.05);
+    const top = new THREE.Mesh(G.plane, net); top.position.set(0, h - 0.01, -D0 / 2); top.rotation.x = -Math.PI / 2; top.scale.set(w, D0, 1); g.add(top);
+    const Lb = Math.hypot(h, D1 - D0), back = new THREE.Mesh(G.plane, net); back.position.set(0, h / 2, -(D0 + D1) / 2); back.rotation.x = Math.atan2(D1 - D0, h); back.scale.set(w, Lb, 1); g.add(back);
+    const sh = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(D1, 0), new THREE.Vector2(D0, h), new THREE.Vector2(0, h)]), sg = new THREE.ShapeGeometry(sh);
+    for (const sx of [-1, 1]) { const sd = new THREE.Mesh(sg, netM); sd.position.set(sx * w / 2, 0, 0); sd.rotation.y = Math.PI / 2; g.add(sd); }
     const fx = Math.sin(ry), fz = Math.cos(ry), rx = Math.cos(ry), rz = -Math.sin(ry);
     for (const sx of [-1, 1]) this.solid(x + rx * sx * w / 2, z + rz * sx * w / 2, 0.15, 0.15, 0, h);
-    this.solid(x - fx * 1.3, z - fz * 1.3, Math.abs(fx) > 0.5 ? 0.15 : w, Math.abs(fx) > 0.5 ? w : 0.15, 0, h * 0.6);
+    this.solid(x - fx * 1.55, z - fz * 1.55, Math.abs(fx) > 0.5 ? 0.15 : w, Math.abs(fx) > 0.5 ? w : 0.15, 0, h * 0.5);
     W.goals.push({ x: this.X(x), z: this.Z(z), y: this.Y, fx, fz, rx, rz, w, h, score: 0 });
   },
   floodlight(x, z, ry = 0, h = 9) {

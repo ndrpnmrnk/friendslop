@@ -28,12 +28,28 @@ export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) {
   burst(a.pos.x, a.pos.y + 1, a.pos.z, 5, { color: 0xf1e8ff, size: 0.16, speed: 2, up: 1.5 });
 }
 
-// сбить с ног: короткое оглушение (тяжёлый бросок, тапок, банановая кожура)
+/* Два вида оглушения (v0.18):
+   - рэгдолл (knockDown): падает «тряпичной куклой», лежит без управления (a.stun), потом плавно встаёт (a.getT);
+     предмет из рук вылетает по физике в сторону удара — его можно перехватить;
+   - стан стоя (daze): звёздочки над головой, шатается, двигаться можно, но очень медленно. */
+export const GETUP = 0.7;
 export function knockDown(a, dx = 0, dz = 0, t = 1.1) {
-  if (a.hidden) return;
-  a.stun = Math.max(a.stun || 0, t); a.vel.set(dx, 4, dz); a.onGround = false;
-  dropHeld(a, dx, dz);
+  if (a.hidden || a.drone || a.returning) return;
+  if (a.ride && W.dismount) W.dismount(a);
+  a.climb = null; a.zip = null; a.mantle = null; a.hang = null;
+  if (a.swing && W.leaveSwing) W.leaveSwing(a, false); if (a.bench) W.leaveBench && W.leaveBench(a);
+  a.stun = Math.max(a.stun || 0, Math.max(1.6, t + 0.6)); a.daze = 0; a.vel.set(dx, 4, dz); a.onGround = false;
+  dropHeld(a, dx * 2.2, dz * 2.2);
   if (a.holding) W.letGo && W.letGo(a);
+}
+export function daze(a, t = 1.2) { if (a.hidden || a.drone || a.returning) return; a.daze = Math.max(a.daze || 0, t); }
+// 1 — лежит, 0 — стоит (плавный подъём за GETUP секунд после конца оглушения)
+export const ragK = a => a.stun > 0 ? 1 : a.getT > 0 ? a.getT / GETUP : 0;
+// тик оглушений: вызывать там, где раньше уменьшали a.stun
+export function tickStun(a, dt) {
+  if (a.stun > 0) { a.stun -= dt; if (a.stun <= 0) { a.stun = 0; a.getT = GETUP; } }
+  else if (a.getT > 0) a.getT -= dt;
+  if (a.daze > 0) a.daze -= dt;
 }
 export const isActor = o => o && (o === W.player || (W.bots || []).includes(o));
 void V3;

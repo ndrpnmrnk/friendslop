@@ -35,7 +35,7 @@ export default {
     b.dropLadder(4, 4.5, 'w', 15.2);
     b.tower({ x: 25, z: 1, w: 6, d: 9, floors: 4, fh: 3.8, wall: 0x9c6a6a, door: { side: 's', at: 0.5 }, gaps: [{ side: 'w', at: 0.5 }],
       run: 0.3, entry: 1.5, lane: 1.65, floor: T.floorWood(),
-      interior(f, k, r) { if (k % 2 === 0) f.shelf((r.x0 + r.x1) / 2, r.z1 - 0.3, 3.4, Math.PI); else { f.table((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, 0.8); f.chair((r.x0 + r.x1) / 2 + 0.9, (r.z0 + r.z1) / 2, -Math.PI / 2); } } });
+      interior(f, k, r) { if (k % 2 === 0) f.shelf(k === 0 ? r.x1 - 0.85 : (r.x0 + r.x1) / 2, r.z1 - 0.3, k === 0 ? 1.4 : 3.4, Math.PI); else { f.table((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, 0.8); f.chair((r.x0 + r.x1) / 2 + 0.9, (r.z0 + r.z1) / 2, -Math.PI / 2); } } });
     b.plank(24, 4.5, 25, 4.5, 15.2, 1.1);
     // на крыше: водонапорный бак, антенны, кондиционеры
     b.box(17, 5, 2.4, 2.4, 0.6, tmat(T.metal()), { y: 15.2 }); b.m(G.cyl12, tmat(T.rust()), 17, 17.1, 5, 1.1, 2.2, 1.1); b.m(G.cone8, tmat(T.rust()), 17, 18.6, 5, 1.2, 0.8, 1.2); b.solid(17, 5, 2.2, 2.2, 15.8, 2.2);
@@ -82,9 +82,9 @@ export default {
       const cl = new THREE.Mesh(G.plane, lam({ map: T.laundry(c), alphaTest: 0.4, side: THREE.DoubleSide }, 'laundry' + c)); cl.position.y = -0.42; cl.scale.set(0.8, 0.8, 1); p.add(cl);
       addSwinger(p, { len: 0.5, damp: 1.4, max: 1.2, r: 0.45, idle: 0.06 });
     });
-    b.bench(12, 9.6, 0); b.bench(21, 12, -Math.PI / 2);
-    b.bikeRack(6, 9.6, 3, 0); b.graffiti(26.5, 1.2, 22.44, Math.PI, 2.2, 0); b.puddle(14, 18, 1.1); b.puddle(24, 15, 0.8);
-    b.wires(9, 12, 8.05, 1.2, 3.4, 19, 2); b.trashBags(18.6, 26.2, 3); b.postBox(26, 9.5, 0); b.planter(16, 9.4, 3, 0.9, 0.4, 'flowers');
+    b.bench(11, 10.9, 0); b.bench(21, 12, -Math.PI / 2);
+    b.bikeRack(6, 10.9, 3, 0); b.graffiti(26.5, 1.2, 22.44, Math.PI, 2.2, 0); b.puddle(14, 18, 1.1); b.puddle(24, 15, 0.8);
+    b.wires(9, 12, 8.05, 1.2, 3.4, 19, 2); b.trashBags(18.6, 26.2, 3); b.postBox(23.2, 10.8, 0); b.planter(18, 10.9, 3, 0.9, 0.4, 'flowers');
     b.tree(30, 13); b.tree(1.8, 14); b.tree(29.5, 30); b.bin(2, 9.5);
     b.lamp(1.2, 19, Math.PI / 2); b.lamp(30.8, 20, -Math.PI / 2);
     // зиплайн с крыши дома на крышу гаражей, качели-катапульта, грабли у сарая, детская машинка

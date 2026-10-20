@@ -292,6 +292,11 @@ body:not(.playing) #speedl{display:none}
 #held .hck span{display:flex;align-items:center;gap:4px}
 #held .n{font-family:var(--px);font-size:10px;color:var(--gold);margin-left:6px}
 #held.new{animation:heldin .45s steps(6)}
+#held .hci{position:relative;overflow:hidden}
+#held .hci.cd img{filter:grayscale(1) brightness(.6)}
+#held .hci .cdf{position:absolute;left:0;right:0;bottom:0;background:rgba(241,232,255,.28);box-shadow:inset 0 2px 0 rgba(241,232,255,.6)}
+#held .bar{display:inline-block;width:64px;height:8px;margin-left:8px;vertical-align:middle;background:var(--plum);box-shadow:inset 0 0 0 2px var(--edge)}
+#held .bar i{display:block;height:100%;background:var(--gold)}
 @keyframes heldin{0%{transform:translateX(-120%);filter:brightness(2.5)}60%{transform:translateX(8px)}100%{transform:none}}
 
 /* v0.16: навигатор — одна метка главной цели (над целью или у края экрана со стрелкой) */

@@ -34,7 +34,7 @@ export function eliminate(a, seconds) {
   if (!a || a.drone || a.returning) return;
   W.onEliminate && W.onEliminate(a);
   dropHeld(a); if (a.ride) dismount(a, false); if (a.grab) release(a, 0); if (a.holding && W.letGo) W.letGo(a); if (a.heldBy && W.letGo) W.letGo(a.heldBy);
-  if (a.swing) { a.swing.rider = null; a.swing = null; } a.hidden = null; a.zip = null; a.climb = null; a.mantle = null; a.caged = null; a.goal = null;
+  if (a.swing) { a.swing.rider = null; a.swing = null; } a.hidden = null; a.zip = null; a.climb = null; a.mantle = null; a.hang = null; a.caged = null; a.goal = null;
   a.drone = { ...helicopter(a), left: seconds, cd: 0, candy: true, home: a.pos.clone() };
   a.pos.y = Math.max(groundAt(a.pos.x, a.pos.z, 0.2, 100) + 4, a.pos.y + 5); a.vel.set(0, 0, 0); a.push && a.push.set(0, 0, 0); a.root.visible = false; a.charging = false; a.hotPotato = false;
 }

@@ -129,7 +129,7 @@ const BIG = {
       // тапки падают с неба вокруг
       s.slipT -= dt; if (s.slipT <= 0) { s.slipT = 1.0 + Math.random() * 0.6; const P = ctx.player(), a = Math.random() * 6.28, r = 2 + Math.random() * 8;
         const x = (Math.random() < 0.6 ? P.pos.x : s.c.x) + Math.cos(a) * r, z = (Math.random() < 0.6 ? P.pos.z : s.c.z) + Math.sin(a) * r, gy = groundAt(x, z, 0.2, P.pos.y + 3);
-        if (Math.abs(gy - P.pos.y) < 4) { const it = spawnTool(x, gy + 12, z, false, 'slipper'); it.life = 25; it.vel.set(0, -8, 0); } }
+        if (Math.abs(gy - P.pos.y) < 4) { const it = spawnTool(x, gy + 12, z, false, 'slipper'); it.vel.set(0, -8, 0); } }
       // попадания брошенным
       for (const it of W.items) { if (it.state !== 'fly' || it.mothHit) continue; if (it.pos.distanceTo(s.g.position) < 1.5) { it.mothHit = true; hitMoth(s, it.pos, it.type === 'slipper' ? 1 : 0.5, it.owner); it.vel.multiplyScalar(-0.3); } }
       for (const it of W.items) if (it.state !== 'fly') it.mothHit = false;
@@ -272,7 +272,8 @@ const BIG = {
       s.inst.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(s.N * 3), 3); W.group.add(s.inst); W.keep.push(s.inst); s.cells = new Map(); s.own = new Map();
       s.hook = (it, p) => { if (!it.owner || !s.COL.has(it.owner)) return; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) paintCell(s, it.owner, Math.floor(p.x) + i, Math.floor(p.z) + j, groundAt(p.x + i, p.z + j, 0.2, p.y + 0.5)); sfx('splash', { at: p, v: 0.5 }); };
       W.hitHooks.push(s.hook); },
-    target(s) { const P = ctx.player(); let best = null, bd = 1e9; for (const [k, c] of s.cells) if (c.a !== P) { const d = Math.hypot(c.x - P.pos.x, c.z - P.pos.z); if (d < bd && d > 3) { bd = d; best = c; } } return best ? new V3(best.x, best.y, best.z) : P.pos; },
+    // красить можно где угодно — отдельной метки нет (раньше метка прыгала по ближайшим чужим клеткам и мелькала по всей карте)
+    target() { return null; },
     update(s, dt) { for (const a of actors()) if (a.onGround && !a.hidden) paintCell(s, a, Math.floor(a.pos.x), Math.floor(a.pos.z), a.pos.y); return null; },
     bot(s, b) { if (!b.paintGoal || Math.hypot(b.paintGoal.x - b.pos.x, b.paintGoal.z - b.pos.z) < 1.5 || Math.random() < 0.005) { const a = Math.random() * 6.28, r = 6 + Math.random() * 10; b.paintGoal = { x: b.pos.x + Math.cos(a) * r, y: b.pos.y, z: b.pos.z + Math.sin(a) * r, kind: 'event', near: 1 }; } return b.paintGoal; },
     stop(s) { W.hitHooks.splice(W.hitHooks.indexOf(s.hook), 1); W.group.remove(s.inst); for (const a of actors()) { const n = s.own.get(a) || 0; if (n) award(a, Math.min(200, n * 2), a.pos); a.paintGoal = null; } },
@@ -288,7 +289,7 @@ function infect(s, a, by) {
 // горячая картошка: новый держатель, свежий фитиль
 function give(s, a, fresh = false) {
   if (s.h) s.h.hotPotato = false; s.h = a; s.flight = null; a.hotPotato = true; s.cd = 1.35;
-  a.stun = Math.max(a.stun || 0, 1); a.vel.x = a.vel.z = 0;
+  a.daze = Math.max(a.daze || 0, 1); a.vel.x = a.vel.z = 0;
   if (fresh) { s.T = s.left = 10 + Math.random() * 5; s.tick = 0; }
 }
 export function throwPotato(a, direction) {

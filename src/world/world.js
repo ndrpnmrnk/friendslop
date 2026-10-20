@@ -70,7 +70,7 @@ export function generateMap(scene, s) {
     zebra(ox + chunk / 2, oz - road / 2, true); zebra(ox - road / 2, oz + chunk / 2, false);
     if (gz === grid - 1) zebra(ox + chunk / 2, oz + chunk + road / 2, true);
     if (gx === grid - 1) zebra(ox + chunk + road / 2, oz + chunk / 2, false);
-    W.districts.push({ id: d.id, name: d.name, ox, oz });
+    W.districts.push({ id: d.id, name: d.name, ox, oz, x1: ox + chunk, z1: oz + chunk, ground: d.ground });
     d.build(new Builder(ox, oz, base, d.name));
   }
   buildRoadsAndTunnels(half);

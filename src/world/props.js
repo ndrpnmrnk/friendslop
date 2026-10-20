@@ -171,8 +171,11 @@ export const PropMethods = {
       for (let i = 0; i < n; i++) {
         const fx = x + (Math.random() - 0.5) * iw, fz = z + (Math.random() - 0.5) * id, hh = 0.18 + Math.random() * 0.18;
         if (kind === 'flowers') { const l = this.m(G.ico, leaf, fx, top + 0.06, fz, 0.13, 0.07, 0.13); l.rotation.y = Math.random() * 3; }
+        const c = FLOWERS[(Math.random() * FLOWERS.length) | 0];
+        // цветы клумбы — живые (их можно примять, бабушка их выхаживает): рисуются одним инстанс-мешем (game/town.js)
+        if (kind === 'flowers') { W.flowers.push({ x: this.X(fx), y: this.Y + top, z: this.Z(fz), hh, c, k: 0, w: 0, ph: Math.random() * 6.28, bed: W.flowerbeds[W.flowerbeds.length - 1] }); continue; }
         this.m(G.box, stem, fx, top + hh / 2, fz, 0.015, hh, 0.015);
-        const c = FLOWERS[(Math.random() * FLOWERS.length) | 0], bl = this.m(G.ico, col(c), fx, top + hh + 0.03, fz, 0.055, 0.04, 0.055); bl.rotation.y = Math.random() * 3;
+        const bl = this.m(G.ico, col(c), fx, top + hh + 0.03, fz, 0.055, 0.04, 0.055); bl.rotation.y = Math.random() * 3;
       }
     }
   },
@@ -189,8 +192,10 @@ export const PropMethods = {
       s(G.cyl8, 0, 0.66, 0.24, 0.045, 0.06, 0.045, Math.PI / 2); s(G.box, 0, 0.02, 0.24, 0.12, 0.04, 0.12); s(G.box, 0, 0.02, -0.38, 0.12, 0.04, 0.12);
     }
     // Хэллоуин: изредка на скамейке сидит весёлый скелет (машет, нога на ногу, держит тыкву; бывает в шляпе или шарфе)
-    if (HW && Math.random() < (globalThis.__skel ?? 0.14)) skeleton(g, ['wave', 'cross', 'pumpkin'][(Math.random() * 3) | 0], Math.random() < 0.5 ? (Math.random() < 0.5 ? 'hat' : 'scarf') : null, Math.random() < 0.5 ? -0.4 : 0.4);
+    const skel = HW && Math.random() < (globalThis.__skel ?? 0.14);
+    if (skel) skeleton(g, ['wave', 'cross', 'pumpkin'][(Math.random() * 3) | 0], Math.random() < 0.5 ? (Math.random() < 0.5 ? 'hat' : 'scarf') : null, Math.random() < 0.5 ? -0.4 : 0.4);
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.6 : 2, q ? 2 : 0.6, 0, 0.55);
+    W.benches.push({ x: this.X(x), y: this.Y, z: this.Z(z), ry: g.rotation.y, skel, riders: [] });
     if (Math.random() < 0.1 && this.Y > -1) this.cushion(x + (q ? 0 : 0.5), z + (q ? 0.5 : 0), 0.55);
     return g;
   },
@@ -261,13 +266,31 @@ export const PropMethods = {
     for (const sx of [-0.2, 0.2]) add(G.box, dk, sx, 0.1, 0, 0.04, 0.2, 0.4);
     this.solid(x, z, 0.5, 0.5, 0, 1.05);
   },
-  // Почтовый ящик на ножке
+  // Почтовый ящик (v0.18): синий ящик на стойке, козырёк от дождя, щель с клапаном, табличка «ПОЧТА», рожок-эмблема, дверца с замком
   postBox(x, z, ry = 0) {
-    const g = this.prop(x, z, ry), b = col(0x2a5aa8), dk = col(0x17141c);
+    const g = this.prop(x, z, ry), b = col(0x2a5aa8), bd = col(0x1e4688), dk = col(0x17141c), wh = col(0xf1e8ff), yl = col(0xf5c542);
     const add = (geo, m, px, py, pz, sx, sy, sz, rx = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.set(rx, 0, rz); g.add(o); };
-    add(G.box, dk, 0, 0.3, 0, 0.12, 0.6, 0.12); add(G.box, b, 0, 0.9, 0, 0.5, 0.6, 0.42); add(G.cyl12, b, 0, 1.2, 0, 0.25, 0.42, 0.25, Math.PI / 2, 0); add(G.box, dk, 0, 1.0, 0.215, 0.3, 0.04, 0.01);
-    add(G.box, tmat(T.sign('ПОЧТА', '#2a5aa8', '#f5c542')), 0, 0.8, 0.215, 0.36, 0.1, 0.01);
-    this.solid(x, z, 0.5, 0.45, 0, 1.4);
+    add(G.cyl8, dk, 0, 0.42, -0.02, 0.05, 0.84, 0.05); add(G.box, dk, 0, 0.02, -0.02, 0.26, 0.04, 0.2);
+    add(G.box, b, 0, 1.15, 0, 0.56, 0.68, 0.34); add(G.box, bd, 0, 1.53, -0.02, 0.62, 0.05, 0.44, -0.22);
+    add(G.box, dk, 0, 1.38, 0.172, 0.34, 0.035, 0.01); add(G.box, bd, 0, 1.415, 0.18, 0.38, 0.05, 0.02, -0.35);
+    add(G.box, tmat(T.sign('ПОЧТА', '#f1e8ff', '#1e4688')), 0, 1.24, 0.172, 0.44, 0.12, 0.01);
+    add(G.torus, yl, -0.12, 1.06, 0.175, 0.07, 0.07, 0.07); add(G.box, yl, -0.02, 1.06, 0.175, 0.12, 0.025, 0.01);
+    add(G.box, bd, 0, 0.93, 0.172, 0.5, 0.012, 0.01); add(G.box, col(0x9a9da8), 0.18, 0.88, 0.176, 0.04, 0.05, 0.01); add(G.box, wh, 0.1, 1.06, 0.174, 0.12, 0.08, 0.005);
+    this.solid(x, z, 0.6, 0.45, 0, 1.6);
+  },
+  // Банкомат (v0.18): отдельная стойка — корпус, светящаяся шапка «БАНКОМАТ», козырёк, экран, клавиатура, щель для карты и выдача денег
+  atm(x, z, ry = 0) {
+    const g = this.prop(x, z, ry);
+    g.add(compose('atm', a => { const body = col(0x3a4a6a), dk = col(0x17141c), mt = col(0x9a9da8), pn = col(0x2a3550);
+      a(G.box, body, 0, 0.95, 0, 0.8, 1.9, 0.62); a(G.box, pn, 0, 1.08, 0.3, 0.68, 1.1, 0.04);
+      a(G.box, tmat(T.sign('БАНКОМАТ', '#1e2a44', '#9be36b')), 0, 1.78, 0.315, 0.74, 0.18, 0.01); a(G.box, glow(0x9be36b), 0, 1.68, 0.315, 0.7, 0.02, 0.01);
+      a(G.box, dk, 0, 1.52, 0.38, 0.64, 0.04, 0.2, -0.3); for (const sx of [-1, 1]) a(G.box, dk, sx * 0.32, 1.38, 0.38, 0.03, 0.3, 0.2);
+      a(G.box, tmat(T.screen()), 0, 1.36, 0.33, 0.44, 0.3, 0.02, -0.12);
+      a(G.box, mt, -0.06, 1.0, 0.36, 0.34, 0.04, 0.16, 0.5); for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) a(G.box, i === 3 && j === 2 ? col(0x6aa84f) : i === 3 && j === 0 ? col(0xd8243a) : col(0xd8d8e0), -0.15 + j * 0.09, 1.0 + 0.03 * (i - 1.5) * 0.9, 0.36 + (1.5 - i) * 0.03, 0.06, 0.012, 0.035, 0.5);
+      a(G.box, dk, 0.2, 1.06, 0.33, 0.1, 0.02, 0.02); a(G.box, glow(0xf5c542), 0.2, 1.085, 0.33, 0.1, 0.01, 0.01);
+      a(G.box, dk, 0, 0.78, 0.325, 0.36, 0.04, 0.02); a(G.box, col(0x6aa84f), 0, 0.785, 0.33, 0.2, 0.012, 0.012);
+      a(G.box, dk, 0, 0.06, 0, 0.84, 0.12, 0.66); }));
+    this.solid(x, z, 0.82, 0.66, 0, 1.9);
   },
   // Указатель с табличками улиц
   streetSign(x, z, a = 'ЛЕСНАЯ', b2 = 'ТЫКВЕННЫЙ ПР.') {
@@ -494,8 +517,8 @@ export const PropMethods = {
   },
   // Грифельная доска-«домик» у входа
   chalkSign(x, z, ry = 0, text = 'СВЕЖИЙ ХЛЕБ') {
-    const g = this.prop(x, z, ry), wd = tmat(T.wood()), bd = tmat(T.sign(text, '#1e2a24', '#f1e8ff'));
-    for (const s2 of [-1, 1]) { const p = new THREE.Mesh(G.box, [wd, wd, wd, wd, bd, wd]); p.position.set(0, 0.5, s2 * 0.16); p.rotation.x = s2 * 0.3; p.rotation.y = s2 < 0 ? Math.PI : 0; p.scale.set(0.6, 0.95, 0.04); g.add(p); }
+    const g = this.prop(x, z, ry), wd = tmat(T.wood()), bd = tmat(T.chalk(text));
+    for (const s2 of [-1, 1]) { const p = new THREE.Mesh(G.box, [wd, wd, wd, wd, bd, wd]); p.position.set(0, 0.5, s2 * 0.16); p.rotation.x = -s2 * 0.3; p.rotation.y = s2 < 0 ? Math.PI : 0; p.scale.set(0.6, 0.95, 0.04); g.add(p); }
     this.solid(x, z, 0.6, 0.5, 0, 0.9);
   },
   // Пикап фермера: кабина, открытый кузов с откинутым бортом, внутри тыквы (предметы)

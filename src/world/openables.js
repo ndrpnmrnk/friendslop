@@ -4,6 +4,7 @@ import { W } from './state.js';
 import { addItem, launch } from '../game/items.js';
 import { burst } from './particles.js';
 import { sfx } from '../core/sfx.js';
+import { addOutline, OUTLINE } from '../game/outline.js';
 
 /* То, что открывается на E: холодильник, шкафчик, кухонный шкаф. Дверца на петле плавно распахивается,
    внутри при первом открытии иногда лежит предмет (еда, банка или инструмент). */
@@ -22,10 +23,11 @@ export const OpenMethods = {
     g.updateMatrixWorld(true);
     const front = new THREE.Vector3(0, y, d / 2 + 0.75); g.localToWorld(front);
     const inside = new THREE.Vector3(0, y + h * 0.5, d / 2 + 0.35); g.localToWorld(inside); const out = new THREE.Vector3(0, 0, 1).applyQuaternion(g.quaternion);
-    W.interacts.push({ x: front.x, z: front.z, y: g.position.y, r: 1.1, dy: 1.2, get label() { return o.open ? 'Закрыть' : 'Открыть'; }, enabled: P => !P.held,
+    const ol = addOutline(door, 0.025, OUTLINE.use);
+    W.interacts.push({ x: front.x, z: front.z, y: g.position.y, r: 1.1, dy: 1.2, outline: ol, glow: () => !o.looted, get label() { const n = { fridge: 'холодильник', locker: 'шкафчик', cupboard: 'шкаф' }[kind] || ''; return o.open ? `Закрыть ${n}${o.looted && !o.gave ? ' · пусто' : ''}` : `Открыть ${n}`; }, enabled: P => !P.held,
       act: () => { o.open = !o.open; sfx('open', { at: inside });
-        if (o.open && !o.looted) { o.looted = true; if (!(W.containerLoot && W.containerLoot(inside)) && Math.random() < chance * 0.5) { const l = LOOT[kind], type = l[(Math.random() * l.length) | 0], it = addItem(type, inside.x, inside.y - it_r(type), inside.z, g.rotation.y);
-          if (it.def.tool) it.life = 60; it.noHitT = 0.6; launch(it, inside.clone(), new THREE.Vector3(out.x * 2, 2.5, out.z * 2)); burst(inside.x, inside.y + 0.2, inside.z, 6, { color: 0xf1e8ff, size: 0.12, speed: 1.2, up: 1 }); } } } });
+        if (o.open && !o.looted) { o.looted = true; if (W.containerLoot && W.containerLoot(inside)) o.gave = true; else if (Math.random() < chance * 0.5) { o.gave = true; const l = LOOT[kind], type = l[(Math.random() * l.length) | 0], it = addItem(type, inside.x, inside.y - it_r(type), inside.z, g.rotation.y);
+          it.noHitT = 0.6; launch(it, inside.clone(), new THREE.Vector3(out.x * 2, 2.5, out.z * 2)); burst(inside.x, inside.y + 0.2, inside.z, 6, { color: 0xf1e8ff, size: 0.12, speed: 1.2, up: 1 }); } } } });
     W.animated.push(dt => { const want = o.open ? 1 : 0; if (Math.abs(o.k - want) < 0.001) return; o.k += (want - o.k) * Math.min(1, dt * 9); pivot.rotation.y = -o.k * 1.85; });
     return o;
   },

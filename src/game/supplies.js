@@ -12,7 +12,7 @@ export const SUP = { next: 50, crates: [], loot: 0, lootCD: 0 };
 export function resetSupplies() { SUP.next = 40 + Math.random() * 20; SUP.crates = []; SUP.loot = 0; SUP.lootCD = 0; W.containerLoot = containerLoot; W.supplies = []; }
 export function containerLoot(p) {
   if (SUP.loot >= 8 || SUP.lootCD > 0 || Math.random() > 0.22) return false;
-  const it = spawnTool(p.x, p.y + 0.4, p.z, true); it.life = 55; SUP.loot++; SUP.lootCD = 12; return true;
+  const it = spawnTool(p.x, p.y + 0.4, p.z, true); SUP.loot++; SUP.lootCD = 12; return true;
 }
 export function spawnSupply() {
   const zones = W.missionZones.filter(z => z.type === 'floor' && Math.abs(z.y - CONFIG.base) < 0.4);

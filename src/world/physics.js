@@ -247,3 +247,15 @@ export function raySolids(o, d, maxT, skip) {
   }
   return best;
 }
+
+/* Материал в точке удара — для звука (v0.18): вода, листва/трава, металл машин, дерево полов в зданиях, земля, бетон */
+export function materialAt(x, y, z) {
+  if (zoneAt(x, z, y, 'water') || zoneAt(x, z, y, 'puddle')) return 'water';
+  if (zoneAt(x, z, y, 'leaves')) return 'grass';
+  for (const c of W.cars) if (Math.hypot(c.x - x, c.z - z) < 2.2 && y < c.y + 1.8) return 'metal';
+  if (y > 0.6 && (zoneAt(x, z, y, 'floor') || zoneAt(x, z, y, 'inside'))) return 'wood';
+  const gy = groundAt(x, z, 0.3, y + 0.3);
+  if (y - gy > 0.4) return 'concrete';
+  for (const d of W.districts) if (x > d.ox && x < d.x1 && z > d.oz && z < d.z1) return d.ground === 'grass' ? 'grass' : d.ground === 'dirt' ? 'dirt' : 'concrete';
+  return 'concrete';
+}

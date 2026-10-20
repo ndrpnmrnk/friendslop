@@ -114,9 +114,12 @@ export function renderStamina(P, dt) {
   else if (P.heldBy) held = `<span class="key">ПРОБЕЛ</span>${TEXT.keys.struggle}`;
   else if (P.held) {
     // карточка «в руках»: крупная иконка, название, заряды и что с этим делать
-    const it = P.held, v = it.def.tool ? toolVerb(it) : '', am = it.def.ammo && it.def.ammo < 50 ? `<span class="n">×${it.def.hold ? Math.ceil(it.ammo) + 'с' : it.ammo}</span>` : '';
-    const acts = [v && !(it.def.ammo && it.ammo <= 0) ? `<span><span class="key">ЛКМ</span>${v}</span>` : '', `<span><span class="key">ПКМ</span>${TEXT.heldThrow}</span>`, `<span><span class="key">E</span>${TEXT.heldDrop}</span>`].filter(Boolean).join('');
-    held = `<div class="hci">${img(it.type, 40)}</div><div class="hct"><b>${it.def.name}${am}</b><div class="hck">${acts}</div></div>`; }
+    // запас: шкала 0–100 (огнетушитель, пылесос), патроны (водяной пистолет и др.), перезарядка — серая иконка заполняется снизу (сетемёт)
+    const it = P.held, d = it.def, v = d.tool || it.type === 'can' ? toolVerb(it) : '';
+    const am = d.charge ? `<span class="bar"><i style="width:${Math.round(Math.max(0, it.ammo) / d.ammo * 20) * 5}%"></i></span>` : d.ammo && d.ammo < 50 ? `<span class="n">×${Math.max(0, it.ammo)}</span>` : '';
+    const cd = d.cdMax && it.cd > 0 ? Math.round((1 - it.cd / d.cdMax) * 20) * 5 : -1;
+    const acts = [v && !(d.ammo && it.ammo <= 0) ? `<span><span class="key">ЛКМ</span>${v}</span>` : '', `<span><span class="key">ПКМ</span>${TEXT.heldThrow}</span>`, `<span><span class="key">E</span>${TEXT.heldDrop}</span>`].filter(Boolean).join('');
+    held = `<div class="hci${cd >= 0 ? ' cd' : ''}">${img(it.type, 40)}${cd >= 0 ? `<i class="cdf" style="height:${cd}%"></i>` : ''}</div><div class="hct"><b>${d.name}${am}</b><div class="hck">${acts}</div></div>`; }
   if (held !== H.held) { const was = H.heldType, now = P.held ? P.held.type : P.grab ? 'grab' : P.holding ? 'hold' : P.heldBy ? 'held' : '';
     H.held = held; H.heldType = now; const e2 = $('held'); e2.innerHTML = held; e2.classList.toggle('hidden', !held);
     if (held && now !== was) { e2.classList.remove('new'); void e2.offsetWidth; e2.classList.add('new'); } }

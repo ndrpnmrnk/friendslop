@@ -12,7 +12,7 @@ import { arrest, hasPolice } from './police.js';
 import { vacuumFire } from './tools.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
-import { actors, shove, knockDown } from './actors.js';
+import { actors, shove, knockDown, tickStun, ragK, daze } from './actors.js';
 import { useTool } from './tools.js';
 import { grabTarget, grabActor, letGo, startEmote, updateEmote } from './grab.js';
 
@@ -107,18 +107,18 @@ function steer(b, tx, tz, dt) {
 export function updateBots(dt, t, P) {
   for (const b of W.bots || []) {
     if (b.drone || b.returning) continue;
-    if (b.stun > 0) b.stun -= dt;
+    tickStun(b, dt);
     if (b.webT > 0) b.webT -= dt;
     if (b.knockT > 0) b.knockT -= dt;
     if (b.diveHitT > 0) b.diveHitT -= dt;
     if (b.revenge > 0) b.revenge -= dt;
     b.think -= dt; b.throwCD -= dt; b.actCD -= dt;
     // схвачен — ничего не делает (вырывается сам в grab.js)
-    if (b.heldBy) { b.ch.animate(dt, { t, speed: 0, grabbed: true }); blob(b); continue; }
+    if (b.heldBy) { b.ch.animate(dt, { t, speed: 0, grabbed: !(b.stun > 0), rag: b.stun > 0 ? 0.75 : 0 }); blob(b); continue; }
     if (b.caged) { b.ch.animate(dt, { t, speed: 0, grabbed: true }); blob(b); progBar(b); continue; }
     // прячется
     if (b.hidden) { b.hideT -= dt; if (b.hideT <= 0) { const h = b.hidden; b.hidden = null; b.root.visible = true; b.vel.set((Math.random() - 0.5) * 6, 6, (Math.random() - 0.5) * 6); b.onGround = false; burst(h.x, h.y + 0.6, h.z, 12, { color: h.kind === 'leaves' ? 0xe0902e : 0xd8d0e4, size: 0.22, speed: 3, up: 3 }); } else { b.root.visible = false; continue; } }
-    const ctrl = b.stun <= 0 && !(b.knockT > 0) && !(b.floatT > 0);
+    const ctrl = b.stun <= 0 && !(b.getT > 0) && !(b.knockT > 0) && !(b.floatT > 0) && !(b.netT > 0);
     let ix = 0, iz = 0, run = 1;
     const ev = W.eventBot ? W.eventBot(b) : null;
     if (b.doT > 0) {
@@ -162,10 +162,10 @@ export function updateBots(dt, t, P) {
     b.stuck = Math.hypot(b.pos.x - b.last.x, b.pos.z - b.last.z) < dt * 0.8 && Math.abs(b.pos.y - b.last.y) < dt * 0.6 && (ix || iz) ? b.stuck + dt : 0; b.last.copy(b.pos);
     if (b.stuck > 0.7 && b.onGround) { b.vel.y = PC.jump; b.onGround = false; if (b.stuck > 1.4) { const a = Math.random() * 6.28; b.dodge = { x: Math.cos(a), z: Math.sin(a), t: 0.9 }; b.stuck = 0; b.ladder = null; } }
     // движение
-    const sp = (b.webT > 0 ? 0.4 : 1) * (b.holding ? 0.72 : 1) * (b.energy > 0 ? 1.2 : 1) * PC.sprint * 0.8 * run, k = b.onGround ? 8 : 2;
+    const sp = (b.webT > 0 ? 0.4 : 1) * (b.daze > 0 ? 0.18 : 1) * (b.holding ? 0.72 : 1) * (b.energy > 0 ? 1.2 : 1) * PC.sprint * 0.8 * run, k = b.onGround ? 8 : 2;
     if (ctrl) { b.vel.x += (ix * sp - b.vel.x) * Math.min(1, dt * k); b.vel.z += (iz * sp - b.vel.z) * Math.min(1, dt * k); }
     b.vel.x += b.push.x; b.vel.z += b.push.z; b.push.set(0, 0, 0);
-    if (b.stun > 0) { b.vel.x *= 0.9; b.vel.z *= 0.9; }
+    if (b.stun > 0 || b.getT > 0) { b.vel.x *= 0.9; b.vel.z *= 0.9; }
     // толкотня с игроком
     if (P && !P.heldBy && !b.heldBy) { const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z, d = Math.hypot(dx, dz);
       if (d < b.r + P.r && d > 1e-3 && Math.abs(b.pos.y - P.pos.y) < 1.2) { const o = (b.r + P.r - d) / 2; b.pos.x += dx / d * o; b.pos.z += dz / d * o; P.pos.x -= dx / d * o; P.pos.z -= dz / d * o; } }
@@ -183,7 +183,7 @@ export function updateBots(dt, t, P) {
     if (b.onGround && spd > 7 && Math.random() < dt * 10) smoke(b.pos.x - b.vel.x / spd * 0.4, b.pos.y + 0.12, b.pos.z - b.vel.z / spd * 0.4, { size: 0.12, grow: 0.5, life: 0.5, vy: 0.4 });
     if (b.throwT > 0) b.throwT -= dt;
     updateEmote(b, dt, spd > 1);
-    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, climb: !!b.climbing, hold: (b.doT > 0 || !!b.held) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
+    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, hold: (b.doT > 0 || !!b.held) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
       emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, swat: b.swatT > 0 ? b.swatT : 0, zombie: !!b.zombie });
     if (b.held) { b.held.pos.copy(b.ch.holdPoint); b.held.g.rotation.y = b.root.rotation.y; }
     b.root.visible = true; blob(b); progBar(b);
@@ -207,7 +207,7 @@ function decide(b, P) {
   // трус: опасность рядом — бежать или прятаться
   if (mood === 'coward' && P && !P.hidden) { const d = Math.hypot(P.pos.x - b.pos.x, P.pos.z - b.pos.z);
     if (d < 6 && (P.charging || P.dive || P.holding || (P.held && P.held.def.heavy))) {
-      const h = W.hides.find(q => Math.hypot(q.x - b.pos.x, q.z - b.pos.z) < 7 && Math.abs(q.y - b.pos.y) < 1 && !actors().some(a => a.hidden === q));
+      const h = W.hides.find(q => Math.hypot(q.x - b.pos.x, q.z - b.pos.z) < 7 && Math.abs(q.y - b.pos.y) < 1 && !(q.pb && (!q.pb.looted || q.pb.tipped)) && !actors().some(a => a.hidden === q));
       if (h && r < 0.5) { b.goal = { x: h.x, y: h.y, z: h.z, kind: 'hide', h, near: h.r }; return; }
       const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z; b.goal = { x: b.pos.x + dx / (d || 1) * 8, y: b.pos.y, z: b.pos.z + dz / (d || 1) * 8, kind: 'flee' }; return; } }
   // ничей предмет миссии лежит рядом (выронили заказ, пиццу, лампочку) — украсть и сдать самому
@@ -304,8 +304,12 @@ export function botHitHook(it, p, heavy, r) {
     if (!(Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < r && p.y > a.pos.y - 0.3 && p.y < a.pos.y + a.h + 0.4)) continue;
     // зонтик-щит
     if (a.held && a.held.type === 'umbrella' && a.held.open) { const f = a.root.rotation.y; if (-(it.vel.x * Math.sin(f) + it.vel.z * Math.cos(f)) > 2) { it.vel.multiplyScalar(-0.35); sfx('umbrella', { at: a.pos }); continue; } }
+    // в пузыре: попадание лопает пузырь
+    if (a.floatT > 0) { a.popBubble = true; continue; }
     if (heavy) { knockDown(a, it.vel.x * 0.4, it.vel.z * 0.4, a === W.player ? 1.2 : 1.4); voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); }
-    else { a.push.set(it.vel.x * (a.bot ? 0.2 : 0.15), 0, it.vel.z * (a.bot ? 0.2 : 0.15)); if (it.type === 'balloon') { a.wetT = 4; a.slipT = 2; } }
+    else { a.push.set(it.vel.x * (a.bot ? 0.2 : 0.15), 0, it.vel.z * (a.bot ? 0.2 : 0.15)); if (it.type === 'balloon') { a.wetT = 4; a.slipT = 2; }
+      // мяч и шарик — стан стоя (звёздочки), без падения
+      if ((it.type === 'ball' || it.type === 'balloon') && it.vel.length() > 6) daze(a, 0.9); }
     if (it.owner && it.owner.bot && a !== it.owner) { if (a === W.player && Math.random() < 0.5) setTimeout(() => startEmote(it.owner, 'laugh'), 500); }
     W.onHit && W.onHit(it.owner, a, heavy ? 'heavy' : 'light');
     // жетон попал — если у хозяина есть наряд, тот бежит арестовывать

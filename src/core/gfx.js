@@ -56,7 +56,8 @@ const post = new THREE.ShaderMaterial({
       c = mix(c * vec3(0.92, 0.9, 1.06), c * vec3(1.06, 1.0, 0.92), smoothstep(0.2, 0.8, l)) + vec3(0.012, 0.006, 0.02);
       // виньетка
       vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * 0.55;
-      c += (b4(floor(v / px)) - 0.46875) / 64.0; c = floor(c * 40.0 + 0.5) / 40.0;
+      // палитра как у PS1: 5 бит на канал (32 уровня) с дизерингом Bayer 4×4
+      c += (b4(floor(v / px)) - 0.46875) / 32.0; c = floor(c * 31.0 + 0.5) / 31.0;
       gl_FragColor = vec4(c, 1.0); }`,
   depthTest: false, depthWrite: false,
 });

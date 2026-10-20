@@ -1,12 +1,12 @@
 import { THREE, G, V3, mesh, col, tmat, lam, compose } from '../core/gfx.js';
-import { addOutline } from './outline.js';
+import { addOutline, OUTLINE } from './outline.js';
 import { chairModel, coneModel, trashModel, litterModel } from '../world/props.js';
 import { PFACE } from '../world/builder.js';
 import { T } from '../core/textures.js';
 import { CONFIG } from '../config.js';
 import { W } from '../world/state.js';
-import { groundAt, solidHit, addZone, impulsePushables, zoneAt } from '../world/physics.js';
-import { puff, burst, chunk, splash, ripple } from '../world/particles.js';
+import { groundAt, solidHit, addZone, impulsePushables, zoneAt, materialAt } from '../world/physics.js';
+import { puff, burst, chunk, splash, ripple, decal } from '../world/particles.js';
 import { splatter } from '../world/splat.js';
 import { scareBirds } from '../world/birds.js';
 import { hitBreakables } from '../world/breakables.js';
@@ -44,8 +44,12 @@ function build(type) {
   else if (type === 'chair') g.add(chairModel());
   else if (type === 'cone') g.add(coneModel());
   else g.add(toolModel(type, g));
+  // маленькие инструменты чуть крупнее — в пропорции к руке персонажа
+  const sc = TOOL_SCALE[type]; if (sc) g.children.forEach(c => c.scale.multiplyScalar(sc));
   return g;
 }
+const TOOL_SCALE = { whistle: 1.6, badge: 1.4, energy: 1.3, duck: 1.3, banana: 1.3, popper: 1.35, firework: 1.3, sling: 1.35, web: 1.25, cushion: 1.25, mask: 1.3, bubbles: 1.35, bulb: 1.2, net: 1.2, slipper: 1.1 };
+export const rarityOf = type => { const d = CONFIG.items[type]; return !d || !d.tool ? 'item' : CONFIG.toolRare.includes(type) ? 'rare' : 'tool'; };
 /* Модели инструментов и предметов миссий: по 5–20 деталей, собираются один раз (compose) */
 const C = c => col(c);
 function toolModel(type, g) {
@@ -75,7 +79,9 @@ function toolModel(type, g) {
       case 'firework': { a(G.cyl8, C(0xd8243a), 0, 0.02, 0, 0.05, 0.2, 0.05); a(G.cone8, C(0xf5c542), 0, 0.15, 0, 0.055, 0.08, 0.055); a(G.box, C(0xf1e8ff), 0, 0.02, 0.051, 0.06, 0.04, 0.002); a(G.cyl5, C(0x8a6a4a), 0.06, -0.15, 0, 0.008, 0.34, 0.008); a(G.box, C(0x17111f), 0, -0.09, 0, 0.01, 0.04, 0.01); break; }
       case 'popper': { a(G.cone8, C(0xf5c542), 0, 0, 0, 0.06, 0.18, 0.06, Math.PI); a(G.cyl8, C(0xff5a6e), 0, 0.09, 0, 0.065, 0.02, 0.065); a(G.box, C(0xf1e8ff), 0, -0.1, 0, 0.01, 0.06, 0.01); for (let i = 0; i < 3; i++) a(G.box, C([0x9be36b, 0x4ab0f0, 0xb18cff][i]), (i - 1) * 0.03, 0.105, 0, 0.02, 0.02, 0.02); break; }
       case 'sling': { const w = tmat(T.wood()); a(G.box, w, 0, -0.08, 0, 0.035, 0.18, 0.035); for (const sx of [-1, 1]) a(G.box, w, sx * 0.05, 0.05, 0, 0.03, 0.12, 0.03, 0, 0, -sx * 0.4); a(G.box, C(0xd8243a), 0, 0.09, 0, 0.16, 0.012, 0.012); break; }
-      case 'web': { a(G.ico, lam({ color: 0xeee8f8, emissive: 0x3a3448 }, 'webBall'), 0, 0, 0, 0.13, 0.11, 0.13); for (let i = 0; i < 4; i++) a(G.box, C(0xd8d0e4), 0, 0, 0, 0.3, 0.008, 0.008, 0, i * 0.8, 0.3); break; }
+      // паутина: банка с паучком внутри (крышка, паутинка на стекле)
+      case 'web': { a(G.cyl12, lam({ color: 0xd8f0f0, transparent: true, opacity: 0.45, depthWrite: false }, 'jarGlass'), 0, 0, 0, 0.11, 0.22, 0.11); a(G.cyl12, C(0xb02a2a), 0, 0.12, 0, 0.115, 0.04, 0.115);
+        a(G.sph, C(0x17111f), 0, -0.04, 0, 0.05, 0.04, 0.06); for (let i = 0; i < 3; i++) a(G.box, C(0xeee8f8), 0, 0.02, 0, 0.2, 0.006, 0.006, 0, i * 1.05, 0.2); break; }
       case 'boots': { const p = C(0xb18cff); a(G.box, p, 0, 0.04, 0, 0.12, 0.16, 0.12); a(G.box, p, 0, -0.03, 0.06, 0.12, 0.08, 0.14); for (let i = 0; i < 3; i++) a(G.torus, C(0xc8c8d8), 0, -0.1 - i * 0.035, 0.02, 0.05, 0.05, 0.05, Math.PI / 2); a(G.box, C(0x2b2533), 0, -0.21, 0.02, 0.12, 0.02, 0.16); break; }
       case 'mask': { const w = lam({ color: 0xeee8ff, emissive: 0x4a4460 }, 'maskW'); a(G.sph10, w, 0, 0, 0, 0.16, 0.18, 0.08); for (const sx of [-1, 1]) a(G.box, C(0x17111f), sx * 0.055, 0.03, 0.075, 0.045, 0.06, 0.01); a(G.box, C(0x17111f), 0, -0.07, 0.075, 0.06, 0.03, 0.01); break; }
       case 'cucumber': { const gr = lam({ color: 0x3f8a2a }, 'cuc'); a(G.cyl8, gr, 0, 0, 0, 0.06, 0.26, 0.06, Math.PI / 2); for (const sz of [-0.13, 0.13]) a(G.sph, gr, 0, 0, sz, 0.06, 0.06, 0.06); a(G.box, C(0x6aa84f), 0, 0.05, 0, 0.02, 0.01, 0.2); break; }
@@ -97,14 +103,16 @@ function toolModel(type, g) {
 }
 export function addItem(type, x, y, z, ry = 0) {
   const def = CONFIG.items[type], g = build(type); W.group.add(g);
-  const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z, ry }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g), ammo: def.ammo || 0, cd: 0 };
+  const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z, ry }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g, 0.045, OUTLINE[rarityOf(type)]), rarity: rarityOf(type), ammo: def.ammo || 0, cd: 0 };
   g.rotation.y = ry;
   it.pos.set(x, y + def.r, z);
   W.items.push(it); return it;
 }
+// разбилось/утонуло — пропало до конца раунда (никакого возрождения на месте)
 function vanish(it) {
-  it.g.visible = false; it.state = 'gone'; it.respawnT = it.def.respawn || 0;
+  it.g.visible = false; it.state = 'gone'; it.respawnT = 0;
 }
+// eslint-disable-next-line no-unused-vars
 function respawn(it) {
   const h = it.home; it.pos.set(h.x, h.y + it.def.r, h.z); it.vel.set(0, 0, 0); it.g.rotation.set(0, h.ry || 0, 0);
   it.g.visible = true; it.state = 'rest';
@@ -124,9 +132,10 @@ function impact(it, n, speed) {
   for (const h of W.hitHooks.slice()) h(it, p);
   hitBreakables(p, it.def.r + 0.12, [it.vel.x, it.vel.y, it.vel.z], it.def.mass);
   if (!(it.noHitT > 0)) hitActors(it, p, it.def.heavy || (it.def.knock && speed > 7));
-  if (it.def.tool && W.toolImpact && W.toolImpact(it, p, gy)) { sfx('hit', { at: p, v: 0.4 }); return; }
+  if (it.def.tool && W.toolImpact && W.toolImpact(it, p, gy)) { sfx('imp', { at: p, v: 0.5, m: materialAt(p.x, p.y, p.z) }); return; }
   worldHit(p, speed * it.def.mass * 0.35, it.vel);
-  sfx(t === 'can' ? 'can' : 'hit', { at: p, v: Math.min(1.4, speed * it.def.mass * 0.08 + 0.3) });
+  if (t === 'can' && (it.shake || 0) > 0.5 && W.sodaBlast) { it.state = 'gone'; it.g.visible = false; W.sodaBlast(p.clone(), it.owner); return; }
+  const v = Math.min(1.4, speed * it.def.mass * 0.08 + 0.3); if (t === 'can') sfx('can', { at: p, v }); sfx('imp', { at: p, v, m: materialAt(p.x, p.y, p.z) });
   const wall = Math.abs(n[1]) < 0.5;
   // следы ударов: брызги на стене, искры и пыль от тяжёлого
   if (wall && speed > 8 && it.def.heavy) { burst(p.x, p.y, p.z, 5, { color: 0xffd25c, size: 0.08, speed: 4, up: 1.5, g: 14, life: 0.35, grow: 0 }); burst(p.x, p.y, p.z, 3, { color: 0x8a7e90, size: 0.35, speed: 0.8, up: 0.4, g: 1, life: 0.7, grow: 1.4 }); }
@@ -142,7 +151,8 @@ function impact(it, n, speed) {
     sfx('splash', { at: p });
     burst(p.x, p.y, p.z, 8, { color: 0x6ab8f0, size: 0.28, speed: 3, up: 2.5 });
     splatter(p, it.vel, 0x4a90d0, 34, 1.1, { owner: it.owner });
-    addZone('puddle', { c: [p.x, p.z, 1.15] }, gy, { expires: 7 });
+    addZone('puddle', { c: [p.x, p.z, 1.15] }, gy, { expires: 9 });
+    { const d = decal(T.puddle(), p.x, gy, p.z, 2.4, 9, 0xbfe0ff); d.material.opacity = 0.75; }
     vanish(it);
   } else if (t === 'tomato') {
     burst(p.x, p.y, p.z, 5, { color: 0xd8301a, size: 0.22, speed: 2.5 });
@@ -218,7 +228,7 @@ function simulate(it, dt, flying) {
 
 export function updateItems(dt, pl) {
   for (const it of W.items) {
-    if (it.state === 'gone') { if (it.def.respawn) { it.respawnT -= dt; if (it.respawnT <= 0) respawn(it); } continue; }
+    if (it.state === 'gone') continue;
     if (it.state === 'held') continue;
     if (it.state === 'fly') { if (it.noHitT > 0) it.noHitT -= dt; simulate(it, dt, true); continue; }
     if (it.state === 'sink') { it.sinkT -= dt; it.pos.y -= dt * 0.5; it.g.rotation.x += dt; if (Math.random() < dt * 4) ripple(it.pos.x, it.pos.y + 0.4, it.pos.z, 0.4, 0.6); if (it.sinkT <= 0) vanish(it); continue; }

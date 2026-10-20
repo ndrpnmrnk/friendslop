@@ -40,14 +40,14 @@ function breakFree(b) {
   if (b.bot) b.revenge = 5; // бот запомнил обидчика
 }
 // игрок пытается вырваться: каждое нажатие — рывок
-export function struggleTap(b) { if (!b.heldBy) return; b.struggle += 0.13; b.wrig.t = 0.15; if (b.struggle >= 1) breakFree(b); }
+export function struggleTap(b) { if (!b.heldBy || b.stun > 0) return; b.struggle += 0.13; b.wrig.t = 0.15; if (b.struggle >= 1) breakFree(b); }
 
 export function updateGrabs(dt, t) {
   for (const a of actors()) {
     const b = a.holding; if (!b) continue;
     if (a.stun > 0 || a.hidden || a.ride || a.mantle || b.hidden) { letGo(a); continue; }
     // бот вырывается сам, через 1.6–3 c
-    if (b.bot) { b.struggle += dt * (0.35 + Math.random() * 0.3); if (b.struggle >= 1) { breakFree(b); continue; } }
+    if (b.bot && !(b.stun > 0)) { b.struggle += dt * (0.35 + Math.random() * 0.3); if (b.struggle >= 1) { breakFree(b); continue; } }
     // рывки схваченного: случайное направление, держащего тянет туда (как физика)
     const w = b.wrig; w.t -= dt;
     if (w.t <= 0) { const ang = Math.random() * 6.28; w.x = Math.cos(ang); w.z = Math.sin(ang); w.t = 0.25 + Math.random() * 0.3; }
@@ -55,6 +55,8 @@ export function updateGrabs(dt, t) {
     a.vel.x += w.x * pull * dt * 6; a.vel.z += w.z * pull * dt * 6;
     // держим перед собой, приподнятым
     const f = a.root.rotation.y, k = Math.sin(t * 14) * 0.05;
+    // лежачего (рэгдолл) тащат за руку/ногу: волочится сбоку-сзади, не вырывается, пока не очнётся
+    if (b.stun > 0) { w.x = w.z = 0; b.pos.set(a.pos.x + Math.cos(f) * 0.55 - Math.sin(f) * 0.35, a.pos.y + 0.05 + Math.abs(k), a.pos.z - Math.sin(f) * 0.55 - Math.cos(f) * 0.35); b.vel.set(0, 0, 0); b.onGround = true; b.root.rotation.y = f + Math.PI * 0.5 + Math.sin(t * 5) * 0.15; continue; }
     b.pos.set(a.pos.x + Math.sin(f) * 0.75 + w.x * 0.08, a.pos.y + 0.45 + k, a.pos.z + Math.cos(f) * 0.75 + w.z * 0.08);
     b.vel.set(0, 0, 0); b.onGround = false; b.airPeak = b.pos.y; b.root.rotation.y = f + Math.PI + Math.sin(t * 9) * 0.3;
   }

@@ -101,6 +101,9 @@ export function tipBin(b, dx = 0, dz = 1) {
   if (b.kind !== 'bin' || b.tipped) return;
   if (!b.looted) { b.looted = true; W.containerLoot && W.containerLoot(new THREE.Vector3(b.x, b.y + 0.4, b.z)); }
   b.tipped = true; b.tipT = 0; b.tipDir = Math.atan2(dx, dz);
+  // кто прятался в урне — выкатывается рэгдоллом
+  const l = Math.hypot(dx, dz) || 1;
+  for (const a of [W.player, ...(W.bots || [])]) if (a && a.hidden && a.hidden.pb === b) { a.hidden = null; a.root.visible = true; a.pos.set(b.x + dx / l * 0.6, b.y + 0.3, b.z + dz / l * 0.6); W.knockDown && W.knockDown(a, dx / l * 6, dz / l * 6, 1.4); }
   const cols = [0xd8d0c0, 0x8a8d98, 0xc83a3a, 0x6aa84f];
   for (let i = 0; i < 8; i++) chunk(b.x, b.y + 0.6, b.z, [dx * 3 + (Math.random() - 0.5) * 3, 1 + Math.random() * 2, dz * 3 + (Math.random() - 0.5) * 3], { mat: col(cols[i % 4]), size: 0.1, sy: 0.4, life: 6 });
   splatter({ x: b.x + dx * 0.8, y: b.y + 0.4, z: b.z + dz * 0.8 }, null, 0x3a3020, 16, 0.6, { flat: true });

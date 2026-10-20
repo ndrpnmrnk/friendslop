@@ -23,7 +23,7 @@ export function makeCharacter(skinId) {
   const stars = new THREE.Group(); stars.position.y = d.top + 0.15; root.add(stars); stars.visible = false;
   for (let i = 0; i < 4; i++) { const s = sprite(T.star(), 0.22); s.position.set(Math.cos(i * 1.57) * 0.4, 0, Math.sin(i * 1.57) * 0.4); stars.add(s); }
   const ch = { ...parts, skinId, skin, d, stars, blob: sh, blobS: d.shadow ?? 0.55, ph: 0, squash: 0, blinkT: 2, expr: 'idle', holdPoint: new THREE.Vector3() };
-  ch.animate = (dt, st) => animate(ch, dt, st);
+  ch.animate = (dt, st) => { animate(ch, dt, st); if (st.daze && !(st.rag > 0.001)) { ch.stars.visible = true; ch.stars.rotation.y += dt * 5; } };
   // голос: мешок надувается сразу (звук включает тот, кто вызвал)
   ch.croakNow = () => { if (ch.head.userData.sac) ch.sacT = -0.0001; };
   return ch;
@@ -73,16 +73,39 @@ function animateRide(c, dt, s) {
     else { const sw = Math.sin(t * 3) * 0.04; setHand(c.handL, -d.handX * 0.95, d.handY + 0.08 + sw + tr * 0.2, 0.12, f); setHand(c.handR, d.handX * 0.95, d.handY + 0.08 - sw + tr * 0.2, -0.08, f); }
   } else {
     c.body.position.y = -0.38; c.body.rotation.x += (-0.08 - sp * 0.1 - c.body.rotation.x) * f; c.body.rotation.z = 0;
-    setHand(c.footL, -d.footX, d.footY + 0.05, 0.42, f); setHand(c.footR, d.footX, d.footY + 0.05, 0.42, f);
+    // сидит на скамейке/качелях: ноги болтаются по очереди, голова осматривается
+    const dg = s.dangle ? Math.sin(t * 3.2) * 0.12 : 0;
+    setHand(c.footL, -d.footX, d.footY + 0.05 + dg * 0.4, 0.42 + dg, f); setHand(c.footR, d.footX, d.footY + 0.05 - dg * 0.4, 0.42 - dg, f);
+    if (s.look !== undefined) c.head.rotation.y += (s.look - c.head.rotation.y) * damp(4, dt); else c.head.rotation.y *= 0.9;
     setHand(c.handL, -d.handX, d.handY - 0.2, 0.25, f); setHand(c.handR, d.handX, d.handY - 0.2, 0.25, f);
   }
   c.footL.rotation.x = 0; c.footR.rotation.x = 0; c.handL.rotation.x = 0; c.handR.rotation.x = 0;
+}
+/* Рэгдолл (v0.18): сбили с ног — тело «тряпичной куклой» кувыркается в воздухе и лежит на спине, руки-ноги раскинуты и болтаются.
+   s.rag 1 → 0 — плавный подъём (поза смешивается с обычной стойкой). */
+function animateRag(c, dt, s) {
+  const d = c.d, t = s.t, k0 = clamp(s.rag, 0, 1), k = k0 * k0 * (3 - 2 * k0), f = damp(10, dt), air = s.air && k0 > 0.99;
+  c.ragSpin = air ? (c.ragSpin || 0) + dt * 7 : (c.ragSpin || 0) * Math.max(0, 1 - dt * 6);
+  const th = -1.48 * k - (air ? Math.sin(c.ragSpin) * 0.5 : 0), cc = 0.8, drop = 0.52 * k * (air ? 0.4 : 1);
+  c.body.rotation.set(th, 0, (air ? Math.sin(c.ragSpin * 1.3) * 0.5 : Math.sin(t * 1.3) * 0.04) * k); c.body.scale.set(1, 1, 1);
+  c.body.position.set(0, cc - cc * Math.cos(th) - drop, -cc * Math.sin(th) * 0.55);
+  c.stars.visible = false;
+  const lp = (a, b) => a + (b - a) * k, jig = air ? 0.25 : 0.03, w = Math.sin(t * (air ? 13 : 2.5));
+  const hx = d.handX, hy = d.handY, hz = d.handZ, fx = d.footX, fy = d.footY;
+  setHand(c.handL, lp(-hx, -hx - 0.32), lp(hy, 0.16 + w * jig), lp(hz, -0.35 + w * jig), f);
+  setHand(c.handR, lp(hx, hx + 0.32), lp(hy, 0.16 - w * jig), lp(hz, -0.25 - w * jig), f);
+  setHand(c.footL, lp(-fx, -fx - 0.14), lp(fy, 0.12 + Math.max(0, w) * jig), lp(0, 0.5), f);
+  setHand(c.footR, lp(fx, fx + 0.16), lp(fy, 0.12 + Math.max(0, -w) * jig), lp(0, 0.42), f);
+  c.handL.rotation.x = c.handR.rotation.x = c.footL.rotation.x = c.footR.rotation.x = 0;
+  c.holdPoint.set(0, d.handY + 0.12, d.handZ); c.root.localToWorld(c.holdPoint);
+  const e = 'dizzy'; if (e !== c.expr) { c.expr = e; c.skin.face && c.skin.face(c, e); }
 }
 function setHand(h, x, y, z, k) { h.position.x += (x - h.position.x) * k; h.position.y += (y - h.position.y) * k; h.position.z += (z - h.position.z) * k; }
 
 function animate(c, dt, s) {
   if (c.handOff) { c.handL.position.y += c.handOff; c.handR.position.y += c.handOff; c.handOff = 0; }
   const d = c.d, t = s.t, k = clamp(s.speed || 0, 0, 1), run = !s.air && !s.climb && k > 0.05;
+  if (s.rag > 0.001) return animateRag(c, dt, s);
   if (s.ride) return animateRide(c, dt, s);
   if (s.dive || s.slide) return animateMove(c, dt, s);
   c.body.position.z = 0; c.body.position.x = 0; c.body.rotation.x = Math.atan2(Math.sin(c.body.rotation.x), Math.cos(c.body.rotation.x));
@@ -101,8 +124,8 @@ function animate(c, dt, s) {
   // замах: корпус чуть разворачивается
   const twist = s.charge ? -0.35 * s.charge : (s.throwT > 0 ? 0.3 * (s.throwT / 0.3) : 0);
   c.body.rotation.y += (twist - c.body.rotation.y) * damp(14, dt);
-  c.body.rotation.z = s.stun ? Math.sin(t * 9) * 0.2 : c.body.rotation.z * 0.85 + (run ? sn * 0.04 : 0) * 0.15;
-  c.stars.visible = !!s.stun; if (s.stun) c.stars.rotation.y += dt * 5;
+  c.body.rotation.z = s.daze ? Math.sin(t * 5) * 0.14 : c.body.rotation.z * 0.85 + (run ? sn * 0.04 : 0) * 0.15;
+  c.stars.visible = false;
   // ножки
   const fy = d.footY, fx = d.footX;
   if (s.air) { setHand(c.footL, -fx, fy + 0.12, 0.08, f); setHand(c.footR, fx, fy + 0.06, -0.1, f); }
@@ -211,7 +234,7 @@ function animate(c, dt, s) {
     sac.userData.s0 = sac.userData.s0 || sac.scale.clone(); sac.scale.copy(sac.userData.s0).multiplyScalar(1 + k * 0.9); if (c.sacT >= 0.4) c.sacT = undefined; }
   // выражение лица
   c.blinkT -= dt;
-  let e = s.stun ? 'dizzy' : s.air || s.grabbed || s.emote === 'laugh' || s.emote === 'call' ? 'wow' : 'idle';
+  let e = s.stun || s.daze ? 'dizzy' : s.air || s.grabbed || s.emote === 'laugh' || s.emote === 'call' ? 'wow' : 'idle';
   if (e === 'idle' && c.blinkT < 0.12) e = 'blink';
   if (c.blinkT < 0) c.blinkT = 2 + Math.random() * 3;
   if (e !== c.expr) { c.expr = e; c.skin.face && c.skin.face(c, e); }

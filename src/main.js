@@ -19,12 +19,13 @@ import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
 import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
-import { resetTools, updateTools, useTool, toolVerb, toolImpact, spawnTool } from './game/tools.js';
+import { resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool } from './game/tools.js';
+import { knockDown } from './game/actors.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import { mouse as M_ } from './core/input.js';
 import { createBots, updateBots, botHitHook, interruptBot } from './game/bots.js';
 import { voice } from './game/voice.js';
-import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide } from './game/worldfx.js';
+import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide, leaveBench } from './game/worldfx.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict, addItem } from './game/items.js';
@@ -63,18 +64,21 @@ scene.background = new THREE.Color(SEASON.bg);
 scene.fog = new THREE.Fog(...SEASON.fog);
 const hemi = new THREE.HemisphereLight(SEASON.hemi[0], SEASON.hemi[1], SEASON.hemi[2] * Math.PI); scene.add(hemi);
 const sun = new THREE.DirectionalLight(SEASON.sun[0], SEASON.sun[1] * Math.PI); sun.position.set(-30, 50, 25); scene.add(sun, sun.target);
-// жёсткие пиксельные тени: карта теней 2048 на квадрат ~64 м вокруг игрока
-sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.07;
+// жёсткие пиксельные тени (v0.18 — крупнее «пиксель», как на PS1): карта 1024 на квадрат ~64 м вокруг игрока
+sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.intensity = 0.9; sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.07;
 Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 150 }); sun.shadow.camera.updateProjectionMatrix();
 const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(), SUN_U = new V3().crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize();
 // фонарик персонажа (горит только в событии «Отключили свет»; свет есть всегда, чтобы не пересобирать шейдеры)
 const sky = createSky(scene);
 const flash = new THREE.SpotLight(0xfff0d0, 0, 26, 0.55, 0.5, 1.2); scene.add(flash, flash.target);
+// вспышка взрыва: короткий точечный свет
+const boomL = new THREE.PointLight(0xffb050, 0, 12, 1.5); scene.add(boomL);
+W.flash = (p, c, k = 1) => { boomL.position.set(p.x, p.y + 1, p.z); boomL.color.setHex(c); boomL.intensity = 8 * k; };
 initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }), award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
 const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => eventChip(null) };
 function followSun(x, y, z) {
   // привязка к текселю карты теней, чтобы края теней не дрожали при движении
-  const tx = 64 / 2048, c = new V3(x, y, z), a = Math.round(c.dot(SUN_R) / tx) * tx, b = Math.round(c.dot(SUN_U) / tx) * tx, f = c.dot(SUN_DIR);
+  const tx = 64 / 1024, c = new V3(x, y, z), a = Math.round(c.dot(SUN_R) / tx) * tx, b = Math.round(c.dot(SUN_U) / tx) * tx, f = c.dot(SUN_DIR);
   const t = SUN_R.clone().multiplyScalar(a).addScaledVector(SUN_U, b).addScaledVector(SUN_DIR, f);
   sun.target.position.copy(t); sun.position.copy(t).addScaledVector(SUN_DIR, 70);
 }
@@ -219,7 +223,7 @@ function prepareRound(tut = false) {
   if (tut) globalThis.__forceDistricts = null;
   buildLife(scene); resetSplat(); resetPolice();
   registerInteracts();
-  resetTools(); resetTown(); startWeather(scene); buildReflections(); resetFun(() => S.score); hookFun(); W.toolImpact = toolImpact; W.letGo = letGo; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
+  resetTools(); resetTown(); startWeather(scene); buildReflections(); resetFun(() => S.score); hookFun(); W.toolImpact = toolImpact; W.sodaBlast = sodaBlast; W.knockDown = knockDown; W.isMissionCat = c => M.list.some(m => m.obj === c); W.letGo = letGo; W.dismount = a => dismount(a, false); W.leaveSwing = leaveSwing; W.leaveBench = leaveBench; W.leaveHide = a => { if (a.bot) a.hideT = 0; else leaveHide(a); }; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
   buildMinimap(DISTRICTS); CURTAIN = findMat('curtain');
   resetEvents(); resetSupplies(); resetDrones();
   resetMissions();
@@ -529,6 +533,18 @@ function focusTarget() {
   return null;
 }
 let lastFocus = null;
+/* Контур вблизи (≈ дистанция E): лежащие предметы — цвет по редкости, мусорки/шкафы — светлый, пока не обысканы */
+let glowOn = new Set();
+function updateGlow() {
+  const want = new Set();
+  if (P && S.state === 'play' && !P.drone && !S.mg && !S.crane) {
+    for (const it of W.items) if (it.state === 'rest' && it.g.visible && Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z) < 2.2 && Math.abs(it.pos.y - P.pos.y - 0.4) < 1.6) want.add(it.outline);
+    for (const q of W.interacts) if (q.outline && (!q.glow || q.glow()) && Math.hypot(q.x - P.pos.x, q.z - P.pos.z) < q.r + 0.7 && Math.abs(q.y - P.pos.y) < (q.dy ?? 0.9) + 0.3) want.add(q.outline);
+  }
+  for (const o of glowOn) if (!want.has(o) && o !== lastFocus) o.set(false);
+  for (const o of want) o.set(true);
+  glowOn = want;
+}
 function interact() {
   if (P.drone || P.returning) return;
   if (S.mg) return;
@@ -536,6 +552,7 @@ function interact() {
   if (S.crane) { exitCrane(); return; }
   if (P.ride) { dismount(P, false); return; }
   if (P.swing) { leaveSwing(P, false); return; }
+  if (P.bench) { leaveBench(P); return; }
   if (P.hidden) { leaveHide(P); return; }
   if (P.grab) { hopIn(P); return; }
   if (P.holding) { letGo(P); return; }
@@ -562,6 +579,7 @@ function stealItem(it) {
   S.score += pts; S.done++; const st = statsOf(P); st.steals++; st.missions++; st.mpts += pts; sfx('done'); voice(P.ch, 'happy'); toast(TEXT.stole, 'gold');
   const v = new V3(P.pos.x, P.pos.y + 1.2, P.pos.z).project(camera), sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight; flyScore(sx, sy, pts); confetti(sx, sy, P.pos);
 }
+const RIDE_NAME = { cart: 'тележку', skate: 'скейт', scooter: 'самокат', chair: 'кресло', barrow: 'тачку', kidcar: 'машинку', gurney: 'каталку', tire: 'шину', ring: 'круг' };
 function promptText() {
   if (P.drone) return `ДРОН · ${Math.ceil(P.drone.left)}с · WASD · Пробел/C высота · ЛКМ дротик${P.drone.candy ? ' · ПКМ конфета' : ''}`;
   if (P.returning) return 'Возвращение в игру';
@@ -570,11 +588,11 @@ function promptText() {
   if (S.wm) { const pr = S.wm.game.prompt ? S.wm.game.prompt() : ''; if (pr) return pr; }
   if (P.caged) return `<b>E</b>${TEXT.cage}`;
   const m = nearMission(P); if (m) return `<b>E</b>${m.def.name}`;
-  if (P.swing) return '<b>E</b>Встать';
+  if (P.swing || P.bench) return '<b>E</b>Встать';
   if (P.hidden) return '<b>E</b>Выскочить';
   { const q = nearInteract(P); if (q && !P.held) return `<b>E</b>${q.label}`; }
   { const d = nearDoor(); if (d && !nearestItem(P.pos, 1.0)) return `<b>E</b>${d.open ? TEXT.door.close : TEXT.door.open}`; }
-  if (!P.held) { const it = nearestItem(P.pos, 1.5); if (it) return `<b>E</b>${TEXT.take} ${it.def.name.toLowerCase()}`; const rb = nearestRideable(P); if (rb) return `<b>E</b>${TEXT.ride}`; }
+  if (!P.held) { const it = nearestItem(P.pos, 1.5); if (it) return `<b>E</b>${TEXT.take} ${it.def.name.toLowerCase()}`; const rb = nearestRideable(P); if (rb) return `<b>E</b>${RIDE_NAME[rb.kind] ? (rb.ride && rb.ride.pose === 'stand' ? 'Встать на ' : 'Сесть в ') + RIDE_NAME[rb.kind] : TEXT.ride}`; }
   return '';
 }
 
@@ -646,7 +664,7 @@ function loop() {
       $('dot').style.setProperty('--c', (P.charge * 100) + '%');
     }
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
-    const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt);
+    const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt); updateGlow(); W.wmActive = !!S.wm; if (boomL.intensity > 0) boomL.intensity = Math.max(0, boomL.intensity - dt * 30);
     if (P) P.root.visible = !P.drone && (!P.returning || P.returning.t >= 0.7) && !S.mg && !S.crane && !P.hidden && !(S.state === 'intro' && !S.intro.drop);
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
     if (dotHtml !== S.dotHtml) { $('dot').innerHTML = dotHtml; S.dotHtml = dotHtml; }

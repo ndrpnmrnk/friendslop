@@ -154,7 +154,10 @@ export class Builder {
       add(G.box, dk, 1.975, 0.66, 0, 0.02, 0.16, 0.6);
       for (const [a, b] of [[1.3, 0.8], [1.3, -0.8], [-1.3, 0.8], [-1.3, -0.8]]) { add(TIRE_GEO, tmat(T.tread()), a, 0.33, b, 0.33, 0.24, 0.33, Math.PI / 2); add(G.cyl12, tmat(T.hubcap()), a, 0.33, b + Math.sign(b) * 0.06, 0.2, 0.02, 0.2, Math.PI / 2); }
     }));
-    W.cars.push({ x: this.X(x), z: this.Z(z), y: this.Y, ry, alarm: 0 });
+    // крышка багажника на петле (E — открыть, один шанс найти предмет)
+    const lid = new THREE.Group(); lid.position.set(-1.32, 0.95, 0); g.add(lid); W.keep.push(lid);
+    lid.add(compose('carLid' + c, add => { add(G.box, col(c), -0.33, 0.015, 0, 0.66, 0.05, 1.7); add(G.box, col(0x9a9da8), -0.6, 0.0, 0, 0.04, 0.03, 0.3); }));
+    W.cars.push({ x: this.X(x), z: this.Z(z), y: this.Y, ry, alarm: 0, lid });
     const q = Math.abs(Math.sin(ry)) > 0.5;
     this.solid(x, z, q ? 1.8 : 4, q ? 4 : 1.8, 0, 0.95);
     const rx = x - Math.cos(ry) * 0.2, rz = z + Math.sin(ry) * 0.2, rw = q ? 1.5 : 2.2, rd = q ? 2.2 : 1.5;
@@ -344,13 +347,22 @@ export class Builder {
 
   /* ---------- дверь ---------- */
   // Дверь в проёме: hinge — точка петли (локально), axis 'x' — проём вдоль X, inward — знак вращения при открытии
-  door(hx, hz, axis, inward, y = 0, w = 2.0, h = 2.35) {
+  door(hx, hz, axis, inward, y = 0, w = 2.0, h = 2.35, style = 'wood') {
     const pivot = new THREE.Group(); pivot.position.set(this.X(hx), this.Y + y, this.Z(hz)); this.g.add(pivot);
     const wood = tmat(T.wood()), dk = col(0x3a2418);
     const px = axis === 'x' ? w / 2 : 0, pz = axis === 'x' ? 0 : w / 2;
+    if (style === 'glass') {
+      // стеклянная дверь торгового центра: металлическая рама, стекло, поручень, наклейка «ВХОД»
+      const fr = col(0x3a3440), gl = lam({ color: 0xbfe8ff, emissive: 0x1a3040, transparent: true, opacity: 0.35, depthWrite: false }, 'mallGlass'), ch = col(0xd8d8e0);
+      const B = (x0, y0, z0, sx, sy, sz, m) => mesh(G.box, m, axis === 'x' ? x0 : 0, y0, axis === 'x' ? 0 : z0, axis === 'x' ? sx : sz, sy, axis === 'x' ? sz : sx, pivot);
+      B(px, h / 2, pz, w - 0.1, h - 0.1, 0.03, gl); B(px, h - 0.04, pz, w, 0.08, 0.1, fr); B(px, 0.04, pz, w, 0.08, 0.1, fr);
+      for (const e of [0.04, w - 0.04, w / 2]) B(e, h / 2, e, 0.08, h, 0.1, fr);
+      for (const sd of [-1, 1]) B(px, 1.05, pz + 0, w * 0.7, 0.05, 0.05, ch).position[axis === 'x' ? 'z' : 'x'] = sd * 0.08;
+      B(px, 1.5, pz, 0.6, 0.18, 0.035, tmat(T.sign('ВХОД', '#2a1f3d', '#b18cff')));
+    } else
     mesh(G.box, [dk, dk, dk, dk, wood, wood], px, h / 2, pz, axis === 'x' ? w : 0.08, h, axis === 'x' ? 0.08 : w, pivot);
-    mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : 0.07, 1.05, axis === 'x' ? 0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);
-    mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : -0.07, 1.05, axis === 'x' ? -0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);
+    if (style !== 'glass') { mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : 0.07, 1.05, axis === 'x' ? 0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);
+      mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : -0.07, 1.05, axis === 'x' ? -0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot); }
     const s = axis === 'x' ? this.solid(hx + w / 2, hz, w, 0.16, y, h) : this.solid(hx, hz + w / 2, 0.16, w, y, h);
     const d = { pivot, solid: s, open: false, ang: 0, inward, x: this.X(hx + px), z: this.Z(hz + pz), y: this.Y + y, outline: addOutline(pivot, 0.04) };
     W.doors.push(d); return d;

@@ -125,7 +125,7 @@ export const TowerMethods = {
       if (dr) {
         const e0 = U(g0), e1 = U(g1);
         const hinge = ax ? [Math.min(e0[0], e1[0]), sd.at] : [sd.at, Math.min(e0[1], e1[1])];
-        this.door(hinge[0], hinge[1], sd.axis, { s: 1, n: -1, e: -1, w: 1 }[k], 0, dw, dh);
+        this.door(hinge[0], hinge[1], sd.axis, { s: 1, n: -1, e: -1, w: 1 }[k], 0, dw, dh, dr.style || o.doorStyle || 'wood');
         const [cx, cz] = U((g0 + g1) / 2);
         if (!doorOut) doorOut = [this.X(cx + nrm[0] * 1.3), this.Z(cz + nrm[1] * 1.3), this.X(cx - nrm[0] * 1.0), this.Z(cz - nrm[1] * 1.0)];
         if (!o.awning && o.canopy !== false) {
@@ -133,7 +133,7 @@ export const TowerMethods = {
           this.m(G.box, glow(0xffd8a0), cx + nrm[0] * 0.78, dh + 0.27, cz + nrm[1] * 0.78, 0.3, 0.05, 0.3); this.light(cx + nrm[0] * 1.2, cz + nrm[1] * 1.2, 1.6);
         }
         if (HW && o.canopy !== false) { for (const s3 of [-1, 1]) if (Math.random() < 0.7) { const px = cx + nrm[0] * 0.7 + (ax ? s3 * (dw / 2 + 0.45) : 0), pz = cz + nrm[1] * 0.7 + (ax ? 0 : s3 * (dw / 2 + 0.45)); this.pumpkin(px, pz, 0.32); } }
-        if (dr.sign) this.sign(cx + nrm[0] * (t / 2 + 0.03), dh + 0.78, cz + nrm[1] * (t / 2 + 0.03), { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[k], ...dr.sign, 2.4, 0.55);
+        if (dr.sign) this.sign(cx + nrm[0] * (t / 2 + 0.03), dh + 0.78, cz + nrm[1] * (t / 2 + 0.03), { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[k], ...dr.sign, Math.max(2.4, Math.min(dw + 1.2, dr.sign[0].length * 0.24)), 0.55);
       }
     }
     if (FE) {

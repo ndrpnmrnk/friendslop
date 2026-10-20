@@ -3,6 +3,8 @@ import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
 import { pushOut, groundAt, solidsNear } from '../world/physics.js';
 import { damp } from '../core/rng.js';
+import { puff } from '../world/particles.js';
+import { sfx } from '../core/sfx.js';
 
 export const COATS = [
   { name: 'ginger', base: '#d48a4a', light: '#efc08a', dark: '#9a5420', eye: '#a8b86a', muzzle: 'rgba(250,240,225,.85)', stripes: true },
@@ -19,11 +21,15 @@ export function buildCat(coat) {
   const head = new THREE.Group(); head.position.set(0, 0.52, 0.34); root.add(head);
   const faces = {}; for (const s of ['open', 'closed', 'angry']) faces[s] = tmat(T.catFace(coat, s));
   const hm = new THREE.Mesh(headGeo(), [faces.open, fur]); hm.scale.set(0.17, 0.14, 0.13); head.add(hm);
-  const ears = [-1, 1].map(sx => { const e = mesh(G.cone4, fur, sx * 0.1, 0.13, -0.02, 0.06, 0.12, 0.04, head); e.rotation.z = -sx * 0.35; return e; });
-  const legs = [[0.1, 0.22], [-0.1, 0.22], [0.1, -0.22], [-0.1, -0.22]].map(([x, z]) => { const p = new THREE.Group(); p.position.set(x, 0.3, z); root.add(p); mesh(G.box, fur, 0, -0.15, 0, 0.07, 0.3, 0.07, p); return p; });
+  const ears = [-1, 1].map(sx => { const e = mesh(G.cone4, fur, sx * 0.1, 0.13, -0.02, 0.06, 0.12, 0.04, head); e.rotation.z = -sx * 0.35; mesh(G.cone4, lam({ color: 0xe89aa8 }, 'catEarIn'), 0, -0.1, 0.12, 0.6, 0.7, 0.5, e); return e; });
+  // мордочка: светлая пасть, розовый нос, усы
+  const light = lam({ color: new THREE.Color(coat.light) }, 'catLight' + coat.name);
+  mesh(G.sph10, light, 0, -0.045, 0.1, 0.075, 0.05, 0.05, head); mesh(G.box, lam({ color: 0xe87a8a }, 'catNose'), 0, -0.02, 0.145, 0.025, 0.018, 0.01, head);
+  for (const sx of [-1, 1]) for (const dy of [-0.01, 0.012]) { const w = mesh(G.box, lam({ color: 0xf1f1f1 }, 'catWhisk'), sx * 0.11, -0.045 + dy, 0.12, 0.13, 0.004, 0.004, head); w.rotation.z = sx * dy * 8; w.rotation.y = -sx * 0.25; }
+  const legs = [[0.1, 0.22], [-0.1, 0.22], [0.1, -0.22], [-0.1, -0.22]].map(([x, z]) => { const p = new THREE.Group(); p.position.set(x, 0.3, z); root.add(p); mesh(G.box, fur, 0, -0.14, 0, 0.07, 0.28, 0.07, p); mesh(G.box, light, 0, -0.28, 0.015, 0.08, 0.04, 0.1, p); return p; });
   const tail = new THREE.Group(); tail.position.set(0, 0.42, -0.32); root.add(tail);
-  mesh(G.box, fur, 0, 0, -0.15, 0.05, 0.05, 0.3, tail);
-  const tail2 = new THREE.Group(); tail2.position.set(0, 0, -0.3); tail.add(tail2); mesh(G.box, fur, 0, 0, -0.12, 0.045, 0.045, 0.25, tail2);
+  mesh(G.box, fur, 0, 0, -0.15, 0.06, 0.06, 0.3, tail);
+  const tail2 = new THREE.Group(); tail2.position.set(0, 0, -0.3); tail.add(tail2); mesh(G.box, fur, 0, 0, -0.12, 0.055, 0.055, 0.25, tail2); mesh(G.box, coat.stripes ? fur : light, 0, 0, -0.26, 0.06, 0.06, 0.05, tail2);
   const sh = new THREE.Mesh(G.disc, new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.03; sh.scale.set(0.25, 0.42, 1); root.add(sh);
   const stars = new THREE.Group(); stars.position.set(0, 0.85, 0.3); root.add(stars); stars.visible = false;
@@ -55,20 +61,47 @@ function freeSpot(h) {
 export function spawnCat(home) {
   const c = buildCat(COATS[(Math.random() * COATS.length) | 0]); c.home = home;
   const p = freeSpot(home); c.root.position.set(p.x, home.y, p.z); c.root.rotation.y = Math.random() * 6.28;
-  W.group.add(c.root); W.cats.push(c); return c;
+  W.group.add(c.root); W.cats.push(c);
+  // кто-то спит на тёплом капоте или крыше машины рядом с двором
+  if (Math.random() < 0.4) { const cx = (home.x0 + home.x1) / 2, cz = (home.z0 + home.z1) / 2, car = W.cars.filter(q => Math.hypot(q.x - cx, q.z - cz) < 22 && Math.abs(q.y - home.y) < 0.5).sort(() => Math.random() - 0.5)[0];
+    if (car) { const roof = Math.random() < 0.5, lx = roof ? -0.2 : 1.35, y = car.y + (roof ? 1.47 : 0.96); c.sleep = { x: car.x + lx * Math.cos(car.ry), y, z: car.z - lx * Math.sin(car.ry), car }; c.root.position.set(c.sleep.x, y, c.sleep.z); c.root.rotation.y = car.ry + Math.PI / 2 + (Math.random() - 0.5); } }
+  return c;
 }
 
+// проснулся: спрыгивает с машины и уходит к себе во двор
+function wake(c) { const sl = c.sleep; c.sleep = null; c.legs.forEach(l => (l.visible = true)); c.body.scale.y = 0.17; c.head.position.y = 0.52; c.head.rotation.x = 0; c.face('angry');
+  const h = c.home, tx = (h.x0 + h.x1) / 2, tz = (h.z0 + h.z1) / 2, d = Math.hypot(tx - sl.x, tz - sl.z) || 1; c.root.position.set(sl.x + (tx - sl.x) / d * 1.4, groundAt(sl.x + (tx - sl.x) / d * 1.4, sl.z + (tz - sl.z) / d * 1.4, 0.2, sl.y), sl.z + (tz - sl.z) / d * 1.4);
+  c.flee = 1.5; c.fx = (tx - sl.x) / d; c.fz = (tz - sl.z) / d; c.away = 30; sfx('meow', { at: c.root.position }); }
+export function purr(c) { c.purrT = 2.5; sfx('purr', { at: c.root.position }); }
 export function updateCat(c, dt, t, player) {
   let walking = false, speed = 1.4;
   const p = c.root.position;
+  if (c.mode === 'walk' && c.sleep) {
+    // спит: свернулся клубком, глаза закрыты, «Zz»; будят бегущие рядом, сигнализация, удары
+    const sl = c.sleep; p.set(sl.x, sl.y, sl.z); c.face('closed'); c.body.scale.y = 0.13; c.head.position.y = 0.4; c.head.rotation.x = 0.35; c.legs.forEach(l => (l.visible = false)); c.root.position.y = sl.y - 0.12;
+    c.tail.rotation.x = 1.4; c.tail.rotation.y = 1.2; c.tail2.rotation.x = 0.2; if (Math.random() < dt * 0.8) puff(p.x, p.y + 0.6, p.z, { color: 0xf1e8ff, size: 0.08, grow: 0.2, vy: 0.4, life: 1.2 });
+    if (c.purrT > 0) { c.purrT -= dt; if (Math.random() < dt * 4) puff(p.x, p.y + 0.7, p.z, { color: 0xff7aa8, size: 0.09, grow: 0, vy: 0.6, life: 0.8 }); }
+    const near = [player, ...(W.bots || [])].some(a => a && Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < 3 && Math.hypot(a.vel.x, a.vel.z) > 6);
+    if (near || (sl.car && sl.car.alarm > 0) || c.flee > 0 || c.dizzy > 0) { wake(c); }
+    return;
+  }
   if (c.mode === 'walk') {
     if (c.dizzy > 0) { c.dizzy -= dt; c.stars.visible = true; c.stars.rotation.y += dt * 6; c.root.rotation.z = Math.sin(t * 8) * 0.15; c.face('closed'); }
     else {
       c.stars.visible = false; c.root.rotation.z = 0;
       // боится бегущего рядом игрока
       if (player && player.speed > 6 && c.flee <= 0) { const dx = p.x - player.pos.x, dz = p.z - player.pos.z, d = Math.hypot(dx, dz); if (d < 2.2 && d > 0.01) { c.flee = 1.2; c.fx = dx / d; c.fz = dz / d; } }
-      if (c.flee > 0) { c.flee -= dt; c.target = { x: p.x + c.fx * 3, z: p.z + c.fz * 3 }; c.state = 'walk'; speed = 4.5; c.face('angry'); }
-      else c.face('open');
+      // собака рядом — шипит, выгибает спину и удирает
+      if (c.hissT > 0) c.hissT -= dt;
+      for (const d of W.dogs || []) { const dx = p.x - d.pos.x, dz = p.z - d.pos.z, dd = Math.hypot(dx, dz); if (dd < 3 && c.flee <= 0) { c.flee = 2.2; c.fx = dx / (dd || 1); c.fz = dz / (dd || 1); if (!(c.hissT > 0)) { c.hissT = 3; sfx('hiss', { at: p }); c.body.scale.y = 0.22; } } }
+      // уточка пищит или шуршит пакет в руках у бегущего — кот идёт посмотреть
+      let lure = c.lure && c.lure.t > 0 ? c.lure : null; if (c.lure) c.lure.t -= dt;
+      if (!lure) for (const a of [player, ...(W.bots || [])]) if (a && a.held && (a.held.type === 'trash' || a.held.type === 'litter') && Math.hypot(a.vel.x, a.vel.z) > 1 && Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < 9) { lure = { x: a.pos.x, z: a.pos.z }; break; }
+      if (c.purrT > 0) { c.purrT -= dt; c.face('closed'); c.state = 'idle'; c.timer = Math.max(c.timer, 0.5); c.tail.rotation.x = 0; if (Math.random() < dt * 4) puff(p.x, p.y + 0.8, p.z, { color: 0xff7aa8, size: 0.09, grow: 0, vy: 0.6, life: 0.8 }); }
+      else if (c.flee > 0) { c.flee -= dt; c.target = { x: p.x + c.fx * 3, z: p.z + c.fz * 3 }; c.state = 'walk'; speed = 4.5; c.face('angry'); }
+      else if (lure && Math.hypot(lure.x - p.x, lure.z - p.z) > 0.9) { c.target = { x: lure.x, z: lure.z }; c.state = 'walk'; c.timer = 2; c.lured = true; speed = 3; c.face('open'); }
+      else { c.lured = false; c.face('open'); }
+      if (!(c.hissT > 2.4)) c.body.scale.y += (0.17 - c.body.scale.y) * Math.min(1, dt * 6);
       c.timer -= dt;
       if (c.state === 'idle') { if (c.timer <= 0) { c.target = freeSpot(c.home); c.state = 'walk'; c.timer = 8; } }
       else {
@@ -78,7 +111,7 @@ export function updateCat(c, dt, t, player) {
           const v = speed * dt, ox = p.x, oz = p.z; p.x += dx / d * v; p.z += dz / d * v;
           pushOut(p, 0.35, p.y + 0.25, p.y + 0.6);
           // не уходить из своего двора
-          p.x = Math.max(c.home.x0, Math.min(c.home.x1, p.x)); p.z = Math.max(c.home.z0, Math.min(c.home.z1, p.z));
+          if (!c.lured) { p.x = Math.max(c.home.x0 - (c.away || 0), Math.min(c.home.x1 + (c.away || 0), p.x)); p.z = Math.max(c.home.z0 - (c.away || 0), Math.min(c.home.z1 + (c.away || 0), p.z)); c.away = Math.max(0, (c.away || 0) - dt * 2); } else c.away = 12;
           if (Math.hypot(p.x - ox, p.z - oz) < v * 0.3) c.timer = 0;
           let a = Math.atan2(dx, dz) - c.root.rotation.y; a = Math.atan2(Math.sin(a), Math.cos(a)); c.root.rotation.y += a * damp(8, dt);
           walking = true;

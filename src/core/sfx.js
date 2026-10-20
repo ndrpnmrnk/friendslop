@@ -24,6 +24,22 @@ function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
 const SND = {
+  // удар по материалу (v0.18): металл звенит, дерево стучит, бетон глухой, земля/трава мягкие, вода плещет, стекло звякает
+  imp: s => { const v = s.v ?? 1, m = s.m || 'concrete';
+    if (m === 'metal') { tone(620, 540, 0.22, 'triangle', 0.1 * v); tone(1240, 1100, 0.16, 'square', 0.03 * v); noise(0.06, 0.1 * v, 3500, 2); }
+    else if (m === 'wood') { noise(0.1, 0.18 * v, 800, 2.5); tone(220, 120, 0.08, 'square', 0.06 * v); }
+    else if (m === 'dirt') noise(0.14, 0.16 * v, 300, 0.7, 0, 'lowpass');
+    else if (m === 'grass') noise(0.12, 0.12 * v, 900, 0.6, 0, 'bandpass', 400);
+    else if (m === 'water') { noise(0.3, 0.16 * v, 1600, 0.8, 0, 'lowpass', 300); tone(500, 900, 0.08, 'sine', 0.05 * v, 0.03); }
+    else if (m === 'glass') { for (let i = 0; i < 3; i++) tone(2600 + Math.random() * 1800, 2000, 0.09, 'triangle', 0.04 * v, i * 0.02); }
+    else if (m === 'cloth') noise(0.12, 0.1 * v, 600, 0.5, 0, 'lowpass');
+    else { noise(0.08, 0.2 * v, 450, 1.2); tone(110, 60, 0.08, 'square', 0.07 * v); } },
+  crow: () => { for (let i = 0; i < 2; i++) { noise(0.16, 0.08, 1300, 3, i * 0.22); tone(520, 380, 0.15, 'sawtooth', 0.05, i * 0.22); } },
+  purr: () => { for (let i = 0; i < 6; i++) noise(0.07, 0.07, 140, 1.5, i * 0.09, 'lowpass'); },
+  curse: () => { [330, 280, 360, 250].forEach((f, i) => tone(f, f * 0.8, 0.07, 'square', 0.06, i * 0.07)); },
+  confetti: () => { noise(0.08, 0.2, 3000, 1); for (let i = 0; i < 5; i++) tone(1500 + Math.random() * 1500, 1200, 0.05, 'square', 0.03, 0.05 + i * 0.03); },
+  fizz: () => noise(0.7, 0.14, 4000, 0.6, 0, 'highpass', 1500),
+  feather: () => noise(0.25, 0.08, 2500, 0.5, 0, 'bandpass', 900),
   deadline: s => tone(700 + (s.urgency || 0) * 600, 660, 0.09, 'square', 0.12),
   step: s => noise(0.05, 0.05 * (s.v ?? 1), s.surf === 'grass' ? 700 : s.surf === 'metal' ? 3000 : s.surf === 'water' ? 900 : 1600, 2),
   jump: () => tone(220, 520, 0.12, 'square', 0.08),

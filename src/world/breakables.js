@@ -67,7 +67,7 @@ export function breakPiece(p, vel = [0, 0, 0]) {
     }
     for (let i = 0; i < 8; i++) chunk(pos.x, pos.y, pos.z, [(Math.random() - 0.5) * 6, 1 + Math.random() * 4, (Math.random() - 0.5) * 6], { mat: PLANK(), size: 1, sx: 0.04, sy: 0.04, sz: 0.18, r: 0.03, life: 2.5 });
     burst(pos.x, pos.y, pos.z, 5, { color: 0x9a7a52, size: 0.4, speed: 1.6, up: 1, g: 2, grow: 1.2, life: 0.8 });
-    p.respawnT = 40; if (W.crateHook) W.crateHook(pos.clone(), p);
+    p.respawnT = 0; if (W.crateHook) W.crateHook(pos.clone(), p);
   } else if (p.kind === 'pot') {
     const [w, h] = p.size;
     for (let i = 0; i < 7; i++) chunk(pos.x, pos.y + 0.2, pos.z, [(Math.random() - 0.5) * 4 + vel[0] * 0.3, 1 + Math.random() * 3, (Math.random() - 0.5) * 4 + vel[2] * 0.3], { mat: col(0xb05a3a), size: 0.08 + Math.random() * 0.06, sy: 0.4, life: 3 });
