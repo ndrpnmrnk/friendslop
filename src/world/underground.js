@@ -1,4 +1,4 @@
-import { THREE, G, mesh, tmat, col, glow, flat, alphaMat } from '../core/gfx.js';
+import { THREE, G, mesh, tmat, smat, col, glow, flat, alphaMat } from '../core/gfx.js';
 import { T, rep } from '../core/textures.js';
 import { rand, shuffle } from '../core/rng.js';
 import { CONFIG } from '../config.js';
@@ -14,7 +14,7 @@ export const UG = { floor: -4, ceil: -1, inner: 3, wall: 0.4 };
 
 export function buildRoadsAndTunnels(half) {
   const { grid, chunk, road } = CONFIG, c = i => -half + road / 2 + i * (chunk + road);
-  const asphalt = T.asphalt(), dk = col(0x1d1824), brick = tmat(T.brickWall()), conc = tmat(T.concrete());
+  const asphalt = T.asphalt(), dk = col(0x1d1824), brick = smat(T.brickWall()), conc = smat(T.concrete());
   const roadBox = (x0, z0, x1, z1) => {
     if (x1 - x0 < 0.01 || z1 - z0 < 0.01) return;
     const w = x1 - x0, d = z1 - z0, top = flat(rep(asphalt, w / 3, d / 3));
@@ -67,7 +67,7 @@ function wallPiece(x0, z0, x1, z1, mat) {
 const KINDS = ['brick', 'tech', 'tech', 'flooded', 'brick'];
 function tunnelSegment(s, P, brick, conc) {
   const kind = KINDS[(rand() * KINDS.length) | 0];
-  const wallMat = kind === 'tech' ? tmat(T.tunnelTile()) : tmat(T.oldBrick());
+  const wallMat = kind === 'tech' ? smat(T.tunnelTile()) : smat(T.oldBrick());
   const half = UG.inner / 2, t = UG.wall, a = s.a - 1.5 + half + t, b = s.b + 1.5 - half - t; // от края узла до края узла
   const A = s.a - (3 - UG.inner) / 2, B = s.b + (3 - UG.inner) / 2;
   const box = (u0, v0, u1, v1, fn) => { const [x0, z0] = P(u0, v0), [x1, z1] = P(u1, v1); fn(Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1)); };

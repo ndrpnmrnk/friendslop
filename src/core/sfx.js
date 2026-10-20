@@ -69,6 +69,49 @@ const SND = {
   frog_happy: s => frog([[190, 0.12, 0, 1.05], [235, 0.12, 0.15, 1.05], [290, 0.2, 0.3, 1.1]], s.v),
   frog_idle: s => frog(Math.random() < 0.5 ? [[165, 0.24], [150, 0.28, 0.32]] : [[180, 0.3]], s.v),
   fish: () => tone(500, 300, 0.1, 'triangle', 0.06),
+  // инструменты
+  swat: s => { noise(0.08, 0.2 * (s.v ?? 1), 2500, 1.2); tone(300, 120, 0.06, 'square', 0.06); },
+  pillow: s => { noise(0.22, 0.18 * (s.v ?? 1), 500, 0.7, 0, 'lowpass', 200); },
+  umbrella: () => { noise(0.18, 0.12, 1500, 0.8, 0, 'bandpass', 600); tone(500, 800, 0.06, 'square', 0.04); },
+  drop: () => noise(0.06, 0.08, 900, 1),
+  squeak: s => { tone(1300, 1900, 0.09, 'square', 0.07 * (s.v ?? 1)); tone(1900, 1200, 0.12, 'square', 0.06 * (s.v ?? 1), 0.09); },
+  bubble: s => tone(400, 1100, 0.14, 'sine', 0.1 * (s.v ?? 1)),
+  whistle: () => { tone(2600, 2700, 0.5, 'square', 0.07); tone(2650, 2600, 0.5, 'triangle', 0.05); for (let i = 0; i < 8; i++) tone(2600, 2400, 0.03, 'square', 0.03, i * 0.06); },
+  fuse: () => noise(0.5, 0.08, 4000, 2, 0, 'highpass'),
+  spray: () => noise(0.28, 0.08, 3000, 0.6, 0, 'highpass'),
+  magnet: () => tone(90, 110, 0.28, 'sawtooth', 0.04),
+  slip: s => { tone(900, 200, 0.3, 'triangle', 0.1 * (s.v ?? 1)); noise(0.1, 0.12 * (s.v ?? 1), 800, 1, 0.25); },
+  grab: s => { noise(0.07, 0.12 * (s.v ?? 1), 1200, 1); tone(220, 330, 0.08, 'square', 0.05 * (s.v ?? 1)); },
+  door: s => { noise(0.2, 0.3 * (s.v ?? 1), 300, 0.8, 0, 'lowpass', 90); tone(120, 60, 0.15, 'square', 0.08 * (s.v ?? 1)); },
+  // эмоции
+  emote_wave: s => { tone(520, 700, 0.1, 'triangle', 0.07 * (s.v ?? 1)); tone(700, 880, 0.12, 'triangle', 0.06 * (s.v ?? 1), 0.1); },
+  emote_dance: s => { [523, 659, 784, 659, 880, 784].forEach((f, i) => tone(f, f, 0.12, 'square', 0.04 * (s.v ?? 1), i * 0.14)); },
+  emote_laugh: s => { for (let i = 0; i < 5; i++) tone(420 - i * 20, 300 - i * 20, 0.09, 'square', 0.06 * (s.v ?? 1), i * 0.12); },
+  emote_call: s => { tone(600, 900, 0.18, 'triangle', 0.09 * (s.v ?? 1)); tone(900, 700, 0.25, 'triangle', 0.08 * (s.v ?? 1), 0.22); },
+  // миссии, события, город
+  chop: () => { noise(0.05, 0.18, 2000, 1.4); tone(700, 400, 0.04, 'square', 0.04); },
+  ring: () => { for (let i = 0; i < 6; i++) tone(i % 2 ? 1300 : 1600, i % 2 ? 1300 : 1600, 0.07, 'square', 0.05, i * 0.08); },
+  msg: () => { tone(880, 1320, 0.07, 'square', 0.06); tone(1320, 1760, 0.1, 'square', 0.05, 0.07); },
+  screw: () => noise(0.07, 0.08, 3000, 3),
+  fire: s => noise(0.4, 0.06 * (s.v ?? 1), 700, 0.5, 0, 'lowpass', 300),
+  hiss: s => noise(0.5, 0.12 * (s.v ?? 1), 2500, 0.6, 0, 'bandpass', 900),
+  goal: () => { for (let i = 0; i < 3; i++) tone(392 + i * 131, 392 + i * 131, 0.25, 'square', 0.08, i * 0.12); noise(0.5, 0.1, 1500, 0.5, 0.3); },
+  moth: s => tone(70, 90, 0.3, 'sawtooth', 0.05 * (s.v ?? 1)),
+  bonk: s => { tone(800, 300, 0.1, 'square', 0.09 * (s.v ?? 1)); noise(0.06, 0.12 * (s.v ?? 1), 1500, 1); },
+  hill: () => tone(1046, 1046, 0.05, 'square', 0.04),
+  crown: () => { [784, 988, 1175, 1568].forEach((f, i) => tone(f, f, 0.1, 'square', 0.06, i * 0.07)); },
+  combo: s => { const k = s.k || 2; for (let i = 0; i < k; i++) tone(660 + i * 220, 660 + i * 220, 0.08, 'square', 0.07, i * 0.06); },
+  bark: s => { noise(0.07, 0.16 * (s.v ?? 1), 700, 1.5); tone(330, 220, 0.08, 'square', 0.08 * (s.v ?? 1)); },
+  granny: s => { tone(700, 500, 0.15, 'triangle', 0.08 * (s.v ?? 1)); tone(760, 520, 0.2, 'triangle', 0.08 * (s.v ?? 1), 0.18); },
+  horn: s => { tone(220, 220, 0.5, 'sawtooth', 0.06 * (s.v ?? 1)); tone(277, 277, 0.5, 'sawtooth', 0.05 * (s.v ?? 1)); },
+  honk: s => { tone(500, 500, 0.12, 'square', 0.07 * (s.v ?? 1)); tone(500, 500, 0.12, 'square', 0.07 * (s.v ?? 1), 0.16); },
+  wind: () => noise(1.6, 0.1, 500, 0.4, 0, 'bandpass', 1400),
+  zip: s => noise(0.3, 0.06 * (s.v ?? 1), 3500, 4),
+  roll: s => noise(0.3, 0.12 * (s.v ?? 1), 200, 0.6, 0, 'lowpass', 120),
+  thunder: () => { noise(1.8, 0.25, 160, 0.4, 0, 'lowpass', 50); noise(0.3, 0.15, 600, 0.5, 0.05); },
+  gull: s => { tone(1400, 900, 0.18, 'triangle', 0.05 * (s.v ?? 1)); tone(1300, 900, 0.16, 'triangle', 0.04 * (s.v ?? 1), 0.2); },
+  fart: s => { const v = s.v ?? 1; for (let i = 0; i < 9; i++) tone(95 + Math.random() * 30, 70, 0.06, 'sawtooth', 0.09 * v, i * 0.045); noise(0.4, 0.05 * v, 200, 1); },
+  open: s => { tone(260, 180, 0.12, 'square', 0.05 * (s.v ?? 1)); noise(0.1, 0.06 * (s.v ?? 1), 1200, 1); },
 };
 // кваканье: низкая пила с «дрожанием» (быстрое повторение импульсов) + немного шума
 /* «КВА» как слог: щелчок «к» (короткий шум) + голосовое «ва» — пила с высотой голоса проходит через
@@ -107,4 +150,11 @@ export function ambience(on) {
     const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = 0.08; lg.gain.value = 160; lfo.connect(lg); lg.connect(f.frequency); lfo.start();
     s.connect(f); f.connect(g); g.connect(master); s.start(); amb = { s, lfo }; }
   if (!on && amb) { amb.s.stop(); amb.lfo.stop(); amb = null; }
+}
+// шум дождя: тихий шелест (шум через полосовой фильтр), включается погодой
+let rainN = null;
+export function rainLoop(on) {
+  if (!ac) return;
+  if (on && !rainN) { const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.4; const g = ac.createGain(); g.gain.value = 0.035; s.connect(f); f.connect(g); g.connect(master); s.start(); rainN = s; }
+  if (!on && rainN) { rainN.stop(); rainN = null; }
 }

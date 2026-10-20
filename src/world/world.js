@@ -13,7 +13,7 @@ import { buildEdges } from './edges.js';
 import { buildRoadsAndTunnels } from './underground.js';
 import { bakeStatic } from './bake.js';
 
-const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dirt(), concrete: () => T.concrete(), asphalt: () => T.asphalt(), cobble: () => T.cobble() };
+const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dirt(), concrete: () => T.concrete(), asphalt: () => T.asphalt(), cobble: () => T.cobble(), flag: () => T.flag() };
 
 /* Карта: сетка grid x grid районов, выбранных случайно из всех без повторов.
    Между районами дороги с разметкой. Ни один район не выделяется. */

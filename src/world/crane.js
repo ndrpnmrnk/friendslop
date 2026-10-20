@@ -1,13 +1,13 @@
 import { THREE, G, V3, mesh, col, tmat, glow, lam } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
-import { groundAt, impulsePushables, solidsNear } from './physics.js';
+import { groundAt, impulsePushables, solidsNear, addObb } from './physics.js';
 import { hitBreakables } from './breakables.js';
 import { clamp, damp } from '../core/rng.js';
 import { addOutline } from '../game/outline.js';
 
-/* Башенный кран с шар-бабой. Залезаешь по лестнице на мачту, садишься в кабину (E),
-   мышь влево-вправо крутит стрелу с инерцией, вверх-вниз двигает тележку.
+/* Башенный кран с шар-бабой. Залезаешь по лестнице на мачту, садишься в кабину (E):
+   W/S — тележка по стреле, A/D — поворот стрелы с инерцией. По стреле можно пройти пешком.
    Шар — маятник; стена из блоков рассыпается на обломки, верхние блоки без опоры падают. */
 export function buildCrane(b, mx, mz, aimAt) {
   const yellow = col(0xe0b02a), dark = col(0x2b2533), H = 10;
@@ -22,28 +22,38 @@ export function buildCrane(b, mx, mz, aimAt) {
   // кабина
   const cab = b.m(G.box, [yellow, yellow, yellow, dark, tmat(T.carGlass(0xe0b02a)), yellow], mx - 0.75, H + 1.0, mz - 0.6, 1.2, 1.6, 1.2);
   b.solid(mx - 0.75, mz - 0.6, 1.2, 1.2, H + 0.2, 1.6);
-  // стрела
+  // стрела: решётчатая ферма, как у мачты; по верху — мостки, по стреле можно ходить (коллизия поворачивается вместе с ней)
   const top = b.Y + H + 2.2, pivot = new THREE.Group(); pivot.position.set(b.X(mx), top, b.Z(mz)); W.group.add(pivot);
-  mesh(G.box, yellow, 0, -0.8, 0, 0.8, 1.6, 0.8, pivot);
-  mesh(G.box, yellow, 6, 0, 0, 13, 0.5, 0.6, pivot);
-  mesh(G.box, yellow, -3, 0, 0, 5, 0.5, 0.6, pivot);
-  mesh(G.box, tmat(T.concrete()), -5, -0.6, 0, 1.4, 1.2, 1.2, pivot);
+  const truss = len => { const t = T.truss().clone(); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(len, 1); t.needsUpdate = true; return lam({ map: t, alphaTest: 0.5, side: THREE.DoubleSide }); };
+  mesh(G.box, yellow, 0, -0.8, 0, 0.6, 1.6, 0.6, pivot);
+  mesh(G.box, truss(13), 6, -0.05, 0, 13, 0.6, 1.0, pivot);
+  mesh(G.box, truss(5), -3, -0.05, 0, 5, 0.6, 1.0, pivot);
+  mesh(G.box, tmat(T.metal()), 3.25, 0.255, 0, 18.5, 0.04, 0.5, pivot);
+  for (const sz of [-0.48, 0.48]) mesh(G.box, yellow, 3.25, 0.62, sz, 18.5, 0.05, 0.05, pivot);
+  for (let x = -5.5; x <= 12.5; x += 1.5) for (const sz of [-0.48, 0.48]) mesh(G.box, yellow, x, 0.44, sz, 0.05, 0.38, 0.05, pivot);
+  // кабина оператора на поворотной части + противовес
+  mesh(G.box, tmat(T.concrete()), -5, -0.75, 0, 1.4, 1.2, 1.2, pivot);
   mesh(G.box, glow(0xff3a2a), 12.4, 0.35, 0, 0.2, 0.2, 0.2, pivot);
-  const trolley = mesh(G.box, dark, 8, -0.35, 0, 0.7, 0.3, 0.7, pivot);
+  // неподвижная «шайба» поворота над площадкой: на неё ведёт лесенка, с неё шагаешь на стрелу
+  b.m(G.cyl12, dark, mx, H + 1.25, mz, 0.5, 2.1, 0.5); b.solid(mx, mz, 0.9, 0.9, 0.2 + H, 2.05);
+  b.ladder(mx + 0.45, mz, 'e', H + 2.27, H + 0.2);
+  const boom = addObb({ cx: b.X(mx), cz: b.Z(mz), yaw: 0, lx0: -5.5, lx1: 12.5, lz0: -0.5, lz1: 0.5, y0: top - 0.35, y1: top + 0.27 });
+  const cw = addObb({ cx: b.X(mx), cz: b.Z(mz), yaw: 0, lx0: -5.7, lx1: -4.3, lz0: -0.6, lz1: 0.6, y0: top - 1.35, y1: top - 0.15 });
+  const trolley = mesh(G.box, dark, 8, -0.5, 0, 0.7, 0.3, 0.7, pivot);
   // шар и трос
   const ballR = 0.6, rope = 9.4;
   const ball = mesh(G.sph10, tmat(T.metal()), 0, 0, 0, ballR, ballR, ballR, W.group);
   const ropeM = mesh(G.box, dark, 0, 0, 0, 0.05, 1, 0.05, W.group);
   W.keep.push(pivot, ball, ropeM);
   const cr = {
-    pivot, trolley, ball, ropeM,
+    pivot, trolley, ball, ropeM, boom, cw,
     yaw: Math.atan2(-(b.Z(aimAt[1]) - b.Z(mz)), b.X(aimAt[0]) - b.X(mx)) + 0.5, yawV: 0, tr: 8, ballR, rope,
     seat: new V3(b.X(mx + 0.2), b.Y + H + 0.2, b.Z(mz - 0.3)), cab: new V3(b.X(mx - 0.75), b.Y + H + 0.2, b.Z(mz - 0.6)),
     outline: addOutline(cab, 0.06),
     look: new V3(b.X(aimAt[0]), b.Y + 2, b.Z(aimAt[1])), active: false,
     p: new V3(), prev: new V3(),
   };
-  pivot.rotation.y = cr.yaw;
+  pivot.rotation.y = cr.yaw; boom.yaw = cw.yaw = cr.yaw;
   const a = anchor(cr); cr.p.set(a.x, a.y - rope, a.z); cr.prev.copy(cr.p);
   W.crane = cr;
   W.spots.crane.push({ x: b.X(mx + 1.6), z: b.Z(mz + 2.8), y: b.Y, f: [0, 1], district: b.d, label: 'кран' });
@@ -54,20 +64,17 @@ function anchor(cr) { return cr.trolley.getWorldPosition(_a); }
 
 export function updateCrane(dt, input, pl) {
   const cr = W.crane; if (!cr) return;
-  /* Управление: WASD двигает точку, куда надо подвести шар (относительно камеры),
-     стрела сама поворачивается к ней с инерцией, тележка едет по стреле. */
-  const mx = cr.pivot.position.x, mz = cr.pivot.position.z;
-  if (!cr.target) { const a0 = anchor(cr); cr.target = { x: a0.x, z: a0.z }; }
+  /* Управление напрямую: W/S — тележка по стреле вперёд-назад, A/D — поворот стрелы (с инерцией). */
   if (cr.active && input) {
-    cr.target.x += input.ix * 7 * dt; cr.target.z += input.iz * 7 * dt;
-    let dx = cr.target.x - mx, dz = cr.target.z - mz, r = Math.hypot(dx, dz) || 1;
-    const rr = clamp(r, 3, 12.4); cr.target.x = mx + dx / r * rr; cr.target.z = mz + dz / r * rr;
-    const want = Math.atan2(-(cr.target.z - mz), cr.target.x - mx);
-    let dd = want - cr.pivot.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd));
-    cr.yawV += (clamp(dd * 2.2, -1.1, 1.1) - cr.yawV) * damp(3, dt);
-    cr.tr += clamp(rr - cr.tr, -3.5 * dt, 3.5 * dt);
-  } else { cr.yawV *= Math.exp(-dt * 2); if (cr.target && !cr.active) { const a0 = anchor(cr); cr.target.x = a0.x; cr.target.z = a0.z; } }
-  cr.pivot.rotation.y += cr.yawV * dt;
+    cr.yawV += (-input.ix * 0.85 - cr.yawV) * damp(2.5, dt);
+    cr.tr = clamp(cr.tr - input.iz * 4.5 * dt, 2.5, 12.2);
+  } else cr.yawV *= Math.exp(-dt * 2);
+  const dyaw = cr.yawV * dt;
+  cr.pivot.rotation.y += dyaw;
+  cr.boom.yaw = cr.cw.yaw = cr.pivot.rotation.y;
+  // кто стоит на стреле — поворачивается вместе с ней
+  if (dyaw) for (const a of [pl, ...(W.bots || [])]) { if (!a || !a.onGround || (a.groundObb !== cr.boom && a.groundObb !== cr.cw)) continue;
+    const dx = a.pos.x - cr.boom.cx, dz = a.pos.z - cr.boom.cz, c = Math.cos(dyaw), s2 = Math.sin(dyaw); a.pos.x = cr.boom.cx + dx * c + dz * s2; a.pos.z = cr.boom.cz - dx * s2 + dz * c; if (a.root) a.root.rotation.y += dyaw; if (a.facing !== undefined) a.facing += dyaw; }
   cr.trolley.position.x = cr.tr;
   cr.pivot.updateMatrixWorld();
   // маятник (Верле)

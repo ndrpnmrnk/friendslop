@@ -15,6 +15,7 @@ export default {
     b.tower({ x: 7, z: 1, w: 18, d: 13, floors: N, fh: FH, fireEscape: { side: 'w', at: 0.55 }, wall: 0x4e5c7a, brick: false, lit: 0.75, floor: T.carpet(),
       door: { side: 's', at: 0.5, sign: ['БЦ «ПОЛНОЛУНИЕ»', '#17111f', '#b18cff'] },
       interior(f, k, r) {
+        if (k % 3 === 1) for (let i = 0; i < 4; i++) f.locker(r.x1 - 0.4 - i * 0.6, r.z1 - 0.3, Math.PI, 0x4a5a7a);
         if (k === 0) {
           // лобби: ресепшен, лифты, турникеты, диваны
           f.box(16, 7.2, 4, 0.8, 1.1, tmat(T.wood())); f.m(G.box, col(0x2b2533), 16, 1.12, 7.2, 4.1, 0.05, 0.9); f.desk(16, 6.4, 0, true);
@@ -85,6 +86,8 @@ export default {
     b.car(3, 19.5, 0, 0x2a2a30); b.bin(8.5, 18.2); b.bin(23.5, 18.2);
     b.lamp(1.2, 15.5, Math.PI / 2); b.lamp(30.8, 15.5, -Math.PI / 2); b.lamp(8, 31, 0); b.lamp(24, 31, 0);
     b.crate(30.6, 1.2, 1); b.crate(30.6, 2.3, 0.9);
+    // зиплайн с крыши высотки на площадь
+    b.zipline(23.4, N * FH + 2.9, 13.1, 29, 2.6, 24.2);
     b.zone('floor', 9, 17, 23, 28); b.zone('floor', 25, 14.5, 31, 24);
     b.cats(1, 14.5, 31, 31);
     b.spawn(12, 19); b.spawn(4, 28);

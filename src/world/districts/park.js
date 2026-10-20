@@ -45,6 +45,7 @@ export default {
     b.streetSign(18.6, 18.6, 'ПАРКОВАЯ', 'АЛЛЕЯ ТЫКВ'); b.bikeRack(22.5, 13.9, 3, 0);
     b.item('balloon', 13.4, 26.6); b.item('balloon', 13.9, 27.1); b.item('balloon', 13.3, 27.5);
     b.bouncyPumpkin(27.5, 15.4, 1.5);
+    b.seesaw(7.5, 1.5, Math.PI / 2); b.rake(28.8, 23.6, 1.2); b.ride('ring', 7.5, 24.5, 0, 0.06);
     b.zone('floor', 1, 13, 13.5, 14);
     b.mist(0.5, 17.5, 14, 31.5); b.zone('floor', 18, 13, 31, 19.5); b.zone('floor', 14.6, 1, 17.4, 31);
     b.cats(18, 13, 31, 19);

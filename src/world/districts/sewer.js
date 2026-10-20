@@ -1,4 +1,4 @@
-import { THREE, G, tmat, col, glow } from '../../core/gfx.js';
+import { THREE, G, tmat, smat, col, glow } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
 import { addSolid, addZone } from '../physics.js';
@@ -13,7 +13,7 @@ export default {
   id: 'sewer', name: 'Коллектор', ground: 'concrete',
   holes: [[12, 0, 20, 32], [27.4, 23.4, 28.6, 24.6]],
   build(b) {
-    const conc = tmat(T.concrete()), brick = tmat(T.brickWall()), dk = col(0x2b2533);
+    const conc = smat(T.concrete()), brick = smat(T.brickWall()), dk = col(0x2b2533);
     const S = (x0, z0, x1, z1, y0, y1, mat) => { b.m(G.box, mat, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0); b.solid((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, y0, y1 - y0); };
     // канал продолжается под дорогами до стен тоннелей (−1.3 и 33.3)
     const za = -1.3, zb = 33.3;
@@ -69,7 +69,7 @@ export default {
     for (const [x, z0, z1] of [[11.5, 0.5, 4.5], [11.5, 7.5, 14.4], [11.5, 17.6, 31.5], [20.5, 0.5, 7.5], [20.5, 11, 14.4], [20.5, 17.6, 25.5], [20.5, 28.5, 31.5]]) b.fence(x, z0, x, z1, 1.1, 'iron');
     b.crate(5, 5, 1.1); b.crate(6.1, 5.2, 0.9); b.barrel(3, 28); b.barrel(4, 28.6);
     b.bench(6, 16, Math.PI / 2); b.trashBags(1.5, 9, 2); b.puddle(6, 25, 1); b.graffiti(12.02, -2.2, 18, Math.PI / 2, 2.6, 4); b.utilityBox(10.6, 22, -Math.PI / 2); b.planter(5, 22.5, 2.2, 1.2, 0.45, 'shrub'); b.tree(3, 20); b.tree(8, 26); b.lamp(10.5, 16, -Math.PI / 2); b.lamp(22, 16, Math.PI / 2);
-    b.ride('barrow', 25, 14, 1);
+    b.ride('barrow', 25, 14, 1); b.slickManhole(4, 8);
     b.mist(12, 0, 20, 32, FLOOR + 0.1);
     // стена для граффити (расписана с обеих сторон), замки «на счастье» на перилах моста, лавочка и автомат
     b.box(5.5, 12.6, 7, 0.3, 2.2, conc); b.m(G.box, col(0x3a3440), 5.5, 2.24, 12.6, 7.1, 0.08, 0.38);

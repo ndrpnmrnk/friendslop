@@ -292,15 +292,18 @@ export const TowerMethods = {
     const g = this.prop(x, z, ry), wd = tmat(T.cabinet(0xd8d0c0)), top = col(0x3a3440), mt = tmat(T.metal());
     const a = (px, py, pz, sx, sy, sz, mm) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
     a(0, 0.45, 0, len, 0.9, 0.6, wd); a(0, 0.92, 0, len + 0.04, 0.05, 0.64, top); a(len / 2 - 0.4, 0.96, 0, 0.6, 0.02, 0.5, col(0x17141c));
-    a(-len / 2 - 0.35, 0.95, 0, 0.7, 1.9, 0.65, mt); a(-len / 2 - 0.35, 1.25, 0.33, 0.04, 0.4, 0.02, col(0x2b2533));
     a(0, 1.75, -0.12, len, 0.6, 0.35, wd);
-    const q = Math.abs(Math.sin(ry)) > 0.5, L = len + 1.4;
-    this.solid(x + (q ? 0 : -0.35), z + (q ? -0.35 : 0), q ? 0.65 : L, q ? L : 0.65, 0, 0.95);
+    const q = Math.abs(Math.sin(ry)) > 0.5;
+    this.solid(x, z, q ? 0.65 : len, q ? len : 0.65, 0, 0.95);
+    // холодильник с открывающейся дверцей рядом со столешницей
+    const fx = -len / 2 - 0.4; this.fridge(x + fx * Math.cos(ry), z - fx * Math.sin(ry), ry);
+    this.kitchenSpot(x, z, [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))]);
   },
   desk(x, z, ry = 0, pc = true) {
     const g = this.prop(x, z, ry), wd = tmat(T.wood()), dk = col(0x2b2533);
     const a = (px, py, pz, sx, sy, sz, mm) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
     a(0, 0.74, 0, 1.4, 0.05, 0.7, wd); for (const xx of [-0.66, 0.66]) a(xx, 0.37, 0, 0.05, 0.74, 0.66, dk); a(0.45, 0.45, 0, 0.42, 0.5, 0.6, tmat(T.cabinet(0x6a6d78)));
+    if (pc && Math.random() < 0.35) this.phoneSpot(x, z, [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))]);
     if (pc) { a(0, 1.05, -0.18, 0.6, 0.4, 0.04, dk); a(0, 1.05, -0.155, 0.54, 0.34, 0.01, tmat(T.screen())); a(0, 0.82, -0.18, 0.08, 0.12, 0.06, dk); a(0, 0.775, 0.1, 0.45, 0.02, 0.15, col(0x3a3440)); }
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.7 : 1.4, q ? 1.4 : 0.7, 0, 0.78);
   },

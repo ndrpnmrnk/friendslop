@@ -44,7 +44,7 @@ export default {
       W.tunnelOpenings.push({ axis: 'x', at: b.Z(0) - 1.5 - 0.2, from: b.X(12.3), to: b.X(13.7) });
     }
     for (const [x, z] of [[14.2, 18], [17.8, 18], [14.2, 27], [17.8, 27]]) b.lantern(x, z);
-    b.bench(24, 11.6, 0); b.bench(8, 11.6, 0);
+    b.bench(24, 11.6, 0); b.bench(8, 11.6, 0); b.rake(20.5, 6.5, 0.7);
     b.shed(3, 3, 4, 3.5);
     b.lamp(14.2, 14, Math.PI / 2); b.lamp(17.8, 24, -Math.PI / 2);
     b.zone('nook', 22, 2, 30.4, 9.4);

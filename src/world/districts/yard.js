@@ -20,7 +20,7 @@ export default {
         }
         f.partition(15.5, 1.25, 15.5, 7.75, 3.1, 0.62);
         if (k === 1) {
-          f.sofa(9, 7.1, Math.PI); f.tvStand(9, 4.85, 0); f.rug(9, 5.7, 2.6, 1.6, '#4a6a9a', '#f1e8ff');
+          f.sofa(9, 7.1, Math.PI); f.tvStand(9, 4.85, 0); f.cupboard(5.2, 7.4, Math.PI); f.rug(9, 5.7, 2.6, 1.6, '#4a6a9a', '#f1e8ff');
           f.table(13.5, 5.5, 0.8); f.chair(13.5, 6.4, Math.PI); f.chair(13.5, 4.6, 0);
           f.kitchen(19.5, 1.6, 3); f.table(20, 5.4, 0.9); f.chair(19.2, 5.4, Math.PI / 2); f.chair(20.8, 5.4, -Math.PI / 2); f.plantPot(23.3, 7.3);
         } else if (k === 2) {
@@ -50,8 +50,14 @@ export default {
     b.box(17, 13, 1.2, 1.2, 0.12, col(0xd04a4a), { y: 1.25 });
     for (const [x, z] of [[16.45, 12.45], [17.55, 12.45], [16.45, 13.55], [17.55, 13.55]]) b.m(G.box, col(0xf5c542), x, 0.62, z, 0.08, 1.25, 0.08);
     b.solid(17, 13, 1.2, 1.2, 0, 1.25);
-    for (let i = 0; i < 4; i++) b.box(17, 11.9, 0.8, 0.15, 0.06, col(0xf5c542), { y: 0.3 * (i + 1), solid: false });
-    const sl = b.m(G.box, col(0x4ab0f0), 17, 0.7, 15.3, 0.8, 0.06, 3.2); sl.rotation.x = 0.4;
+    b.ladder(17, 12.4, 'n', 1.37);
+    // скат: верхний край у площадки, нижний — у земли, с бортиками; по нему съезжаешь
+    { const ang = Math.atan2(1.3, 3.0), L = Math.hypot(1.3, 3.0), zc = 13.6 + 1.5;
+      const sl = b.m(G.box, col(0x4ab0f0), 17, 0.72, zc, 0.8, 0.06, L); sl.rotation.x = ang;
+      for (const sx of [-0.43, 0.43]) { const r = b.m(G.box, col(0xf5c542), 17 + sx, 0.84, zc, 0.06, 0.16, L); r.rotation.x = ang; }
+      b.m(G.box, col(0xf5c542), 17, 0.04, 16.75, 0.9, 0.08, 0.3);
+      for (let i = 0; i < 6; i++) { const z0 = 13.6 + i * 0.5; b.solid(17, z0 + 0.25, 0.8, 0.5, 0, 1.3 * (1 - (i + 1) / 6) + 0.06); }
+      W.slides.push({ x0: b.X(16.6), x1: b.X(17.4), z0: b.Z(13.6), z1: b.Z(16.6), y: b.Y, dx: 0, dz: 1 }); }
     // песочница и ведро с шариками
     b.ground(2.5, 20, 7.5, 25, T.dirt(), 2);
     for (const [x, z, w, d] of [[5, 19.9, 5.2, 0.2], [5, 25.1, 5.2, 0.2], [2.4, 22.5, 0.2, 5.2], [7.6, 22.5, 0.2, 5.2]]) b.box(x, z, w, d, 0.3, tmat(T.wood()));
@@ -81,6 +87,9 @@ export default {
     b.wires(9, 12, 8.05, 1.2, 3.4, 19, 2); b.trashBags(18.6, 26.2, 3); b.postBox(26, 9.5, 0); b.planter(16, 9.4, 3, 0.9, 0.4, 'flowers');
     b.tree(30, 13); b.tree(1.8, 14); b.tree(29.5, 30); b.bin(2, 9.5);
     b.lamp(1.2, 19, Math.PI / 2); b.lamp(30.8, 20, -Math.PI / 2);
+    // зиплайн с крыши дома на крышу гаражей, качели-катапульта, грабли у сарая, детская машинка
+    b.zipline(8, 16.1, 7.1, 24.5, 4.65, 24.2);
+    b.seesaw(15.6, 20.6, Math.PI / 2); b.rake(6.8, 28.6, 0.4); b.ride('kidcar', 12.5, 11.5, 1.2);
     b.zone('floor', 1, 9.5, 31, 19); b.zone('floor', 9, 19, 21, 30.5);
     b.cats(1, 9.5, 21, 30.5);
     b.spawn(16, 11); b.spawn(11, 29);

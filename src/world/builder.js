@@ -13,6 +13,8 @@ import { addSwinger } from './swingers.js';
 import { brickWall, breakBox, breakModel, addPiece, breakPiece, glassMat } from './breakables.js';
 import { PropMethods, crateModel } from './props.js';
 import { TowerMethods } from './tower.js';
+import { OpenMethods } from './openables.js';
+import { MoreMethods } from './more.js';
 
 /* Конструктор района. Все координаты — локальные (0..32), высота от уровня тротуара.
    Районы описываются вызовами этих методов в своих файлах в world/districts. */
@@ -211,7 +213,7 @@ export class Builder {
   }
   // ящик — разрушаемый (кидаешь тяжёлое — разлетается на доски)
   crate(x, z, s = 1, y = 0) { return breakModel(this.X(x), this.Y + y, this.Z(z), s, s, s, 'crate', crateModel()); }
-  ride(kind, x, z, ry = 0) { const p = addPushable(this, kind, x, z); p.mesh.rotation.y = ry; return p; }
+  ride(kind, x, z, ry = 0, y = 0) { const p = addPushable(this, kind, x, z, y); p.mesh.rotation.y = ry; return p; }
   // кирпичная стена из блоков, axis 'x' — вдоль X
   brickWall(x, z, len, h, axis, y = 0, o = {}) { return brickWall(this.X(x), this.Z(z), this.Y + y, len, h, axis, o); }
   // витрина: стекло бьётся на осколки
@@ -245,7 +247,7 @@ export class Builder {
     this.m(G.cyl6, col(0x27212f), x + 0.17, 1.008, z, 0.06, 0.016, 0.06); this.solid(x, z, 0.86, 0.86, 0, 1.02);
   }
   // урна — толкаемая
-  bin(x, z) { addPushable(this, 'bin', x, z); }
+  bin(x, z) { addPushable(this, 'bin', x, z); if (this.Y > -1) this.fireSpot(x, z); }
   hydrant(x, z) {
     const red = col(0xc8243a), mt = tmat(T.metal());
     this.m(G.cyl6, red, x, 0.35, z, 0.18, 0.7, 0.18); const cap = this.m(G.cone6, red, x, 0.76, z, 0.23, 0.18, 0.23); W.keep.push(cap);
@@ -365,7 +367,7 @@ export class Builder {
   }
 }
 
-Object.assign(Builder.prototype, PropMethods, TowerMethods);
+Object.assign(Builder.prototype, PropMethods, TowerMethods, OpenMethods, MoreMethods);
 
 // У кабины машины наклонены стойки, при той же малой геометрии и старом хитбоксе.
 const LEAF_GEO = new THREE.IcosahedronGeometry(1, 1);

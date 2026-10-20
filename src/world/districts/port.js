@@ -1,0 +1,65 @@
+import { THREE, G, tmat, smat, col, glow } from '../../core/gfx.js';
+import { T } from '../../core/textures.js';
+import { W } from '../state.js';
+
+/* Порт: бетонная набережная, гавань с водой (идёшь по колено — медленно), деревянные причалы,
+   катер у причала (качается, на палубу и рубку можно запрыгнуть), лодочки, портальный кран над
+   штабелем контейнеров (по балке можно пройти), маяк на каменном островке с крутящимся лучом
+   и зиплайном на берег, рыбный ларёк, сети, бочки, чайки, спасательный круг для плавания. */
+const WY = -1.2, FL = -1.6;
+export default {
+  id: 'port', name: 'Порт', ground: 'concrete',
+  holes: [[0.4, 20, 31.6, 31.6]],
+  build(b) {
+    const conc = smat(T.concrete()), st = smat(T.stone()), dk = col(0x2b2533);
+    const S = (x0, z0, x1, z1, y0, y1, mat) => { b.m(G.box, mat, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0); b.solid((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, y0, y1 - y0); };
+    // гавань: дно, вода, стенки набережной с бортиком
+    S(0.4, 20, 31.6, 31.6, FL - 0.2, FL, conc);
+    b.waterRect(0.4, 20, 31.6, 31.6, WY);
+    S(0, 19.65, 32, 20, FL - 0.2, 0.15, conc); S(0, 20, 0.4, 32, FL - 0.2, 0.15, conc); S(31.6, 20, 32, 32, FL - 0.2, 0.15, conc); S(0.4, 31.6, 31.6, 32, FL - 0.2, 0.15, conc);
+    b.m(G.box, st, 16, 0.2, 19.82, 32, 0.1, 0.42);
+    for (const x of [3, 15.5, 27]) b.ladder(x, 20, 's', 0.15, FL);
+    for (const x of [5, 12, 19, 30]) b.bollardRope(x, 19.2);
+    // причалы и островок с маяком
+    b.pier(8, 19.7, 8, 29.5, 0.3);
+    b.pier(21.5, 19.7, 21.5, 26.6, 0.3); b.pier(21.2, 26.6, 25.2, 26.6, 0.3);
+    b.box(28.2, 27.6, 6, 6.2, -FL + 0.35, st, { y: FL - 0.2 });
+    const H = b.lighthouse(28.4, 27.4);
+    // зиплайн: с балкона маяка — на набережную
+    b.zipline(28.4, H + 2.35, 25.3, 16, 2.5, 13.2);
+    // катер у первого причала, лодочки, круг для плавания
+    b.boat(10.3, 25.4, Math.PI / 2, WY + 0.2);
+    b.floatBoat(15, 26.5, 0.4, WY + 0.05); b.floatBoat(17.5, 30.2, 1.4, WY + 0.05);
+    b.ride('ring', 13, 23, 0, WY + 0.06); b.ride('ring', 26, 22.5, 0, WY + 0.06);
+    for (const [x, z] of [[4, 18.6], [15.5, 18.6]]) b.lifebuoy(x, z);
+    // рыбалка с набережной
+    for (const x of [4.2, 13.5, 18]) W.spots.fish.push({ x: b.X(x), z: b.Z(19.1), y: b.Y, f: [0, 1], wx: b.X(x), wz: b.Z(23.2), wy: b.Y + WY + 0.08, cx: b.X(x), cz: b.Z(24), R: 3.4, district: 'Порт', label: 'набережная' });
+    // портальный кран над контейнерами
+    b.container(10, 9, 6, 2.4, 0x3a6a9a); b.container(10, 9, 6, 2.4, 0xd8a030, 2.6);
+    b.gantry(10, 9, 12, 0);
+    b.zone('roof', 7.5, 8.2, 12.5, 9.8, 5.2);
+    // штабели контейнеров: ступенькой, по ним можно забраться
+    b.container(24, 3.4, 7, 2.6, 0x4a7a4a); b.container(24, 6.2, 7, 2.6, 0xc8243a); b.container(24, 6.2, 7, 2.6, 0x3a6a9a, 2.6);
+    b.container(29.2, 11, 2.6, 6, 0x7b4bc4);
+    b.zone('roof', 21, 5.4, 27, 7, 5.2); b.zone('roof', 21, 2.6, 27, 4.2, 2.6);
+    b.crate(19.4, 3, 1.1); b.crate(19.2, 4.3, 0.9); b.crate(20.3, 3.6, 0.8);
+    // бочки, поддоны, сети, рыбный ларёк
+    for (const [x, z] of [[2, 3], [3, 2.4], [2.6, 4.2]]) b.ride('barrel', x, z);
+    b.barrel(17, 15.5); b.barrel(17.9, 16.2); b.pallet(14.5, 15.8);
+    b.nets(1.5, 12, 1.5, 17); b.nets(26, 15.8, 31, 15.8);
+    b.tent(4.5, 15.6, Math.PI / 2, '#3a6a9a', '#f1e8ff', 'apple', 'РЫБА');
+    b.item('trash', 6.5, 17.5); b.item('ball', 13, 15);
+    b.bench(20, 18.4, Math.PI); b.bench(25.5, 18.4, Math.PI);
+    b.lamp(1.2, 18.8, Math.PI / 2); b.lamp(16, 18.8, Math.PI); b.lamp(30.8, 18.8, -Math.PI / 2); b.lamp(16, 1.2, 0);
+    b.bin(12.5, 18.5);
+    b.cushion(20, 18.4, 0.55);
+    b.puddle(19, 12, 1.0); b.slickManhole(6, 12);
+    b.vending(30.55, 2, -Math.PI / 2);
+    b.birds('gull', 2, 2, 30, 18, 7);
+    b.zone('floor', 1, 1, 18, 18.5); b.zone('floor', 13, 11, 31, 18.5);
+    b.cats(1, 1, 31, 18.5);
+    b.spawn(14, 13); b.spawn(5, 6);
+    b.hw(() => { b.pumpkin(18.3, 17.8); b.pumpkin(2.5, 9); b.web(31.9, 2.4, 3, -Math.PI / 2, 1); });
+    void THREE; void glow; void dk;
+  },
+};

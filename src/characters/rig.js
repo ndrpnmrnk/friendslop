@@ -133,6 +133,32 @@ function animate(c, dt, s) {
     else if (c.skinId === 'frog') { const tg = c.head.userData.tongue, k = Math.sin(Math.min(1, s.actK) * Math.PI * 3); if (tg) { tg.visible = k > 0.2; tg.scale.z = 0.3 + Math.max(0, k) * 0.5; tg.position.z = 0.44 + Math.max(0, k) * 0.25; } setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx, hy - fl, hz, f); }
     else if (c.skinId === 'tv') { setHand(c.handL, -hx, hy, hz, f); setHand(c.handR, hx, hy, hz, f); c.body.position.x = (Math.random() - 0.5) * 0.03; c.body.rotation.z = (Math.random() - 0.5) * 0.06; }
     else { setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx * 0.3, d.top - 0.45 + Math.sin(t * 12) * 0.05, 0.35, f); c.body.rotation.x = 0.12; }
+  } else if (s.zip) {
+    // висит на ролике зиплайна: руки вверх, ноги болтаются
+    setHand(c.handL, -0.18, d.top + 0.35, 0.05, damp(20, dt)); setHand(c.handR, 0.18, d.top + 0.35, 0.05, damp(20, dt));
+    setHand(c.footL, -fx, fy + 0.1 + Math.sin(t * 9) * 0.08, 0.15, f); setHand(c.footR, fx, fy + 0.1 - Math.sin(t * 9) * 0.08, 0.1, f); c.body.rotation.x = -0.15;
+  } else if (s.emote) {
+    // эмоции (1–4): помахать, танец, смех, позвать
+    const e = s.emote, et = s.emoteT || 0;
+    if (e === 'wave') { setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx + 0.15, d.top + 0.05 + Math.sin(et * 10) * 0.05, 0.1 + Math.sin(et * 10) * 0.16, damp(20, dt)); c.head.rotation.z = Math.sin(et * 5) * 0.12; }
+    else if (e === 'dance') { const b2 = Math.sin(et * 9), b3 = Math.sin(et * 4.5);
+      c.body.position.y = Math.abs(b2) * 0.12; c.body.rotation.y = b3 * 0.5; c.body.rotation.z = b2 * 0.12;
+      setHand(c.handL, -hx - 0.1, hy + (b3 > 0 ? 0.5 : 0.05), hz + 0.1, damp(14, dt)); setHand(c.handR, hx + 0.1, hy + (b3 > 0 ? 0.05 : 0.5), hz + 0.1, damp(14, dt));
+      setHand(c.footL, -fx - 0.05, fy + Math.max(0, b2) * 0.18, 0, f); setHand(c.footR, fx + 0.05, fy + Math.max(0, -b2) * 0.18, 0, f); }
+    else if (e === 'laugh') { c.body.rotation.x = -0.25 + Math.sin(et * 22) * 0.05; c.body.position.y = Math.abs(Math.sin(et * 22)) * 0.04;
+      setHand(c.handL, -hx * 0.6, hy - 0.05, hz + 0.18, f); setHand(c.handR, hx * 0.6, hy - 0.05 + Math.sin(et * 22) * 0.03, hz + 0.18, f); }
+    else if (e === 'call') { c.body.rotation.x = 0.15; const k2 = Math.min(1, et * 4);
+      setHand(c.handL, -0.2, d.top - 0.35 * k2, 0.42, damp(14, dt)); setHand(c.handR, 0.2, d.top - 0.35 * k2, 0.42, damp(14, dt)); c.head.rotation.x = -0.1; }
+  } else if (s.held2) {
+    // держит другого персонажа перед собой
+    setHand(c.handL, -d.holdX, d.holdY + 0.25, d.holdZ + 0.15, f); setHand(c.handR, d.holdX, d.holdY + 0.25, d.holdZ + 0.15, f); c.body.rotation.x = -0.12;
+  } else if (s.grabbed) {
+    // его держат: болтает руками и ногами
+    setHand(c.handL, -hx - 0.2, hy + 0.3 + Math.sin(t * 14) * 0.15, hz, f); setHand(c.handR, hx + 0.2, hy + 0.3 - Math.sin(t * 14) * 0.15, hz, f);
+    setHand(c.footL, -fx, fy + 0.1 + Math.max(0, Math.sin(t * 16)) * 0.2, 0.15, f); setHand(c.footR, fx, fy + 0.1 + Math.max(0, -Math.sin(t * 16)) * 0.2, 0.15, f); c.body.rotation.z = Math.sin(t * 12) * 0.15;
+  } else if (s.swat) {
+    // удар тапком / подушкой: правая рука резко сверху вниз
+    const k2 = s.swat / 0.3; setHand(c.handR, hx * 0.6, d.top - 0.1 - (1 - k2) * 0.6, 0.35 + (1 - k2) * 0.3, damp(30, dt)); setHand(c.handL, -hx, hy + fl, hz, f);
   } else if (s.wave) {
     setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx + 0.1, d.top - 0.1 + Math.sin(t * 9) * 0.06, 0.1 + Math.sin(t * 9) * 0.12, f);
   } else {
@@ -148,6 +174,7 @@ function animate(c, dt, s) {
       pv.rotation.x += (want - pv.rotation.x) * damp(9, dt); }); }
   if (s.act !== 'special' && c.head.userData.tongue) c.head.userData.tongue.visible = false;
   if (s.look !== undefined) c.head.rotation.y += (s.look - c.head.rotation.y) * damp(6, dt); else c.head.rotation.y *= 0.9;
+  if (s.emote !== 'wave' && s.emote !== 'call') { c.head.rotation.z *= 0.85; c.head.rotation.x *= 0.85; }
   c.handL.rotation.x = s.hold ? -0.6 : run ? sn * 0.5 * k : 0; c.handR.rotation.x = s.hold ? (s.charge ? 0.8 : -0.6) : run ? -sn * 0.5 * k : 0;
   // присед: тело ниже и сжато, ручки ближе
   if (s.crouch) { c.body.position.y -= 0.34; c.body.scale.y *= 0.85; c.body.rotation.x = 0.25; c.handL.position.y -= 0.3; c.handR.position.y -= 0.3; c.footL.position.x = -d.footX - 0.08; c.footR.position.x = d.footX + 0.08; }
@@ -157,7 +184,7 @@ function animate(c, dt, s) {
   c.root.localToWorld(c.holdPoint);
   // выражение лица
   c.blinkT -= dt;
-  let e = s.stun ? 'dizzy' : s.air ? 'wow' : 'idle';
+  let e = s.stun ? 'dizzy' : s.air || s.grabbed || s.emote === 'laugh' || s.emote === 'call' ? 'wow' : 'idle';
   if (e === 'idle' && c.blinkT < 0.12) e = 'blink';
   if (c.blinkT < 0) c.blinkT = 2 + Math.random() * 3;
   if (e !== c.expr) { c.expr = e; c.skin.face && c.skin.face(c, e); }

@@ -52,16 +52,17 @@ export function createSky(scene) {
   ring.position.y = 10; ring.renderOrder = -7; g.add(ring);
 
   // ---- оттенок района ----
-  const TINT = { cemetery: 0x9ad8a8, industrial: 0xffc890, sewer: 0x90d8d0 };
+  const TINT = { cemetery: 0x9ad8a8, industrial: 0xffc890, sewer: 0x90d8d0, hospital: 0x9ad8c0, port: 0xa8c8ff };
   const baseHemi = new THREE.Color(SEASON.hemi[0]), baseFog = new THREE.Color(SEASON.fog[0]), curT = new THREE.Color(1, 1, 1), tmp = new THREE.Color();
-  let dim = 0;
+  let dim = 0, night = 0; const nightFog = new THREE.Color(0x120c1e), md0 = md.clone();
   return {
     setDim(k) { dim = k; },
+    setNight(k) { night = k; const m2 = md0.clone(); m2.y += k * 55; m2.normalize().multiplyScalar(170); moon.position.copy(m2); halo.position.copy(m2).multiplyScalar(1.01); },
     update(camera, t, dt, player, hemi, fog) {
       g.position.set(camera.position.x, 0, camera.position.z);
       stars[0].material.opacity = (0.7 + Math.sin(t * 1.7) * 0.3) * (1 - dim * 0.3); stars[1].material.opacity = (0.7 - Math.sin(t * 1.7) * 0.3) * (1 - dim * 0.3);
       clouds.rotation.y += dt * 0.004;
-      domeM.color.setScalar(1 - dim * 0.55); ring.material.color.setScalar(1 - dim * 0.7);
+      domeM.color.setScalar((1 - dim * 0.55) * (1 - night * 0.45)); ring.material.color.setScalar((1 - dim * 0.7) * (1 - night * 0.3));
       // туман ползёт, мигающие фонари и вывески
       const mt = T.mist(); mt.offset.x += dt * 0.012; mt.offset.y += dt * 0.006;
       for (const f of W.flick) {
@@ -74,7 +75,7 @@ export function createSky(scene) {
       let id = null; for (const d of W.districts) if (player.pos.x >= d.ox && player.pos.x < d.ox + 32 && player.pos.z >= d.oz && player.pos.z < d.oz + 32) { id = d.id; break; }
       tmp.setHex(TINT[id] || 0xffffff); curT.lerp(tmp, Math.min(1, dt * 1.2));
       hemi.color.copy(baseHemi).multiply(curT);
-      if (!dim && fog) fog.color.copy(baseFog).lerp(tmp.copy(baseFog).multiply(curT), 0.5);
+      if (!dim && fog) { fog.color.copy(baseFog).lerp(tmp.copy(baseFog).multiply(curT), 0.5).lerp(nightFog, night * 0.55); }
     },
   };
 }

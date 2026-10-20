@@ -14,12 +14,12 @@ export function createArrow(scene) {
   return { g, chev, mat, yaw: 0 };
 }
 
-export function updateArrow(a, p, missions, dt, t, show, force = null) {
+export function updateArrow(a, p, missions, dt, t, show, force = null, fc = 0x9be36b) {
   if (force) {
     // идёт уличная миссия: стрелка показывает её цель
     const d = Math.hypot(force.x - p.pos.x, force.z - p.pos.z); a.g.visible = show && d > 2.5; if (!a.g.visible) return;
     const want = Math.atan2(force.x - p.pos.x, force.z - p.pos.z); let dd = want - a.yaw; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); a.yaw += dd * damp(10, dt);
-    a.g.position.set(p.pos.x, p.pos.y + 0.06, p.pos.z); a.g.rotation.y = a.yaw; a.chev.position.z = 0.95 + Math.sin(t * 6) * 0.07; a.mat.opacity = 0.5; a.mat.color.setHex(0x9be36b); return;
+    a.g.position.set(p.pos.x, p.pos.y + 0.06, p.pos.z); a.g.rotation.y = a.yaw; a.chev.position.z = 0.95 + Math.sin(t * 6) * 0.07; a.mat.opacity = 0.5; a.mat.color.setHex(fc); return;
   }
   let best = null, bd = Infinity;
   for (const m of missions) {

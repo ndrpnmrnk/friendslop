@@ -2,7 +2,8 @@ import { M } from '../missions/missions.js';
 import { cam } from '../game/camera.js';
 import { icon, img } from './icons.js';
 import { TEXT } from './text.js';
-import { GADGETS } from '../game/gadgets.js';
+import { toolVerb } from '../game/tools.js';
+import { W } from '../world/state.js';
 
 /* Игровой интерфейс: всё минимально и в одном пиксельном стиле.
    DOM обновляется только при изменениях, анимации — CSS steps(). */
@@ -78,22 +79,22 @@ export function renderStamina(P, dt) {
   if (v < H.stamPrev - 0.001 && H.chipT <= 0) { H.chipT = 0.08; const a = -Math.PI / 2 + v * Math.PI * 2, ch = document.createElement('i'); ch.className = 'chip';
     ch.style.cssText = `left:${40 + Math.cos(a) * 30}px;top:${40 + Math.sin(a) * 30}px;background:${col};--dx:${Math.cos(a) * 18}px;--dy:${Math.sin(a) * 18 + 10}px`; wrap.appendChild(ch); setTimeout(() => ch.remove(), 520); }
   H.stamPrev = v;
-  // предмет в руках
+  // предмет в руках: инструмент — «ЛКМ действие · ПКМ бросок», заряды
   let held = '';
   if (P.grab) held = `${img('cart', 22)}${TEXT.grab[P.grab.kind] || ''} <span class="key">E</span>${TEXT.keys.hop}`;
-  else if (P.held) held = `${img(P.held.type, 22)}${P.held.def.name} <span class="key">ПКМ</span>${TEXT.keys.throw}`;
-  if (held !== H.held) { H.held = held; $('held').innerHTML = held; $('held').classList.toggle('hidden', !held); }
-  // гаджет
-  const gk = P.gadget ? P.gadget.kind + P.gadget.n : '';
-  if (gk !== H.gslot) { const e = $('gslot'), was = H.gslot; H.gslot = gk;
-    if (P.gadget) { e.innerHTML = `<span class="key">F</span>${img(P.gadget.kind, 36)}${P.gadget.n > 1 ? `<span class="n">${P.gadget.n}</span>` : ''}`; e.style.setProperty('--gc', '#' + GADGETS[P.gadget.kind].color.toString(16).padStart(6, '0'));
-      if (!was || was.replace(/\d+$/, '') !== P.gadget.kind) { e.classList.remove('new'); void e.offsetWidth; e.classList.add('new'); } }
-    e.classList.toggle('hidden', !P.gadget); }
+  else if (P.holding) held = `${img('mouse', 22)}${P.holding.bot ? P.holding.name : TEXT.you} <span class="key">ПКМ</span>${TEXT.keys.throw} <span class="key">E</span>${TEXT.keys.drop}`;
+  else if (P.heldBy) held = `<span class="key">ПРОБЕЛ</span>${TEXT.keys.struggle}`;
+  else if (P.held) { const it = P.held, v = it.def.tool ? toolVerb(it) : '', am = it.def.ammo && it.def.ammo < 50 ? `<span class="n">${it.def.hold ? Math.ceil(it.ammo) + 'с' : it.ammo}</span>` : '';
+    held = `${img(it.type, 22)}${it.def.name}${am}${v && !(it.def.ammo && it.ammo <= 0) ? ` <span class="key">ЛКМ</span>${v}` : ''} <span class="key">ПКМ</span>${TEXT.keys.throw}`; }
+  if (held !== H.held) { H.held = held; $('held').innerHTML = held; $('held').classList.toggle('hidden', !held); if (held && P.held && !H.heldNew) { const e2 = $('held'); e2.classList.remove('new'); void e2.offsetWidth; e2.classList.add('new'); } }
+  // эффекты на персонаже: ботинки, маска, энергетик — маленькие значки с отсчётом
+  const fx = [P.boots > 0 ? `${img('boots', 16)}${P.boots}` : '', P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : ''].filter(Boolean).join('');
+  if (fx !== H.gslot) { H.gslot = fx; const e3 = $('gslot'); e3.innerHTML = fx; e3.classList.toggle('hidden', !fx); }
   // конфетти перед глазами
   const bl = $('blind'), blind = P.blind > 0;
   if (blind !== !bl.classList.contains('hidden')) { bl.classList.toggle('hidden', !blind); if (blind) { bl.innerHTML = ''; for (let i = 0; i < 70; i++) { const q = document.createElement('i'); q.style.cssText = `left:${Math.random() * 100}%;top:${Math.random() * 100}%;background:${['#ff5a6e', '#f5c542', '#9be36b', '#4ab0f0', '#b18cff'][i % 5]};transform:rotate(${Math.random() * 90}deg)`; bl.appendChild(q); } } }
 }
 
 // события раунда: баннер на 1,5 с, потом значок с отсчётом у таймера
-export function eventBanner(key) { const b = $('evbanner'); b.innerHTML = `${img(TEXT.eventIcon[key], 48)}${TEXT.events[key]}`; b.classList.remove('hidden'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; clearTimeout(H.evT); H.evT = setTimeout(() => b.classList.add('hidden'), 1650); }
-export function eventChip(key, sec) { const c = $('evchip'); if (!key) { c.classList.add('hidden'); return; } const h = `${img(TEXT.eventIcon[key], 18)}${sec}`; if (c.innerHTML !== h) c.innerHTML = h; c.classList.remove('hidden'); }
+export function eventBanner(key, big) { const b = $('evbanner'); b.innerHTML = `${img(TEXT.eventIcon[key], 48)}<span>${TEXT.events[key]}${big && TEXT.eventSub[key] ? `<small>${TEXT.eventSub[key]}</small>` : ''}</span>`; b.classList.remove('hidden'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; clearTimeout(H.evT); b.classList.toggle('big', !!big); H.evT = setTimeout(() => b.classList.add('hidden'), big ? 2600 : 1650); }
+export function eventChip(key, sec, info = '') { const c = $('evchip'); if (!key) { c.classList.add('hidden'); return; } const h = `${img(TEXT.eventIcon[key], 18)}${sec}${info ? `<b>${info}</b>` : ''}`; if (c.innerHTML !== h) c.innerHTML = h; c.classList.remove('hidden'); }

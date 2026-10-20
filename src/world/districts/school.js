@@ -10,6 +10,7 @@ export default {
     b.tower({ x: 3, z: 1, w: 26, d: 8, floors: 3, fh: 3.4, wall: 0x9a6a5a, lit: 0.6, door: { side: 's', at: 0.5, sign: ['ШКОЛА №13', '#2a1f3d', '#f5c542'] },
       ladder: { side: 'w', at: 0.5 }, floor: T.floorWood(),
       interior(f, k, r) {
+        if (k === 0) for (let i = 0; i < 5; i++) f.locker(r.x1 - 0.4 - i * 0.6, r.z1 - 0.3, Math.PI, 0x4a6a8a);
         f.m(G.plane, tmat(k === 2 ? T.chalkboard() : T.chalkboard()), 18, 1.75, r.sx1 > 18 ? r.z0 : 1.27, 4.4, 1.6, 1);
         if (k === 0) {
           f.box(18, 2.9, 1.8, 0.8, 0.85, tmat(T.wood()));
@@ -46,7 +47,7 @@ export default {
     for (const x of [19, 21]) b.box(x, 13, 0.12, 0.12, 2.2, col(0x6a6d78));
     b.m(G.box, col(0x6a6d78), 20, 2.2, 13, 2.1, 0.06, 0.06);
     for (let i = 0; i < 3; i++) b.box(29.6 + i * 0.5 - 0.5, 20, 1.4 - i * 0.5 + 0.5, 8, 0.4 * (i + 1), tmat(T.wood()));
-    b.ride('skate', 13, 13, 1.2);
+    b.ride('skate', 13, 13, 1.2); b.ride('scooter', 20, 25, 0.6); b.seesaw(8, 26, Math.PI / 2);
     b.fence(17, 31.3, 21, 31.3, 1.2, 'wood');
     b.bench(23, 18, -Math.PI / 2);
     // флагшток, велопарковка, деревья

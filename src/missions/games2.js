@@ -3,7 +3,7 @@ import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
 import { zoneAt } from '../world/physics.js';
 import { clamp } from '../core/rng.js';
-import { burst, splash, ripple, smokeRing } from '../world/particles.js';
+import { burst, splash, ripple, smokeRing, puff } from '../world/particles.js';
 import { addItem } from '../game/items.js';
 import { brickWall, breakPiece } from '../world/breakables.js';
 import { spawnLitter } from './objects2.js';
@@ -240,38 +240,9 @@ export const WORLD_GAMES = {
 
   // Доставка: взял заказ — сразу видно куда: слева в списке адрес и расстояние, у ног стрелка,
   // над домом зелёный луч. Стрелка ведёт к двери, потом к лестнице, потом к нужной комнате.
-  delivery(o, api, ctx) {
-    const P = ctx.player, from = o.pos(), dests = W.spots.deliver.filter(d => Math.hypot(d.x - from.x, d.z - from.z) > 14);
-    const pool = dests.length ? dests : W.spots.deliver, dest = pool[(Math.random() * pool.length) | 0], g = dest.guide;
-    const parcel = addItem('parcel', from.x, from.y + 0.2, from.z, 0); parcel.def = { ...parcel.def, respawn: 0 };
-    ctx.give(parcel);
-    const beamM = new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide });
-    const beam = mesh(G.beam, beamM, dest.x, dest.y + 1.5, dest.z, 0.8, 3, 0.8, W.group);
-    const sky = mesh(G.beam, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }), dest.x, dest.y + 20, dest.z, 0.35, 40, 0.35, W.group);
-    let time = 70, hint = '';
-    api.where(`→ ${dest.name}`);
-    const inside = () => g && P.pos.x > g.box[0] && P.pos.x < g.box[2] && P.pos.z > g.box[1] && P.pos.z < g.box[3] && P.pos.y > g.y0 - 0.6;
-    const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
-    return {
-      target() {
-        if (P.held !== parcel) { say('Подбери заказ (E)'); return parcel.pos; }
-        if (!g) return new V3(dest.x, dest.y, dest.z);
-        if (!inside()) { say(`Неси в ${dest.name}: вход с улицы`); const dd = Math.hypot(P.pos.x - g.door[0], P.pos.z - g.door[1]); return dd < 1.2 ? new V3(g.door[2], g.y0, g.door[3]) : new V3(g.door[0], g.y0, g.door[1]); }
-        const floor = Math.floor((P.pos.y - g.y0 + 0.6) / g.fh);
-        if (floor < dest.floor) { say(`Поднимись по лестнице на ${dest.floor + 1} этаж`); return new V3(g.stair[2], P.pos.y, g.stair[3]); }
-        say('Отдай заказ у зелёного луча'); return new V3(dest.x, dest.y, dest.z);
-      },
-      update(dt) {
-        time -= dt; api.timer(time); beam.rotation.y += dt; sky.visible = !inside();
-        api.progress(1 - Math.min(1, Math.hypot(P.pos.x - dest.x, P.pos.z - dest.z) / 40));
-        const near = Math.hypot(parcel.pos.x - dest.x, parcel.pos.z - dest.z) < 2.2 && Math.abs(parcel.pos.y - dest.y) < 1.8;
-        if (near && (P.held === parcel || parcel.state === 'rest')) { burst(dest.x, dest.y + 1, dest.z, 12, { color: 0x9be36b, size: 0.2, speed: 2 }); return api.finish({ success: true, mult: 1 }); }
-        if (parcel.state === 'gone') return api.finish({ success: false });
-        if (time <= 0) return api.finish({ success: false });
-      },
-      stop() { W.group.remove(beam); W.group.remove(sky); if (P.held === parcel) P.held = null; parcel.state = 'gone'; parcel.g.visible = false; },
-    };
-  },
+  delivery(o, api, ctx) { return deliveryCore(o, api, ctx, 'parcel'); },
+  // Горячая пицца: та же доставка, но коробка остывает; брошенная/лежащая остывает втрое быстрее
+  pizza(o, api, ctx) { return deliveryCore(o, api, ctx, 'pizza'); },
 
   // Снос: садишься в кран и сносишь отмеченную красную стену, пока не кончилось время
   demolition(o, api, ctx) {
@@ -283,7 +254,7 @@ export const WORLD_GAMES = {
     smokeRing(sp.x, sp.y + 0.2, sp.z, 10, { speed: 3, size: 0.3 });
     let time = 50; const N = sp.pieces.length;
     ctx.enterCrane();
-    api.msg('Снеси красную стену шар-бабой! WASD — шар');
+    api.msg('Снеси красную стену! W/S — тележка, A/D — поворот');
     return {
       target: () => new V3(sp.x, sp.y + 1, sp.z),
       update(dt) {
@@ -296,4 +267,40 @@ export const WORLD_GAMES = {
     };
   },
 };
+
+function deliveryCore(o, api, ctx, kind) {
+    const P = ctx.player, from = o.pos(), dests = W.spots.deliver.filter(d => Math.hypot(d.x - from.x, d.z - from.z) > 14);
+    const pool = dests.length ? dests : W.spots.deliver, dest = pool[(Math.random() * pool.length) | 0], g = dest.guide;
+    const parcel = addItem(kind, from.x, from.y + 0.2, from.z, 0); parcel.def = { ...parcel.def, respawn: 0 };
+    let heat = 1, steamT = 0;
+    ctx.give(parcel);
+    const beamM = new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide });
+    const beam = mesh(G.beam, beamM, dest.x, dest.y + 1.5, dest.z, 0.8, 3, 0.8, W.group);
+    const sky = mesh(G.beam, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }), dest.x, dest.y + 20, dest.z, 0.35, 40, 0.35, W.group);
+    let time = kind === 'pizza' ? 60 : 70, hint = '';
+    api.where(`→ ${dest.name}`);
+    const inside = () => g && P.pos.x > g.box[0] && P.pos.x < g.box[2] && P.pos.z > g.box[1] && P.pos.z < g.box[3] && P.pos.y > g.y0 - 0.6;
+    const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
+    return {
+      target() {
+        if (P.held !== parcel) { say(kind === 'pizza' ? 'Подбери пиццу (E)' : 'Подбери заказ (E)'); return parcel.pos; }
+        if (!g) return new V3(dest.x, dest.y, dest.z);
+        if (!inside()) { say(`Неси в ${dest.name}: вход с улицы`); const dd = Math.hypot(P.pos.x - g.door[0], P.pos.z - g.door[1]); return dd < 1.2 ? new V3(g.door[2], g.y0, g.door[3]) : new V3(g.door[0], g.y0, g.door[1]); }
+        const floor = Math.floor((P.pos.y - g.y0 + 0.6) / g.fh);
+        if (floor < dest.floor) { say(`Поднимись по лестнице на ${dest.floor + 1} этаж`); return new V3(g.stair[2], P.pos.y, g.stair[3]); }
+        say('Отдай заказ у зелёного луча'); return new V3(dest.x, dest.y, dest.z);
+      },
+      update(dt) {
+        time -= dt; api.timer(time); beam.rotation.y += dt; sky.visible = !inside();
+        if (kind === 'pizza') { heat -= dt / (P.held === parcel ? 50 : 16); api.progress(Math.max(0, heat)); steamT -= dt; if (steamT <= 0 && heat > 0.2) { steamT = 0.12; puff(parcel.pos.x, parcel.pos.y + 0.15, parcel.pos.z, { color: 0xf1e8ff, size: 0.15, vy: 1, life: 0.8, grow: 1.2, opacity: 0.5 * heat }); }
+          if (heat <= 0) { api.msg('Пицца остыла...', 'bad'); return api.finish({ success: false }); } }
+        else api.progress(1 - Math.min(1, Math.hypot(P.pos.x - dest.x, P.pos.z - dest.z) / 40));
+        const near = Math.hypot(parcel.pos.x - dest.x, parcel.pos.z - dest.z) < 2.2 && Math.abs(parcel.pos.y - dest.y) < 1.8;
+        if (near && (P.held === parcel || parcel.state === 'rest')) { burst(dest.x, dest.y + 1, dest.z, 12, { color: 0x9be36b, size: 0.2, speed: 2 }); return api.finish({ success: true, mult: kind === 'pizza' ? 0.6 + heat * 0.6 : 1 }); }
+        if (parcel.state === 'gone') return api.finish({ success: false });
+        if (time <= 0) return api.finish({ success: false });
+      },
+      stop() { W.group.remove(beam); W.group.remove(sky); if (P.held === parcel) P.held = null; parcel.state = 'gone'; parcel.g.visible = false; },
+    };
+}
 void breakPiece; void tmat; void T;

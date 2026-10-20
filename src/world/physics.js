@@ -33,11 +33,19 @@ export const overlapXZ = (s, x, z, r) => x + r > s.x0 && x - r < s.x1 && z + r >
 
 // Проёмы в земле (люки, канал коллектора): там нет «нулевой» земли, можно провалиться вниз
 const inHole = (x, z) => { for (const h of W.holes) if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return true; return false; };
+/* Повёрнутые коробки (стрела крана, палуба катера): {cx, cz, yaw, lx0, lx1, lz0, lz1, y0, y1, on}.
+   Точку переводим в локальные оси коробки и проверяем как обычный AABB. */
+const _l = { x: 0, z: 0 };
+export function obbLocal(o, x, z) { const c = Math.cos(o.yaw), s = Math.sin(o.yaw), dx = x - o.cx, dz = z - o.cz; _l.x = dx * c - dz * s; _l.z = dx * s + dz * c; return _l; }
+export function addObb(o) { const b = { on: true, yaw: 0, ...o }; (W.obbs || (W.obbs = [])).push(b); return b; }
+export let groundObb = null;
+let _selfP = null;
 export function groundAt(x, z, r, maxY) {
-  let g = maxY >= 0 && !inHole(x, z) ? 0 : -60;
+  let g = maxY >= 0 && !inHole(x, z) ? 0 : -60; groundObb = null;
   for (const s of solidsNear(x - r, z - r, x + r, z + r)) if (s.on && s.y1 <= maxY && s.y1 > g && overlapXZ(s, x, z, r)) g = s.y1;
+  if (W.obbs) for (const o of W.obbs) { if (!o.on || o.y1 > maxY || o.y1 <= g) continue; const l = obbLocal(o, x, z); if (l.x + r > o.lx0 && l.x - r < o.lx1 && l.z + r > o.lz0 && l.z - r < o.lz1) { g = o.y1; groundObb = o; } }
   // на толкаемых предметах (бак, бочка, тележка) можно стоять, как на земле
-  for (const b of W.pushables) { if (b.rider || b.grabbed) continue; const top = b.y + b.h; if (top <= maxY && top > g && Math.hypot(x - b.x, z - b.z) < b.r * 0.92 + r * 0.5) g = top; }
+  for (const b of W.pushables) { if (b.rider || b.grabbed || b === _selfP) continue; const top = b.y + b.h; if (top <= maxY && top > g && Math.hypot(x - b.x, z - b.z) < b.r * 0.92 + r * 0.5) g = top; }
   return g;
 }
 
@@ -54,6 +62,15 @@ export function pushOut(p, r, yLow, yHigh) {
       if (mn === l) p.x = s.x0 - r; else if (mn === rr) p.x = s.x1 + r; else if (mn === bt) p.z = s.z0 - r; else p.z = s.z1 + r;
     }
   }
+  if (W.obbs) for (const o of W.obbs) {
+    if (!o.on || o.y1 <= yLow || o.y0 >= yHigh) continue;
+    const l = obbLocal(o, p.x, p.z), lx = l.x, lz = l.z, cx = clamp(lx, o.lx0, o.lx1), cz = clamp(lz, o.lz0, o.lz1), dx = lx - cx, dz = lz - cz, d2 = dx * dx + dz * dz;
+    if (d2 >= r * r) continue;
+    hit = true; let nx = lx, nz = lz;
+    if (d2 > 1e-8) { const d = Math.sqrt(d2); nx = cx + dx / d * r; nz = cz + dz / d * r; }
+    else { const a = lx - o.lx0, b2 = o.lx1 - lx, c2 = lz - o.lz0, e = o.lz1 - lz, mn = Math.min(a, b2, c2, e); if (mn === a) nx = o.lx0 - r; else if (mn === b2) nx = o.lx1 + r; else if (mn === c2) nz = o.lz0 - r; else nz = o.lz1 + r; }
+    const c = Math.cos(o.yaw), s = Math.sin(o.yaw); p.x = o.cx + nx * c + nz * s; p.z = o.cz - nx * s + nz * c;
+  }
   const B = W.bounds; p.x = clamp(p.x, -B, B); p.z = clamp(p.z, -B, B);
   return hit;
 }
@@ -66,7 +83,7 @@ export function moveBody(b, dt, g = 22) {
   const oldY = p.y;
   if (!b.noGrav) v.y -= g * dt;
   p.y += v.y * dt;
-  const gy = groundAt(p.x, p.z, b.r * 0.6, Math.max(oldY, p.y) + b.step);
+  const gy = groundAt(p.x, p.z, b.r * 0.6, Math.max(oldY, p.y) + b.step); b.groundObb = groundObb;
   b.landed = false;
   if (p.y <= gy) { if (v.y < -0.5 && !b.onGround) b.landed = true; p.y = gy; v.y = Math.max(0, v.y); b.onGround = true; }
   else b.onGround = false;
@@ -104,6 +121,13 @@ export function solidHit(p, r) {
     pen.sort((a, b) => a[0] - b[0]);
     return { s, depth: pen[0][0], n: [pen[0][1], pen[0][2], pen[0][3]] };
   }
+  if (W.obbs) for (const o of W.obbs) {
+    if (!o.on || p.y + r < o.y0 || p.y - r > o.y1) continue;
+    const l = obbLocal(o, p.x, p.z); if (l.x + r < o.lx0 || l.x - r > o.lx1 || l.z + r < o.lz0 || l.z - r > o.lz1) continue;
+    const pen = [[l.x + r - o.lx0, -1, 0, 0], [o.lx1 - (l.x - r), 1, 0, 0], [l.z + r - o.lz0, 0, 0, -1], [o.lz1 - (l.z - r), 0, 0, 1], [o.y1 - (p.y - r), 0, 1, 0], [p.y + r - o.y0, 0, -1, 0]];
+    pen.sort((a, b) => a[0] - b[0]); const [d, nx, ny, nz] = pen[0], c = Math.cos(o.yaw), s = Math.sin(o.yaw);
+    return { s: o, depth: d, n: [nx * c + nz * s, ny, -nx * s + nz * c] };
+  }
   return null;
 }
 
@@ -115,11 +139,23 @@ export function updatePushables(dt, player) {
     b.x += b.vx * dt; b.z += b.vz * dt;
     const p = { x: b.x, z: b.z };
     b.hitSpeed = 0;
-    if (pushOut(p, b.r, b.y + 0.2, b.y + 1)) { b.hitSpeed = Math.hypot(b.vx, b.vz); b.vx *= -0.3; b.vz *= -0.3; }
+    if (pushOut(p, b.r, b.y + (b.ride && b.kind !== 'ring' ? 0.5 : 0.2), b.y + 1)) { b.hitSpeed = Math.hypot(b.vx, b.vz); b.vx *= -0.3; b.vz *= -0.3; }
     b.x = p.x; b.z = p.z;
-    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9 }[b.kind])); b.vx *= f; b.vz *= f;
+    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind])); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
-    b.mesh.position.set(b.x, b.y, b.z);
+    // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
+    if (b.ride && b.kind !== 'ring') {
+      _selfP = b; let gy = groundAt(b.x, b.z, b.r * 0.4, b.y + 0.35); _selfP = null; b.vy = b.vy || 0;
+      if (W.rails && (b.kind === 'skate' || b.kind === 'scooter')) for (const r of W.rails) {
+        const ex = r.x1 - r.x0, ez = r.z1 - r.z0, L2 = ex * ex + ez * ez, u = ((b.x - r.x0) * ex + (b.z - r.z0) * ez) / L2; if (u < 0 || u > 1) continue;
+        const qx = r.x0 + ex * u, qz = r.z0 + ez * u; if (Math.hypot(b.x - qx, b.z - qz) > 0.35 || b.y < r.y - 0.25 || b.y > r.y + 0.7 || b.vy > 0.5) continue;
+        gy = Math.max(gy, r.y); if (!b.grind) { b.grind = r; W.onGrind && W.onGrind(b); } const L = Math.sqrt(L2), tx = ex / L, tz = ez / L, v = b.vx * tx + b.vz * tz; b.vx = tx * v; b.vz = tz * v; b.x = qx; b.z = qz;
+      }
+      if (b.grind && Math.abs(b.y - b.grind.y) > 0.05) b.grind = null;
+      if (b.y > gy + 0.02) { b.vy -= 22 * dt; b.y = Math.max(gy, b.y + b.vy * dt); if (b.y <= gy) { if (b.vy < -7 && b.rider) b.hardLand = -b.vy; b.vy = 0; } b.air = b.y > gy; }
+      else { const rise = gy - b.y; b.vy = rise > 0.005 ? Math.min(8, rise / dt * 0.85) : 0; if (rise > 0.01) { const k = Math.max(0.7, 1 - rise * 0.6); b.vx *= k; b.vz *= k; } b.y = gy; b.air = false; }
+    }
+    b.mesh.position.set(b.x, b.y + (b.kind === 'ring' ? Math.sin(performance.now() * 0.003 + b.x) * 0.04 : 0), b.z);
     // движение по форме: стоячий бак скользит не поворачиваясь; бочка, шина и колёсное едут вдоль «колёс»,
     // боковое скольжение гасится, направление плавно доворачивается к толчку
     const sp = Math.hypot(b.vx, b.vz);

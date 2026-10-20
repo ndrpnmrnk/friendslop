@@ -35,13 +35,48 @@ const ART = {
   web: ['k....k....k.', '.k...k...k..', '..kkkkkkk...', '..kk.k.kk...', 'kkk.kkk.kkkk', '..k.kkk.k...', '..kk.k.kk...', '..kkkkkkk...', '.k...k...k..', 'k....k....k.', '............', '............'],
   boots: ['............', '....kkkk....', '....kppk....', '....kppk....', '....kppkkk..', '....kpppppk.', '....kkkkkkk.', '.....kyk....', '....kyk.....', '.....kyk....', '....kyk.....', '....kkkk....'],
   mask: ['....kkkk....', '..kkmmmmkk..', '.kmmmmmmmmk.', '.kmkkmmkkmk.', 'kmmkkmmkkmmk', 'kmmmmmmmmmmk', 'kmmmmkkmmmmk', 'kmmmmkkmmmmk', 'kmmmmmmmmmmk', 'kmkmmkkmmkmk', 'kk.kk..kk.kk', '............'],
+  // инструменты
+  slipper: ['............', '............', '............', '....kkkk....', '...krrrrk...', '..krrrrrrk..', '.kwwwkrrrrk.', 'kwwwwwkkkrrk', 'kRRRRRRRRRRk', '.kkkkkkkkkk.', '............', '............'],
+  umbrella: ['.....kk.....', '...kkppkk...', '..kpppppPk..', '.kppppppPPk.', 'kppppppppPPk', 'kkkkkkkkkkkk', '.....kk.....', '.....kk.....', '.....kk.....', '.....kk.kk..', '......kkk...', '............'],
+  extinguisher: ['....kkk.....', '...kkskkk...', '....kkk.kk..', '...krrrk.k..', '..krrrrrk.k.', '..krwwrrk.k.', '..krwwrrk.k.', '..krrrrrk.k.', '..krrrrrkk..', '..kRRRRRk...', '...kkkkk....', '............'],
+  banana: ['.........kk.', '........kyk.', '.......kyyk.', '......kyyk..', '.....kyyyk..', '...kkyyyk...', '.kkyyyyk....', 'kyyyyykk....', 'kyyyyk......', '.kkkk.......', '............', '............'],
+  pillow: ['............', '............', '.kk......kk.', 'kwwkkkkkkwwk', '.kwwwwwwwwk.', '.kwwwwwwwwk.', '.kwwwpwwwwk.', '.kwwwwwwwwk.', 'kwwkkkkkkwwk', '.kk......kk.', '............', '............'],
+  duck: ['............', '.....kkk....', '....kyyyk...', '....kykykk..', '....kyyykook', '.k..kyyykkk.', 'kyk.kyyyk...', 'kyykkyyyyk..', 'kyyyyyyyyyk.', 'kyyyyyyyyyk.', '.kyyyyyyyk..', '..kkkkkkk...'],
+  bubbles: ['.....kk.....', '....kcck....', '...kc..ck...', '...kc..ck...', '....kcck....', '.....kk..kk.', '.....kk.kcck', '....kbbk.kk.', '...kbbbbk...', '...kbcbbk...', '...kbbbbk...', '....kkkk....'],
+  whistle: ['............', '............', '..kkkkkkk...', '.ksssssssk..', 'kssssssssskk', 'kssskkkssssk', '.kssk.kssssk', '..kk...kkkk.', '............', '.....o......', '....o.......', '...o........'],
+  magnet: ['............', '..kkkkkkkk..', '.krrrrrrrrk.', 'krrkkkkkkrrk', 'krrk....krrk', 'krrk....krrk', 'krrk....krrk', 'kwwk....kwwk', 'kwwk....kwwk', 'kkkk....kkkk', '............', '............'],
+  paint: ['...kkkkkk...', '..k......k..', '.k........k.', 'kkkkkkkkkkkk', 'kbbbbbbbbbbk', 'kssssssssssk', '.kssssssssk.', '.kssssssssk.', '.kssbbbsssk.', '.ksssbssssk.', '..kkkkkkkk..', '............'],
+  rake: ['.k.k.k.k....', '.k.k.k.k....', '.kkkkkkk....', '....kn......', '.....kn.....', '......kn....', '.......kn...', '........kn..', '.........kn.', '..........kn', '...........k', '............'],
+  cushion: ['............', '............', '...kkkkk....', '..krrrrrk...', '.krrwrrrrk..', 'krrrrrrrrrkk', 'krrrrrrrrrrk', '.krrrrrrrkkk', '..kkkkkkk...', '............', '............', '............'],
+  // предметы миссий
+  cucumber: ['............', '.........kk.', '........kgGk', '.......kgGk.', '......kgGk..', '.....kgGk...', '....kgGk....', '...kgGk.....', '..kgGk......', '.kgGk.......', '.kkk........', '............'],
+  bulb: ['....kkkk....', '...kyyyyk...', '..kyywyyyk..', '..kywyyyyk..', '..kyyyyyyk..', '...kyyyyk...', '....kyyk....', '....kssk....', '....kdsk....', '....kssk....', '.....kk.....', '............'],
+  pizza: ['kkkkkkkkkkkk', 'koooooooooOk', '.kyryyyryyk.', '.kyyyyyyryk.', '..kyyryyyk..', '..kyyyyyyk..', '...kyryyk...', '...kyyyyk...', '....kyyk....', '....kyrk....', '.....kk.....', '............'],
+  // новые миссии
+  salad: ['............', '...g.r..g...', '..gGrrgGrg..', '.grgGgrrGgg.', 'kkkkkkkkkkkk', 'kwwwwwwwwwwk', '.kwwwwwwwwk.', '..kwwwwwwk..', '...kkkkkk...', '............', '............', '............'],
+  phone: ['...kkkkkk...', '..kddddddk..', '..kcccccck..', '..kcbcbcck..', '..kcccccck..', '..kcgcpcck..', '..kcccccck..', '..kcccccck..', '..kddddddk..', '..kddkkddk..', '...kkkkkk...', '............'],
+  catbox: ['............', '..k......k..', '.kok....kok.', '.kookkkkook.', 'kkkkkkkkkkkk', 'knnnnnnnnnnk', 'knnnNNNNnnnk', 'knnnnnnnnnnk', 'knnnnnnnnnnk', 'kNNNNNNNNNNk', 'kkkkkkkkkkkk', '............'],
+  firebin: ['.....o......', '....oyo..o..', '...oyyo.oyo.', '..oyyyyooyo.', '.oyywyyyyyo.', 'kkkkkkkkkkkk', '.kssssssssk.', '.ksdsdsdsdk.', '.kssssssssk.', '.ksdsdsdsdk.', '.kssssssssk.', '..kkkkkkkk..'],
+  // общие события и награды
+  hill: ['....k.......', '....krrr....', '....krrrr...', '....krr.....', '....k.......', '....k.......', '...kgk......', '..kgggkk....', '.kgggggggk..', 'kgggGgggGggk', 'kGGGGGGGGGGk', 'kkkkkkkkkkkk'],
+  moth: ['............', '.kk......kk.', 'kwwk.kk.kwwk', 'kwwwkwwkwwwk', 'kwswkwwkwswk', 'kwwwkrrkwwwk', '.kwwkwrkwwk.', '..kkkrrkkk..', '.....kk.....', '............', '............', '............'],
+  football: ['kkkkkkkkkkkk', 'kw........wk', 'kw..kkkk..wk', 'kw.koooOk.wk', 'kw.kooOok.wk', 'kw.kOoook.wk', 'kw..kkkk..wk', 'kw........wk', 'kw........wk', 'kw........wk', 'kw........wk', '............'],
+  crown: ['............', '............', 'k....kk....k', 'kk..kyyk..kk', 'kyk.kyyk.kyk', 'kyykyyyykyyk', 'kyyyyryyyyyk', 'kyyyrrryyyyk', 'kyyyyryyyyyk', 'kkkkkkkkkkkk', '............', '............'],
+  rain: ['....kkkk....', '..kkddddkk..', '.kddddddddk.', 'kddddddddddk', 'kkkkkkkkkkkk', '............', '.b...b...b..', 'b...b...b...', '...b...b...b', '..b...b...b.', '............', '............'],
   // события и прочее
   flash: ['............', '.kkkk.......', 'kyyyykk.....', 'kyyyyssk....', 'kyyyysssk.y.', 'kyyyysssk..y', 'kyyyyssk..y.', 'kkkkkkk..y..', '...........y', '............', '............', '............'],
   flood: ['............', '............', '..b....b....', '.bcb..bcb..b', 'bbbbbbbbbbbb', 'BbbbBbbbBbbb', 'bbbbbbbbbbbb', 'BBbbBBbbBBbb', 'bbbbbbbbbbbb', 'BBBBBBBBBBBB', '............', '............'],
   mouse: ['....kkkk....', '...kwwwwk...', '..kwwkwwwk..', '..kwwkwwwk..', '..kwwkwwwk..', '..kkkkkkkk..', '..kwwwwwwk..', '..kwwwwwwk..', '..kwwwwwwk..', '...kwwwwk...', '....kkkk....', '............'],
   cart: ['k...........', '.k..........', '.kkkkkkkkkk.', '.kssssssssk.', '..ksssssssk.', '..kssssssk..', '...kkkkkkk..', '...k....k...', '..kdk..kdk..', '...k....k...', '............', '............'],
 };
-const CACHE = {};
+const CACHE = {}, CV = {};
+// та же иконка на canvas (для значков миссий над миром и на мини-карте)
+export function iconCanvas(name, scale = 2) {
+  const key = name + '@' + scale; if (CV[key]) return CV[key];
+  const rows = ART[name] || ART.parcel, c = document.createElement('canvas'); c.width = c.height = 12 * scale; const g = c.getContext('2d');
+  rows.forEach((row, y) => { for (let x = 0; x < 12; x++) { const ch = row[x]; if (!ch || ch === '.' || ch === ' ') continue; g.fillStyle = PAL[ch] || '#ff00ff'; g.fillRect(x * scale, y * scale, scale, scale); } });
+  return (CV[key] = c);
+}
 export function icon(name, scale = 3) {
   const key = name + scale; if (CACHE[key]) return CACHE[key];
   const rows = ART[name] || ART.parcel, c = document.createElement('canvas'); c.width = c.height = 12 * scale;

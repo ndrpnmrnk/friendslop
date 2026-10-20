@@ -1,4 +1,4 @@
-import { THREE, G, mesh, col, tmat, compose } from '../core/gfx.js';
+import { THREE, G, mesh, col, tmat, compose, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
 import { addOutline } from '../game/outline.js';
@@ -14,8 +14,14 @@ export const RIDE = {
   // тележку и тачку нельзя «завести» на месте: сначала разгоняешь её руками, потом запрыгиваешь (coast)
   cart:   { seat: 0.62, pose: 'sit', max: 14, acc: 0, turn: 1.5, fric: 0.32, coast: true },
   barrow: { seat: 0.62, pose: 'sit', max: 11, acc: 0, turn: 1.2, fric: 0.55, coast: true },
+  // самокат: стоя, быстрый разгон; детская машинка: сидя, медленная; надувной круг — по воде (на суше еле ползёт)
+  scooter: { seat: 0.2, pose: 'stand', max: 12, acc: 11, turn: 3.6, fric: 0.45 },
+  kidcar: { seat: 0.32, pose: 'sit', max: 7.5, acc: 8, turn: 3.0, fric: 1.4 },
+  ring:   { seat: 0.05, pose: 'sit', max: 8, acc: 8, turn: 3.2, fric: 0.8, water: true },
+  // больничная каталка: как тележка — разогнать руками и запрыгнуть
+  gurney: { seat: 0.82, pose: 'sit', max: 13, acc: 0, turn: 1.4, fric: 0.38, coast: true },
 };
-export function addPushable(b, kind, x, z) {
+export function addPushable(b, kind, x, z, y = 0) {
   const g = new THREE.Group(); W.group.add(g);
   let roller = null, r;
   if (kind === 'cart') { g.add(cartModel()); r = 0.6; }
@@ -39,6 +45,28 @@ export function addPushable(b, kind, x, z) {
       for (const x of [-0.27, 0.27]) { add(G.box, dk, x, 0.68, 0, 0.05, 0.04, 0.32); add(G.box, dk, x, 0.6, -0.08, 0.03, 0.16, 0.03); }
     }));
     r = 0.38;
+  } else if (kind === 'scooter') {
+    g.add(compose('scooter', add => { const dk = col(0x2b2533), bl = col(0x4ab0f0), wh = col(0x17111f), mt = col(0x9a9da8);
+      add(G.box, bl, 0, 0.1, 0, 0.16, 0.04, 0.7); add(G.box, col(0x23202a), 0, 0.125, -0.05, 0.15, 0.01, 0.5);
+      add(G.box, bl, 0, 0.5, 0.36, 0.05, 0.85, 0.05, -0.12); add(G.box, mt, 0, 0.92, 0.41, 0.46, 0.04, 0.04); for (const sx of [-0.23, 0.23]) add(G.cyl6, dk, sx, 0.92, 0.41, 0.03, 0.1, 0.03, 0, 0, Math.PI / 2);
+      for (const z of [-0.32, 0.36]) add(G.cyl8, wh, 0, 0.07, z, 0.07, 0.04, 0.07, 0, 0, Math.PI / 2); add(G.box, col(0xd8243a), 0, 0.12, -0.36, 0.1, 0.03, 0.08); }));
+    r = 0.35;
+  } else if (kind === 'kidcar') {
+    g.add(compose('kidcar', add => { const rd = col(0xd8243a), yl = col(0xf5c542), dk = col(0x17111f);
+      add(G.box, rd, 0, 0.25, 0, 0.62, 0.26, 1.0); add(G.box, rd, 0, 0.42, 0.28, 0.58, 0.12, 0.38); add(G.box, lam({ color: 0x9ccbec, transparent: true, opacity: 0.7 }, 'kcGlass'), 0, 0.55, 0.12, 0.5, 0.18, 0.03, -0.4);
+      add(G.box, col(0x3a3440), 0, 0.4, -0.18, 0.46, 0.06, 0.4); add(G.cyl8, dk, 0, 0.55, 0.0, 0.1, 0.02, 0.1, 1.0); for (const sz of [-1, 1]) add(G.box, glow(0xfff1c0), sz * 0.2, 0.3, 0.505, 0.1, 0.08, 0.01);
+      for (const [x, z] of [[-0.32, 0.32], [0.32, 0.32], [-0.32, -0.32], [0.32, -0.32]]) { add(G.cyl8, dk, x, 0.12, z, 0.12, 0.08, 0.12, 0, 0, Math.PI / 2); add(G.cyl8, yl, x + Math.sign(x) * 0.045, 0.12, z, 0.05, 0.01, 0.05, 0, 0, Math.PI / 2); } }));
+    r = 0.55;
+  } else if (kind === 'gurney') {
+    g.add(compose('gurney', add => { const mt = col(0xb8bcc8), dk = col(0x23202a);
+      add(G.box, mt, 0, 0.7, 0, 0.62, 0.05, 1.9); add(G.box, lam({ color: 0xd8e0e8 }, 'gurneyPad'), 0, 0.77, 0, 0.56, 0.1, 1.8); add(G.box, col(0xeee8ff), 0, 0.84, -0.7, 0.46, 0.08, 0.3);
+      for (const sx of [-0.28, 0.28]) { add(G.box, mt, sx, 0.9, 0.1, 0.03, 0.03, 1.2); for (const sz of [-0.8, 0.8]) { add(G.box, mt, sx, 0.38, sz, 0.04, 0.66, 0.04); add(G.cyl8, dk, sx, 0.06, sz, 0.06, 0.04, 0.06, 0, 0, Math.PI / 2); } }
+      add(G.box, mt, 0, 0.25, 0, 0.5, 0.03, 1.5); }));
+    r = 0.6;
+  } else if (kind === 'ring') {
+    roller = new THREE.Group(); g.add(roller);
+    roller.add(compose('swimRing', add => { add(new THREE.TorusGeometry(0.42, 0.17, 6, 12), lam({ map: T.awning('#ff5a6e', '#f1e8ff') }, 'ringMat'), 0, 0.12, 0, 1, 1, 1, Math.PI / 2); }));
+    r = 0.55; roller = null;
   } else if (kind === 'tire') {
     roller = new THREE.Group(); roller.position.y = 0.33; g.add(roller); roller.add(tireModel()); r = 0.35;
   } else {
@@ -52,9 +80,9 @@ export function addPushable(b, kind, x, z) {
     r = 0.5;
   }
   // mass: тележка катится легко, урна потяжелее, бочка тяжёлая
-  const mass = { cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7 }[kind];
-  const h = { cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7 }[kind];
-  const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y, vx: 0, vz: 0, r, mass, h, ride: RIDE[kind] || null, heading: 0 };
+  const mass = { cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
+  const h = { cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
+  const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y + y, vx: 0, vz: 0, r, mass, h, ride: RIDE[kind] || null, heading: 0 };
   if (p.ride) p.outline = addOutline(g, 0.04);
   g.position.set(p.x, p.y, p.z); W.pushables.push(p); return p;
 }

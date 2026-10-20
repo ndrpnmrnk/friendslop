@@ -87,6 +87,8 @@ export function lam(opts, key, stable = false) {
 }
 export const col = c => lam({ color: c }, 'c' + c);
 export const tmat = (t, extra) => lam({ map: t, ...(extra || {}) }, extra ? null : 't' + t.uuid);
+// «стабильный» материал для больших стен и полов: без дрожания вершин (иначе длинные стены «плывут» рябью)
+export const smat = t => lam({ map: t }, 's' + t.uuid, true);
 export const basic = c => MC.get('b' + c) || (MC.set('b' + c, ps1(new THREE.MeshBasicMaterial({ color: c }))), MC.get('b' + c));
 export const glow = c => lam({ color: c, emissive: c, emissiveIntensity: 0.9 }, 'g' + c);
 export const alphaMat = (t, opts = {}) => ps1(new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, ...opts }));

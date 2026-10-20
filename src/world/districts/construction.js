@@ -54,6 +54,7 @@ export default {
     b.potty(29.6, 29.6, Math.PI); b.puddle(10, 17, 1.3); b.puddle(24, 26, 1); b.potty(28.2, 29.6, Math.PI); b.cementPallet(21.5, 17.4); b.brickStack(10, 14);
     W.spots.demo.push({ x: b.X(9.5), z: b.Z(1.8), y: b.Y, pieces: [] }); b.tires(2.2, 29.6, 3); b.cone(14.5, 21.5); b.cone(15.5, 23);
     b.lamp(31, 20, -Math.PI / 2); b.lamp(12.5, 15, 0);
+    b.zipline(6.0, 13.2, 4.0, 13.5, 2.6, 21.5); b.rake(18, 22.5, 1.0); b.rake(27, 15, -0.6);
     // прожекторы на мачтах, светят на площадку
     for (const [x, z, ry] of [[1.6, 21, Math.PI / 2], [30.4, 13, -Math.PI / 2]]) { b.m(G.cyl6, col(0x2b2533), x, 3, z, 0.08, 6, 0.08); b.solid(x, z, 0.3, 0.3, 0, 6);
       const hd = b.m(G.box, col(0x2b2533), x + Math.sin(ry) * 0.3, 5.9, z, 0.5, 0.4, 0.7); hd.rotation.y = ry; b.m(G.box, glow(0xfff4d8), x + Math.sin(ry) * 0.56, 5.9, z, 0.04, 0.3, 0.55).rotation.y = ry;

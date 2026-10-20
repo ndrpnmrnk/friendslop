@@ -2,7 +2,9 @@ import { keys, tapped } from '../core/input.js';
 import { damp } from '../core/rng.js';
 import { W } from '../world/state.js';
 import { burst, smoke } from '../world/particles.js';
-import { pushOut } from '../world/physics.js';
+import { pushOut, zoneAt } from '../world/physics.js';
+import { actors, shove } from './actors.js';
+import { sfx } from '../core/sfx.js';
 
 /* Катание: скейт, офисное кресло — E рядом или запрыгнуть сверху.
    Тележка и тачка: ЛКМ/ПКМ — схватиться и толкать перед собой, разогнаться,
@@ -84,7 +86,8 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   // скорость по направлению движения, боковое скольжение гасится (кроме кресла — оно крутится)
   const fx = Math.sin(b.heading), fz = Math.cos(b.heading), fwd = b.vx * fx + b.vz * fz, side = -b.vx * fz + b.vz * fx;
   const keep = b.kind === 'chair' ? 0.92 : Math.exp(-dt * 6);
-  let nf = Math.max(-R.max * 0.4, Math.min(R.max, fwd)), ns = side * keep;
+  const mx = R.water && !zoneAt(b.x, b.z, b.y, 'water') ? 2 : R.max;
+  let nf = Math.max(-mx * 0.4, Math.min(mx, fwd)), ns = side * keep;
   b.vx = fx * nf - fz * ns; b.vz = fz * nf + fx * ns;
   if (b.kind === 'chair') b.heading += side * dt * 0.8;
   const sp = Math.hypot(b.vx, b.vz);
@@ -93,8 +96,12 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   if (R.coast) { b.stopT = sp < 0.7 ? (b.stopT || 0) + dt : 0; if (b.stopT > 0.4) { dismount(p, false); return 'stop'; } }
   p.pos.set(b.x, b.y + R.seat, b.z); p.vel.set(b.vx, 0, b.vz); p.onGround = true; p.speed = sp;
   p.root.rotation.y = b.heading; p.facing = b.heading;
+  // наехал на кого-то — тот отлетает
+  if (sp > 4) for (const o of actors()) { if (o === p || o.hidden || o.heldBy || o.ride) continue; if (Math.hypot(o.pos.x - b.x, o.pos.z - b.z) < b.r + 0.45 && Math.abs(o.pos.y - b.y) < 1.2 && !(o.diveHitT > 0)) { shove(o, b.vx, b.vz, sp * 0.8, 4, true); o.diveHitT = 0.6; sfx(b.kind === 'kidcar' ? 'honk' : 'hit', { at: o.pos }); } }
   // врезался
   if (b.hitSpeed > 6) { const v = b.hitSpeed; dismount(p, false); p.vel.set(-fx * 3, 5, -fz * 3); p.stun = 0.9; burst(b.x, b.y + 0.6, b.z, 8, { size: 0.4, speed: 3 }); return 'crash'; }
-  if (ctrl && tapped('Space')) { dismount(p, true); return 'jump'; }
+  // скейт и самокат: пробел — прыжок (олли), слезть — E
+  if (ctrl && tapped('Space')) { if (b.kind === 'skate' || b.kind === 'scooter') { if (!b.air) { b.vy = 6.5; b.y += 0.05; b.air = true; sfx('jump'); } return null; } dismount(p, true); return 'jump'; }
+  if (b.grind && Math.random() < dt * 30) burst(b.x, b.y + 0.05, b.z, 1, { color: 0xffd25c, size: 0.06, speed: 2, up: 1.5, g: 12, life: 0.3, grow: 0 });
   return null;
 }

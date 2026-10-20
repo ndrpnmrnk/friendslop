@@ -134,10 +134,10 @@ body.locked #dot i{left:-2px;top:-2px;width:4px;height:4px;background:rgba(241,2
 .chip{position:absolute;width:4px;height:4px;background:var(--candy);animation:chip .5s steps(6) forwards}
 @keyframes chip{to{transform:translate(var(--dx),var(--dy));opacity:0}}
 #held{align-self:center;display:flex;align-items:center;gap:8px;padding:7px 10px 6px;font-size:13px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);white-space:nowrap}
-#gslot{position:relative;width:54px;height:54px;align-self:center;display:flex;align-items:center;justify-content:center;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--gc,var(--edge))}
-#gslot .key{position:absolute;left:-2px;top:-2px;font-size:8px;padding:3px 4px 2px}
-#gslot .n{position:absolute;right:4px;bottom:3px;font-family:var(--px);font-size:9px;color:var(--text);text-shadow:1px 1px 0 var(--night)}
-#gslot.new{animation:bump .35s steps(4)}
+#gslot{align-self:center;display:flex;align-items:center;gap:10px;padding:6px 10px 5px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);font-family:var(--px);font-size:10px;color:var(--text)}
+#gslot img{margin-right:-6px}
+#held .n{font-family:var(--px);font-size:10px;color:var(--gold);margin-left:-2px}
+#held.new{animation:bump .35s steps(4)}
 #prompt{position:absolute;top:calc(50% + 34px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px 10px 5px;font-size:15px;font-weight:700;background:var(--panel);clip-path:var(--notch);white-space:nowrap}
 #lockhint{position:absolute;top:50%;left:50%;width:48px;height:48px;transform:translate(-50%,-50%);background-size:contain;image-rendering:pixelated;animation:lh 1s steps(2) infinite}
 @keyframes lh{50%{transform:translate(-50%,-50%) scale(1.15)}}
@@ -169,3 +169,31 @@ body.locked #dot i{left:-2px;top:-2px;width:4px;height:4px;background:rgba(241,2
 
 @media (max-width:760px){#missions{width:200px}.mcard .mn{font-size:13px}#minimap{width:132px;height:132px}#minimap canvas{width:128px;height:128px}#evchip{left:auto;right:12px;top:150px}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
+
+/* телефон-мессенджер (миссия «Позови всех гулять») */
+#phoneui{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:240px;padding:10px 10px 12px;background:#17111f;box-shadow:0 0 0 3px #3a3046,0 0 0 6px #17111f,8px 8px 0 6px rgba(0,0,0,.35);clip-path:var(--notch);z-index:30;font-family:var(--tx);color:var(--text);animation:bump .3s steps(3)}
+#phoneui .ph-top{display:flex;justify-content:space-between;align-items:center;font-family:var(--px);font-size:9px;color:var(--gold);padding:2px 4px 8px;border-bottom:2px solid #3a3046;margin-bottom:6px}
+#phoneui .ph-top b{font-size:10px;color:var(--pumpkin)}
+#phoneui .ph-list{display:flex;flex-direction:column;gap:4px}
+#phoneui .ph-c{display:flex;align-items:center;gap:8px;padding:6px;background:#2a1f3d;border:0;color:var(--text);font:inherit;font-size:13px;cursor:pointer;text-align:left}
+#phoneui .ph-c:hover,#phoneui .ph-c.on{background:#3a2a56;box-shadow:inset 0 0 0 2px var(--gold)}
+#phoneui .ph-c.sent{opacity:.75;cursor:default}
+#phoneui .ph-av{width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--c);color:#17111f;font-family:var(--px);font-size:10px}
+#phoneui .ph-n{flex:1;font-weight:700}
+#phoneui .ph-s{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--candy)}
+#phoneui .ph-st{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;padding-top:8px;border-top:2px solid #3a3046}
+#phoneui .ph-st.hidden{display:none}
+#phoneui .ph-k{background:#2a1f3d;border:0;padding:6px;cursor:pointer}
+#phoneui .ph-k:hover{background:#3a2a56;box-shadow:inset 0 0 0 2px var(--candy)}
+#evbanner span{display:flex;flex-direction:column;align-items:center;gap:10px}
+#evbanner small{font-family:var(--tx);font-weight:700;font-size:15px;color:var(--text);text-shadow:2px 2px 0 var(--night);white-space:normal;max-width:70vw;text-align:center}
+#evbanner.big{animation-duration:2.6s}
+#evchip b{margin-left:8px;color:var(--gold)}
+/* комбо и короткие объявления происшествий */
+#combo{position:absolute;top:96px;left:50%;transform:translateX(-50%);font-family:var(--px);font-size:16px;color:var(--text);text-shadow:3px 3px 0 var(--night);white-space:nowrap}
+#combo b{color:var(--gold);font-size:22px}
+#combo.go{animation:combo 1.3s steps(10) forwards}
+@keyframes combo{0%{opacity:0;transform:translateX(-50%) scale(2) rotate(-6deg)}15%{opacity:1;transform:translateX(-50%) scale(.9) rotate(3deg)}25%{transform:translateX(-50%) scale(1.05)}80%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-16px)}}
+#toast{position:absolute;top:32%;left:50%;transform:translateX(-50%);padding:6px 12px 5px;font-family:var(--px);font-size:12px;color:var(--pumpkin);background:var(--panel);clip-path:var(--notch);white-space:nowrap}
+#toast.go{animation:toast 1.8s steps(12) forwards}
+@keyframes toast{0%{opacity:0;transform:translateX(-50%) translateY(10px)}12%{opacity:1;transform:translateX(-50%)}85%{opacity:1}100%{opacity:0}}

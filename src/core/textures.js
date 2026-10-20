@@ -96,6 +96,28 @@ export const T = {
     }
     grain(g, W, H, 16);
   }),
+  // площадь: крупные каменные плиты разной длины, тонкие тёмные швы, спокойный контраст (без «шахматки»)
+  flag: () => photo('flag', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#3b3446'); const rows = 4, rh = H / rows;
+    for (let r = 0; r < rows; r++) { let x = -(r * 17 % 23); while (x < W) { const w = 18 + ((R() * 3) | 0) * 7;
+      for (const ox of [0, W]) { g.fillStyle = shade(0x6e6680, (R() - 0.5) * 16); g.fillRect(x + 1.5 - ox, r * rh + 1.5, w - 3, rh - 3); }
+      x += w; } }
+    blobs(g, W, H, ['#5a526a', '#7a7290', '#4a4458'], 60, 6, 18, 0.12); blobs(g, W, H, ['#2e2838'], 160, 1, 2, 0.25); grain(g, W, H, 8);
+  }),
+  // розетка вокруг фонтана: кольца брусчатки «веером», в центре светлее
+  rosette: () => photo('rosette', 128, 128, (g, W, H) => {
+    fill(g, W, H, '#3b3446'); const cx = W / 2, cy = H / 2;
+    for (let ring = 0; ring < 9; ring++) { const r0 = W * 0.06 + ring * W * 0.05, r1 = r0 + W * 0.045, n = 10 + ring * 7;
+      for (let i = 0; i < n; i++) { const a0 = i / n * 6.283 + ring * 0.2, a1 = (i + 1) / n * 6.283 + ring * 0.2 - 0.02;
+        g.fillStyle = shade(ring % 3 === 2 ? 0x8a7a68 : 0x6e6680, (R() - 0.5) * 18); g.beginPath(); g.arc(cx, cy, r1, a0, a1); g.arc(cx, cy, r0, a1, a0, true); g.fill(); } }
+    blobs(g, W, H, ['#2e2838'], 220, 1, 2, 0.22); grain(g, W, H, 8);
+  }),
+  // дорожка: светлая плитка «ёлочкой» в тёплый тон
+  pathStone: () => photo('pathStone', 32, 64, (g, W, H) => {
+    fill(g, W, H, '#4a4050'); const s2 = W / 4;
+    for (let y = -1; y < H / s2 + 1; y++) for (let x = 0; x < 4; x++) { g.fillStyle = shade(0x8a7a6c, (R() - 0.5) * 18); const o = (x % 2) * s2 / 2; g.fillRect(x * s2 + 1, y * s2 + o + 1, s2 - 2, s2 - 2); }
+    grain(g, W, H, 8);
+  }),
   grass: () => photo('grass', 64, 64, (g, W, H) => {
     fill(g, W, H, HW ? '#33502f' : '#4f8a40');
     blobs(g, W, H, HW ? ['#2a4527', '#3f5e38', '#4a6a3c'] : ['#3f7a35', '#5a9a4a'], 60, 12, 50, 0.3);
@@ -128,6 +150,7 @@ export const T = {
   waterHi: () => pix('waterHi', 32, 32, (g, W, H) => { for (let i = 0; i < 26; i++) { const x = (R() * W) | 0, y = (R() * H) | 0, l = 2 + ((R() * 5) | 0); g.fillStyle = R() < 0.3 ? 'rgba(230,240,255,.9)' : 'rgba(150,200,240,.6)'; g.fillRect(x, y, l, 1); } }),
   foam: () => pix('foam', 32, 8, (g, W, H) => { for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(220,235,250,${0.3 + R() * 0.5})`; g.fillRect((R() * W) | 0, (R() * H * R()) | 0, 1 + ((R() * 3) | 0), 1); } g.fillStyle = 'rgba(220,235,250,.55)'; g.fillRect(0, 0, W, 2); }),
   ripple: () => pix('ripple', 32, 32, (g, W, H) => { g.strokeStyle = 'rgba(210,230,250,.9)'; g.lineWidth = 2; g.beginPath(); g.arc(W / 2, H / 2, W / 2 - 2, 0, 7); g.stroke(); g.strokeStyle = 'rgba(210,230,250,.4)'; g.lineWidth = 1; g.beginPath(); g.arc(W / 2, H / 2, W / 2 - 6, 0, 7); g.stroke(); }),
+  footW: () => pix('footW', 8, 12, (g) => { g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(4, 7, 3, 4.5, 0, 0, 7); g.fill(); }),
   foot: () => pix('foot', 8, 12, (g) => { g.fillStyle = 'rgba(20,26,40,.8)'; g.beginPath(); g.ellipse(4, 7, 3, 4.5, 0, 0, 7); g.fill(); }),
   wood: () => photo('wood', 64, 64, (g, W, H) => {
     const n = 4, s2 = H / n;
@@ -487,6 +510,18 @@ export const T = {
     g.fillStyle = '#152934'; g.fillRect(W * 0.16, H * 0.44, W * 0.68, H * 0.18); g.fillStyle = '#a2c99a'; g.fillRect(W * 0.22, H * 0.48, W * 0.5, H * 0.07);
     g.fillStyle = '#151823'; g.fillRect(W * 0.22, H * 0.73, W * 0.4, H * 0.035); g.fillStyle = '#e8bd65'; g.fillRect(W * 0.7, H * 0.7, W * 0.1, H * 0.1); grain(g, W, H, 8);
   }),
+  mothFur: () => photo('mothFur', 32, 32, (g, W, H) => { fill(g, W, H, '#8a7a6a'); strokes(g, W, H, ['#a89880', '#6a5a4a', '#c8b8a0'], 500, 6, 1.6, 2, 2, 0.6); grain(g, W, H, 16); }),
+  mothWing: () => photo('mothWing', 64, 48, (g, W, H) => { g.clearRect(0, 0, W, H); g.fillStyle = '#9a8a72'; g.beginPath(); g.moveTo(0, H * 0.45); g.quadraticCurveTo(W * 0.4, -H * 0.1, W, H * 0.15); g.quadraticCurveTo(W * 0.85, H * 0.7, W * 0.55, H); g.quadraticCurveTo(W * 0.2, H * 0.85, 0, H * 0.55); g.fill();
+    blobs(g, W, H, ['#7a6a52', '#b8a888', '#6a5a46'], 40, 3, 9, 0.35); g.fillStyle = '#3a2a1e'; g.beginPath(); g.arc(W * 0.62, H * 0.45, W * 0.1, 0, 7); g.fill(); g.fillStyle = '#f5c542'; g.beginPath(); g.arc(W * 0.62, H * 0.45, W * 0.06, 0, 7); g.fill(); g.fillStyle = '#17111f'; g.beginPath(); g.arc(W * 0.62, H * 0.45, W * 0.03, 0, 7); g.fill(); }),
+  // отражение огня в луже: вытянутый мазок с пиксельными разрывами
+  refl: () => pix('refl', 8, 32, (g, W, H) => { for (let y = 0; y < H; y++) { const k = Math.sin(y / H * Math.PI), a = k * (y % 3 === 1 ? 0.35 : 1); if (a < 0.05) continue; const w = Math.max(1, Math.round(W * (0.3 + 0.7 * k) * (0.6 + 0.4 * ((y * 7) % 5) / 5))); g.fillStyle = `rgba(255,255,255,${a})`; g.fillRect(((W - w) / 2) | 0, y, w, 1); } }),
+  // капля дождя
+  drop: () => pix('drop', 2, 16, (g, W, H) => { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(200,220,255,0)'); gr.addColorStop(1, 'rgba(200,220,255,.9)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); }),
+  cardboard: () => photo('cardboard', 32, 32, (g, W, H) => { fill(g, W, H, '#b8885a'); strokes(g, W, H, ['#a07448', '#c89868'], 60, 30, 0, 0.1, 2, 0.4); g.fillStyle = 'rgba(60,40,20,.35)'; g.fillRect(0, H / 2 - 2, W, 4); grain(g, W, H, 10); }),
+  // рентген-снимок: синеватый негатив с черепом и рёбрами
+  xray: () => pix('xray', 32, 40, (g, W, H) => { g.fillStyle = '#0e1a26'; g.fillRect(0, 0, W, H); g.fillStyle = '#a8d0f0';
+    g.beginPath(); g.ellipse(16, 8, 6, 6.5, 0, 0, 7); g.fill(); g.fillStyle = '#0e1a26'; g.fillRect(12, 6, 3, 3); g.fillRect(17, 6, 3, 3); g.fillRect(15, 10, 2, 2); g.fillStyle = '#a8d0f0';
+    g.fillRect(15, 14, 2, 20); for (let i = 0; i < 5; i++) { g.fillRect(8, 17 + i * 3, 7, 1); g.fillRect(17, 17 + i * 3, 7, 1); } g.fillRect(9, 34, 14, 3); }),
   chainlink: () => pix('chainlink', 32, 32, (g, W, H) => {
     g.strokeStyle = 'rgba(175,175,185,.8)'; g.lineWidth = 1;
     for (let x = -W; x < W * 2; x += 8) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + W, H); g.moveTo(x, 0); g.lineTo(x - W, H); g.stroke(); }

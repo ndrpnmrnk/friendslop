@@ -13,6 +13,9 @@ import { bounceAt, worldHit, shake, leaveSwing, driveSwing, leaveHide } from './
 import { isFree } from '../world/physics.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
+import { struggleTap, startEmote, updateEmote, EMOTES } from './grab.js';
+import { actors, shove } from './actors.js';
+import { updateZip } from './zipline.js';
 
 const PC = CONFIG.player;
 export function createPlayer(skin) {
@@ -33,7 +36,13 @@ export function groundBlob(p) {
   const b = p.ch.blob; b.position.y = g - p.pos.y + 0.03; b.scale.setScalar(p.ch.blobS * (0.55 + 0.45 * k)); b.material.opacity = 0.32 * k; b.visible = k > 0.02;
 }
 export function updatePlayer(p, dt, t, canMove, yaw = 0) {
-  const ctrl = canMove && p.stun <= 0 && !p.frozen;
+  if (p.knockT > 0) p.knockT -= dt;
+  // схвачен: вырываешься частыми нажатиями, сам не двигаешься
+  if (p.heldBy) {
+    if (canMove && ['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE'].some(k => tapped(k))) struggleTap(p);
+    p.ch.animate(dt, { t, speed: 0, air: false, grabbed: true }); groundBlob(p); return;
+  }
+  const ctrl = canMove && p.stun <= 0 && !p.frozen && !(p.knockT > 0) && !(p.floatT > 0);
   let ix = 0, iz = 0;
   if (ctrl) {
     if (keys.KeyA || keys.ArrowLeft) ix--; if (keys.KeyD || keys.ArrowRight) ix++;
@@ -43,8 +52,13 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   { const sx = ix, sz = iz, s = Math.sin(yaw), c = Math.cos(yaw); ix = sx * c + sz * s; iz = -sx * s + sz * c; }
   if (p.noRun) { ix = 0; iz = 0; }
   const il = Math.hypot(ix, iz); if (il) { ix /= il; iz /= il; }
+  // эмоции 1–4
+  if (ctrl) for (let i = 0; i < 4; i++) if (tapped('Digit' + (i + 1))) startEmote(p, EMOTES[i]);
+  updateEmote(p, dt, il > 0 || tapped('Space'));
   // в укрытии: стоим невидимыми, выскочить — E (в main) или пробел
   if (p.hidden) { p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt); if (ctrl && tapped('Space')) leaveHide(p); else { groundBlob(p); return; } }
+  // на зиплайне: едешь вниз по тросу, пробел — спрыгнуть
+  if (p.zip) { updateZip(p, dt, ctrl && tapped('Space')); p.ch.animate(dt, { t, speed: 0, air: false, vy: 0, zip: true }); groundBlob(p); if (p.zip) return; }
   // на качелях: W/S — раскачиваться, пробел — спрыгнуть
   if (p.swing) {
     if (ctrl && tapped('Space')) leaveSwing(p, true);
@@ -103,6 +117,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.webT > 0) { p.webT -= dt; top *= 0.4; }
   if (p.crouch) top = Math.min(top, PC.crouchSpeed);
   if (p.grab) top *= p.grab.kind === 'barrow' ? 0.82 : 0.92;
+  if (p.holding) top *= 0.72;
   const cur = Math.hypot(p.vel.x, p.vel.z);
   let acc;
   if (!p.onGround) acc = 3;
@@ -137,6 +152,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (ctrl && tapped('Space') && (p.onGround || p.climb) && !p.dive) {
     if (p.slideT > 0) { p.slideT = 0; }
     p.vel.y = PC.jump * (water ? 0.75 : 1); sfx('jump'); if (Math.random() < 0.35) voice(p.ch, 'jump');
+    if (p.boots > 0 && !p.climb) { p.boots--; p.vel.y = 14.5; p.airPeak = p.pos.y + 7; sfx('spring'); smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 10, { speed: 3, color: 0xb18cff }); shake(0.12); }
     if (p.climb) { p.vel.x += p.climb.nx * 3; p.vel.z += p.climb.nz * 3; p.climb = null; }
     smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 5, { speed: 1.6, size: 0.14, grow: 0.42, life: 0.5 });
   }
@@ -146,7 +162,16 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.dive === 'air') hitBreakables({ x: p.pos.x + p.vel.x * 0.05, y: p.pos.y + 0.6, z: p.pos.z + p.vel.z * 0.05 }, 0.6, [p.vel.x, p.vel.y, p.vel.z], 1, ['glass', 'crate']);
   // шарик с водой в руках — как парашют: падаешь медленно и без оглушения
   if (!p.onGround && p.held && p.held.type === 'balloon' && p.vel.y < -2.6) { p.vel.y = -2.6; p.airPeak = p.pos.y + 1; }
-  if (p.dive === 'air') worldHit({ x: p.pos.x + p.vel.x * 0.05, y: p.pos.y + 0.6, z: p.pos.z + p.vel.z * 0.05 }, 4, p.vel);
+  // раскрытый зонтик — парашют
+  if (!p.onGround && p.held && p.held.type === 'umbrella' && p.held.open && p.vel.y < -2.2) { p.vel.y = -2.2; p.airPeak = p.pos.y + 1; p.vel.x *= 0.99; p.vel.z *= 0.99; }
+  if (p.jetT > 0) { p.jetT -= dt; p.airPeak = p.pos.y; }
+  if (p.dive === 'air') {
+    worldHit({ x: p.pos.x + p.vel.x * 0.05, y: p.pos.y + 0.6, z: p.pos.z + p.vel.z * 0.05 }, 4, p.vel);
+    // выпад: сбивает толчком (без оглушения), выбивает предмет из рук; закрытую дверь — вышибает
+    for (const b of actors()) { if (b === p || b.hidden || b.heldBy || (b.diveHitT > 0)) continue; const dx = b.pos.x - p.pos.x, dz = b.pos.z - p.pos.z; if (Math.hypot(dx, dz) < p.r + b.r + 0.15 && Math.abs(b.pos.y - p.pos.y) < 1.2) { shove(b, p.vel.x, p.vel.z, 7.5, 4.5, true); b.diveHitT = 0.6; voice(b.ch, 'hurt', b.pos); sfx('hit', { at: b.pos, v: 0.8 }); shake(0.1); } }
+    for (const d of W.doors) if (!d.open && Math.hypot(d.x - p.pos.x, d.z - p.pos.z) < 1.0 && Math.abs(d.y - p.pos.y) < 1.2) { d.open = true; d.slam = 1; sfx('door', { at: d }); shake(0.18); smokeRing(d.x, d.y + 1, d.z, 6, { speed: 2 }); }
+  }
+  if (p.diveHitT > 0) p.diveHitT -= dt;
   moveBody(p, dt, PC.gravity);
   bumpPushables(p);
   // батут: приземлился на маркизу / крышу машины / матрас — подбросило
@@ -172,6 +197,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     const drop = p.airPeak - p.pos.y;
     if (p.dive === 'air' && drop <= PC.fallStun) { p.dive = 'roll'; p.rollT = PC.rollTime; p.vel.x *= 0.8; p.vel.z *= 0.8; smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 7, { speed: 2.4 }); }
     else if (p.dive === 'air') p.dive = null;
+    if (p.thrown) { p.thrown = false; if (drop > 0.3) { p.stun = Math.max(p.stun, 0.6); smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 8, { speed: 2.4 }); } }
     if (drop > 0.5) sfx('land', { v: Math.min(1.5, drop * 0.3) });
     if (drop > 2.5) { shake(Math.min(0.5, drop * 0.06)); voice(p.ch, drop > PC.fallStun ? 'hurt' : 'land'); }
     if (drop > PC.fallStun) { p.stun = PC.stunTime; smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 12, { speed: 3.2, size: 0.24, grow: 0.8, life: 0.8 }); }
@@ -218,6 +244,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
   p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, climb: !!p.climb,
-    hold: !!p.held || !!p.grab || p.pushing > 0, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
-    crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null });
+    hold: (!!p.held || !!p.grab || p.pushing > 0) && !p.holding, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
+    crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
+    emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, swat: p.swatT > 0 ? p.swatT : 0 });
 }

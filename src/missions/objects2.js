@@ -23,7 +23,7 @@ export function buildShells(x, y, z, f) {
   const ball = mesh(G.sph10, tmat(T.pumpkin()), 0, 0.92, 0, 0.07, 0.06, 0.07, g);
   const s = solidAround(x, z, f, 1.9, 1.0, y, 0.85);
   g.updateMatrixWorld(true);
-  return { type: 'shells', g, cups, ball, solid: s, pos: () => g.position, world: (a, b, c) => wl(g, a, b, c), dispose() { W.group.remove(g); s.on = false; } };
+  return { type: 'shells', g, cups, ball, solid: s, pos: () => g.position, front: () => new V3(x + f[0] * 0.8, y, z + f[1] * 0.8), world: (a, b, c) => wl(g, a, b, c), dispose() { W.group.remove(g); s.on = false; } };
 }
 
 // Рыбалка: складной стульчик, ведро, удочка на рогатине у воды. spot: {x,y,z,f,wx,wz,wy} — где вода
@@ -72,7 +72,7 @@ export function buildCleanup(x, y, z, f) {
   const g = frame(x, y, z, f); g.add(binModel());
   const ring = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide }), 0, 0.05, 0, 0.9, 0.9, 1, g); ring.rotation.x = -Math.PI / 2;
   const s = addSolid(x - 0.35, z - 0.35, x + 0.35, z + 0.35, y, y + 1);
-  return { type: 'cleanup', g, ring, solid: s, litter: [], pos: () => g.position,
+  return { type: 'cleanup', g, ring, solid: s, litter: [], pos: () => g.position, reach: 2.0,
     dispose() { W.group.remove(g); s.on = false; for (const it of this.litter) { it.state = 'gone'; it.g.visible = false; } } };
 }
 export function spawnLitter(x, y, z) { return addItem('litter', x, y, z, Math.random() * 6); }

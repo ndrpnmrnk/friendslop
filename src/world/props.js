@@ -5,6 +5,7 @@ import { W } from './state.js';
 import { breakBox } from './breakables.js';
 import { addZone } from './physics.js';
 import { addSwinger } from './swingers.js';
+import { puff } from './particles.js';
 
 /* Детальные модели пропсов. Каждая собирается из примитивов один раз и дальше
    копируется (compose): деталей много, а отрисовок на модель — по одной на материал.
@@ -150,6 +151,7 @@ export const PropMethods = {
   // Бетонная клумба: корпус, бортик, земля и растения (flowers | shrub | grass | tree)
   planter(x, z, w, d, h = 0.5, kind = 'flowers') {
     const st = tmat(T.planter()), rim = col(0x9a94a4);
+    if (kind === 'flowers') W.flowerbeds.push({ x0: this.X(x - w / 2), z0: this.Z(z - d / 2), x1: this.X(x + w / 2), z1: this.Z(z + d / 2), y: this.Y, top: this.Y + h, district: this.d });
     this.m(G.box, st, x, h / 2, z, w, h, d);
     for (const [cx, cz, ww, dd] of [[x, z - d / 2 + 0.07, w + 0.06, 0.16], [x, z + d / 2 - 0.07, w + 0.06, 0.16], [x - w / 2 + 0.07, z, 0.16, d - 0.2], [x + w / 2 - 0.07, z, 0.16, d - 0.2]]) this.m(G.box, rim, cx, h + 0.03, cz, ww, 0.08, dd);
     this.m(G.box, tmat(T.soil()), x, h - 0.02, z, w - 0.26, 0.05, d - 0.26);
@@ -186,12 +188,10 @@ export const PropMethods = {
       s(G.box, 0, 0.44, -0.02, 0.06, 0.05, 0.5); s(G.box, 0, 0.66, 0.0, 0.06, 0.05, 0.46); s(G.box, 0, 0.56, 0.22, 0.05, 0.2, 0.05);
       s(G.cyl8, 0, 0.66, 0.24, 0.045, 0.06, 0.045, Math.PI / 2); s(G.box, 0, 0.02, 0.24, 0.12, 0.04, 0.12); s(G.box, 0, 0.02, -0.38, 0.12, 0.04, 0.12);
     }
-    // Хэллоуин: изредка на скамейке сидит скелет
-    if (HW && Math.random() < 0.1) g.add(compose('skeleton', a => { const b2 = col(0xe8e0d0), d2 = col(0x17111f);
-      a(G.sph10, b2, 0.35, 1.18, -0.08, 0.17, 0.19, 0.17); a(G.box, d2, 0.29, 1.2, 0.08, 0.05, 0.05, 0.02); a(G.box, d2, 0.41, 1.2, 0.08, 0.05, 0.05, 0.02);
-      a(G.cyl5, b2, 0.35, 0.98, -0.12, 0.03, 0.12, 0.03); for (let i = 0; i < 4; i++) a(G.box, b2, 0.35, 0.92 - i * 0.07, -0.12, 0.3 - i * 0.02, 0.025, 0.18);
-      a(G.cyl5, b2, 0.35, 0.72, -0.15, 0.025, 0.4, 0.025); for (const s2 of [-1, 1]) { a(G.cyl5, b2, 0.35 + s2 * 0.1, 0.5, 0.05, 0.025, 0.36, 0.025, Math.PI / 2); a(G.cyl5, b2, 0.35 + s2 * 0.1, 0.27, 0.24, 0.022, 0.42, 0.022); a(G.cyl5, b2, 0.35 + s2 * 0.2, 0.75, -0.05, 0.02, 0.36, 0.02, 0.6); } }));
+    // Хэллоуин: изредка на скамейке сидит весёлый скелет (машет, нога на ногу, держит тыкву; бывает в шляпе или шарфе)
+    if (HW && Math.random() < (globalThis.__skel ?? 0.14)) skeleton(g, ['wave', 'cross', 'pumpkin'][(Math.random() * 3) | 0], Math.random() < 0.5 ? (Math.random() < 0.5 ? 'hat' : 'scarf') : null, Math.random() < 0.5 ? -0.4 : 0.4);
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.6 : 2, q ? 2 : 0.6, 0, 0.55);
+    if (Math.random() < 0.1 && this.Y > -1) this.cushion(x + (q ? 0 : 0.5), z + (q ? 0.5 : 0), 0.55);
     return g;
   },
   // Фонарь: постамент, сужающаяся опора с кольцом, изогнутый кронштейн и фонарь с колпаком
@@ -212,6 +212,7 @@ export const PropMethods = {
     const bulb = breakBox(this.X(lx), this.Y + 3.0, this.Z(lz), 0.22, 0.2, 0.22, 'bulb', bm), pool = this.light(lx, lz, 3.2);
     if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: Math.random() * 5, on: true }); }
     W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; pool.userData.broken = true; };
+    W.lamps.push({ x: this.X(x), z: this.Z(z), y: this.Y, lx: this.X(lx), lz: this.Z(lz), ry, pool, bm, bulb, district: this.d });
     this.solid(x, z, 0.35, 0.35, 0, 3.4);
   },
   // Столбик-ограничитель со светоотражающей полосой
@@ -279,7 +280,8 @@ export const PropMethods = {
     const g = this.prop(x, z, ry), w = tmat(T.wood());
     const add = (px, py, pz, sx, sy, sz, rx = 0) => { const o = new THREE.Mesh(G.box, w); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.x = rx; g.add(o); };
     for (const zz of [-0.24, -0.08, 0.08, 0.24]) add(0, 0.76, zz, 1.8, 0.05, 0.14);
-    for (const s of [-1, 1]) { add(0, 0.45, s * 0.62, 1.8, 0.05, 0.26); for (const xx of [-0.7, 0.7]) { add(xx, 0.38, s * 0.22, 0.07, 0.8, 0.07, s * 0.55); } add(0, 0.42, 0, 0.07, 0.07, 1.5); }
+    for (const s of [-1, 1]) { add(0, 0.45, s * 0.62, 1.8, 0.05, 0.26); for (const xx of [-0.7, 0.7]) add(xx, 0.38, s * 0.42, 0.07, 0.86, 0.07, -s * 0.55); }
+    for (const xx of [-0.7, 0.7]) add(xx, 0.4, 0, 0.06, 0.06, 1.5);
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.7 : 1.8, q ? 1.8 : 0.7, 0, 0.8);
   },
   // Тюки сена (по ним можно забраться): нижний ряд и верхний
@@ -357,6 +359,7 @@ export const PropMethods = {
     const add = (px, py, pz, sx, sy, sz, rx = 0, rzz = 0) => { const o = new THREE.Mesh(G.box, wd); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.set(rx, 0, rzz); g.add(o); };
     add(0, 0.12, 0, 0.9, 0.08, 2.2); for (const s2 of [-1, 1]) add(s2 * 0.5, 0.26, 0, 0.08, 0.32, 2.2, 0, s2 * 0.25); add(0, 0.26, 1.15, 0.9, 0.3, 0.1, 0.3); add(0, 0.26, -1.15, 0.9, 0.3, 0.1, -0.3);
     add(0, 0.32, 0.2, 0.9, 0.05, 0.25); add(0.55, 0.4, -0.2, 0.05, 0.05, 1.6, 0, 0.3);
+    return g;
   },
   // Пирамида тыкв на ступенчатом прилавке: заденешь — раскатятся
   pumpkinPile(x, z) {
@@ -419,6 +422,7 @@ export const PropMethods = {
     const m = this.m(G.plane, lam({ map: T.puddle(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, emissive: 0x1a2a40, emissiveIntensity: 1 }, 'puddle'), x, 0.025, z, r * 2, r * 2, 1);
     m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6;
     addZone('puddle', { c: [this.X(x), this.Z(z), r * 0.7] }, this.Y);
+    W.puddles.push({ x: this.X(x), z: this.Z(z), y: this.Y, r: r * 0.85 });
   },
   // Провода между домами (провисают)
   wires(x0, y0, z0, x1, y1, z1, n = 2) {
@@ -564,12 +568,24 @@ export const PropMethods = {
   },
   // Куча листьев: пробежишь — листья разлетаются
   leafPile(x, z, r = 1) {
-    // невысокий холмик листвы + разлетевшиеся по земле листья (без «камней»)
-    const lm = tmat(T.leaves(0)), g = this.m(G.sph10, lm, x, 0.02, z, r * 0.95, r * 0.32, r * 0.8); g.rotation.y = Math.random() * 3;
-    for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, d = r * 0.5; const k = this.m(G.sph, lm, x + Math.cos(a) * d, 0.02, z + Math.sin(a) * d, r * 0.45, r * 0.2, r * 0.4); k.rotation.y = a; }
-    const lit = this.m(G.plane, lam({ map: T.leafLitter(), alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'leafLitter', true), x, 0.03, z, r * 3.4, r * 3.4, 1); lit.rotation.x = -Math.PI / 2; lit.rotation.z = Math.random() * 6;
-    addZone('leaves', { c: [this.X(x), this.Z(z), r * 0.9] }, this.Y);
-    W.hides.push({ x: this.X(x), y: this.Y, z: this.Z(z), r: r + 0.6, kind: 'leaves', out: [0, 0] });
+    // большой холм листвы (в него можно спрятаться целиком) + разлетевшиеся по земле листья
+    r *= 2.25;
+    const lm = tmat(T.leaves(0)), g = this.m(G.sph10, lm, x, 0.02, z, r * 0.62, r * 0.42, r * 0.55); g.rotation.y = Math.random() * 3;
+    for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + Math.random(), d = r * 0.38; const k = this.m(G.sph, lm, x + Math.cos(a) * d, 0.02, z + Math.sin(a) * d, r * 0.34, r * 0.24, r * 0.3); k.rotation.y = a; }
+    const lit = this.m(G.plane, lam({ map: T.leafLitter(), alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'leafLitter', true), x, 0.03, z, r * 2.1, r * 2.1, 1); lit.rotation.x = -Math.PI / 2; lit.rotation.z = Math.random() * 6;
+    addZone('leaves', { c: [this.X(x), this.Z(z), r * 0.6] }, this.Y);
+    W.hides.push({ x: this.X(x), y: this.Y, z: this.Z(z), r: r * 0.6 + 0.4, kind: 'leaves', out: [0, 0] });
+  },
+  // Питьевой фонтанчик: каменная тумба, чаша и кран; E — попить (стамина полная)
+  drinkFountain(x, z, ry = 0) {
+    const g = this.prop(x, z, ry);
+    g.add(compose('drinkFountain', a => { const st = tmat(T.stone()), mt = col(0x9a9da8), wt = lam({ map: T.water(), emissive: 0x10283a }, 'dfWater');
+      a(G.box, st, 0, 0.45, 0, 0.42, 0.9, 0.42); a(G.box, st, 0, 0.04, 0, 0.56, 0.08, 0.56); a(G.cyl8, st, 0, 0.95, 0.08, 0.32, 0.12, 0.28);
+      a(G.cyl8, wt, 0, 1.0, 0.08, 0.25, 0.02, 0.21); a(G.cyl6, mt, 0, 1.1, -0.12, 0.03, 0.2, 0.03); a(G.box, mt, 0, 1.2, -0.06, 0.04, 0.04, 0.14); }));
+    this.solid(x, z, 0.5, 0.5, 0, 1.0);
+    const fx = Math.sin(ry), fz = Math.cos(ry), wx = this.X(x + fx * 0.05), wz = this.Z(z + fz * 0.05), wy = this.Y + 1.2;
+    W.interacts.push({ x: this.X(x + fx * 0.7), z: this.Z(z + fz * 0.7), y: this.Y, r: 1.1, label: 'Попить', enabled: P => !P.held,
+      act: P => { P.stamina = 1; P.exhausted = false; P.drinkT = 1.2; for (let i = 0; i < 8; i++) puff(wx, wy, wz, { color: 0x9ccbec, size: 0.1, vx: fx * 0.4 + (Math.random() - 0.5) * 0.3, vy: 1.4, vz: fz * 0.4 + (Math.random() - 0.5) * 0.3, g: 9, life: 0.5, grow: 0.1 }); W.onDrink && W.onDrink(P); } });
   },
   // Деревянный причал над водой
   pier(x0, z0, x1, z1, y = 0.35) {
@@ -598,3 +614,36 @@ export const PropMethods = {
     W.spots.fuse.push({ x: this.X(x + nx * 1.0), z: this.Z(z + nz * 1.0), y: this.Y, f: [nx, nz], bx: this.X(x), bz: this.Z(z), district: this.d, label: 'щиток' });
     this.cabinet(x, z, 0.8, 0.4, 1.2, 0x6a6d78, 0, ry); this.m(G.box, tmat(T.hazard()), x, 1.05, z, Math.abs(Math.sin(ry)) > 0.5 ? 0.42 : 0.5, 0.06, Math.abs(Math.sin(ry)) > 0.5 ? 0.5 : 0.42); },
 };
+
+/* Скелет на скамейке: череп с челюстью, рёбра, кости рук и ног. Позы: машет (рука качается), нога на ногу, держит тыкву.
+   off — сдвиг по скамейке. Машущая рука и челюсть анимируются. */
+function skeleton(g, pose, acc, off) {
+  const bone = col(0xe8e0d0), dk = col(0x17111f), sk = new THREE.Group(); sk.position.x = off; g.add(sk);
+  sk.add(compose('skel_' + pose, a => {
+    // череп, глазницы, нос, зубы; шея и позвоночник; таз
+    a(G.sph10, bone, 0, 1.2, -0.06, 0.17, 0.17, 0.16); a(G.box, bone, 0, 1.1, -0.0, 0.2, 0.08, 0.16);
+    for (const sx of [-0.065, 0.065]) a(G.box, dk, sx, 1.22, 0.1, 0.06, 0.06, 0.02); a(G.box, dk, 0, 1.15, 0.11, 0.03, 0.04, 0.02);
+    for (let i = -2; i <= 2; i++) a(G.box, dk, i * 0.03, 1.085, 0.08, 0.012, 0.03, 0.01);
+    a(G.cyl5, bone, 0, 0.98, -0.1, 0.03, 0.14, 0.03); a(G.cyl5, bone, 0, 0.74, -0.14, 0.028, 0.42, 0.028);
+    for (let i = 0; i < 5; i++) { const w = 0.3 - i * 0.025; a(G.halfTorus, bone, 0, 0.94 - i * 0.065, -0.13, w * 0.5, 0.16, 0.3, Math.PI / 2, 0, 0); }
+    a(G.box, bone, 0, 0.92, -0.14, 0.34, 0.035, 0.05); a(G.box, bone, 0, 0.5, -0.1, 0.3, 0.1, 0.16);
+    // ноги: бедро вперёд по сиденью, голень вниз; «нога на ногу» — правая лежит на левой
+    for (const sx of [-1, 1]) { const cross = pose === 'cross' && sx > 0;
+      a(G.cyl5, bone, sx * 0.09, cross ? 0.58 : 0.5, 0.06, 0.028, 0.36, 0.028, Math.PI / 2 - (cross ? 0.25 : 0), 0, cross ? 0.5 : 0);
+      if (cross) { a(G.cyl5, bone, -0.04, 0.5, 0.38, 0.025, 0.4, 0.025, 1.0, 0, 1.1); a(G.box, bone, -0.2, 0.36, 0.5, 0.07, 0.04, 0.14); }
+      else { a(G.cyl5, bone, sx * 0.09, 0.27, 0.25, 0.025, 0.44, 0.025); a(G.box, bone, sx * 0.09, 0.04, 0.3, 0.08, 0.04, 0.16); } }
+    // левая рука лежит на спинке/коленях; правая — по позе
+    a(G.cyl5, bone, -0.2, 0.8, -0.1, 0.022, 0.3, 0.022, 0, 0, 0.25); a(G.cyl5, bone, -0.24, 0.6, 0.02, 0.02, 0.28, 0.02, 1.2, 0, 0);
+    if (pose === 'pumpkin') { a(G.cyl5, bone, 0.2, 0.8, -0.1, 0.022, 0.3, 0.022, 0, 0, -0.25); a(G.cyl5, bone, 0.18, 0.66, 0.06, 0.02, 0.28, 0.02, 1.3, 0, 0.3);
+      a(G.sph10, tmat(T.pumpkin()), 0, 0.68, 0.2, 0.17, 0.14, 0.17); a(G.cyl6, col(0x3f6b2a), 0, 0.83, 0.2, 0.025, 0.06, 0.025); }
+    if (pose === 'cross') { a(G.cyl5, bone, 0.2, 0.8, -0.1, 0.022, 0.3, 0.022, 0, 0, -0.25); a(G.cyl5, bone, 0.14, 0.62, 0.08, 0.02, 0.28, 0.02, 1.3, 0, -0.4); }
+    if (acc === 'hat') { a(G.cyl12, col(0x2a1f3d), 0, 1.36, -0.06, 0.26, 0.025, 0.26); a(G.cone8, col(0x2a1f3d), 0, 1.58, -0.06, 0.17, 0.44, 0.17); a(G.cyl12, col(0xff8a1f), 0, 1.4, -0.06, 0.15, 0.04, 0.15); }
+    if (acc === 'scarf') { a(G.torus, col(0xd8243a), 0, 1.0, -0.08, 0.15, 0.15, 0.2, Math.PI / 2); a(G.box, col(0xd8243a), 0.08, 0.86, 0.06, 0.07, 0.24, 0.03, 0.2); a(G.box, col(0xf1e8ff), 0.08, 0.8, 0.075, 0.07, 0.03, 0.03, 0.2); }
+  }));
+  if (pose === 'wave') {
+    // машущая рука: плечо — точка вращения
+    const arm = new THREE.Group(); arm.position.set(0.18, 0.92, -0.1); sk.add(arm);
+    arm.add(compose('skelArm', a => { const bone2 = col(0xe8e0d0); a(G.cyl5, bone2, 0.04, 0.12, 0, 0.022, 0.28, 0.022, 0, 0, -0.3); a(G.cyl5, bone2, 0.1, 0.38, 0, 0.02, 0.26, 0.02); for (let i = 0; i < 4; i++) a(G.box, bone2, 0.06 + i * 0.025, 0.55, 0, 0.012, 0.08, 0.012); }));
+    W.keep.push(arm); const ph = Math.random() * 6; W.animated.push((dt, t) => { arm.rotation.z = Math.sin(t * 5 + ph) * 0.35 - 0.1; });
+  }
+}

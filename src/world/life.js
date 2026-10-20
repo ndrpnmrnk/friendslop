@@ -3,6 +3,7 @@ import { W } from './state.js';
 import { HW } from '../config.js';
 import { UG } from './underground.js';
 import { puff, smoke } from './particles.js';
+import { WX } from './weather.js';
 
 /* Жизнь города: стаи летучих мышей над крышами, крысы в тоннелях, пар из люков, дым из труб,
    падающие листья вокруг игрока. Всё лёгкое: несколько групп, частицы — из общих пулов. */
@@ -77,7 +78,8 @@ export function updateLife(dt, t, player, camera) {
   // листья
   let li = 0;
   for (const l of leaves) {
-    if (l.life <= 0) { if (Math.random() < dt * 3) { const a = Math.random() * 6.28, d = 2 + Math.random() * 10; l.p.set(player.pos.x + Math.cos(a) * d, player.pos.y + 5 + Math.random() * 3, player.pos.z + Math.sin(a) * d); l.v.set(0.6 + Math.random() * 0.5, -0.9 - Math.random() * 0.4, 0.2); l.life = 7; } }
+    const wk = WX.windNow || 0;
+    if (l.life <= 0) { if (Math.random() < dt * 3 * (1 + wk * 5)) { const a = Math.random() * 6.28, d = 2 + Math.random() * 10; l.p.set(player.pos.x + Math.cos(a) * d - WX.wind.x * wk * 8, player.pos.y + 1 + Math.random() * 6, player.pos.z + Math.sin(a) * d - WX.wind.z * wk * 8); l.v.set(0.6 + Math.random() * 0.5 + WX.wind.x * wk * 7, -0.9 - Math.random() * 0.4 + wk * 0.5, 0.2 + WX.wind.z * wk * 7); l.life = 7; } }
     else { l.life -= dt; const p = l.p; p.x += (l.v.x + Math.sin(t * 2 + l.spin) * 0.6) * dt; p.y += l.v.y * dt; p.z += (l.v.z + Math.cos(t * 1.7 + l.spin) * 0.5) * dt; if (p.y < player.pos.y - 1) l.life = 0; }
     _o.position.copy(l.p); _o.rotation.set(t * l.spin, t * 1.3, t * 0.7 + l.spin); _o.scale.setScalar(l.life > 0 ? 1 : 0); _o.updateMatrix(); leafM.setMatrixAt(li++, _o.matrix);
   }
