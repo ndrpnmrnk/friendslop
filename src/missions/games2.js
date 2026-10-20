@@ -1,3 +1,4 @@
+import { sfx } from '../core/sfx.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -114,37 +115,53 @@ export const PANEL_GAMES = {
   },
 
   // Щиток: открытая дверца, слева 4 провода, справа 4 клеммы. Тяни провод к клемме своего цвета
+  /* Щиток — «Проводка»: на сетке пары цветных клемм. Веди провод мышью по клеткам от клеммы к клемме того же
+     цвета; провода не пересекаются и не проходят через чужие клеммы. Уровень строится от готового решения
+     (случайная «змейка» через всю сетку режется на куски), поэтому решить можно всегда. */
   fuse(o, api) {
-    const s = o.spot, F = new V3(s.f[0], 0, s.f[1]), R = new V3(F.z, 0, -F.x);
+    const s = o.spot, F = new V3(s.f[0], 0, s.f[1]);
     const c0 = new V3(s.bx, s.y + 0.85, s.bz).addScaledVector(F, 0.23);
     api.pose(c0.clone().addScaledVector(F, 1.25), c0.clone());
-    const grp = new THREE.Group(); W.group.add(grp);
-    const at = (r, u) => c0.clone().addScaledVector(R, r).add(new V3(0, u, 0));
-    const back = mesh(G.box, col(0x2b2533), 0, 0, 0, 0.78, 0.6, 0.02, grp); back.position.copy(at(0, 0)); back.lookAt(back.position.clone().add(F));
-    const door = mesh(G.box, col(0x6a6d78), 0, 0, 0, 0.78, 0.62, 0.03, grp); door.position.copy(at(0.55, 0).addScaledVector(F, 0.35)); door.lookAt(door.position.clone().add(R));
-    const COLS = [0xd8243a, 0x4ab0f0, 0xf5c542, 0x6aa84f], order = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
-    const left = COLS.map((c, i) => { const m = mesh(G.box, col(c), 0, 0, 0, 0.08, 0.08, 0.06, grp); m.position.copy(at(-0.3, 0.2 - i * 0.13)).addScaledVector(F, 0.03); m.userData.c = i; return m; });
-    const right = order.map((ci, i) => { const m = mesh(G.box, glow(COLS[ci]), 0, 0, 0, 0.07, 0.07, 0.05, grp); m.position.copy(at(0.3, 0.2 - i * 0.13)).addScaledVector(F, 0.03); m.userData.c = ci; return m; });
-    const lines = left.map(() => { const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]), new THREE.LineBasicMaterial({ color: 0xffffff })); l.visible = false; grp.add(l); return l; });
-    lines.forEach((l, i) => l.material.color.setHex(COLS[i]));
-    let drag = -1, done = new Set(), endT = -1; const cur = new V3();
-    api.progress(0); api.msg('Соедини провода по цветам');
+    const N = 5, K = 4 + (Math.random() < 0.5 ? 1 : 0), lvl = flowLevel(N, K);
+    const COLS = ['#ff5a6e', '#4ab0f0', '#f5c542', '#9be36b', '#b18cff'];
+    const ui = document.createElement('div'); ui.id = 'wireui'; ui.innerHTML = '<div class="wt">ЩИТОК · проведи провода</div><canvas width="300" height="300"></canvas><div class="ws">Тяни от клеммы к клемме того же цвета. Провода не пересекаются.</div>'; document.body.appendChild(ui);
+    const cv = ui.querySelector('canvas'), g = cv.getContext('2d'), CS = 300 / N;
+    const paths = lvl.pairs.map(() => []), done = new Set(); let cur = -1, endT = -1;
+    const owner = (x, y) => { for (let k = 0; k < paths.length; k++) if (paths[k].some(q => q[0] === x && q[1] === y)) return k; return -1; };
+    const endOf = (x, y) => lvl.pairs.findIndex(p => (p[0][0] === x && p[0][1] === y) || (p[1][0] === x && p[1][1] === y));
+    const cell = e => { const r = cv.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / r.width * N), Math.floor((e.clientY - r.top) / r.height * N)]; };
+    function draw() {
+      g.fillStyle = '#17111f'; g.fillRect(0, 0, 300, 300);
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { g.fillStyle = (x + y) % 2 ? '#241b33' : '#2a2038'; g.fillRect(x * CS + 2, y * CS + 2, CS - 4, CS - 4); }
+      paths.forEach((p, k) => { if (p.length < 2) return; g.strokeStyle = '#17111f'; g.lineWidth = CS * 0.42; g.lineCap = 'square'; g.lineJoin = 'miter'; g.beginPath(); p.forEach(([x, y], i) => (i ? g.lineTo : g.moveTo).call(g, x * CS + CS / 2, y * CS + CS / 2)); g.stroke();
+        g.strokeStyle = COLS[k]; g.lineWidth = CS * 0.3; g.stroke(); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = CS * 0.08; g.stroke(); });
+      lvl.pairs.forEach((pr, k) => pr.forEach(([x, y]) => { const cx = x * CS + CS / 2, cy = y * CS + CS / 2, r = CS * 0.34;
+        g.fillStyle = '#17111f'; g.fillRect(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 6); g.fillStyle = COLS[k]; g.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+        g.fillStyle = done.has(k) ? '#fff' : 'rgba(0,0,0,.35)'; g.fillRect(cx - r * 0.35, cy - r * 0.35, r * 0.7, r * 0.7); }));
+    }
+    const checkDone = k => { const p = paths[k], pr = lvl.pairs[k], a = p[0], b = p[p.length - 1];
+      const isEnd = (q, e) => q && q[0] === e[0] && q[1] === e[1];
+      if (p.length > 1 && ((isEnd(a, pr[0]) && isEnd(b, pr[1])) || (isEnd(a, pr[1]) && isEnd(b, pr[0])))) { if (!done.has(k)) { done.add(k); sfx('fuse'); } } else done.delete(k); };
+    const onDown = e => { const [x, y] = cell(e), k = endOf(x, y);
+      if (k >= 0) { cur = k; paths[k] = [[x, y]]; done.delete(k); }
+      else { const ow = owner(x, y); if (ow >= 0) { cur = ow; const i = paths[ow].findIndex(q => q[0] === x && q[1] === y); paths[ow] = paths[ow].slice(0, i + 1); done.delete(ow); } }
+      draw(); };
+    const onMove = e => { if (cur < 0 || !(e.buttons & 1)) return; const [x, y] = cell(e); if (x < 0 || y < 0 || x >= N || y >= N) return; const p = paths[cur], last = p[p.length - 1];
+      if (last[0] === x && last[1] === y) return;
+      // назад по своему проводу — укоротить
+      const back = p.findIndex(q => q[0] === x && q[1] === y); if (back >= 0) { paths[cur] = p.slice(0, back + 1); checkDone(cur); draw(); return; }
+      if (Math.abs(last[0] - x) + Math.abs(last[1] - y) !== 1) return;
+      if (done.has(cur)) return;
+      const ek = endOf(x, y); if (ek >= 0 && ek !== cur) { api.msg('Искры! Чужая клемма', 'bad'); return; }
+      const ow = owner(x, y); if (ow >= 0 && ow !== cur) { api.msg('Провода не должны пересекаться', 'bad'); return; }
+      p.push([x, y]); checkDone(cur); draw();
+      if (done.size === K) { api.msg('Свет есть!', 'good'); endT = 0.9; } api.progress(done.size / K); };
+    const onUp = () => { cur = -1; };
+    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); addEventListener('pointerup', onUp);
+    draw(); api.progress(0); api.msg('Соедини клеммы одного цвета');
     return {
-      down(ray) { const h = ray.intersectObjects(left); if (h.length) { const i = h[0].object.userData.c; if (!done.has(i)) { drag = i; lines[i].visible = true; } } },
-      move(ray) { if (drag < 0) return; const p = onPlane(ray, F, c0); if (p) cur.copy(p).addScaledVector(F, 0.04); },
-      up(ray) {
-        if (drag < 0) return; const h = ray ? ray.intersectObjects(right) : [];
-        if (h.length && h[0].object.userData.c === drag) { done.add(drag); cur.copy(h[0].object.position); lines[drag].geometry.setFromPoints([left[drag].position, cur.clone()]); api.progress(done.size / 4); api.msg('Есть контакт!', 'good');
-          if (done.size === 4) { api.msg('Свет есть!', 'good'); endT = 1.1; } }
-        else { lines[drag].visible = false; if (h.length) { burst(h[0].object.position.x, h[0].object.position.y, h[0].object.position.z, 8, { color: 0xffe080, size: 0.08, speed: 2, up: 1, g: 6, life: 0.4 }); api.msg('Искры! Не тот провод', 'bad'); } }
-        drag = -1;
-      },
-      update(dt) {
-        if (drag >= 0) lines[drag].geometry.setFromPoints([left[drag].position, cur.clone()]);
-        if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); }
-      },
-      stop() { W.group.remove(grp); },
-      needsRay: true,
+      update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
+      stop() { ui.remove(); removeEventListener('pointerup', onUp); },
     };
   },
 
@@ -219,7 +236,7 @@ export const WORLD_GAMES = {
       const it = spawnLitter(x, c.y, z); o.litter.push(it); it.outline.set(true);
       const rg = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, 0.35, 0.35, 1, W.group); rg.rotation.x = -Math.PI / 2; it.ring = rg; }
     api.msg('Собери мусор в урну (бросай или клади рядом)');
-    const take = it => { it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) it.ring.visible = false; got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
+    const take = it => { if (it.taken) return; it.taken = true; it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) it.ring.visible = false; got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
     const hook = (it, p) => { if (o.litter.includes(it) && Math.hypot(p.x - c.x, p.z - c.z) < 0.9) take(it); };
     W.hitHooks.push(hook);
     return {
@@ -285,3 +302,23 @@ function deliveryCore(o, api, ctx, kind) {
     };
 }
 void breakPiece; void brickWall; void tmat; void T;
+
+/* Уровень «Проводки»: случайный гамильтонов путь по сетке N×N (змейка + перестройки «backbite»),
+   разрезанный на K кусков длиной от 3 клеток; концы кусков — клеммы. */
+function flowLevel(N, K, tries = 0) {
+  let path = []; for (let y = 0; y < N; y++) for (let i = 0; i < N; i++) path.push([y % 2 ? N - 1 - i : i, y]);
+  const nb = ([x, y]) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].filter(([a, b]) => a >= 0 && b >= 0 && a < N && b < N);
+  for (let it = 0; it < N * N * 40; it++) {
+    if (Math.random() < 0.5) path.reverse();
+    const end = path[path.length - 1], ns = nb(end), q = ns[(Math.random() * ns.length) | 0];
+    const i = path.findIndex(p => p[0] === q[0] && p[1] === q[1]); if (i < 0 || i === path.length - 2) continue;
+    path = path.slice(0, i + 1).concat(path.slice(i + 1).reverse());
+  }
+  const L = path.length, cuts = new Set();
+  while (cuts.size < K - 1) { const c = 3 + ((Math.random() * (L - 6)) | 0); if ([...cuts].every(o => Math.abs(o - c) >= 3)) cuts.add(c); }
+  const cs = [0, ...[...cuts].sort((a, b) => a - b), L], pairs = [];
+  for (let k = 0; k < K; k++) { const seg = path.slice(cs[k], cs[k + 1]); pairs.push([seg[0], seg[seg.length - 1]]); }
+  // клеммы вплотную друг к другу — слишком просто, строим заново
+  if (tries < 60 && pairs.some(([a, b]) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 2)) return flowLevel(N, K, tries + 1);
+  return { pairs };
+}

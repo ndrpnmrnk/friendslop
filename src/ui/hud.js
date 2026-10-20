@@ -1,4 +1,5 @@
 import { M } from '../missions/missions.js';
+import { V3 } from '../core/gfx.js';
 import { cam } from '../game/camera.js';
 import { icon, img } from './icons.js';
 import { TEXT } from './text.js';
@@ -22,24 +23,27 @@ export const markWon = id => H.won.add(id);
 // всплывающая строка по центру (новая волна, кража, срыв…)
 export function toast(text, cls = '') { const el = $('toast'); if (!el) return; el.textContent = text; el.className = cls; void el.offsetWidth; el.classList.add('go'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.add('hidden'), 1900); }
 
-/* Компас под таймером: полоса «что впереди». Значки целей стоят по направлению от камеры,
-   главная цель крупнее и с расстоянием; цель за спиной — прижата к краю со стрелкой. */
-const CMP = { els: new Map() };
-export function renderCompass(P, marks) {
-  const host = $('compass'); if (!host) return; const W2 = host.clientWidth || 240, seen = new Set();
-  const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
-  for (const mk of marks) {
-    seen.add(mk.id); let el = CMP.els.get(mk.id);
-    if (!el) { el = document.createElement('div'); el.className = 'cm new'; el.innerHTML = `${img(mk.icon, 16)}<i class="ca"></i><b></b>`; host.appendChild(el); CMP.els.set(mk.id, el); setTimeout(() => el.classList.remove('new'), 450); }
-    const dx = mk.x - P.pos.x, dz = mk.z - P.pos.z, ang = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz), lim = Math.PI * 0.55;
-    const edge = Math.abs(ang) > lim, k = Math.max(-1, Math.min(1, ang / lim));
-    el.style.transform = `translateX(${Math.round(12 + (k + 1) / 2 * (W2 - 44))}px)`;
-    el.classList.toggle('main', !!mk.main); el.classList.toggle('edge', edge); el.classList.toggle('l', edge && ang < 0); el.style.setProperty('--c', mk.color || '#f1e8ff');
-    const d = `${Math.round(Math.hypot(dx, dz))}м`, b = el.lastChild; if (b.textContent !== d) b.textContent = d;
-  }
-  for (const [id, el] of CMP.els) if (!seen.has(id)) { el.remove(); CMP.els.delete(id); }
+/* Навигатор: ОДНА крупная метка главной цели. Цель видна на экране — метка висит над ней (значок + метры);
+   цель за краем или за спиной — метка прижата к краю экрана и показывает стрелкой, куда повернуть. */
+const NAV = { el: null, key: '' };
+export function renderNav(camera, P, t) {
+  const el = NAV.el || (NAV.el = $('nav')); if (!el) return;
+  if (!t) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  const key = t.icon + t.color; if (key !== NAV.key) { NAV.key = key; el.querySelector('.ni').innerHTML = img(t.icon, 28); el.style.setProperty('--c', t.color); el.classList.remove('new'); void el.offsetWidth; el.classList.add('new'); }
+  const v = new V3(t.x, t.y + 2.4, t.z).project(camera);
+  const W2 = innerWidth, H2 = innerHeight, m = 64; let sx = (v.x + 1) / 2 * W2, sy = (1 - v.y) / 2 * H2; const behind = v.z > 1;
+  if (behind) { sx = W2 - sx; sy = H2 - sy; }
+  const on = !behind && sx > m && sx < W2 - m && sy > m + 60 && sy < H2 - m;
+  let ang = 0;
+  if (!on) { const cx = W2 / 2, cy = H2 / 2; let dx = sx - cx, dy = sy - cy; if (behind && Math.abs(dy) < 1) dy = 1; ang = Math.atan2(dy, dx);
+    const kx = (W2 / 2 - m) / Math.abs(dx || 1e-3), ky = (H2 / 2 - m - 30) / Math.abs(dy || 1e-3), k = Math.min(kx, ky); sx = cx + dx * k; sy = cy + dy * k; }
+  el.style.transform = `translate(${Math.round(sx)}px,${Math.round(sy)}px)`;
+  el.classList.toggle('edge', !on); el.querySelector('.na').style.transform = `rotate(${ang}rad)`;
+  const d = `${Math.round(Math.hypot(t.x - P.pos.x, t.z - P.pos.z))} м`, dd = el.querySelector('.nd'); if (dd.textContent !== d) dd.textContent = d;
+  const lb = el.querySelector('.nl'), lt = t.label || ''; if (lb.textContent !== lt) lb.textContent = lt;
 }
-export function resetCompass() { for (const el of CMP.els.values()) el.remove(); CMP.els.clear(); }
+export function resetCompass() { NAV.key = ''; }
 
 // пиксельные искры (на экране)
 export function sparks(x, y, colors = ['#ff8a1f', '#f5c542', '#9be36b'], n = 8, host = $('flyers')) {
@@ -48,7 +52,7 @@ export function sparks(x, y, colors = ['#ff8a1f', '#f5c542', '#9be36b'], n = 8, 
 }
 // «+150» вылетает из точки мира и летит в счёт
 export function flyScore(sx, sy, pts) {
-  const f = document.createElement('div'); f.className = 'fly'; f.textContent = `+${pts}`; f.style.left = sx + 'px'; f.style.top = sy + 'px'; $('flyers').appendChild(f);
+  const f = document.createElement('div'); f.className = 'fly' + (pts < 0 ? ' neg' : ''); f.textContent = pts < 0 ? `${pts}` : `+${pts}`; f.style.left = sx + 'px'; f.style.top = sy + 'px'; $('flyers').appendChild(f);
   sparks(sx, sy, ['#9be36b', '#f5c542', '#f1e8ff'], 6);
   const r = $('score').getBoundingClientRect();
   requestAnimationFrame(() => { f.style.transform = `translate(${r.left + r.width / 2 - sx - 20}px,${r.top - sy}px) scale(.6)`; f.style.opacity = '0.2'; });
@@ -72,14 +76,13 @@ export function renderHud(S, P, prompt, dt) {
     live.add(m.id);
     let el = H.cards.get(m.id);
     if (!el) { const tag = m.owner ? `<span class="tag">${m.outsider ? TEXT.tagOutsider : TEXT.tagPersonal}</span>` : '';
-      el = document.createElement('div'); el.className = `mcard new d-${m.def.diff}${m.owner ? ' mine' : ''}`; el.innerHTML = `${img(m.key, 30)}<div class="mt"><div class="mn">${tag}${(TEXT.missions[m.key] || [m.def.name])[0]}</div><div class="ms"><span class="pts">${m.pts}</span><span class="dist"></span></div><div class="where"></div><div class="bar"><i></i></div></div><div class="arr">${ARROW}</div>`; $('missions').appendChild(el); H.cards.set(m.id, el); setTimeout(() => el.classList.remove('new'), 600); }
+      el = document.createElement('div'); el.className = `mcard new d-${m.def.diff}${m.owner ? ' mine' : ''}`; el.innerHTML = `${img(m.key, 30)}<div class="mt"><div class="mn">${tag}${(TEXT.missions[m.key] || [m.def.name])[0]}</div><div class="ms"><span class="pts">${m.pts}</span><span class="dist"></span></div><div class="where"></div><div class="bar"><i></i></div></div>`; $('missions').appendChild(el); H.cards.set(m.id, el); setTimeout(() => el.classList.remove('new'), 600); }
     const p = (m.busy && m.track && m.track()) || m.obj.pos(), dx = p.x - P.pos.x, dz = p.z - P.pos.z;
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), ang = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz);
     el.querySelector('.dist').textContent = `${Math.round(Math.hypot(dx, dz))}м`;
     const w = el.querySelector('.where'), wt = m === nearest ? m.where : ''; if (w.textContent !== wt) w.textContent = wt;
     const bar = el.querySelector('.bar'); bar.firstChild.style.width = Math.max(0, m.life / m.maxLife * 100) + '%'; bar.classList.toggle('warn', m.life < m.maxLife * 0.25);
     el.classList.toggle('taken', !!m.doer);
-    el.querySelector('.arr').style.transform = `rotate(${ang}rad)`;
     el.classList.toggle('active', !!m.busy); el.classList.toggle('main', m === nearest && !m.busy); el.classList.toggle('dim', m !== nearest);
   }
   for (const [id, el] of H.cards) if (!live.has(id)) { H.cards.delete(id); el.classList.add(H.won.has(id) ? 'won' : 'gone'); setTimeout(() => el.remove(), 520); }
@@ -109,9 +112,14 @@ export function renderStamina(P, dt) {
   if (P.grab) held = `${img('cart', 22)}${TEXT.grab[P.grab.kind] || ''} <span class="key">E</span>${TEXT.keys.hop}`;
   else if (P.holding) held = `${img('mouse', 22)}${P.holding.bot ? P.holding.name : TEXT.you} <span class="key">ПКМ</span>${TEXT.keys.throw} <span class="key">E</span>${TEXT.keys.drop}`;
   else if (P.heldBy) held = `<span class="key">ПРОБЕЛ</span>${TEXT.keys.struggle}`;
-  else if (P.held) { const it = P.held, v = it.def.tool ? toolVerb(it) : '', am = it.def.ammo && it.def.ammo < 50 ? `<span class="n">${it.def.hold ? Math.ceil(it.ammo) + 'с' : it.ammo}</span>` : '';
-    held = `${img(it.type, 22)}${it.def.name}${am}${v && !(it.def.ammo && it.ammo <= 0) ? ` <span class="key">ЛКМ</span>${v}` : ''} <span class="key">ПКМ</span>${TEXT.keys.throw}`; }
-  if (held !== H.held) { H.held = held; $('held').innerHTML = held; $('held').classList.toggle('hidden', !held); if (held && P.held && !H.heldNew) { const e2 = $('held'); e2.classList.remove('new'); void e2.offsetWidth; e2.classList.add('new'); } }
+  else if (P.held) {
+    // карточка «в руках»: крупная иконка, название, заряды и что с этим делать
+    const it = P.held, v = it.def.tool ? toolVerb(it) : '', am = it.def.ammo && it.def.ammo < 50 ? `<span class="n">×${it.def.hold ? Math.ceil(it.ammo) + 'с' : it.ammo}</span>` : '';
+    const acts = [v && !(it.def.ammo && it.ammo <= 0) ? `<span><span class="key">ЛКМ</span>${v}</span>` : '', `<span><span class="key">ПКМ</span>${TEXT.heldThrow}</span>`, `<span><span class="key">E</span>${TEXT.heldDrop}</span>`].filter(Boolean).join('');
+    held = `<div class="hci">${img(it.type, 40)}</div><div class="hct"><b>${it.def.name}${am}</b><div class="hck">${acts}</div></div>`; }
+  if (held !== H.held) { const was = H.heldType, now = P.held ? P.held.type : P.grab ? 'grab' : P.holding ? 'hold' : P.heldBy ? 'held' : '';
+    H.held = held; H.heldType = now; const e2 = $('held'); e2.innerHTML = held; e2.classList.toggle('hidden', !held);
+    if (held && now !== was) { e2.classList.remove('new'); void e2.offsetWidth; e2.classList.add('new'); } }
   // эффекты на персонаже: ботинки, маска, энергетик — маленькие значки с отсчётом
   const fx = [P.boots > 0 ? `${img('boots', 16)}${P.boots}` : '', P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : ''].filter(Boolean).join('');
   if (fx !== H.gslot) { H.gslot = fx; const e3 = $('gslot'); e3.innerHTML = fx; e3.classList.toggle('hidden', !fx); }

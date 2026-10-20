@@ -8,6 +8,8 @@ import { nearestItem, pickUp, throwVelocity, launch, addItem } from './items.js'
 import { smoke, smokeRing, burst } from '../world/particles.js';
 import { M, removeMission, missionDone, visibleTo } from '../missions/missions.js';
 import { statsOf } from './score.js';
+import { arrest, hasPolice } from './police.js';
+import { vacuumFire } from './tools.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
 import { actors, shove, knockDown } from './actors.js';
@@ -112,6 +114,7 @@ export function updateBots(dt, t, P) {
     b.think -= dt; b.throwCD -= dt; b.actCD -= dt;
     // схвачен — ничего не делает (вырывается сам в grab.js)
     if (b.heldBy) { b.ch.animate(dt, { t, speed: 0, grabbed: true }); blob(b); continue; }
+    if (b.caged) { b.ch.animate(dt, { t, speed: 0, grabbed: true }); blob(b); progBar(b); continue; }
     // прячется
     if (b.hidden) { b.hideT -= dt; if (b.hideT <= 0) { const h = b.hidden; b.hidden = null; b.root.visible = true; b.vel.set((Math.random() - 0.5) * 6, 6, (Math.random() - 0.5) * 6); b.onGround = false; burst(h.x, h.y + 0.6, h.z, 12, { color: h.kind === 'leaves' ? 0xe0902e : 0xd8d0e4, size: 0.22, speed: 3, up: 3 }); } else { b.root.visible = false; continue; } }
     const ctrl = b.stun <= 0 && !(b.knockT > 0) && !(b.floatT > 0);
@@ -180,7 +183,7 @@ export function updateBots(dt, t, P) {
     if (b.throwT > 0) b.throwT -= dt;
     updateEmote(b, dt, spd > 1);
     b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, climb: !!b.climbing, hold: (b.doT > 0 || !!b.held) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
-      emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, swat: b.swatT > 0 ? b.swatT : 0 });
+      emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, swat: b.swatT > 0 ? b.swatT : 0, zombie: !!b.zombie });
     if (b.held) { b.held.pos.copy(b.ch.holdPoint); b.held.g.rotation.y = b.root.rotation.y; }
     b.root.visible = true; blob(b); progBar(b);
   }
@@ -262,8 +265,12 @@ function act(b, P, dt) {
   if (!v || v.hidden || v.heldBy || g.t <= 0) { b.goal = null; return; }
   const d = Math.hypot(v.pos.x - b.pos.x, v.pos.z - b.pos.z); b.aimAt = v.pos;
   if (it) {
-    const melee = ['slipper', 'pillow'].includes(it.type), shooter = ['water', 'sling', 'bubbles', 'extinguisher'].includes(it.type);
-    if (melee && d < 1.6 && b.actCD <= 0) { b.actCD = 0.9; useTool(b, it, v.pos.clone().setY(v.pos.y + 1)); sfx(it.type === 'pillow' ? 'pillow' : 'swat', { at: b.pos }); return; }
+    const melee = ['slipper', 'pillow', 'glove'].includes(it.type), shooter = ['water', 'sling', 'bubbles', 'extinguisher', 'net'].includes(it.type);
+    // жетон: сначала вызвать наряд, потом бросить в жертву
+    if (it.type === 'badge' && !hasPolice(b)) { useTool(b, it, v.pos.clone()); b.actCD = 1.5; return; }
+    // пылесос: подержать на жертву и выстрелить
+    if (it.type === 'vacuum' && d < 8) { b.facing = Math.atan2(v.pos.x - b.pos.x, v.pos.z - b.pos.z); b.vacT = (b.vacT || 0) + dt; useTool(b, it, v.pos.clone().setY(v.pos.y + 1), dt); if (b.vacT > 1.5) { b.vacT = 0; vacuumFire(b, it, v.pos.clone().setY(v.pos.y + 1)); } return; }
+    if (melee && d < (it.type === 'glove' ? 3 : 1.6) && b.actCD <= 0) { b.actCD = 0.9; useTool(b, it, v.pos.clone().setY(v.pos.y + 1)); sfx(it.type === 'pillow' ? 'pillow' : 'swat', { at: b.pos }); return; }
     if (shooter && d < (it.type === 'extinguisher' ? 5 : 10) && b.actCD <= 0 && los(b, v)) { b.facing = Math.atan2(v.pos.x - b.pos.x, v.pos.z - b.pos.z); useTool(b, it, v.pos.clone().setY(v.pos.y + 1), 0.25); if (!it.def.hold) b.actCD = 0.5; return; }
     if (it.type === 'firework' && it.lit === undefined) useTool(b, it, v.pos.clone());
     if (!melee && !shooter && d < 11 && d > 3 && b.throwCD <= 0 && los(b, v)) { throwAt(b, v); return; }
@@ -300,6 +307,8 @@ export function botHitHook(it, p, heavy, r) {
     else { a.push.set(it.vel.x * (a.bot ? 0.2 : 0.15), 0, it.vel.z * (a.bot ? 0.2 : 0.15)); if (it.type === 'balloon') { a.wetT = 4; a.slipT = 2; } }
     if (it.owner && it.owner.bot && a !== it.owner) { if (a === W.player && Math.random() < 0.5) setTimeout(() => startEmote(it.owner, 'laugh'), 500); }
     W.onHit && W.onHit(it.owner, a, heavy ? 'heavy' : 'light');
+    // жетон попал — если у хозяина есть наряд, тот бежит арестовывать
+    if (it.type === 'badge' && it.owner && it.owner !== a) arrest(a, it.owner);
   }
 }
 export const botLabel = b => `${b.name} (${SKINS[b.skin].name})`;

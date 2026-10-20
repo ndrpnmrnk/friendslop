@@ -56,13 +56,15 @@ export function hopIn(p) {
 export function dismount(p, jump) {
   const b = p.ride; if (!b) return;
   p.ride = null; b.rider = null; b.trick = null; b.flip = 0; b.shuv = 0; p.root.rotation.x = 0; p.root.rotation.z = 0; p.rideKick = null; p.trickK = 0;
-  p.pos.set(b.x, b.y + b.ride.seat + 0.05, b.z);
-  p.vel.set(b.vx, jump ? 7 : 2, b.vz);
-  p.onGround = false;
+  // сходим вбок от доски/кресла, чтобы не встать обратно на неё; какое-то время сам не садишься
+  const f = b.heading || 0, sx = Math.cos(f), sz = -Math.sin(f);
+  p.pos.set(b.x + (jump ? 0 : sx * (b.r + 0.5)), b.y + (jump ? b.ride.seat + 0.05 : 0.05), b.z + (jump ? 0 : sz * (b.r + 0.5)));
+  p.vel.set(b.vx * (jump ? 1 : 0.3), jump ? 7 : 0, b.vz * (jump ? 1 : 0.3));
+  p.onGround = !jump; p.noMountT = 1.2; b.vx *= 0.5; b.vz *= 0.5;
 }
 // Автопосадка: приземлился сверху на то, на чём можно кататься
 export function autoMount(p) {
-  if (p.ride || p.held || p.onGround || p.vel.y >= 0) return;
+  if (p.ride || p.held || p.onGround || p.vel.y >= 0 || p.noMountT > 0 || p.stun > 0) return;
   for (const b of W.pushables) {
     if (!b.ride || b.rider || b.ride.coast) continue;
     const top = b.y + b.ride.seat;
@@ -104,13 +106,13 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
     b.shuv = tr.kind === 'shuvit' ? e * Math.PI : tr.kind === 'tre' || tr.kind === 'tailwhip' || tr.kind === 'barspin' ? e * Math.PI * 2 : 0;
     if (!b.air && tr.t > 0.12) { b.trick = null; b.flip = 0; b.shuv = 0; p.trickK = 0;
       if (k >= 0.8) { W.onTrick && W.onTrick(p, tr.kind); burst(b.x, b.y + 0.2, b.z, 8, { color: 0xf5c542, size: 0.12, speed: 2.5, up: 2 }); sfx('land', { v: 1.2 }); }
-      else { dismount(p, false); p.vel.set(b.vx * 0.5, 4, b.vz * 0.5); p.stun = 0.7; sfx('hit'); return 'crash'; } } }
+      else { dismount(p, false); p.vel.set(b.vx * 0.5, 4, b.vz * 0.5); p.onGround = false; p.stun = 0.7; p.noMountT = 2.5; sfx('hit'); return 'crash'; } } }
   p.pos.set(b.x, b.y + R.seat, b.z); p.vel.set(b.vx, 0, b.vz); p.onGround = true; p.speed = sp;
   p.root.rotation.order = 'YXZ'; p.root.rotation.y = b.heading; p.facing = b.heading; p.root.rotation.x = board ? -(b.pitch || 0) * 0.85 : 0;
   // наехал на кого-то — тот отлетает
   if (sp > 4) for (const o of actors()) { if (o === p || o.hidden || o.heldBy || o.ride) continue; if (Math.hypot(o.pos.x - b.x, o.pos.z - b.z) < b.r + 0.45 && Math.abs(o.pos.y - b.y) < 1.2 && !(o.diveHitT > 0)) { shove(o, b.vx, b.vz, sp * 0.8, 4, true); o.diveHitT = 0.6; sfx(b.kind === 'kidcar' ? 'honk' : 'hit', { at: o.pos }); } }
   // врезался
-  if (b.hitSpeed > 6) { const v = b.hitSpeed; dismount(p, false); p.vel.set(-fx * 3, 5, -fz * 3); p.stun = 0.9; burst(b.x, b.y + 0.6, b.z, 8, { size: 0.4, speed: 3 }); return 'crash'; }
+  if (b.hitSpeed > 6) { const v = b.hitSpeed; dismount(p, false); p.vel.set(-fx * 3, 5, -fz * 3); p.onGround = false; p.stun = 0.9; p.noMountT = 2.5; burst(b.x, b.y + 0.6, b.z, 8, { size: 0.4, speed: 3 }); return 'crash'; }
   // скейт и самокат: пробел — прыжок (олли), слезть — E
   if (ctrl && tapped('Space')) { if (board) { if (!b.air) { b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(Math.random() * L.length) | 0], t: 0, dur: 0.48 }; } return null; } dismount(p, true); return 'jump'; }
   if (b.grind && Math.random() < dt * 30) burst(b.x, b.y + 0.05, b.z, 1, { color: 0xffd25c, size: 0.06, speed: 2, up: 1.5, g: 12, life: 0.3, grow: 0 });

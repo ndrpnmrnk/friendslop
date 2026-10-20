@@ -42,6 +42,9 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     if (canMove && ['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE'].some(k => tapped(k))) struggleTap(p);
     p.ch.animate(dt, { t, speed: 0, air: false, grabbed: true }); groundBlob(p); return;
   }
+  if (p.noMountT > 0) p.noMountT -= dt;
+  // в клетке: стоим, ждём (E — головоломка замка, см. main)
+  if (p.caged) { p.vel.set(0, 0, 0); p.ch.animate(dt, { t, speed: 0, grabbed: true }); groundBlob(p); return; }
   const ctrl = canMove && p.stun <= 0 && !p.frozen && !(p.knockT > 0) && !(p.floatT > 0);
   let ix = 0, iz = 0;
   if (ctrl) {
@@ -246,7 +249,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
   p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, climb: !!p.climb,
-    hold: (!!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten) && !p.holding, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
+    hold: (!!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
     emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, swat: p.swatT > 0 ? p.swatT : 0 });
 }

@@ -62,6 +62,12 @@ export const CONFIG = {
     catbox: { name: 'Загони котят в коробку', home: 'yard', icon: '', points: 240, diff: 'mid', life: 55, max: 1, game: 'catbox', world: true, zones: ['floor'], foot: [1.3, 1.3], clear: 2.5 },
     pizza:  { name: 'Горячая пицца', icon: '', points: 240, diff: 'mid', life: 45, max: 1, game: 'pizza', spot: 'pickup', world: true, needs: 'deliver' },
     firebin: { name: 'Потуши урну', icon: '', points: 200, diff: 'easy', life: 60, max: 1, game: 'firebin', spot: 'fire', world: true },
+    // v0.16: миссии «руками»
+    leaves: { name: 'Золотой билет в листьях', home: 'park', icon: '', points: 200, diff: 'easy', life: 50, max: 1, game: 'leaves', zones: ['floor'], foot: [1.9, 1.9], clear: 1.8 },
+    graffiti: { name: 'Граффити по трафарету', home: 'skatepark', icon: '', points: 220, diff: 'mid', life: 50, max: 1, game: 'graffiti', zones: ['floor'], foot: [2.8, 0.5], clear: 2.4 },
+    intercom: { name: 'Код домофона', home: 'yard', icon: '', points: 260, diff: 'mid', life: 50, max: 1, game: 'intercom', world: true, zones: ['floor'], foot: [0.5, 0.5], clear: 1.6 },
+    lockpick: { name: 'Отмычка', home: 'shops', icon: '', points: 240, diff: 'mid', life: 50, max: 1, game: 'lockpick', zones: ['floor', 'inside', 'nook'], foot: [1.2, 0.8], clear: 1.6 },
+    pipes: { name: 'Трубы', home: 'sewer', icon: '', points: 220, diff: 'mid', life: 50, max: 1, game: 'pipes', zones: ['floor', 'tunnel', 'inside'], foot: [1.6, 0.6], clear: 1.6 },
   },
   missionCooldown: 6,
   // предметы для броска
@@ -94,6 +100,10 @@ export const CONFIG = {
     duck:    { name: 'Резиновая уточка', tool: true, heavy: false, r: 0.12, respawn: 0, mass: 0.2, drag: 0.1, bounce: 0.6, ammo: 99 },
     bubbles: { name: 'Мыльные пузыри', tool: true, heavy: false, r: 0.12, respawn: 0, mass: 0.3, drag: 0.1, bounce: 0.3, ammo: 5 },
     whistle: { name: 'Свисток', tool: true, heavy: false, r: 0.08, respawn: 0, mass: 0.1, drag: 0.1, bounce: 0.3, ammo: 3 },
+    net:     { name: 'Сетемёт', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.8, drag: 0.05, bounce: 0.2, ammo: 3 },
+    badge:   { name: 'Полицейский жетон', tool: true, heavy: false, r: 0.1, respawn: 0, mass: 0.25, drag: 0.02, bounce: 0.3 },
+    glove:   { name: 'Перчатка-пружина', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.3, ammo: 6 },
+    vacuum:  { name: 'Пылесос', tool: true, heavy: false, r: 0.2, respawn: 0, mass: 1.2, drag: 0.05, bounce: 0.2, ammo: 10, hold: true },
     magnet:  { name: 'Магнит', tool: true, heavy: false, r: 0.18, respawn: 0, mass: 1.0, drag: 0.05, bounce: 0.2, ammo: 8, hold: true },
     paint:   { name: 'Ведро краски', tool: true, heavy: false, r: 0.2, respawn: 0, mass: 1.2, drag: 0.05, bounce: 0.1 },
     energy:  { name: 'Энергетик', tool: true, heavy: false, r: 0.08, respawn: 0, mass: 0.3, drag: 0.1, bounce: 0.4 },
@@ -108,8 +118,8 @@ export const CONFIG = {
     mask:    { name: 'Маска-призрак', tool: true, heavy: false, r: 0.14, respawn: 0, mass: 0.2, drag: 0.3, bounce: 0.2 },
   },
   // инструменты, которые выпадают из ящиков (золотые ящики — только «редкие»)
-  toolPool: ['slipper', 'umbrella', 'extinguisher', 'banana', 'pillow', 'duck', 'bubbles', 'whistle', 'magnet', 'paint', 'energy', 'water', 'firework', 'popper', 'sling', 'web', 'boots', 'mask'],
-  toolRare: ['extinguisher', 'magnet', 'firework', 'boots', 'mask', 'bubbles', 'paint'],
+  toolPool: ['net', 'glove', 'vacuum', 'badge', 'slipper', 'umbrella', 'extinguisher', 'banana', 'pillow', 'duck', 'bubbles', 'whistle', 'magnet', 'paint', 'energy', 'water', 'firework', 'popper', 'sling', 'web', 'boots', 'mask'],
+  toolRare: ['badge', 'vacuum', 'net', 'extinguisher', 'magnet', 'firework', 'boots', 'mask', 'bubbles', 'paint'],
   throw: { minRange: 3, maxRange: 17, chargeTime: 0.9 },
 };
 

@@ -76,7 +76,7 @@ export default {
       b.m(G.box, glow(0xffe0b0), 16, 2.98, 15.6, 3.2, 0.03, 0.2); b.light(16, 15.6, 2.2); }
     // «сухой» фонтан: гранитная площадка с бортиком, 8 форсунок под решётками; струи — настоящие столбики воды,
     // бьют волной по очереди, сверху рассыпаются брызгами; вокруг пары лужиц (скользко)
-    { b.ground(12.5, 22.5, 19.5, 27, T.stone(), 1.5);
+    { const fg = b.ground(12.5, 22.5, 19.5, 27, T.stone(), 1.5, 0.018); fg.material = fg.material.clone(); Object.assign(fg.material, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
       const rim = col(0x6a6478); for (const [x, z, w, d] of [[16, 22.4, 7.2, 0.2], [16, 27.1, 7.2, 0.2], [12.4, 24.75, 0.2, 4.9], [19.6, 24.75, 0.2, 4.9]]) b.m(G.box, rim, x, 0.05, z, w, 0.1, d);
       const jets = [], wm = lam({ color: 0x9ccbec, emissive: 0x204a70, emissiveIntensity: 0.6, transparent: true, opacity: 0.65, depthWrite: false }, 'jetWater'), cap = lam({ color: 0xd8f0ff, emissive: 0x4a7aa0, emissiveIntensity: 0.6, transparent: true, opacity: 0.8, depthWrite: false }, 'jetCap');
       for (const x of [13.5, 15, 16.5, 18]) for (const z of [23.5, 26]) {

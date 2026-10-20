@@ -12,6 +12,7 @@ import { scareBirds } from '../world/birds.js';
 import { hitBreakables } from '../world/breakables.js';
 import { worldHit, shake, hitFreeze } from './worldfx.js';
 import { sfx } from '../core/sfx.js';
+const MAG_ARC = new THREE.TorusGeometry(0.115, 0.047, 6, 12, Math.PI);
 
 /* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
 const GRAV = 22;
@@ -63,7 +64,11 @@ function toolModel(type, g) {
       case 'duck': { const y = C(0xf5c542); a(G.sph10, y, 0, -0.02, 0, 0.12, 0.09, 0.14); a(G.sph10, y, 0, 0.09, 0.07, 0.07, 0.07, 0.07); a(G.cone4, C(0xff8a1f), 0, 0.08, 0.15, 0.03, 0.06, 0.02, Math.PI / 2); for (const sx of [-1, 1]) a(G.box, C(0x17111f), sx * 0.035, 0.11, 0.125, 0.015, 0.02, 0.01); a(G.cone4, y, 0, 0.0, -0.14, 0.04, 0.06, 0.03, -1.2); break; }
       case 'bubbles': { a(G.cyl8, lam({ color: 0x8ad0f0, transparent: true, opacity: 0.85 }, 'bubBottle'), 0, -0.02, 0, 0.06, 0.18, 0.06); a(G.cyl8, C(0xff5a9e), 0, 0.09, 0, 0.04, 0.04, 0.04); a(G.cyl5, C(0xff5a9e), 0.06, 0.1, 0, 0.008, 0.2, 0.008, 0, 0, -0.4); a(G.torus, C(0xff5a9e), 0.11, 0.21, 0, 0.04, 0.04, 0.04, Math.PI / 2); break; }
       case 'whistle': { const s = C(0xc8c8d8); a(G.cyl8, s, 0, 0, 0, 0.05, 0.06, 0.05, Math.PI / 2); a(G.box, s, 0, 0.01, 0.06, 0.05, 0.03, 0.08); a(G.torus, C(0xff8a1f), 0, 0.0, -0.06, 0.04, 0.04, 0.04, 0, Math.PI / 2); break; }
-      case 'magnet': { a(G.halfTorus, C(0xd8243a), 0, 0.03, 0, 0.13, 0.13, 1.4, 0, 0, 0); for (const sx of [-1, 1]) { a(G.box, C(0xd8243a), sx * 0.13, -0.05, 0, 0.05, 0.12, 0.05); a(G.box, C(0xd8d8e0), sx * 0.13, -0.13, 0, 0.055, 0.05, 0.055); } break; }
+      case 'magnet': {
+        // подкова: толстая красная дуга, две ноги, серебряные полюса, белая полоска
+        a(MAG_ARC, C(0xd8243a), 0, 0.04, 0, 1, 1, 1);
+        for (const sx of [-1, 1]) { a(G.box, C(0xd8243a), sx * 0.115, -0.04, 0, 0.09, 0.16, 0.09); a(G.box, C(0xd8d8e0), sx * 0.115, -0.15, 0, 0.095, 0.07, 0.095); a(G.box, C(0xf1e8ff), sx * 0.115, 0.02, 0.047, 0.07, 0.02, 0.005); }
+        break; }
       case 'paint': { a(G.cyl8, tmat(T.metal()), 0, 0, 0, 0.14, 0.22, 0.14); a(G.cyl8, C(0x4ab0f0), 0, 0.105, 0, 0.13, 0.02, 0.13); a(G.halfTorus, C(0x2b2533), 0, 0.11, 0, 0.14, 0.16, 0.6); a(G.box, C(0x4ab0f0), 0.12, 0.05, 0.07, 0.03, 0.1, 0.01); a(G.box, C(0xf1e8ff), 0, 0.0, 0.142, 0.1, 0.08, 0.004); break; }
       case 'energy': { a(G.cyl8, lam({ color: 0x5ac83a, emissive: 0x1a3a08 }, 'energyCan'), 0, 0, 0, 0.06, 0.2, 0.06); a(G.cyl8, C(0xd8d8e0), 0, 0.105, 0, 0.055, 0.012, 0.055); a(G.box, C(0xf5c542), 0, 0.01, 0.061, 0.03, 0.1, 0.004, 0, 0, 0.4); break; }
       case 'water': { const b = C(0x4ab0f0), o = C(0xff8a1f); a(G.box, b, 0, 0.03, 0.04, 0.07, 0.08, 0.22); a(G.box, o, 0, -0.05, -0.04, 0.06, 0.14, 0.06, 0.25); a(G.cyl8, lam({ color: 0x9ccbec, transparent: true, opacity: 0.8 }, 'wgTank'), 0, 0.11, 0.0, 0.05, 0.08, 0.05); a(G.cyl6, o, 0, 0.04, 0.17, 0.018, 0.08, 0.018, Math.PI / 2); a(G.box, C(0x17111f), 0, -0.01, 0.02, 0.02, 0.05, 0.02, 0.4); break; }
@@ -78,6 +83,14 @@ function toolModel(type, g) {
       case 'pizza': { const bx = C(0xd8b888); a(G.box, bx, 0, 0, 0, 0.46, 0.07, 0.46); a(G.box, tmat(T.sign('ПИЦЦА', '#d8243a', '#f1e8ff')), 0, 0.036, 0, 0.3, 0.002, 0.14); a(G.box, C(0x8a6a4a), 0, -0.036, 0, 0.47, 0.004, 0.47); break; }
       case 'rake': { const w = tmat(T.wood()), m = C(0x8a8d98); a(G.box, w, 0, 0.0, 0, 0.05, 0.05, 1.1); a(G.box, m, 0, 0, 0.55, 0.4, 0.04, 0.05); for (let i = 0; i < 6; i++) a(G.box, m, -0.17 + i * 0.07, -0.04, 0.58, 0.02, 0.08, 0.02); break; }
       case 'cushion': { const p = lam({ color: 0xff5a9e }, 'cushion'); a(G.sph10, p, 0, 0, 0, 0.2, 0.06, 0.2); a(G.cyl6, p, 0, 0, 0.22, 0.04, 0.08, 0.04, Math.PI / 2); break; }
+      // сетемёт: короткий ствол-раструб, рукоять, свёрнутая сетка сверху
+      case 'net': { a(G.cyl8, C(0x3a6a4a), 0, 0, 0.05, 0.07, 0.36, 0.07, Math.PI / 2); a(G.cone8, C(0x2b2533), 0, 0, 0.27, 0.11, 0.12, 0.11, -Math.PI / 2); a(G.box, C(0x2b2533), 0, -0.1, -0.06, 0.05, 0.16, 0.06, 0.3); a(G.sph, lam({ color: 0xe8e0c8 }, 'netRoll'), 0, 0.09, 0.02, 0.07, 0.05, 0.12); break; }
+      // жетон: золотая звезда на синей «корочке»
+      case 'badge': { a(G.box, C(0x2a3a7a), 0, 0, 0, 0.18, 0.02, 0.24); const gd = lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.5 }, 'badgeGold'); a(G.cyl8, gd, 0, 0.02, 0.03, 0.07, 0.015, 0.07); for (let i = 0; i < 5; i++) { const an = i / 5 * 6.28; a(G.cone4, gd, Math.cos(an) * 0.06, 0.02, 0.03 + Math.sin(an) * 0.06, 0.03, 0.01, 0.03, Math.PI / 2, 0, an); } break; }
+      // перчатка-пружина: красная боксёрская перчатка на гармошке
+      case 'glove': { const r = C(0xd8243a); a(G.sph10, r, 0, 0, 0.18, 0.13, 0.12, 0.14); a(G.sph, r, 0.1, 0.03, 0.13, 0.05, 0.06, 0.06); a(G.box, C(0xf1e8ff), 0, -0.02, 0.06, 0.12, 0.1, 0.04); for (let i = 0; i < 4; i++) a(G.box, C(0x8a8d98), 0, 0, -0.04 - i * 0.05, 0.1 - (i % 2) * 0.03, 0.02, 0.03); a(G.box, C(0x2b2533), 0, -0.04, -0.24, 0.05, 0.14, 0.06); break; }
+      // пылесос: корпус-бочонок, шланг, раструб
+      case 'vacuum': { a(G.cyl12, C(0xb18cff), 0, 0, -0.06, 0.13, 0.26, 0.13, Math.PI / 2); a(G.box, C(0x2b2533), 0, 0.14, -0.08, 0.04, 0.06, 0.2); a(G.cyl6, C(0x3a3440), 0, -0.02, 0.17, 0.04, 0.22, 0.04, Math.PI / 2); a(G.cone8, C(0x3a3440), 0, -0.02, 0.32, 0.09, 0.1, 0.06, -Math.PI / 2); a(G.cyl8, C(0xf1e8ff), 0, 0, -0.2, 0.1, 0.02, 0.1, Math.PI / 2); break; }
       default: a(G.box, C(0xc8a070), 0, 0, 0, 0.3, 0.3, 0.3);
     }
   });

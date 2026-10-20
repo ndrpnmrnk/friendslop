@@ -12,18 +12,19 @@ import { addItem, launch } from './items.js';
 import { actors, shove, knockDown, dropHeld } from './actors.js';
 import { sfx } from '../core/sfx.js';
 import { placeRake, placeCushion } from './traps.js';
+import { callPolice, hasPolice } from './police.js';
 
 /* Инструменты из ящиков — обычные физические предметы (items.js), но у них есть действие на ЛКМ.
    Ящик: 30% — выпадает инструмент, золотой ящик — всегда и «редкий».
    Логика не зависит от рендера и ввода (актёр + точка прицела) — потом её можно перенести на сервер. */
-export const GS = { shots: [], traps: [], clouds: [], gold: [], bubbles: new Map() };
+export const GS = { shots: [], traps: [], clouds: [], gold: [], bubbles: new Map(), nets: new Map() };
 const PAINT = [0x4ab0f0, 0xff5a9e, 0x9be36b, 0xf5c542, 0xb18cff];
 
 export function resetTools() {
   for (const q of GS.gold) W.group.remove(q.g);
   for (const s of GS.shots) W.group.remove(s.m);
   for (const t of GS.traps) if (t.m) W.group.remove(t.m);
-  for (const b of GS.bubbles.values()) W.group.remove(b);
+  for (const b of GS.bubbles.values()) W.group.remove(b); for (const m of GS.nets.values()) W.group.remove(m); GS.nets = new Map();
   GS.shots = []; GS.traps = []; GS.clouds = []; GS.gold = []; GS.bubbles = new Map();
   W.crateHook = (pos, piece) => { if (Math.random() < (piece.golden ? 1 : 0.3)) spawnTool(pos.x, pos.y, pos.z, piece.golden); };
   W.fires = W.fires || [];
@@ -95,6 +96,25 @@ export function useTool(a, it, aim, dt = 0) {
       if (it.ammo <= 0) { it.ammo = 0; it.empty = true; }
       return null;
     }
+    // сетемёт: сетка летит вперёд, накрывает — запутался
+    case 'net': { it.cd = 0.6; shoot('net', from, dir, 20, 0, a); spend(); return 'throw'; }
+    // жетон: вызвать наряд (ПКМ — бросить жетон в соперника)
+    case 'badge': { if (hasPolice(a)) return null; it.cd = 1; callPolice(a); return null; }
+    // перчатка-пружина: удар на 3 м вперёд, отбрасывает далеко
+    case 'glove': { it.cd = 0.7; const [fx, fz] = front(a, 3.2, 0.7, (b, dx, dz) => { shove(b, dx, dz, 15, 6, true); hitFreeze(0.08); W.onHit && W.onHit(a, b, 'melee'); });
+      it.punchT = 0.25; a.swatT = 0.25; impulsePushables(a.pos.x + fx * 2, a.pos.z + fz * 2, 1.2, 8); worldHit(new V3(a.pos.x + fx * 2.6, a.pos.y + 1, a.pos.z + fz * 2.6), 3, new V3(fx * 12, 2, fz * 12));
+      puff(a.pos.x + fx * 2.4, a.pos.y + 1.1, a.pos.z + fz * 2.4, { size: 0.5, life: 0.25, color: 0xff5a6e }); spend(); return 'pillow'; }
+    // пылесос: держи ЛКМ — втягивает предметы (и выдёргивает из рук), отпустил — выстреливает очередью
+    case 'vacuum': {
+      it.ammo -= dt; it.bag = it.bag || [];
+      if (it.bag.length < 5) for (const q of W.items) { if (q === it || it.bag.includes(q) || (q.state !== 'rest' && q.state !== 'fly')) continue; const dx = from.x - q.pos.x, dz = from.z - q.pos.z, l = Math.hypot(dx, dz);
+        if (l > 8 || -(dx * dir.x + dz * dir.z) / (l || 1) < 0.6) continue; q.vel.x += dx / l * 30 * dt; q.vel.z += dz / l * 30 * dt; q.vel.y = Math.max(q.vel.y, 1); if (q.state === 'rest') { q.state = 'fly'; q.noHitT = 0.5; q.owner = a; }
+        if (l < 1.0) { q.state = 'gone'; q.g.visible = false; it.bag.push(q); sfx('pop', { at: from, v: 0.5 }); if (q.steal && q.mine !== a) W.onVacuumSteal && W.onVacuumSteal(a, q); } }
+      for (const b of actors()) { if (b === a || !b.held || b.held === it) continue; const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, l = Math.hypot(dx, dz); if (l < 4 && (dx * dir.x + dz * dir.z) / (l || 1) > 0.7) dropHeld(b, -dx * 2, -dz * 2); }
+      if (Math.random() < dt * 14) puff(from.x + dir.x * (1 + Math.random() * 3), from.y, from.z + dir.z * (1 + Math.random() * 3), { color: 0xd8d0e4, size: 0.1, vx: -dir.x * 6, vz: -dir.z * 6, vy: 0, life: 0.3 });
+      if (it.ammo <= 0) { it.ammo = 0; it.empty = true; }
+      return null;
+    }
     case 'magnet': {
       it.ammo -= dt;
       for (const q of W.items) if (q.state === 'rest' && q !== it) { const dx = from.x - q.pos.x, dz = from.z - q.pos.z, l = Math.hypot(dx, dz); if (l < 11 && l > 1 && -(dx * dir.x + dz * dir.z) / l > 0.55) { q.vel.x += dx / l * 22 * dt; q.vel.z += dz / l * 22 * dt; q.vel.y = Math.max(q.vel.y, 1.2); } }
@@ -105,6 +125,12 @@ export function useTool(a, it, aim, dt = 0) {
     }
   }
   return null;
+}
+// пылесос: выстрелить содержимым очередью в сторону прицела
+export function vacuumFire(a, it, aim) {
+  if (!it.bag || !it.bag.length) return 0; const hp = a.ch ? a.ch.holdPoint : new V3(a.pos.x, a.pos.y + 1.2, a.pos.z), dir = new V3().subVectors(aim, hp).normalize(); let i = 0;
+  for (const q of it.bag) { const k = i++; setTimeout(() => { if (q.state !== 'gone') return; q.state = 'fly'; q.g.visible = true; q.owner = a; q.noHitT = 0.15; q.pos.copy(hp).addScaledVector(dir, 0.7); q.vel.set(dir.x * 22 + (Math.random() - 0.5) * 2, dir.y * 22 + 2, dir.z * 22 + (Math.random() - 0.5) * 2); sfx('throw', { at: a.pos }); }, k * 110); }
+  const n = it.bag.length; it.bag = []; return n;
 }
 function consume(a, it) { if (a.held === it) a.held = null; it.state = 'gone'; it.g.visible = false; it.def = { ...it.def, respawn: 0 }; }
 
@@ -124,13 +150,20 @@ export function paintPuddle(x, y, z, r, owner = null) {
 }
 function webTrap(x, y, z, owner = null) { const m = decal(T.web(), x, y, z, 3, 15, 0xffffff); GS.traps.push({ kind: 'web', x, y, z, r: 1.4, t: 15, m, owner, hit: new Set() }); }
 
+/* сетка накрыла: 2.5 с еле ползёшь, первые 1.2 с — оглушение; сверху видна сетка */
+const NETM = () => lam({ color: 0xe8e0c8, wireframe: true }, 'netWire');
+export function netActor(a, owner) {
+  if (a.hidden || a.caged) return; a.netT = 2.5; a.webT = Math.max(a.webT || 0, 2.5); a.stun = Math.max(a.stun || 0, 1.2); dropHeld(a);
+  if (!GS.nets.has(a)) { const m = mesh(G.sph10, NETM(), 0, 0, 0, 0.75, 1.0, 0.75, W.group); GS.nets.set(a, m); }
+  sfx('grab', { at: a.pos }); burst(a.pos.x, a.pos.y + 1.2, a.pos.z, 8, { color: 0xe8e0c8, size: 0.12, speed: 1.8 }); W.onHit && W.onHit(owner, a, 'heavy');
+}
 /* выстрелы: вода, конфета из рогатки, пузырь, паутина/фейерверк навесом */
 const SHOT_GEO = new THREE.SphereGeometry(1, 5, 4);
-function shotMesh(kind) { const c = { water: 0x7ac8f0, candy: 0xff5a9e, web: 0xe8e0f0, bubble: 0xc8f0ff }[kind];
+function shotMesh(kind) { const c = { water: 0x7ac8f0, candy: 0xff5a9e, web: 0xe8e0f0, bubble: 0xc8f0ff, net: 0xe8e0c8 }[kind];
   return mesh(SHOT_GEO, lam({ color: c, emissive: c, emissiveIntensity: 0.4, transparent: kind === 'bubble', opacity: kind === 'bubble' ? 0.55 : 1 }, 'shot' + kind), 0, 0, 0, 1, 1, 1, W.group); }
 export function shoot(kind, from, dir, speed, delay, owner) {
-  const m = shotMesh(kind); m.scale.setScalar(kind === 'water' ? 0.09 : kind === 'bubble' ? 0.28 : 0.08); m.visible = false;
-  GS.shots.push({ kind, m, p: from.clone().addScaledVector(dir, 0.6), v: dir.clone().multiplyScalar(speed).add(new V3(0, kind === 'water' ? 1.5 : kind === 'bubble' ? 0.6 : 0.6, 0)), g: kind === 'water' ? 14 : kind === 'bubble' ? -0.4 : 4, life: kind === 'bubble' ? 2.6 : 1.6, delay, owner });
+  const m = shotMesh(kind); m.scale.setScalar(kind === 'water' ? 0.09 : kind === 'bubble' ? 0.28 : kind === 'net' ? 0.22 : 0.08); m.visible = false;
+  GS.shots.push({ kind, m, p: from.clone().addScaledVector(dir, 0.6), v: dir.clone().multiplyScalar(speed).add(new V3(0, kind === 'water' ? 1.5 : kind === 'bubble' ? 0.6 : kind === 'net' ? 2 : 0.6, 0)), g: kind === 'water' ? 14 : kind === 'bubble' ? -0.4 : kind === 'net' ? 6 : 4, life: kind === 'bubble' ? 2.6 : 1.6, delay, owner });
 }
 function lob(kind, from, aim, owner) {
   const d = new V3(aim.x - from.x, 0, aim.z - from.z), dist = Math.min(16, d.length()); d.normalize();
@@ -170,6 +203,7 @@ export function updateTools(dt, t) {
     if (a.blind > 0) a.blind -= dt;
     if (a.startle > 0) a.startle -= dt;
     if (a.swatT > 0) a.swatT -= dt;
+    { const nm = GS.nets.get(a); if (a.netT > 0) { a.netT -= dt; if (nm) { nm.visible = true; nm.position.set(a.pos.x, a.pos.y + 0.85, a.pos.z); nm.rotation.y += dt; } } else if (nm) { W.group.remove(nm); GS.nets.delete(a); } }
     // пузырь: висит в воздухе и медленно поднимается
     let bub = GS.bubbles.get(a);
     if (a.floatT > 0) { a.floatT -= dt; a.vel.set(a.vel.x * 0.95, 1.1, a.vel.z * 0.95); a.onGround = false; a.airPeak = a.pos.y;
@@ -184,6 +218,7 @@ export function updateTools(dt, t) {
     // фейерверк в руках догорел — бах прямо в руках
     const h = a.held; if (h && h.lit !== undefined) { h.lit -= dt; if (Math.random() < dt * 30) puff(h.pos.x, h.pos.y + 0.2, h.pos.z, { size: 0.1, life: 0.3, vy: 1, color: 0xffd25c }); if (h.lit <= 0) { a.held = null; h.state = 'gone'; h.g.visible = false; explode(h.pos.clone(), null); } }
     if (h && h.cd > 0) h.cd -= dt;
+    if (h && h.type === 'glove') { h.punchT = Math.max(0, (h.punchT || 0) - dt); const ch = h.g.children[0]; if (ch) ch.position.z = Math.sin(Math.min(1, h.punchT / 0.25) * Math.PI) * 1.4; }
   }
   // брошенный горящий фейерверк: лежит, искрит, взрывается
   for (const it of W.items) if (it.lit !== undefined && it.state !== 'held' && it.state !== 'gone') { it.lit -= dt; if (Math.random() < dt * 30) puff(it.pos.x, it.pos.y + 0.15, it.pos.z, { size: 0.12, life: 0.3, vy: 1.2, color: 0xffd25c }); if (it.lit <= 0) { it.state = 'gone'; it.g.visible = false; explode(it.pos.clone(), it.owner); } }
@@ -212,6 +247,7 @@ export function updateTools(dt, t) {
       else if (s.kind === 'candy') { burst(pt.x, pt.y, pt.z, 4, { color: 0xff5a9e, size: 0.1, speed: 2 }); if (hitA) { hitA.push.set(s.v.x * 0.08, 0, s.v.z * 0.08); hitFreeze(0.04); } hitBreakables(pt, 0.2, [s.v.x, s.v.y, s.v.z], 0.3, ['glass', 'bulb', 'bottle']); worldHit(pt, 1.2, s.v); for (const h of W.hitHooks.slice()) h(fakeIt('candy', 0.6), pt); for (const h of W.moth ? [W.moth] : []) h.hitAt && h.hitAt(pt, 1); }
       else if (s.kind === 'bubble') { if (hitA) { hitA.floatT = 3; dropHeld(hitA); sfx('bubble', { at: pt }); } else burst(pt.x, pt.y, pt.z, 6, { color: 0xc8f0ff, size: 0.1, speed: 1.5 }); }
       else if (s.kind === 'web') webTrap(pt.x, gy, pt.z, s.owner);
+      else if (s.kind === 'net') { if (hitA) { netActor(hitA, s.owner); } else burst(pt.x, pt.y, pt.z, 6, { color: 0xe8e0c8, size: 0.1, speed: 1.5 }); }
     }
     if (gone) { W.group.remove(s.m); GS.shots.splice(i, 1); }
   }
@@ -240,5 +276,5 @@ export function updateTools(dt, t) {
   void _f; void addZone;
 }
 // иконка-подсказка для HUD: есть ли у инструмента действие на ЛКМ
-export const toolVerb = it => ({ slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
+export const toolVerb = it => ({ net: 'выстрел сеткой', badge: it && hasPolice(it.owner) ? 'брось в соперника (ПКМ)' : 'вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
   water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', boots: 'надеть', mask: 'надеть', rake: 'поставить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';

@@ -6,8 +6,10 @@ import { LIGHTMAT, LIGHTDIM, WATERMAT } from '../world/builder.js';
 import { UG } from '../world/underground.js';
 import { splash, burst, puff, smokeRing } from '../world/particles.js';
 import { groundAt, isFree } from '../world/physics.js';
-import { actors, shove } from './actors.js';
-import { spawnTool } from './tools.js';
+import { actors, shove, knockDown } from './actors.js';
+import { spawnTool, explode } from './tools.js';
+import { iconCanvas } from '../ui/icons.js';
+import { CONFIG } from '../config.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
 import { shake, hitFreeze } from './worldfx.js';
@@ -177,7 +179,107 @@ const BIG = {
     stop(s) { s.ball.state = 'gone'; s.ball.g.visible = false; W.group.remove(s.ring); if (s.tmp) for (const o of s.tmp) W.group.remove(o); if (s.tmpGoals) { W.goals = []; W.pitch = null; } },
     info: s => `${s.score[0]}:${s.score[1]}`,
   },
+
+  /* Зомби-заражение (как в Move or Die): один — зомби, касанием заражает. Люди отбиваются: попал предметом
+     или ударом — зомби на 2 с падает. Зомби — +30 за заражение; кто дожил человеком до конца — +120. */
+  zombie: { dur: 40,
+    start(s) { const all = actors(); s.z = new Set([all[(Math.random() * all.length) | 0]]); s.cd = new Map(); s.marks = new Map(); s.puffT = 0; for (const a of s.z) infect(s, a, null); },
+    target(s) { const P = ctx.player(), me = s.z.has(P), list = actors().filter(a => a !== P && s.z.has(a) !== me); list.sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos)); return (list[0] || P).pos; },
+    update(s, dt, t) {
+      for (const [a, v] of s.cd) s.cd.set(a, v - dt);
+      for (const z of s.z) { if (z.stun > 0 || (s.cd.get(z) || 0) > 0) continue;
+        for (const h of actors()) { if (s.z.has(h) || h.hidden) continue; if (Math.hypot(h.pos.x - z.pos.x, h.pos.z - z.pos.z) < 0.95 && Math.abs(h.pos.y - z.pos.y) < 1.2) { infect(s, h, z); s.cd.set(z, 1); break; } } }
+      s.puffT -= dt; if (s.puffT <= 0) { s.puffT = 0.25; for (const z of s.z) puff(z.pos.x, z.pos.y + 1.4, z.pos.z, { color: 0x7ad85a, size: 0.14, vy: 0.6, life: 0.6, grow: 0.5, opacity: 0.6 }); }
+      for (const [a, m] of s.marks) { m.position.set(a.pos.x, a.pos.y + (a.ch.d.top || 1.7) + 0.5 + Math.sin(t * 4) * 0.05, a.pos.z); m.visible = !a.hidden; }
+      if (actors().every(a => s.z.has(a))) return 'end';
+      return null;
+    },
+    onHit(s, att, vic) { if (s.z.has(vic) && !s.z.has(att)) { knockDown(vic, 0, 0, 2); burst(vic.pos.x, vic.pos.y + 1.2, vic.pos.z, 8, { color: 0x7ad85a, size: 0.16, speed: 2 }); } },
+    bot(s, b) { const zb = s.z.has(b), list = actors().filter(a => a !== b && s.z.has(a) !== zb && !a.hidden).sort((p, q) => p.pos.distanceTo(b.pos) - q.pos.distanceTo(b.pos)), o = list[0]; if (!o) return null;
+      if (zb) return { who: o, kind: 'event', near: 0.5 };
+      const dx = b.pos.x - o.pos.x, dz = b.pos.z - o.pos.z, d = Math.hypot(dx, dz) || 1; return d > 9 ? null : { x: b.pos.x + dx / d * 7, y: b.pos.y, z: b.pos.z + dz / d * 7, kind: 'event', near: 1 }; },
+    stop(s) { for (const a of actors()) if (!s.z.has(a)) award(a, 120, a.pos); for (const a of actors()) a.zombie = false; for (const m of s.marks.values()) W.group.remove(m); },
+    info: s => { const P = ctx.player(); return s.z.has(P) ? 'ТЫ ЗОМБИ' : `людей ${actors().filter(a => !s.z.has(a)).length}`; },
+  },
+
+  /* Горячая картошка: тыква-бомба с фитилём; передай касанием (или выпадом). Взорвалась в руках — −60. */
+  potato: { dur: 40,
+    start(s) { s.bomb = compose('potatoBomb', a => { a(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.28, 0.32); a(G.cyl6, col(0x2b2533), 0, 0.3, 0, 0.03, 0.18, 0.03); a(G.sph, lam({ color: 0xffd25c, emissive: 0xff8a1f, emissiveIntensity: 1 }, 'fuseSpark'), 0, 0.42, 0, 0.06, 0.06, 0.06); });
+      W.group.add(s.bomb); W.keep.push(s.bomb); s.cd = 0; s.boom = 0; give(s, actors()[(Math.random() * actors().length) | 0]); },
+    target(s) { const P = ctx.player(); if (s.h !== P) return s.h.pos; const o = actors().filter(a => a !== P).sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos))[0]; return (o || P).pos; },
+    update(s, dt, t) {
+      const h = s.h; s.cd -= dt; s.left -= dt;
+      s.bomb.position.set(h.pos.x, h.pos.y + (h.ch.d.top || 1.7) + 0.45 + Math.abs(Math.sin(t * 6)) * 0.08, h.pos.z); s.bomb.rotation.y += dt * 4;
+      const k = Math.max(0.08, s.left / s.T); s.tick -= dt; if (s.tick <= 0) { s.tick = 0.15 + k * 0.6; sfx('tick', { at: h.pos, v: 0.7 }); puff(s.bomb.position.x, s.bomb.position.y + 0.45, s.bomb.position.z, { color: 0xffd25c, size: 0.08, vy: 1, life: 0.3 }); }
+      if (s.cd <= 0) for (const o of actors()) { if (o === h || o.hidden) continue; if (Math.hypot(o.pos.x - h.pos.x, o.pos.z - h.pos.z) < 1.0 && Math.abs(o.pos.y - h.pos.y) < 1.2) { give(s, o); sfx('pop', { at: o.pos }); break; } }
+      if (s.left <= 0) { explode(s.bomb.position.clone(), null); award(h, -60, h.pos); s.boom++; const others = actors().filter(a => a !== h); give(s, others[(Math.random() * others.length) | 0] || h); }
+      return null;
+    },
+    onHit(s, att, vic) { if (vic === s.h && att && s.cd <= 0) give(s, att); },
+    bot(s, b) { if (s.h === b) { const o = actors().filter(a => a !== b && !a.hidden).sort((p, q) => p.pos.distanceTo(b.pos) - q.pos.distanceTo(b.pos))[0]; return o ? { who: o, kind: 'event', near: 0.4 } : null; }
+      const dx = b.pos.x - s.h.pos.x, dz = b.pos.z - s.h.pos.z, d = Math.hypot(dx, dz) || 1; return d > 8 ? null : { x: b.pos.x + dx / d * 6, y: b.pos.y, z: b.pos.z + dz / d * 6, kind: 'event', near: 1 }; },
+    stop(s) { W.group.remove(s.bomb); s.h.hotPotato = false; },
+    info: s => s.h === ctx.player() ? `У ТЕБЯ! ${Math.ceil(s.left)}` : (s.h.name || ''),
+  },
+
+  /* Пол — лава: улица и полы участками раскаляются (оранжевое предупреждение → лава). Стой на машинах, скамейках,
+     ящиках, крышах. Коснулся лавы — подбрасывает и −20. В конце — +150 минус ожоги. */
+  lava: { dur: 32,
+    start(s) { s.cells = new Map(); s.cycle = 2; s.burn = new Map(); s.lavaT = 0; s.base = CONFIG.base;
+      s.mat = new THREE.MeshBasicMaterial({ color: 0xff5a1a, transparent: true, opacity: 0.85, depthWrite: false }); s.warn = new THREE.MeshBasicMaterial({ color: 0xffb04a, transparent: true, opacity: 0.35, depthWrite: false });
+      s.g = new THREE.Group(); W.group.add(s.g); W.keep.push(s.g); },
+    target: s => { const P = ctx.player(); let best = null, bd = 1e9; for (const z of W.missionZones) if (z.type === 'roof' && z.y < P.pos.y + 4) { const d = Math.hypot((z.x0 + z.x1) / 2 - P.pos.x, (z.z0 + z.z1) / 2 - P.pos.z); if (d < bd) { bd = d; best = z; } } return best ? new V3((best.x0 + best.x1) / 2, best.y, (best.z0 + best.z1) / 2) : P.pos; },
+    update(s, dt, t) {
+      s.cycle -= dt; const C = 6;
+      if (s.cycle <= 0) { s.cycle = 5; for (const c of s.cells.values()) s.g.remove(c.m); s.cells.clear();
+        const P = ctx.player(); for (let i = -6; i <= 6; i++) for (let j = -6; j <= 6; j++) if (Math.random() < 0.45) { const cx = Math.floor(P.pos.x / C) + i, cz = Math.floor(P.pos.z / C) + j;
+          const m = mesh(G.plane, s.warn, cx * C + C / 2, s.base + 0.03, cz * C + C / 2, C, C, 1, s.g); m.rotation.x = -Math.PI / 2; s.cells.set(cx + ',' + cz, { m, t: 0 }); } sfx('fire', { v: 0.4 }); }
+      for (const c of s.cells.values()) { c.t += dt; if (c.t > 1.5 && c.m.material !== s.mat) c.m.material = s.mat; if (c.m.material === s.mat) c.m.position.y = s.base + 0.03 + Math.sin(t * 6 + c.m.position.x) * 0.01; }
+      if (s.mat) s.mat.color.setHSL(0.04 + Math.sin(t * 5) * 0.02, 1, 0.55);
+      s.lavaT -= dt; if (s.lavaT <= 0) { s.lavaT = 0.12; const cs = [...s.cells.values()].filter(c => c.t > 1.5); const c = cs[(Math.random() * cs.length) | 0]; if (c) burst(c.m.position.x + (Math.random() - 0.5) * C, c.m.position.y, c.m.position.z + (Math.random() - 0.5) * C, 2, { color: 0xffd25c, size: 0.12, speed: 1, up: 3, g: 6, life: 0.6 }); }
+      for (const a of actors()) { if (a.hidden || a.pos.y > s.base + 0.3 || !a.onGround) continue; const c = s.cells.get(Math.floor(a.pos.x / C) + ',' + Math.floor(a.pos.z / C));
+        if (c && c.t > 1.5 && !(a.burnCD > t)) { a.burnCD = t + 1.2; a.vel.y = 9; a.onGround = false; s.burn.set(a, (s.burn.get(a) || 0) + 1); award(a, -20, a.pos); burst(a.pos.x, a.pos.y + 0.3, a.pos.z, 10, { color: 0xff8a1f, size: 0.2, speed: 2, up: 3 }); sfx('hit', { at: a.pos }); voice(a.ch, 'hurt', a.pos); } }
+      return null;
+    },
+    bot(s, b) { const C = 6, here = s.cells.get(Math.floor(b.pos.x / C) + ',' + Math.floor(b.pos.z / C)); if (!here || b.pos.y > s.base + 0.3) return null;
+      for (let r = 1; r < 4; r++) for (let a = 0; a < 8; a++) { const x = b.pos.x + Math.cos(a * 0.785) * r * C, z = b.pos.z + Math.sin(a * 0.785) * r * C; if (!s.cells.has(Math.floor(x / C) + ',' + Math.floor(z / C))) return { x, y: b.pos.y, z, kind: 'event', near: 1.5 }; }
+      return null; },
+    stop(s) { W.group.remove(s.g); for (const a of actors()) award(a, Math.max(0, 150 - (s.burn.get(a) || 0) * 30), a.pos); },
+    info: s => `ожоги ${s.burn.get(ctx.player()) || 0}`,
+  },
+
+  /* Покрась город (как Splatoon): за каждым остаются следы его цвета, брошенные предметы красят пятном.
+     Чужие клетки перекрашиваются. В конце — 2 очка за каждую свою клетку (до 200). */
+  paint: { dur: 35,
+    start(s) { s.COL = new Map(); const pal = [0xff8a1f, 0xb18cff, 0x4ab0f0, 0x9be36b, 0xff5a9e]; actors().forEach((a, i) => s.COL.set(a, pal[i % pal.length]));
+      s.N = 2200; s.inst = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.95, 0.95).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.8, depthWrite: false }), s.N); s.inst.count = 0; s.inst.frustumCulled = false;
+      s.inst.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(s.N * 3), 3); W.group.add(s.inst); W.keep.push(s.inst); s.cells = new Map(); s.own = new Map();
+      s.hook = (it, p) => { if (!it.owner || !s.COL.has(it.owner)) return; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) paintCell(s, it.owner, Math.floor(p.x) + i, Math.floor(p.z) + j, groundAt(p.x + i, p.z + j, 0.2, p.y + 0.5)); sfx('splash', { at: p, v: 0.5 }); };
+      W.hitHooks.push(s.hook); },
+    target(s) { const P = ctx.player(); let best = null, bd = 1e9; for (const [k, c] of s.cells) if (c.a !== P) { const d = Math.hypot(c.x - P.pos.x, c.z - P.pos.z); if (d < bd && d > 3) { bd = d; best = c; } } return best ? new V3(best.x, best.y, best.z) : P.pos; },
+    update(s, dt) { for (const a of actors()) if (a.onGround && !a.hidden) paintCell(s, a, Math.floor(a.pos.x), Math.floor(a.pos.z), a.pos.y); return null; },
+    bot(s, b) { if (!b.paintGoal || Math.hypot(b.paintGoal.x - b.pos.x, b.paintGoal.z - b.pos.z) < 1.5 || Math.random() < 0.005) { const a = Math.random() * 6.28, r = 6 + Math.random() * 10; b.paintGoal = { x: b.pos.x + Math.cos(a) * r, y: b.pos.y, z: b.pos.z + Math.sin(a) * r, kind: 'event', near: 1 }; } return b.paintGoal; },
+    stop(s) { W.hitHooks.splice(W.hitHooks.indexOf(s.hook), 1); W.group.remove(s.inst); for (const a of actors()) { const n = s.own.get(a) || 0; if (n) award(a, Math.min(200, n * 2), a.pos); a.paintGoal = null; } },
+    info: s => `клеток ${s.own.get(ctx.player()) || 0}`,
+  },
 };
+// зомби: метка над головой и руки вперёд
+function infect(s, a, by) {
+  s.z.add(a); a.zombie = true; if (by) { award(by, 30, a.pos); sfx('ghost', { at: a.pos }); }
+  burst(a.pos.x, a.pos.y + 1.2, a.pos.z, 12, { color: 0x7ad85a, size: 0.18, speed: 2.5, up: 2 });
+  const t = new THREE.CanvasTexture(iconCanvas('zombie', 2)); t.magFilter = THREE.NearestFilter; const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false })); m.scale.set(0.6, 0.6, 1); m.renderOrder = 10; W.group.add(m); s.marks.set(a, m);
+}
+// горячая картошка: новый держатель, свежий фитиль
+function give(s, a) { if (s.h) s.h.hotPotato = false; s.h = a; a.hotPotato = true; s.cd = 1; s.T = s.left = 9 + Math.random() * 6; s.tick = 0; }
+// покраска: клетка 1×1 м на высоте пола/объекта
+function paintCell(s, a, x, z, y) {
+  const k = x + ',' + z, c = s.cells.get(k), col3 = new THREE.Color(s.COL.get(a));
+  if (c && c.a === a) return;
+  let i; if (c) { i = c.i; s.own.set(c.a, (s.own.get(c.a) || 1) - 1); } else { if (s.inst.count >= s.N) return; i = s.inst.count++; }
+  s.cells.set(k, { a, i, x: x + 0.5, y, z: z + 0.5 }); s.own.set(a, (s.own.get(a) || 0) + 1);
+  const M = new THREE.Matrix4().makeTranslation(x + 0.5, y + 0.035, z + 0.5); s.inst.setMatrixAt(i, M); s.inst.instanceColor.setXYZ(i, col3.r, col3.g, col3.b);
+  s.inst.instanceMatrix.needsUpdate = true; s.inst.instanceColor.needsUpdate = true;
+}
 function dist(z, P) { return Math.hypot((z.x0 + z.x1) / 2 - P.pos.x, (z.z0 + z.z1) / 2 - P.pos.z) + Math.abs(z.y - P.pos.y) * 2; }
 function drawBar(s) { const g = s.bar.getContext('2d'); g.fillStyle = '#17111f'; g.fillRect(0, 0, 64, 10); g.fillStyle = '#3a3046'; g.fillRect(2, 2, 60, 6); g.fillStyle = '#ff5a6e'; g.fillRect(2, 2, Math.round(60 * Math.max(0, s.hp) / s.max), 6); s.barT.needsUpdate = true; }
 function hitMoth(s, p, dmg, owner) {

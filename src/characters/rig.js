@@ -169,6 +169,9 @@ function animate(c, dt, s) {
     const k2 = s.swat / 0.3; setHand(c.handR, hx * 0.6, d.top - 0.1 - (1 - k2) * 0.6, 0.35 + (1 - k2) * 0.3, damp(30, dt)); setHand(c.handL, -hx, hy + fl, hz, f);
   } else if (s.wave) {
     setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx + 0.1, d.top - 0.1 + Math.sin(t * 9) * 0.06, 0.1 + Math.sin(t * 9) * 0.12, f);
+  } else if (s.zombie) {
+    // зомби: руки вытянуты вперёд, покачиваются
+    setHand(c.handL, -hx * 0.7, d.top - 0.45 + Math.sin(t * 4) * 0.05, 0.55, f); setHand(c.handR, hx * 0.7, d.top - 0.45 - Math.sin(t * 4) * 0.05, 0.55, f); c.body.rotation.z += Math.sin(t * 3) * 0.04;
   } else {
     setHand(c.handL, -hx, hy + fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? -sn * 0.35 * k : 0), f);
     setHand(c.handR, hx, hy - fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? sn * 0.35 * k : 0), f);

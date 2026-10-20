@@ -9,6 +9,7 @@ import { GAMES } from './games.js';
 import { PANEL_GAMES, WORLD_GAMES } from './games2.js';
 import { buildShells, buildFishing, buildSpot, buildTargets, buildCleanup } from './objects2.js';
 import { PANEL3, WORLD3, buildPhone, buildFire, buildDeadLamp, buildCatBox } from './games3.js';
+import { PANEL4, WORLD4, buildLeafPile, buildGraffitiWall, buildIntercom, buildChest, buildValve } from './games4.js';
 
 /* Миссии приходят ВОЛНАМИ.
    В волне «игроки − 1» общих миссий (боты считаются игроками, не меньше 2): кому-то не хватит — надо успеть
@@ -18,7 +19,7 @@ import { PANEL3, WORLD3, buildPhone, buildFire, buildDeadLamp, buildCatBox } fro
    Между волнами кому-то может выпасть ЛИЧНАЯ миссия (видит и может сделать только он), а с середины раунда
    отстающему — миссия АУТСАЙДЕРА с очками ×1.5.
    Миссии частично «местные»: у некоторых есть родной район (home) — там они появляются чаще, но не всегда. */
-export const M = { list: [], cooldown: {}, id: 0, waveT: 0, wave: 0, burnt: 0, done: 0, onWave: null };
+export const M = { list: [], cooldown: {}, id: 0, waveT: 0, wave: 0, burnt: 0, done: 0, onWave: null, manual: false };
 const ZONE_RU = { floor: '', inside: 'внутри', roof: 'на крыше', nook: 'в нычке', tunnel: '' };
 const WV = () => CONFIG.wave;
 
@@ -142,7 +143,7 @@ export function spawnMission(player, only = null, opts = {}) {
     } else {
       const pl = findPlace(def, player.pos, others);
       if (!pl) continue;
-      const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox }[key];
+      const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox, leaves: buildLeafPile, graffiti: buildGraffitiWall, intercom: buildIntercom, lockpick: buildChest, pipes: buildValve }[key];
       obj = key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
       where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
     }
@@ -185,7 +186,7 @@ export function updateMissions(dt, t, player, opts = {}) {
     mk.bm.opacity = k < 0.25 ? (Math.sin(t * 12) > 0 ? 0.45 : 0.1) : mk.bm.opacity;
   }
   // волны: общие миссии кончились — пауза и новая волна (личные не держат волну)
-  if (shared().length === 0) {
+  if (shared().length === 0 && !M.manual) {
     if (M.waveT <= 0) M.waveT = M.burnt > 0 && M.done === 0 ? WV().gapBurnt : (phase === 'final' ? WV().gapBurnt : WV().gap);
     else { M.waveT -= dt; if (M.waveT <= 0) { M.done = 0; spawnWave(player, phase); extras(player, opts); } }
   }
@@ -226,6 +227,6 @@ export function nearMission(player) {
   }
   return best;
 }
-export const ALL_GAMES = { ...GAMES, ...PANEL_GAMES, ...PANEL3 };
-const WORLD_ALL = { ...WORLD_GAMES, ...WORLD3 };
+export const ALL_GAMES = { ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4 };
+const WORLD_ALL = { ...WORLD_GAMES, ...WORLD3, ...WORLD4 };
 export { GAMES, WORLD_ALL as WORLD_GAMES };

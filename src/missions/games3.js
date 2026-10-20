@@ -199,14 +199,17 @@ export const WORLD3 = {
     const L = o.lamp, P = ctx.player, d = new V3(Math.sin(L.ry), 0, Math.cos(L.ry)), hx = L.lx + d.x * 0.45, hz = L.lz + d.z * 0.45;
     // стремянка: поручни и ступени, зона лазания
     const lad = new THREE.Group(); lad.position.set(hx, L.y, hz); lad.rotation.y = Math.atan2(d.x, d.z); W.group.add(lad);
-    lad.add(compose('stepladder', a => { const al = col(0xc8c8d8); for (const sx of [-0.3, 0.3]) { a(G.box, al, sx, 1.25, 0.12, 0.05, 2.6, 0.05, -0.12); a(G.box, al, sx, 1.2, 0.6, 0.04, 2.5, 0.04, 0.25); } for (let y = 0.3; y < 2.5; y += 0.35) a(G.box, col(0xf5c542), 0, y, 0.12 - y * 0.12 + 0.15, 0.6, 0.04, 0.12); }));
+    lad.add(compose('stepladder', a => { const al = col(0xc8c8d8); // стремянка «домиком»: внизу ноги широко, наверху сходятся под площадкой
+      for (const sx of [-0.3, 0.3]) { a(G.box, al, sx, 1.25, 0.12, 0.05, 2.6, 0.05, 0.12); a(G.box, al, sx, 1.2, 0.6, 0.04, 2.5, 0.04, -0.25); }
+      for (let y = 0.3; y < 2.4; y += 0.35) a(G.box, col(0xf5c542), 0, y, 0.12 + (y - 1.25) * 0.12, 0.62, 0.04, 0.12);
+      a(G.box, col(0xf5c542), 0, 2.52, 0.33, 0.66, 0.05, 0.3); for (const sx of [-0.3, 0.3]) a(G.box, al, sx, 0.75, 0.42, 0.02, 0.02, 0.5); }));
     const lz = { x0: hx - 0.55, x1: hx + 0.55, z0: hz - 0.55, z1: hz + 0.55, y0: L.y, y1: L.y + 2.25, nx: d.x, nz: d.z }; W.ladders.push(lz);
     const p0 = farPoint(new V3(L.x, L.y, L.z), 6, 18), bulb = addItem('bulb', p0.x, p0.y, p0.z); bulb.def = { ...bulb.def, respawn: 0 }; bulb.steal = { pts: ctx.mission ? ctx.mission.pts : 200, key: 'bulb' }; bulb.mine = P; const rg = ringMark(0xf5c542);
     let time = 70, hint = '';
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     const up = () => P.pos.y > L.y + 1.7 && Math.hypot(P.pos.x - hx, P.pos.z - hz) < 1.4;
     return {
-      target() { if (P.held !== bulb) { say('Возьми лампочку'); return bulb.pos; } if (!up()) { say('Залезь по стремянке к фонарю'); return new V3(hx + d.x * 0.8, L.y, hz + d.z * 0.8); } say('E — вкрутить'); return new V3(L.lx, L.y + 3, L.lz); },
+      target() { if (P.held !== bulb) { say('1) Возьми лампочку (E) — жёлтое кольцо'); return bulb.pos; } if (!up()) { say('2) Залезь по стремянке к фонарю (W у лестницы)'); return new V3(hx + d.x * 0.8, L.y, hz + d.z * 0.8); } say('3) Нажми E — и вкрути лампочку мышью'); return new V3(L.lx, L.y + 3, L.lz); },
       prompt: () => P.held === bulb && up() ? '<b>E</b>Вкрутить лампочку' : '',
       interact() { if (P.held === bulb && up()) { api.finish({ chain: 'bulbScrew' }); return true; } return false; },
       update(dt) {
@@ -291,19 +294,26 @@ export const WORLD3 = {
   firebin(o, api, ctx) {
     const P = ctx.player, f = o.fire;
     const hasTool = P.held && ['extinguisher', 'water', 'balloon'].includes(P.held.type);
-    if (!hasTool) { const p = o.pos(), a = Math.random() * 6.28; spawnTool(p.x + Math.cos(a) * 2.5, p.y + 0.3, p.z + Math.sin(a) * 2.5, false, 'extinguisher'); }
+    // огнетушитель рядом: подсвечен контуром, кольцом и стрелкой навигатора, пока не возьмёшь
+    let ext = null; if (!hasTool) { const p = o.pos(), a = Math.random() * 6.28; ext = spawnTool(p.x + Math.cos(a) * 2.5, p.y + 0.3, p.z + Math.sin(a) * 2.5, false, 'extinguisher'); ext.life = 999; }
+    const rg = ringMark(0xff8a1f); let hint = '';
+    const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     let time = 45;
     const hook = (it, p) => { if (it.type === 'balloon' && Math.hypot(p.x - f.x, p.z - f.z) < 1.6) { f.hp -= 0.45; splash(f.x, f.y + 1, f.z, 1); } };
     W.hitHooks.push(hook);
-    api.msg(hasTool ? 'Туши!' : 'Рядом огнетушитель — хватай (E), туши (ЛКМ)');
+    const armed = () => P.held && ['extinguisher', 'water', 'balloon'].includes(P.held.type);
     return {
-      target: () => o.pos(),
+      target: () => !armed() && ext && ext.state !== 'gone' ? ext.pos : o.pos(),
+      prompt: () => !armed() && ext && ext.state === 'rest' && Math.hypot(ext.pos.x - P.pos.x, ext.pos.z - P.pos.z) < 1.5 ? '<b>E</b>Взять огнетушитель' : '',
       update(dt) {
         time -= dt; api.timer(time); api.progress(1 - Math.max(0, f.hp));
+        const showExt = !armed() && ext && ext.state === 'rest'; rg.visible = showExt; if (ext) ext.outline.set(showExt);
+        if (showExt) { rg.position.set(ext.pos.x, ext.pos.y - ext.def.r + 0.04, ext.pos.z); rg.scale.setScalar(0.45 + Math.abs(Math.sin(performance.now() * 0.006)) * 0.2); say('1) Возьми огнетушитель (E) — он подсвечен'); }
+        else if (armed()) say(P.held.type === 'balloon' ? 'Кидай шарик в огонь (ПКМ)!' : 'Зажми ЛКМ и целься в огонь!');
         if (f.hp <= 0) { const p = o.pos(); for (let i = 0; i < 8; i++) puff(p.x, p.y + 1, p.z, { color: 0xd8d8e0, size: 0.4, vy: 2, life: 1.2, grow: 1.5 }); sfx('hiss', { at: p }); return api.finish({ success: true, mult: 1 }); }
         if (time <= 0) api.finish({ success: false });
       },
-      stop() { W.hitHooks.splice(W.hitHooks.indexOf(hook), 1); },
+      stop() { W.hitHooks.splice(W.hitHooks.indexOf(hook), 1); W.group.remove(rg); if (ext) { ext.outline.set(false); ext.life = 30; } },
     };
   },
 };

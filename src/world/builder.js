@@ -35,8 +35,8 @@ export class Builder {
     if (o.solid !== false) this.solid(x, z, q ? d : w, q ? w : d, y, h);
     return m;
   }
-  ground(x0, z0, x1, z1, tex, tile = 3) {
-    const w = x1 - x0, d = z1 - z0, m = this.m(G.plane, flat(rep(tex, w / tile, d / tile)), (x0 + x1) / 2, 0.01, (z0 + z1) / 2, w, d, 1);
+  ground(x0, z0, x1, z1, tex, tile = 3, y = 0.01) {
+    const w = x1 - x0, d = z1 - z0, m = this.m(G.plane, flat(rep(tex, w / tile, d / tile)), (x0 + x1) / 2, y, (z0 + z1) / 2, w, d, 1);
     m.rotation.x = -Math.PI / 2; return m;
   }
   marking(x, z, w, d, color = 0xe5ddcf) {

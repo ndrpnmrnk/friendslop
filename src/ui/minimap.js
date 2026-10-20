@@ -26,7 +26,7 @@ export function buildMinimap(districts) {
   g.strokeStyle = 'rgba(241,232,255,.12)'; g.lineWidth = 1; for (const d of W.districts) g.strokeRect(X(d.ox) + 0.5, X(d.oz) + 0.5, ch * PX - 1, ch * PX - 1);
 }
 
-export function drawMinimap(P, missions, target, extra) {
+export function drawMinimap(P, missions, target, extra, main) {
   const c = document.getElementById('mapc'); if (!c || !plan) return;
   const g = c.getContext('2d'), S = c.width, R = S / 2;
   g.imageSmoothingEnabled = false;
@@ -47,6 +47,11 @@ export function drawMinimap(P, missions, target, extra) {
     else if (kind === 'bot') { g.fillRect(sx - 3, sy - 3, 6, 6); g.fillStyle = color; g.fillRect(sx - 2, sy - 2, 4, 4); }
     else { g.fillRect(sx - 4, sy - 4, 9, 9); g.fillStyle = color; g.fillRect(sx - 3, sy - 3, 7, 7); }
   };
+  // главная цель: пунктир от игрока и пульсирующая рамка
+  if (main) { let [mx, my] = toS(main.x, main.z); const dx = mx - R, dy = my - R, mm = Math.max(Math.abs(dx), Math.abs(dy)); if (mm > lim) { mx = R + dx / mm * lim; my = R + dy / mm * lim; }
+    const L = Math.hypot(mx - R, my - R), n = Math.floor(L / 6), ph = (performance.now() / 120) % 2; g.fillStyle = main.color || '#f1e8ff';
+    for (let i = 1; i < n; i++) if ((i + Math.floor(ph)) % 2 === 0) { const k = i / n; g.fillRect(Math.round(R + (mx - R) * k) - 1, Math.round(R + (my - R) * k) - 1, 3, 3); }
+    if (mm <= lim) { const pz = 11 + Math.round(Math.sin(performance.now() / 160) * 2); g.strokeStyle = main.color || '#f1e8ff'; g.lineWidth = 2; g.strokeRect(Math.round(mx) - pz, Math.round(my) - pz, pz * 2, pz * 2); } }
   for (const b of W.bots || []) if (!b.hidden) mark(b.pos.x, b.pos.z, '#b18cff', 'bot');
   for (const m of missions) if (!m.busy) { const p = m.obj.pos(); mark(p.x, p.z, '#' + DIFF[m.def.diff].toString(16).padStart(6, '0'), { icon: m.key }); }
   for (const e of extra || []) mark(e.x, e.z, e.color, e.icon ? { icon: e.icon } : 'star');
