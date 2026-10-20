@@ -151,6 +151,6 @@ export function updateTown(dt, t, P, bigActive) {
   if (!P) return;
   if (TOWN.inc) { if (TOWN.inc.update(dt) === 'end') { TOWN.inc.stop(); TOWN.inc = null; } return; }
   TOWN.incT -= dt;
-  if (TOWN.incT <= 0 && !bigActive) { TOWN.incT = 30 + Math.random() * 10; const keys = Object.keys(INC).filter(k => k !== TOWN.last), k = globalThis.__forceInc || keys[(Math.random() * keys.length) | 0]; TOWN.last = k; TOWN.inc = INC[k](P); }
+  if (TOWN.incT <= 0 && !bigActive && globalThis.__forceInc) { TOWN.incT = 30 + Math.random() * 10; const keys = Object.keys(INC).filter(k => k !== TOWN.last), k = globalThis.__forceInc || keys[(Math.random() * keys.length) | 0]; TOWN.last = k; TOWN.inc = INC[k](P); }
 }
 void dropHeld; void puff; void smokeRing;

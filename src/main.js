@@ -39,7 +39,7 @@ import { initAudio, sfx, ambience, setListener, toggleMute } from './core/sfx.js
 import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
-import { initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget } from './game/events.js';
+import { initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget, PHASE, phaseOf } from './game/events.js';
 import { DISTRICTS } from './world/districts/index.js';
 import { startWeather, updateWeather, stopWeather, WX } from './world/weather.js';
 import { buildReflections, updateReflections } from './world/reflect.js';
@@ -144,7 +144,7 @@ function prepareRound() {
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
   W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), 3);
-  Object.assign(S, { time: CONFIG.roundTime, score: 0, done: 0, mg: null, wm: null, crane: false });
+  Object.assign(S, { time: CONFIG.roundTime, score: 0, done: 0, mg: null, wm: null, crane: false, phase: 'calm' }); W.scoreMul = 1;
   cam.pose = null; resetCamera(Math.random() * Math.PI * 2);
   screen(null); $('mgpanel').classList.add('hidden'); resetHud();
 }
@@ -228,7 +228,7 @@ function closeWorld(res) {
   $('mgpanel').classList.add('hidden');
   // вторая часть миссии — мини-игра у объекта (салат: нарезка, лампочка: вкрутить)
   if (res && res.chain) { m.def = { ...m.def, world: false, game: res.chain }; openMission(m); return; }
-  if (res && res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; scored(m, pts); }
+  if (res && res.success) { const pts = Math.round(m.def.points * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
   removeMission(m);
 }
 function openMission(m) {
@@ -257,7 +257,7 @@ function closeMission(res) {
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden');
   if (!res) return;
-  if (res.success) { const pts = Math.round(m.def.points * res.mult); S.score += pts; S.done++; scored(m, pts); }
+  if (res.success) { const pts = Math.round(m.def.points * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
   removeMission(m);
 }
 
@@ -282,6 +282,7 @@ function setGhost(p, on) {
 // очки за действия вне миссий (общие события, комбо, корона): игроку — «+N» летит в счёт, боту — в его копилку
 function award(a, pts, at) {
   if (!a || !pts) return;
+  pts = Math.round(pts * (W.scoreMul || 1));
   if (a !== P) { if (a.score !== undefined) a.score += pts; return; }
   S.score += pts; const p = at || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   flyScore(Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight)), pts);
@@ -435,11 +436,19 @@ function loop() {
       if (P.charging && !P.held && !P.holding) { P.charging = false; $('dot').classList.remove('charge'); }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
       updateMissions(dt, t, P, () => {});
+      { let best = null, bd = 1e9; if (!EV.big && !S.wm) for (const m of M.list) { if (m.busy) continue; const q = m.obj.pos(), d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z) + Math.abs(q.y - P.pos.y) * 3; if (d < bd) { bd = d; best = m; } }
+        S.main = best; for (const m of M.list) { const on = m === best; if (m.life > 8 || m.def.life <= 0) m.marker.bm.opacity = on ? 0.4 : 0.1; m.marker.sp.scale.set(on ? 1.5 : 0.9, on ? 1.8 : 1.08, 1); m.marker.ring.visible = on; } }
       if (S.mg) S.mg.game.update(dt);
       if (S.wm) S.wm.game.update(dt);
       S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText(), 0.1); S.hudT = 0.1; }
       renderStamina(P, dt);
       updateEvents(dt, eventUi);
+      // ритм раунда: подпись под таймером, предупреждение о событии, финальный рывок ×2
+      { const ph = phaseOf(EV.t); W.scoreMul = ph === 'final' ? 2 : 1;
+        if (ph === 'final' && S.phase !== 'final') { eventBanner('final', true); sfx('crown'); }
+        S.phase = ph;
+        const left = Math.ceil(PHASE.event - EV.t), txt = ph === 'calm' ? (left <= PHASE.warn ? TEXT.phase.soon(left) : TEXT.phase.calm) : ph === 'event' ? (EV.big ? TEXT.events[EV.big.key].replace('!', '') : TEXT.phase.calm) : TEXT.phase.final;
+        const pe = $('phase'); if (pe.textContent !== txt) { pe.textContent = txt; pe.className = 'ph-' + ph + (ph === 'calm' && left <= PHASE.warn ? ' warn' : ''); } }
       if (flash.intensity > 0) { const f = P.root.rotation.y; flash.position.set(P.pos.x, P.pos.y + 1.6, P.pos.z); flash.target.position.set(P.pos.x + Math.sin(f) * 6, P.pos.y, P.pos.z + Math.cos(f) * 6); }
       { const bt = bigTarget(); drawMinimap(P, M.list, S.wm && S.wm.game.target ? S.wm.game.target() : null, bt ? [{ x: bt.x, z: bt.z, color: '#ff8a1f', icon: TEXT.eventIcon[EV.big.key] }] : null); }
       if (S.time <= 0) { S.time = 0; renderHud(S, P, '', 0); endRound(); }

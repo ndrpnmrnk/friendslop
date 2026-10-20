@@ -118,7 +118,7 @@ export function updateBots(dt, t, P) {
       // «выполняет» миссию: стоит рядом; игрок забрал — ищет другую
       b.doT -= dt; const m = b.goal && b.goal.m;
       if (!m || m.busy || !M.list.includes(m)) { b.doT = 0; b.goal = null; }
-      else if (b.doT <= 0) { b.score += m.def.points; b.stats.missions++; removeMission(m); W.onBotMission && W.onBotMission(b, m); b.goal = null; if (Math.random() < 0.5) startEmote(b, 'dance'); }
+      else if (b.doT <= 0) { b.score += Math.round(m.def.points * (W.scoreMul || 1)); b.stats.missions++; removeMission(m); W.onBotMission && W.onBotMission(b, m); b.goal = null; if (Math.random() < 0.5) startEmote(b, 'dance'); }
     } else if (ctrl) {
       // приоритеты: событие раунда → увернуться → приманка-уточка → характер
       if (ev) b.goal = ev;

@@ -25,9 +25,10 @@ export const TEXT = {
     firebin: ['Пожар!', 'Туши урну'],
     demolition: ['Снос краном', 'W/S — тележка · A/D — поворот'],
   },
-  events: { pumpkins: 'ТЫКВОПАД!', dark: 'ТЕМНОТА!', flood: 'ПОТОП!', hill: 'ЦАРЬ ГОРЫ!', moth: 'МОТЫЛЁК В ТРУСАХ!', football: 'ТЫКВЕННЫЙ ФУТБОЛ!' },
-  eventSub: { hill: 'Стой в круге — очки каждую секунду. Сталкивай соперников!', moth: 'Хватай тапки с неба и бей мотылька!', football: 'Пинай тыкву в ворота!' },
-  eventIcon: { pumpkins: 'pumpkin', dark: 'flash', flood: 'flood', hill: 'hill', moth: 'moth', football: 'football' },
+  phase: { calm: 'МИССИИ', soon: n => `СОБЫТИЕ ЧЕРЕЗ ${n}`, final: 'РЫВОК ×2' },
+  events: { final: 'ФИНАЛЬНЫЙ РЫВОК!', pumpkins: 'ТЫКВОПАД!', dark: 'ТЕМНОТА!', flood: 'ПОТОП!', hill: 'ЦАРЬ ГОРЫ!', moth: 'МОТЫЛЁК В ТРУСАХ!', football: 'ТЫКВЕННЫЙ ФУТБОЛ!' },
+  eventSub: { final: 'Все очки ×2 до конца раунда', hill: 'Стой в круге — очки каждую секунду. Сталкивай соперников!', moth: 'Хватай тапки с неба и бей мотылька!', football: 'Пинай тыкву в ворота!' },
+  eventIcon: { final: 'crown', pumpkins: 'pumpkin', dark: 'flash', flood: 'flood', hill: 'hill', moth: 'moth', football: 'football' },
   grab: { cart: 'Тележка', barrow: 'Тачка' },
   keys: { throw: 'бросок', hop: 'запрыгнуть', drop: 'отпустить', struggle: 'вырваться!' },
 };

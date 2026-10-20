@@ -16,11 +16,15 @@ import { shake, hitFreeze } from './worldfx.js';
    Малые (раз в ~минуту, 20 с): тыквопад, темнота с фонариком, потоп в тоннелях.
    Общее (одно за раунд, около середины): царь горы, мотылёк в трусах, тыквенный футбол — участвуют все,
    объявляется баннером, видно стрелкой и на мини-карте. Пока идёт общее событие, таймеры миссий стоят. */
-export const EV = { t: 0, next: 50, cur: null, left: 0, big: null, bigAt: 80, bigDone: false };
+/* Ритм раунда: 0:00–1:00 — спокойно, только миссии; 1:00–1:45 — общее событие; 1:45–3:00 — финальный рывок, очки ×2.
+   Малые события (тыквопад, темнота, потоп) сейчас не запускаются. */
+export const PHASE = { event: 60, final: 105, warn: 5 };
+export const phaseOf = t => t < PHASE.event ? 'calm' : t < PHASE.final ? 'event' : 'final';
+export const EV = { t: 0, next: 1e9, cur: null, left: 0, big: null, bigAt: 60, bigDone: false };
 const DUR = 20;
 let ctx = null;
 export function initEvents(c) { ctx = c; }
-export function resetEvents() { if (EV.cur) stopEvent(); if (EV.big) stopBig(); EV.t = 0; EV.next = 32 + Math.random() * 12; EV.cur = null; EV.bigAt = 72 + Math.random() * 14; EV.bigDone = false; W.eventBot = null; }
+export function resetEvents() { if (EV.cur) stopEvent(); if (EV.big) stopBig(); EV.t = 0; EV.next = 1e9; EV.cur = null; EV.bigAt = PHASE.event; EV.bigDone = false; W.eventBot = null; }
 
 const EVENTS = {
   pumpkins: { title: 'ТЫКВЕННЫЙ ДОЖДЬ', sub: 'С неба падают тыквы!',
@@ -197,7 +201,7 @@ export function updateEvents(dt, ui) {
   // общее событие — один раз, около середины раунда
   if (!EV.big && !EV.bigDone && EV.t >= EV.bigAt && !EV.cur) startBig(ui);
   if (EV.big) { const B = EV.big; B.left -= dt; const r = B.def.update(B.s, dt, EV.t); ui.tick(B.key, Math.ceil(B.left), B.def.info ? B.def.info(B.s) : '');
-    if (B.left <= 0 || r === 'end') { stopBig(); ui.end(); EV.next = EV.t + 18 + Math.random() * 10; } return; }
+    if (B.left <= 0 || r === 'end' || EV.t >= PHASE.final) { stopBig(); ui.end(); } return; }
   if (!EV.cur && EV.t >= EV.next && EV.t < 170) {
     const keys = Object.keys(EVENTS).filter(k => k !== EV.last), key = keys[(Math.random() * keys.length) | 0];
     EV.cur = { key, def: EVENTS[key], s: {} }; EV.left = DUR; EV.last = key; EV.cur.def.start(EV.cur.s);
@@ -211,7 +215,7 @@ export function updateEvents(dt, ui) {
 }
 function startBig(ui) {
   const keys = Object.keys(BIG), key = globalThis.__forceBig || keys[(Math.random() * keys.length) | 0];
-  EV.big = { key, def: BIG[key], s: {}, left: BIG[key].dur }; EV.bigDone = true; EV.big.def.start(EV.big.s);
+  EV.big = { key, def: BIG[key], s: {}, left: Math.min(BIG[key].dur, PHASE.final - EV.t) }; EV.bigDone = true; EV.big.def.start(EV.big.s);
   W.eventBot = b => EV.big ? EV.big.def.bot(EV.big.s, b) : null; W.missionPause = true;
   ui.start(key, true);
 }

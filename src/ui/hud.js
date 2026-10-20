@@ -43,8 +43,8 @@ export function renderHud(S, P, prompt, dt) {
   if (H.shown !== S.score) { H.shown += Math.sign(S.score - H.shown) * Math.max(1, Math.ceil(Math.abs(S.score - H.shown) * 0.25)); $('score').textContent = H.shown; }
   // карточки миссий: элемент живёт столько же, сколько миссия
   const live = new Set();
-  let nearest = null, nd = 1e9;
-  for (const m of M.list) { const p = (m.busy && m.track && m.track()) || m.obj.pos(), d = Math.hypot(p.x - P.pos.x, p.z - P.pos.z); if (d < nd) { nd = d; nearest = m; } }
+  // главная цель — одна: ближайшая миссия (её выбирает main.js), остальные карточки приглушены
+  const nearest = M.list.find(m => m.busy) || S.main || null;
   for (const m of M.list) {
     live.add(m.id);
     let el = H.cards.get(m.id);
@@ -55,7 +55,7 @@ export function renderHud(S, P, prompt, dt) {
     const w = el.querySelector('.where'), wt = m === nearest ? m.where : ''; if (w.textContent !== wt) w.textContent = wt;
     const bar = el.querySelector('.bar'); bar.style.display = m.def.life > 0 ? '' : 'none'; if (m.def.life > 0) { bar.firstChild.style.width = Math.max(0, m.life / m.def.life * 100) + '%'; bar.classList.toggle('warn', m.life < 8); }
     el.querySelector('.arr').style.transform = `rotate(${ang}rad)`;
-    el.classList.toggle('active', !!m.busy);
+    el.classList.toggle('active', !!m.busy); el.classList.toggle('main', m === nearest && !m.busy); el.classList.toggle('dim', m !== nearest);
   }
   for (const [id, el] of H.cards) if (!live.has(id)) { H.cards.delete(id); el.classList.add(H.won.has(id) ? 'won' : 'gone'); setTimeout(() => el.remove(), 520); }
   // подсказка «[E] действие»
