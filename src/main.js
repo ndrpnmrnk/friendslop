@@ -4,13 +4,12 @@ import '@fontsource/rubik/700.css';
 import './styles.css';
 import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer } from './core/gfx.js';
 import { T } from './core/textures.js';
-import { CONFIG, SEASON, HINTS } from './config.js';
-import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook } from './core/input.js';
-import { DIFF } from './config.js';
+import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
+import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock } from './core/input.js';
 import { W } from './world/state.js';
 import { generateMap } from './world/world.js';
 import { updatePushables, groundAt, raySolids } from './world/physics.js';
-import { updateParticles } from './world/particles.js';
+import { updateParticles, burst } from './world/particles.js';
 import { updateBirds } from './world/birds.js';
 import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
@@ -19,25 +18,26 @@ import { buildLife, updateLife } from './world/life.js';
 import { resetTools, updateTools, useTool, toolVerb, toolImpact, spawnTool } from './game/tools.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import { mouse as M_ } from './core/input.js';
-import { createBots, updateBots, botHitHook } from './game/bots.js';
+import { createBots, updateBots, botHitHook, interruptBot } from './game/bots.js';
 import { voice } from './game/voice.js';
 import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide } from './game/worldfx.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict } from './game/items.js';
 import { updateCamera, cam, resetCamera } from './game/camera.js';
-import { createArrow, updateArrow } from './game/arrow.js';
-import { M, resetMissions, spawnWave, spawnMission, removeMission, updateMissions, nearMission, ALL_GAMES, WORLD_GAMES } from './missions/missions.js';
+import { M, resetMissions, spawnWave, spawnMission, removeMission, updateMissions, nearMission, missionDone, visibleTo, ALL_GAMES, WORLD_GAMES } from './missions/missions.js';
+import { resetScore, bonus, statsOf, PTS } from './game/score.js';
 import { isFree, solidsNear } from './world/physics.js';
 import { pulseOutline } from './game/outline.js';
 import { nearestRideable, mount, dismount, grab, release, hopIn } from './game/ride.js';
 import { updateBreakables } from './world/breakables.js';
-import { $, renderHud, renderStamina, resetHud, markWon, flyScore, sparks, eventBanner, eventChip } from './ui/hud.js';
+import { $, renderHud, renderStamina, resetHud, markWon, flyScore, sparks, eventBanner, eventChip, toast, renderCompass } from './ui/hud.js';
 import { TEXT } from './ui/text.js';
 import { img } from './ui/icons.js';
 import { initAudio, sfx, ambience, setListener, toggleMute } from './core/sfx.js';
 import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
+import { createPodium, assignAwards, AWARDS, skinName } from './ui/podium.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
 import { initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget, PHASE, phaseOf } from './game/events.js';
 import { DISTRICTS } from './world/districts/index.js';
@@ -47,6 +47,9 @@ import { updateTraps } from './game/traps.js';
 import { resetTown, updateTown, TOWN } from './game/town.js';
 import { resetFun, updateFun, comboAct, onHitLeader, FUN } from './game/fun.js';
 import { LIGHTMAT } from './world/builder.js';
+import { MIC, startMic, stopMic, listMics, updateMic, saveMic } from './core/mic.js';
+import { scareBirds } from './world/birds.js';
+import { resetSplat, updateSplat } from './world/splat.js';
 
 /* ---------- сцена игры ---------- */
 const scene = new THREE.Scene();
@@ -61,7 +64,7 @@ const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(n
 // фонарик персонажа (горит только в событии «Отключили свет»; свет есть всегда, чтобы не пересобирать шейдеры)
 const sky = createSky(scene);
 const flash = new THREE.SpotLight(0xfff0d0, 0, 26, 0.55, 0.5, 1.2); scene.add(flash, flash.target);
-initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }), award: (a, pts, at) => award(a, pts, at) });
+initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }), award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
 const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => eventChip(null) };
 function followSun(x, y, z) {
   // привязка к текселю карты теней, чтобы края теней не дрожали при движении
@@ -71,7 +74,7 @@ function followSun(x, y, z) {
 }
 const camera = makeCamera(CONFIG.camera.fov);
 const menu = createMenu();
-const arrow = createArrow(scene);
+const podium = createPodium();
 // мышь захватывается для камеры во время игры (кроме мини-игр)
 lock.want = () => S.state === 'play' && !S.mg;
 document.addEventListener('pointerlockchange', () => { $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
@@ -85,7 +88,7 @@ const land = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xff8a1
 land.rotation.x = -Math.PI / 2; land.scale.setScalar(0.5); land.material.depthTest = false; land.renderOrder = 10; land.visible = false; scene.add(land);
 
 /* ---------- экраны: меню → режим → рулетка → пролёт → игра → итоги ---------- */
-const SCREENS = ['menu', 'mode', 'roulette', 'results'];
+const SCREENS = ['menu', 'mode', 'roulette', 'results', 'settings'];
 function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k !== id); }
 function buildLogo() { const l = $('logo'); if (l.childElementCount) return; for (const ch of TEXT.title) { const s = document.createElement('span'); s.textContent = ch; l.appendChild(s); } }
 let logoT = 0;
@@ -101,9 +104,26 @@ addEventListener('pointerdown', () => { initAudio(); ambience(true); }, { once: 
 $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 $('playBtn').onclick = () => showMode();
-$('modeCard').onclick = () => { $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(startRoulette, 220); };
+// мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
+$('modeCard').onclick = () => { requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(startRoulette, 220); };
 $('modeBack').onclick = () => { sfx('click'); showMenu(); };
-$('againBtn').onclick = () => startRoulette();
+/* настройки: микрофон */
+$('setBtn').innerHTML = img('gear', 28); $('micIco').innerHTML = img('mic', 20);
+function showSettings() { S.state = 'settings'; menu.active = false; screen('settings'); sfx('click'); syncSettings(); fillMics(); }
+function syncSettings() { $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micSens').value = MIC.sens; }
+async function fillMics() { const list = await listMics(), sel = $('micDev'); sel.innerHTML = '<option value="">По умолчанию</option>' + list.map((d, i) => `<option value="${d.deviceId}">${d.label || 'Микрофон ' + (i + 1)}</option>`).join(''); sel.value = MIC.device || ''; }
+$('setBtn').onclick = showSettings;
+$('setBack').onclick = () => { sfx('click'); showMenu(); };
+$('micOn').onclick = async () => { MIC.on = !MIC.on; saveMic(); syncSettings(); if (MIC.on) { await startMic(); fillMics(); } else stopMic(); };
+$('micMode').onclick = () => { MIC.mode = MIC.mode === 'always' ? 'ptt' : 'always'; saveMic(); syncSettings(); sfx('click'); };
+$('micSens').oninput = e => { MIC.sens = +e.target.value; saveMic(); };
+$('micDev').onchange = async e => { MIC.device = e.target.value; saveMic(); if (MIC.on) await startMic(); };
+function drawMicMeter() {
+  const m = updateMic(1 / 60, keys.KeyV), i = $('micMeter').firstChild; i.style.width = `calc(${Math.round(m.level * 100)}% - 4px)`; i.className = m.shout > 0.2 ? 'shout' : m.talk > 0.1 ? 'talk' : '';
+  $('micThr').style.left = Math.round((m.thr || 0.1) * 100) + '%'; $('micLoud').style.left = Math.min(98, Math.round((m.loud || 0.5) * 100)) + '%';
+  const st = !MIC.on ? 'выключен' : MIC.err ? MIC.err : !MIC.ok ? 'включаю…' : m.shout > 0.2 ? 'КРИК!' : m.talk > 0.1 ? 'говоришь' : 'тишина'; if ($('micState').textContent !== st) $('micState').textContent = st;
+}
+$('againBtn').onclick = () => { requestLock(); startRoulette(); };
 $('menuBtn').onclick = () => { sfx('click'); showMenu(); };
 $('mgexit').onclick = () => { if (S.wm) closeWorld(null); else closeMission(null); };
 
@@ -132,9 +152,9 @@ function startRoulette() {
 /* ---------- раунд ---------- */
 function prepareRound() {
   generateMap(scene, (Math.random() * 1e9) | 0);
-  buildLife(scene);
+  buildLife(scene); resetSplat();
   registerInteracts();
-  resetTools(); resetTown(); startWeather(scene); buildReflections(); resetFun((a, pts, at) => award(a, pts, at), () => S.score); hookFun(); W.toolImpact = toolImpact; W.letGo = letGo; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
+  resetTools(); resetTown(); startWeather(scene); buildReflections(); resetFun(() => S.score); hookFun(); W.toolImpact = toolImpact; W.letGo = letGo; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
   buildMinimap(DISTRICTS); CURTAIN = findMat('curtain');
   resetEvents();
   resetMissions();
@@ -144,6 +164,9 @@ function prepareRound() {
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
   W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), 3);
+  resetScore((a, pts, at) => award(a, pts, at));
+  M.onWave = (n, k) => { if (k > 1) { toast(n > 1 ? TEXT.wave(n) : TEXT.waveOne, 'wave'); sfx('wave'); flashScreen(); } };
+  M.onPersonal = (m, outsider) => { toast(outsider ? TEXT.outsider : TEXT.personal, 'gold'); sfx('crown'); };
   Object.assign(S, { time: CONFIG.roundTime, score: 0, done: 0, mg: null, wm: null, crane: false, phase: 'calm' }); W.scoreMul = 1;
   cam.pose = null; resetCamera(Math.random() * Math.PI * 2);
   screen(null); $('mgpanel').classList.add('hidden'); resetHud();
@@ -176,7 +199,7 @@ function updateIntro(dt) {
 }
 function goRound() {
   S.state = 'play'; P.noRun = false; S.time = CONFIG.roundTime;
-  spawnWave(P);
+  spawnWave(P, 'calm');
   const h = $('hud'); h.classList.remove('hidden'); h.classList.remove('enter'); void h.offsetWidth; h.classList.add('enter');
   $('lockhint').classList.toggle('hidden', locked()); setCursor(true);
   setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
@@ -189,11 +212,21 @@ function endRound() {
   S.state = 'results'; document.body.classList.remove('playing'); $('dot').classList.add('hidden'); unlock(); $('lockhint').classList.add('hidden');
   $('hud').classList.add('hidden');
   screen('results'); sfx('win');
-  const rows = [{ name: TEXT.you, sc: S.score, me: true }, ...(W.bots || []).map(b => ({ name: b.name, sc: b.score }))].sort((a, b) => b.sc - a.sc);
-  $('rank').innerHTML = rows.map((r, i) => `<div class="rrow${r.me ? ' me' : ''}" style="animation-delay:${0.15 + i * 0.12}s"><span class="pl">${i + 1}</span><span class="nm">${r.name}</span><span class="sc">${r.sc}</span></div>`).join('');
-  let shown = 0; const el = $('resScore'); el.textContent = '0';
-  const cnt = () => { shown = Math.min(S.score, shown + Math.max(1, Math.ceil(S.score / 40))); el.textContent = shown; if (shown < S.score) { sfx('tick'); setTimeout(cnt, 30); } else { const r = el.getBoundingClientRect(); sparks(r.left + r.width / 2, r.top + r.height / 2, ['#ff8a1f', '#f5c542', '#9be36b'], 20); } };
-  setTimeout(cnt, 300); $('againBtn').focus();
+  // места и награды: у каждого — заголовок по его стилю игры, подпись и очки
+  const mk = (a, name, skin, score, me) => { const st = statsOf(a); return { name, skin, score, me, st: { ...st, score } }; };
+  const rows = assignAwards([mk(P, TEXT.you, P.ch.skinId, S.score, true), ...(W.bots || []).map(b => mk(b, b.name, b.skin, b.score, false))]);
+  $('podcards').innerHTML = ''; $('resBtns').classList.add('hidden'); $('resMe').classList.add('hidden');
+  podium.start(rows, (c, pos) => {
+    const r = c.r, A = AWARDS[r.award], role = r.champ && r.award === 'tourist' ? AWARDS.champ : A;
+    const el = document.createElement('div'); el.className = 'aw' + (r.champ ? ' champ' : '') + (r.me ? ' me' : '');
+    el.innerHTML = `<div class="pl">${c.place + 1}</div><div class="at">${r.champ ? AWARDS.champ.title + (r.award !== 'tourist' ? '<br>' + A.title : '') : A.title}</div><div class="nm">${r.name} · ${skinName(r.skin)}</div><div class="sb">${role.sub(r.st)}</div><div class="sc">${r.score}</div>`;
+    el.style.transform = `translate(${Math.round(pos.x)}px,${Math.round(pos.y)}px) translate(-50%,-100%)`; $('podcards').appendChild(el); c.card = el;
+    if (r.champ) { const b = el.getBoundingClientRect(); sparks(b.left + b.width / 2, b.top + b.height / 2, ['#ff8a1f', '#f5c542', '#9be36b', '#b18cff'], 30, $('podcards')); }
+  }, () => {
+    const me = rows.find(r => r.me), place = rows.indexOf(me) + 1;
+    $('resMe').innerHTML = `${TEXT.you}: <b>${place} место</b> · ${me.score} ${TEXT.pts}`; $('resMe').classList.remove('hidden');
+    $('resBtns').classList.remove('hidden'); $('againBtn').focus();
+  });
 }
 
 function findMat(key) { let m = null; W.group.traverse(o => { if (!m && o.isMesh && o.material && o.material.emissive && o.material.color && o.material.emissive.getHex() === 0xff9a4a) m = o.material; }); return m; }
@@ -217,7 +250,7 @@ function openWorld(m) {
     timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))}`; },
     finish: res => { if (S.wm && S.wm.m === m) closeWorld(res); },
   };
-  const ctx = { player: P, give: it => { pickUp(it); P.held = it; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
+  const ctx = { player: P, mission: m, give: it => { pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
     enterCrane: () => { if (!S.crane) enterCrane(); }, exitCrane: () => { if (S.crane) exitCrane(); } };
   S.wm.game = WORLD_GAMES[m.def.game](m.obj, api, ctx);
   { const g = S.wm.game; m.track = g.target ? () => g.target() : null; }
@@ -228,7 +261,8 @@ function closeWorld(res) {
   $('mgpanel').classList.add('hidden');
   // вторая часть миссии — мини-игра у объекта (салат: нарезка, лампочка: вкрутить)
   if (res && res.chain) { m.def = { ...m.def, world: false, game: res.chain }; openMission(m); return; }
-  if (res && res.success) { const pts = Math.round(m.def.points * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
+  if (res && res.success) { const pts = Math.round(m.pts * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
+  if (res && res.stolen) { toast(TEXT.stolenFrom(res.stolen.name || ''), 'bad'); missionDone(m); }
   removeMission(m);
 }
 function openMission(m) {
@@ -253,21 +287,28 @@ function openMission(m) {
 function closeMission(res) {
   if (!S.mg) return;
   const { m, game } = S.mg;
-  game.stop(); S.mg = null; cam.pose = null; m.busy = false; P.root.visible = true; setCursor(true);
+  game.stop(); S.mg = null; cam.pose = null; m.busy = false; P.root.visible = true; setCursor(true); requestLock();
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden');
   if (!res) return;
-  if (res.success) { const pts = Math.round(m.def.points * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
+  if (res.success) { const pts = Math.round(m.pts * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
   removeMission(m);
 }
 
 // очки за миссию: «+N» вылетает из места миссии на экране и летит в счёт
 function scored(m, pts) {
-  markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct('mission', 0);
-  if (FUN.combo >= 2) { const bonus = Math.round(pts * (Math.min(5, FUN.combo) - 1) * 0.25); if (bonus) { S.score += bonus; pts += bonus; } }
+  markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m);
+  const st = statsOf(P); st.missions++; st.mpts += pts;
   const p = (m.obj.pos && m.obj.pos()) || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   const sx = Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), sy = Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight));
   flyScore(sx, sy, pts); setTimeout(() => sfx('points'), 700);
+  confetti(sx, sy, p);
+}
+// пиксельное конфетти: на экране и в мире
+const CONF = ['#ff5a6e', '#f5c542', '#9be36b', '#4ab0f0', '#b18cff', '#ff8a1f'];
+function confetti(sx, sy, p) {
+  sparks(sx, sy, CONF, 28); shakeCam(0.12);
+  if (p) for (const c of [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff]) burst(p.x, p.y + 1.4, p.z, 6, { color: c, size: 0.12, speed: 4, up: 5, g: 6, life: 1.6, grow: 0 });
 }
 // маска-призрак: персонаж полупрозрачный (материалы скина запоминаем и возвращаем)
 let ghostOn = false;
@@ -281,21 +322,55 @@ function setGhost(p, on) {
 }
 // очки за действия вне миссий (общие события, комбо, корона): игроку — «+N» летит в счёт, боту — в его копилку
 function award(a, pts, at) {
-  if (!a || !pts) return;
+  if (!a || !pts) return 0;
   pts = Math.round(pts * (W.scoreMul || 1));
-  if (a !== P) { if (a.score !== undefined) a.score += pts; return; }
+  if (a !== P) { if (a.score !== undefined) a.score += pts; return pts; }
   S.score += pts; const p = at || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   flyScore(Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight)), pts);
+  return pts;
 }
 // события «весёлых» действий: попадания, ловушки, перила — для комбо и короны
 function hookFun() {
-  W.onHit = (att, vic, kind) => { if (!att || att === vic) return; onHitLeader(att, vic); if (att === P) comboAct('hit', kind === 'heavy' ? 15 : 10, vic.pos); };
-  W.onFunny = (vic, kind, owner) => { if (owner === P && vic !== P) comboAct('trap', 20, vic.pos); };
-  W.onGrind = b => { if (b.rider === P) comboAct('grind', 10, P.pos); };
+  // удар/попадание: мелкий бонус (по лидеру — чуть больше); ударил того, кто делает миссию, — СОРВАЛ
+  W.onHit = (att, vic, kind) => {
+    if (!att || att === vic || !vic) return;
+    if (vic === P) shakeCam(kind === 'heavy' ? 0.35 : 0.18); else if (att === P) shakeCam(0.1);
+    if (!onHitLeader(att, vic)) comboAct(att, 'hits', kind === 'heavy' ? PTS.hitHeavy : PTS.hitLight, vic.pos); else comboAct(att, 'hits', 0);
+    if (vic.bot) { const m = interruptBot(vic); if (m) sabotage(att, vic, m); }
+    else if (vic === P && S.mg && kind !== 'light') { const m = S.mg.m; closeMission(null); sabotage(att, P, m); }
+  };
+  W.onFunny = (vic, kind, owner) => { if (owner && vic !== owner) comboAct(owner, 'traps', PTS.trap, vic.pos); };
+  // перила: 5 очков, за одни и те же — не чаще раза в 10 с
+  W.onGrind = b => { const a = b.rider; if (!a) return; a.grinds = a.grinds || new Map(); const now = W.time || 0, last = a.grinds.get(b.grind) ?? -99;
+    if (now - last >= 10) { a.grinds.set(b.grind, now); comboAct(a, 'tricks', PTS.grind, a.pos); } else if (a === P) comboAct(a, null, 0); };
+  W.onTrick = a => { const now = W.time || 0; if (now - (a.trickT ?? -99) >= 3) { a.trickT = now; comboAct(a, 'tricks', PTS.trick, a.pos); } };
+  W.onSteal = (thief, from, it) => { if (from === P) toast(TEXT.stolenFrom(thief.name), 'bad'); };
   W.onBotMission = () => {};
   W.onElevator = at => sfx('bell', { at });
 }
 function shakeCam(k) { FX.shake = Math.max(FX.shake, k); }
+/* голос с микрофона: голова «говорит»/дрожит; крик пугает котов, птиц и ботов-трусов рядом */
+function voiceInput(dt) {
+  if (!MIC.on) { P.ch.talk = P.ch.shout = 0; return; }
+  if (!MIC.ok && !MIC.err && !MIC.starting) { MIC.starting = true; startMic().finally(() => (MIC.starting = false)); }
+  const m = updateMic(dt, keys.KeyV); P.ch.talk = m.talk; P.ch.shout = m.shout;
+  P.shoutCD = (P.shoutCD || 0) - dt;
+  if (m.shout > 0.5 && P.shoutCD <= 0) { P.shoutCD = 1.2; const R = 6 + m.shout * 6;
+    for (const c of W.cats) { const q = c.root.position, dx = q.x - P.pos.x, dz = q.z - P.pos.z; if (Math.hypot(dx, dz) < R) c.hit && c.hit(false, dx, dz); }
+    scareBirds(P.pos.x, P.pos.z, R * 1.6);
+    for (const f of TOWN.folks) if (f.kind === 'dog' && Math.hypot(f.pos.x - P.pos.x, f.pos.z - P.pos.z) < 16) { f.barkT = 2; setTimeout(() => sfx('bark', { at: f.pos }), 250); }
+    for (const b of W.bots || []) { const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z, d = Math.hypot(dx, dz); if (d < R && b.mood === 'coward' && !b.doT) { b.goal = { x: b.pos.x + dx / (d || 1) * 8, y: b.pos.y, z: b.pos.z + dz / (d || 1) * 8, kind: 'flee' }; b.think = 1.5; } }
+  }
+}
+// смена фазы: короткое глитч-искажение экрана; новая волна — вспышка
+function glitch() { const g = $('game'); g.classList.remove('glitch'); void g.offsetWidth; g.classList.add('glitch'); setTimeout(() => g.classList.remove('glitch'), 650); }
+function flashScreen() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+// срыв чужой миссии: вору-хулигану — четверть очков миссии (обычный бонус с лимитом)
+function sabotage(att, vic, m) {
+  bonus(att, 'sabot', Math.round(m.pts * PTS.sabotage), vic.pos);
+  if (vic === P) toast(TEXT.sabotaged(att.name || ''), 'bad'); else if (att === P) toast(TEXT.sabotage, 'gold');
+  burst(vic.pos.x, vic.pos.y + 1.6, vic.pos.z, 12, { color: 0xff5a6e, size: 0.16, speed: 3, up: 2 }); sfx('hit', { at: vic.pos });
+}
 /* ---------- кран ---------- */
 function nearCrane() { const c = W.crane; return c && !S.crane && Math.hypot(c.cab.x - P.pos.x, c.cab.z - P.pos.z) < 1.9 && Math.abs(c.cab.y - P.pos.y) < 0.6; }
 const craneStick = { ix: 0, iz: 0 };
@@ -333,7 +408,7 @@ on('down', btn => {
   // пустые руки: ЛКМ вплотную к персонажу — схватить
   if (btn === 0 && !P.held && !P.ride) { const v = grabTarget(P); if (v) { grabActor(P, v); return; } }
   if (btn === 0) { const d = nearDoor(); if (d) d.open = !d.open; }
-  if (btn === 2 && (P.held || P.holding) && P.stun <= 0) { P.charging = true; P.charge = 0; P.aimYaw = P.root.rotation.y; $('dot').classList.add('charge'); }
+  if (btn === 2 && (P.held || P.holding || carryK()) && P.stun <= 0) { P.charging = true; P.charge = 0; P.aimYaw = P.root.rotation.y; $('dot').classList.add('charge'); }
 });
 on('up', btn => {
   if (S.state !== 'play') return;
@@ -343,11 +418,12 @@ on('up', btn => {
     const it = P.held, from = P.ch.holdPoint.clone(), tgt = aimPoint();
     if (it && tgt) { const v = throwVelocity(from, tgt, P.charge, it.def); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; it.owner = P; launch(it, from, v); P.held = null; P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
     else if (P.holding && tgt) { const v = throwVelocity(from, tgt, P.charge, BODY); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; letGo(P, v); P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
+    else if (carryK() && tgt) { const v = throwVelocity(from, tgt, P.charge, KITTEN); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; S.wm.game.throwCarry(v); P.throwT = 0.3; sfx('throw'); }
   }
 });
 on('key', code => {
   if (code === 'KeyM') { toggleMute(); return; }
-  if (code === 'Escape' && S.state === 'mode') { showMenu(); return; }
+  if (code === 'Escape' && (S.state === 'mode' || S.state === 'settings')) { showMenu(); return; }
   if (S.state === 'menu') { if (code === 'KeyA' || code === 'ArrowLeft') menu.next(-1); if (code === 'KeyD' || code === 'ArrowRight') menu.next(1); if (code === 'Enter') showMode(); return; }
   if (S.state === 'mode' && code === 'Enter') { $('modeCard').click(); return; }
   if (S.state !== 'play') return;
@@ -355,6 +431,8 @@ on('key', code => {
 });
 const _aimHit = new V3();
 const BODY = { mass: 2.2, drag: 0, r: 0.4 }; // бросок персонажа
+const KITTEN = { mass: 0.9, drag: 0, r: 0.25 }; // бросок котёнка в коробку
+const carryK = () => !!(S.wm && S.wm.game.carrying && S.wm.game.carrying());
 function aimPoint() {
   const r = aim(camera);
   // луч по твёрдым объектам (быстро и совпадает с тем, обо что предмет ударится)
@@ -392,11 +470,18 @@ function interact() {
   if (P.held) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; return; }
   // поймать предмет на лету
   { let fl = null, fd = 1.7; for (const q of W.items) if (q.state === 'fly' && q.owner !== P && !q.def.heavy) { const d = Math.hypot(q.pos.x - P.pos.x, q.pos.z - P.pos.z); if (d < fd && q.pos.y > P.pos.y && q.pos.y < P.pos.y + 2.4) { fd = d; fl = q; } }
-    if (fl) { pickUp(fl); P.held = fl; fl.owner = P; sfx('pickup'); comboAct('catch', 20, P.pos); return; } }
+    if (fl) { pickUp(fl); P.held = fl; fl.owner = P; fl.wasHeld = true; sfx('pickup'); comboAct(P, 'catches', PTS.catch, P.pos); return; } }
   const it = nearestItem(P.pos, 1.5);
-  if (it) { pickUp(it); P.held = it; it.owner = P; sfx('pickup'); return; }
+  if (it && it.steal && it.mine !== P) { stealItem(it); return; }
+  if (it) { pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; sfx('pickup'); return; }
   const rb = nearestRideable(P); if (rb) { mount(P, rb); return; }
   if (nearCrane()) enterCrane();
+}
+// подобрал чужой предмет миссии (заказ, пиццу, лампочку) — миссия засчитывается тебе
+function stealItem(it) {
+  const pts = Math.round(it.steal.pts * (W.scoreMul || 1)); it.state = 'gone'; it.g.visible = false; it.steal = null;
+  S.score += pts; S.done++; const st = statsOf(P); st.steals++; st.missions++; st.mpts += pts; sfx('done'); voice(P.ch, 'happy'); toast(TEXT.stole, 'gold');
+  const v = new V3(P.pos.x, P.pos.y + 1.2, P.pos.z).project(camera), sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight; flyScore(sx, sy, pts); confetti(sx, sy, P.pos);
 }
 function promptText() {
   if (S.mg) return '';
@@ -418,8 +503,10 @@ function loop() {
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
   t += dt;
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
-  if (S.state === 'menu' || S.state === 'mode' || S.state === 'roulette') {
+  if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
+  else if (S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {
     menu.update(dt); present(menu.scene, menu.camera);
+    if (S.state === 'settings') drawMicMeter();
     // логотип: буквы по очереди подпрыгивают раз в несколько секунд
     logoT -= dt; if (logoT <= 0 && S.state === 'menu') { logoT = 4; [...$('logo').children].forEach((sp, i) => setTimeout(() => { sp.classList.remove('hop'); void sp.offsetWidth; sp.classList.add('hop'); }, i * 70)); }
   }
@@ -432,12 +519,17 @@ function loop() {
       if (M_.left && P.held && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT = 0.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
       if (P.charging) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
       updatePlayer(P, dt, t, !S.mg && !S.crane, cam.yaw);
+      voiceInput(dt);
       if (P.held) { P.held.pos.copy(P.ch.holdPoint); P.held.g.rotation.y = P.root.rotation.y; }
-      if (P.charging && !P.held && !P.holding) { P.charging = false; $('dot').classList.remove('charge'); }
+      if (P.charging && !P.held && !P.holding && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
-      updateMissions(dt, t, P, () => {});
-      { let best = null, bd = 1e9; if (!EV.big && !S.wm) for (const m of M.list) { if (m.busy) continue; const q = m.obj.pos(), d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z) + Math.abs(q.y - P.pos.y) * 3; if (d < bd) { bd = d; best = m; } }
-        S.main = best; for (const m of M.list) { const on = m === best; if (m.life > 8 || m.def.life <= 0) m.marker.bm.opacity = on ? 0.4 : 0.1; m.marker.sp.scale.set(on ? 1.5 : 0.9, on ? 1.8 : 1.08, 1); m.marker.ring.visible = on; } }
+      W.time = EV.t;
+      updateMissions(dt, t, P, { phase: phaseOf(EV.t), t: EV.t, playerScore: () => S.score });
+      // главная цель — одна: ближайшая видимая миссия (своя личная — в приоритете), остальные приглушены
+      { let best = null, bd = 1e9; if (!EV.big && !S.wm) for (const m of M.list) { if (m.busy || m.doer || !visibleTo(m, P)) continue; const q = m.obj.pos(), d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z) + Math.abs(q.y - P.pos.y) * 3 - (m.owner === P ? 20 : 0); if (d < bd) { bd = d; best = m; } }
+        S.main = best; for (const m of M.list) { const on = m === best, mk = m.marker, pop = mk.pop || 1; if (m.life > m.maxLife * 0.25) mk.bm.opacity = on ? 0.4 : 0.1; mk.sp.scale.set((on ? 1.9 : 1.15) * pop, (on ? 2.4 : 1.45) * pop, 1); mk.ring.visible = on; } }
+      // ничейные предметы миссий (выронили и никто не подобрал) исчезают через 10 с
+      for (const q of W.items) if (q.steal && q.state === 'rest' && q.mine !== P) { q.restT = (q.restT || 0) + dt; if (q.restT > 10) { q.state = 'gone'; q.g.visible = false; q.steal = null; } } else if (q.steal) q.restT = 0;
       if (S.mg) S.mg.game.update(dt);
       if (S.wm) S.wm.game.update(dt);
       S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText(), 0.1); S.hudT = 0.1; }
@@ -445,7 +537,8 @@ function loop() {
       updateEvents(dt, eventUi);
       // ритм раунда: подпись под таймером, предупреждение о событии, финальный рывок ×2
       { const ph = phaseOf(EV.t); W.scoreMul = ph === 'final' ? 2 : 1;
-        if (ph === 'final' && S.phase !== 'final') { eventBanner('final', true); sfx('crown'); }
+        if (ph === 'final' && S.phase !== 'final') { eventBanner('final', true); sfx('crown'); glitch(); }
+        if (ph === 'event' && S.phase === 'calm') glitch();
         S.phase = ph;
         const left = Math.ceil(PHASE.event - EV.t), txt = ph === 'calm' ? (left <= PHASE.warn ? TEXT.phase.soon(left) : TEXT.phase.calm) : ph === 'event' ? (EV.big ? TEXT.events[EV.big.key].replace('!', '') : TEXT.phase.calm) : TEXT.phase.final;
         const pe = $('phase'); if (pe.textContent !== txt) { pe.textContent = txt; pe.className = 'ph-' + ph + (ph === 'calm' && left <= PHASE.warn ? ' warn' : ''); } }
@@ -456,11 +549,11 @@ function loop() {
     if (P) { setGhost(P, P.ghost > 0); setListener(P.pos.x, P.pos.y, P.pos.z); }
     // траектория броска
     let shown = 0;
-    if (S.state === 'play' && P.charging && (P.held || P.holding)) {
+    if (S.state === 'play' && P.charging && (P.held || P.holding || carryK())) {
       const tgt = aimPoint();
       if (tgt) {
         P.aimYaw = Math.atan2(tgt.x - P.pos.x, tgt.z - P.pos.z);
-        const def = P.held ? P.held.def : BODY, from = P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge, def); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3;
+        const def = P.held ? P.held.def : P.holding ? BODY : KITTEN, from = P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge, def); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3;
         shown = predict(from, v, arc, arc.length, def, land);
       }
       $('dot').style.setProperty('--c', (P.charge * 100) + '%');
@@ -482,7 +575,14 @@ function loop() {
       cam.orbit.c.lerp(new V3().addVectors(W.crane.ball.position, W.crane.cab).multiplyScalar(0.5).setY(W.crane.ball.position.y + 3), 0.08);
     }
     updateCrane(dt, S.crane ? craneStick : null, S.state === 'play' ? P : null);
-    if (S.state === 'play') updateArrow(arrow, P, M.list, dt, t, !S.mg && !S.crane, S.wm && S.wm.game.target ? S.wm.game.target() : bigTarget(), S.wm ? 0x9be36b : 0xff8a1f);
+    if (S.state === 'play') {
+      // компас у таймера: видимые миссии, цель уличной миссии, общее событие
+      const marks = []; const wt = S.wm && S.wm.game.target ? S.wm.game.target() : null, bt = bigTarget();
+      if (wt) marks.push({ id: 'wm', icon: S.wm.m.key, x: wt.x, z: wt.z, main: true, color: '#9be36b' });
+      else if (bt) marks.push({ id: 'ev', icon: TEXT.eventIcon[EV.big.key], x: bt.x, z: bt.z, main: true, color: '#ff8a1f' });
+      if (!S.mg) for (const m of M.list) if (!m.busy && visibleTo(m, P)) { const q = m.obj.pos(); marks.push({ id: m.id, icon: m.key, x: q.x, z: q.z, main: !wt && !bt && m === S.main, color: m.owner ? '#f5c542' : '#' + DIFF[m.def.diff].toString(16).padStart(6, '0') }); }
+      renderCompass(P, marks);
+    }
     for (const d of W.doors) {
       const want = d.open ? 1.65 * d.inward : 0; d.ang += (want - d.ang) * Math.min(1, dt * (d.slam > 0 ? 22 : 8)); d.pivot.rotation.y = d.ang; if (d.slam > 0) d.slam -= dt;
       d.solid.on = !d.open && Math.abs(d.ang) < 0.5;
@@ -499,8 +599,10 @@ function loop() {
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
     updateReflections(camera, t);
     cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play' ? P.boost * 6 : 0;
+    // линии скорости: спринт, катание, полёт после броска
+    { const sp = P && S.state === 'play' ? Math.hypot(P.vel.x, P.vel.z) : 0, k = Math.max(0, Math.min(1, (sp - 8.5) / 6)), el = $('speedl'); const o = (Math.round(k * 5) / 5).toFixed(1); if (el.style.opacity !== o) el.style.opacity = o; }
     updateBreakables(dt, S.state === 'play' ? P : null);
-    updateParticles(dt);
+    updateParticles(dt); updateSplat(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
     { const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz); }
     // камера вплотную к персонажу (у стены) — прячем его, чтобы голова не закрывала полэкрана

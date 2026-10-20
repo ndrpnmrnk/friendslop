@@ -1,3 +1,4 @@
+import { addPushable } from '../pushables.js';
 import { THREE, G, tmat, col } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 
@@ -26,8 +27,7 @@ export default {
     b.ride('cart', 16, 13.5);
     // пикап фермера, мешки, ящики с тыквами, весы
     b.pickup(6.5, 24.2, Math.PI / 2 + 0.15);
-    for (const [x, z] of [[9.6, 23], [10.3, 23.3], [9.9, 23.8]]) b.m(G.sph10, tmat(T.cementBag()), x, 0.22, z, 0.4, 0.22, 0.3);
-    b.solid(9.95, 23.4, 1.3, 1.2, 0, 0.45);
+    for (const [x, z] of [[9.4, 22.9], [10.3, 23.4], [9.6, 24]]) addPushable(b, 'sack', x, z);
     for (const x of [13, 14.3]) { b.box(x, 23.4, 1.2, 0.8, 0.5, tmat(T.crate())); b.m(G.box, tmat(T.produce('pumpkin')), x, 0.53, 23.4, 1.1, 0.05, 0.7); }
     b.table(19.6, 23.4, 0.9); b.m(G.box, col(0x6a6d78), 19.6, 0.95, 23.4, 0.5, 0.15, 0.4); b.m(G.cyl8, col(0xd8d8e0), 19.6, 1.06, 23.4, 0.25, 0.04, 0.25);
     b.bin(10, 11); b.bin(22, 24.5);

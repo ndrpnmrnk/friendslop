@@ -9,6 +9,8 @@
 <div id="game"></div>
 <div id="dot" class="hidden"><i></i></div>
 <div id="fade"></div>
+<div id="flash"></div>
+<div id="speedl"></div>
 
 <!-- Главное меню: поверх 3D-сцены только логотип, имя скина и кнопка -->
 <div id="menu" class="screen hidden">
@@ -19,6 +21,21 @@
     <button class="parr" id="skinNext" aria-label="Следующий персонаж">▶</button>
   </div>
   <button class="pbtn" id="playBtn">ИГРАТЬ</button>
+  <button class="parr" id="setBtn" aria-label="Настройки"></button>
+</div>
+
+<!-- Настройки: микрофон -->
+<div id="settings" class="screen hidden">
+  <div class="sctitle">НАСТРОЙКИ</div>
+  <div id="setbox" class="pframe">
+    <div class="srow"><span class="sl"><i id="micIco"></i>Микрофон</span><button class="stog" id="micOn">ВЫКЛ</button></div>
+    <div class="srow"><span class="sl">Устройство</span><select id="micDev"></select></div>
+    <div class="srow"><span class="sl">Режим</span><button class="stog" id="micMode">ВСЕГДА</button></div>
+    <div class="srow"><span class="sl">Чувствительность</span><input type="range" id="micSens" min="0" max="1" step="0.05"></div>
+    <div class="srow col"><div id="micMeter"><i></i><b id="micThr"></b><b id="micLoud" class="loud"></b></div><div id="micState"></div></div>
+    <div class="snote">Говоришь — персонаж «болтает», кричишь — голова трясётся, коты и птицы разбегаются. Голосовой чат появится вместе с игрой по сети.</div>
+  </div>
+  <button class="pback" id="setBack">◀ <span class="key">Esc</span></button>
 </div>
 
 <!-- Выбор режима -->
@@ -40,6 +57,7 @@
 <!-- HUD -->
 <div id="hud" class="hidden">
   <div id="topbox" class="pframe"><div id="timer">3:00</div><div id="phase"></div><div id="score">0</div></div>
+  <div id="compass"></div>
   <div id="evchip" class="hidden"></div>
   <div id="missions"></div>
   <div id="minimap" class="pframe"><canvas id="mapc" width="168" height="168"></canvas><span class="north">С</span></div>
@@ -64,12 +82,12 @@
   </div>
 </div>
 
-<!-- Итоги -->
+<!-- Итоги: сцена с пьедесталами, карточки наград над персонажами -->
 <div id="results" class="screen hidden">
   <div class="sctitle">ИТОГИ</div>
-  <div id="resScore">0</div>
-  <div id="rank"></div>
-  <div class="row"><button class="pbtn" id="againBtn">ЕЩЁ</button><button class="pbtn alt" id="menuBtn">МЕНЮ</button></div>
+  <div id="podcards"></div>
+  <div id="resMe" class="hidden"></div>
+  <div class="row hidden" id="resBtns"><button class="pbtn" id="againBtn">ЕЩЁ</button><button class="pbtn alt" id="menuBtn">МЕНЮ</button></div>
 </div>
 
 <script type="module" src="./src/main.js"></script>

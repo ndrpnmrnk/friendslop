@@ -6,7 +6,7 @@ import { COATS } from '../game/cats.js';
    телевизор и акула чуть шире и ниже. Хитбокс и скорость у всех одинаковые. */
 const ginger = { ...COATS[0], name: 'skinGinger', base: '#d89a5a', light: '#f2cfa0', dark: '#a8682e', eye: '#9aa870' };
 
-let headGeo, sharkGeo, frogGeo, HAT_CROWN, HAT_BRIM, FROG_TORSO, FROG_HIPS, SHAWL, SAC_GEO;
+let headGeo, sharkGeo, frogGeo, FIN_GEO, PADDLE_GEO, HAT_CROWN, HAT_BRIM, FROG_TORSO, FROG_HIPS, SHAWL, SAC_GEO;
 export const SKINS = {
   cat: {
     name: 'Котик',
@@ -50,9 +50,6 @@ export const SKINS = {
       for (const s of [-1, 1]) { const a = mesh(G.cyl5, dk, s * 0.18, 1.42, -0.2, 0.025, 0.42, 0.025, head); a.rotation.z = -s * 0.5; mesh(G.sph, col(0xff5a6e), s * 0.29, 1.62, -0.2, 0.05, 0.05, 0.05, head); }
       const glove = tmat(T.glove());
       for (const hd of [handL, handR]) { mesh(G.box, glove, 0, 0, 0, 0.22, 0.22, 0.24, hd); mesh(G.box, glove, 0, 0.04, -0.17, 0.18, 0.16, 0.12, hd); }
-      const pencil = mesh(G.cyl6, col(0xe8b030), 0, 0.22, 0.02, 0.04, 0.42, 0.04, handR); pencil.rotation.z = 0.25;
-      mesh(G.cone6, col(0xd8b890), -0.06, 0.47, 0.02, 0.04, 0.1, 0.04, handR).rotation.z = 0.25;
-      mesh(G.cone6, col(0x1a1a1a), -0.075, 0.53, 0.02, 0.015, 0.04, 0.015, handR).rotation.z = 0.25;
       const sn = tmat(T.sneaker());
       for (const ft of [footL, footR]) { mesh(G.box, sn, 0, 0.1, 0.06, 0.24, 0.18, 0.36, ft); mesh(G.box, col(0xf0f0f0), 0, 0.02, 0.06, 0.26, 0.05, 0.38, ft); }
       return { top: 1.4, handX: 0.72, handY: 0.62, handZ: 0.05, footX: 0.26, footY: 0, holdX: 0.32, holdY: 0.95, holdZ: 0.62, shadow: 0.7 };
@@ -73,8 +70,14 @@ export const SKINS = {
       const hp = tmat(T.headphone());
       const band = mesh(G.halfTorus, hp, 0, 1.0, -0.02, 0.66, 0.6, 0.8, head);
       for (const s of [-1, 1]) { const cup = mesh(G.cyl12, hp, s * 0.64, 1.0, 0, 0.16, 0.14, 0.16, head); cup.rotation.z = Math.PI / 2; mesh(G.cyl12, col(0x22c0a0), s * 0.72, 1.0, 0, 0.1, 0.02, 0.1, head).rotation.z = Math.PI / 2; }
-      for (const [hd, s] of [[handL, -1], [handR, 1]]) { const f = mesh(G.cone4, skin, 0, 0, 0, 0.12, 0.38, 0.22, hd); f.rotation.z = s * 2.2; }
-      for (const ft of [footL, footR]) { const fl = mesh(G.sph, skin, 0, 0.07, 0.1, 0.17, 0.07, 0.26, ft); }
+      // грудные плавники: изогнутые «серпом», отведены назад; ступни — ласты с тремя выступами
+      FIN_GEO = FIN_GEO || (() => { const sh = new THREE.Shape(); sh.moveTo(0, 0.07); sh.quadraticCurveTo(0.2, 0.06, 0.36, -0.26); sh.quadraticCurveTo(0.3, -0.36, 0.2, -0.3); sh.quadraticCurveTo(0.08, -0.2, 0, -0.08); sh.lineTo(0, 0.07);
+        const g = new THREE.ExtrudeGeometry(sh, { depth: 0.05, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 1, curveSegments: 4 }); g.translate(-0.04, 0.02, -0.025); return g; })();
+      PADDLE_GEO = PADDLE_GEO || (() => { const sh = new THREE.Shape(); sh.moveTo(-0.12, -0.12); sh.lineTo(0.12, -0.12); sh.quadraticCurveTo(0.17, 0.05, 0.15, 0.2);
+        for (let i = 0; i < 3; i++) { const x0 = 0.15 - i * 0.1; sh.quadraticCurveTo(x0 - 0.05, 0.3, x0 - 0.1, 0.2); } sh.quadraticCurveTo(-0.17, 0.05, -0.12, -0.12);
+        const g = new THREE.ExtrudeGeometry(sh, { depth: 0.07, bevelEnabled: true, bevelSize: 0.025, bevelThickness: 0.025, bevelSegments: 1, curveSegments: 3 }); g.rotateX(Math.PI / 2); g.translate(0, 0.1, 0.06); return g; })();
+      for (const [hd, s] of [[handL, -1], [handR, 1]]) { const f = new THREE.Mesh(FIN_GEO, skin); f.scale.set(s, 1, 1); f.rotation.set(0.2, s * 0.75, -s * 0.15); hd.add(f); }
+      for (const ft of [footL, footR]) { ft.add(new THREE.Mesh(PADDLE_GEO, skin)); mesh(G.box, col(0xc8d0e0), 0, 0.012, 0.05, 0.2, 0.02, 0.26, ft); }
       return { top: 1.62, handX: 0.78, handY: 0.66, handZ: 0, footX: 0.22, footY: 0, holdX: 0.3, holdY: 0.95, holdZ: 0.72, shadow: 0.7 };
     },
   },

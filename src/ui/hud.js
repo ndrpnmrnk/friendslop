@@ -13,11 +13,33 @@ const ARROW = '<svg viewBox="0 0 10 10" width="18" height="18" shape-rendering="
 const H = { cards: new Map(), won: new Set(), shown: 0, lastSec: -1, prompt: '', held: '', gslot: '', stamPrev: 1, stamFullT: 0, chipT: 0 };
 
 export function resetHud() {
+  resetCompass();
   for (const el of H.cards.values()) el.remove(); H.cards.clear(); H.won.clear(); H.shown = 0; H.lastSec = -1; H.prompt = H.held = H.gslot = '';
   $('score').textContent = '0'; $('evchip').classList.add('hidden'); $('evbanner').classList.add('hidden'); $('blind').classList.add('hidden');
   $('lockhint').style.backgroundImage = `url(${icon('mouse', 4)})`;
 }
 export const markWon = id => H.won.add(id);
+// всплывающая строка по центру (новая волна, кража, срыв…)
+export function toast(text, cls = '') { const el = $('toast'); if (!el) return; el.textContent = text; el.className = cls; void el.offsetWidth; el.classList.add('go'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.add('hidden'), 1900); }
+
+/* Компас под таймером: полоса «что впереди». Значки целей стоят по направлению от камеры,
+   главная цель крупнее и с расстоянием; цель за спиной — прижата к краю со стрелкой. */
+const CMP = { els: new Map() };
+export function renderCompass(P, marks) {
+  const host = $('compass'); if (!host) return; const W2 = host.clientWidth || 240, seen = new Set();
+  const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
+  for (const mk of marks) {
+    seen.add(mk.id); let el = CMP.els.get(mk.id);
+    if (!el) { el = document.createElement('div'); el.className = 'cm new'; el.innerHTML = `${img(mk.icon, 16)}<i class="ca"></i><b></b>`; host.appendChild(el); CMP.els.set(mk.id, el); setTimeout(() => el.classList.remove('new'), 450); }
+    const dx = mk.x - P.pos.x, dz = mk.z - P.pos.z, ang = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz), lim = Math.PI * 0.55;
+    const edge = Math.abs(ang) > lim, k = Math.max(-1, Math.min(1, ang / lim));
+    el.style.transform = `translateX(${Math.round(12 + (k + 1) / 2 * (W2 - 44))}px)`;
+    el.classList.toggle('main', !!mk.main); el.classList.toggle('edge', edge); el.classList.toggle('l', edge && ang < 0); el.style.setProperty('--c', mk.color || '#f1e8ff');
+    const d = `${Math.round(Math.hypot(dx, dz))}м`, b = el.lastChild; if (b.textContent !== d) b.textContent = d;
+  }
+  for (const [id, el] of CMP.els) if (!seen.has(id)) { el.remove(); CMP.els.delete(id); }
+}
+export function resetCompass() { for (const el of CMP.els.values()) el.remove(); CMP.els.clear(); }
 
 // пиксельные искры (на экране)
 export function sparks(x, y, colors = ['#ff8a1f', '#f5c542', '#9be36b'], n = 8, host = $('flyers')) {
@@ -38,7 +60,7 @@ export function renderHud(S, P, prompt, dt) {
   const tm = Math.max(0, Math.ceil(S.time)), tEl = $('timer');
   const txt = `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`; if (tEl.textContent !== txt) tEl.textContent = txt;
   tEl.classList.toggle('low', tm <= 30);
-  if (tm !== H.lastSec && tm <= 30 && S.state === 'play') { tEl.classList.remove('pulse', 'shake'); void tEl.offsetWidth; tEl.classList.add(tm <= 10 ? 'shake' : 'pulse'); }
+  if (tm !== H.lastSec && tm <= 30 && S.state === 'play') { tEl.classList.remove('pulse', 'shake', 'beat'); void tEl.offsetWidth; tEl.classList.add(tm <= 10 ? 'beat' : 'pulse'); }
   H.lastSec = tm;
   if (H.shown !== S.score) { H.shown += Math.sign(S.score - H.shown) * Math.max(1, Math.ceil(Math.abs(S.score - H.shown) * 0.25)); $('score').textContent = H.shown; }
   // карточки миссий: элемент живёт столько же, сколько миссия
@@ -46,14 +68,17 @@ export function renderHud(S, P, prompt, dt) {
   // главная цель — одна: ближайшая миссия (её выбирает main.js), остальные карточки приглушены
   const nearest = M.list.find(m => m.busy) || S.main || null;
   for (const m of M.list) {
+    if (m.owner && m.owner !== P) continue;
     live.add(m.id);
     let el = H.cards.get(m.id);
-    if (!el) { el = document.createElement('div'); el.className = `mcard new d-${m.def.diff}`; el.innerHTML = `${img(m.key, 30)}<div class="mt"><div class="mn">${(TEXT.missions[m.key] || [m.def.name])[0]}</div><div class="ms"><span class="pts">${m.def.points}</span><span class="dist"></span></div><div class="where"></div><div class="bar"><i></i></div></div><div class="arr">${ARROW}</div>`; $('missions').appendChild(el); H.cards.set(m.id, el); setTimeout(() => el.classList.remove('new'), 500); }
+    if (!el) { const tag = m.owner ? `<span class="tag">${m.outsider ? TEXT.tagOutsider : TEXT.tagPersonal}</span>` : '';
+      el = document.createElement('div'); el.className = `mcard new d-${m.def.diff}${m.owner ? ' mine' : ''}`; el.innerHTML = `${img(m.key, 30)}<div class="mt"><div class="mn">${tag}${(TEXT.missions[m.key] || [m.def.name])[0]}</div><div class="ms"><span class="pts">${m.pts}</span><span class="dist"></span></div><div class="where"></div><div class="bar"><i></i></div></div><div class="arr">${ARROW}</div>`; $('missions').appendChild(el); H.cards.set(m.id, el); setTimeout(() => el.classList.remove('new'), 600); }
     const p = (m.busy && m.track && m.track()) || m.obj.pos(), dx = p.x - P.pos.x, dz = p.z - P.pos.z;
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), ang = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz);
     el.querySelector('.dist').textContent = `${Math.round(Math.hypot(dx, dz))}м`;
     const w = el.querySelector('.where'), wt = m === nearest ? m.where : ''; if (w.textContent !== wt) w.textContent = wt;
-    const bar = el.querySelector('.bar'); bar.style.display = m.def.life > 0 ? '' : 'none'; if (m.def.life > 0) { bar.firstChild.style.width = Math.max(0, m.life / m.def.life * 100) + '%'; bar.classList.toggle('warn', m.life < 8); }
+    const bar = el.querySelector('.bar'); bar.firstChild.style.width = Math.max(0, m.life / m.maxLife * 100) + '%'; bar.classList.toggle('warn', m.life < m.maxLife * 0.25);
+    el.classList.toggle('taken', !!m.doer);
     el.querySelector('.arr').style.transform = `rotate(${ang}rad)`;
     el.classList.toggle('active', !!m.busy); el.classList.toggle('main', m === nearest && !m.busy); el.classList.toggle('dim', m !== nearest);
   }

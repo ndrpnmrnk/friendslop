@@ -4,6 +4,7 @@ import { CONFIG } from '../config.js';
 import { W } from '../world/state.js';
 import { groundAt, solidHit, addZone, impulsePushables } from '../world/physics.js';
 import { burst, puff, smokeRing, decal } from '../world/particles.js';
+import { splatter } from '../world/splat.js';
 import { scareBirds } from '../world/birds.js';
 import { hitBreakables } from '../world/breakables.js';
 import { worldHit, shake, hitFreeze } from './worldfx.js';
@@ -60,16 +61,16 @@ export function useTool(a, it, aim, dt = 0) {
   const spend = (n = 1) => { if (d.ammo) { it.ammo -= n; if (it.ammo <= 0 && !d.hold) consume(a, it); } else consume(a, it); };
   if (it.cd > 0 && !d.hold) return null;
   switch (k) {
-    case 'slipper': { it.cd = 0.45; const [fx, fz] = front(a, 1.7, 0.45, (b, dx, dz) => { shove(b, dx, dz, 5, 3, true); hitFreeze(0.05); }); a.swatT = 0.25; puff(a.pos.x + fx, a.pos.y + 1, a.pos.z + fz, { size: 0.3, life: 0.2, color: 0xffd0e0 }); return 'swat'; }
-    case 'pillow': { it.cd = 0.6; let hit = false; const [fx, fz] = front(a, 1.9, 0.35, (b, dx, dz) => { shove(b, dx, dz, 10, 4.5, true); hit = true; hitFreeze(0.06); });
+    case 'slipper': { it.cd = 0.45; const [fx, fz] = front(a, 1.7, 0.45, (b, dx, dz) => { shove(b, dx, dz, 5, 3, true); hitFreeze(0.05); W.onHit && W.onHit(a, b, 'melee'); }); a.swatT = 0.25; puff(a.pos.x + fx, a.pos.y + 1, a.pos.z + fz, { size: 0.3, life: 0.2, color: 0xffd0e0 }); return 'swat'; }
+    case 'pillow': { it.cd = 0.6; let hit = false; const [fx, fz] = front(a, 1.9, 0.35, (b, dx, dz) => { shove(b, dx, dz, 10, 4.5, true); hit = true; hitFreeze(0.06); W.onHit && W.onHit(a, b, 'melee'); });
       a.swatT = 0.3; burst(a.pos.x + fx * 1.1, a.pos.y + 1.1, a.pos.z + fz * 1.1, hit ? 18 : 6, { color: 0xffffff, size: 0.12, speed: 2.5, up: 1.5, g: 1.2, life: 1.6, grow: 0 }); return 'pillow'; }
     case 'umbrella': { it.cd = 0.25; it.open = !it.open; const c = it.g.userData.canopy; if (c) c.scale.set(it.open ? 0.78 : 0.09, it.open ? 0.8 : 1, it.open ? 0.78 : 0.09); return 'umbrella'; }
-    case 'banana': { const f = a.root.rotation.y; dropHeld(a); it.state = 'gone'; placeBanana(it, a.pos.x + Math.sin(f) * 0.9, a.pos.y, a.pos.z + Math.cos(f) * 0.9); return 'drop'; }
+    case 'banana': { const f = a.root.rotation.y; dropHeld(a); it.state = 'gone'; placeBanana(it, a.pos.x + Math.sin(f) * 0.9, a.pos.y, a.pos.z + Math.cos(f) * 0.9, a); return 'drop'; }
     case 'duck': { it.cd = 0.8; W.lure = { x: a.pos.x, z: a.pos.z, t: 4, by: a }; for (const c of W.cats) c.lure = { x: a.pos.x, z: a.pos.z, t: 4 }; puff(hp.x, hp.y + 0.2, hp.z, { size: 0.4, life: 0.25, color: 0xf5c542 }); return 'squeak'; }
     case 'bubbles': { it.cd = 0.5; shoot('bubble', from, dir, 7, 0, a); spend(); return 'bubble'; }
     case 'whistle': { it.cd = 0.8; for (const b of actors()) { if (b === a || b.hidden) continue; if (Math.hypot(b.pos.x - a.pos.x, b.pos.z - a.pos.z) < 8) { b.vel.y = Math.max(b.vel.y, 6); b.onGround = false; dropHeld(b); b.startle = 0.8; } }
-      for (const c of W.cats) { const q = c.root.position; if (Math.hypot(q.x - a.pos.x, q.z - a.pos.z) < 10) c.hit && c.hit(false, q.x - a.pos.x, q.z - a.pos.z); } scareBirds(a.pos.x, a.pos.z, 14); spend(); return 'whistle'; }
-    case 'paint': { const f = a.root.rotation.y; dropHeld(a); it.state = 'gone'; it.g.visible = false; paintPuddle(a.pos.x + Math.sin(f) * 1.2, a.pos.y, a.pos.z + Math.cos(f) * 1.2, 1.2); return 'splash'; }
+      for (const c of W.cats) { const q = c.root.position; if (Math.hypot(q.x - a.pos.x, q.z - a.pos.z) < 10) c.hit && c.hit(false, q.x - a.pos.x, q.z - a.pos.z); } scareBirds(a.pos.x, a.pos.z, 14); W.whistle = { x: a.pos.x, y: a.pos.y, z: a.pos.z, t: 6, by: a }; spend(); return 'whistle'; }
+    case 'paint': { const f = a.root.rotation.y; dropHeld(a); it.state = 'gone'; it.g.visible = false; paintPuddle(a.pos.x + Math.sin(f) * 1.2, a.pos.y, a.pos.z + Math.cos(f) * 1.2, 1.2, a); return 'splash'; }
     case 'energy': { a.energy = 7; a.tired = 0; burst(a.pos.x, a.pos.y + 1, a.pos.z, 10, { color: 0x9be36b, size: 0.2, speed: 2 }); spend(); return 'drink'; }
     case 'water': { it.cd = 0.18; for (let i = 0; i < 4; i++) shoot('water', from, dir, 22 + i, i * 0.03, a); spend(); return 'water'; }
     case 'sling': { it.cd = 0.4; shoot('candy', from, dir, 42, 0, a); spend(); return 'candy'; }
@@ -108,19 +109,20 @@ export function useTool(a, it, aim, dt = 0) {
 function consume(a, it) { if (a.held === it) a.held = null; it.state = 'gone'; it.g.visible = false; it.def = { ...it.def, respawn: 0 }; }
 
 /* ловушки: банановая кожура, лужа краски, паутина */
-export function placeBanana(it, x, y, z) {
+export function placeBanana(it, x, y, z, owner = it.owner) {
   const gy = groundAt(x, z, 0.1, y + 0.6);
   const m = compose('peel', a => { const yl = col(0xf5d442); for (let i = 0; i < 4; i++) a(G.box, yl, Math.cos(i * 1.57) * 0.09, 0.02, Math.sin(i * 1.57) * 0.09, 0.07, 0.025, 0.16, 0, i * 1.57); a(G.sph, col(0xe8d0a0), 0, 0.04, 0, 0.05, 0.04, 0.05); });
   m.position.set(x, gy, z); m.rotation.y = Math.random() * 6; W.group.add(m);
-  GS.traps.push({ kind: 'banana', x, y: gy, z, r: 0.55, t: 40, m, arm: 0.4 });
+  GS.traps.push({ kind: 'banana', x, y: gy, z, r: 0.55, t: 40, m, arm: 0.4, owner });
 }
-export function paintPuddle(x, y, z, r) {
+// лужа краски: краска брызгами-пикселями красит всё вокруг; кто наступил — оставляет цветные следы
+export function paintPuddle(x, y, z, r, owner = null) {
   const gy = groundAt(x, z, 0.1, y + 0.6), c = PAINT[(Math.random() * PAINT.length) | 0];
-  const m = decal(T.splat('#ffffff'), x, gy, z, r * 2.4, 22, c); m.material.opacity = 0.95;
-  burst(x, gy + 0.3, z, 12, { color: c, size: 0.18, speed: 2.5, up: 2 });
-  GS.traps.push({ kind: 'paint', x, y: gy, z, r, t: 22, c });
+  splatter(new V3(x, gy + 0.3, z), null, c, 46, 0.55 * r, { flat: true, owner });
+  burst(x, gy + 0.3, z, 8, { color: c, size: 0.18, speed: 2.5, up: 2 });
+  GS.traps.push({ kind: 'paint', x, y: gy, z, r, t: 22, c, owner, hit: new Set() });
 }
-function webTrap(x, y, z) { const m = decal(T.web(), x, y, z, 3, 15, 0xffffff); GS.traps.push({ kind: 'web', x, y, z, r: 1.4, t: 15, m }); }
+function webTrap(x, y, z, owner = null) { const m = decal(T.web(), x, y, z, 3, 15, 0xffffff); GS.traps.push({ kind: 'web', x, y, z, r: 1.4, t: 15, m, owner, hit: new Set() }); }
 
 /* выстрелы: вода, конфета из рогатки, пузырь, паутина/фейерверк навесом */
 const SHOT_GEO = new THREE.SphereGeometry(1, 5, 4);
@@ -150,8 +152,8 @@ export function explode(p, owner) {
 export function toolImpact(it, p, gy) {
   const k = it.type;
   if (k === 'banana') { it.state = 'gone'; it.g.visible = false; placeBanana(it, p.x, gy + 0.05, p.z); return true; }
-  if (k === 'paint') { it.state = 'gone'; it.g.visible = false; paintPuddle(p.x, gy + 0.05, p.z, 1.6); sfx('splash', { at: p }); return true; }
-  if (k === 'web') { it.state = 'gone'; it.g.visible = false; webTrap(p.x, gy, p.z); return true; }
+  if (k === 'paint') { it.state = 'gone'; it.g.visible = false; paintPuddle(p.x, gy + 0.05, p.z, 1.6, it.owner); sfx('splash', { at: p }); return true; }
+  if (k === 'web') { it.state = 'gone'; it.g.visible = false; webTrap(p.x, gy, p.z, it.owner); return true; }
   if (k === 'duck') sfx('squeak', { at: p });
   if (k === 'pillow') burst(p.x, p.y, p.z, 10, { color: 0xffffff, size: 0.12, speed: 2, up: 1.5, g: 1.2, life: 1.4, grow: 0 });
   return false;
@@ -204,10 +206,12 @@ export function updateTools(dt, t) {
     if (s.p.y <= gy || wall || hitA) {
       const pt = s.p.clone(); if (s.p.y <= gy) pt.y = gy; gone = true;
       const fakeIt = (type, mass) => ({ type, vel: s.v, def: { mass, r: 0.1, heavy: false }, pos: pt });
-      if (s.kind === 'water') { burst(pt.x, pt.y, pt.z, 3, { color: 0x9ccbec, size: 0.12, speed: 1.5 }); if (hitA) { hitA.push.set(s.v.x * 0.06, 0, s.v.z * 0.06); hitA.wetT = 4; hitA.slipT = 2; } hitBreakables(pt, 0.2, [s.v.x, s.v.y, s.v.z], 0.15, ['bulb']); worldHit(pt, 0.5, s.v); for (const h of W.hitHooks.slice()) h(fakeIt('water', 0.6), pt); for (const f of W.fires || []) if (Math.hypot(f.x - pt.x, f.z - pt.z) < 1.3) f.hp -= 0.12; if (!hitA && Math.random() < 0.3) decal(T.splat('#4a90d0'), pt.x, gy, pt.z, 0.5, 5, 0xffffff); }
+      if (s.kind === 'water') { burst(pt.x, pt.y, pt.z, 3, { color: 0x9ccbec, size: 0.12, speed: 1.5 }); if (hitA) { hitA.push.set(s.v.x * 0.06, 0, s.v.z * 0.06); hitA.wetT = 4; hitA.slipT = 2; } hitBreakables(pt, 0.2, [s.v.x, s.v.y, s.v.z], 0.15, ['bulb']); worldHit(pt, 0.5, s.v); for (const h of W.hitHooks.slice()) h(fakeIt('water', 0.6), pt); for (const f of W.fires || []) if (Math.hypot(f.x - pt.x, f.z - pt.z) < 1.3) f.hp -= 0.12;
+        // полил клумбу — цветы вспыхивают лепестками
+        for (const fb of W.flowerbeds || []) if (pt.x > fb.x0 && pt.x < fb.x1 && pt.z > fb.z0 && pt.z < fb.z1 && pt.y < fb.top + 0.6 && Math.random() < 0.5) burst(pt.x, fb.top + 0.2, pt.z, 3, { color: [0xff7aa8, 0xf5c542, 0xb18cff][(Math.random() * 3) | 0], size: 0.1, speed: 1.2, up: 2, g: 3, life: 0.8, grow: 0 }); if (!hitA && Math.random() < 0.3) splatter(pt, s.v, 0x4a90d0, 3, 0.4); }
       else if (s.kind === 'candy') { burst(pt.x, pt.y, pt.z, 4, { color: 0xff5a9e, size: 0.1, speed: 2 }); if (hitA) { hitA.push.set(s.v.x * 0.08, 0, s.v.z * 0.08); hitFreeze(0.04); } hitBreakables(pt, 0.2, [s.v.x, s.v.y, s.v.z], 0.3, ['glass', 'bulb', 'bottle']); worldHit(pt, 1.2, s.v); for (const h of W.hitHooks.slice()) h(fakeIt('candy', 0.6), pt); for (const h of W.moth ? [W.moth] : []) h.hitAt && h.hitAt(pt, 1); }
       else if (s.kind === 'bubble') { if (hitA) { hitA.floatT = 3; dropHeld(hitA); sfx('bubble', { at: pt }); } else burst(pt.x, pt.y, pt.z, 6, { color: 0xc8f0ff, size: 0.1, speed: 1.5 }); }
-      else if (s.kind === 'web') webTrap(pt.x, gy, pt.z);
+      else if (s.kind === 'web') webTrap(pt.x, gy, pt.z, s.owner);
     }
     if (gone) { W.group.remove(s.m); GS.shots.splice(i, 1); }
   }
@@ -217,12 +221,14 @@ export function updateTools(dt, t) {
     if (q.t <= 0) { if (q.m && q.kind === 'banana') W.group.remove(q.m); GS.traps.splice(i, 1); continue; }
     for (const a of actors()) {
       if (a.hidden || Math.hypot(a.pos.x - q.x, a.pos.z - q.z) > q.r || Math.abs(a.pos.y - q.y) > 0.5) continue;
+      // паутина и краска: срабатывание «засчитывается» хозяину один раз на каждого
+      if ((q.kind === 'web' || q.kind === 'paint') && q.owner && a !== q.owner && !q.hit.has(a)) { q.hit.add(a); W.onFunny && W.onFunny(a, q.kind, q.owner); }
       if (q.kind === 'web') a.webT = 0.2;
       else if (q.kind === 'paint') { a.paintT = 10; a.paintC = q.c; }
       else if (q.kind === 'banana' && !(q.arm > 0) && a.onGround && Math.hypot(a.vel.x, a.vel.z) > 1.5) {
         // поскользнулся: ноги вперёд, падение
         knockDown(a, a.vel.x * 0.8, a.vel.z * 0.8, 1.3); a.vel.y = 6; a.slipFall = 0.8; sfx('slip', { at: a.pos });
-        W.group.remove(q.m); GS.traps.splice(i, 1); W.onFunny && W.onFunny(a, 'slip'); break;
+        W.group.remove(q.m); GS.traps.splice(i, 1); W.onFunny && W.onFunny(a, 'slip', q.owner); break;
       }
     }
   }
@@ -230,6 +236,7 @@ export function updateTools(dt, t) {
     if (Math.random() < dt * 20) puff(c.x + (Math.random() - 0.5) * 3, c.y + Math.random() * 2, c.z + (Math.random() - 0.5) * 3, { size: 0.15, grow: 0, life: 0.8, vy: -0.4, color: [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff][(Math.random() * 5) | 0] });
     for (const a of actors()) if (Math.hypot(a.pos.x - c.x, a.pos.z - c.z) < 2.6 && Math.abs(a.pos.y - c.y) < 2.5) a.blind = Math.max(a.blind || 0, 0.4); }
   if (W.lure) { W.lure.t -= dt; if (W.lure.t <= 0) W.lure = null; }
+  if (W.whistle) { W.whistle.t -= dt; if (W.whistle.t <= 0) W.whistle = null; }
   void _f; void addZone;
 }
 // иконка-подсказка для HUD: есть ли у инструмента действие на ЛКМ

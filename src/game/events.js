@@ -216,10 +216,10 @@ export function updateEvents(dt, ui) {
 function startBig(ui) {
   const keys = Object.keys(BIG), key = globalThis.__forceBig || keys[(Math.random() * keys.length) | 0];
   EV.big = { key, def: BIG[key], s: {}, left: Math.min(BIG[key].dur, PHASE.final - EV.t) }; EV.bigDone = true; EV.big.def.start(EV.big.s);
-  W.eventBot = b => EV.big ? EV.big.def.bot(EV.big.s, b) : null; W.missionPause = true;
+  W.eventBot = b => EV.big ? EV.big.def.bot(EV.big.s, b) : null;
   ui.start(key, true);
 }
-function stopBig() { if (!EV.big) return; EV.big.def.stop(EV.big.s); EV.big = null; W.eventBot = null; W.missionPause = false; }
+function stopBig() { if (!EV.big) return; EV.big.def.stop(EV.big.s); EV.big = null; W.eventBot = null; }
 export const bigTarget = () => EV.big ? EV.big.def.target(EV.big.s) : null;
 export function stopEvent() { if (EV.cur) { EV.cur.def.stop(EV.cur.s); EV.cur = null; } stopBig(); }
 void alphaMat; void tmat; void isFree; void puff;

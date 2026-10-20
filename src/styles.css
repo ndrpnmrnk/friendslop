@@ -157,7 +157,7 @@ body.locked #dot i{left:-2px;top:-2px;width:4px;height:4px;background:rgba(241,2
 #mgexit{position:absolute;top:10px;right:10px;background:none;border:0;cursor:pointer;padding:0}
 
 /* итоги */
-#results{background:rgba(23,17,31,.7)}
+#results{background:none}
 #resScore{font-family:var(--px);font-size:min(64px,12vw);color:var(--pumpkin);text-shadow:5px 5px 0 var(--night)}
 #rank{display:flex;flex-direction:column;gap:6px;margin:4vh 0;width:min(380px,88vw)}
 .rrow{display:flex;align-items:center;gap:10px;padding:8px 12px 7px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);font-size:15px;animation:slidein .35s steps(5) backwards}
@@ -204,3 +204,81 @@ body.locked #dot i{left:-2px;top:-2px;width:4px;height:4px;background:rgba(241,2
 .mcard.dim{opacity:.55;transform:scale(.92);transform-origin:left center}
 .mcard.main{box-shadow:inset 0 0 0 2px var(--dc),0 0 0 2px var(--night)}
 #combo{top:auto;bottom:118px;font-size:11px}#combo b{font-size:14px}
+
+/* v0.15: компас под таймером */
+#compass{position:absolute;top:100px;left:50%;transform:translateX(-50%);width:min(320px,60vw);height:28px;background:var(--panel);box-shadow:inset 0 0 0 2px var(--edge)}
+#compass::before{content:'';position:absolute;left:0;right:0;bottom:3px;height:4px;background:repeating-linear-gradient(90deg,rgba(241,232,255,.35) 0 2px,transparent 2px 20px)}
+#compass::after{content:'';position:absolute;left:50%;top:0;width:2px;height:100%;background:rgba(241,232,255,.5);transform:translateX(-1px)}
+#compass .cm{position:absolute;left:0;top:5px;width:20px;height:20px;display:flex;justify-content:center;opacity:.75;transition:transform .12s linear}
+#compass .cm img{width:16px;height:16px;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 #17111f) drop-shadow(0 0 0 var(--c))}
+#compass .cm b{position:absolute;top:21px;left:50%;transform:translateX(-50%);font-family:var(--px);font-size:7px;color:var(--c);text-shadow:1px 1px 0 var(--night);white-space:nowrap;display:none}
+#compass .cm.main{opacity:1;top:1px;z-index:2}
+#compass .cm.main img{width:22px;height:22px;margin-top:-2px;box-shadow:0 0 0 2px var(--c);background:var(--night)}
+#compass .cm.main b{display:block;top:24px}
+#compass .cm .ca{display:none;position:absolute;top:5px;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent}
+#compass .cm.edge .ca{display:block;right:-7px;border-left:6px solid var(--c)}
+#compass .cm.edge.l .ca{right:auto;left:-7px;border-left:0;border-right:6px solid var(--c)}
+#compass .cm.new{animation:cmnew .45s steps(5)}
+@keyframes cmnew{0%{filter:brightness(3)}50%{margin-top:-8px}}
+#compass .cm.main.edge{animation:cmedge .6s steps(2) infinite}
+@keyframes cmedge{50%{opacity:.5}}
+/* карточки: личная / аутсайдер / занята ботом */
+.mcard .tag{display:inline-block;font-family:var(--px);font-size:7px;color:var(--night);background:var(--gold);padding:2px 3px 1px;margin-right:6px;vertical-align:2px}
+.mcard.mine{box-shadow:inset 0 0 0 2px var(--gold)}
+.mcard.taken{filter:saturate(.3)}
+.mcard.new{animation:mnew2 .6s steps(8)}
+@keyframes mnew2{0%{transform:translateX(-80px) scale(.8);filter:brightness(3)}45%{transform:translateX(8px) scale(1.06);filter:brightness(1.6)}70%{transform:translateX(-3px)}}
+/* таймер: последние 10 с — удар сердца */
+#timer.beat{animation:tbeat .45s steps(4)}
+@keyframes tbeat{20%{transform:scale(1.35);color:#fff}40%{transform:scale(.95)}60%{transform:scale(1.12)}}
+/* всплывашки */
+#toast.wave{color:var(--candy);font-size:14px}#toast.gold{color:var(--gold)}#toast.bad{color:var(--blood)}
+/* вспышка новой волны, глитч смены фазы, линии скорости */
+#flash{position:fixed;inset:0;pointer-events:none;background:#f1e8ff;opacity:0;z-index:5}
+#flash.go{animation:flash .5s steps(5)}
+@keyframes flash{0%{opacity:.45}100%{opacity:0}}
+#game.glitch canvas{animation:glitch .65s steps(1)}
+@keyframes glitch{0%{transform:translate(6px,0);filter:hue-rotate(90deg) saturate(2)}15%{transform:translate(-8px,2px);filter:hue-rotate(-60deg)}30%{transform:translate(4px,-3px) skewX(4deg);filter:invert(.15)}45%{transform:translate(-3px,0);filter:hue-rotate(160deg)}60%{transform:translate(2px,1px) skewX(-2deg);filter:none}75%{transform:translate(-1px,0)}100%{transform:none;filter:none}}
+#speedl{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:4;transition:opacity .2s steps(3);
+  background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(241,232,255,.0) 0deg 5deg,rgba(241,232,255,.18) 5deg 5.6deg,rgba(241,232,255,0) 5.6deg 11deg);
+  -webkit-mask:radial-gradient(circle at 50% 50%,transparent 38%,#000 75%);mask:radial-gradient(circle at 50% 50%,transparent 38%,#000 75%)}
+body:not(.playing) #speedl{display:none}
+
+/* v0.15: настройки (микрофон) */
+#setBtn{position:absolute;left:16px;top:16px;display:flex;align-items:center;justify-content:center}
+#setBtn img{width:28px;height:28px;image-rendering:pixelated}
+#setbox{width:min(520px,92vw);padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.srow.col{flex-direction:column;align-items:stretch;gap:6px}
+.sl{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.sl img{width:20px;height:20px;image-rendering:pixelated}
+.stog{font-family:var(--px);font-size:11px;min-width:110px;padding:10px 12px 9px;border:0;cursor:pointer;background:var(--plum);color:var(--text);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge)}
+.stog.on{background:var(--candy);color:var(--night);box-shadow:none}
+#micDev{max-width:260px;font-family:var(--tx);font-size:13px;background:var(--plum);color:var(--text);border:2px solid var(--edge);padding:6px}
+#micSens{width:220px;accent-color:#ff8a1f}
+#micMeter{position:relative;height:14px;background:rgba(0,0,0,.5);box-shadow:inset 0 0 0 2px var(--edge)}
+#micMeter i{position:absolute;left:2px;top:2px;bottom:2px;width:0;background:var(--candy)}
+#micMeter i.talk{background:var(--gold)}#micMeter i.shout{background:var(--blood)}
+#micMeter b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text)}#micMeter b.loud{background:var(--blood)}
+#micState{font-family:var(--px);font-size:9px;color:var(--muted);text-align:right}
+.snote{font-size:13px;color:var(--muted);line-height:1.35}
+#settings .pback{margin-top:18px}
+
+/* v0.15: итоги с пьедесталами */
+#results .sctitle{margin:4vh 0 0;color:var(--gold)}
+#podcards{position:fixed;inset:0;pointer-events:none}
+.aw{position:absolute;left:0;top:0;min-width:150px;max-width:220px;padding:8px 10px 8px;text-align:center;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);animation:awin .55s steps(7)}
+.aw .pl{font-family:var(--px);font-size:16px;color:var(--muted)}
+.aw .at{font-family:var(--px);font-size:10px;color:var(--pumpkin);margin-top:6px;line-height:1.3}
+.aw .nm{font-size:15px;font-weight:700;margin-top:5px}
+.aw .sb{font-size:12px;color:var(--muted);margin-top:3px}
+.aw .sc{font-family:var(--px);font-size:13px;color:var(--candy);margin-top:6px}
+.aw.me{box-shadow:inset 0 0 0 2px var(--pumpkin)}
+.aw.champ{background:linear-gradient(#3a2a10,#17111f);box-shadow:inset 0 0 0 3px var(--gold),0 0 0 3px var(--night);min-width:190px;animation:awin .55s steps(7),champ 1.2s steps(2) .6s infinite}
+.aw.champ .pl{color:var(--gold);font-size:20px}.aw.champ .at{color:var(--gold);font-size:13px}
+@keyframes awin{0%{opacity:0;margin-top:-40px;filter:brightness(3)}50%{opacity:1;margin-top:6px}75%{margin-top:-3px}100%{margin-top:0}}
+@keyframes champ{50%{filter:brightness(1.25)}}
+#resMe{position:fixed;bottom:15vh;left:50%;transform:translateX(-50%);font-family:var(--px);font-size:12px;color:var(--text);text-shadow:2px 2px 0 var(--night);white-space:nowrap;animation:awin .5s steps(6)}
+#resMe b{color:var(--pumpkin)}
+#resBtns{position:fixed;bottom:5vh;left:50%;transform:translateX(-50%);animation:awin .5s steps(6)}
+#micIco img,#setBtn img{width:22px!important;height:22px!important;image-rendering:pixelated}

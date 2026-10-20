@@ -201,7 +201,7 @@ export const WORLD3 = {
     const lad = new THREE.Group(); lad.position.set(hx, L.y, hz); lad.rotation.y = Math.atan2(d.x, d.z); W.group.add(lad);
     lad.add(compose('stepladder', a => { const al = col(0xc8c8d8); for (const sx of [-0.3, 0.3]) { a(G.box, al, sx, 1.25, 0.12, 0.05, 2.6, 0.05, -0.12); a(G.box, al, sx, 1.2, 0.6, 0.04, 2.5, 0.04, 0.25); } for (let y = 0.3; y < 2.5; y += 0.35) a(G.box, col(0xf5c542), 0, y, 0.12 - y * 0.12 + 0.15, 0.6, 0.04, 0.12); }));
     const lz = { x0: hx - 0.55, x1: hx + 0.55, z0: hz - 0.55, z1: hz + 0.55, y0: L.y, y1: L.y + 2.25, nx: d.x, nz: d.z }; W.ladders.push(lz);
-    const p0 = farPoint(new V3(L.x, L.y, L.z), 6, 18), bulb = addItem('bulb', p0.x, p0.y, p0.z); bulb.def = { ...bulb.def, respawn: 0 }; const rg = ringMark(0xf5c542);
+    const p0 = farPoint(new V3(L.x, L.y, L.z), 6, 18), bulb = addItem('bulb', p0.x, p0.y, p0.z); bulb.def = { ...bulb.def, respawn: 0 }; bulb.steal = { pts: ctx.mission ? ctx.mission.pts : 200, key: 'bulb' }; bulb.mine = P; const rg = ringMark(0xf5c542);
     let time = 70, hint = '';
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     const up = () => P.pos.y > L.y + 1.7 && Math.hypot(P.pos.x - hx, P.pos.z - hz) < 1.4;
@@ -212,47 +212,78 @@ export const WORLD3 = {
       update(dt) {
         time -= dt; api.timer(time); rg.visible = bulb.state === 'rest'; rg.position.set(bulb.pos.x, bulb.pos.y - 0.1, bulb.pos.z); bulb.outline.set(bulb.state === 'rest');
         api.progress(P.held === bulb ? (up() ? 0.66 : 0.33) : 0);
+        if (bulb.state === 'held' && P.held !== bulb && bulb.owner !== P && bulb.wasHeld) { api.msg('Украли!', 'bad'); bulb.mine = null; return api.finish({ success: false, stolen: bulb.owner }); }
         if (bulb.state === 'gone' || time <= 0) api.finish({ success: false });
       },
-      stop() { W.group.remove(lad); W.group.remove(rg); W.ladders.splice(W.ladders.indexOf(lz), 1); if (P.held === bulb) P.held = null; bulb.state = 'gone'; bulb.g.visible = false; bulb.outline.set(false); },
+      stop() { W.group.remove(lad); W.group.remove(rg); W.ladders.splice(W.ladders.indexOf(lz), 1); if (P.held === bulb) P.held = null; bulb.outline.set(false); if (bulb.state === 'held' && bulb.owner !== P) return; bulb.state = 'gone'; bulb.g.visible = false; bulb.steal = null; },
     };
   },
 
-  // Котята: двое бегают вокруг коробки, боятся бегущего — загони их в коробку (уточка приманивает)
+  // Котята: двое носятся вокруг коробки и удирают от тебя. Догони, возьми на руки (E) и донеси до коробки —
+  // или брось котёнка в коробку (ПКМ). На руках котёнок долго не сидит — вырывается и снова удирает.
   catbox(o, api, ctx) {
-    const c = o.pos(), P = ctx.player;
+    const c = o.pos(), P = ctx.player, G2 = 22;
     o.kittens = [0, 1].map(i => { const k = buildCat(COATS[(Math.random() * COATS.length) | 0]); k.root.scale.setScalar(0.85); const a = Math.random() * 6.28, r = 5 + Math.random() * 2.5;
       let x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; if (!isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, c.y + 0.05, c.y + 0.8)) { x = c.x + Math.cos(a) * 3; z = c.z + Math.sin(a) * 3; }
-      k.root.position.set(x, c.y, z); W.group.add(k.root); return { ...k, root: k.root, cat: k, vx: 0, vz: 0, wt: 0, wx: 0, wz: 0, inBox: false, ph: Math.random() * 6 }; });
-    let time = 60, got = 0;
-    api.msg('Загони котят в коробку — подгоняй сзади, они убегают от тебя');
+      k.root.position.set(x, c.y, z); W.group.add(k.root); return { root: k.root, cat: k, vx: 0, vz: 0, vy: 0, wt: 0, wx: 0, wz: 0, st: 'run', dash: 0, rest: 0, holdT: 0, ph: Math.random() * 6 }; });
+    let time = 60, got = 0, held = null;
+    api.msg('Догони котёнка и возьми на руки (E) — неси или кидай в коробку (ПКМ)');
+    const toBox = k => { k.st = 'box'; got++; sfx('candy'); burst(c.x, c.y + 0.8, c.z, 10, { color: 0xc8a070, size: 0.14, speed: 1.5, up: 2 }); api.msg(got < 2 ? 'Один в коробке!' : 'Оба котёнка дома!', 'good'); };
+    const release = (k, vx, vy, vz) => { k.st = 'fly'; k.vx = vx; k.vy = vy; k.vz = vz; if (held === k) held = null; };
+    const near = () => o.kittens.filter(k => k.st === 'run').sort((a, b) => a.root.position.distanceTo(P.pos) - b.root.position.distanceTo(P.pos))[0];
     return {
-      target() { const k = o.kittens.find(q => !q.inBox); return k ? k.root.position : c; },
+      target() { if (held) return c; const k = near(); return k ? k.root.position : c; },
+      prompt() { if (held) return Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.6 ? '<b>E</b>Посадить в коробку' : '<b>ПКМ</b>Кинуть в коробку'; const k = near(); return k && k.root.position.distanceTo(P.pos) < 1.3 && !P.held ? '<b>E</b>Схватить котёнка' : ''; },
+      interact() {
+        if (held) { if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.6) { const k = held; held = null; toBox(k); } else { const f = P.root.rotation.y; release(held, Math.sin(f) * 2, 2, Math.cos(f) * 2); } return true; }
+        const k = near(); if (k && !P.held && k.root.position.distanceTo(P.pos) < 1.3) { k.st = 'held'; k.holdT = 2.2 + Math.random() * 1.2; held = k; sfx('meow', { at: k.root.position }); k.cat.face('angry'); return true; }
+        return false;
+      },
+      // для броска ПКМ: что держим и как бросить
+      carrying: () => !!held,
+      throwCarry(v) { if (!held) return; const k = held; k.root.position.copy(P.ch.holdPoint); release(k, v.x, v.y, v.z); sfx('meow', { at: k.root.position }); },
       update(dt) {
-        time -= dt; api.timer(time);
+        time -= dt; api.timer(time); P.carryKitten = !!held;
         for (const k of o.kittens) {
           const p = k.root.position;
-          if (k.inBox) { p.lerp(new V3(c.x + (k === o.kittens[0] ? -0.2 : 0.2), c.y + 0.25, c.z), dt * 6); k.cat.head.rotation.y = Math.sin(performance.now() * 0.004 + k.ph) * 0.5; continue; }
+          if (k.st === 'box') { p.lerp(new V3(c.x + (k === o.kittens[0] ? -0.2 : 0.2), c.y + 0.25, c.z), dt * 6); k.cat.head.rotation.y = Math.sin(performance.now() * 0.004 + k.ph) * 0.5; continue; }
+          if (k.st === 'held') {
+            // на руках: брыкается и через пару секунд вырывается
+            k.holdT -= dt; p.copy(P.ch.holdPoint); p.y -= 0.25; k.root.rotation.y = P.root.rotation.y + Math.sin(performance.now() * 0.03) * (k.holdT < 0.8 ? 0.6 : 0.2);
+            const sw = Math.sin(performance.now() * 0.03) * 0.9; k.cat.legs.forEach((l, i) => (l.rotation.x = i % 2 ? sw : -sw));
+            if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.1) { held = null; toBox(k); continue; }
+            if (k.holdT <= 0 || P.stun > 0) { const a = Math.random() * 6.28; release(k, Math.cos(a) * 4, 4, Math.sin(a) * 4); sfx('meow', { at: p }); api.msg('Вырвался!', 'bad'); }
+            continue;
+          }
+          if (k.st === 'fly') {
+            k.vy -= G2 * dt; p.x += k.vx * dt; p.y += k.vy * dt; p.z += k.vz * dt; k.root.rotation.x += dt * 8;
+            // попал в коробку
+            if (Math.hypot(p.x - c.x, p.z - c.z) < 0.7 && p.y < c.y + 1.0 && k.vy < 0) { k.root.rotation.x = 0; toBox(k); continue; }
+            pushOut(p, 0.3, p.y + 0.1, p.y + 0.5);
+            const gy = groundAt(p.x, p.z, 0.2, p.y + 0.3); if (p.y <= gy) { p.y = gy; k.root.rotation.x = 0; k.st = 'run'; k.dash = 1.2; k.vx *= 0.3; k.vz *= 0.3; puff(p.x, p.y, p.z, { size: 0.3, life: 0.3 }); }
+            continue;
+          }
+          // бегает: от игрока — рывками (быстрее шага, медленнее спринта), между рывками — короткая передышка
           let ax = 0, az = 0, sp = 1.2;
           const dx = p.x - P.pos.x, dz = p.z - P.pos.z, d = Math.hypot(dx, dz);
-          if (d < 3.5 && d > 0.01) { ax += dx / d * (3.5 - d) * 2.2; az += dz / d * (3.5 - d) * 2.2; sp = 3.6; k.cat.face('angry'); } else k.cat.face('open');
-          if (W.lure && W.lure.t > 0) { const lx = W.lure.x - p.x, lz = W.lure.z - p.z, ld = Math.hypot(lx, lz); if (ld < 12 && ld > 0.3) { ax += lx / ld * 3; az += lz / ld * 3; sp = Math.max(sp, 2.6); } }
+          if (k.dash > 0) k.dash -= dt; else if (k.rest > 0) k.rest -= dt;
+          if (d < 6 && d > 0.01) { ax += dx / d * (6 - d) * 2.2; az += dz / d * (6 - d) * 2.2; if (k.dash <= 0 && k.rest <= 0) { k.dash = 1.1 + Math.random() * 0.6; k.rest = 0.7 + Math.random() * 0.5; }
+            sp = k.dash > 0 ? 9 : 4.5; k.cat.face('angry'); } else k.cat.face('open');
+          if (W.lure && W.lure.t > 0) { const lx = W.lure.x - p.x, lz = W.lure.z - p.z, ld = Math.hypot(lx, lz); if (ld < 12 && ld > 0.3) { ax += lx / ld * 4; az += lz / ld * 4; sp = Math.min(sp, 3); } }
           k.wt -= dt; if (k.wt <= 0) { const a = Math.random() * 6.28; k.wx = Math.cos(a); k.wz = Math.sin(a); k.wt = 1 + Math.random() * 2; }
           ax += k.wx * 0.8; az += k.wz * 0.8;
           // не убегать далеко от коробки
-          const cx = c.x - p.x, cz = c.z - p.z, cd = Math.hypot(cx, cz); if (cd > 7) { ax += cx / cd * (cd - 7); az += cz / cd * (cd - 7); }
-          const al = Math.hypot(ax, az) || 1; k.vx += (ax / al * sp - k.vx) * Math.min(1, dt * 5); k.vz += (az / al * sp - k.vz) * Math.min(1, dt * 5);
+          const cx = c.x - p.x, cz = c.z - p.z, cd = Math.hypot(cx, cz); if (cd > 9) { ax += cx / cd * (cd - 9) * 1.5; az += cz / cd * (cd - 9) * 1.5; }
+          const al = Math.hypot(ax, az) || 1; k.vx += (ax / al * sp - k.vx) * Math.min(1, dt * 6); k.vz += (az / al * sp - k.vz) * Math.min(1, dt * 6);
           p.x += k.vx * dt; p.z += k.vz * dt; pushOut(p, 0.3, p.y + 0.2, p.y + 0.6); p.y = groundAt(p.x, p.z, 0.2, p.y + 0.3);
           const v = Math.hypot(k.vx, k.vz); if (v > 0.2) k.root.rotation.y = Math.atan2(k.vx, k.vz);
           k.ph += dt * v * 6; const sw = Math.sin(k.ph) * 0.6; k.cat.legs[0].rotation.x = sw; k.cat.legs[3].rotation.x = sw; k.cat.legs[1].rotation.x = -sw; k.cat.legs[2].rotation.x = -sw; k.cat.tail.rotation.x = 0.7;
-          // забежал в коробку
-          if (Math.hypot(p.x - c.x, p.z - c.z) < 0.75) { k.inBox = true; got++; sfx('candy'); burst(c.x, c.y + 0.8, c.z, 8, { color: 0xc8a070, size: 0.14, speed: 1.5, up: 2 }); api.msg(got < 2 ? 'Один в коробке!' : 'Оба котёнка дома!', 'good'); }
         }
         api.progress(got / 2);
         if (got >= 2) return api.finish({ success: true, mult: 1 });
         if (time <= 0) return api.finish({ success: false });
       },
-      stop() { for (const k of o.kittens) W.group.remove(k.root); o.kittens = []; },
+      stop() { P.carryKitten = false; for (const k of o.kittens) W.group.remove(k.root); o.kittens = []; },
     };
   },
 

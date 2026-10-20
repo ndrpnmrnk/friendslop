@@ -31,10 +31,20 @@ export function generateMap(scene, s) {
     const c = -half + road / 2 + i * (chunk + road);
     for (let k = -half; k < half; k += 3) { mark(c, k + 0.9, 0.28, 1.8, i === 0 || i === grid ? line : yl); mark(k + 0.9, c, 1.8, 0.28, i === 0 || i === grid ? line : yl); }
   }
-  let picks = shuffle(DISTRICTS.slice());
+  /* Выбор районов: по одному из каждой группы (зелёные, торговые, высокие, спорт, особые) — карта всегда разная,
+     но в ней всегда есть всего понемногу; остальные места — случайные. */
+  const GROUPS = [['park', 'cemetery', 'yard'], ['plaza', 'market', 'shops', 'foodcourt'], ['office', 'hospital', 'construction'], ['skatepark', 'school'], ['port', 'sewer', 'gas']];
+  const byId = id => DISTRICTS.find(d => d.id === id);
+  let picks = GROUPS.map(g => byId(shuffle(g.slice())[0])).filter(Boolean);
+  picks = [...picks, ...shuffle(DISTRICTS.filter(d => !picks.includes(d)))];
   // отладка: window.__forceDistricts = ['yard', ...] ставит эти районы первыми
   const force = globalThis.__forceDistricts; if (force) picks = [...force.map(id => picks.find(d => d.id === id)).filter(Boolean), ...picks.filter(d => !force.includes(d.id))];
-  picks = picks.slice(0, grid * grid);
+  picks = shuffle(picks.slice(0, grid * grid));
+  if (force) picks = [...picks.filter(d => force.includes(d.id)), ...picks.filter(d => !force.includes(d.id))];
+  // порт — только у реки: ставим его в нижний ряд (южный край карты), а южный край делаем набережной
+  W.riverSide = null;
+  const pi = picks.findIndex(d => d.id === 'port');
+  if (pi >= 0) { const row = [...Array(grid)].map((_, gx) => gx * grid + grid - 1), to = row.includes(pi) ? pi : row[(Math.random() * grid) | 0]; [picks[pi], picks[to]] = [picks[to], picks[pi]]; W.riverSide = 's'; }
   const curb = tmat(T.concrete());
   for (let gx = 0; gx < grid; gx++) for (let gz = 0; gz < grid; gz++) {
     const d = picks[gx * grid + gz];
@@ -66,6 +76,13 @@ export function generateMap(scene, s) {
   buildRoadsAndTunnels(half);
   streetFurniture(half);
   buildEdges(half);
+  // точки появления не должны оказаться внутри объектов: сдвигаем на ближайшее свободное место
+  for (const sp of W.spawns) {
+    if (isFree(sp.x - 0.4, sp.z - 0.4, sp.x + 0.4, sp.z + 0.4, sp.y + 0.1, sp.y + 1.8)) continue;
+    let done = false;
+    for (let r = 0.6; r <= 4 && !done; r += 0.6) for (let a = 0; a < 6.28 && !done; a += 0.6) { const x = sp.x + Math.cos(a) * r, z = sp.z + Math.sin(a) * r;
+      if (isFree(x - 0.4, z - 0.4, x + 0.4, z + 0.4, sp.y + 0.1, sp.y + 1.8)) { sp.x = x; sp.z = z; done = true; } }
+  }
   // коты: по одному в разных районах
   const homes = shuffle(W.catHomes.slice());
   const used = new Set();

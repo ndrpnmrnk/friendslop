@@ -60,10 +60,17 @@ function animateRide(c, dt, s) {
   const d = c.d, f = damp(14, dt), sp = Math.min(1, (s.rideSpeed || 0) / 10), t = s.t;
   c.stars.visible = false; c.body.scale.set(1, 1, 1); c.body.rotation.y += (0 - c.body.rotation.y) * f;
   if (s.ride === 'stand') {
-    c.body.position.y = -0.12 + Math.sin(t * 6) * 0.015 * sp; c.body.rotation.x += (0.1 + sp * 0.12 - c.body.rotation.x) * f;
-    c.body.rotation.z = Math.sin(t * 2.5) * 0.06;
-    setHand(c.footL, -0.05, d.footY, 0.22, f); setHand(c.footR, 0.05, d.footY, -0.22, f);
-    setHand(c.handL, -d.handX - 0.25, d.handY + 0.2 + Math.sin(t * 3) * 0.05, 0.1, f); setHand(c.handR, d.handX + 0.25, d.handY + 0.2 - Math.sin(t * 3) * 0.05, -0.1, f);
+    /* стоит на доске боком: передняя нога на носу, задняя на хвосте; руки у тела для равновесия.
+       Толчок (kick 0..1): задняя нога опускается сбоку на землю и уходит назад. Трюк: присел, ноги поджаты. */
+    const tr = s.trick || 0, kick = s.kick, scoot = s.board === 'scooter';
+    c.body.position.y = -0.12 - tr * 0.22 + Math.sin(t * 6) * 0.015 * sp; c.body.rotation.x += (0.1 + sp * 0.1 + tr * 0.25 - c.body.rotation.x) * f;
+    c.body.rotation.z = scoot ? 0 : Math.sin(t * 2.5) * 0.05;
+    setHand(c.footL, scoot ? -0.08 : -0.05, d.footY + tr * 0.22, scoot ? 0.12 : 0.22, f);
+    if (kick != null && !tr) { const ph = Math.max(0, Math.min(1, (kick - 0.15) / 0.5)), dn = Math.sin(ph * Math.PI);
+      setHand(c.footR, 0.24, d.footY - 0.14 * dn + (1 - dn) * 0.05, 0.15 - ph * 0.55, damp(22, dt)); c.body.position.y -= dn * 0.08; }
+    else setHand(c.footR, scoot ? 0.08 : 0.05, d.footY + tr * 0.22, scoot ? -0.12 : -0.22, f);
+    if (scoot) { setHand(c.handL, -0.22, d.handY + 0.35, 0.5, f); setHand(c.handR, 0.22, d.handY + 0.35, 0.5, f); }
+    else { const sw = Math.sin(t * 3) * 0.04; setHand(c.handL, -d.handX * 0.95, d.handY + 0.08 + sw + tr * 0.2, 0.12, f); setHand(c.handR, d.handX * 0.95, d.handY + 0.08 - sw + tr * 0.2, -0.08, f); }
   } else {
     c.body.position.y = -0.38; c.body.rotation.x += (-0.08 - sp * 0.1 - c.body.rotation.x) * f; c.body.rotation.z = 0;
     setHand(c.footL, -d.footX, d.footY + 0.05, 0.42, f); setHand(c.footR, d.footX, d.footY + 0.05, 0.42, f);
@@ -74,6 +81,7 @@ function animateRide(c, dt, s) {
 function setHand(h, x, y, z, k) { h.position.x += (x - h.position.x) * k; h.position.y += (y - h.position.y) * k; h.position.z += (z - h.position.z) * k; }
 
 function animate(c, dt, s) {
+  if (c.handOff) { c.handL.position.y += c.handOff; c.handR.position.y += c.handOff; c.handOff = 0; }
   const d = c.d, t = s.t, k = clamp(s.speed || 0, 0, 1), run = !s.air && !s.climb && k > 0.05;
   if (s.ride) return animateRide(c, dt, s);
   if (s.dive || s.slide) return animateMove(c, dt, s);
@@ -177,11 +185,27 @@ function animate(c, dt, s) {
   if (s.emote !== 'wave' && s.emote !== 'call') { c.head.rotation.z *= 0.85; c.head.rotation.x *= 0.85; }
   c.handL.rotation.x = s.hold ? -0.6 : run ? sn * 0.5 * k : 0; c.handR.rotation.x = s.hold ? (s.charge ? 0.8 : -0.6) : run ? -sn * 0.5 * k : 0;
   // присед: тело ниже и сжато, ручки ближе
-  if (s.crouch) { c.body.position.y -= 0.34; c.body.scale.y *= 0.85; c.body.rotation.x = 0.25; c.handL.position.y -= 0.3; c.handR.position.y -= 0.3; c.footL.position.x = -d.footX - 0.08; c.footR.position.x = d.footX + 0.08; }
+  // руки опускаем плавно к цели (а не вычитаем каждый кадр — иначе они «проваливаются» сквозь пол)
+  c.crouchK = (c.crouchK || 0) + ((s.crouch ? 1 : 0) - (c.crouchK || 0)) * damp(14, dt);
+  if (c.crouchK > 0.01) { const k = c.crouchK; c.body.position.y -= 0.34 * k; c.body.scale.y *= 1 - 0.15 * k; if (s.crouch) c.body.rotation.x = 0.25;
+    // смещение рук запоминаем и снимаем в начале следующего кадра (см. начало animate)
+    const off = Math.min(0.3 * k, Math.max(0, Math.min(c.handL.position.y, c.handR.position.y) - (d.footY + 0.2)));
+    c.handOff = off; c.handL.position.y -= off; c.handR.position.y -= off;
+    if (s.crouch) { c.footL.position.x = -d.footX - 0.08; c.footR.position.x = d.footX + 0.08; } }
   // точка, где держим предмет: между ладонями или в правой руке при замахе
   if (s.hold && s.charge) c.holdPoint.copy(c.handR.position).add(_up);
   else c.holdPoint.set(0, (c.handL.position.y + c.handR.position.y) / 2 + 0.12, (c.handL.position.z + c.handR.position.z) / 2 + 0.05);
   c.root.localToWorld(c.holdPoint);
+  // голос с микрофона: говорит — голова кивает в такт; кричит — дрожит и раздувается
+  const tk = c.talk || 0, sh = c.shout || 0;
+  if (tk > 0.02 || sh > 0.02 || c.head.scale.x !== 1) {
+    c.head.rotation.x += Math.sin(t * 24) * 0.07 * tk; c.head.position.y = Math.abs(Math.sin(t * 18)) * 0.03 * tk;
+    c.head.position.x = sh > 0.02 ? (Math.random() - 0.5) * 0.06 * sh : 0; c.head.rotation.z += sh > 0.02 ? (Math.random() - 0.5) * 0.12 * sh : 0;
+    const hs = 1 + 0.18 * sh; c.head.scale.setScalar(Math.abs(hs - 1) < 0.005 ? 1 : hs);
+  }
+  // горловой мешок лягушки: надувается на «ква»
+  if (c.sacT !== undefined && c.head.userData.sac) { c.sacT += dt; const sac = c.head.userData.sac, k = c.sacT < 0.4 ? Math.sin(c.sacT / 0.4 * Math.PI) : 0;
+    sac.userData.s0 = sac.userData.s0 || sac.scale.clone(); sac.scale.copy(sac.userData.s0).multiplyScalar(1 + k * 0.9); if (c.sacT >= 0.4) c.sacT = undefined; }
   // выражение лица
   c.blinkT -= dt;
   let e = s.stun ? 'dizzy' : s.air || s.grabbed || s.emote === 'laugh' || s.emote === 'call' ? 'wow' : 'idle';

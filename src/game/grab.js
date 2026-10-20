@@ -23,7 +23,7 @@ export function grabActor(a, b) {
   a.holding = b; b.heldBy = a; b.struggle = 0; b.wrig = { x: 0, z: 0, t: 0 }; b.vel.set(0, 0, 0); b.emote = null;
   dropHeld(b); if (b.charging) b.charging = false;
   burst(b.pos.x, b.pos.y + 1, b.pos.z, 6, { color: 0xf1e8ff, size: 0.16, speed: 1.6, up: 1 });
-  sfx('grab', { at: b.pos }); voice(b.ch, 'hurt', b.pos);
+  sfx('grab', { at: b.pos }); voice(b.ch, 'hurt', b.pos); W.onHit && W.onHit(a, b, 'melee');
   return true;
 }
 // отпустить; vel — бросок

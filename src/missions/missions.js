@@ -10,47 +10,67 @@ import { PANEL_GAMES, WORLD_GAMES } from './games2.js';
 import { buildShells, buildFishing, buildSpot, buildTargets, buildCleanup } from './objects2.js';
 import { PANEL3, WORLD3, buildPhone, buildFire, buildDeadLamp, buildCatBox } from './games3.js';
 
-/* Миссии: не больше CONFIG.activeMissions одновременно, у каждого типа свой лимит и пауза
-   перед повтором. Объекты появляются в случайной точке подходящей зоны (пол, внутри, крыша, нычка),
-   место проверяется: не в стене, не в воде, перед объектом есть свободное место. */
-export const M = { list: [], cooldown: {}, id: 0, waveT: 0 };
+/* Миссии приходят ВОЛНАМИ.
+   В волне «игроки − 1» общих миссий (боты считаются игроками, не меньше 2): кому-то не хватит — надо успеть
+   или отбить. Во время общего события — по одной миссии. У каждой миссии свой таймер 25–50 с (чем дальше от
+   игроков — тем дольше), «вечных» миссий нет. Волна кончилась (всё выполнено или сгорело) — через 3 с новая;
+   сгорела целиком — следующая приходит быстрее.
+   Между волнами кому-то может выпасть ЛИЧНАЯ миссия (видит и может сделать только он), а с середины раунда
+   отстающему — миссия АУТСАЙДЕРА с очками ×1.5.
+   Миссии частично «местные»: у некоторых есть родной район (home) — там они появляются чаще, но не всегда. */
+export const M = { list: [], cooldown: {}, id: 0, waveT: 0, wave: 0, burnt: 0, done: 0, onWave: null };
 const ZONE_RU = { floor: '', inside: 'внутри', roof: 'на крыше', nook: 'в нычке', tunnel: '' };
+const WV = () => CONFIG.wave;
 
 export function resetMissions() {
-  M.list = []; M.cooldown = {}; M.waveT = 0;
+  for (const m of M.list.slice()) removeMission(m, true);
+  M.list = []; M.cooldown = {}; M.waveT = 0; M.wave = 0; M.burnt = 0; M.done = 0;
   // фонари для миссии «Лампочка»: стоять под плафоном, со стороны кронштейна
   W.spots.bulb = (W.lamps || []).map(L => { const dx = Math.sin(L.ry), dz = Math.cos(L.ry); return { x: L.lx + dx * 1.35, z: L.lz + dz * 1.35, y: L.y, f: [-dx, -dz], lamp: L, district: L.district, label: 'фонарь' }; });
 }
+const actorsAll = () => [W.player, ...(W.bots || [])].filter(Boolean);
+const districtAt = (x, z) => (W.districts || []).find(d => x >= d.ox && x < d.ox + 32 && z >= d.oz && z < d.oz + 32);
 
-/* Значок миссии над миром: пиксельная плашка в стиле интерфейса — тёмная карточка с рамкой цвета сложности,
-   иконка 12×12 и «хвостик» вниз (вместо эмодзи) */
-const plateTex = {};
-function plate(key, diff) {
-  const k = key + diff; if (plateTex[k]) return plateTex[k];
-  const c = document.createElement('canvas'); c.width = 40; c.height = 48; const g = c.getContext('2d'), col = '#' + DIFF[diff].toString(16).padStart(6, '0');
-  g.fillStyle = '#17111f'; g.fillRect(2, 2, 36, 36); g.fillRect(14, 36, 12, 6); g.fillRect(17, 42, 6, 4);
-  g.fillStyle = col; g.fillRect(4, 4, 32, 32); g.fillRect(16, 36, 8, 4); g.fillRect(18, 40, 4, 3);
-  g.fillStyle = '#2a1f3d'; g.fillRect(6, 6, 28, 28);
-  g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(6, 6, 28, 3);
-  g.drawImage(iconCanvas(key, 2), 8, 8);
-  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return (plateTex[k] = t);
+/* Значок миссии над миром: пиксельная плашка — иконка, кольцо оставшегося времени и очки.
+   Канва своя у каждой миссии и перерисовывается 4 раза в секунду. */
+function drawPlate(m, k) {
+  const g = m.marker.cx, c = g.canvas, col = '#' + DIFF[m.def.diff].toString(16).padStart(6, '0'), mine = m.owner ? '#f5c542' : col;
+  g.clearRect(0, 0, c.width, c.height);
+  // кольцо времени: 24 пиксельных сегмента вокруг плашки
+  const N = 24, on = Math.ceil(Math.max(0, k) * N), warn = k < 0.25;
+  for (let i = 0; i < N; i++) { const a = -Math.PI / 2 + (i + 0.5) / N * Math.PI * 2, x = 32 + Math.cos(a) * 27, y = 30 + Math.sin(a) * 27;
+    g.fillStyle = '#17111f'; g.fillRect(Math.round(x) - 3, Math.round(y) - 3, 6, 6); g.fillStyle = i < on ? (warn ? '#ff5a6e' : mine) : '#3a3046'; g.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4); }
+  g.fillStyle = '#17111f'; g.fillRect(14, 12, 36, 36); g.fillStyle = mine; g.fillRect(16, 14, 32, 32); g.fillStyle = '#2a1f3d'; g.fillRect(18, 16, 28, 28);
+  g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(18, 16, 28, 3);
+  g.drawImage(iconCanvas(m.key, 2), 20, 18);
+  // очки под плашкой
+  const pts = `+${m.pts}`; g.font = '9px "Press Start 2P", monospace'; g.textAlign = 'center'; g.textBaseline = 'top';
+  const w = g.measureText(pts).width + 8; g.fillStyle = '#17111f'; g.fillRect(32 - w / 2, 62, w, 14); g.fillStyle = m.outsider ? '#f5c542' : '#9be36b'; g.fillText(pts, 32, 65);
+  m.marker.tex.needsUpdate = true;
 }
 function marker(def, key) {
   const g = new THREE.Group(), color = DIFF[def.diff];
   const bm = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide });
   const beam = new THREE.Mesh(G.beam, bm); beam.scale.set(1, 7, 1); beam.position.y = 3.5; g.add(beam);
-  const rm = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+  const rm = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true });
   const ring = new THREE.Mesh(G.ring, rm); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ring.scale.setScalar(1.4); g.add(ring);
-  const sp = sprite(plate(key, def.diff), 1.5); sp.scale.set(1.25, 1.5, 1); sp.position.y = 4.4; g.add(sp);
-  W.group.add(g); return { g, bm, rm, sp, ring };
+  // «волна» при появлении: кольцо расходится по земле
+  const wm = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, depthWrite: false });
+  const wave = new THREE.Mesh(G.ring, wm); wave.rotation.x = -Math.PI / 2; wave.position.y = 0.08; g.add(wave);
+  const c = document.createElement('canvas'); c.width = 64; c.height = 80; const cx = c.getContext('2d'); cx.imageSmoothingEnabled = false;
+  const tex = new THREE.CanvasTexture(c); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+  const sp = sprite(tex, 1.5); sp.scale.set(1.6, 2, 1); sp.position.y = 4.4; g.add(sp);
+  W.group.add(g); return { g, bm, rm, wm, wave, sp, ring, cx, tex, born: 0, drawT: 0 };
 }
 
 const FACINGS = [[0, 1], [1, 0], [0, -1], [-1, 0]];
 function findPlace(def, from, others) {
-  const zones = W.missionZones.filter(z => def.zones.includes(z.type));
+  let zones = W.missionZones.filter(z => def.zones.includes(z.type));
+  // родной район — чаще, но не всегда
+  if (def.home && Math.random() < 0.6) { const hz = zones.filter(z => { const d = districtAt((z.x0 + z.x1) / 2, (z.z0 + z.z1) / 2); return d && d.id === def.home; }); if (hz.length) zones = hz; }
   if (!zones.length) return null;
-  const [fw, fd] = def.foot;
-  for (let tr = 0; tr < 120; tr++) {
+  const [fw, fd] = def.foot, spread = WV().spread;
+  for (let tr = 0; tr < 140; tr++) {
     const zn = zones[(Math.random() * zones.length) | 0];
     const fs = FACINGS.slice().sort(() => Math.random() - 0.5);
     for (const f of fs) {
@@ -58,7 +78,7 @@ function findPlace(def, from, others) {
       if (zn.x1 - zn.x0 < w || zn.z1 - zn.z0 < d) continue;
       const x = zn.x0 + w / 2 + Math.random() * (zn.x1 - zn.x0 - w), z = zn.z0 + d / 2 + Math.random() * (zn.z1 - zn.z0 - d), y = zn.y;
       if (tr < 80 && Math.hypot(x - from.x, z - from.z) < 9) continue;
-      if (others.some(o => Math.hypot(o.x - x, o.z - z) < 4)) continue;
+      if (others.some(o => Math.hypot(o.x - x, o.z - z) < (tr < 100 ? spread : 4))) continue;
       if (!isFree(x - w / 2 - 0.15, z - d / 2 - 0.15, x + w / 2 + 0.15, z + d / 2 + 0.15, y + 0.05, y + 2.6)) continue;
       // свободная площадка перед объектом, на той же высоте
       const c = def.clear, fx = x + f[0] * (d / 2 + c / 2), fz = z + f[1] * (d / 2 + c / 2);
@@ -81,62 +101,110 @@ function canSpawn(key, def) {
   return true;
 }
 const freeSpots = kind => (W.spots[kind] || []).filter(sp => !M.list.some(m => m.obj.spot === sp) && !(sp.lamp && (sp.lamp.dead || (sp.lamp.pool && sp.lamp.pool.userData.broken))) && isFree(sp.x - 0.3, sp.z - 0.3, sp.x + 0.3, sp.z + 0.3, sp.y + 0.05, sp.y + 1.5) && Math.abs(groundAt(sp.x, sp.z, 0.2, sp.y + 0.4) - sp.y) < 0.25);
-export function spawnWave(player) {
-  const [a, b] = CONFIG.missionWave, n = a + Math.floor(Math.random() * (b - a + 1));
-  let k = 0; for (let i = 0; i < n; i++) if (spawnMission(player)) k++;
-  M.waveT = 0; return k;
+
+// таймер миссии: от расстояния до ближайшего игрока (25–50 с), в финальном рывке короче
+function lifeFor(p, final) {
+  let d = 1e9; for (const a of actorsAll()) d = Math.min(d, Math.hypot(a.pos.x - p.x, a.pos.z - p.z) + Math.abs(a.pos.y - p.y) * 3);
+  const [a, b] = WV().life; let l = Math.max(a, Math.min(b, 18 + d * 0.55));
+  return final ? Math.max(20, l * 0.8) : l;
 }
-export function spawnMission(player, only = null) {
+// сколько миссий в волне
+export function waveSize(phase) {
+  if (phase === 'event') return 1;
+  return Math.max(WV().min, Math.min(WV().max, actorsAll().length - 1));
+}
+// новая волна: N общих миссий, разнесённых по карте
+export function spawnWave(player, phase = 'calm') {
+  const n = waveSize(phase); let k = 0;
+  for (let i = 0; i < n; i++) if (spawnMission(player, null, { final: phase === 'final' })) k++;
+  M.waveT = 0; M.wave++; M.burnt = 0;
+  if (k && M.onWave) M.onWave(k, M.wave);
+  return k;
+}
+/* создать миссию; opts: owner — личная (видит только он), mult — множитель очков (аутсайдер), final — короче таймер */
+export function spawnMission(player, only = null, opts = {}) {
   const keys = Object.keys(CONFIG.missions).filter(k => (!only || k === only) && canSpawn(k, CONFIG.missions[k]));
   keys.sort(() => Math.random() - 0.5);
+  const others = M.list.map(m => m.obj.pos());
   for (const key of keys) {
     const def = CONFIG.missions[key];
     let obj, where = '';
     if (key === 'cat') {
       const free = W.cats.filter(c => !M.list.some(m => m.obj === c));
-      free.sort((a, b) => b.root.position.distanceTo(player.pos) - a.root.position.distanceTo(player.pos));
+      free.sort((a, b) => minDist(b.root.position, others) - minDist(a.root.position, others));
       obj = free[0]; if (!obj) continue; where = obj.home.district;
     } else if (def.spot) {
-      const list = freeSpots(def.spot).sort((a, b) => Math.hypot(b.x - player.pos.x, b.z - player.pos.z) - Math.hypot(a.x - player.pos.x, a.z - player.pos.z));
+      // место подальше от других миссий волны
+      const list = freeSpots(def.spot).sort((a, b) => minDist(b, others) - minDist(a, others) + (Math.random() - 0.5) * 8);
       const sp = list[(Math.random() * Math.min(3, list.length)) | 0]; if (!sp) continue;
       obj = key === 'fish' ? buildFishing(sp) : key === 'phone' ? buildPhone(sp) : key === 'firebin' ? buildFire(sp) : key === 'bulb' ? buildDeadLamp(sp) : buildSpot(sp); obj.spot = sp;
       where = sp.district + (sp.label ? ' · ' + sp.label : '');
     } else {
-      const pl = findPlace(def, player.pos, M.list.map(m => m.obj.pos()));
+      const pl = findPlace(def, player.pos, others);
       if (!pl) continue;
       const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox }[key];
       obj = key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
       where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
     }
-    M.list.push({ id: ++M.id, key, def, obj, where, life: def.life, busy: false, marker: marker(def, key) });
-    return true;
+    const p = obj.pos(), life = lifeFor(p, opts.final), mult = opts.mult || 1;
+    const m = { id: ++M.id, key, def, obj, where, life, maxLife: life, busy: false, owner: opts.owner || null, outsider: mult > 1, mult, pts: Math.round(def.points * mult), marker: marker(def, key) };
+    drawPlate(m, 1); M.list.push(m);
+    return m;
   }
-  return false;
+  return null;
 }
-export function removeMission(m) {
-  W.group.remove(m.marker.g); m.marker.bm.dispose(); m.marker.rm.dispose(); m.marker.sp.material.dispose();
+const minDist = (p, list) => list.reduce((d, q) => Math.min(d, Math.hypot(q.x - p.x, q.z - p.z)), 60);
+export function removeMission(m, silent = false) {
+  W.group.remove(m.marker.g); m.marker.bm.dispose(); m.marker.rm.dispose(); m.marker.wm.dispose(); m.marker.sp.material.dispose(); m.marker.tex.dispose();
   if (m.obj.dispose) m.obj.dispose();
   M.list = M.list.filter(x => x !== m);
-  M.cooldown[m.key] = CONFIG.missionCooldown;
+  if (!silent) M.cooldown[m.key] = CONFIG.missionCooldown;
 }
+// видит ли персонаж миссию (личные — только хозяин)
+export const visibleTo = (m, a) => !m.owner || m.owner === a;
+const shared = () => M.list.filter(m => !m.owner);
 
-export function updateMissions(dt, t, player, pop) {
+/* opts: phase ('calm' | 'event' | 'final'), t — сколько прошло с начала раунда */
+export function updateMissions(dt, t, player, opts = {}) {
+  const phase = opts.phase || 'calm';
   for (const k in M.cooldown) M.cooldown[k] -= dt;
   for (const m of M.list.slice()) {
-    const p = m.obj.pos(); m.marker.g.position.set(p.x, p.y, p.z); m.marker.g.visible = !m.busy;
-    if (m.def.life > 0 && !m.busy && !W.missionPause) {
+    const p = m.obj.pos(), mk = m.marker; mk.g.position.set(p.x, p.y, p.z);
+    mk.g.visible = !m.busy && !m.doer && visibleTo(m, player);
+    if (!m.busy && !m.doer) {
       m.life -= dt;
-      if (m.life <= 0) { removeMission(m); continue; }
-      m.marker.bm.opacity = m.life < 8 ? (Math.sin(t * 12) > 0 ? 0.45 : 0.1) : 0.28;
+      if (m.life <= 0) { if (!m.owner) M.burnt++; removeMission(m); continue; }
     }
-    m.marker.sp.position.y = 4.4 + Math.sin(t * 3 + m.id) * 0.2;
+    const k = m.life / m.maxLife;
+    mk.drawT -= dt; if (mk.drawT <= 0) { mk.drawT = 0.25; drawPlate(m, k); }
+    // появление: плашка «выпрыгивает», по земле расходится кольцо
+    mk.born += dt; const b = mk.born;
+    const pop = b < 0.5 ? 1 + Math.sin(b / 0.5 * Math.PI) * 0.6 : 1;
+    mk.pop = pop; mk.sp.position.y = 4.4 + Math.sin(t * 3 + m.id) * 0.2 + (b < 0.35 ? (0.35 - b) * 8 : 0);
+    mk.wave.visible = b < 1.2; if (mk.wave.visible) { mk.wave.scale.setScalar(1 + b * 9); mk.wm.opacity = Math.max(0, 1 - b / 1.2); }
+    mk.bm.opacity = k < 0.25 ? (Math.sin(t * 12) > 0 ? 0.45 : 0.1) : mk.bm.opacity;
   }
-  // волны: когда все миссии закончились — через паузу приходит новая волна из 1–2 миссий
-  if (M.list.length === 0 && !W.missionPause) {
-    if (M.waveT <= 0) M.waveT = CONFIG.waveDelay[0] + Math.random() * (CONFIG.waveDelay[1] - CONFIG.waveDelay[0]);
-    else { M.waveT -= dt; if (M.waveT <= 0) { const n = spawnWave(player); if (n) pop(n > 1 ? 'Новые миссии: выбирай!' : 'Новая миссия!', 'info'); } }
+  // волны: общие миссии кончились — пауза и новая волна (личные не держат волну)
+  if (shared().length === 0) {
+    if (M.waveT <= 0) M.waveT = M.burnt > 0 && M.done === 0 ? WV().gapBurnt : (phase === 'final' ? WV().gapBurnt : WV().gap);
+    else { M.waveT -= dt; if (M.waveT <= 0) { M.done = 0; spawnWave(player, phase); extras(player, opts); } }
   }
 }
+// между волнами: личная миссия кому-то из игроков, аутсайдеру — миссия ×1.5
+function extras(player, opts) {
+  const acts = actorsAll(), score = a => a === W.player ? (opts.playerScore ? opts.playerScore() : 0) : a.score || 0;
+  const lead = Math.max(...acts.map(score));
+  if ((opts.t || 0) >= WV().outsiderFrom && lead >= 200) {
+    for (const a of acts) { if (M.list.some(m => m.owner === a)) continue;
+      if (score(a) < lead * WV().outsiderK || score(a) < 60) { const m = spawnMission(player, null, { owner: a, mult: WV().outsiderMul, final: opts.phase === 'final' }); if (m && a === W.player && M.onPersonal) M.onPersonal(m, true); } }
+  }
+  if (Math.random() < WV().personal) {
+    const a = acts[(Math.random() * acts.length) | 0];
+    if (a && !M.list.some(m => m.owner === a)) { const m = spawnMission(player, null, { owner: a, final: opts.phase === 'final' }); if (m && a === W.player && M.onPersonal) M.onPersonal(m, false); }
+  }
+}
+// миссия выполнена (кем угодно): для волны «сделано»
+export function missionDone(m) { if (!m.owner) M.done++; }
 
 /* Взять миссию можно только рядом и «вживую»: в зоне действия, почти на одной высоте
    и без стены между персонажем и точкой миссии (не через стену и не с другого этажа). */
@@ -151,7 +219,7 @@ export function canReach(player, p, skip, reach = 1.8) {
 export function nearMission(player) {
   let best = null, bd = 1e9;
   for (const m of M.list) {
-    if (m.busy) continue;
+    if (m.busy || m.doer || !visibleTo(m, player)) continue;
     const p = m.obj.pos(), c = m.obj.front ? m.obj.front() : p, d = Math.hypot(c.x - player.pos.x, c.z - player.pos.z);
     const reach = m.key === 'cat' ? 1.6 : (m.obj.reach || 1.8);
     if (d < bd && canReach(player, c, m.obj.solid, reach)) { bd = d; best = m; }

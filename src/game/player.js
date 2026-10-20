@@ -54,6 +54,8 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const il = Math.hypot(ix, iz); if (il) { ix /= il; iz /= il; }
   // эмоции 1–4
   if (ctrl) for (let i = 0; i < 4; i++) if (tapped('Digit' + (i + 1))) startEmote(p, EMOTES[i]);
+  // F — «ква» (V оставлена под голосовой ввод)
+  if (ctrl && tapped('KeyF')) voice(p.ch, ['idle', 'happy', 'jump'][(Math.random() * 3) | 0], undefined, true);
   updateEmote(p, dt, il > 0 || tapped('Space'));
   // в укрытии: стоим невидимыми, выскочить — E (в main) или пробел
   if (p.hidden) { p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt); if (ctrl && tapped('Space')) leaveHide(p); else { groundBlob(p); return; } }
@@ -77,7 +79,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     updateRide(p, dt, t, ix, iz, ctrl);
     if (p.ride) {
       p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt);
-      p.ch.animate(dt, { t, speed: 0, ride: pose, rideSpeed: p.speed, hold: false });
+      p.ch.animate(dt, { t, speed: 0, ride: pose, rideSpeed: p.speed, hold: false, kick: p.rideKick, trick: p.trickK || 0, board: p.ride.kind });
       groundBlob(p);
       return;
     }
@@ -168,7 +170,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.dive === 'air') {
     worldHit({ x: p.pos.x + p.vel.x * 0.05, y: p.pos.y + 0.6, z: p.pos.z + p.vel.z * 0.05 }, 4, p.vel);
     // выпад: сбивает толчком (без оглушения), выбивает предмет из рук; закрытую дверь — вышибает
-    for (const b of actors()) { if (b === p || b.hidden || b.heldBy || (b.diveHitT > 0)) continue; const dx = b.pos.x - p.pos.x, dz = b.pos.z - p.pos.z; if (Math.hypot(dx, dz) < p.r + b.r + 0.15 && Math.abs(b.pos.y - p.pos.y) < 1.2) { shove(b, p.vel.x, p.vel.z, 7.5, 4.5, true); b.diveHitT = 0.6; voice(b.ch, 'hurt', b.pos); sfx('hit', { at: b.pos, v: 0.8 }); shake(0.1); } }
+    for (const b of actors()) { if (b === p || b.hidden || b.heldBy || (b.diveHitT > 0)) continue; const dx = b.pos.x - p.pos.x, dz = b.pos.z - p.pos.z; if (Math.hypot(dx, dz) < p.r + b.r + 0.15 && Math.abs(b.pos.y - p.pos.y) < 1.2) { shove(b, p.vel.x, p.vel.z, 7.5, 4.5, true); b.diveHitT = 0.6; voice(b.ch, 'hurt', b.pos); W.onHit && W.onHit(p, b, 'heavy'); sfx('hit', { at: b.pos, v: 0.8 }); shake(0.1); } }
     for (const d of W.doors) if (!d.open && Math.hypot(d.x - p.pos.x, d.z - p.pos.z) < 1.0 && Math.abs(d.y - p.pos.y) < 1.2) { d.open = true; d.slam = 1; sfx('door', { at: d }); shake(0.18); smokeRing(d.x, d.y + 1, d.z, 6, { speed: 2 }); }
   }
   if (p.diveHitT > 0) p.diveHitT -= dt;
@@ -244,7 +246,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
   p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, climb: !!p.climb,
-    hold: (!!p.held || !!p.grab || p.pushing > 0) && !p.holding, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
+    hold: (!!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten) && !p.holding, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
     emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, swat: p.swatT > 0 ? p.swatT : 0 });
 }

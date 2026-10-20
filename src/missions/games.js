@@ -25,7 +25,7 @@ export const GAMES = {
     cat.root.rotation.y = Math.atan2(F.x, F.z);
     const Wp = (a, b) => [cx + F.x * a + C.x * b, cz + F.z * a + C.z * b];
     api.pose(new V3(cx + C.x * 2.0, by + 1.65, cz + C.z * 2.0), new V3(cx, by + 0.6, cz));
-    const hand = buildHand(ctx.character); W.group.add(hand); hand.rotation.y = Math.atan2(C.x, C.z);
+    const hand = buildHand(ctx.character); W.group.add(hand); hand.rotation.y = Math.atan2(-C.x, -C.z); // пальцами от камеры — к коту
     { const [hx, hz] = Wp(0, 0.4); hand.position.set(hx, backY + 0.25, hz); }
     const target = hand.position.clone(), plane = new THREE.Plane(new V3(0, 1, 0), -backY), hit = new V3();
     let down = false, prog = 0, last = null, done = false, doneT = 0, happy = 0, hiss = 0, purr = 0, t = 0;

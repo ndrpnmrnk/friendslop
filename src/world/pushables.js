@@ -1,3 +1,4 @@
+import { splatter } from './splat.js';
 import { THREE, G, mesh, col, tmat, compose, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
@@ -26,6 +27,14 @@ export function addPushable(b, kind, x, z, y = 0) {
   let roller = null, r;
   if (kind === 'cart') { g.add(cartModel()); r = 0.6; }
   else if (kind === 'barrow') { g.add(barrowModel()); r = 0.55; }
+  else if (kind === 'sack') {
+    // мешок с зерном: пухлое тело из мешковины, завязанная горловина, бирка — можно толкнуть, он сползает
+    g.add(compose('sack', a => { const bl = lam({ map: T.burlap() }, 'burlap'), tie = col(0x6a4a2a);
+      a(G.sph10, bl, 0, 0.3, 0, 0.3, 0.28, 0.24); a(G.sph10, bl, 0, 0.16, 0, 0.34, 0.16, 0.27); a(G.cyl8, bl, 0, 0.55, 0, 0.12, 0.1, 0.1); a(G.cyl8, tie, 0, 0.58, 0, 0.1, 0.035, 0.09);
+      a(G.sph, bl, -0.06, 0.64, 0, 0.09, 0.05, 0.07, 0, 0, 0.5); a(G.sph, bl, 0.06, 0.64, 0, 0.09, 0.05, 0.07, 0, 0, -0.5);
+      a(G.box, lam({ map: T.sign('ЗЕРНО', '#e8d8b0', '#6a3a1a') }, 'sackTag'), 0, 0.28, 0.255, 0.3, 0.12, 0.01); }));
+    g.rotation.y = Math.random() * 6; r = 0.32;
+  }
   else if (kind === 'bin') { g.add(binModel()); r = 0.4;
   } else if (kind === 'skate') {
     g.add(compose('skate', add => {
@@ -80,8 +89,8 @@ export function addPushable(b, kind, x, z, y = 0) {
     r = 0.5;
   }
   // mass: тележка катится легко, урна потяжелее, бочка тяжёлая
-  const mass = { cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
-  const h = { cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
+  const mass = { sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
+  const h = { sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
   const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y + y, vx: 0, vz: 0, r, mass, h, ride: RIDE[kind] || null, heading: 0 };
   if (p.ride) p.outline = addOutline(g, 0.04);
   g.position.set(p.x, p.y, p.z); W.pushables.push(p); return p;
@@ -93,7 +102,7 @@ export function tipBin(b, dx = 0, dz = 1) {
   b.tipped = true; b.tipT = 0; b.tipDir = Math.atan2(dx, dz);
   const cols = [0xd8d0c0, 0x8a8d98, 0xc83a3a, 0x6aa84f];
   for (let i = 0; i < 8; i++) chunk(b.x, b.y + 0.6, b.z, [dx * 3 + (Math.random() - 0.5) * 3, 1 + Math.random() * 2, dz * 3 + (Math.random() - 0.5) * 3], { mat: col(cols[i % 4]), size: 0.1, sy: 0.4, life: 6 });
-  decal(T.splat('#2a2418'), b.x + dx * 0.8, b.y, b.z + dz * 0.8, 1.3, 12, 0xffffff);
+  splatter({ x: b.x + dx * 0.8, y: b.y + 0.4, z: b.z + dz * 0.8 }, null, 0x3a3020, 16, 0.6, { flat: true });
   burst(b.x, b.y + 0.4, b.z, 4, { color: 0x6a6a5a, size: 0.3, speed: 1.2, up: 0.8, g: 2, life: 0.6 });
 }
 export function animateTip(b, dt) {

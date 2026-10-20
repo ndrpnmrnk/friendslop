@@ -1,12 +1,13 @@
-import { V3 } from '../core/gfx.js';
+import { V3, THREE } from '../core/gfx.js';
 import { CONFIG } from '../config.js';
 import { W } from '../world/state.js';
 import { moveBody, groundAt, solidsNear, raySolids } from '../world/physics.js';
 import { makeCharacter } from '../characters/rig.js';
 import { SKIN_IDS, SKINS } from '../characters/skins.js';
-import { nearestItem, pickUp, throwVelocity, launch } from './items.js';
+import { nearestItem, pickUp, throwVelocity, launch, addItem } from './items.js';
 import { smoke, smokeRing, burst } from '../world/particles.js';
-import { M, removeMission } from '../missions/missions.js';
+import { M, removeMission, missionDone, visibleTo } from '../missions/missions.js';
+import { statsOf } from './score.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
 import { actors, shove, knockDown } from './actors.js';
@@ -29,7 +30,8 @@ export function createBots(scene, playerSkin, n = 3) {
     ch.root.position.set(sp.x + (Math.random() - 0.5) * 2, sp.y, sp.z + (Math.random() - 0.5) * 2); scene.add(ch.root);
     W.bots.push({ bot: true, name: NAMES[i], skin, mood: moods[i % 3], ch, root: ch.root, pos: ch.root.position, vel: new V3(), push: new V3(), r: PC.radius, h: PC.height, step: PC.step,
       onGround: true, stun: 0, score: 0, goal: null, doT: 0, think: 0, stuck: 0, last: new V3(), facing: 0, throwCD: 3 + Math.random() * 5, held: null, wander: null, airPeak: 0,
-      side: 1, sideT: 0, dodge: null, hideT: 0, actCD: 2, stats: { hits: 0, falls: 0, missions: 0 } });
+      side: 1, sideT: 0, dodge: null, hideT: 0, actCD: 2, carry: null });
+    statsOf(W.bots[W.bots.length - 1]);
   }
   return W.bots;
 }
@@ -39,8 +41,9 @@ const takenBy = m => (W.bots || []).find(b => b.goal && b.goal.m === m);
 function pickMission(b) {
   let best = null, bd = 1e9;
   for (const m of M.list) {
-    if (m.busy || !m.obj || !m.obj.pos) continue; const o = takenBy(m); if (o && o !== b) continue;
-    const p = m.obj.pos(), d = Math.hypot(p.x - b.pos.x, p.z - b.pos.z) + Math.abs(p.y - b.pos.y) * 4 + Math.random() * 8;
+    if (m.busy || m.doer || !m.obj || !m.obj.pos || !visibleTo(m, b)) continue; const o = takenBy(m); if (o && o !== b) continue;
+    // своя (личная) миссия — в приоритете
+    const p = m.obj.pos(), d = Math.hypot(p.x - b.pos.x, p.z - b.pos.z) + Math.abs(p.y - b.pos.y) * 4 + Math.random() * 8 - (m.owner === b ? 25 : 0);
     if (d < bd) { bd = d; best = m; }
   }
   if (!best) return null;
@@ -117,12 +120,19 @@ export function updateBots(dt, t, P) {
     if (b.doT > 0) {
       // «выполняет» миссию: стоит рядом; игрок забрал — ищет другую
       b.doT -= dt; const m = b.goal && b.goal.m;
-      if (!m || m.busy || !M.list.includes(m)) { b.doT = 0; b.goal = null; }
-      else if (b.doT <= 0) { b.score += Math.round(m.def.points * (W.scoreMul || 1)); b.stats.missions++; removeMission(m); W.onBotMission && W.onBotMission(b, m); b.goal = null; if (Math.random() < 0.5) startEmote(b, 'dance'); }
+      if (!m || m.busy || !M.list.includes(m)) { b.doT = 0; b.goal = null; if (m && m.doer === b) m.doer = null; }
+      else if (b.doT <= 0) { const pts = Math.round(m.pts * (W.scoreMul || 1)); b.score += pts; const st = statsOf(b); st.missions++; st.mpts += pts; missionDone(m); removeMission(m); W.onBotMission && W.onBotMission(b, m, pts); b.goal = null; if (Math.random() < 0.5) startEmote(b, 'dance'); }
+    } else if (ctrl && b.carry) {
+      // несёт заказ/пиццу/лампочку: бежит к «точке сдачи», через несколько секунд — очки
+      const c = b.carry; c.t -= dt;
+      if (b.held !== c.it) b.carry = null;
+      else if (c.t <= 0) { const pts = Math.round(c.pts * (W.scoreMul || 1)); b.score += pts; const st = statsOf(b); st.missions++; st.mpts += pts; if (c.stolen) st.steals++; b.held = null; c.it.state = 'gone'; c.it.g.visible = false; b.carry = null; W.onBotMission && W.onBotMission(b, null, pts); startEmote(b, 'dance'); }
+      else { [ix, iz] = steer(b, c.x, c.z, dt); run = 1.05; }
+      act(b, P, dt);
     } else if (ctrl) {
       // приоритеты: событие раунда → увернуться → приманка-уточка → характер
-      if (ev) b.goal = ev;
-      if (b.think <= 0 && !ev) { b.think = 0.6 + Math.random() * 0.6; decide(b, P); }
+      if (ev && !(b.mood === 'worker' && M.list.some(m => !m.owner && !m.doer))) b.goal = ev;
+      if (b.think <= 0 && (!ev || b.goal !== ev)) { b.think = 0.6 + Math.random() * 0.6; decide(b, P); }
       // увернуться от летящего предмета
       if (!b.dodge && (b.mood === 'coward' || Math.random() < 0.5)) for (const it of W.items) {
         if (it.state !== 'fly' || it.owner === b) continue; const dx = b.pos.x - it.pos.x, dz = b.pos.z - it.pos.z, d = Math.hypot(dx, dz);
@@ -159,7 +169,7 @@ export function updateBots(dt, t, P) {
     moveBody(b, dt, PC.gravity);
     if (b.onGround && !was) { const drop = b.airPeak - b.pos.y; if (drop > 0.6) smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1.6, size: 0.14 });
       if (b.thrown) { b.thrown = false; if (drop > 0.3) b.stun = Math.max(b.stun, 0.6); }
-      if (drop > PC.fallStun) { b.stun = PC.stunTime; voice(b.ch, 'hurt', b.pos); b.stats.falls++; } }
+      if (drop > PC.fallStun) { b.stun = PC.stunTime; voice(b.ch, 'hurt', b.pos); statsOf(b).falls++; } }
     if (!b.onGround) b.airPeak = Math.max(b.airPeak, b.pos.y); else b.airPeak = b.pos.y;
     if (b.pos.y < -30) { const s = W.spawns[0]; b.pos.set(s.x, s.y + 1, s.z); b.vel.set(0, 0, 0); }
     const spd = Math.hypot(b.vel.x, b.vel.z);
@@ -172,8 +182,17 @@ export function updateBots(dt, t, P) {
     b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, climb: !!b.climbing, hold: (b.doT > 0 || !!b.held) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
       emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, swat: b.swatT > 0 ? b.swatT : 0 });
     if (b.held) { b.held.pos.copy(b.ch.holdPoint); b.held.g.rotation.y = b.root.rotation.y; }
-    b.root.visible = true; blob(b);
+    b.root.visible = true; blob(b); progBar(b);
   }
+}
+/* полоска прогресса над ботом, пока он делает миссию: видно, кого стоит сбить (перехват) */
+function progBar(b) {
+  const on = b.doT > 0 && b.doTotal;
+  if (!b.bar) { if (!on) return; const c = document.createElement('canvas'); c.width = 34; c.height = 8; const tex = new THREE.CanvasTexture(c); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })); sp.scale.set(1.1, 0.26, 1); sp.renderOrder = 9; b.root.add(sp); b.bar = { sp, c, g: c.getContext('2d'), tex, k: -1 }; }
+  const B = b.bar; B.sp.visible = !!on; if (!on) return;
+  B.sp.position.y = (b.ch.d.top || 1.8) + 0.45; const k = Math.round((1 - b.doT / b.doTotal) * 30); if (k === B.k) return; B.k = k;
+  const g = B.g; g.fillStyle = '#17111f'; g.fillRect(0, 0, 34, 8); g.fillStyle = '#3a3046'; g.fillRect(2, 2, 30, 4); g.fillStyle = '#f5c542'; g.fillRect(2, 2, k, 4); B.tex.needsUpdate = true;
 }
 function blob(b) { const gb = b.ch.blob; if (!gb) return; const g = groundAt(b.pos.x, b.pos.z, 0.1, b.pos.y + 0.05), h = Math.max(0, b.pos.y - g), kk = Math.max(0, 1 - h / 6); gb.position.y = g - b.pos.y + 0.03; gb.scale.setScalar(b.ch.blobS * (0.55 + 0.45 * kk)); gb.material.opacity = 0.32 * kk; }
 
@@ -187,6 +206,9 @@ function decide(b, P) {
       const h = W.hides.find(q => Math.hypot(q.x - b.pos.x, q.z - b.pos.z) < 7 && Math.abs(q.y - b.pos.y) < 1 && !actors().some(a => a.hidden === q));
       if (h && r < 0.5) { b.goal = { x: h.x, y: h.y, z: h.z, kind: 'hide', h, near: h.r }; return; }
       const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z; b.goal = { x: b.pos.x + dx / (d || 1) * 8, y: b.pos.y, z: b.pos.z + dz / (d || 1) * 8, kind: 'flee' }; return; } }
+  // ничей предмет миссии лежит рядом (выронили заказ, пиццу, лампочку) — украсть и сдать самому
+  if (!b.held) { const sit = W.items.find(q => q.steal && q.wasHeld && q.state === 'rest' && Math.hypot(q.pos.x - b.pos.x, q.pos.z - b.pos.z) < 14 && Math.abs(q.pos.y - b.pos.y) < 2);
+    if (sit && r < (mood === 'bully' ? 0.9 : 0.6)) { b.goal = { x: sit.pos.x, y: sit.pos.y - sit.def.r, z: sit.pos.z, kind: 'fetch', it: sit, near: 1.1 }; return; } }
   // задира (или обиженный): найти жертву; без предмета — сначала подобрать что-нибудь
   const angry = mood === 'bully' ? 0.45 : b.revenge > 0 ? 0.7 : mood === 'worker' ? 0.06 : 0.12;
   if (r < angry) { const v = b.revenge > 0 && P ? P : pickVictim(b); if (v) {
@@ -198,11 +220,25 @@ function decide(b, P) {
 // пришёл к цели
 function arrive(b, P) {
   const g = b.goal;
-  if (g.kind === 'mission') { b.doT = 6 + Math.random() * 4; return; }
-  if (g.kind === 'fetch') { const it = g.it; if (it.state === 'rest' && !b.held) { pickUp(it); it.state = 'held'; b.held = it; it.owner = b; } b.goal = null; b.think = 0; return; }
+  if (g.kind === 'mission') { const m = g.m;
+    if (!m || m.doer || m.busy || !M.list.includes(m)) { b.goal = null; return; }
+    // заказ и пицца: бот забирает коробку и несёт её — по дороге её можно выбить и украсть
+    if (CARRY[m.key]) { const it = addItem(CARRY[m.key], b.pos.x, b.pos.y + 1, b.pos.z, 0); it.def = { ...it.def, respawn: 0 }; pickUp(it); it.state = 'held'; it.owner = b; b.held = it;
+      it.steal = { pts: m.pts, key: m.key }; startCarry(b, it, m.pts, false); missionDone(m); removeMission(m); b.goal = null; return; }
+    m.doer = b; b.doT = b.doTotal = 6 + Math.random() * 4; return; }
+  if (g.kind === 'fetch') { const it = g.it; if (it.state === 'rest' && !b.held) { pickUp(it); it.state = 'held'; b.held = it; const prev = it.owner; it.owner = b;
+      if (it.steal) { startCarry(b, it, it.steal.pts, true); W.onSteal && W.onSteal(b, prev, it); } }
+    b.goal = null; b.think = 0; return; }
   if (g.kind === 'hide') { if (!actors().some(a => a.hidden === g.h)) { b.hidden = g.h; b.hideT = 2.5 + Math.random() * 3; b.pos.set(g.h.x, g.h.y, g.h.z); b.vel.set(0, 0, 0); sfx('hide', { at: b.pos }); } b.goal = null; return; }
   if (g.kind === 'fight' || g.kind === 'eventThrow' || g.kind === 'event') return; // действие — в act()
   b.goal = null;
+}
+const CARRY = { delivery: 'parcel', pizza: 'pizza' };
+function startCarry(b, it, pts, stolen) { const a = Math.random() * 6.28; b.carry = { it, pts, stolen, t: 6 + Math.random() * 3, x: b.pos.x + Math.cos(a) * 14, z: b.pos.z + Math.sin(a) * 14 }; }
+// сорвали: бота ударили, пока он делал миссию — прогресс пропал, миссия снова свободна
+export function interruptBot(b) {
+  if (!(b.doT > 0)) return null; const m = b.goal && b.goal.m; b.doT = 0; b.goal = null; b.think = 0.3;
+  if (m && m.doer === b) { m.doer = null; return m; } return null;
 }
 // атака: бросок, удар инструментом, выпад, захват
 function act(b, P, dt) {
@@ -213,6 +249,9 @@ function act(b, P, dt) {
   // инструменты, которые лучше применить сразу
   if (it && it.def.tool && ['energy', 'boots', 'mask'].includes(it.type)) { useTool(b, it, b.pos.clone()); return; }
   if (it && it.type === 'duck' && Math.random() < dt * 0.3) useTool(b, it, b.pos.clone());
+  // ловушки — у миссий и на пути соперников
+  if (it && ['banana', 'rake', 'cushion', 'paint'].includes(it.type) && b.actCD <= 0) { const nearM = M.list.some(m => { const p = m.obj.pos(); return Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 4; });
+    if (nearM || Math.random() < dt * 0.15) { useTool(b, it, b.pos.clone()); b.actCD = 1; return; } }
   if (g && g.kind === 'eventThrow') { if (it && b.throwCD <= 0) { throwAt(b, g.who); b.throwCD = 1.2 + Math.random(); } return; }
   if (!g || g.kind !== 'fight') {
     // держит предмет без цели: изредка бросает в игрока, если тот рядом
@@ -224,7 +263,7 @@ function act(b, P, dt) {
   const d = Math.hypot(v.pos.x - b.pos.x, v.pos.z - b.pos.z); b.aimAt = v.pos;
   if (it) {
     const melee = ['slipper', 'pillow'].includes(it.type), shooter = ['water', 'sling', 'bubbles', 'extinguisher'].includes(it.type);
-    if (melee && d < 1.6 && b.actCD <= 0) { b.actCD = 0.9; useTool(b, it, v.pos.clone().setY(v.pos.y + 1)); sfx(it.type === 'pillow' ? 'pillow' : 'swat', { at: b.pos }); hitStat(b, v); return; }
+    if (melee && d < 1.6 && b.actCD <= 0) { b.actCD = 0.9; useTool(b, it, v.pos.clone().setY(v.pos.y + 1)); sfx(it.type === 'pillow' ? 'pillow' : 'swat', { at: b.pos }); return; }
     if (shooter && d < (it.type === 'extinguisher' ? 5 : 10) && b.actCD <= 0 && los(b, v)) { b.facing = Math.atan2(v.pos.x - b.pos.x, v.pos.z - b.pos.z); useTool(b, it, v.pos.clone().setY(v.pos.y + 1), 0.25); if (!it.def.hold) b.actCD = 0.5; return; }
     if (it.type === 'firework' && it.lit === undefined) useTool(b, it, v.pos.clone());
     if (!melee && !shooter && d < 11 && d > 3 && b.throwCD <= 0 && los(b, v)) { throwAt(b, v); return; }
@@ -247,7 +286,7 @@ function throwAt(b, v) {
   const vel = throwVelocity(from, tgt, 0.55 + Math.random() * 0.35, it.def); b.held = null; it.owner = b; launch(it, from, vel);
   b.facing = Math.atan2(v.pos.x - b.pos.x, v.pos.z - b.pos.z); voice(b.ch, 'throw', b.pos); sfx('throw', { at: b.pos }); b.throwT = 0.3;
 }
-const hitStat = (b, v) => { b.stats.hits++; W.onHit && W.onHit(b, v, 'melee'); };
+const hitStat = (b, v) => { W.onHit && W.onHit(b, v, 'melee'); };
 
 /* Попадание брошенным предметом по любому персонажу: тяжёлое и тапок сбивают с ног, лёгкое толкает и мочит.
    Раскрытый зонтик спереди закрывает от бросков. */
@@ -259,7 +298,7 @@ export function botHitHook(it, p, heavy, r) {
     if (a.held && a.held.type === 'umbrella' && a.held.open) { const f = a.root.rotation.y; if (-(it.vel.x * Math.sin(f) + it.vel.z * Math.cos(f)) > 2) { it.vel.multiplyScalar(-0.35); sfx('umbrella', { at: a.pos }); continue; } }
     if (heavy) { knockDown(a, it.vel.x * 0.4, it.vel.z * 0.4, a === W.player ? 1.2 : 1.4); voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); }
     else { a.push.set(it.vel.x * (a.bot ? 0.2 : 0.15), 0, it.vel.z * (a.bot ? 0.2 : 0.15)); if (it.type === 'balloon') { a.wetT = 4; a.slipT = 2; } }
-    if (it.owner && it.owner.bot && a !== it.owner) { it.owner.stats.hits++; if (a === W.player && Math.random() < 0.5) setTimeout(() => startEmote(it.owner, 'laugh'), 500); }
+    if (it.owner && it.owner.bot && a !== it.owner) { if (a === W.player && Math.random() < 0.5) setTimeout(() => startEmote(it.owner, 'laugh'), 500); }
     W.onHit && W.onHit(it.owner, a, heavy ? 'heavy' : 'light');
   }
 }

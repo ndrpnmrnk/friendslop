@@ -13,6 +13,8 @@ export function buildEdges(half) {
   const b = new Builder(0, 0, 0, 'Окраина'), base = CONFIG.base, L = half * 2;
   const sides = shuffle(['s', 'n', 'e', 'w']);
   const kinds = shuffle(['houses', 'river', 'site', pick(['houses', 'river', 'site'])]);
+  // на карте есть порт — его край (юг) обязательно река
+  if (W.riverSide) { const i = sides.indexOf(W.riverSide), j = kinds.indexOf('river'); if (kinds[i] !== 'river') { kinds[j] = kinds[i]; kinds[i] = 'river'; } }
   // перевод «вдоль стороны u / наружу v» в мировые координаты
   const frame = side => ({
     P: (u, v) => side === 's' ? [u, half + v] : side === 'n' ? [u, -half - v] : side === 'e' ? [half + v, u] : [-half - v, u],

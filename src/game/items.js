@@ -6,7 +6,8 @@ import { T } from '../core/textures.js';
 import { CONFIG } from '../config.js';
 import { W } from '../world/state.js';
 import { groundAt, solidHit, addZone, impulsePushables, zoneAt } from '../world/physics.js';
-import { puff, burst, chunk, decal, splash, ripple } from '../world/particles.js';
+import { puff, burst, chunk, splash, ripple } from '../world/particles.js';
+import { splatter } from '../world/splat.js';
 import { scareBirds } from '../world/birds.js';
 import { hitBreakables } from '../world/breakables.js';
 import { worldHit, shake, hitFreeze } from './worldfx.js';
@@ -116,7 +117,6 @@ function impact(it, n, speed) {
   const wall = Math.abs(n[1]) < 0.5;
   // следы ударов: брызги на стене, искры и пыль от тяжёлого
   if (wall && speed > 8 && it.def.heavy) { burst(p.x, p.y, p.z, 5, { color: 0xffd25c, size: 0.08, speed: 4, up: 1.5, g: 14, life: 0.35, grow: 0 }); burst(p.x, p.y, p.z, 3, { color: 0x8a7e90, size: 0.35, speed: 0.8, up: 0.4, g: 1, life: 0.7, grow: 1.4 }); }
-  if (wall && (t === 'balloon' || t === 'tomato' || t === 'pumpkin')) wallDecal(T.splat(t === 'balloon' ? '#4a90d0' : t === 'tomato' ? '#b8200e' : '#e8731a'), p, n, t === 'balloon' ? 1.6 : 1.1);
   if (it.def.heavy && speed > 10) shake(0.12);
   // попал в воду: всплеск; тяжёлое тонет, лёгкое остаётся плавать
   if (n[1] > 0.5 && zoneAt(p.x, p.z, gy, 'water')) {
@@ -127,25 +127,26 @@ function impact(it, n, speed) {
   }
   if (t === 'balloon') {
     sfx('splash', { at: p });
-    burst(p.x, p.y, p.z, 14, { color: 0x6ab8f0, size: 0.28, speed: 3, up: 2.5 });
-    decal(T.splat('#4a90d0'), p.x, gy, p.z, 2.4, 20, 0xffffff);
+    burst(p.x, p.y, p.z, 8, { color: 0x6ab8f0, size: 0.28, speed: 3, up: 2.5 });
+    splatter(p, it.vel, 0x4a90d0, 34, 1.1, { owner: it.owner });
     addZone('puddle', { c: [p.x, p.z, 1.15] }, gy, { expires: 7 });
     vanish(it);
   } else if (t === 'tomato') {
-    burst(p.x, p.y, p.z, 10, { color: 0xd8301a, size: 0.22, speed: 2.5 });
-    decal(T.splat('#b8200e'), p.x, gy, p.z, 1.1, 20);
+    burst(p.x, p.y, p.z, 5, { color: 0xd8301a, size: 0.22, speed: 2.5 });
+    splatter(p, it.vel, 0xb8200e, 24, 0.9, { owner: it.owner });
     vanish(it);
   } else if (t === 'pumpkin') {
     const m = tmat(T.pumpkin());
     for (let i = 0; i < 9; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5 + it.vel.x * 0.15, 2 + Math.random() * 3, (Math.random() - 0.5) * 5 + it.vel.z * 0.15], { mat: m, size: 0.18 + Math.random() * 0.1, life: 2.5 });
     burst(p.x, p.y, p.z, 6, { color: 0xffd25c, size: 0.2, speed: 2 });
+    splatter(p, it.vel, 0xe8731a, 20, 0.9, { owner: it.owner });
     vanish(it);
   } else if (t === 'trash' && speed > 6) {
     // пакет рвётся: бумажки, банки, пятно
     const cols = [0xd8d0c0, 0x8a8d98, 0xc83a3a, 0x6aa84f, 0xf5c542];
     for (let i = 0; i < 10; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5 + it.vel.x * 0.2, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 5 + it.vel.z * 0.2], { mat: col(cols[i % cols.length]), size: 0.1 + Math.random() * 0.06, sy: 0.4, life: 5 });
     for (let i = 0; i < 3; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3], { mat: tmat(T.trashBag()), size: 0.22, sy: 0.15, life: 5 });
-    decal(T.splat('#2a2418'), p.x, gy, p.z, 1.4, 10, 0xffffff);
+    splatter(p, it.vel, 0x3a3020, 18, 0.8, { owner: it.owner });
     burst(p.x, p.y, p.z, 5, { color: 0x6a6a5a, size: 0.35, speed: 1.6, up: 1, g: 2, grow: 1.2, life: 0.8 });
     vanish(it);
   } else if (t === 'chair' && speed > 9) {
@@ -168,10 +169,6 @@ function impact(it, n, speed) {
   }
 }
 
-function wallDecal(tex, p, n, size) {
-  const d = decal(tex, p.x, p.y, p.z, size, 20, 0xffffff); d.position.set(p.x + n[0] * 0.02, p.y, p.z + n[2] * 0.02);
-  d.rotation.set(0, 0, 0); d.lookAt(p.x + n[0], p.y, p.z + n[2]); d.rotateZ(Math.random() * 6.28);
-}
 // шлейф: короткие пиксельные клубки за летящим предметом
 const TRAIL = { balloon: 0x8ac8f0, tomato: 0xff6a4a, pumpkin: 0xffb04a, brick: 0xc89080, ball: 0xf5c542, can: 0xff5a6e, slipper: 0xff7aa8, banana: 0xf5d442, paint: 0x4ab0f0, firework: 0xffd25c };
 function trail(it, dt) {
@@ -244,16 +241,17 @@ export function nearestItem(p, r) {
   }
   return best;
 }
-export function pickUp(it) { it.floatY = undefined; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
+export function pickUp(it) { it.floatY = undefined; it.trail = 0; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
 export function drop(it, x, y, z) { it.state = 'rest'; it.pos.set(x, y + it.def.r + 0.05, z); it.vel.set(0, 0, 0); }
 
 /* Расчёт броска по дуге к точке прицела */
 export function throwVelocity(from, target, charge, def) {
   const dx = target.x - from.x, dz = target.z - from.z, dist = Math.hypot(dx, dz) || 0.001;
-  const { minRange, maxRange } = CONFIG.throw, mk = Math.max(0.45, Math.min(1.25, 0.8 / Math.sqrt(def.mass)));
-  const range = (minRange + (maxRange - minRange) * charge) * mk, d = Math.min(dist, range);
-  // тяжёлое летит медленнее и ниже по дуге
-  const T = (0.32 + d * 0.035) * (def.mass > 1.5 ? 1.15 : 1), vh = d / T, dy = (dist <= range ? target.y : from.y - 0.5) - from.y;
+  // вес решает всё: лёгкое (тапок, помидор) летит далеко, быстро и почти прямо — точный бросок;
+  // тяжёлое (тыква, кирпич) — недалеко, медленно и высоким навесом
+  const heavy = Math.max(0, Math.min(1, (def.mass - 0.4) / 2.4)), mk = 1.35 - heavy * 0.9;
+  const { minRange, maxRange } = CONFIG.throw, range = (minRange + (maxRange - minRange) * charge) * mk, d = Math.min(dist, range);
+  const T = 0.14 + d * (0.018 + heavy * 0.04) + heavy * 0.35, vh = d / T, dy = (dist <= range ? target.y : from.y - 0.5) - from.y;
   // поправка на сопротивление воздуха, чтобы лёгкое прилетало в прицел
   const dragK = 1 + def.drag * T * 0.5;
   return new V3(dx / dist * vh * dragK, (dy + 0.5 * GRAV * T * T) / T, dz / dist * vh * dragK);

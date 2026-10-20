@@ -74,13 +74,21 @@ export default {
     { const gl = lam({ color: 0x9ac8e8, transparent: true, opacity: 0.45, depthWrite: false }, 'canopyGlass'), dk = col(0x2b2533);
       b.m(G.box, gl, 16, 3.05, 15.6, 5, 0.06, 3); b.m(G.box, dk, 16, 3.0, 17.1, 5.1, 0.12, 0.1); for (const x of [13.6, 18.4]) { b.m(G.box, dk, x, 1.5, 17.0, 0.12, 3.0, 0.12); b.solid(x, 17.0, 0.2, 0.2, 0, 3); }
       b.m(G.box, glow(0xffe0b0), 16, 2.98, 15.6, 3.2, 0.03, 0.2); b.light(16, 15.6, 2.2); }
-    // «сухой» фонтан: гранитная площадка, струи бьют прямо из пола по очереди
-    { b.ground(12.5, 22.5, 19.5, 27, T.stone(), 1.5); const jets = [];
-      for (const x of [13.5, 15, 16.5, 18]) for (const z of [23.5, 26]) { b.m(G.cyl8, col(0x3a3440), x, 0.02, z, 0.12, 0.04, 0.12); jets.push([b.X(x), b.Z(z)]); }
-      const wet = b.m(G.plane, lam({ map: T.puddle(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, emissive: 0x1a2a40, emissiveIntensity: 1 }, 'puddle'), 15.75, 0.025, 24.75, 6, 3.6, 1); wet.rotation.x = -Math.PI / 2;
+    // «сухой» фонтан: гранитная площадка с бортиком, 8 форсунок под решётками; струи — настоящие столбики воды,
+    // бьют волной по очереди, сверху рассыпаются брызгами; вокруг пары лужиц (скользко)
+    { b.ground(12.5, 22.5, 19.5, 27, T.stone(), 1.5);
+      const rim = col(0x6a6478); for (const [x, z, w, d] of [[16, 22.4, 7.2, 0.2], [16, 27.1, 7.2, 0.2], [12.4, 24.75, 0.2, 4.9], [19.6, 24.75, 0.2, 4.9]]) b.m(G.box, rim, x, 0.05, z, w, 0.1, d);
+      const jets = [], wm = lam({ color: 0x9ccbec, emissive: 0x204a70, emissiveIntensity: 0.6, transparent: true, opacity: 0.65, depthWrite: false }, 'jetWater'), cap = lam({ color: 0xd8f0ff, emissive: 0x4a7aa0, emissiveIntensity: 0.6, transparent: true, opacity: 0.8, depthWrite: false }, 'jetCap');
+      for (const x of [13.5, 15, 16.5, 18]) for (const z of [23.5, 26]) {
+        b.m(G.box, col(0x2b2533), x, 0.02, z, 0.36, 0.03, 0.36); for (const o of [-0.09, 0, 0.09]) b.m(G.box, col(0x8a8498), x + o, 0.04, z, 0.03, 0.02, 0.32);
+        const c = b.m(G.cyl6, wm, x, 0.5, z, 0.06, 1, 0.06), top = b.m(G.sph, cap, x, 1, z, 0.13, 0.1, 0.13); W.keep.push(c, top); jets.push({ c, top, x: b.X(x), z: b.Z(z), i: jets.length });
+      }
+      b.puddle(14.2, 24.75, 0.7); b.puddle(17.6, 24.2, 0.6);
       addZone('puddle', { r: [b.X(13), b.Z(23), b.X(18.5), b.Z(26.5)] }, b.Y);
-      let jt = 0; W.animated.push((dt, t) => { jt -= dt; if (jt > 0) return; jt = 0.09; const ph = Math.floor(t * 0.8) % 4;
-        for (let i = 0; i < jets.length; i++) if ((i >> 1) % 4 === ph || ph === 3 && i % 2 === 0) burst(jets[i][0], b.Y + 0.1, jets[i][1], 1, { color: 0x9ccbec, size: 0.16, speed: 0.25, up: 5.5, g: 12, life: 0.9, grow: 0.1 }); }); }
+      let jt = 0; W.animated.push((dt, t) => { jt -= dt; const spray = jt <= 0; if (spray) jt = 0.12;
+        for (const j of jets) { const col4 = j.i >> 1, k = Math.max(0, Math.sin(t * 2.2 - col4 * 0.9)), h = 0.05 + k * k * 1.7;
+          j.c.scale.y = h; j.c.position.y = b.Y + h / 2; j.top.position.y = b.Y + h; j.c.visible = j.top.visible = h > 0.12;
+          if (spray && h > 1.2) burst(j.x, b.Y + h, j.z, 1, { color: 0x9ccbec, size: 0.1, speed: 1.2, up: 1.2, g: 12, life: 0.5, grow: 0 }); } }); }
     // скульптура-абстракция: наклонённые кубы на постаменте
     { const st = tmat(T.stone()); b.box(16, 20, 1.4, 1.4, 0.5, st); const c1 = b.m(G.box, col(0xb18cff), 16, 1.15, 20, 0.9, 0.9, 0.9); c1.rotation.set(0.6, 0.5, 0.3); const c2 = b.m(G.box, col(0xff8a1f), 16.1, 1.95, 20, 0.6, 0.6, 0.6); c2.rotation.set(0.2, 1.1, 0.7); b.solid(16, 20, 1.2, 1.2, 0.5, 1.8); }
     b.car(3, 19.5, 0, 0x2a2a30); b.bin(8.5, 18.2); b.bin(23.5, 18.2);

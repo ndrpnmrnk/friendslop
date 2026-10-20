@@ -8,6 +8,8 @@ export const look = { dx: 0, dy: 0 };
 export const lock = { want: () => false };
 export const locked = () => document.pointerLockElement === canvas;
 export function unlock() { if (locked()) document.exitPointerLock(); }
+// захват мыши без отдельного клика: вызывается из любого действия пользователя (клик по кнопке, нажатие клавиши)
+export function requestLock() { if (locked()) return; try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
 const handlers = { down: [], up: [], move: [], key: [] };
 export const on = (ev, fn) => handlers[ev].push(fn);
 
@@ -17,6 +19,8 @@ addEventListener('keydown', e => {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
   // во время игры клавиши достаются только игре (кроме F5/F11/F12)
   if (lock.want() && !/^F(5|11|12)$/.test(e.code)) e.preventDefault();
+  // захват потерян (Alt-Tab и т.п.) — любая клавиша, кроме Esc, возвращает его
+  if (lock.want() && !locked() && e.code !== 'Escape') requestLock();
   handlers.key.forEach(f => f(e.code));
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
@@ -30,7 +34,7 @@ function setPos(e) {
 }
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
-  if (!locked() && lock.want()) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} return; }
+  if (!locked() && lock.want()) { requestLock(); return; }
   setPos(e);
   if (e.button === 0) mouse.left = true;
   if (e.button === 2) mouse.right = true;

@@ -141,7 +141,7 @@ export function updatePushables(dt, player) {
     b.hitSpeed = 0;
     if (pushOut(p, b.r, b.y + (b.ride && b.kind !== 'ring' ? 0.5 : 0.2), b.y + 1)) { b.hitSpeed = Math.hypot(b.vx, b.vz); b.vx *= -0.3; b.vz *= -0.3; }
     b.x = p.x; b.z = p.z;
-    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind])); b.vx *= f; b.vz *= f;
+    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
     // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
     if (b.ride && b.kind !== 'ring') {
@@ -152,14 +152,28 @@ export function updatePushables(dt, player) {
         gy = Math.max(gy, r.y); if (!b.grind) { b.grind = r; W.onGrind && W.onGrind(b); } const L = Math.sqrt(L2), tx = ex / L, tz = ez / L, v = b.vx * tx + b.vz * tz; b.vx = tx * v; b.vz = tz * v; b.x = qx; b.z = qz;
       }
       if (b.grind && Math.abs(b.y - b.grind.y) > 0.05) b.grind = null;
-      if (b.y > gy + 0.02) { b.vy -= 22 * dt; b.y = Math.max(gy, b.y + b.vy * dt); if (b.y <= gy) { if (b.vy < -7 && b.rider) b.hardLand = -b.vy; b.vy = 0; } b.air = b.y > gy; }
-      else { const rise = gy - b.y; b.vy = rise > 0.005 ? Math.min(8, rise / dt * 0.85) : 0; if (rise > 0.01) { const k = Math.max(0.7, 1 - rise * 0.6); b.vx *= k; b.vz *= k; } b.y = gy; b.air = false; }
+      const board = b.kind === 'skate' || b.kind === 'scooter';
+      if (b.y > gy + 0.02) { b.vy -= 22 * dt; b.y = Math.max(gy, b.y + b.vy * dt); if (b.y <= gy) { if (b.vy < -7 && b.rider) b.hardLand = -b.vy; b.vy = 0; } b.air = b.y > gy; if (board) b.pitch = (b.pitch || 0) * Math.exp(-dt * 3); }
+      else {
+        const rise = gy - b.y; b.vy = rise > 0.005 ? Math.min(8, rise / dt * 0.85) : 0;
+        if (board) {
+          /* доска «прилипает» к рампе: наклон по рельефу вдоль хода, на подъёме её тянет назад вниз —
+             по инерции заезжает вверх и скатывается обратно (как в халфпайпе) */
+          const h = b.rider ? b.heading : b.mesh.rotation.y, fx = Math.sin(h), fz = Math.cos(h);
+          _selfP = b; const gF = groundAt(b.x + fx * 0.35, b.z + fz * 0.35, 0.05, b.y + 0.7), gB = groundAt(b.x - fx * 0.35, b.z - fz * 0.35, 0.05, b.y + 0.7); _selfP = null;
+          const sl = Number.isFinite(gF) && Number.isFinite(gB) && Math.abs(gF - gB) < 1.5 ? Math.max(-2.5, Math.min(2.5, (gF - gB) / 0.7)) : 0, a = -21 * sl / Math.sqrt(1 + sl * sl);
+          b.vx += fx * a * dt; b.vz += fz * a * dt; b.pitch = (b.pitch || 0) + (Math.atan(sl) - (b.pitch || 0)) * Math.min(1, dt * 14);
+          if (b.vy > 0) b.vy *= 0.8;
+        } else if (rise > 0.01) { const k = Math.max(0.7, 1 - rise * 0.6); b.vx *= k; b.vz *= k; }
+        b.y = gy; b.air = false;
+      }
     }
     b.mesh.position.set(b.x, b.y + (b.kind === 'ring' ? Math.sin(performance.now() * 0.003 + b.x) * 0.04 : 0), b.z);
     // движение по форме: стоячий бак скользит не поворачиваясь; бочка, шина и колёсное едут вдоль «колёс»,
     // боковое скольжение гасится, направление плавно доворачивается к толчку
     const sp = Math.hypot(b.vx, b.vz);
-    if (b.rider) b.mesh.rotation.y = b.heading;
+    if (b.rider) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.set(-(b.pitch || 0), b.heading + (b.shuv || 0), b.flip || 0); }
+    else if ((b.kind === 'skate' || b.kind === 'scooter') && (b.pitch || b.flip)) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.x = -(b.pitch || 0); b.mesh.rotation.z = 0; b.flip = 0; b.shuv = 0; }
     else if (b.kind === 'chair') b.mesh.rotation.y += Math.hypot(b.x - op.x, b.z - op.z) * 2;
     else if (b.kind !== 'bin' && sp > 0.02) {
       let h = b.mesh.rotation.y; const fx = Math.sin(h), fz = Math.cos(h);

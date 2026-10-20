@@ -137,20 +137,26 @@ export const TowerMethods = {
       }
     }
     if (FE) {
-      const sg = FE.side === 'w' ? -1 : 1, wx = FE.side === 'w' ? x : x + w, cxL = wx + sg * 0.62, grate = tmat(T.grate()), mt = col(0x2b2533);
+      /* Марши идут «змейкой» в ДВУХ полосах: чётные — у стены, нечётные — снаружи. Так верхний марш никогда
+         не висит над нижним, и поднимаясь, ты не упираешься головой в следующий пролёт. Площадки — во всю ширину. */
+      const sg = FE.side === 'w' ? -1 : 1, wx = FE.side === 'w' ? x : x + w, grate = tmat(T.grate()), mt = col(0x2b2533);
+      const two = n > 2, laneX = j => wx + sg * (j ? 1.84 : 0.66), outer = wx + sg * (two ? 2.46 : 1.24), LW = two ? 2.44 : 1.22;
       for (let k = 1; k < n; k++) {
         const ly = k * fh, lz = feZ(k);
-        this.box(cxL, lz, 1.2, 1.3, 0.08, grate, { y: ly - 0.08 });
-        this.m(G.box, mt, wx + sg * 1.21, ly + 0.95, lz, 0.05, 0.05, 1.3);
-        if (k === 1) { for (const dz of [-0.53, 0.53]) this.solid(wx + sg * 1.21, lz + dz, 0.08, 0.24, ly, 1.0); } else this.solid(wx + sg * 1.21, lz, 0.08, 1.3, ly, 1.0);
-        for (const dz of [-0.62, 0.62]) this.m(G.box, mt, wx + sg * 1.21, ly + 0.48, lz + dz, 0.04, 0.95, 0.04);
-        if (k < n - 1) { // марш до следующей площадки
-          const z0 = lz + (feZ(k + 1) > lz ? 0.65 : -0.65), z1 = feZ(k + 1) + (feZ(k + 1) > lz ? -0.65 : 0.65), steps = Math.ceil(fh / 0.34), dzs = (z1 - z0) / steps;
-          for (let i = 0; i < steps; i++) { const sz = z0 + dzs * (i + 0.5), top = ly + fh * (i + 1) / steps; this.m(G.box, grate, cxL, top - 0.04, sz, 1.0, 0.08, Math.abs(dzs) + 0.02); this.solid(cxL, sz, 1.0, Math.abs(dzs), top - 0.12, 0.12); }
-          const hl = Math.hypot(z1 - z0, fh), hr = this.m(G.box, mt, wx + sg * 1.15, ly + fh / 2 + 0.9, (z0 + z1) / 2, 0.05, 0.05, hl); hr.rotation.x = -Math.atan2(fh, z1 - z0);
+        this.box(wx + sg * (LW / 2 + 0.04), lz, LW, 1.3, 0.08, grate, { y: ly - 0.08 });
+        this.m(G.box, mt, outer, ly + 0.95, lz, 0.05, 0.05, 1.3);
+        if (k === 1) { for (const dz of [-0.53, 0.53]) this.solid(outer, lz + dz, 0.08, 0.24, ly, 1.0); } else this.solid(outer, lz, 0.08, 1.3, ly, 1.0);
+        for (const dz of [-0.62, 0.62]) this.m(G.box, mt, outer, ly + 0.48, lz + dz, 0.04, 0.95, 0.04);
+        if (k < n - 1) { // марш до следующей площадки — в своей полосе
+          const lx = laneX(k % 2), up = feZ(k + 1) > lz;
+          const z0 = lz + (up ? 0.65 : -0.65), z1 = feZ(k + 1) + (up ? -0.65 : 0.65), steps = Math.ceil(fh / 0.3), dzs = (z1 - z0) / steps;
+          for (let i = 0; i < steps; i++) { const sz = z0 + dzs * (i + 0.5), top = ly + fh * (i + 1) / steps; this.m(G.box, grate, lx, top - 0.04, sz, 1.0, 0.08, Math.abs(dzs) + 0.02); this.solid(lx, sz, 1.0, Math.abs(dzs), top - 0.12, 0.12); }
+          // перила марша — с внешней стороны полосы
+          const rx = lx + sg * 0.52, hl = Math.hypot(z1 - z0, fh), hr = this.m(G.box, mt, rx, ly + fh / 2 + 0.9, (z0 + z1) / 2, 0.05, 0.05, hl); hr.rotation.x = -Math.atan2(fh, z1 - z0);
+          if (k % 2) for (const zz of [z0, z1]) this.m(G.box, mt, rx, ly + (zz === z0 ? 0.48 : fh + 0.48), zz, 0.04, 0.95, 0.04);
         }
       }
-      this.dropLadder(wx + sg * 1.22, feZ(1), FE.side, fh, Math.min(2.4, fh * 0.65));
+      this.dropLadder(outer, feZ(1), FE.side, fh, Math.min(2.4, fh * 0.65));
       this.ladder(wx, feZ(n - 1), FE.side, H, (n - 1) * fh);
     }
     // мягкое затенение земли у основания стен

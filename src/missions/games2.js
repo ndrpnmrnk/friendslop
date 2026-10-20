@@ -243,35 +243,15 @@ export const WORLD_GAMES = {
   delivery(o, api, ctx) { return deliveryCore(o, api, ctx, 'parcel'); },
   // Горячая пицца: та же доставка, но коробка остывает; брошенная/лежащая остывает втрое быстрее
   pizza(o, api, ctx) { return deliveryCore(o, api, ctx, 'pizza'); },
-
-  // Снос: садишься в кран и сносишь отмеченную красную стену, пока не кончилось время
-  demolition(o, api, ctx) {
-    const sp = W.spots.demo[0];
-    for (const p of sp.pieces || []) if (p.alive) { p.alive = false; if (p.solid) p.solid.on = false; p.mesh.parent && p.mesh.parent.remove(p.mesh); }
-    const mat = lam({ color: 0xd85a4a, emissive: 0x401010, emissiveIntensity: 1 }, 'demoBrick');
-    sp.pieces = brickWall(sp.x, sp.z, sp.y, 4, 2.4, 'x', { mat, bw: 0.8, bh: 0.6 });
-    for (const p of sp.pieces) { p.mesh.castShadow = true; p.mesh.receiveShadow = true; }
-    smokeRing(sp.x, sp.y + 0.2, sp.z, 10, { speed: 3, size: 0.3 });
-    let time = 50; const N = sp.pieces.length;
-    ctx.enterCrane();
-    api.msg('Снеси красную стену! W/S — тележка, A/D — поворот');
-    return {
-      target: () => new V3(sp.x, sp.y + 1, sp.z),
-      update(dt) {
-        time -= dt; api.timer(time);
-        const broken = sp.pieces.filter(p => !p.alive).length; api.progress(broken / N / 0.75);
-        if (broken >= N * 0.75) return api.finish({ success: true, mult: 1 });
-        if (time <= 0) return api.finish({ success: false });
-      },
-      stop() { ctx.exitCrane(); },
-    };
-  },
 };
 
 function deliveryCore(o, api, ctx, kind) {
     const P = ctx.player, from = o.pos(), dests = W.spots.deliver.filter(d => Math.hypot(d.x - from.x, d.z - from.z) > 14);
     const pool = dests.length ? dests : W.spots.deliver, dest = pool[(Math.random() * pool.length) | 0], g = dest.guide;
     const parcel = addItem(kind, from.x, from.y + 0.2, from.z, 0); parcel.def = { ...parcel.def, respawn: 0 };
+    // выронил (сбили) — заказ могут украсть и сдать сами
+    parcel.steal = { pts: ctx.mission ? ctx.mission.pts : 200, key: kind }; parcel.mine = P;
+    const stolen = () => parcel.state === 'held' && P.held !== parcel;
     let heat = 1, steamT = 0;
     ctx.give(parcel);
     const beamM = new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide });
@@ -297,10 +277,11 @@ function deliveryCore(o, api, ctx, kind) {
         else api.progress(1 - Math.min(1, Math.hypot(P.pos.x - dest.x, P.pos.z - dest.z) / 40));
         const near = Math.hypot(parcel.pos.x - dest.x, parcel.pos.z - dest.z) < 2.2 && Math.abs(parcel.pos.y - dest.y) < 1.8;
         if (near && (P.held === parcel || parcel.state === 'rest')) { burst(dest.x, dest.y + 1, dest.z, 12, { color: 0x9be36b, size: 0.2, speed: 2 }); return api.finish({ success: true, mult: kind === 'pizza' ? 0.6 + heat * 0.6 : 1 }); }
+        if (stolen()) { api.msg('Украли!', 'bad'); parcel.mine = null; return api.finish({ success: false, stolen: parcel.owner }); }
         if (parcel.state === 'gone') return api.finish({ success: false });
         if (time <= 0) return api.finish({ success: false });
       },
-      stop() { W.group.remove(beam); W.group.remove(sky); if (P.held === parcel) P.held = null; parcel.state = 'gone'; parcel.g.visible = false; },
+      stop() { W.group.remove(beam); W.group.remove(sky); if (P.held === parcel) P.held = null; if (stolen()) return; parcel.state = 'gone'; parcel.g.visible = false; parcel.steal = null; },
     };
 }
-void breakPiece; void tmat; void T;
+void breakPiece; void brickWall; void tmat; void T;

@@ -316,16 +316,24 @@ export const T = {
     grain(g, W, H, 12);
   }),
   glove: () => photo('glove', 16, 16, (g, W, H) => { fill(g, W, H, '#1e8ad0'); g.fillStyle = radial(g, W * 0.35, H * 0.3, W, '#4ab0f0', '#0a5a90'); g.fillRect(0, 0, W, H); grain(g, W, H, 12); }),
-  sharkFace: () => photo('sharkFace', 48, 48, (g, W, H) => {
-    const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#6a82b0'); gr.addColorStop(0.32, '#8aa0c8'); gr.addColorStop(0.42, '#e8ecf4'); gr.addColorStop(1, '#c8d0e0');
+  sharkFace: () => photo('sharkFace2', 48, 48, (g, W, H) => {
+    // по краям — тот же цвет, что и кожа со спины: граница «лица» и затылка не видна
+    const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#6a82b0'); gr.addColorStop(0.3, '#8aa0c8'); gr.addColorStop(0.4, '#e8ecf4'); gr.addColorStop(1, '#c8d0e0');
     g.fillStyle = gr; g.fillRect(0, 0, W, H);
-    g.fillStyle = '#0a0a14'; g.beginPath(); g.ellipse(W / 2, H * 0.6, W * 0.38, H * 0.2, 0, 0, 7); g.fill();
-    g.fillStyle = '#2a1a2a'; g.beginPath(); g.ellipse(W / 2, H * 0.66, W * 0.25, H * 0.09, 0, 0, 7); g.fill();
-    g.fillStyle = '#f4f4f8';
-    for (let i = 0; i < 5; i++) { const x = W * (0.2 + i * 0.15); g.beginPath(); g.moveTo(x - W * 0.06, H * 0.43); g.lineTo(x + W * 0.06, H * 0.43); g.lineTo(x, H * 0.55); g.fill(); }
-    for (let i = 0; i < 4; i++) { const x = W * (0.28 + i * 0.15); g.beginPath(); g.moveTo(x - W * 0.05, H * 0.79); g.lineTo(x + W * 0.05, H * 0.79); g.lineTo(x, H * 0.69); g.fill(); }
-    g.fillStyle = '#10101a'; for (const x of [0.12, 0.88]) { g.beginPath(); g.arc(W * x, H * 0.33, W * 0.045, 0, 7); g.fill(); }
-    g.fillStyle = 'rgba(255,255,255,.7)'; for (const x of [0.11, 0.87]) { g.beginPath(); g.arc(W * x, H * 0.32, W * 0.012, 0, 7); g.fill(); }
+    const sk = g.createLinearGradient(0, 0, W, 0); sk.addColorStop(0, '#7088b8'); sk.addColorStop(0.12, 'rgba(112,136,184,0)'); sk.addColorStop(0.88, 'rgba(112,136,184,0)'); sk.addColorStop(1, '#7088b8');
+    g.fillStyle = sk; g.fillRect(0, 0, W, H * 0.5);
+    // пасть: зубы сверху и снизу рисуем внутри контура пасти — без тёмной кромки над верхними зубами
+    g.save(); g.beginPath(); g.ellipse(W / 2, H * 0.62, W * 0.36, H * 0.18, 0, 0, 7); g.clip();
+    g.fillStyle = '#0a0a14'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#2a1a2a'; g.beginPath(); g.ellipse(W / 2, H * 0.68, W * 0.24, H * 0.08, 0, 0, 7); g.fill();
+    g.fillStyle = '#f4f4f8'; g.fillRect(0, H * 0.4, W, H * 0.05);
+    for (let i = 0; i < 6; i++) { const x = W * (0.17 + i * 0.132); g.beginPath(); g.moveTo(x - W * 0.068, H * 0.44); g.lineTo(x + W * 0.068, H * 0.44); g.lineTo(x, H * 0.56); g.fill(); }
+    g.fillRect(0, H * 0.78, W, H * 0.04);
+    for (let i = 0; i < 5; i++) { const x = W * (0.23 + i * 0.135); g.beginPath(); g.moveTo(x - W * 0.06, H * 0.79); g.lineTo(x + W * 0.06, H * 0.79); g.lineTo(x, H * 0.69); g.fill(); }
+    g.restore();
+    // глаза — ближе к центру, чтобы не попадать на границу лица и затылка
+    g.fillStyle = '#10101a'; for (const x of [0.2, 0.8]) { g.beginPath(); g.arc(W * x, H * 0.3, W * 0.05, 0, 7); g.fill(); }
+    g.fillStyle = 'rgba(255,255,255,.75)'; for (const x of [0.19, 0.79]) { g.beginPath(); g.arc(W * x, H * 0.285, W * 0.014, 0, 7); g.fill(); }
     grain(g, W, H, 10);
   }),
   // лягушка-рептилоид: пятнистая зелёная кожа, широкая морда, камуфляжная кепка, рубашка с кожаной портупеей
@@ -496,6 +504,7 @@ export const T = {
   potty: () => photo('potty', 24, 48, (g, W, H) => { fill(g, W, H, '#2a7ac8'); g.fillStyle = '#1e5a98'; g.fillRect(W * 0.1, H * 0.06, W * 0.8, H * 0.9);
     g.fillStyle = '#9be36b'; g.fillRect(W * 0.62, H * 0.5, W * 0.18, H * 0.05); g.fillStyle = '#f1e8ff'; g.font = `bold ${W * 0.22}px sans-serif`; g.textAlign = 'center'; g.fillText('WC', W / 2, H * 0.2);
     for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(W * 0.3, H * (0.26 + i * 0.03), W * 0.4, H * 0.012); } grain(g, W, H, 10); }),
+  burlap: () => photo('burlap', 16, 16, (g, W, H) => { fill(g, W, H, '#b89a6a'); g.fillStyle = 'rgba(90,60,30,.25)'; for (let i = 0; i < W; i += 2) { g.fillRect(i, 0, 1, H); g.fillRect(0, i, W, 1); } grain(g, W, H, 14); }),
   cementBag: () => photo('cementBag', 24, 16, (g, W, H) => { fill(g, W, H, '#c8bca0'); g.fillStyle = '#d8243a'; g.fillRect(W * 0.1, H * 0.3, W * 0.8, H * 0.35); g.fillStyle = '#f1e8ff'; g.font = `bold ${H * 0.28}px sans-serif`; g.textAlign = 'center'; g.fillText('M500', W / 2, H * 0.57); grain(g, W, H, 16); }),
   fuelPump: () => photo('fuelPump', 32, 48, (g, W, H) => {
     fill(g, W, H, '#d1cec9'); g.fillStyle = '#c82d35'; g.fillRect(0, H * 0.76, W, H * 0.24);
