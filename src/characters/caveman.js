@@ -3,7 +3,7 @@ import { photo, pix } from '../core/textures.js';
 
 // Взрослый доисторический парень: крупная голова, маленький корпус и парящие
 // кисти/ступни общего рига. Геометрия и маленькие текстуры общие у всех копий.
-let headGeo, hairGeo, bodyGeo, hipGeo, limbGeo, capeGeo, leafGeo, lockGeo, ragGeo, vineGeo;
+let headGeo, hairGeo, bodyGeo, hipGeo, limbGeo, capeGeo, leafGeo, partGeo, ragGeo, vineGeo;
 const skinTexture = () => photo('caveSkin28', 32, 32, (g, w, h) => {
   const shade = g.createLinearGradient(0, 0, w, h);
   shade.addColorStop(0, '#e0b28d'); shade.addColorStop(0.5, '#d0a080'); shade.addColorStop(1, '#ba8567');
@@ -35,6 +35,15 @@ const faceTexture = expression => photo('caveFace28-' + expression, 48, 48, (g, 
 const hairTexture = () => photo('caveHair28', 32, 32, (g,w,h) => {
   g.fillStyle = '#302522'; g.fillRect(0,0,w,h);
   for(let i=0;i<80;i++){g.strokeStyle=['#513b2e','#251d1c','#664b36','#3d2c25'][i%4];g.lineWidth=w/48;g.beginPath();const x=i/80*w;g.moveTo(x,0);g.quadraticCurveTo(x+w*.1,h*.5,x-w*.04,h);g.stroke();}
+});
+// Проекция макушки спереди: тонкая линия пробора и пряди расходятся к вискам.
+const partTexture = () => photo('cavePart281',48,32,(g,w,h)=>{
+  g.drawImage(hairTexture().image,0,0,w,h);
+  for(let i=0;i<16;i++)for(const side of [-1,1]){
+    const y=(.06+i*.052)*h;g.strokeStyle=['#5d4533','#251d1c','#493428'][i%3];g.lineWidth=w*.012;
+    g.beginPath();g.moveTo(w*(.5+side*.012),y);g.quadraticCurveTo(w*(.5+side*.2),y+h*.05,w*(.5+side*.47),y+h*.32);g.stroke();
+  }
+  g.strokeStyle='#806047';g.lineWidth=w*.016;g.beginPath();g.moveTo(w*.5,0);g.lineTo(w*.5,h*.92);g.stroke();
 });
 const peltTexture = () => photo('cavePelt28', 64, 32, (g,w,h) => {
   g.fillStyle='#302820';g.fillRect(0,0,w,h);
@@ -68,10 +77,18 @@ function geometry() {
   hairGeo=new THREE.SphereGeometry(1,8,3,0,Math.PI*2,0,Math.PI*.49);
   // Линия волос выше у лба: видны пробор и брови, затылок остаётся закрытым.
   const hp=hairGeo.attributes.position;
-  for(let i=0;i<hp.count;i++){const y=hp.getY(i),z=hp.getZ(i);hp.setY(i,y+.35*Math.max(0,z)*Math.max(0,(.45-y)/.45));}
-  hairGeo.computeVertexNormals();
+  for(let i=0;i<hp.count;i++){const y=hp.getY(i),z=hp.getZ(i);hp.setY(i,y+.55*Math.max(0,z)*Math.max(0,(.45-y)/.45));}
+  hairGeo.computeVertexNormals();hairGeo=frontBack(hairGeo,0);
   vineGeo=new THREE.TorusGeometry(1,.045,4,10);
-  lockGeo=polygon([[-.12,.10],[.10,.10],[.11,-.18],[.04,-.35],[-.055,-.30],[-.10,-.12]],.055);
+  // Одна широкая половина чёлки от пробора до виска; вторая зеркальная.
+  // Кривизна повторяет голову, концы уходят в стороны вместо двух отдельных шипов.
+  partGeo=polygon([[-.018,.02],[-.14,.02],[-.29,-.07],[-.38,-.19],[-.38,-.43],[-.31,-.50],[-.26,-.40],[-.255,-.24],[-.18,-.15],[-.04,-.08]],.035);
+  const pp=partGeo.attributes.position;
+  for(let i=0;i<pp.count;i++){
+    const x=pp.getX(i),y=1.72+pp.getY(i),z=.35*Math.sqrt(Math.max(.04,1-(x/.47)**2-((y-1.36)/.45)**2))+.025;
+    pp.setZ(i,z+pp.getZ(i));
+  }
+  partGeo.computeVertexNormals();
   capeGeo=new THREE.CylinderGeometry(.19,.43,.17,10,1,true);
   ragGeo=polygon([[-.105,0],[.105,0],[.09,-.17],[.045,-.24],[.01,-.19],[-.035,-.27],[-.065,-.20],[-.10,-.23]],.012);
   // Непрозрачный лист с выпуклой центральной жилкой, прикрывает спереди и с боков.
@@ -80,25 +97,25 @@ function geometry() {
   leafGeo=new THREE.BufferGeometry();leafGeo.setAttribute('position',new THREE.Float32BufferAttribute(p,3));leafGeo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));leafGeo.computeVertexNormals();
 }
 export const CAVEMAN_SKIN = {
-  name:'Первобытный',
+  name:'Питекантроп',
   build({head,torso,handL,handR,footL,footR}) {
     geometry();
     const skin=tmat(skinTexture()),hair=tmat(hairTexture()),pelt=lam({map:peltTexture(),side:THREE.DoubleSide},'cavePelt28');
     const faces=Object.fromEntries(['idle','blink','wow','dizzy'].map(e=>[e,tmat(faceTexture(e))]));
     const h=mesh(headGeo,[faces.idle,skin],0,1.36,.015,.43,.40,.35,head);
-    head.add(compose('caveHairAndEars28',a=>{
-      a(hairGeo,hair,0,1.395,-.012,.46,.43,.38);
+    mesh(hairGeo,[tmat(partTexture()),hair],0,1.395,-.012,.46,.43,.38,head);
+    head.add(compose('caveHairAndEars281',a=>{
       a(limbGeo,skin,-.42,1.29,0,.065,.09,.055);a(limbGeo,skin,.42,1.29,0,.065,.09,.055);
-      for(const s of [-1,1]){a(lockGeo,hair,s*.35,1.51,.18,.9,1,1,0,-s*.25,-s*.16);a(lockGeo,hair,s*.18,1.65,.29,.78,.66,.7,-.15,-s*.25,-s*.35);}
+      for(const side of [-1,1])a(partGeo,hair,0,1.72,0,side,1,1);
       // Затылок закрыт волосами, короткие пряди доходят до шеи.
       a(limbGeo,hair,0,1.27,-.24,.38,.31,.14);
       a(G.cone4,skin,0,1.30,.337,.052,.11,.085,Math.PI/2);
     }));
     head.userData={h,faces};
     mesh(bodyGeo,[tmat(bellyTexture()),skin],0,.675,0,1,1,.78,torso);
-    torso.add(compose('caveBody28',a=>{
+    torso.add(compose('caveBody281',a=>{
       a(hipGeo,skin,0,.345,0,1,1,.82);
-      for(const s of [-1,1])a(limbGeo,skin,s*.105,.32,-.155,.12,.105,.075);
+      for(const s of [-1,1])a(limbGeo,skin,s*.088,.335,-.142,.112,.095,.072);
       a(G.cyl6,skin,0,.97,0,.115,.14,.10);
       a(capeGeo,pelt,0,.91,0,1,1,.85);
       for(const side of [-1,1])a(limbGeo,pelt,side*.29,.885,0,.19,.09,.25);
