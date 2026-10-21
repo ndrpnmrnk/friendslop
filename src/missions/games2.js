@@ -20,6 +20,7 @@ const onPlane = (ray, n, p) => { PL.setFromNormalAndCoplanarPoint(n, p); return 
 export const PANEL_GAMES = {
   // Наперстки: следи за тыковкой, стаканы меняются местами всё быстрее
   shells(o, api) {
+    api.feedback?.();
     api.pose(o.world(0, 2.7, 1.9), o.world(0, 0.9, -0.05));
     const slot = [-0.45, 0, 0.45]; let pos = [0, 1, 2], ball = (Math.random() * 3) | 0, phase = 'show', t = 0, swaps = 0, total = 7, sw = null, endT = -1, res = null;
     const cupAt = (c, x, lift) => { o.cups[c].position.set(x, 0.99 + lift, o.cups[c].position.z); };
@@ -54,6 +55,7 @@ export const PANEL_GAMES = {
   // одна подплывает к поплавку и клюёт — кликни, чтобы подсечь. Дальше держи ЛКМ — подматываешь
   // к берегу; когда рыба рвётся (поплавок дёргается) — отпусти, иначе леска лопнет.
   fish(o, api) {
+    api.feedback?.();
     const s = o.spot, wy = s.wy, cx = s.cx ?? s.wx, cz = s.cz ?? s.wz, me = new V3(s.x, s.y, s.z);
     const toW = new V3(cx - s.x, 0, cz - s.z).normalize();
     api.pose(me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), new V3(cx, wy, cz).addScaledVector(toW, -0.5));
@@ -132,6 +134,7 @@ export const PANEL_GAMES = {
      цвета; провода не пересекаются и не проходят через чужие клеммы. Уровень строится от готового решения
      (случайная «змейка» через всю сетку режется на куски), поэтому решить можно всегда. */
   fuse(o, api, ctx) {
+    api.feedback?.();
     const s = o.spot, F = new V3(s.f[0], 0, s.f[1]);
     const c0 = new V3(s.bx, s.y + 0.85, s.bz).addScaledVector(F, 0.23);
     api.pose(c0.clone().addScaledVector(F, 1.25), c0.clone());
@@ -181,6 +184,7 @@ export const PANEL_GAMES = {
 
   // Сейф: крути диск (зажми ЛКМ и веди мышь), на нужной цифре щёлкает — нажми на ручку. Три цифры.
   safe(o, api) {
+    api.feedback?.();
     const s = o.spot, F = new V3(s.f[0], 0, s.f[1]);
     const c0 = new V3(s.bx, s.y + 0.55, s.bz).addScaledVector(F, 0.36);
     api.pose(c0.clone().addScaledVector(F, 1.1).add(new V3(0, 0.15, 0)), c0.clone());
@@ -226,6 +230,7 @@ export const PANEL_GAMES = {
 export const WORLD_GAMES = {
   // Тир: сбей три мишени чем угодно, под рукой ящик с помидорами и мячами
   targets(o, api, ctx) {
+    api.feedback?.();
     const box = o.world(1.6, 0.6, 0.6);
     o.items = ['tomato', 'ball', 'tomato', 'ball', 'tomato'].map((k, i) => { const it = addItem(k, box.x + (i - 2) * 0.12, box.y - 0.1, box.z, 0); it.def = { ...it.def, respawn: 0 }; return it; });
     let time = 60, left = 3;
@@ -248,12 +253,14 @@ export const WORLD_GAMES = {
 
   // Уборка: вокруг урны раскиданы 5 бумажек и банок — закинь или донеси все в урну
   cleanup(o, api, ctx) {
+    api.feedback?.();
     const c = o.pos(), N = 5; let time = 68, got = 0;
+    const pile=new THREE.Group();pile.name='cleanup-collected';o.g.add(pile);
     for (let i = 0; i < N; i++) { const { x, y, z } = nearbyItemPoint(c);
       const it = spawnLitter(x, y, z); o.litter.push(it); it.outline.set(true);
       const rg = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, 0.35, 0.35, 1, W.group); rg.rotation.x = -Math.PI / 2; it.ring = rg; }
     api.msg('Мусор — в урну');
-    const take = it => { if (it.taken) return; it.taken = true; it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) { W.group.remove(it.ring); it.ring.material.dispose(); it.ring = null; } got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
+    const take = it => { if (it.taken) return; it.taken = true;it.outline.set(false);const packed=it.g.clone(true);packed.position.set(Math.sin(got*2.4)*0.14,0.94+got*0.025,Math.cos(got*2.4)*0.13);packed.scale.setScalar(0.65);packed.rotation.set(0.2,got*2.4,0.3);packed.visible=true;pile.add(packed);sfx('imp',{at:c,m:'metal',v:0.3});it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) { W.group.remove(it.ring); it.ring.material.dispose(); it.ring = null; } got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
     const hook = (it, p) => { if (it.state !== 'held' && o.litter.includes(it) && Math.hypot(p.x - c.x, p.z - c.z) < 0.9 && Math.abs(p.y - c.y) < 1.5) take(it); };
     W.hitHooks.push(hook);
     return {
@@ -271,13 +278,14 @@ export const WORLD_GAMES = {
         if (got >= N) return api.finish({ success: true, mult: 1 });
         if (time <= 0) return api.finish({ success: false });
       },
-      stop() { W.hitHooks.splice(W.hitHooks.indexOf(hook), 1); for (const it of o.litter) { if (it.ring) W.group.remove(it.ring); it.outline.set(false); } },
+      stop() { pile.removeFromParent();W.hitHooks.splice(W.hitHooks.indexOf(hook), 1); for (const it of o.litter) { if (it.ring) W.group.remove(it.ring); it.outline.set(false); } },
     };
   },
 
   // Доставка: взял заказ — сразу видно куда: слева в списке адрес и расстояние, у ног стрелка,
   // над домом зелёный луч. Стрелка ведёт к двери, потом к лестнице, потом к нужной комнате.
-  delivery(o, api, ctx) { return deliveryCore(o, api, ctx, 'parcel'); },
+  delivery(o, api, ctx) {
+    api.feedback?.(); return deliveryCore(o, api, ctx, 'parcel'); },
   // Горячая пицца: та же доставка, но коробка остывает; брошенная/лежащая остывает втрое быстрее
   pizza(o, api, ctx) { return deliveryCore(o, api, ctx, 'pizza'); },
 };

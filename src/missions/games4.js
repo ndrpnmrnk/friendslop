@@ -72,6 +72,7 @@ const farFloor = p => nearbyItemPoint(p);
 export const PANEL4 = {
   // Золотой билет: ЛКМ и веди — листья разлетаются; клик по находке — что это?
   leaves(o, api, ctx) {
+    api.feedback?.();
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]);
     api.pose(c.clone().addScaledVector(F, 2.1).add(new V3(0, 2.8, 0)), c.clone().add(new V3(0, 0.1, 0)));
     o.g.visible = false; ctx.cursor(true);
@@ -109,6 +110,7 @@ export const PANEL4 = {
 
   // Граффити: зажми ЛКМ и закрась силуэт; за край — клякса (меньше очков)
   graffiti(o, api, ctx) {
+    api.feedback?.();
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]), CW = 88, CH = 60;
     const mid = c.clone().add(new V3(0, 1.0, 0)).addScaledVector(F, 0.12);
     api.pose(mid.clone().addScaledVector(F, 2.2).add(new V3(0, 0.15, 0)), mid.clone()); ctx.cursor(true);
@@ -152,6 +154,7 @@ export const PANEL4 = {
 
   // Код домофона — ввод: кнопки 0–9, сброс; найденные цифры подсказаны сверху
   keypad(o, api, ctx) {
+    api.feedback?.();
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.0).add(new V3(0, 1.35, 0)), c.clone().add(new V3(0, 1.15, 0)));
     const ui = document.createElement('div'); ui.id = 'keyui'; ui.className = 'mgui'; document.body.appendChild(ui); if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
     let entry = '', endT = -1;
@@ -166,6 +169,7 @@ export const PANEL4 = {
 
   // Отмычка: двигай мышью — угол отмычки; зажми ЛКМ — проворачивай замок. Не там — замок упирается, отмычка трещит
   lockpick(o, api, ctx) {
+    api.feedback?.();
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.1).add(new V3(0, 1.0, 0)), c.clone().add(new V3(0, 0.4, 0)));
     const { ui, cv, g } = overlay('lockui', 'ОТМЫЧКА', 'Води мышью — ищи точку. Зажми ЛКМ — проворачивай. Замок упёрся — отпусти, иначе сломаешь', 300, 220);if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
     const sweet = (Math.random() * 140 - 70) * Math.PI / 180, WIN = 7 * Math.PI / 180, ZONE = 40 * Math.PI / 180;
@@ -201,6 +205,7 @@ export const PANEL4 = {
 
   // Трубы: клик — повернуть секцию на 90°. Вода течёт от входа (слева) до выхода (справа)
   pipes(o, api, ctx) {
+    api.feedback?.();
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.3).add(new V3(0, 1.1, 0)), c.clone().add(new V3(0, 0.6, 0)));
     const N = 3, { ui, cv, g } = overlay('pipeui', 'ТРУБЫ', 'Клик: поворот на 90°. Соедини синий вход слева с зелёным выходом справа'), CS = 300 / N;if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
     // биты выходов: 1 — верх, 2 — право, 4 — низ, 8 — лево
@@ -238,6 +243,7 @@ export const PANEL4 = {
 /* ---------- уличная часть «Кода домофона»: найти три таблички с цифрами ---------- */
 export const WORLD4 = {
   intercom(o, api, ctx) {
+    api.feedback?.();
     const P = ctx.player, c = o.pos(); o.code = [0, 0, 0].map(() => (Math.random() * 10) | 0);
     const used=[];
     const plates = o.code.map((d,i)=>{

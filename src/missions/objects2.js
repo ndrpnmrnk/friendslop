@@ -70,7 +70,7 @@ export function buildTargets(x, y, z, f) {
 
 // Уборка: урна для мусора посреди площадки
 export function buildCleanup(x, y, z, f) {
-  const g = frame(x, y, z, f); g.add(binModel());
+  const g = frame(x, y, z, f); g.add(binModel(true));
   const ring = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide }), 0, 0.05, 0, 0.9, 0.9, 1, g); ring.rotation.x = -Math.PI / 2;
   const s = addSolid(x - 0.35, z - 0.35, x + 0.35, z + 0.35, y, y + 1);
   return { type: 'cleanup', g, ring, solid: s, litter: [], pos: () => g.position, reach: 2.0,

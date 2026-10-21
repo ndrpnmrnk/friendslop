@@ -3,6 +3,8 @@ import { W } from '../world/state.js';
 import { CONFIG } from '../config.js';
 import { M, ALL_GAMES, WORLD_GAMES, canReach, missionDone, removeMission } from './missions.js';
 import { pickUp, drop, launch, throwVelocity } from '../game/items.js';
+import { grabActor, letGo } from '../game/grab.js';
+import { sfx } from '../core/sfx.js';
 import { dropHeld } from '../game/actors.js';
 import { useTool } from '../game/tools.js';
 import { statsOf } from '../game/score.js';
@@ -25,7 +27,7 @@ export function beginBotWork(b, m) {
     use(p,dt) { if(b.held)useTool(b,b.held,p,dt); }
   };
   b.work=job;
-  const api = { pose(p,l) { eye.copy(p);job.look=l.clone(); }, progress(v) { m.progress=v; }, msg() {}, where(t) {m.where=t;}, timer(t){m.workTime=t;},
+  const api = { feedback(){job.worldFeedback=true;}, pose(p,l) { eye.copy(p);job.look=l.clone(); }, progress(v) { m.progress=v; }, msg() {}, where(t) {m.where=t;}, timer(t){m.workTime=t;},
     finish(result) { if(!job.dead&&!job.result)job.result=result; } };
   const ctx={bot:true,player:b,character:b.ch,cursor(){},mission:m,camera:new THREE.PerspectiveCamera(),jump:CONFIG.player.jump,
     give(it){if(b.held)dropHeld(b);pickUp(it);it.owner=b;it.wasHeld=true;it.mission=m;b.held=it;},
@@ -48,11 +50,42 @@ export function stopBotWork(b) {
   const job=b.work;if(!job||job.dead)return;
   job.dead=true;job.game?.stop();if(job.display){job.display.g.removeFromParent();job.display.tx.dispose();job.display.mat.dispose();}job.m.onRemove=null;
   if(job.m.doer===b)job.m.doer=null;
-  b.work=null;b.goal=null;b.think=0.6;b.missionTool=false;
+  if(job.grip && b.holding===job.grip)letGo(b);
+  b.work=null;b.goal=null;b.aimAt=null;b.think=0.6;b.missionTool=false;
 }
 export function interruptBotWork(b) {
   const job=b.work;if(!job||job.world)return null;
   const m=job.m;stopBotWork(b);m.progress=0;return m;
+}
+// Возвращаем только настоящие предметы своей миссии. Без передачи очков,
+// телепорта вещи или захвата сквозь стену; маршрут использует обычный обход.
+function recoverBotItem(b,job,items,dt) {
+  if(job.grip){
+    job.gripT-=dt;
+    if(b.holding!==job.grip||job.gripT<=0){if(b.holding===job.grip)letGo(b);job.grip=null;}
+    else{b.goal=null;return true;}
+  }
+  if(b.held){job.recover=null;return false;}
+  const valid=it=>it.state==='held'&&it.owner&&it.owner!==b&&it.owner.held===it&&!it.owner.hidden&&!it.owner.drone&&!it.owner.returning;
+  let q=job.recover;
+  if(!q||!valid(q.it)){
+    const it=items.filter(valid).sort((a,c)=>a.pos.distanceToSquared(b.pos)-c.pos.distanceToSquared(b.pos))[0];
+    const loose=items.some(it=>(!job.game.botPickable||job.game.botPickable(it))&&(it.state==='rest'||it.state==='fly'));
+    if(!it||loose&&it!==job.lastHeld){job.recover=null;return false;}
+    q=job.recover={it,who:it.owner,nearT:0,next:0};
+    sfx('curse',{at:b.pos});
+    b.nav=null;b.navCD=0;b.stairRoute=null;
+  }
+  const who=q.it.owner;q.who=who;
+  b.goal={x:who.pos.x,y:who.pos.y,z:who.pos.z,kind:'work',m:job.m,near:1.05};
+  b.aimAt=who.pos;
+  const close=b.pos.distanceTo(who.pos)<1.5&&canReach(b,who.pos,null,1.6);
+  q.nearT=close?q.nearT+dt:0;q.next-=dt;
+  if(q.nearT>0.25&&q.next<=0){
+    q.next=1.2;
+    if(grabActor(b,who)){job.grip=who;job.gripT=0.55;job.recover=null;b.goal=null;}
+  }
+  return true;
 }
 export function tickBotWork(b,dt) {
   const job=b.work;if(!job)return;
@@ -65,19 +98,21 @@ export function tickBotWork(b,dt) {
     if(job.world){
       let target=game.botTarget?.()||game.target?.();
       const items=game.botItems?.()||[];
-      if(!b.held){const item=items.filter(it=>(!game.botPickable||game.botPickable(it))&&(it.state==='rest'||it.state==='fly'&&it.vel.length()<1)).sort((a,c)=>a.pos.distanceToSquared(b.pos)-c.pos.distanceToSquared(b.pos))[0];
+      const recovering=recoverBotItem(b,job,items,dt);
+      if(!recovering&&!b.held){const item=items.filter(it=>(!game.botPickable||game.botPickable(it))&&(it.state==='rest'||it.state==='fly'&&it.vel.length()<1)).sort((a,c)=>a.pos.distanceToSquared(b.pos)-c.pos.distanceToSquared(b.pos))[0];
         if(item&&item.pos.distanceTo(b.pos)<1.65&&canReach(b,item.pos.clone().setY(item.pos.y-item.def.r),null,1.65)){pickUp(item);item.owner=b;item.wasHeld=true;b.held=item;}
         else if(item)target=item.pos;
       }
-      if(game.botDrop&&b.held&&items.includes(b.held)){
+      if(!recovering&&game.botDrop&&b.held&&items.includes(b.held)){
         const p=game.botDeposit();target=p;
         if(Math.hypot(p.x-b.pos.x,p.z-b.pos.z)<1.65&&Math.abs(p.y-b.pos.y)<1.2){const it=b.held;b.held=null;drop(it,p.x,p.y+0.4,p.z);}
       }
-      if(target){b.goal={x:target.x,y:target.y-(items.some(it=>it.pos===target)?0.2:0),z:target.z,kind:'work',m,near:game.botNear||0.8};}
+      if(!recovering){if(target){b.goal={x:target.x,y:target.y-(items.some(it=>it.pos===target)?0.2:0),z:target.z,kind:'work',m,near:game.botNear||0.8};}
       else b.goal=null;
-      if(game.prompt?.()&&(!target||Math.hypot(target.x-b.pos.x,target.z-b.pos.z)<1.7)&&brain.ready(0.4))game.interact?.();
+      if(game.prompt?.()&&(!target||Math.hypot(target.x-b.pos.x,target.z-b.pos.z)<1.7)&&brain.ready(0.4))game.interact?.();}
+      if(b.held&&items.includes(b.held))job.lastHeld=b.held;
     } else { b.goal=null; const p=m.obj.pos();b.aimAt=p; }
-    game.botStep?.(dt,brain);
+    if(!job.recover&&!job.grip)game.botStep?.(dt,brain);
   }
   // Уличный таймер не замирает в захвате; накопленные этапы и предметы не пересоздаются.
   game.update?.(dt);
@@ -94,7 +129,14 @@ export function tickBotWork(b,dt) {
   removeMission(m);
 }
 export function poseBotWork(b) {
-  const job=b.work;if(!job||job.world)return;
+  const job=b.work;if(!job)return;
+  if(job.recover){
+    const who=job.recover.who,local=b.root.worldToLocal(who.pos.clone().add(new V3(0,0.9,0)));
+    if(local.length()<2.2){local.z=Math.min(1.1,local.z);local.x=Math.max(0.12,local.x);b.ch.handR.position.lerp(local,0.55);}
+    b.ch.head.rotation.z=Math.sin(job.elapsed*9)*0.05;
+    return;
+  }
+  if(job.world)return;
   const p=job.brain.workPoint;if(!p)return;
   // Видна работа настоящей кисти, а не поднятый над головой невидимый груз.
   const local=b.root.worldToLocal(p.clone());

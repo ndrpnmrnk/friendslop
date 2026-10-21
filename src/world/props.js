@@ -73,14 +73,14 @@ export function barrowModel() {
 }
 
 // Уличная урна: сужающийся рифлёный корпус с наклейкой, обод, куполная крышка с окошком, пакет внутри
-export function binModel() {
-  return compose('bin', add => {
+export function binModel(open = false) {
+  return compose(open ? 'binOpen27' : 'bin', add => {
     const c = 0x2e5a44, body = tmat(T.binBody(c)), dk = col(0x1e3a2c);
     add(TAPER_BIN, body, 0, 0.47, 0, 1, 0.86, 1);
     add(G.cyl8, dk, 0, 0.04, 0, 0.3, 0.08, 0.3);
     add(G.torus, dk, 0, 0.9, 0, 0.35, 0.35, 0.3, Math.PI / 2);
-    add(HALF_SPH, col(0x2e5a44), 0, 0.9, 0, 0.35, 0.2, 0.35);
-    add(G.box, col(0x0c0a10), 0, 0.98, 0.25, 0.32, 0.12, 0.12, -0.5);
+    if(!open)add(HALF_SPH, col(0x2e5a44), 0, 0.9, 0, 0.35, 0.2, 0.35);
+    if(!open)add(G.box, col(0x0c0a10), 0, 0.98, 0.25, 0.32, 0.12, 0.12, -0.5);
     add(G.torus, tmat(T.trashBag()), 0, 0.92, 0, 0.27, 0.27, 0.25, Math.PI / 2);
   });
 }

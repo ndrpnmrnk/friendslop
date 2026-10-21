@@ -1,6 +1,7 @@
 import { THREE, G, V3, mesh, col, tmat } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
+import { sfx } from '../core/sfx.js';
 import { clamp } from '../core/rng.js';
 
 /* Мини-игры прямо в 3D-мире. Каждая получает объект и api:
@@ -17,7 +18,10 @@ function buildHand(character) {
 
 export const GAMES = {
   cat(cat, api, ctx) {
+    api.feedback?.();
     cat.mode = 'pet'; cat.state = 'idle'; cat.flee = 0; cat.dizzy = 0; cat.stars.visible = false; cat.root.rotation.z = 0;
+    const saved={bodyY:cat.body.position.y,bodyS:cat.body.scale.y,headP:cat.head.position.clone(),headR:cat.head.rotation.clone(),tail:cat.tail.rotation.clone(),tip:cat.tail2.rotation.clone(),ears:cat.ears.map(e=>e.rotation.clone()),legs:cat.legs.map(l=>l.rotation.clone())};
+    cat.legs.forEach(l=>l.rotation.set(0,0,0));
     const base = cat.root.position, cx = base.x, cz = base.z, by = base.y, backY = by + 0.68;
     const blocked = d => [0.35, 0.7, 1].some(k => { const x = cx + d[0] * 2 * k, z = cz + d[1] * 2 * k; return W.solids.some(s => s.on && s.y1 > by + 0.2 && s.y0 < by + 2 && x > s.x0 - 0.3 && x < s.x1 + 0.3 && z > s.z0 - 0.3 && z < s.z1 + 0.3); });
     const cd = [[0, 1], [1, 0], [-1, 0], [0, -1]].find(d => !blocked(d)) || [0, 1];
@@ -28,14 +32,14 @@ export const GAMES = {
     const hand = buildHand(ctx.character); W.group.add(hand); hand.rotation.y = Math.atan2(-C.x, -C.z); // пальцами от камеры — к коту
     { const [hx, hz] = Wp(0, 0.4); hand.position.set(hx, backY + 0.25, hz); }
     const target = hand.position.clone(), plane = new THREE.Plane(new V3(0, 1, 0), -backY), hit = new V3();
-    let down = false, prog = 0, last = null, done = false, doneT = 0, happy = 0, hiss = 0, purr = 0, t = 0;
-    api.progress(0); ctx.cursor(false);
+    let down = false, prog = 0, last = null, done = false, doneT = 0, happy = 0, hiss = 0, purr = 0, t = 0, idle = 0, hintAt = 3;
+    api.progress(0); api.msg('Зажми ЛКМ и плавно гладь по спинке'); ctx.cursor(false);
     return {
       botStep(dt, brain) { down=true;const q=Wp(Math.sin(brain.time*2.2)*0.45,0);target.set(q[0],backY,q[1]); },
       move(ray) { if (ray.ray.intersectPlane(plane, hit)) { const a = clamp((hit.x - cx) * F.x + (hit.z - cz) * F.z, -0.95, 0.95), b = clamp((hit.x - cx) * C.x + (hit.z - cz) * C.z, -0.55, 0.8); [target.x, target.z] = Wp(a, b); } },
       down(ray) { down = true; this.move(ray); }, up() { down = false; last = null; },
       update(dt) {
-        t += dt; hiss -= dt; happy -= dt; purr -= dt;
+        t += dt; hiss -= dt; happy -= dt; purr -= dt;idle+=dt;
         target.y = backY + (down ? 0.03 : 0.24);
         hand.position.lerp(target, 1 - Math.exp(-dt * 25));
         const la = (hand.position.x - cx) * F.x + (hand.position.z - cz) * F.z, lb = (hand.position.x - cx) * C.x + (hand.position.z - cz) * C.z;
@@ -43,34 +47,45 @@ export const GAMES = {
         if (down && onCat && !done) {
           if (last) {
             const ddx = hand.position.x - last.x, ddz = hand.position.z - last.z, d = Math.hypot(ddx, ddz), sp = d / Math.max(dt, 1e-3), dx = ddx * F.x + ddz * F.z;
-            if (sp > 3.4) { if (hiss <= 0) { hiss = 0.9; prog = Math.max(0, prog - 0.08); api.msg('ПЛАВНЕЕ!', 'bad'); } }
-            else if (hiss <= 0 && d > 0.002) { prog += d * (dx < 0 ? 1 : 0.6) / 3.6; happy = 0.4; if (purr <= 0) { api.msg('Мррр...', 'good'); purr = 1.4; } }
+            if (sp > 3.4) { if (hiss <= 0) { hiss = 0.9; prog = Math.max(0, prog - 0.08); api.msg('Плавнее - кот сердится', 'bad');sfx('hiss',{at:base,v:0.5}); } }
+            else if (hiss <= 0 && d > 0.002) { prog += d * (dx < 0 ? 1 : 0.6) / 3.6; happy = 0.5;idle=0; }
           }
           last = hand.position.clone();
         } else last = null;
         if (prog >= 1 && !done) { prog = 1; done = true; doneT = 1; api.msg('Кот доволен!', 'good'); }
         if (done) { doneT -= dt; if (doneT <= 0) return api.finish({ success: true, mult: 1 }); }
         api.progress(prog);
+        if((happy>0||done)&&hiss<=0&&purr<=0){sfx('purr',{at:base,p:prog,v:0.45+prog*0.75});purr=0.95-prog*0.28;}
+        if(idle>2.5&&t>hintAt&&!done){api.msg(down&&!onCat?'Веди кисть по спинке':'Зажми ЛКМ - гладь медленно');hintAt=t+12;}
+
         cat.face(hiss > 0 ? 'angry' : (happy > 0 || done) ? 'closed' : 'open');
         const hap = happy > 0 || done;
-        cat.body.scale.y = 0.17 * (1 + Math.sin(t * (hap ? 10 : 3)) * (hap ? 0.05 : 0.02));
-        cat.tail.rotation.x = hiss > 0 ? 1.2 : 0.7; cat.tail.rotation.y = Math.sin(t * (hap ? 2 : 4)) * (hap ? 0.25 : 0.5);
+        cat.body.scale.y = saved.bodyS * (1 + prog*0.12 + Math.sin(t * (hap ? 15 : 3)) * (hap ? 0.025+prog*0.025 : 0.015));
+        cat.body.position.y=saved.bodyY+prog*0.035;
+        const lift=hiss>0?0.15:0.12+prog*1.35;
+        cat.tail.rotation.x+=(lift-cat.tail.rotation.x)*(1-Math.exp(-dt*5));
+        cat.tail.rotation.y=Math.sin(t*(hiss>0?19:hap?2.2:4))*(hiss>0?0.65:0.25-prog*0.16);
+        cat.tail2.rotation.x=-prog*0.65;cat.tail2.rotation.y=Math.sin(t*3)*0.1;
+        cat.head.position.y=saved.headP.y+prog*0.025;
+        cat.head.rotation.z=(hap?Math.sin(t*2.5)*0.08:0);
+
         cat.head.rotation.y += ((hiss > 0 ? -0.9 : 0) - cat.head.rotation.y) * Math.min(1, dt * 10);
         cat.ears.forEach((e, i) => e.rotation.x += ((hiss > 0 ? -0.8 : 0) - e.rotation.x) * Math.min(1, dt * 12));
         cat.root.position.y = by + (hiss > 0.6 ? 0.08 : 0);
       },
-      stop() { W.group.remove(hand); ctx.cursor(true); cat.mode = 'walk'; cat.state = 'idle'; cat.timer = 1.5; cat.face('open'); cat.head.rotation.y = 0; cat.ears.forEach(e => (e.rotation.x = 0)); cat.body.scale.y = 0.17; cat.root.position.y = by; },
+      stop() { W.group.remove(hand); ctx.cursor(true); cat.mode = 'walk'; cat.state = 'idle'; cat.timer = 1.5; cat.face('open'); cat.head.rotation.y = 0; cat.ears.forEach(e => (e.rotation.x = 0)); cat.body.scale.y=saved.bodyS;cat.body.position.y=saved.bodyY;cat.head.position.copy(saved.headP);cat.head.rotation.copy(saved.headR);cat.tail.rotation.copy(saved.tail);cat.tail2.rotation.copy(saved.tip);cat.ears.forEach((e,i)=>e.rotation.copy(saved.ears[i]));cat.legs.forEach((l,i)=>l.rotation.copy(saved.legs[i]));cat.root.position.y=by; },
     };
   },
 
   puzzle(board, api, ctx) {
+    api.feedback?.();
     const F = new V3(board.f[0], 0, board.f[1]);
     api.pose(board.center.clone().addScaledVector(F, 4.2), board.center.clone());
     // сначала ~2 с показываем целую картинку, потом плитки перемешиваются
     const o = board.order; for (let i = 0; i < 9; i++) o[i] = i;
     let sel = -1, moves = 0, done = false, doneT = 0, t = 0, show = 2.2; const tv = new V3();
     api.progress(null); api.msg('Запомни картинку!');
-    const shuffle = () => { do { for (let i = 8; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } } while (o.every((v, i) => v === i)); api.msg('Собери!', 'good');  };
+    const shuffle = () => { do { for (let i = 8; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } } while (o.every((v, i) => v === i)); api.msg('Выбери две плитки - поменяй местами', 'good');  };
     return {
       botStep(dt, brain) { if(!brain.ready(0.75)||show>0||done)return;const i=o.findIndex((v,i)=>v!==i);if(i<0)return;const j=o.indexOf(i);this.down(brain.hit(board.tiles[o[i]].mesh));this.down(brain.hit(board.tiles[o[j]].mesh)); },
       down(ray) {
@@ -78,14 +93,14 @@ export const GAMES = {
         const hits = ray.intersectObjects(board.tiles.map(x => x.mesh)); if (!hits.length) return;
         const tile = board.tiles.find(x => x.mesh === hits[0].object), slot = o.indexOf(tile.idx);
         if (sel < 0) sel = slot; else if (sel === slot) sel = -1;
-        else { [o[sel], o[slot]] = [o[slot], o[sel]]; sel = -1; moves++;
+        else { [o[sel], o[slot]] = [o[slot], o[sel]]; sel = -1; moves++;sfx(o[slot]===slot?'click':'tick',{at:board.center});
           if (o.every((v, i) => v === i)) { done = true; doneT = 1.1; api.msg('Собрано!', 'good'); } }
       },
       update(dt) {
         t += dt; if (show > 0) { show -= dt; if (show <= 0) shuffle(); }
         board.tiles.forEach(tile => {
           const slot = o.indexOf(tile.idx), s = board.slots[slot];
-          tv.set(s.x, s.y, s.z + (slot === sel ? 0.18 : 0) + (done ? Math.abs(Math.sin(t * 9 + slot)) * 0.06 : 0));
+          tv.set(s.x, s.y, s.z + (show<=0&&slot!==tile.idx?0.07:0) + (slot === sel ? 0.18 : 0) + (done ? Math.abs(Math.sin(t * 9 + slot)) * 0.06 : 0));
           tile.mesh.position.lerp(tv, 1 - Math.exp(-dt * 14));
           tile.mesh.material[4].emissive.setHex(slot === sel ? 0x664400 : done ? 0x223311 : 0);
         });
@@ -96,9 +111,11 @@ export const GAMES = {
   },
 
   ttt(table, api, ctx) {
+    api.feedback?.();
     api.pose(table.world(0, 3.0, 2.5), table.world(0, 0.93, 0));
     const b = Array(9).fill(''), LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
     let lock = false, over = false, botT = -1, endT = -1, res = null, t = 0;
+    const marks=table.cells.map(c=>{const m=mesh(G.plane,col(0x9be36b),c.position.x,0.935,c.position.z,0.42,0.42,1,table.g);m.rotation.x=-Math.PI/2;m.visible=false;return m;});
     const win = p => LINES.some(l => l.every(i => b[i] === p)), full = () => b.every(Boolean);
     api.progress(null); api.msg('Твой ход');
     function place(p, i) {
@@ -114,7 +131,7 @@ export const GAMES = {
       if (!b[4]) return 4;
       return empty[Math.floor(Math.random() * empty.length)];
     }
-    function end(mult, text, cls) { over = true; api.msg(text, cls); res = mult > 0 ? { success: true, mult } : { success: false }; endT = 1.1; }
+    function end(mult, text, cls) { const line=LINES.find(l=>b[l[0]]&&l.every(i=>b[i]===b[l[0]]));if(line)line.forEach(i=>{marks[i].visible=true;marks[i].material=col(b[i]==='X'?0x9be36b:0xd86783);});over = true; api.msg(text, cls); res = mult > 0 ? { success: true, mult } : { success: false }; endT = 1.1; }
     return {
       botStep(dt, brain) { if(!brain.ready(0.9)||lock||over)return;this.down(brain.hit(table.cells[botMove()])); },
       down(ray) {
@@ -134,7 +151,7 @@ export const GAMES = {
           if (win('O')) end(0, 'Призрак победил', 'bad'); else if (full()) end(0.5, 'Ничья', ''); else api.msg('Твой ход'); } }
         if (endT > 0) { endT -= dt; if (endT <= 0) api.finish(res); }
       },
-      stop() { table.pieces.forEach(g => table.g.remove(g)); table.pieces = []; table.ghost.position.x = 0; },
+      stop() { marks.forEach(m=>m.removeFromParent());table.pieces.forEach(g => table.g.remove(g)); table.pieces = []; table.ghost.position.x = 0; },
     };
   },
 };

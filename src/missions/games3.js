@@ -43,8 +43,8 @@ export function buildFire(sp) {
   const at = () => bin ? new V3(bin.x, bin.y, bin.z) : new V3(sp.x, sp.y, sp.z);
   const f = { x: sp.x, y: sp.y, z: sp.z, hp: 1 }; W.fires.push(f);
   let t = 0; const tick = dt => { const p = at(); f.x = p.x; f.z = p.z; if (f.hp <= 0) return; t -= dt;
-    if (t <= 0) { t = 0.05; const k = 0.4 + f.hp * 0.6; puff(p.x + (Math.random() - 0.5) * 0.4, p.y + 1.05, p.z + (Math.random() - 0.5) * 0.4, { color: Math.random() < 0.5 ? 0xff8a1f : 0xf5c542, size: 0.25 * k, vy: 2.2, vx: 0, vz: 0, life: 0.5, grow: -0.3, g: 0, opacity: 0.95 });
-      if (Math.random() < 0.3) puff(p.x, p.y + 1.6, p.z, { color: 0x3a3440, size: 0.4, vy: 1.4, life: 1.4, grow: 1.2, opacity: 0.5 }); }
+    if (t <= 0) { const k=Math.max(0.08,Math.min(1,f.hp));t=0.05+(1-k)*0.12; puff(p.x + (Math.random() - 0.5) * 0.4, p.y + 0.95, p.z + (Math.random() - 0.5) * 0.4, { color: Math.random() < 0.5 ? 0xff8a1f : 0xf5c542, size: 0.16+0.12*k, vy: 0.35+1.85*k, vx: 0, vz: 0, life: 0.5, grow: -0.3, g: 0, opacity: 0.95 });
+      if (Math.random() < 0.3*k) puff(p.x, p.y + 1.2+0.4*k, p.z, { color: 0x3a3440, size: 0.4, vy: 1.4, life: 1.4, grow: 1.2, opacity: 0.5 }); }
     const P = W.player; if (P && Math.hypot(P.pos.x - p.x, P.pos.z - p.z) < 0.9 && Math.abs(P.pos.y - p.y) < 1.5) { const dx = P.pos.x - p.x, dz = P.pos.z - p.z, d = Math.hypot(dx, dz) || 1; P.push.set(dx / d * 2.5, 0, dz / d * 2.5); }
     if (Math.random() < dt * 1.5) sfx('fire', { at: p, v: 0.6 }); };
   W.animated.push(tick);
@@ -73,6 +73,7 @@ export const PANEL3 = {
   // Нарезка (v0.22): огурец лежит ЦЕЛЫЙ — режем поперёк пунктира (зажав ЛКМ), он распадается на кружки; потом так же помидор.
   // Потом клик — ставим миску, нарезка ссыпается в неё, и миску раскручиваем: зажать ЛКМ и водить мышью по кругу.
   saladCut(o, api, ctx) {
+    api.feedback?.();
     const s = o.spot, F = new V3(s.f[0], 0, s.f[1]), top = s.y + 0.96;
     const c0 = new V3(s.bx, top, s.bz).addScaledVector(F, 0.05);
     api.pose(c0.clone().addScaledVector(F, 0.85).add(new V3(0, 0.95, 0)), c0.clone().addScaledVector(F, -0.05));
@@ -141,6 +142,7 @@ export const PANEL3 = {
 
   // Мессенджер: кликни по каждому другу, выбери стикер — отправь
   phone(o, api, ctx) {
+    api.feedback?.();
     const s = o.spot, F = new V3(s.f[0], 0, s.f[1]), c0 = new V3(s.bx, s.by + 0.05, s.bz);
     api.pose(c0.clone().addScaledVector(F, 0.55).add(new V3(0, 0.7, 0)), c0.clone());
     const friends = (W.bots || []).map(b => ({ b, name: b.name, skin: b.skin, sent: false }));
@@ -171,12 +173,17 @@ export const PANEL3 = {
 
   // Вкрутить лампочку: зажми ЛКМ и крути мышью по кругу вокруг патрона
   bulbScrew(o, api) {
+    api.feedback?.();
     const L = o.lamp, c0 = new V3(L.lx, L.y + 2.92, L.lz), d = new V3(Math.sin(L.ry), 0, Math.cos(L.ry));
     const camP = c0.clone().addScaledVector(d, 1.25).add(new V3(0, -0.55, 0)); api.pose(camP, c0.clone());
-    const bulb = compose('bulbItem2', a => { a(G.sph10, lam({ color: 0xfff6d0, emissive: 0x6a5a30 }, 'bulbItem'), 0, -0.06, 0, 0.08, 0.09, 0.08); a(G.cyl8, col(0xc8c8d8), 0, 0.04, 0, 0.04, 0.06, 0.04); });
+    const bulb = compose('bulbItem27', a => { a(G.sph10, lam({ color: 0xfff6d0, emissive: 0x6a5a30 }, 'bulbItem'), 0, -0.06, 0, 0.08, 0.09, 0.08); a(G.cyl8, col(0xc8c8d8), 0, 0.04, 0, 0.04, 0.06, 0.04);for(let i=0;i<4;i++)a(G.torus,col(0x736b70),0,0.015+i*0.015,0,0.035,0.035,0.035,Math.PI/2); });
+    const bulbMats=[];bulb.traverse(m=>{if(m.material?.emissive){m.material=m.material.clone();bulbMats.push(m.material);}});
     bulb.position.copy(c0).add(new V3(0, -0.14, 0)); W.group.add(bulb);
+    const oldCap=o.cap.visible;o.cap.visible=false;
+    const socket=mesh(G.cyl8,tmat(T.metal()),c0.x,c0.y+0.065,c0.z,0.068,0.11,0.068,W.group);
+    const collar=mesh(G.torus,col(0x2b2533),c0.x,c0.y+0.01,c0.z,0.057,0.057,0.057,W.group);collar.rotation.x=Math.PI/2;
     const N = new V3().subVectors(c0, camP).normalize();
-    let ang = 0, last = null, drag = false, endT = -1, clickA = 0;
+    let ang = 0, last = null, drag = false, endT = -1, clickA = 0, idle=0, hinted=false;
     api.progress(0); api.msg('КРУТИ! Зажми и веди по кругу');
     const angleOf = ray => { const p = onPlane(ray, N, c0); if (!p) return null; const u = new V3().crossVectors(N, new V3(0, 1, 0)).normalize(), v = new V3().crossVectors(u, N); p.sub(c0); return Math.atan2(p.dot(v), p.dot(u)); };
     return {
@@ -184,10 +191,10 @@ export const PANEL3 = {
       down(ray) { drag = true; last = angleOf(ray); }, up() { drag = false; last = null; },
       move(ray) { if (!drag || endT > 0) return; const a = angleOf(ray); if (a === null || last === null) { last = a; return; } let da = a - last; da = Math.atan2(Math.sin(da), Math.cos(da)); last = a;
         ang += Math.abs(da) < 1.2 ? Math.abs(da) : 0; if (ang - clickA > 1.2) { clickA = ang; sfx('screw'); }
-        const k = Math.min(1, ang / (Math.PI * 6)); api.progress(k); bulb.rotation.y = -ang; bulb.position.y = c0.y - 0.14 + k * 0.1;
+        const k = Math.min(1, ang / (Math.PI * 6)); api.progress(k);idle=0;bulb.rotation.y = -ang; bulb.position.y = c0.y - 0.14 + k * 0.1;
         if (k >= 1) { endT = 1.0; api.msg('Да будет свет!', 'good'); o.cap.visible = false; if (L.pool) L.pool.visible = true; sfx('done'); burst(c0.x, c0.y - 0.1, c0.z, 10, { color: 0xfff0c8, size: 0.1, speed: 1.5 }); } },
-      update(dt) { if (endT > 0) { bulb.children.forEach(m => m.material && m.material.emissive && m.material.emissive.setHex(0xfff0c8)); endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
-      stop() { W.group.remove(bulb); },
+      update(dt) {idle+=dt;if(idle>3&&!hinted&&endT<0){hinted=true;api.msg('Держи ЛКМ - обведи круг вокруг патрона');}if (endT > 0) { bulb.children.forEach(m => m.material && m.material.emissive && m.material.emissive.setHex(0xfff0c8)); endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
+      stop() { W.group.remove(bulb,socket,collar);bulbMats.forEach(m=>m.dispose());if(endT<0)o.cap.visible=oldCap; },
     };
   },
 };
@@ -196,6 +203,7 @@ export const PANEL3 = {
 export const WORLD3 = {
   // Салат: огурец и помидор где-то рядом (подсвечены), принеси оба к кухне — дальше нарезка
   salad(o, api, ctx) {
+    api.feedback?.();
     const s = o.spot, home = new V3(s.x, s.y, s.z), P = ctx.player, from = home;
     const items = ['cucumber', 'tomato'].map(k => { const p = farPoint(from, 4, 22); const it = addItem(k, p.x, p.y, p.z, Math.random() * 6); it.def = { ...it.def, respawn: 0 }; it.ring = ringMark(); return it; });
     let time = 112, hint = '';
@@ -218,6 +226,7 @@ export const WORLD3 = {
 
   // Лампочка: возьми лампочку, поставь стремянку у фонаря (уже стоит), залезь и вкрути (E)
   bulb(o, api, ctx) {
+    api.feedback?.();
     const L = o.lamp, P = ctx.player, d = new V3(Math.sin(L.ry), 0, Math.cos(L.ry)), hx = L.lx + d.x * 0.45, hz = L.lz + d.z * 0.45;
     // стремянка: поручни и ступени, зона лазания
     const lad = new THREE.Group(); lad.position.set(hx, L.y, hz); lad.rotation.y = Math.atan2(d.x, d.z); W.group.add(lad);
@@ -248,6 +257,7 @@ export const WORLD3 = {
   // Котята: двое носятся вокруг коробки и удирают от тебя. Догони, возьми на руки (E) и донеси до коробки —
   // или брось котёнка в коробку (ПКМ). На руках котёнок долго не сидит — вырывается и снова удирает.
   catbox(o, api, ctx) {
+    api.feedback?.();
     const c = o.pos(), P = ctx.player, G2 = 22;
     o.kittens = [0, 1].map(i => { const k = buildCat(COATS[(Math.random() * COATS.length) | 0]); k.root.scale.setScalar(0.85); const a = Math.random() * 6.28, r = 5 + Math.random() * 2.5;
       let x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; if (!isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, c.y + 0.05, c.y + 0.8)) { x = c.x + Math.cos(a) * 3; z = c.z + Math.sin(a) * 3; }
@@ -315,6 +325,7 @@ export const WORLD3 = {
 
   // Горящая урна: туши огнетушителем, водяным пистолетом или шариками с водой
   firebin(o, api, ctx) {
+    api.feedback?.();
     const P = ctx.player, f = o.fire;
     const hasTool = P.held && ['extinguisher', 'water', 'balloon'].includes(P.held.type);
     // огнетушитель рядом: подсвечен контуром, кольцом и стрелкой навигатора, пока не возьмёшь

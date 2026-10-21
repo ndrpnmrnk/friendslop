@@ -20,7 +20,7 @@ import { voice } from './voice.js';
 import { buildingAt, floorAt, routeTo } from '../missions/location.js';
 import { actors, shove, knockDown, tickStun, ragK, daze } from './actors.js';
 import { useTool } from './tools.js';
-import { grabTarget, grabActor, letGo, startEmote, updateEmote } from './grab.js';
+import { applyGripMotion, grabTarget, grabActor, letGo, startEmote, updateEmote } from './grab.js';
 
 /* Боты-соперники (пока нет сети). Тот же риг, хитбокс и физика, что у игрока.
    Характеры: задира (кидается, толкает, хватает, отбирает), трудяга (почти только миссии), трус (уворачивается, прячется).
@@ -231,6 +231,7 @@ export function updateBots(dt, t, P) {
     if (P && !P.heldBy && !b.heldBy) { const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z, d = Math.hypot(dx, dz);
       if (d < b.r + P.r && d > 1e-3 && Math.abs(b.pos.y - P.pos.y) < 1.2) { const o = (b.r + P.r - d) / 2; b.pos.x += dx / d * o; b.pos.z += dz / d * o; P.pos.x -= dx / d * o; P.pos.z -= dz / d * o; } }
     const was = b.onGround; b.noGrav = b.climbing && b.vel.y === 0;
+    applyGripMotion(b,dt);
     moveBody(b, dt, PC.gravity);
     if (b.onGround && !was) { const drop = b.airPeak - b.pos.y; if (drop > 0.6) smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1.6, size: 0.14 });
       if (b.thrown) { b.thrown = false; if (drop > 0.3) b.stun = Math.max(b.stun, 0.6); }
@@ -244,7 +245,7 @@ export function updateBots(dt, t, P) {
     if (b.onGround && spd > 7 && Math.random() < dt * 10) smoke(b.pos.x - b.vel.x / spd * 0.4, b.pos.y + 0.12, b.pos.z - b.vel.z / spd * 0.4, { size: 0.12, grow: 0.5, life: 0.5, vy: 0.4 });
     if (b.throwT > 0) b.throwT -= dt;
     updateEmote(b, dt, spd > 1);
-    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, dive: b.diveT > 0 ? 'air' : null, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, payload:b.carryCrate?0.5:b.carryKitten?0.42:b.held?.def.r||0,missionTool:!!b.missionTool,hold: (!!b.work || !!b.held || b.carryKitten || b.carryCrate || b.carryNet) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
+    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, dive: b.diveT > 0 ? 'air' : null, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, payload:b.carryCrate?0.5:b.carryKitten?0.42:b.held?.def.r||0,missionTool:!!b.missionTool,hold: (!!b.work && !b.work.world || !!b.held || b.carryKitten || b.carryCrate || b.carryNet) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
       emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, restrained: !!b.heldBy, swat: b.swatT > 0 ? b.swatT : 0, zombie: !!b.zombie });
     poseBotWork(b);
     if (b.held) { cargoPosition(b,b.held.pos,b.held.def.r); b.held.g.rotation.y = b.root.rotation.y; }
@@ -253,7 +254,7 @@ export function updateBots(dt, t, P) {
 }
 /* полоска прогресса над ботом, пока он делает миссию: видно, кого стоит сбить (перехват) */
 function progBar(b) {
-  const on = !!b.work;
+  const on = !!b.work && !b.work.worldFeedback;
   if (!b.bar) { if (!on) return; const c = document.createElement('canvas'); c.width = 34; c.height = 8; const tex = new THREE.CanvasTexture(c); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })); sp.scale.set(1.1, 0.26, 1); sp.renderOrder = 9; b.root.add(sp); b.bar = { sp, c, g: c.getContext('2d'), tex, k: -1 }; }
   const B = b.bar; B.sp.visible = !!on; if (!on) return;

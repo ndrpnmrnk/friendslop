@@ -39,7 +39,7 @@ const SND = {
     else if (m === 'cloth') noise(0.12, 0.1 * v, 600, 0.5, 0, 'lowpass');
     else { noise(0.08, 0.2 * v, 450, 1.2); tone(110, 60, 0.08, 'square', 0.07 * v); } },
   crow: () => { for (let i = 0; i < 2; i++) { noise(0.16, 0.08, 1300, 3, i * 0.22); tone(520, 380, 0.15, 'sawtooth', 0.05, i * 0.22); } },
-  purr: () => { for (let i = 0; i < 6; i++) noise(0.07, 0.07, 140, 1.5, i * 0.09, 'lowpass'); },
+  purr: s => { const k=Math.max(0,Math.min(1,s.p||0)),v=s.v??1;for(let i=0;i<8;i++){const at=i*(0.09-k*0.025);noise(0.065,0.07*v,140+k*35,1.5,at,'lowpass');tone(68,60,0.06,'triangle',0.018*v,at);} },
   curse: () => { [330, 280, 360, 250].forEach((f, i) => tone(f, f * 0.8, 0.07, 'square', 0.06, i * 0.07)); },
   confetti: () => { noise(0.08, 0.2, 3000, 1); for (let i = 0; i < 5; i++) tone(1500 + Math.random() * 1500, 1200, 0.05, 'square', 0.03, 0.05 + i * 0.03); },
   fizz: () => noise(0.7, 0.14, 4000, 0.6, 0, 'highpass', 1500),

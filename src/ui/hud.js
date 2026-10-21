@@ -113,9 +113,9 @@ export function renderStamina(P, dt, missionTool=null) {
   // предмет в руках: инструмент — «ЛКМ действие · ПКМ бросок», заряды
   let held = '';
   if (P.grab) held = `${img('cart', 22)}${TEXT.grab[P.grab.kind] || ''} <span class="key">E</span>${TEXT.keys.hop}`;
-  else if (P.holding) held = `${img('mouse', 22)}${P.holding.bot ? P.holding.name : TEXT.you} <span class="key">E / ЛКМ / ПКМ</span>Отпустить`;
+  else if (P.holding) held = `${img('mouse', 22)}${P.holding.bot ? P.holding.name : TEXT.you} <span class="key">WASD</span>Оттяни <span class="key">E / ЛКМ / ПКМ</span>Отпустить`;
   else if (P.carryCrate) held = `${img('parcel', 22)}Ящик в руках <span class="key">E</span>Поставить на метку`;
-  else if (P.heldBy) held = `<span class="key">ПРОБЕЛ</span>${TEXT.keys.struggle}`;
+  else if (P.heldBy) held = `<span class="key">WASD / ПРОБЕЛ</span>${TEXT.keys.struggle}`;
   else if (P.held) {
     // карточка «в руках»: крупная иконка, название, заряды и что с этим делать
     // запас: шкала 0–100 (огнетушитель, пылесос), патроны (водяной пистолет и др.), перезарядка — серая иконка заполняется снизу (сетемёт)

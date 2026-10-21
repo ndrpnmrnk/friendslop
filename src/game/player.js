@@ -13,7 +13,7 @@ import { bounceAt, worldHit, shake, leaveSwing, driveSwing, leaveHide, leaveBenc
 import { isFree } from '../world/physics.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
-import { struggleTap, startEmote, updateEmote, EMOTES } from './grab.js';
+import { applyGripMotion, struggleTap, startEmote, updateEmote, EMOTES } from './grab.js';
 import { actors, shove, tickStun, ragK, knockDown } from './actors.js';
 import { updateZip } from './zipline.js';
 
@@ -218,6 +218,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
       for (const b of actors()) { if (b === p || b.hidden) continue; const dx = b.pos.x - d.x, dz = b.pos.z - d.z; if (Math.hypot(dx, dz) < 1.6 && dx * ux + dz * uz > 0 && Math.abs(b.pos.y - d.y) < 1.2) { knockDown(b, ux * 9, uz * 9, 1.4); voice(b.ch, 'hurt', b.pos); W.onHit && W.onHit(p, b, 'heavy'); } } }
   }
   if (p.diveHitT > 0) p.diveHitT -= dt;
+  applyGripMotion(p, dt);
   moveBody(p, dt, PC.gravity);
   bumpPushables(p);
   // батут: приземлился на маркизу / крышу машины / матрас — подбросило

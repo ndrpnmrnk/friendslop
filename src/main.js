@@ -338,9 +338,11 @@ function openWorld(m) {
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden'); $('mgbar').classList.remove('hidden'); $('mgbar').firstChild.style.width = '0%';
+  let worldFeedback=false;
   const api = {
+    feedback: () => {worldFeedback=true;$('mgbar').classList.add('hidden');},
     msg: (text, cls = '') => callout(text, cls),
-    progress: v => { m.progress=v; $('mgbar').firstChild.style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; },
+    progress: v => { m.progress=v; $('mgbar').classList.toggle('hidden',worldFeedback||v===null);$('mgbar').firstChild.style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; },
     where: t => { m.where = t; },
     timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))}`; },
     finish: res => { if (S.wm && S.wm.m === m) closeWorld(res); },
@@ -354,9 +356,11 @@ function openWorld(m) {
 }
 /* Подсказки мини-игр (v0.19): короткая фраза по факту — ниже центра экрана, крупно, сама гаснет.
    good/bad — действие («ТЯНИ!», «ОТПУСТИ!»), без класса — спокойная инструкция (дольше висит, мельче). */
-let callT = 0;
+let callT = 0, lastCall = '', lastCallAt = 0;
 function callout(text, cls = '') {
-  const e = $('mgcall'); clearTimeout(callT); if (!text) { e.className = 'hidden'; return; }
+  const e = $('mgcall'),now=performance.now();
+  if(text&&text===lastCall&&now-lastCallAt<3500)return;
+  lastCall=text;lastCallAt=now;clearTimeout(callT); if (!text) { e.className = 'hidden'; return; }
   e.textContent = text; e.className = 'c-' + (cls || 'info'); void e.offsetWidth; e.classList.add('pop');
   callT = setTimeout(() => e.classList.add('fade'), cls ? 1300 : 2600);
 }
@@ -380,9 +384,11 @@ function openMission(m) {
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden');
+  let worldFeedback=false;
   const api = {
+    feedback: () => {worldFeedback=true;$('mgbar').classList.add('hidden');},
     pose: (p, l) => { cam.pose = { p, l, ignore: m.obj.solid }; updateCamera(camera, P, 0, true); },
-    progress: v => { m.progress=v; const bar = $('mgbar'); if (v === null) bar.classList.add('hidden'); else { bar.classList.remove('hidden'); bar.firstChild.style.width = (v * 100) + '%'; } },
+    progress: v => { m.progress=v; const bar = $('mgbar'); if (v === null || worldFeedback) bar.classList.add('hidden'); else { bar.classList.remove('hidden'); bar.firstChild.style.width = (v * 100) + '%'; } },
     msg: (text, cls = '') => callout(text, cls),
     finish: res => { if (S.mg && S.mg.m === m) closeMission(res); },
   };
