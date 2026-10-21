@@ -773,3 +773,11 @@ T.newsTex = () => photo('newsTex', 32, 32, (g, W, H) => { if (phOk('plaster_g'))
 // v0.22: огурец для нарезки — полоски вдоль, пупырышки
 T.cucumberL = () => photo('cucumberL', 32, 16, (g, W, H) => { fill(g, W, H, '#2f6a22'); for (let x = 0; x < W; x += 4) { g.fillStyle = x % 8 ? '#3f8a2a' : '#5aa040'; g.fillRect(x, 0, 2, H); }
   g.fillStyle = 'rgba(200,230,150,.5)'; for (let i = 0; i < 24; i++) g.fillRect((i * 13) % W, (i * 7) % H, 1, 1); }, 4);
+// v0.23: шерсть собак «как на PS1» — фото-основа + длинные вертикальные пряди (светлые/тёмные), и бахрома с рваным краем (альфа)
+T.dogCoat = (c, d, l, vert = 0) => photo('dogCoat2' + c + '_' + d + '_' + vert, 32, 32, (g, W, H) => { if (phOk('carpet_g')) phDraw(g, W, H, 'carpet_g', shade(c, 55), 2, 2); else fill(g, W, H, shade(c, 0));
+  // короткие пряди по направлению роста шерсти (вдоль u — по бокам вниз, или вдоль v — по лапам), мягко, без «досок»
+  for (let i = 0; i < 260; i++) { const x = (i * 37 % 101) / 101 * W, y = (i * 53 % 97) / 97 * H, len = W * (0.06 + (i % 5) * 0.03), th = Math.max(1, W / 90);
+    g.fillStyle = i % 4 === 0 ? shade(d, 10) : shade(l, (i % 5) * 5 - 12); g.globalAlpha = 0.18 + (i % 3) * 0.08; if (vert) g.fillRect(x, y, th, len); else g.fillRect(x, y, len, th); }
+  g.globalAlpha = 1; }, 4);
+T.dogFringe = (c, d, l) => photo('dogFringe' + c, 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H);
+  for (let x = 0; x < W; x += W / 32) { const len = H * (0.55 + ((x * 7) % 13) / 13 * 0.45); g.fillStyle = Math.floor(x) % 3 ? shade(l, 0) : shade(c, 0); g.fillRect(x, 0, W / 32 + 0.5, len); g.fillStyle = shade(d, 0); g.globalAlpha = 0.4; g.fillRect(x, len * 0.7, W / 64, len * 0.3); g.globalAlpha = 1; } }, 4);

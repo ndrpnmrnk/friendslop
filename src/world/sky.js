@@ -57,6 +57,7 @@ export function createSky(scene) {
   let dim = 0, night = 0; const nightFog = new THREE.Color(0x120c1e), md0 = md.clone();
   return {
     setDim(k) { dim = k; },
+    moonDir: () => moon.position.clone().normalize(),
     setNight(k) { night = k; const m2 = md0.clone(); m2.y += k * 55; m2.normalize().multiplyScalar(170); moon.position.copy(m2); halo.position.copy(m2).multiplyScalar(1.01); },
     update(camera, t, dt, player, hemi, fog) {
       g.position.set(camera.position.x, 0, camera.position.z);

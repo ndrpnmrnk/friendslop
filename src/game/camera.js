@@ -58,6 +58,16 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
     cam.yaw -= lookDelta.dx * cam.sens * (aiming ? 0.75 : 1);
     cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens * (aiming ? 0.75 : 1), -0.75, 1.5);
   }
+  /* возвращение после дрона (v0.23): камера плавно отъезжает назад-вверх за спину точки высадки — видно, как
+     персонаж спускается на тросе, — и, когда он встал, так же плавно переходит в обычную камеру (без рывков) */
+  if (cam.ret) {
+    const dr = new V3(Math.sin(cam.yaw) * Math.cos(0.35), Math.sin(0.35), Math.cos(cam.yaw) * Math.cos(0.35));
+    const l = cam.ret.l, want = l.clone().addScaledVector(dr, 7.5).add(new V3(0, 0.6, 0)); aboveGround(want, want.y + 20);
+    if (!cam.retP) { cam.retP = camera.position.clone(); cam.retL = l.clone().add(new V3(0, 2, 0)); }
+    cam.retP.lerp(want, damp(2.2, dt)); cam.retL.lerp(l, damp(3, dt));
+    camera.position.copy(cam.retP); camera.lookAt(cam.retL); pos.copy(cam.retP); look.copy(cam.retL); following = false; cam.dronePos = null; return;
+  }
+  if (cam.retP) { cam.retP = null; cam.retL = null; orbitPitch = cam.pitch; orbitYaw = cam.yaw; }
   if (p.drone) {
     // вертушка — камера от третьего лица, как за персонажем: сзади-сверху, плавно
     const dir = new V3(-Math.sin(cam.yaw) * Math.cos(cam.pitch), -Math.sin(cam.pitch), -Math.cos(cam.yaw) * Math.cos(cam.pitch));

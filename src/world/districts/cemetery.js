@@ -3,6 +3,7 @@ import { T } from '../../core/textures.js';
 import { W } from '../state.js';
 
 // Кладбище: склеп с интерьером, сторожка (ломается), туман, вороны, нычка за склепом
+const TRI = new THREE.CylinderGeometry(1, 1, 1, 3);
 export default {
   id: 'cemetery', name: 'Кладбище', ground: 'grass',
   holes: [[12.4, 6.6, 13.6, 7.8]],
@@ -27,16 +28,17 @@ export default {
         b.web(r.x0 + 0.3, 3.0, r.z0 + 0.3, Math.PI / 4, 1); b.web(r.x1 - 0.3, 3.0, r.z0 + 0.3, -Math.PI / 4, 1);
         b.m(G.torus, col(0x2a5a2a), 16, 1.02, 6.15, 0.3, 0.3, 0.3, Math.PI / 2); for (let i = 0; i < 6; i++) b.m(G.sph, col([0xd8243a, 0xf1e8ff, 0xf5c542][i % 3]), 16 + Math.cos(i) * 0.3, 1.04, 6.15 + Math.sin(i) * 0.3, 0.06, 0.05, 0.06);
       } });
-    const pd = b.m(G.cone4, tmat(T.stone()), 16, 4.3, 9.05, 1, 1, 1); pd.rotation.y = Math.PI / 4; pd.scale.set(4, 1.4, 0.3);
     // v0.19: склеп снаружи — портик с колоннами, карниз, табличка над входом, урны, статуя-ангел на крыше, мох
     { const st = tmat(T.stone()), dk = col(0x2b2533);
       for (const x of [12.6, 14.2, 17.8, 19.4]) { b.m(G.box, st, x, 0.12, 9.5, 0.6, 0.24, 0.6); b.m(G.cyl8, st, x, 1.7, 9.5, 0.2, 2.9, 0.2); b.m(G.box, st, x, 3.25, 9.5, 0.55, 0.2, 0.55); b.solid(x, 9.5, 0.45, 0.45, 0, 3.3); }
       b.m(G.box, st, 16, 3.45, 9.5, 8.0, 0.25, 0.9); b.m(G.box, st, 16, 3.66, 9.05, 10.3, 0.12, 0.25);
       b.sign(16, 2.85, 9.04, 0, 'СЕМЕЙСТВО ТЫКВИНЫХ', '#5a5466', '#17111f', 2.6, 0.3);
       for (const x of [11.4, 20.6]) { b.m(G.box, st, x, 0.35, 9.6, 0.5, 0.7, 0.5); b.m(G.cyl8, st, x, 0.85, 9.6, 0.24, 0.3, 0.24); b.m(G.ico, tmat(T.bush()), x, 1.1, 9.6, 0.3, 0.25, 0.3); b.solid(x, 9.6, 0.5, 0.5, 0, 0.9); }
-      // ангел: голова, тело-колокол, крылья
-      b.m(G.box, st, 16, 4.0, 8.4, 0.7, 0.4, 0.7); b.m(G.cone8, st, 16, 4.75, 8.4, 0.28, 1.0, 0.28); b.m(G.sph, st, 16, 5.4, 8.4, 0.17, 0.18, 0.17);
-      for (const sx of [-1, 1]) { const w = b.m(G.box, st, 16 + sx * 0.3, 5.0, 8.3, 0.5, 0.7, 0.05); w.rotation.z = sx * 0.5; }
+      // v0.23: вместо «ангела» и плоской пирамиды — классический треугольный фронтон над портиком, с карнизом и круглым окном-розой
+      { const pr = b.m(TRI, st, 16, 4.12, 9.3, 5.95, 0.9, 0.8); pr.rotation.x = -Math.PI / 2;
+        const pr2 = b.m(TRI, col(0x4a4458), 16, 4.1, 9.77, 5.3, 0.04, 0.68); pr2.rotation.x = -Math.PI / 2;
+        b.m(G.cyl12, col(0x2b2533), 16, 4.15, 9.8, 0.36, 0.04, 0.36).rotation.x = Math.PI / 2; b.m(G.cyl12, glow(0x9a6ad8), 16, 4.15, 9.82, 0.28, 0.02, 0.28).rotation.x = Math.PI / 2;
+        for (const sx of [-1, 1]) { const e = b.m(G.box, st, 16 + sx * 2.575, 4.4, 9.3, 5.45, 0.12, 0.98); e.rotation.z = -sx * 0.228; } }
       for (let i = 0; i < 14; i++) b.m(G.box, col(0x3a5a2a), 11 + Math.random() * 10, 0.2 + Math.random() * 3, 9.02, 0.3 + Math.random() * 0.4, 0.1, 0.02); void dk; }
     for (let z = 13; z <= 28; z += 3) for (let x = 3.5; x <= 29; x += 3.4) if (Math.abs(x - 16) > 2 && Math.random() < 0.85) b.grave(x + (Math.random() - 0.5) * 0.5, z);
     b.deadTree(28, 6); b.deadTree(4, 22);

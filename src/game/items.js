@@ -40,6 +40,8 @@ function build(type) {
     mesh(G.box, col(0x6a2a1c), 0, 0.091, 0, 0.24, 0.005, 0.1, g);
   } else if (type === 'trash') g.add(trashModel());
   else if (type === 'litter') g.add(litterModel((Math.random() * 5) | 0));
+  else if (type === 'canister') { const r = lam({ map: T.paintMetal(0xc8243a) }, 'canisterB'); mesh(G.box, r, 0, 0, 0, 0.3, 0.38, 0.16, g); mesh(G.box, col(0x2b2533), 0, 0.22, -0.04, 0.06, 0.06, 0.06, g); mesh(G.box, r, 0.06, 0.21, 0.0, 0.16, 0.04, 0.05, g); mesh(G.cyl6, col(0xf5c542), -0.08, 0.22, 0.04, 0.025, 0.08, 0.025, g); }
+  else if (type === 'letter') { const c = it_letterC(); mesh(G.box, col(0xf1e8ff), 0, 0, 0, 0.3, 0.02, 0.2, g); mesh(G.box, col(c), 0, 0.012, 0, 0.3, 0.005, 0.06, g); mesh(G.box, col(c), 0.1, 0.012, 0.05, 0.05, 0.006, 0.05, g); }
   else if (type === 'parcel') { mesh(G.box, col(0xc8a070), 0, -0.05, 0, 0.5, 0.14, 0.5, g); mesh(G.box, col(0xc8a070), 0, 0.1, 0, 0.46, 0.14, 0.46, g); mesh(G.box, col(0xd8243a), 0, 0.03, 0.252, 0.3, 0.06, 0.01, g); mesh(G.box, col(0xf1e8ff), 0, 0.172, 0, 0.47, 0.005, 0.08, g); }
   else if (type === 'can') { mesh(G.cyl8, lam({ color: 0xd8243a, emissive: 0x3a0808 }, 'canBody'), 0, 0, 0, 0.065, 0.2, 0.065, g); mesh(G.cyl8, col(0xd8d8e0), 0, 0.105, 0, 0.06, 0.012, 0.06, g); mesh(G.box, col(0xf1e8ff), 0, 0.02, 0.066, 0.06, 0.06, 0.004, g); }
   else if (type === 'monitor') { const dk = col(0x2b2533); mesh(G.box, dk, 0, 0.06, 0, 0.56, 0.36, 0.05, g); mesh(G.box, tmat(T.screen()), 0, 0.06, 0.027, 0.5, 0.3, 0.005, g); mesh(G.box, dk, 0, -0.16, -0.02, 0.06, 0.12, 0.05, g); mesh(G.box, dk, 0, -0.22, 0, 0.26, 0.02, 0.16, g); }
@@ -135,6 +137,8 @@ function hitActors(it, p, heavy) {
   impulsePushables(p.x, p.z, 0.6, heavy ? 4 : 1.5);
 }
 function impact(it, n, speed) {
+  // жетон (v0.23): упал — из точки выбегает наряд и ловит ближайшего к ней соперника
+  if (it.type === 'badge' && it.owner && !it.badgeDone) { it.badgeDone = true; it.state = 'gone'; it.g.visible = false; W.badgeLand && W.badgeLand(it.pos.clone(), it.owner); return; }
   const p = it.pos, t = it.type, gy = groundAt(p.x, p.z, 0.1, p.y + 0.3);
   // хрупкая мелочь: сильный удар — разбилось (осколки, звон), до конца раунда
   if (it.def.breaks && speed > it.def.breaks) { const glass = t === 'monitor' || t === 'dlamp' || t === 'mug';
@@ -291,8 +295,11 @@ export function throwVelocity(from, target, charge, def) {
   const d = dist;
   const T = 0.14 + d * (0.018 + heavy * 0.04) + heavy * 0.35, vh = d / T, dy = target.y - from.y;
   // поправка на сопротивление воздуха, чтобы лёгкое прилетало в прицел
-  const dragK = 1 + def.drag * T * 0.5;
-  return new V3(dx / dist * vh * dragK, (dy + 0.5 * GRAV * T * T) / T, dz / dist * vh * dragK);
+  // v0.22→23: точное решение с сопротивлением воздуха (v' = −k·v − g), чтобы предмет прилетал ровно в точку прицела
+  const k = def.drag || 0;
+  if (k < 1e-4) return new V3(dx / dist * vh, (dy + 0.5 * GRAV * T * T) / T, dz / dist * vh);
+  const f = k / (1 - Math.exp(-k * T)), vx = dist * f, vy = (dy + GRAV * T / k) * f - GRAV / k;
+  return new V3(dx / dist * vx, vy, dz / dist * vx);
 }
 export function launch(it, from, vel) { it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true; }
 export function predict(from, vel, out, n, def, end) {
@@ -305,3 +312,6 @@ export function predict(from, vel, out, n, def, end) {
   }
   return k;
 }
+
+// цвет письма задаёт миссия «Почтальон» перед addItem
+let _lc = 0xd8243a; export const setLetterColor = c => { _lc = c; }; const it_letterC = () => _lc;

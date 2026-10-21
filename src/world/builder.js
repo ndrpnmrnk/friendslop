@@ -166,7 +166,9 @@ export class Builder {
     const lid = new THREE.Group(); lid.position.set(-hl + 0.66, 0.95, 0); g.add(lid); W.keep.push(lid);
     lid.add(compose('carLid3' + c, add => { add(G.box, tmat(T.carPaint(c)), -0.33, 0.015, 0, 0.66, 0.05, 1.7); add(G.box, col(0x9a9da8), -0.6, 0.0, 0, 0.04, 0.03, 0.3); }));
     if (type === 'van') lid.position.y = 0.95 + ty.cab[2] + 0.02;
-    W.cars.push({ x: this.X(x), z: this.Z(z), y: this.Y, ry, alarm: 0, lid });
+    W.cars.push({ x: this.X(x), z: this.Z(z), y: this.Y, ry, alarm: 0, lid, g, L });
+    // мойка (v0.23): точка у левого борта машины, лицом к борту
+    { const nx = Math.sin(ry), nz = Math.cos(ry); (W.spots.car || (W.spots.car = [])).push({ x: this.X(x) + nx * 1.9, z: this.Z(z) + nz * 1.9, y: this.Y, f: [-Math.round(nx), -Math.round(nz)], car: W.cars[W.cars.length - 1], district: this.d, label: 'машина' }); }
     const q = Math.abs(Math.sin(ry)) > 0.5, top = type === 'van' ? 1.92 : 1.45;
     this.solid(x, z, q ? 1.8 : L + 0.1, q ? L + 0.1 : 1.8, 0, 0.95);
     const rx = x - Math.cos(ry) * ty.cab[0] * -1, rz = z - Math.sin(ry) * ty.cab[0], rw = q ? 1.5 : ty.cab[1], rd = q ? ty.cab[1] : 1.5;

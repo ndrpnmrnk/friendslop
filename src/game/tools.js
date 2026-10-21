@@ -148,7 +148,7 @@ export function useTool(a, it, aim, dt = 0) {
     // сетемёт: бесконечный, но перезарядка 10 с (видна на иконке в карточке «в руках»)
     case 'net': { it.cd = d.cdMax; shoot('net', from, dir, 19, 0, a); return 'throw'; }
     // жетон: вызвать наряд (ПКМ — бросить жетон в соперника)
-    case 'badge': { if (hasPolice(a)) return null; it.cd = 1; callPolice(a); return null; }
+    case 'badge': return null; // жетон работает броском (ПКМ): наряд выбегает из точки падения
     // перчатка-пружина: удар на 3 м вперёд, отбрасывает далеко
     case 'glove': { it.cd = 0.7; const [fx, fz] = front(a, 3.2, 0.7, (b, dx, dz) => { const l = Math.hypot(dx, dz) || 1; knockDown(b, dx / l * 11, dz / l * 11, 1.2); b.vel.y = 5; hitFreeze(0.08); W.onHit && W.onHit(a, b, 'melee'); });
       it.punchT = 0.25; a.swatT = 0.25; impulsePushables(a.pos.x + fx * 2, a.pos.z + fz * 2, 1.2, 8); worldHit(new V3(a.pos.x + fx * 2.6, a.pos.y + 1, a.pos.z + fz * 2.6), 3, new V3(fx * 12, 2, fz * 12));
@@ -372,5 +372,5 @@ export function updateTools(dt, t) {
   void _f; void addZone;
 }
 // иконка-подсказка для HUD: есть ли у инструмента действие на ЛКМ
-export const toolVerb = it => ({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: 'выстрел сеткой', badge: it && hasPolice(it.owner) ? 'брось в соперника (ПКМ)' : 'вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
+export const toolVerb = it => ({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: 'выстрел сеткой', badge: 'брось (ПКМ) — вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
   water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', mask: 'надеть', rake: 'поставить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';

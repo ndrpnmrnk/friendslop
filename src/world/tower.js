@@ -248,19 +248,19 @@ export const TowerMethods = {
     // вывеска магазина (v0.21): световой короб — тёмная рамка на кронштейнах + светящаяся надпись, иногда мигает
     if (o.sign) { const sw = Math.min(w * 0.7, 4.5), sy = Math.min(fh - 0.5, o.awning ? 3.3 : 2.95), dk = col(0x17141c);
       this.m(G.box, dk, x + w / 2, sy, z + d + 0.08, sw + 0.16, 0.86, 0.14); for (const s2 of [-1, 1]) this.m(G.box, dk, x + w / 2 + s2 * sw * 0.4, sy + 0.5, z + d + 0.05, 0.05, 0.16, 0.1);
-      const sm = this.sign(x + w / 2, sy, z + d + 0.152, 0, ...o.sign, sw, 0.7); sm.material = new THREE.MeshBasicMaterial({ map: sm.material.map, color: 0xb8b0c8 });
+      const sm = this.sign(x + w / 2, sy, z + d + 0.162, 0, ...o.sign, sw, 0.7); sm.material = new THREE.MeshBasicMaterial({ map: sm.material.map, color: 0xb8b0c8 });
       this.m(G.box, glow(0xffe0b0), x + w / 2, sy - 0.47, z + d + 0.12, sw, 0.03, 0.03); this.light(x + w / 2, z + d + 0.9, 1.4, 0, true);
       if (Math.random() < 0.4) W.flick.push({ mats: [sm.material], sign: true, t: Math.random() * 4, on: true }); }
     // витрина магазина (v0.21): рама, подсвеченные полки с товаром за стеклом, подоконник, наклейка «ОТКРЫТО» — сбоку от двери, на фасаде
     if (o.sign) { const sd0 = (o.doors || (o.door ? [o.door] : [])).find(q => q.side === 's'), dr = sd0 ? x + sd0.at * w : null, L = dr === null ? [x + 0.4, x + w - 0.4] : (dr - x > x + w - dr ? [x + 0.4, dr - 1.0] : [dr + 1.0, x + w - 0.4]);
       const vw = Math.min(3.2, L[1] - L[0]), vx = (L[0] + L[1]) / 2, fz = z + d, dk = col(0x17141c);
       if (vw >= 1.2) { const vh = 1.95, vy = 1.32;
-        this.m(G.box, dk, vx, vy, fz + 0.04, vw + 0.14, vh + 0.14, 0.08); { const gm = this.m(G.box, tmat(T.goods()), vx, vy, fz + 0.085, vw, vh, 0.01); gm.material = new THREE.MeshBasicMaterial({ map: gm.material.map, color: 0xb8b0a8 }); }
-        for (const yy of [vy - vh / 6, vy + vh / 6]) this.m(G.box, tmat(T.wood()), vx, yy, fz + 0.1, vw, 0.04, 0.06);
-        this.m(G.box, glow(0xfff0d0), vx, vy + vh / 2 - 0.04, fz + 0.1, vw - 0.1, 0.03, 0.03);
-        this.m(G.box, lam({ color: 0xbfe0ff, transparent: true, opacity: 0.16, depthWrite: false }, 'vitGlass'), vx, vy, fz + 0.13, vw, vh, 0.01);
+        this.m(G.box, dk, vx, vy, fz + 0.045, vw + 0.14, vh + 0.14, 0.08); { const gm = this.m(G.box, tmat(T.goods()), vx, vy, fz + 0.097, vw, vh, 0.01); gm.material = new THREE.MeshBasicMaterial({ map: gm.material.map, color: 0xb8b0a8 }); }
+        for (const yy of [vy - vh / 6, vy + vh / 6]) this.m(G.box, tmat(T.wood()), vx, yy, fz + 0.115, vw - 0.004, 0.04, 0.026);
+        this.m(G.box, glow(0xfff0d0), vx, vy + vh / 2 - 0.04, fz + 0.115, vw - 0.1, 0.03, 0.02);
+        { const gl = this.m(G.box, lam({ color: 0xbfe0ff }, 'vitGlass0'), vx, vy, fz + 0.142, vw, vh, 0.006); gl.material = VIT_GLASS(); gl.receiveShadow = false; gl.castShadow = false; }
         this.m(G.box, tmat(T.metal()), vx, vy - vh / 2 - 0.1, fz + 0.12, vw + 0.3, 0.08, 0.24);
-        if (vw > 0.8) { const sg = this.sign(vx + vw / 2 - 0.35, vy + 0.5, fz + 0.14, 0, 'ОТКРЫТО', '#9be36b', '#17111f', 0.55, 0.16); sg.material = new THREE.MeshBasicMaterial({ map: sg.material.map }); } } }
+        if (vw > 0.8) { const sg = this.sign(vx + vw / 2 - 0.35, vy + 0.5, fz + 0.155, 0, 'ОТКРЫТО', '#9be36b', '#17111f', 0.55, 0.16); sg.material = new THREE.MeshBasicMaterial({ map: sg.material.map }); } } }
     if (o.awning) { const a = this.m(G.box, tmat(T.awning(...o.awning)), x + w / 2, 2.72, z + d + 0.62, w - 0.6, 0.1, 1.2); a.rotation.x = 0.25;
       // маркиза-батут: упругая ткань подбрасывает
       this.solid(x + w / 2, z + d + 0.62, w - 0.6, 1.1, 2.6, 0.12); this.bouncer(x + 0.3, z + d + 0.1, x + w - 0.3, z + d + 1.15, 2.72, 11); }
@@ -356,3 +356,5 @@ export const TowerMethods = {
 
 function shadeHex(c, a) { const r = Math.max(0, Math.min(255, ((c >> 16) & 255) + a)), g = Math.max(0, Math.min(255, ((c >> 8) & 255) + a)), b = Math.max(0, Math.min(255, (c & 255) + a)); return (r << 16) | (g << 8) | b; }
 void W;
+
+let _vg; const VIT_GLASS = () => _vg || (_vg = new THREE.MeshBasicMaterial({ color: 0xbfe0ff, transparent: true, opacity: 0.12, depthWrite: false }));

@@ -119,8 +119,8 @@ export function updateDrones(dt, t) {
       a.root.visible = r.t >= T2 - 0.05;
       r.rope.visible = r.t >= T2 && r.t < T3 + 0.1; const rl = Math.max(0.05, r.g.position.y - 0.45 - (a.pos.y + 1.25)); r.rope.scale.y = rl; r.rope.position.y = -0.45 - rl / 2;
       a.ch.animate(dt, { t, speed: 0, zip: true, air: false, vy: 0 });
-      if (a === W.player) cam.free = { p: r.p.clone().add(new V3(6, 3.5, 8)), l: a.pos.clone().add(new V3(0, 1.2, 0)) };
-      if (r.t > T3 && !r.landed) { r.landed = true; a.pos.copy(r.p); a.vel.set(0, 0, 0); a.onGround = true; a.airPeak = a.pos.y; a.noMountT = 2; a.burnCD = (W.time || 0) + 3; a.root.visible = true; smokeRing(a.pos.x, a.pos.y + 0.05, a.pos.z, 12, { speed: 3 }); sfx('land', { at: a.pos }); if (a === W.player) { cam.free = null; cam.blend = 0; } a.returning = null; r.rope.visible = false;
+      if (a === W.player) cam.ret = { l: a.pos.clone().add(new V3(0, 1.2, 0)), heli: r.g.position.clone() };
+      if (r.t > T3 && !r.landed) { r.landed = true; a.pos.copy(r.p); a.vel.set(0, 0, 0); a.onGround = true; a.airPeak = a.pos.y; a.noMountT = 2; a.burnCD = (W.time || 0) + 3; a.root.visible = true; smokeRing(a.pos.x, a.pos.y + 0.05, a.pos.z, 12, { speed: 3 }); sfx('land', { at: a.pos }); if (a === W.player) { cam.ret = null; cam.blend = 0; } a.returning = null; r.rope.visible = false;
         // вертушка улетает сама и исчезает
         const g = r; flyOff.push({ g, t: 0 }); }
     }
@@ -144,6 +144,7 @@ export function updateDrones(dt, t) {
 }
 export function resetDrones() {
   for (const a of [W.player, ...(W.bots || [])].filter(Boolean)) { const d = a.drone || a.returning; if (d) removeHeli(d); a.drone = a.returning = null; a.marked = 0; }
+  cam.ret = null;
   for (const d of darts) W.group.remove(d.m); for (const c of candies) W.group.remove(c.m); for (const m of marks.values()) { W.group.remove(m.g); m.g.material.dispose(); }
   for (const f of flyOff) removeHeli(f.g); flyOff.length = 0;
   darts.length = candies.length = 0; marks.clear(); cam.free = null;

@@ -24,6 +24,10 @@ function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
 const SND = {
+  // v0.23: колокол заданной высоты (колокола склепа)
+  bellN: s => { const f = [392, 494, 587, 698, 784][s.n || 0]; tone(f, f * 0.98, 0.9, 'triangle', 0.12); tone(f * 2.01, f * 2, 0.5, 'sine', 0.04); },
+  shutter: () => { noise(0.05, 0.2, 3000, 2); tone(1800, 900, 0.06, 'square', 0.05, 0.05); },
+  beep: s => tone(1400 + (s.p || 0) * 600, 1400 + (s.p || 0) * 600, 0.05, 'square', 0.05),
   // удар по материалу (v0.18): металл звенит, дерево стучит, бетон глухой, земля/трава мягкие, вода плещет, стекло звякает
   imp: s => { const v = s.v ?? 1, m = s.m || 'concrete';
     if (m === 'metal') { tone(620, 540, 0.22, 'triangle', 0.1 * v); tone(1240, 1100, 0.16, 'square', 0.03 * v); noise(0.06, 0.1 * v, 3500, 2); }

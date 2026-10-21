@@ -11,6 +11,7 @@ import { PANEL_GAMES, WORLD_GAMES } from './games2.js';
 import { buildShells, buildFishing, buildSpot, buildTargets, buildCleanup } from './objects2.js';
 import { PANEL3, WORLD3, buildPhone, buildFire, buildDeadLamp, buildCatBox } from './games3.js';
 import { PANEL4, WORLD4, buildLeafPile, buildGraffitiWall, buildIntercom, buildChest, buildValve } from './games4.js';
+import { PANEL5, WORLD5, buildDoor, buildSkelBench, buildGenerator, buildBells, buildTree, buildDetectorSign, buildCartStart, buildGraveCam, buildAntenna, buildDovecote, buildMailBag } from './games5.js';
 
 /* Миссии приходят ВОЛНАМИ.
    В волне «игроки − 1» общих миссий (боты считаются игроками, не меньше 2): кому-то не хватит — надо успеть
@@ -144,7 +145,8 @@ export function spawnMission(player, only = null, opts = {}) {
     } else {
       const pl = findPlace(def, player.pos, others);
       if (!pl) continue;
-      const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox, leaves: buildLeafPile, graffiti: buildGraffitiWall, intercom: buildIntercom, lockpick: buildChest, pipes: buildValve }[key];
+      const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox, leaves: buildLeafPile, graffiti: buildGraffitiWall, intercom: buildIntercom, lockpick: buildChest, pipes: buildValve,
+        doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
       obj = key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
       where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
     }
@@ -228,6 +230,6 @@ export function nearMission(player) {
   }
   return best;
 }
-export const ALL_GAMES = { ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4 };
-const WORLD_ALL = { ...WORLD_GAMES, ...WORLD3, ...WORLD4 };
+export const ALL_GAMES = { ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4, ...PANEL5 };
+const WORLD_ALL = { ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
 export { GAMES, WORLD_ALL as WORLD_GAMES };

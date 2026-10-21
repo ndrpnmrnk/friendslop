@@ -224,7 +224,9 @@ export const PropMethods = {
     const bulb = breakBox(this.X(lx), this.Y + 3.0, this.Z(lz), 0.22, 0.2, 0.22, 'bulb', bm), pool = this.light(lx, lz, 3.2);
     if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: Math.random() * 5, on: true }); }
     W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; pool.userData.broken = true; };
-    W.lamps.push({ x: this.X(x), z: this.Z(z), y: this.Y, lx: this.X(lx), lz: this.Z(lz), ry, pool, bm, bulb, district: this.d });
+    // объёмный конус света под плафоном (v0.23): аддитивный, мягкий к краям и к земле; гаснет вместе с фонарём
+    const cone = new THREE.Mesh(LAMP_CONE, LAMP_CONE_M()); cone.position.set(this.X(lx), this.Y + 1.52, this.Z(lz)); cone.renderOrder = 4; cone.userData.noOcc = true; W.group.add(cone); W.keep.push(cone);
+    W.lamps.push({ x: this.X(x), z: this.Z(z), y: this.Y, lx: this.X(lx), lz: this.Z(lz), ry, pool, bm, bulb, cone, district: this.d });
     this.solid(x, z, 0.35, 0.35, 0, 3.4);
   },
   // Столбик-ограничитель со светоотражающей полосой
@@ -422,7 +424,7 @@ export const PropMethods = {
     add(G.box, body, -2.35, 1.15, 0, 1.6, 1.5, 2.2); add(G.box, gl, -3.16, 1.5, 0, 0.04, 0.6, 1.9); add(G.box, gl, -2.4, 1.5, 1.11, 1.2, 0.55, 0.02); add(G.box, gl, -2.4, 1.5, -1.11, 1.2, 0.55, 0.02);
     add(G.box, dk, -3.2, 0.55, 0, 0.14, 0.3, 2.2); for (const zz of [-0.8, 0.8]) add(G.box, glow(0xfff1c0), -3.17, 0.85, zz, 0.04, 0.16, 0.3);
     // окно выдачи: проём, ставень-козырёк, прилавок, меню, свет
-    add(G.box, col(0x2a2232), 0.6, 1.75, 1.155, 3.0, 1.1, 0.02); add(G.box, glow(0xffd28a), 0.6, 1.75, 1.172, 2.8, 0.9, 0.02); add(G.box, tmat(T.goods()), 0.6, 1.75, 1.18, 2.6, 0.7, 0.01);
+    add(G.box, col(0x2a2232), 0.6, 1.75, 1.162, 3.0, 1.1, 0.02); add(G.box, glow(0xffd28a), 0.6, 1.75, 1.18, 2.8, 0.9, 0.01); add(G.box, tmat(T.goods()), 0.6, 1.75, 1.19, 2.6, 0.7, 0.004);
     const fl = add(G.box, tmat(T.awning('#f1e8ff', signC)), 0.6, 2.55, 1.6, 3.2, 0.06, 1.0); fl.rotation.x = -0.35;
     add(G.box, tmat(T.wood()), 0.6, 1.2, 1.3, 3.0, 0.06, 0.4); for (const xx of [-0.7, 0.6, 1.9]) add(G.box, dk, xx, 1.0, 1.42, 0.04, 0.4, 0.04);
     add(G.box, tmat(T.sign(sign, signC, '#f5c542')), 0.6, 2.95, 1.16, 3.6, 0.5, 0.03); add(G.box, tmat(T.chalkboard()), 2.5, 1.7, 1.17, 0.6, 0.8, 0.02);
@@ -449,6 +451,7 @@ export const PropMethods = {
     this.zone('roof', x - 1.2, z - 0.8, x + 2.6, z + 0.8, 2.7);
     this.light(x + 0.6, z + 2.2, 2.2);
     W.spots.pickup.push({ x: this.X(x + 0.6), z: this.Z(z + 1.9), y: this.Y, f: [0, 1], district: this.d, label: 'фудтрак «' + sign + '»' });
+    (W.spots.grill || (W.spots.grill = [])).push({ x: this.X(x + 0.6), z: this.Z(z + 2.0), y: this.Y, f: [0, 1], bx: this.X(x + 0.6), bz: this.Z(z + 1.3), by: this.Y + 1.23, district: this.d, label: 'гриль «' + sign + '»' });
     return g;
   },
   // Аркадный автомат
@@ -691,3 +694,9 @@ function skeleton(g, pose, acc, off) {
     W.keep.push(arm); const ph = Math.random() * 6; W.animated.push((dt, t) => { arm.rotation.z = Math.sin(t * 5 + ph) * 0.35 - 0.1; });
   }
 }
+
+const LAMP_CONE = new THREE.CylinderGeometry(0.13, 1.35, 2.95, 12, 1, true);
+let _lc; export const LAMP_CONE_M = () => _lc || (_lc = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  uniforms: { c: { value: new THREE.Color(0xffe2a8) }, k: { value: 1 } },
+  vertexShader: 'varying vec2 vu; varying float vf; void main(){ vu = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vec3 n = normalize(normalMatrix * normal); vf = abs(dot(n, normalize(-mv.xyz))); gl_Position = projectionMatrix * mv; }',
+  fragmentShader: 'uniform vec3 c; uniform float k; varying vec2 vu; varying float vf; void main(){ float a = pow(vu.y, 1.6) * pow(vf, 1.5) * 0.32 * k; gl_FragColor = vec4(c * a, a); }' }));

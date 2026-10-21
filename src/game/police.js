@@ -1,5 +1,6 @@
 import { THREE, G, V3, col, lam, glow, compose } from '../core/gfx.js';
 import { W } from '../world/state.js';
+import { T } from '../core/textures.js';
 import { groundAt, pushOut, addSolid } from '../world/physics.js';
 import { burst, smokeRing } from '../world/particles.js';
 import { sfx } from '../core/sfx.js';
@@ -11,12 +12,23 @@ import { actors } from './actors.js';
 export const POL = { cops: [], cages: [], ui: null };
 export function resetPolice() { for (const c of POL.cops) W.group.remove(c.g); for (const k of POL.cages) release(k, true); POL.cops = []; POL.cages = []; closeCageUI(); }
 
+// полицейский (v0.23): low-poly PS1 — форма на фото-ткани, фуражка с козырьком, жетон, ремень, рация, ботинки
 function copModel() {
-  return compose('cop', a => { const blue = lam({ color: 0x2a3a7a }, 'copBlue'), skin = lam({ color: 0xe8b890 }, 'copSkin'), dk = col(0x17111f);
-    a(G.cyl8, blue, 0, 0.75, 0, 0.32, 0.8, 0.26); a(G.box, dk, 0, 0.36, 0, 0.5, 0.12, 0.3); a(G.box, dk, -0.12, 0.17, 0, 0.14, 0.34, 0.16); a(G.box, dk, 0.12, 0.17, 0, 0.14, 0.34, 0.16);
-    a(G.sph10, skin, 0, 1.35, 0, 0.26, 0.26, 0.26); a(G.cyl8, blue, 0, 1.58, 0, 0.28, 0.12, 0.28); a(G.box, dk, 0, 1.53, 0.18, 0.4, 0.03, 0.16); a(G.box, glow(0xf5c542), 0, 1.6, 0.27, 0.07, 0.07, 0.02);
-    a(G.box, glow(0xf5c542), 0.12, 0.95, 0.27, 0.07, 0.08, 0.02); for (const sx of [-0.08, 0.08]) a(G.box, dk, sx, 1.38, 0.25, 0.04, 0.05, 0.02); a(G.box, col(0xff5a6e), -0.36, 0.85, 0, 0.1, 0.5, 0.1); a(G.box, col(0x4ab0f0), 0.36, 0.85, 0, 0.1, 0.5, 0.1); });
+  return compose('cop2', a => { const uni = lam({ map: T.cloth(0x2a3a6a, 'fabric_g') }, 'copUni'), pants = lam({ map: T.cloth(0x1e2440, 'fabric_g') }, 'copPants'), skin = lam({ map: T.grannyFace() }, 'copFace'), dk = col(0x17111f), gold = glow(0xf5c542);
+    a(G.box, pants, -0.11, 0.3, 0, 0.17, 0.6, 0.2); a(G.box, pants, 0.11, 0.3, 0, 0.17, 0.6, 0.2); for (const sx of [-0.11, 0.11]) a(G.box, dk, sx, 0.04, 0.04, 0.19, 0.08, 0.28);
+    a(G.cyl6, uni, 0, 0.92, 0, 0.27, 0.62, 0.21); a(G.box, dk, 0, 0.64, 0, 0.5, 0.08, 0.36); a(G.box, gold, 0, 0.64, 0.18, 0.08, 0.06, 0.02); a(G.box, gold, 0.12, 1.02, 0.2, 0.07, 0.09, 0.02);
+    a(G.box, dk, -0.12, 1.08, 0.19, 0.06, 0.12, 0.04); a(G.box, uni, 0, 1.22, 0, 0.5, 0.12, 0.3);
+    for (const sx of [-1, 1]) { a(G.cyl6, uni, sx * 0.32, 0.92, 0, 0.07, 0.5, 0.07, 0, 0, sx * 0.12); a(G.box, lam({ color: 0xe8b890 }, 'copHand'), sx * 0.35, 0.64, 0, 0.08, 0.08, 0.08); }
+    a(G.sphL, skin, 0, 1.45, 0.02, 0.2, 0.22, 0.2); a(G.box, col(0x2b2020), 0, 1.38, 0.2, 0.12, 0.025, 0.02);
+    a(G.cyl8, uni, 0, 1.64, 0, 0.23, 0.1, 0.23); a(G.cyl8, uni, 0, 1.71, 0.02, 0.26, 0.05, 0.26); a(G.box, dk, 0, 1.6, 0.2, 0.3, 0.025, 0.14, 0.2); a(G.box, gold, 0, 1.67, 0.23, 0.07, 0.07, 0.02); });
 }
+// жетон упал: два копа выбегают из точки и ловят ближайшего к ней соперника (не хозяина жетона)
+W.badgeLand = (at, owner) => {
+  const list = actors().filter(q => q !== owner && !q.caged && !q.hidden && !q.drone && !q.returning).sort((p, q) => Math.hypot(p.pos.x - at.x, p.pos.z - at.z) - Math.hypot(q.pos.x - at.x, q.pos.z - at.z));
+  const tg = list[0]; smokeRing(at.x, at.y, at.z, 10, { speed: 2.5 }); sfx('whistle', { at }); setTimeout(() => sfx('alarm', { v: 0.4 }), 300);
+  for (let i = 0; i < 2; i++) { const g = copModel(), x = at.x + (i ? 0.6 : -0.6), z = at.z; g.position.set(x, groundAt(x, z, 0.2, at.y + 1), z); W.group.add(g); W.keep.push(g);
+    POL.cops.push({ g, pos: g.position, owner, mode: tg ? 'chase' : 'leave', t: tg ? 14 : 2, ph: Math.random() * 6, side: i ? 1 : -1, target: tg || null }); }
+};
 export function callPolice(owner) {
   for (let i = 0; i < 2; i++) { const g = copModel(); const a = Math.random() * 6.28, x = owner.pos.x + Math.cos(a) * 6, z = owner.pos.z + Math.sin(a) * 6; g.position.set(x, groundAt(x, z, 0.2, owner.pos.y + 1), z); W.group.add(g); W.keep.push(g);
     POL.cops.push({ g, pos: g.position, owner, mode: 'follow', t: 25, ph: Math.random() * 6, side: i ? 1 : -1, target: null });

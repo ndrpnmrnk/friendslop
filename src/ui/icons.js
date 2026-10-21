@@ -3,6 +3,21 @@
 const PAL = { k: '#17111f', o: '#ff8a1f', O: '#c85a0a', y: '#f5c542', g: '#9be36b', G: '#4f8a3a', r: '#ff5a6e', R: '#a8243a', b: '#4ab0f0', B: '#1e6aa8',
   w: '#f1e8ff', p: '#b18cff', P: '#6a4aa8', n: '#a8744a', N: '#6a4428', s: '#a8a8b8', d: '#4a4058', c: '#d8f0ff', m: '#eee8ff' };
 const ART = {
+  // v0.23: значки новых миссий
+  doorbell: ['..kkkkkkkk..', '..knnnnnnk..', '..knNNNNnk..', '..knNNNNnk..', '..knnnnnnk..', '..knNNNNnk..', '..knNNyNnk..', '..knnnnnnk..', '..knNNNNnk..', '..knnnnnnk..', '.kkkkkkkkkk.', '............'],
+  steal: ['......kkk...', '.....kwwwk..', '.....kwkwk..', '.....kwwwk..', '......kkk...', '..kk...k....', '.krrk..k....', '.krwrk.kk...', '.krrk..k.k..', '..kk..k...k.', '.....k.....k', '............'],
+  grill: ['............', '...kkkkkk...', '..koooooook.', '.kooooooook.', '.kkkkkkkkkk.', '.kNNNNNNNNk.', '.kgggggggggk', '.kNNNNNNNNk.', '.koooooooook', '..kkkkkkkk..', '............', '............'],
+  generator: ['............', '.kkkkkkkkkk.', '.kyyyyyyyyk.', '.kykkkkkkyk.', '.kykwwrwkyk.', '.kykwwwwkyk.', '.kykkkkkkyk.', '.kyyyyyyyyk.', '.kkkkkkkkkk.', '..kk....kk..', '..kk....kk..', '............'],
+  bells: ['kkkkkkkkkkkk', '..k.....k...', '.kok...kok..', 'kooo.k.kooo.', 'kooo..kooo..', 'kooo..kooo..', 'koook.koook.', 'kkkkk.kkkkk.', '..k.....k...', '............', '............', '............'],
+  moths: ['............', '.kk......kk.', 'kppk....kppk', 'kpppk..kpppk', 'kppppkkppppk', '.kppkddkppk.', '..kkkddkkk..', '.kppkddkppk.', 'kpppk..kpppk', '.kkk....kkk.', '............', '............'],
+  carwash: ['....b..b....', '...b..b..b..', '............', '..kkkkkkkk..', '.kbbbbbbbbk.', 'kbccbbbbccbk', 'kbbbbbbbbbbk', 'kkkkkkkkkkkk', '.kdk....kdk.', '..k......k..', '............', '............'],
+  balloon: ['....kkkk....', '...krrrrk...', '..krwrrrrk..', '..krrrrrrk..', '..krrrrrrk..', '...krrrrk...', '....kkkk....', '.....kk.....', '......k.....', '.....k......', '......k.....', '.....k......'],
+  mail: ['............', '............', 'kkkkkkkkkkkk', 'kwkwwwwwwkwk', 'kwwkwwwwkwwk', 'kwwwkwwkwwwk', 'kwwwwkkwwwwk', 'kwwwwwwwwwwk', 'kwwwwwwwwwwk', 'kkkkkkkkkkkk', '............', '............'],
+  detector: ['........kkk.', '.......kyyk.', '......kyk...', '.....kyk....', '....kyk.....', '...kyk......', '..kyk.......', '.kkk........', 'kssk........', 'kssk..b..b..', '.kk..b..b...', '............'],
+  cart: ['k...........', 'kk..........', '.kkkkkkkkkk.', '.kwkwkwkwkk.', '.kkkkkkkkkk.', '..kwkwkwkk..', '..kkkkkkkk..', '...k....k...', '...kkkkkk...', '..kk....kk..', '..kk....kk..', '............'],
+  ghost: ['....kkkk....', '..kkwwwwkk..', '.kwwwwwwwwk.', '.kwkkwwkkwk.', '.kwkkwwkkwk.', '.kwwwwwwwwk.', '.kwwwkkwwwk.', '.kwwwwwwwwk.', '.kwwwwwwwwk.', '.kwkwwkwwkk.', '.kk.kk.kk...', '............'],
+  antenna: ['...kkkkk....', '..kssssk....', '.kssssk.....', 'kssssk..k...', 'kssssk.k....', 'kssssskk....', '.kssssk.....', '..kkkk......', '....k.......', '....k.......', '...kkk......', '..kkkkk.....'],
+  pigeon: ['............', '.....kkk....', '....kdddk...', '...kdkddko..', '...kdddkk...', '..kddddk....', '.kssssssk...', 'kssssssssk..', '.kssssssk...', '..kkkkkk....', '...o..o.....', '............'],
   // v0.21: значки управления вертушкой
   dart: ['............', '..........y.', '.........yy.', '........yy..', '.......kk...', '......kk....', '.....kk.....', '....kk......', '.rrkk.......', '.rrk........', 'rr..........', '............'],
   candy: ['............', '............', '.y........y.', '.yy..kk..yy.', '.yyykrrkyyy.', '.yykrwrrkyy.', '.yykrrrrkyy.', '.yyykrrkyyy.', '.yy..kk..yy.', '.y........y.', '............', '............'],

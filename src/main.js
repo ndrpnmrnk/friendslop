@@ -6,7 +6,7 @@ import '@fontsource/press-start-2p/400.css';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
-import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow } from './core/gfx.js';
+import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow, setRays } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
 import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock } from './core/input.js';
@@ -69,9 +69,14 @@ scene.fog = new THREE.Fog(...SEASON.fog);
 const hemi = new THREE.HemisphereLight(SEASON.hemi[0], SEASON.hemi[1], SEASON.hemi[2] * Math.PI); scene.add(hemi);
 const sun = new THREE.DirectionalLight(SEASON.sun[0], SEASON.sun[1] * Math.PI); sun.position.set(-30, 50, 25); scene.add(sun, sun.target);
 // жёсткие пиксельные тени (v0.18 — крупнее «пиксель», как на PS1): карта 1024 на квадрат ~64 м вокруг игрока
-sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.intensity = 0.9; sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.07;
+// v0.23: «качество света» — высокое: карта теней 2048 на ~70 м, лунные лучи, конусы фонарей, отражённый свет; низкое — как раньше
+const LQ = { hi: (() => { try { return localStorage.getItem('friendslop.light') !== 'lo'; } catch (_) { return true; } })() };
+sun.castShadow = true; sun.shadow.mapSize.set(LQ.hi ? 2048 : 1024, LQ.hi ? 2048 : 1024); sun.shadow.intensity = 0.9; sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.07;
 Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 160 }); sun.shadow.camera.updateProjectionMatrix();
 const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(), SUN_U = new V3().crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize();
+// свет луны идёт ОТ видимой луны (тени совпадают с небом); отражённый свет — мягкая сиреневая подсветка с другой стороны (объём)
+const bounce = new THREE.DirectionalLight(0x8a7ac8, 0.35 * Math.PI); scene.add(bounce, bounce.target);
+function aimMoon(d) { const k = Math.max(0.55, d.y); SUN_DIR.set(d.x, k, d.z).normalize(); SUN_R.crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(); SUN_U.crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize(); }
 // фонарик персонажа (горит только в событии «Отключили свет»; свет есть всегда, чтобы не пересобирать шейдеры)
 const sky = createSky(scene);
 const flash = new THREE.SpotLight(0xfff0d0, 0, 26, 0.55, 0.5, 1.2); scene.add(flash, flash.target);
@@ -86,6 +91,7 @@ function followSun(x, y, z) {
   const tx = 80 / 1024, c = new V3(x, y, z), a = Math.round(c.dot(SUN_R) / tx) * tx, b = Math.round(c.dot(SUN_U) / tx) * tx, f = c.dot(SUN_DIR);
   const t = SUN_R.clone().multiplyScalar(a).addScaledVector(SUN_U, b).addScaledVector(SUN_DIR, f);
   sun.target.position.copy(t); sun.position.copy(t).addScaledVector(SUN_DIR, 70);
+  bounce.target.position.copy(t); bounce.position.set(t.x - SUN_DIR.x * 50, t.y + 30, t.z - SUN_DIR.z * 50); bounce.visible = LQ.hi;
 }
 const camera = makeCamera(CONFIG.camera.fov);
 const menu = createMenu();
@@ -129,6 +135,10 @@ function showSettings() { S.state = 'settings'; menu.active = false; screen('set
 function syncSettings() { $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micSens').value = MIC.sens; $('micLoudS').value = MIC.loudSens; }
 async function fillMics() { const list = await listMics(), sel = $('micDev'); sel.innerHTML = '<option value="">По умолчанию</option>' + list.map((d, i) => `<option value="${d.deviceId}">${d.label || 'Микрофон ' + (i + 1)}</option>`).join(''); sel.value = MIC.device || ''; }
 $('setBtn').onclick = showSettings;
+// качество света (v0.23): переключатель в настройках; карта теней меняется сразу, остальное — каждый кадр
+const syncLight = () => { $('lightQ').textContent = LQ.hi ? 'ВЫСОКОЕ' : 'НИЗКОЕ'; $('lightQ').classList.toggle('on', LQ.hi); };
+$('lightQ').onclick = () => { LQ.hi = !LQ.hi; try { localStorage.setItem('friendslop.light', LQ.hi ? 'hi' : 'lo'); } catch (_) {} const n = LQ.hi ? 2048 : 1024; sun.shadow.mapSize.set(n, n); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } syncLight(); sfx('click'); };
+syncLight();
 $('setBack').onclick = () => { sfx('click'); showMenu(); };
 $('micOn').onclick = async () => { MIC.on = !MIC.on; saveMic(); syncSettings(); if (MIC.on) { await startMic(); fillMics(); } else stopMic(); };
 $('micMode').onclick = () => { MIC.mode = MIC.mode === 'always' ? 'ptt' : 'always'; saveMic(); syncSettings(); sfx('click'); };
@@ -325,7 +335,7 @@ function openWorld(m) {
     timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))}`; },
     finish: res => { if (S.wm && S.wm.m === m) closeWorld(res); },
   };
-  const ctx = { player: P, mission: m, give: it => { pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
+  const ctx = { player: P, camera, mission: m, give: it => { pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
     enterCrane: () => { if (!S.crane) enterCrane(); }, exitCrane: () => { if (S.crane) exitCrane(); } };
   S.wm.game = WORLD_GAMES[m.def.game](m.obj, api, ctx);
   { const g = S.wm.game; m.track = g.target ? () => g.target() : null; }
@@ -515,9 +525,9 @@ on('up', btn => {
   if (btn === 2 && P.charging) {
     P.charging = false; $('dot').classList.remove('charge'); throwTip(true); if (tipN < 4) { tipN++; try { localStorage.setItem('friendslop.throwTip', tipN); } catch (_) {} }
     const it = P.held, from = P.ch.holdPoint.clone(), tgt = aimPoint();
-    if (it && tgt) { const v = throwVelocity(from, tgt, P.charge, it.def); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; it.owner = P; launch(it, from, v); P.held = null; P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
-    else if (P.holding && tgt) { const v = throwVelocity(from, tgt, P.charge, BODY); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; letGo(P, v); P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
-    else if (carryK() && tgt) { const v = throwVelocity(from, tgt, P.charge, KITTEN); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3; S.wm.game.throwCarry(v); P.throwT = 0.3; sfx('throw'); }
+    if (it && tgt) { const v = throwVelocity(from, tgt, P.charge, it.def); it.owner = P; launch(it, from, v); P.held = null; P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
+    else if (P.holding && tgt) { const v = throwVelocity(from, tgt, P.charge, BODY); letGo(P, v); P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
+    else if (carryK() && tgt) { const v = throwVelocity(from, tgt, P.charge, KITTEN); S.wm.game.throwCarry(v); P.throwT = 0.3; sfx('throw'); }
   }
 });
 on('key', code => {
@@ -684,7 +694,7 @@ function frame() {
       const tgt = aimPoint();
       if (tgt) {
         P.aimYaw = Math.atan2(tgt.x - P.pos.x, tgt.z - P.pos.z);
-        const def = P.held ? P.held.def : P.holding ? BODY : KITTEN, from = P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge, def); v.x += P.vel.x * 0.3; v.z += P.vel.z * 0.3;
+        const def = P.held ? P.held.def : P.holding ? BODY : KITTEN, from = P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge, def);
         shown = predict(from, v, arc, arc.length, def, land);
         // траектория проходит через цель (персонаж, кот, моль, ворона) — точки и кольцо становятся красными
         let onT = false; const tg = [...(W.bots || []).map(b => ({ x: b.pos.x, y: b.pos.y + 0.9, z: b.pos.z, r: 0.7 })), ...W.cats.map(c => ({ x: c.root.position.x, y: c.root.position.y + 0.4, z: c.root.position.z, r: 0.6 }))];
@@ -750,7 +760,11 @@ function frame() {
     updateBreakables(dt, S.state === 'play' ? P : null);
     updateParticles(dt); updateSplat(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
-    { const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz); }
+    { aimMoon(sky.moonDir()); const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz);
+      // лунные лучи: где луна на экране (за кадром — гаснут); конусы света фонарей — вместе с фонарём
+      const mp = camera.position.clone().addScaledVector(sky.moonDir(), 150).project(camera), on = LQ.hi && mp.z < 1 && !S.mg ? Math.max(0, 1 - Math.max(0, Math.abs(mp.x) - 1, Math.abs(mp.y) - 1) * 1.5) : 0;
+      setRays(mp.x * 0.5 + 0.5, mp.y * 0.5 + 0.5, on * (1 - (WX.kind === 'fog' ? 0.6 : 0)));
+      for (const L of W.lamps) if (L.cone) L.cone.visible = LQ.hi && L.pool.visible && !L.pool.userData.broken; }
     // камера вплотную к персонажу (у стены) — прячем его, чтобы голова не закрывала полэкрана
     if (P && P.root.visible && !S.mg && !S.crane) { const hx = P.pos.x - camera.position.x, hy = P.pos.y + 1.0 - camera.position.y, hz = P.pos.z - camera.position.z; if (hx * hx + hy * hy + hz * hz < 0.95 * 0.95) P.root.visible = false; }
     if (!window.__noRender) present(scene, camera);

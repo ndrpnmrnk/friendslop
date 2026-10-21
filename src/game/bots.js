@@ -300,7 +300,7 @@ function act(b, P, dt) {
   if (it) {
     const melee = ['slipper', 'pillow', 'glove'].includes(it.type), shooter = ['water', 'sling', 'bubbles', 'extinguisher', 'net'].includes(it.type);
     // жетон: сначала вызвать наряд, потом бросить в жертву
-    if (it.type === 'badge' && !hasPolice(b)) { useTool(b, it, v.pos.clone()); b.actCD = 1.5; return; }
+    if (it.type === 'badge' && d < 14 && b.throwCD <= 0) { throwAt(b, v); return; }
     // пылесос: подержать на жертву и выстрелить
     if (it.type === 'vacuum' && d < 8) { b.facing = Math.atan2(v.pos.x - b.pos.x, v.pos.z - b.pos.z); b.vacT = (b.vacT || 0) + dt; useTool(b, it, v.pos.clone().setY(v.pos.y + 1), dt); if (b.vacT > 1.5) { b.vacT = 0; vacuumFire(b, it, v.pos.clone().setY(v.pos.y + 1)); } return; }
     if (melee && d < (it.type === 'glove' ? 3 : 1.6) && b.actCD <= 0) { b.actCD = 0.9; useTool(b, it, v.pos.clone().setY(v.pos.y + 1)); sfx(it.type === 'pillow' ? 'pillow' : 'swat', { at: b.pos }); return; }
@@ -345,7 +345,7 @@ export function botHitHook(it, p, heavy, r) {
     if (it.owner && it.owner.bot && a !== it.owner) { if (a === W.player && Math.random() < 0.5) setTimeout(() => startEmote(it.owner, 'laugh'), 500); }
     W.onHit && W.onHit(it.owner, a, heavy ? 'heavy' : 'light');
     // жетон попал — если у хозяина есть наряд, тот бежит арестовывать
-    if (it.type === 'badge' && it.owner && it.owner !== a) arrest(a, it.owner);
+    if (it.type === 'badge' && it.owner && it.owner !== a && !it.badgeDone) { it.badgeDone = true; it.state = 'gone'; it.g.visible = false; W.badgeLand && W.badgeLand(it.pos.clone(), it.owner); }
   }
 }
 export const botLabel = b => `${b.name} (${SKINS[b.skin].name})`;
