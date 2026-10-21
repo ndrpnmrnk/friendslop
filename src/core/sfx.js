@@ -179,3 +179,5 @@ export function rainLoop(on) {
   if (on && !rainN) { const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.4; const g = ac.createGain(); g.gain.value = 0.035; s.connect(f); f.connect(g); g.connect(master); s.start(); rainN = s; }
   if (!on && rainN) { rainN.stop(); rainN = null; }
 }
+// доступ к аудио-контексту для музыки и звуков районов (v0.21)
+export const audio = () => (ac && master ? { ac, master, noiseBuf, muted } : null);

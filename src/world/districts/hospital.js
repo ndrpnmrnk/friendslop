@@ -53,7 +53,7 @@ export default {
     // хлопающие двери: сами открываются и закрываются, когда кто-то рядом
     for (const d of W.doors) if (d.haunted) { let t = 2 + Math.random() * 4; W.animated.push(dt => { t -= dt; if (t > 0) return; t = 1.5 + Math.random() * 5; const P = W.player; if (!P || Math.hypot(P.pos.x - d.x, P.pos.z - d.z) > 14) return; d.open = !d.open; d.slam = 0.6; sfx('door', { at: d, v: 0.6 }); }); }
     // двор: скорая, сломанный забор, заросли, мёртвые деревья
-    b.car(22.5, 23.5, Math.PI / 2, 0xe8e4ec);
+    b.car(22.5, 23.5, Math.PI / 2, 0xe8e4ec, 'van');
     b.m(G.box, tmat(T.sign('СКОРАЯ', '#f1e8ff', '#d8243a')), 22.5, 0.9, 25.53, 1.4, 0.3, 0.02);
     b.m(G.box, glow(0x4ab0f0), 22.5, 1.62, 23.5, 0.5, 0.12, 0.2);
     b.fence(1, 31.2, 12, 31.2, 1.4, 'wood'); b.fence(20, 31.2, 31, 31.2, 1.4, 'wood'); b.fence(31.2, 17, 31.2, 31, 1.6, 'iron');

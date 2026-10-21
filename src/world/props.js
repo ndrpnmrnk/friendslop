@@ -127,10 +127,17 @@ export function coneModel() {
 export function trashModel() {
   return compose('trashItem', add => { const m = tmat(T.trashBag()); add(G.ico, m, 0, -0.02, 0, 0.3, 0.26, 0.28, 0.3, 0.5); add(G.cone6, m, 0, 0.26, 0, 0.08, 0.14, 0.08); add(G.box, col(0xd8243a), 0, 0.31, 0, 0.12, 0.03, 0.03); });
 }
-// Мелкий мусор (для уборки): мятая банка или бумажный ком
-export function litterModel() {
-  return compose('litter', add => { add(G.cyl8, col(0xc83a3a), 0, 0, 0, 0.055, 0.15, 0.055, 0.3, 0, 1.2); add(G.ico, col(0xd8d0c0), 0.09, -0.03, 0.05, 0.07, 0.06, 0.07); });
+// Мелкий мусор (v0.21): 5 видов low-poly на фото-фактурах — мятая банка, бумажный стакан, пластиковая бутылка, газетный ком, коробка из-под пиццы
+export function litterModel(v = 0) {
+  return compose('litter3_' + v, add => {
+    if (v === 0) { add(G.cyl6, tmat(T.paintMetal(0xc83a3a)), 0, 0, 0, 0.06, 0.12, 0.06, 0.3, 0, 1.3); add(G.cyl6, col(0xd8d8e0), 0.06, 0.03, 0, 0.055, 0.02, 0.055, 0.3, 0, 1.3); }
+    else if (v === 1) { add(CUP_GEO, tmat(T.cupTex()), 0, 0, 0, 0.06, 0.16, 0.06, Math.PI / 2); add(G.cyl6, col(0xf1e8ff), 0, 0.08, 0, 0.065, 0.015, 0.065, Math.PI / 2); }
+    else if (v === 2) { add(G.cyl6, lam({ color: 0x8ad8a8, transparent: true, opacity: 0.7 }, 'bottleP'), 0, 0, 0, 0.055, 0.22, 0.055, 0, 0, Math.PI / 2); add(G.cyl6, col(0x3a7ac8), 0.14, 0, 0, 0.025, 0.04, 0.025, 0, 0, Math.PI / 2); add(G.box, col(0xf1e8ff), 0, 0, 0, 0.12, 0.05, 0.115, 0, 0, Math.PI / 2); }
+    else if (v === 3) { add(G.ico, tmat(T.newsTex()), 0, 0, 0, 0.1, 0.085, 0.09, 0.4, 0.8); add(G.ico, tmat(T.newsTex()), 0.08, -0.02, 0.03, 0.06, 0.05, 0.06, 1.1); }
+    else { add(G.box, tmat(T.cardboard()), 0, -0.04, 0, 0.36, 0.04, 0.36); add(G.box, lam({ map: T.sign('ПИЦЦА', '#d8243a', '#f1e8ff') }, 'pizzaBoxTop'), 0, -0.018, 0, 0.2, 0.004, 0.08); }
+  });
 }
+const CUP_GEO = new THREE.CylinderGeometry(1, 0.7, 1, 6);
 // Цветок в горшке (бьётся от брошенного предмета)
 export function potModel() {
   return compose('potPlant', add => {
@@ -408,7 +415,7 @@ export const PropMethods = {
   // Фудтрак: кабина с лобовым стеклом, кузов с откинутым ставнем-прилавком, меню, колёса в арках,
   // генератор сбоку. ry=0 — прилавок смотрит на +z. На крышу можно забраться (крыша — зона миссий).
   foodTruck(x, z, color, sign, signC) {
-    const g = this.prop(x, z, 0), body = col(color), dk = col(0x17141c), mt = tmat(T.metal()), gl = tmat(T.carGlass(color));
+    const g = this.prop(x, z, 0), body = tmat(T.carPaint(color)), dk = col(0x17141c), mt = tmat(T.metal()), gl = tmat(T.carGlass(color)), rust = tmat(T.rust());
     const add = (geo, m, px, py, pz, sx, sy, sz, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.set(rx, ry, rz); g.add(o); return o; };
     // кузов и кабина (кабина слева, по -x)
     add(G.box, body, 0.6, 1.55, 0, 4.6, 2.3, 2.3); add(G.box, col(0xf1e8ff), 0.6, 0.62, 0, 4.62, 0.18, 2.32);
@@ -422,6 +429,20 @@ export const PropMethods = {
     // колёса, арки, крыша: вентилятор и баллон
     for (const xx of [-2.3, 1.9]) for (const zz of [-1.12, 1.12]) { add(G.cyl12, dk, xx, 0.38, zz, 0.38, 0.22, 0.38, Math.PI / 2); add(G.cyl8, mt, xx, 0.38, zz * 1.1, 0.18, 0.02, 0.18, Math.PI / 2); }
     add(G.box, tmat(T.vent()), 1.4, 2.82, -0.3, 0.9, 0.24, 0.9); add(G.cyl8, col(0xd8d8e0), -0.6, 2.85, -0.5, 0.18, 0.3, 0.18);
+    // v0.21: детали — ржавые пороги, рейлинг на крыше, зеркала, газовые баллоны, гирлянда над окном, соусы и салфетки на прилавке,
+    // ступенька, фото-шины с колпаками, наклейки-полосы, табличка-штендер с меню у прилавка
+    add(G.box, rust, 0.6, 0.48, 1.16, 4.6, 0.12, 0.01); add(G.box, rust, 0.6, 0.48, -1.16, 4.6, 0.12, 0.01); add(G.box, tmat(T.awning(signC, '#f1e8ff')), 0.6, 0.86, 1.157, 4.6, 0.1, 0.01);
+    for (const zz of [-1.0, 1.0]) add(G.box, mt, 0.6, 2.78, zz, 4.2, 0.04, 0.04); for (const xx of [-1.4, 0.6, 2.6]) for (const zz of [-1.0, 1.0]) add(G.box, mt, xx, 2.74, zz, 0.04, 0.1, 0.04);
+    for (const zz of [-1.2, 1.2]) { add(G.box, dk, -3.0, 1.6, zz, 0.06, 0.04, 0.2); add(G.box, mt, -3.0, 1.6, zz * 1.12, 0.05, 0.22, 0.12); }
+    for (const xx of [-1.35, -1.05]) { add(G.cyl8, col(0xd8243a), xx, 0.75, -1.4, 0.15, 0.5, 0.15); add(G.cyl8, mt, xx, 1.05, -1.4, 0.05, 0.1, 0.05); }
+    for (let i = 0; i < 8; i++) add(G.sph, glow([0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0][i % 4]), -0.8 + i * 0.4, 2.3 - Math.sin(i / 7 * Math.PI) * 0.12, 1.5, 0.05, 0.05, 0.05);
+    for (const [xx, c] of [[-0.6, 0xd8243a], [-0.45, 0xf5c542], [-0.3, 0x5a8a3a]]) { add(G.cyl6, col(c), xx, 1.33, 1.35, 0.035, 0.18, 0.035); add(G.cone6, col(c), xx, 1.46, 1.35, 0.02, 0.07, 0.02); }
+    add(G.box, mt, 1.6, 1.3, 1.35, 0.16, 0.14, 0.1); add(G.box, col(0xf1e8ff), 1.6, 1.39, 1.35, 0.12, 0.05, 0.06); add(G.box, tmat(T.cardboard()), 0.9, 1.31, 1.35, 0.3, 0.16, 0.2);
+    add(G.box, tmat(T.metal()), 0.6, 0.25, 1.4, 0.8, 0.06, 0.35); for (const xx of [0.25, 0.95]) add(G.box, dk, xx, 0.12, 1.45, 0.04, 0.24, 0.04);
+    for (const xx of [-2.3, 1.9]) for (const zz of [-1.12, 1.12]) { add(G.cyl12, tmat(T.tread()), xx, 0.38, zz, 0.39, 0.2, 0.39, Math.PI / 2); add(G.cyl12, tmat(T.hubcap()), xx, 0.38, zz * 1.11, 0.2, 0.02, 0.2, Math.PI / 2); add(G.box, dk, xx, 0.82, zz * 1.005, 0.95, 0.1, 0.02); }
+    const af = new THREE.Group(); af.position.set(3.0, 0, 2.2); af.rotation.y = -0.4; g.add(af);
+    for (const sz of [-1, 1]) { const pl = new THREE.Mesh(G.box, tmat(T.chalkboard())); pl.position.set(0, 0.5, sz * 0.14); pl.rotation.x = -sz * 0.28; pl.scale.set(0.55, 0.9, 0.03); af.add(pl);
+      const fr = new THREE.Mesh(G.box, tmat(T.wood())); fr.position.set(0, 0.95, sz * 0.02); fr.scale.set(0.6, 0.06, 0.06); af.add(fr); }
     // генератор у борта
     add(G.box, col(0xd8a030), 2.2, 0.35, -1.6, 0.8, 0.6, 0.6); add(G.box, tmat(T.vent()), 2.2, 0.4, -1.29, 0.6, 0.35, 0.02); add(G.box, dk, 1.4, 0.05, -1.3, 1.2, 0.03, 0.04);
     this.solid(x + 0.6, z, 4.6, 2.3, 0, 2.7); this.solid(x - 2.35, z, 1.6, 2.2, 0, 1.9); this.solid(x + 2.2, z - 1.6, 0.8, 0.6, 0, 0.65);

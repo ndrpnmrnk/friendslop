@@ -445,7 +445,8 @@ export const T = {
   // сетка тележки (прозрачная, только прутья)
   wire: () => pix('wire', 32, 32, (g, W, H) => { g.fillStyle = '#c8ccd6'; for (let i = 0; i < W; i += 4) { g.fillRect(i, 0, 1, H); g.fillRect(0, i, W, 1); } }),
   binBody: (c = 0x2e5a44) => photo('bin' + c, 32, 48, (g, W, H) => {
-    for (let x = 0; x < W; x += 8) { const gr = g.createLinearGradient(x, 0, x + 8, 0); gr.addColorStop(0, shade(c, -30)); gr.addColorStop(0.5, shade(c, 25)); gr.addColorStop(1, shade(c, -30)); g.fillStyle = gr; g.fillRect(x, 0, 8, H); }
+    if (phOk('metal_g')) phDraw(g, W, H, 'metal_g', shade(c, 40)); else fill(g, W, H, shade(c, 0));
+    g.globalAlpha = 0.55; for (let x = 0; x < W; x += 8) { const gr = g.createLinearGradient(x, 0, x + 8, 0); gr.addColorStop(0, shade(c, -30)); gr.addColorStop(0.5, shade(c, 25)); gr.addColorStop(1, shade(c, -30)); g.fillStyle = gr; g.fillRect(x, 0, 8, H); } g.globalAlpha = 1;
     g.fillStyle = shade(c, -45); g.fillRect(0, 0, W, H * 0.08); g.fillRect(0, H * 0.92, W, H * 0.08);
     g.fillStyle = '#e8e2d4'; g.fillRect(W * 0.2, H * 0.3, W * 0.6, H * 0.22); g.fillStyle = shade(c, 0); g.font = `bold ${W * 0.22}px sans-serif`; g.textAlign = 'center'; g.fillText('♻', W / 2, H * 0.47);
     blobs(g, W, H, ['#1a1a1a', '#6a5a4a'], 30, 2, 8, 0.25); grain(g, W, H, 14);
@@ -746,3 +747,26 @@ export function facade(base, wM, hM, opt = {}) {
   }, 4);
 }
 export { hex };
+// v0.21: фото-фактуры для бабки (цветастое платье, вязаная кофта, платок) и собаки (шерсть с подшёрстком)
+const flowersOn = (g, W, H, n, cols, r) => { for (let i = 0; i < n; i++) { const x = (i * 37 % 97) / 97 * W, y = (i * 61 % 89) / 89 * H; g.fillStyle = cols[i % cols.length];
+  for (let k = 0; k < 4; k++) g.fillRect(x + Math.cos(k * 1.57) * r - r / 2, y + Math.sin(k * 1.57) * r - r / 2, r, r); g.fillStyle = '#f5d070'; g.fillRect(x - r / 2, y - r / 2, r, r); } };
+T.grannyDress = c => photo('gDress' + c, 32, 32, (g, W, H) => { if (phOk('fabric_g')) phDraw(g, W, H, 'fabric_g', shade(c, 30)); else fill(g, W, H, shade(c, 0)); flowersOn(g, W, H, 14, ['#f1e8ff', '#ff9ab8', '#ffd0e0'], W * 0.035); }, 4);
+T.grannyKnit = c => photo('gKnit' + c, 32, 32, (g, W, H) => { if (phOk('carpet_g')) phDraw(g, W, H, 'carpet_g', shade(c, 40), 2, 2); else fill(g, W, H, shade(c, 0));
+  g.fillStyle = 'rgba(0,0,0,.22)'; for (let x = 0; x < W; x += W / 8) g.fillRect(x, 0, W / 40, H); }, 4);
+T.grannyScarf = c => photo('gScarf' + c, 32, 32, (g, W, H) => { if (phOk('velvet_g')) phDraw(g, W, H, 'velvet_g', shade(c, 30)); else fill(g, W, H, shade(c, 0)); flowersOn(g, W, H, 9, ['#f5c542', '#f1e8ff', '#79c060'], W * 0.05);
+  g.fillStyle = 'rgba(255,240,200,.7)'; g.fillRect(0, H - H * 0.08, W, H * 0.04); }, 4);
+T.dogFurP = (c, d) => photo('dogFurP' + c, 32, 32, (g, W, H) => { if (phOk('carpet_g')) phDraw(g, W, H, 'carpet_g', shade(c, 50), 2, 2); else fill(g, W, H, shade(c, 0));
+  g.fillStyle = shade(d, 0); g.globalAlpha = 0.5; for (let i = 0; i < 6; i++) { const x = (i * 41 % 97) / 97 * W, y = (i * 23 % 89) / 89 * H; g.fillRect(x, y, W * 0.18, H * 0.1); } g.globalAlpha = 1; }, 4);
+// v0.21: краска машины по фото металла (с бликом сверху и грязью снизу)
+T.carPaint = c => photo('carPaint' + c, 32, 32, (g, W, H) => { if (phOk('metal_g')) phDraw(g, W, H, 'metal_g', shade(c, 45)); else fill(g, W, H, shade(c, 0));
+  const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(255,255,255,.18)'); gr.addColorStop(0.5, 'rgba(255,255,255,0)'); gr.addColorStop(0.85, 'rgba(60,40,30,0)'); gr.addColorStop(1, 'rgba(60,40,30,.45)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); }, 4);
+T.checker = () => photo('checker', 32, 8, (g, W, H) => { fill(g, W, H, '#f5c542'); g.fillStyle = '#17111f'; for (let x = 0; x < 8; x++) for (let y = 0; y < 2; y++) if ((x + y) % 2) g.fillRect(x * W / 8, y * H / 2, W / 8, H / 2); }, 4);
+// v0.21: крашеный металл по фото (урны, гидранты, заборы, остановки)
+T.paintMetal = c => photo('pMetal' + c, 32, 32, (g, W, H) => { if (phOk('metal_g')) phDraw(g, W, H, 'metal_g', shade(c, 50)); else fill(g, W, H, shade(c, 0));
+  if (phOk('rust')) { g.globalAlpha = 0.28; g.drawImage(PH.rust, 0, H * 0.6, W, H * 0.4); g.globalAlpha = 1; } }, 4);
+// v0.21: фактуры уличного мусора — бумажный стакан и газета
+T.cupTex = () => photo('cupTex', 32, 32, (g, W, H) => { if (phOk('cardboard')) { phDraw(g, W, H, 'cardboard'); g.fillStyle = 'rgba(255,250,240,.65)'; g.fillRect(0, 0, W, H); } else fill(g, W, H, '#f1e8e0');
+  g.fillStyle = '#7a3a2a'; g.fillRect(0, H * 0.35, W, H * 0.3); g.fillStyle = '#f5c542'; g.fillRect(W * 0.4, H * 0.42, W * 0.2, H * 0.16); }, 4);
+T.newsTex = () => photo('newsTex', 32, 32, (g, W, H) => { if (phOk('plaster_g')) phDraw(g, W, H, 'plaster_g', '#e8e2d0'); else fill(g, W, H, '#e0dccc');
+  g.fillStyle = 'rgba(30,26,34,.7)'; g.fillRect(W * 0.08, H * 0.06, W * 0.84, H * 0.1); g.fillStyle = 'rgba(30,26,34,.35)'; for (let y = H * 0.22; y < H * 0.95; y += H * 0.07) for (const x of [0.08, 0.54]) g.fillRect(W * x, y, W * 0.38, H * 0.025);
+  g.fillStyle = 'rgba(120,110,100,.5)'; g.fillRect(W * 0.54, H * 0.22, W * 0.38, H * 0.25); }, 4);

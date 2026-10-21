@@ -57,9 +57,12 @@ export default {
     b.hw(() => { b.stringLights(2, 7.8, 30, 7.8, 3.3); b.stringLights(2, 27.2, 30, 27.2, 3.3); });
     if (!b.d.includes('_')) { b.stringLights(1.5, 14, 1.5, 21, 3.0); b.stringLights(30.5, 14, 30.5, 21, 3.0); }
     // остановка со стеклом (бьётся), скамейка смотрит на дорогу
-    const mt = col(0x3a4a6a);
+    const mt = tmat(T.paintMetal(0x3a4a6a));
     for (const x of [10.2, 15.8]) b.box(x, 30.4, 0.15, 0.15, 2.6, mt);
-    b.box(13, 30.9, 6, 1.6, 0.12, mt, { y: 2.6 });
+    b.box(13, 30.9, 6, 1.6, 0.12, mt, { y: 2.6 }); b.m(G.box, tmat(T.corrugated(0x5a6a8a)), 13, 2.76, 30.9, 5.9, 0.04, 1.5);
+    // рекламный короб сбоку и расписание на стойке (прикреплены к конструкции)
+    b.m(G.box, col(0x17141c), 15.8, 1.35, 31.0, 0.12, 1.7, 1.1); { const ad = b.m(G.plane, lam({ map: T.puzzlePic(3), emissive: 0xffffff, emissiveIntensity: 0.35 }, 'stopAd'), 15.73, 1.35, 31.0, 1.0, 1.55, 1); ad.rotation.y = -Math.PI / 2; }
+    { const tt = b.sign(10.2, 1.5, 30.31, Math.PI, 'РАСПИСАНИЕ', '#f1e8ff', '#17111f', 0.42, 0.5); }
     b.vitrine(13, 30.25, 5.4, 1.9, 'x', 0.45);
     b.bench(13, 31.1, 0);
     b.sign(13, 2.9, 31.72, 0, 'АВТОБУС 13', '#f5c542', '#17111f', 2.2, 0.4);

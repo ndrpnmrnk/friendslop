@@ -16,7 +16,7 @@ export function buildBoard(x, y, z, f) {
   const g = frame(x, y, z, f), wood = tmat(T.wood());
   for (const px of [-1.1, 1.1]) mesh(G.box, col(0x3a3046), px, 1.0, 0, 0.14, 2.0, 0.14, g);
   mesh(G.box, wood, 0, 1.9, -0.06, 2.35, 2.35, 0.1, g);
-  mesh(G.plane, tmat(T.sign('ПАЗЛ', '#2a1f3d', '#f5c542')), 0, 3.25, 0, 1.2, 0.3, 1, g);
+  { const sm = tmat(T.sign('ПАЗЛ', '#2a1f3d', '#f5c542')), dk = col(0x2a2232); mesh(G.box, [dk, dk, dk, dk, sm, sm], 0, 3.2, -0.06, 1.2, 0.3, 0.08, g); } // табличка стоит на доске, не висит в воздухе
   const slots = [], tiles = [], base = T.puzzlePic((Math.random() * 6) | 0); // каждый раз одна из нарисованных картинок
   for (let i = 0; i < 9; i++) slots.push(new V3(-0.72 + (i % 3) * 0.72, 2.62 - Math.floor(i / 3) * 0.72, 0.04));
   for (let i = 0; i < 9; i++) {

@@ -33,7 +33,7 @@ export default {
         const nozzle = b.m(G.box, col(0x24212b), x + 0.48, 1.12, z + 0.2, 0.08, 0.25, 0.1); nozzle.rotation.z = -0.3;
       }
     }
-    b.car(11, 11, 0, 0x4a7ac8);
+    b.car(11, 11, 0, 0x4a7ac8, 'hatch');
     b.house({ x: 20, z: 1, w: 10, d: 6, h: 3.2, wall: 0xd8d0c0, brick: false, lit: 0.9, door: { side: 's', at: 0.25 }, sign: ['МАГАЗИН', '#d8243a', '#f1e8ff'], floor: T.floorTile(),
       ladder: { side: 'e', at: 0.5 }, roof: true,
       interior(b, r) { b.shelf(r.x0 + 5, r.z0 + 2, 4, 0); b.box(r.x1 - 0.6, r.z1 - 1.8, 0.8, 2.4, 1.0, tmat(T.wood())); b.cabinet(r.x0 + 0.5, r.z0 + 0.4, 0.6, 0.6, 1.5, 0x3a3a40); b.safe(r.x1 - 0.5, r.z0 + 0.5, -Math.PI / 2); } });
@@ -57,7 +57,7 @@ export default {
     b.lamp(19.6, 28.4, Math.PI);
     // автостоянка: ряд машин (по ним можно прыгать), будка охраны с креслом, шлагбаум, кирпичная ограда ломается
     for (let x = 1.5; x <= 16.5; x += 3) b.marking(x, 21.6, 0.12, 4.4);
-    [[3, 0xc8a040], [6, 0x3a7ac8], [12, 0x6a8a5a], [15, 0xc83a3a]].forEach(([x, c], i) => b.car(x, 21.6, Math.PI / 2 + (i % 2 ? Math.PI : 0), c));
+    [[3, 0xf5c542, 'taxi'], [6, 0x3a7ac8, 'sedan'], [12, 0x6a8a5a, 'pickup'], [15, 0xc83a3a, 'hatch']].forEach(([x, c, ty], i) => b.car(x, 21.6, Math.PI / 2 + (i % 2 ? Math.PI : 0), c, ty));
     b.house({ x: 1, z: 27.6, w: 3.6, d: 3.4, h: 2.7, wall: 0xd8d0c0, brick: false, lit: 1, door: { side: 'n', at: 0.5 }, parapet: false,
       interior(b, r) { b.box((r.x0 + r.x1) / 2, r.z1 - 0.4, 2.4, 0.6, 0.85, tmat(T.wood())); b.m(G.box, tmat(T.screen()), (r.x0 + r.x1) / 2, 1.15, r.z1 - 0.3, 0.6, 0.45, 0.3); b.ride('chair', (r.x0 + r.x1) / 2, r.z1 - 1.4, 0); } });
     b.box(5.4, 29.6, 0.4, 0.4, 1.1, col(0x6a6d78)); b.m(G.box, glow(0xd8243a), 5.4, 1.25, 29.6, 0.15, 0.15, 0.15);

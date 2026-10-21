@@ -1,4 +1,4 @@
-import { THREE, V3, G, mesh, col } from '../core/gfx.js';
+import { THREE, V3, G, mesh, col, lam } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { keys } from '../core/input.js';
 import { groundAt, isFree, raySolids } from '../world/physics.js';
@@ -9,43 +9,46 @@ import { sfx } from '../core/sfx.js';
 import { cam } from './camera.js';
 
 const darts = [], candies = [], marks = new Map(), flyOff = [];
-/* Вертушка выбывшего (v0.19): круглый корпус-экранчик с мордочкой игрока, пропеллер на «макушке»,
-   пушка-дротик сбоку, люк снизу (из него падает конфета, на тросе спускается персонаж при возвращении). */
+/* Вертушка выбывшего (v0.21): маленький пиксельный «телевизор» с мордочкой на экране, антенны-усики,
+   сверху мачта с двухлопастным пропеллером (лопасти + полупрозрачный «смаз» вращения), снизу люк и полозья,
+   сбоку пушка с дротиком. В полёте наклоняется по инерции (крен/тангаж), покачивается. */
 export function helicopter(a) {
-  const g = new THREE.Group(), dark = col(0x2b2533), shell = col(0xd8d0e4), acc = col(0xff8a1f), metal = col(0x9a9da8);
+  const g = new THREE.Group(), dark = col(0x2b2533), shell = lam({ color: 0xcfc2a8 }, 'droneShell3'), acc = col(0xff8a1f), metal = col(0x9a9da8);
   const body = new THREE.Group(); g.add(body);
-  mesh(G.cyl12, shell, 0, 0, 0, 0.42, 0.42, 0.42, body).rotation.x = Math.PI / 2;            // «телевизор-шайба»
-  mesh(G.cyl12, dark, 0, 0, 0.215, 0.36, 0.02, 0.36, body).rotation.x = Math.PI / 2;
-  mesh(G.box, acc, 0, 0.0, 0, 0.88, 0.08, 0.3, body); mesh(G.box, dark, 0, -0.41, 0, 0.36, 0.05, 0.3, body);
-  // экранчик с пиксельной мордочкой
+  // корпус-телевизор: толстая рамка, выпуклый экран, ручки-уши
+  mesh(G.box, shell, 0, 0, 0, 0.62, 0.48, 0.42, body); mesh(G.box, dark, 0, 0, 0.212, 0.54, 0.4, 0.02, body); mesh(G.box, shell, 0, -0.02, -0.26, 0.42, 0.34, 0.12, body);
+  for (const sx of [-1, 1]) { mesh(G.box, acc, sx * 0.33, 0, 0, 0.05, 0.24, 0.2, body); mesh(G.cyl6, dark, sx * 0.15, 0.3, -0.05, 0.012, 0.16, 0.012, body).rotation.z = -sx * 0.5; mesh(G.sph, acc, sx * 0.21, 0.37, -0.05, 0.03, 0.03, 0.03, body); }
+  for (let i = 0; i < 3; i++) mesh(G.box, dark, 0.22 - i * 0.05, -0.19, 0.215, 0.02, 0.02, 0.01, body); mesh(G.box, col(0x9be36b), -0.22, -0.19, 0.215, 0.025, 0.02, 0.01, body);
+  // экранчик с пиксельной мордочкой выбывшего (+ строчки «развёртки»)
   const cv = document.createElement('canvas'); cv.width = cv.height = 24; const c = cv.getContext('2d'), skin = a.ch.skinId;
   c.fillStyle = '#12232a'; c.fillRect(0, 0, 24, 24); c.fillStyle = ({ cat: '#d89a5a', tv: '#b18cff', shark: '#6a9aaa', frog: '#79aa55' })[skin] || '#b18cff';
   c.fillRect(5, 7, 14, 12); if (skin === 'cat') { c.fillRect(4, 3, 5, 7); c.fillRect(15, 3, 5, 7); } if (skin === 'shark') c.fillRect(10, 2, 4, 7); if (skin === 'frog') { c.fillRect(4, 4, 6, 6); c.fillRect(14, 4, 6, 6); }
   c.fillStyle = '#ffffff'; c.fillRect(7, 9, 3, 4); c.fillRect(14, 9, 3, 4); c.fillRect(9, 16, 6, 2); c.fillStyle = '#17111f'; c.fillRect(8, 10, 2, 2); c.fillRect(15, 10, 2, 2);
   c.fillStyle = 'rgba(255,255,255,.12)'; for (let y = 0; y < 24; y += 2) c.fillRect(0, y, 24, 1);
   const tex = new THREE.CanvasTexture(cv); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
-  const screen = new THREE.MeshBasicMaterial({ map: tex }); const sc = mesh(G.disc, screen, 0, 0, 0.228, 0.3, 0.3, 1, body);
-  // пропеллер на макушке
-  mesh(G.cyl6, dark, 0, 0.53, 0, 0.035, 0.24, 0.035, body); mesh(G.sph, acc, 0, 0.66, 0, 0.06, 0.05, 0.06, body);
-  const rotor = new THREE.Group(); rotor.position.y = 0.66; body.add(rotor);
-  for (const r of [0, Math.PI]) { const bl = mesh(G.box, dark, 0.38, 0, 0, 0.7, 0.02, 0.1, rotor); bl.rotation.y = r; bl.position.set(Math.cos(r) * 0.38, 0, -Math.sin(r) * 0.38); bl.rotation.x = 0.15; }
+  const screen = new THREE.MeshBasicMaterial({ map: tex }); mesh(G.plane, screen, 0, 0.02, 0.224, 0.46, 0.32, 1, body);
+  // мачта и пропеллер: лопасти с закруткой + «смаз» (полупрозрачный диск) при вращении
+  mesh(G.cyl8, dark, 0, 0.36, -0.05, 0.03, 0.24, 0.03, body); mesh(G.cyl8, metal, 0, 0.49, -0.05, 0.06, 0.04, 0.06, body);
+  const rotor = new THREE.Group(); rotor.position.set(0, 0.52, -0.05); body.add(rotor);
+  for (const r of [0, Math.PI]) { const bl = new THREE.Group(); bl.rotation.y = r; rotor.add(bl); const m = mesh(G.box, acc, 0.33, 0, 0, 0.62, 0.015, 0.09, bl); m.rotation.x = 0.22; mesh(G.box, dark, 0.62, 0, 0, 0.05, 0.02, 0.1, bl); }
+  mesh(G.sph, acc, 0, 0.02, 0, 0.05, 0.04, 0.05, rotor);
+  const blur = mesh(G.disc, new THREE.MeshBasicMaterial({ color: 0xffb070, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }), 0, 0.5, -0.05, 0.68, 0.68, 1, body); blur.rotation.x = -Math.PI / 2;
   // пушка с дротиком
-  const gun = new THREE.Group(); gun.position.set(0.47, -0.14, 0.05); body.add(gun);
-  mesh(G.cyl8, metal, 0, 0, 0.12, 0.05, 0.3, 0.05, gun).rotation.x = Math.PI / 2; mesh(G.box, col(0xf5c542), 0, 0, 0.3, 0.02, 0.02, 0.12, gun); mesh(G.box, col(0xd8243a), 0, 0, 0.22, 0.06, 0.06, 0.02, gun);
-  // полозья
-  for (const x of [-0.24, 0.24]) { mesh(G.box, dark, x, -0.56, 0, 0.03, 0.03, 0.55, body); mesh(G.box, dark, x, -0.48, 0.13, 0.02, 0.16, 0.02, body); mesh(G.box, dark, x, -0.48, -0.13, 0.02, 0.16, 0.02, body); }
-  // люк снизу: две створки
-  const flaps = [-1, 1].map(sx => { const q = new THREE.Group(); q.position.set(sx * 0.14, -0.44, 0); body.add(q); mesh(G.box, acc, -sx * 0.07, 0, 0, 0.14, 0.02, 0.24, q); return q; });
-  // трос (виден, когда спускает персонажа)
+  const gun = new THREE.Group(); gun.position.set(0.38, -0.12, 0.02); body.add(gun);
+  mesh(G.cyl8, metal, 0, 0, 0.1, 0.045, 0.26, 0.045, gun).rotation.x = Math.PI / 2; const dartM = mesh(G.box, col(0xf5c542), 0, 0, 0.26, 0.02, 0.02, 0.12, gun); mesh(G.box, col(0xd8243a), 0, 0, 0.19, 0.06, 0.06, 0.015, gun);
+  // полозья и люк
+  for (const x of [-0.2, 0.2]) { mesh(G.box, dark, x, -0.38, 0.0, 0.03, 0.03, 0.5, body); mesh(G.box, dark, x, -0.31, 0.12, 0.02, 0.14, 0.02, body); mesh(G.box, dark, x, -0.31, -0.12, 0.02, 0.14, 0.02, body); }
+  const flaps = [-1, 1].map(sx => { const q = new THREE.Group(); q.position.set(sx * 0.13, -0.245, 0); body.add(q); mesh(G.box, acc, -sx * 0.065, 0, 0, 0.13, 0.02, 0.22, q); return q; });
   const rope = mesh(G.box, col(0x17111f), 0, -0.45, 0, 0.025, 1, 0.025, g); rope.visible = false;
-  void sc;
-  W.group.add(g); W.keep.push(g); return { g, body, rotor, screen, tex, flaps, rope, hatch: 0 };
+  W.group.add(g); W.keep.push(g); return { g, body, rotor, blur, dartM, screen, tex, flaps, rope, hatch: 0, v: new V3(), spin: 0 };
 }
 const setHatch = (d, k) => { d.hatch = k; d.flaps.forEach((f, i) => (f.rotation.z = (i ? -1 : 1) * k * 1.4)); };
 function removeHeli(d) { W.group.remove(d.g); W.keep = W.keep.filter(q => q !== d.g); d.screen.dispose(); d.tex.dispose(); }
 export function eliminate(a, seconds) {
   if (!a || a.drone || a.returning) return;
   W.onEliminate && W.onEliminate(a);
+  // выбывание сбрасывает все «залипающие» состояния: перекур, собака на руках, скамейка, стан (v0.21)
+  a.chill = null; a.charging = false; if (a.dogHeld) { a.dogHeld.heldBy = null; a.dogHeld = null; } if (a.bench && W.leaveBench) W.leaveBench(a); a.stun = 0; a.getT = 0; a.daze = 0; a.netT = 0; a.floatT = 0;
   dropHeld(a); if (a.ride) dismount(a, false); if (a.grab) release(a, 0); if (a.holding && W.letGo) W.letGo(a); if (a.heldBy && W.letGo) W.letGo(a.heldBy);
   if (a.swing) { a.swing.rider = null; a.swing = null; } a.hidden = null; a.zip = null; a.climb = null; a.mantle = null; a.hang = null; a.caged = null; a.goal = null;
   a.drone = { ...helicopter(a), left: seconds, cd: 0, candy: true, home: a.pos.clone(), intro: 1.2, tumble: 0 };
@@ -79,7 +82,8 @@ export function updateDrones(dt, t) {
     const d = a.drone;
     if (d) {
       d.left -= dt; d.cd -= dt; if (d.hatchT > 0) { d.hatchT -= dt; } setHatch(d, d.hatchT > 0 ? Math.min(1, d.hatch + dt * 6) : Math.max(0, d.hatch - dt * 4));
-      d.rotor.rotation.y += dt * 38;
+      // пропеллер: плавно раскручивается, при быстром вращении виден «смаз»
+      d.spin = Math.min(1, (d.spin || 0) + dt * 1.5); d.rotor.rotation.y += dt * (6 + 40 * d.spin); d.blur.material.opacity = 0.08 + 0.2 * d.spin; d.dartM.visible = d.cd <= 0;
       // прилёт: подлетает сбоку, управления нет
       if (d.intro > 0) { d.intro -= dt; const k = 1 - Math.max(0, d.intro) / 1.2, e = k * k * (3 - 2 * k); d.g.position.lerpVectors(d.from, a.pos, e); d.body.rotation.z = (1 - e) * 0.5; d.g.rotation.y = Math.atan2(a.pos.x - d.from.x, a.pos.z - d.from.z); continue; }
       // сбили броском: кувыркается, конфета вываливается, потом выравнивается
@@ -90,10 +94,14 @@ export function updateDrones(dt, t) {
       let dx = 0, dz = 0, dy = 0;
       if (a === W.player) { dx = Number(!!keys.KeyD) - Number(!!keys.KeyA); dz = Number(!!keys.KeyS) - Number(!!keys.KeyW); dy = Number(!!keys.Space) - Number(!!(keys.ControlLeft || keys.KeyC)); const x = dx; dx = x * Math.cos(cam.yaw) + dz * Math.sin(cam.yaw); dz = -x * Math.sin(cam.yaw) + dz * Math.cos(cam.yaw); }
       else { dx = Math.cos(t * 0.5 + W.bots.indexOf(a)); dz = Math.sin(t * 0.5 + W.bots.indexOf(a)); }
-      const len = Math.max(1, Math.hypot(dx, dz)); a.pos.x = Math.max(-W.bounds + 2, Math.min(W.bounds - 2, a.pos.x + dx / len * dt * 10)); a.pos.z = Math.max(-W.bounds + 2, Math.min(W.bounds - 2, a.pos.z + dz / len * dt * 10));
-      const floor = groundAt(a.pos.x, a.pos.z, 0.4, 100); a.pos.y = Math.max(floor + 3, Math.min(48, a.pos.y + dy * dt * 7));
-      d.g.position.copy(a.pos); d.g.position.y += Math.sin(t * 5) * 0.06; d.g.rotation.y = a === W.player ? cam.yaw + Math.PI : Math.atan2(dx, dz);
-      d.body.rotation.x += ((dz || dx ? 0.25 : 0) - d.body.rotation.x) * Math.min(1, dt * 6); d.body.rotation.z = 0;
+      // полёт с инерцией: разгон/торможение, крен и тангаж по скорости (в осях вертушки), покачивание
+      const len = Math.max(1, Math.hypot(dx, dz)), k = Math.min(1, dt * 3.5); d.v.x += (dx / len * 10 - d.v.x) * k; d.v.z += (dz / len * 10 - d.v.z) * k; d.v.y += (dy * 7 - d.v.y) * Math.min(1, dt * 5);
+      a.pos.x = Math.max(-W.bounds + 2, Math.min(W.bounds - 2, a.pos.x + d.v.x * dt)); a.pos.z = Math.max(-W.bounds + 2, Math.min(W.bounds - 2, a.pos.z + d.v.z * dt));
+      const floor = groundAt(a.pos.x, a.pos.z, 0.4, 100); a.pos.y = Math.max(floor + 3, Math.min(48, a.pos.y + d.v.y * dt));
+      const yaw = a === W.player ? cam.yaw + Math.PI : (Math.hypot(d.v.x, d.v.z) > 0.5 ? Math.atan2(d.v.x, d.v.z) : d.g.rotation.y);
+      d.g.position.copy(a.pos); d.g.position.y += Math.sin(t * 2.6) * 0.07; d.g.rotation.y = yaw;
+      const fwd = d.v.x * Math.sin(yaw) + d.v.z * Math.cos(yaw), side = d.v.x * Math.cos(yaw) - d.v.z * Math.sin(yaw);
+      d.body.rotation.x += (fwd * 0.045 - d.body.rotation.x) * Math.min(1, dt * 6); d.body.rotation.z += (-side * 0.05 + Math.sin(t * 1.7) * 0.04 - d.body.rotation.z) * Math.min(1, dt * 6);
       if (d.left <= 0) returnStart(a);
     }
     const r = a.returning;

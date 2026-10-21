@@ -79,21 +79,26 @@ function curseTex() {
   ch.forEach((q, i) => { x.fillStyle = '#17111f'; x.fillText(q, i * 16 + 3, 2); x.fillStyle = cl[i]; x.fillText(q, i * 16 + 2, 1); });
   CURSE = new THREE.CanvasTexture(c); CURSE.magFilter = CURSE.minFilter = THREE.NearestFilter; return CURSE;
 }
+// PS1-силуэт (v0.21): сгорбленная бабка из гранёных кусков — цветастое платье, вязаная кофта, платок, очки, сумка-авоська
+const FRUST = new THREE.CylinderGeometry(0.62, 1, 1, 6), FRUST2 = new THREE.CylinderGeometry(1, 0.8, 1, 6);
 function granny(bed) {
-  const g = new THREE.Group(), weapon = Math.random() < 0.5 ? 'can' : 'broom';
-  g.add(compose('granny2', a => { const dress = lam({ map: T.awning('#6a4aa8', '#5a3a98') }, 'grannyDress'), skin = col(0xe8c0a0), hair = col(0xd8d8e0), apron = col(0xf1e8ff), shoe = col(0x2b2533);
-    a(G.cone8, dress, 0, 0.52, 0, 0.42, 1.0, 0.42); a(G.sph10, dress, 0, 1.0, 0, 0.3, 0.28, 0.26);
-    a(G.box, apron, 0, 0.7, 0.3, 0.34, 0.5, 0.02, -0.18); a(G.box, apron, 0, 0.98, 0.25, 0.26, 0.2, 0.02); a(G.box, col(0xff8aa8), 0, 0.62, 0.36, 0.12, 0.08, 0.02, -0.18);
-    a(G.sph10, lam({ map: T.grannyFace() }, 'grannyFace'), 0, 1.38, 0.02, 0.22, 0.24, 0.21); a(G.sph, skin, 0, 1.35, 0.23, 0.05, 0.05, 0.05);
-    a(G.sph10, hair, 0, 1.52, -0.08, 0.21, 0.15, 0.19); a(G.sph, hair, 0, 1.64, -0.16, 0.11, 0.1, 0.11); a(G.box, col(0x8a6ac8), 0, 1.6, -0.2, 0.12, 0.03, 0.03);
-    for (const sx of [-1, 1]) { a(G.torus, col(0x2b2533), sx * 0.08, 1.4, 0.2, 0.06, 0.06, 0.06); a(G.box, col(0x17111f), sx * 0.08, 1.4, 0.21, 0.025, 0.025, 0.01); a(G.sph, col(0xff9a9a), sx * 0.13, 1.31, 0.17, 0.04, 0.025, 0.02); }
-    a(G.box, col(0x2b2533), 0.0, 1.47, 0.2, 0.06, 0.012, 0.01); a(G.torus, col(0xd8243a), 0, 1.18, 0, 0.2, 0.2, 0.25, Math.PI / 2); a(G.box, col(0x8a4a4a), 0, 1.28, 0.21, 0.07, 0.015, 0.01);
-    for (const sx of [-1, 1]) { a(G.box, shoe, sx * 0.13, 0.05, 0.06, 0.12, 0.08, 0.22); a(G.box, col(0xf1e8ff), sx * 0.13, 0.13, 0.02, 0.1, 0.06, 0.1); } }));
-  // руки (рукав + кисть): правая держит орудие
-  const arms = [-1, 1].map(sx => { const q = new THREE.Group(); q.position.set(sx * 0.3, 1.1, 0); g.add(q); q.add(compose('grannyArm', a => { a(G.cyl8, lam({ map: T.awning('#6a4aa8', '#5a3a98') }, 'grannyDress'), 0, -0.16, 0, 0.07, 0.32, 0.07); a(G.sph, col(0xe8c0a0), 0, -0.35, 0, 0.06, 0.06, 0.06); })); return q; });
+  const g = new THREE.Group(), weapon = Math.random() < 0.5 ? 'can' : 'broom', pal = [[0x6a4aa8, 0x8a5a3a, 0xc83a5a], [0x2a6a8a, 0x6a6a4a, 0xd85a2a], [0x8a3a5a, 0x4a5a6a, 0x3a7a4a]][(Math.random() * 3) | 0];
+  const dress = lam({ map: T.grannyDress(pal[0]) }, 'gDress' + pal[0]), knit = lam({ map: T.grannyKnit(pal[1]) }, 'gKnit' + pal[1]), scarf = lam({ map: T.grannyScarf(pal[2]) }, 'gScarf' + pal[2]);
+  g.add(compose('granny3' + pal.join('_'), a => { const skin = col(0xe8c0a0), shoe = col(0x2b2533), stock = col(0x9a8070);
+    a(FRUST, dress, 0, 0.42, 0, 0.4, 0.62, 0.36); a(FRUST2, knit, 0, 0.92, -0.04, 0.3, 0.42, 0.27, 0.22); a(G.box, knit, 0, 1.08, -0.14, 0.4, 0.16, 0.22, 0.4);
+    for (const sx of [-1, 1]) { a(G.box, col(0xf1e8ff), sx * 0.05, 0.98, 0.2, 0.025, 0.025, 0.01, 0.22); a(G.cyl6, stock, sx * 0.12, 0.08, 0.02, 0.06, 0.16, 0.06); a(G.box, shoe, sx * 0.12, 0.03, 0.06, 0.1, 0.06, 0.2); }
+    a(G.sphL, lam({ map: T.grannyFace() }, 'grannyFace'), 0, 1.3, 0.1, 0.19, 0.21, 0.18); a(G.box, skin, 0, 1.27, 0.28, 0.05, 0.07, 0.05);
+    // платок: «капюшон» + узел под подбородком + хвостики
+    a(G.sphL, scarf, 0, 1.39, -0.04, 0.215, 0.2, 0.2); a(G.box, scarf, 0, 1.14, 0.2, 0.08, 0.06, 0.06); a(G.box, scarf, 0.04, 1.06, 0.22, 0.05, 0.12, 0.02, 0.2);
+    for (const sx of [-1, 1]) { a(G.box, col(0x2b2533), sx * 0.075, 1.33, 0.27, 0.08, 0.06, 0.012); a(G.box, col(0xbfe8ff), sx * 0.075, 1.33, 0.278, 0.06, 0.04, 0.005); a(G.box, col(0x17111f), sx * 0.075, 1.33, 0.282, 0.02, 0.02, 0.003); a(G.box, col(0xff9a9a), sx * 0.13, 1.24, 0.24, 0.04, 0.03, 0.02); }
+    a(G.box, col(0x2b2533), 0, 1.335, 0.275, 0.04, 0.012, 0.01); a(G.box, col(0x8a4a4a), 0, 1.19, 0.26, 0.06, 0.015, 0.01);
+    // авоська с батоном на боку
+    a(G.box, col(0x3a7a4a), -0.34, 0.62, 0.02, 0.04, 0.3, 0.2); a(G.cyl6, col(0xd8a058), -0.36, 0.72, 0.02, 0.05, 0.3, 0.05, 0.4); }));
+  // руки (рукав кофты + кисть): правая держит орудие
+  const arms = [-1, 1].map(sx => { const q = new THREE.Group(); q.position.set(sx * 0.3, 1.05, 0); g.add(q); q.add(compose('grannyArm3' + pal[1], a => { a(G.cyl6, knit, 0, -0.16, 0, 0.075, 0.32, 0.075); a(G.box, col(0xe8c0a0), 0, -0.35, 0, 0.08, 0.08, 0.08); })); return q; });
   const tool = new THREE.Group(); tool.position.set(0, -0.36, 0.05); arms[1].add(tool);
-  if (weapon === 'broom') tool.add(compose('broom', a => { a(G.cyl6, tmat(T.wood()), 0, 0.1, 0, 0.025, 1.3, 0.025); a(G.cone6, tmat(T.hay()), 0, -0.65, 0, 0.16, 0.4, 0.16, Math.PI); a(G.box, col(0xd8243a), 0, -0.45, 0, 0.12, 0.04, 0.12); }));
-  else tool.add(compose('wcan', a => { const gr = col(0x4aa86a); a(G.cyl12, gr, 0, -0.12, 0.1, 0.12, 0.2, 0.12); a(G.cyl8, gr, 0, -0.06, 0.32, 0.025, 0.3, 0.025, 1.0); a(G.cyl8, col(0x2b6a3a), 0, 0.05, 0.47, 0.05, 0.04, 0.05, 1.0);
+  if (weapon === 'broom') tool.add(compose('broom2', a => { a(G.cyl5, tmat(T.wood()), 0, 0.1, 0, 0.025, 1.3, 0.025); a(G.cone6, tmat(T.hay()), 0, -0.65, 0, 0.16, 0.4, 0.16, Math.PI); a(G.box, col(0xd8243a), 0, -0.45, 0, 0.12, 0.04, 0.12); }));
+  else tool.add(compose('wcan2', a => { const gr = lam({ map: T.metal(), color: 0x6ad88a }, 'wcanM'); a(G.cyl6, gr, 0, -0.12, 0.1, 0.12, 0.2, 0.12); a(G.cyl5, gr, 0, -0.06, 0.32, 0.025, 0.3, 0.025, 1.0); a(G.cyl6, col(0x2b6a3a), 0, 0.05, 0.47, 0.05, 0.04, 0.05, 1.0);
     a(G.torus, col(0x2b6a3a), 0, 0.02, 0.05, 0.09, 0.09, 0.09, 0, Math.PI / 2); }));
   const curse = new THREE.Sprite(new THREE.SpriteMaterial({ map: curseTex(), transparent: true, depthWrite: false })); curse.material.depthTest = false; curse.renderOrder = 12; curse.scale.set(1.3, 0.33, 1); curse.position.y = 2.25; curse.visible = false; g.add(curse);
   const cx = (bed.x0 + bed.x1) / 2, cz = (bed.z0 + bed.z1) / 2, home = new V3(cx, bed.y, bed.z1 + 1.0);
@@ -150,20 +155,21 @@ function updGranny(f, dt, t) {
    Твёрдая (толкается), гоняет котов, выпрашивает вкусное (сидит, виляет хвостом), лает; приносит брошенное, бежит на свисток. */
 const FOOD = new Set(['pizza', 'tomato', 'cucumber', 'can', 'pumpkin']);
 function dog(h) {
+  // PS1-дворняга (v0.21): гранёная, на фото-шерсти, с пятнами, ошейником и жетоном
   const g = new THREE.Group(), coats = [[0x9a6a3a, 0x5a3a1e, 0xe8d0b0], [0xd8c8a8, 0x8a6a4a, 0xf1e8ff], [0x3a3440, 0x17111f, 0xb08a6a]], [c0, c1, c2] = coats[(Math.random() * 3) | 0];
-  const fur = lam({ map: T.fur({ name: 'dog' + c0, base: '#' + c0.toString(16).padStart(6, '0'), light: '#' + c2.toString(16).padStart(6, '0'), dark: '#' + c1.toString(16).padStart(6, '0'), stripes: false }) }, 'dogFur' + c0), dk = col(c1), lt = col(c2);
+  const fur = lam({ map: T.dogFurP(c0, c1) }, 'dogFurP' + c0), dk = lam({ map: T.dogFurP(c1, c1) }, 'dogFurP' + c1), lt = lam({ map: T.dogFurP(c2, c2) }, 'dogFurP' + c2);
   const body = new THREE.Group(); g.add(body);
-  body.add(compose('dog2' + c0, a => {
-    a(G.sph10, fur, 0, 0.44, 0, 0.21, 0.19, 0.42); a(G.sph10, lt, 0, 0.36, 0.12, 0.15, 0.12, 0.25); a(G.sph10, dk, 0.08, 0.52, -0.12, 0.12, 0.08, 0.14);
-    a(G.torus, col(0xd8243a), 0, 0.52, 0.28, 0.12, 0.12, 0.12, Math.PI / 2 - 0.4); a(G.cyl8, col(0xf5c542), 0, 0.43, 0.36, 0.04, 0.01, 0.04, Math.PI / 2); }));
-  const head = new THREE.Group(); head.position.set(0, 0.62, 0.4); body.add(head);
-  head.add(compose('dogHead' + c0, a => {
-    a(G.sph10, fur, 0, 0, 0, 0.17, 0.16, 0.17); a(G.box, lt, 0, -0.05, 0.17, 0.13, 0.1, 0.16); a(G.sph, col(0x17111f), 0, -0.01, 0.26, 0.045, 0.035, 0.03);
-    a(G.box, col(0xd85a6a), 0, -0.1, 0.2, 0.06, 0.012, 0.08);
-    for (const sx of [-1, 1]) { a(G.box, col(0x17111f), sx * 0.07, 0.05, 0.155, 0.035, 0.035, 0.01); a(G.box, col(0xf1e8ff), sx * 0.075, 0.06, 0.158, 0.012, 0.012, 0.005); a(G.box, dk, sx * 0.07, 0.11, 0.13, 0.05, 0.015, 0.02); } }));
-  const ears = [-1, 1].map(sx => { const q = new THREE.Group(); q.position.set(sx * 0.14, 0.08, -0.02); head.add(q); q.add(compose('dogEar' + c1, a => a(G.box, dk, 0, -0.08, 0, 0.05, 0.18, 0.1))); q.rotation.z = sx * 0.3; return q; });
-  const legs = [[0.11, 0.26], [-0.11, 0.26], [0.11, -0.26], [-0.11, -0.26]].map(([x, z]) => { const q = new THREE.Group(); q.position.set(x, 0.34, z); g.add(q); q.add(compose('dogLeg2' + c0, a => { a(G.box, fur, 0, -0.15, 0, 0.08, 0.3, 0.08); a(G.box, lt, 0, -0.31, 0.02, 0.09, 0.05, 0.12); })); return q; });
-  const tail = new THREE.Group(); tail.position.set(0, 0.52, -0.4); body.add(tail); tail.add(compose('dogTail2' + c0, a => { a(G.box, fur, 0, 0.1, -0.05, 0.05, 0.25, 0.05, -0.6); a(G.box, lt, 0, 0.22, -0.12, 0.055, 0.06, 0.055, -0.6); }));
+  body.add(compose('dog3' + c0, a => {
+    a(G.box, fur, 0, 0.46, 0, 0.32, 0.28, 0.66); a(G.box, fur, 0, 0.5, 0.26, 0.34, 0.32, 0.2, 0.15); a(G.box, lt, 0, 0.34, 0.12, 0.24, 0.06, 0.42); a(G.box, dk, 0.1, 0.6, -0.12, 0.14, 0.02, 0.2);
+    a(G.box, col(0xd8243a), 0, 0.56, 0.33, 0.3, 0.06, 0.06, 0.4); a(G.cyl6, col(0xf5c542), 0, 0.47, 0.37, 0.04, 0.01, 0.04, Math.PI / 2); }));
+  const head = new THREE.Group(); head.position.set(0, 0.66, 0.4); body.add(head);
+  head.add(compose('dogHead3' + c0, a => {
+    a(G.box, fur, 0, 0, 0, 0.26, 0.24, 0.24); a(G.box, lt, 0, -0.05, 0.17, 0.15, 0.12, 0.16); a(G.box, col(0x17111f), 0, 0, 0.255, 0.07, 0.05, 0.03);
+    a(G.box, col(0xd85a6a), 0, -0.12, 0.2, 0.07, 0.012, 0.09);
+    for (const sx of [-1, 1]) { a(G.box, col(0x17111f), sx * 0.07, 0.04, 0.125, 0.045, 0.045, 0.01); a(G.box, col(0xf1e8ff), sx * 0.075, 0.05, 0.13, 0.015, 0.015, 0.005); a(G.box, dk, sx * 0.07, 0.1, 0.12, 0.06, 0.015, 0.02); } }));
+  const ears = [-1, 1].map(sx => { const q = new THREE.Group(); q.position.set(sx * 0.13, 0.1, -0.02); head.add(q); q.add(compose('dogEar3' + c1, a => a(G.cone4, dk, 0, -0.06, 0, 0.07, 0.18, 0.05, Math.PI))); q.rotation.z = sx * 0.4; return q; });
+  const legs = [[0.11, 0.24], [-0.11, 0.24], [0.11, -0.24], [-0.11, -0.24]].map(([x, z]) => { const q = new THREE.Group(); q.position.set(x, 0.34, z); g.add(q); q.add(compose('dogLeg3' + c0, a => { a(G.box, fur, 0, -0.15, 0, 0.09, 0.3, 0.09); a(G.box, lt, 0, -0.31, 0.02, 0.1, 0.05, 0.13); })); return q; });
+  const tail = new THREE.Group(); tail.position.set(0, 0.56, -0.33); body.add(tail); tail.add(compose('dogTail3' + c0, a => { a(G.box, fur, 0, 0.1, -0.05, 0.06, 0.25, 0.06, -0.6); a(G.box, lt, 0, 0.22, -0.12, 0.065, 0.07, 0.065, -0.6); }));
   const x = (h.x0 + h.x1) / 2, z = (h.z0 + h.z1) / 2; setupBody(g, x, h.y, z);
   return { kind: 'dog', g, body, head, ears, legs, tail, home: h, pos: g.position, vel: new V3(), it: null, runT: 0, wt: 0, wp: new V3(x, h.y, z), barkT: 3, ph: 0, chase: null, catT: 8 + Math.random() * 8, cat: null, beg: null, begCD: 0 };
 }

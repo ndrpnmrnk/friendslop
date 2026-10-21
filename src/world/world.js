@@ -1,3 +1,4 @@
+import { addItem } from '../game/items.js';
 import { THREE, G, mesh, tmat, flat, paint, setParent, col, lam } from '../core/gfx.js';
 import { T, rep } from '../core/textures.js';
 import { CONFIG } from '../config.js';
@@ -72,6 +73,10 @@ export function generateMap(scene, s) {
     if (gx === grid - 1) zebra(ox + chunk + road / 2, oz + chunk / 2, false);
     W.districts.push({ id: d.id, name: d.name, ox, oz, x1: ox + chunk, z1: oz + chunk, ground: d.ground });
     d.build(new Builder(ox, oz, base, d.name));
+    // уличный мусор (v0.21): несколько штук по тротуарам у краёв района — можно поднять и бросить
+    for (let i = 0, n = 0; i < 40 && n < 5; i++) { const e = Math.random() * 4 | 0, t = 1 + Math.random() * (chunk - 2), w0 = 0.4 + Math.random() * 1.2;
+      const x = e === 0 ? ox + t : e === 1 ? ox + t : e === 2 ? ox + w0 : ox + chunk - w0, z = e === 0 ? oz + w0 : e === 1 ? oz + chunk - w0 : oz + t;
+      if (!isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, base + 0.02, base + 1)) continue; addItem('litter', x, base + 0.1, z, Math.random() * 6); n++; }
   }
   buildRoadsAndTunnels(half);
   streetFurniture(half);

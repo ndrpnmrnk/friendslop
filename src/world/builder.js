@@ -140,28 +140,37 @@ export class Builder {
     const m = this.m(G.ico, tmat(T.bush()), x, h * 0.5, z, w * 0.6, h * 0.6, d * 0.6); m.rotation.y = rand() * 3;
     this.solid(x, z, w * 0.85, d * 0.85, 0, h);
   }
-  car(x, z, ry, c) {
-    // корпус с бамперами, арками, зеркалами, номерами; колёса — шины с колпаками
+  car(x, z, ry, c, type = 'sedan') {
+    // v0.21: разные типы — седан, хэтчбек, такси, фургон, пикап. Low-poly, краска по фото металла, шины/колпаки/номера.
+    const TY = { sedan: { L: 3.9, cab: [-0.2, 2.2, 0.5], H: 0.95 }, taxi: { L: 3.9, cab: [-0.2, 2.2, 0.5], H: 0.95 }, hatch: { L: 3.4, cab: [-0.4, 2.1, 0.55], H: 0.95 },
+      pickup: { L: 4.3, cab: [0.5, 1.5, 0.55], H: 0.95 }, van: { L: 4.4, cab: [-0.3, 3.6, 0.95], H: 0.95 } }, ty = TY[type] || TY.sedan, L = ty.L, hl = L / 2;
     const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
-    g.add(compose('car' + c, add => {
-      const side = tmat(T.carSide(c)), glass = tmat(T.carGlass(c)), body = col(c), dk = col(0x17111f), bump = col(0x2b2833), chrome = col(0x9a9da8);
-      add(G.box, body, 0, 0.66, 0, 3.9, 0.58, 1.76); add(G.box, side, 0, 0.66, 0.885, 3.6, 0.5, 0.01); add(G.box, side, 0, 0.66, -0.885, 3.6, 0.5, 0.01, 0, Math.PI);
-      add(CAR_CABIN, glass, -0.2, 1.18, 0, 2.2, 0.5, 1.58); add(G.box, body, -0.2, 1.44, 0, 1.52, 0.04, 1.32);
-      for (const sx of [-1, 1]) { add(G.box, bump, sx * 2.0, 0.48, 0, 0.14, 0.22, 1.8); add(G.box, tmat(T.plate()), sx * 2.075, 0.5, 0, 0.01, 0.12, 0.42); }
-      for (const sz of [-1, 1]) { add(G.box, chrome, 0.75, 1.0, sz * 0.92, 0.12, 0.08, 0.1); for (const sx of [-1.3, 1.3]) add(G.box, dk, sx, 0.52, sz * 0.86, 0.86, 0.36, 0.08); }
-      add(G.box, glow(0xfff1c0), 1.96, 0.72, 0.58, 0.04, 0.14, 0.32); add(G.box, glow(0xfff1c0), 1.96, 0.72, -0.58, 0.04, 0.14, 0.32);
-      add(G.box, glow(0xd8243a), -1.96, 0.74, 0.62, 0.04, 0.12, 0.26); add(G.box, glow(0xd8243a), -1.96, 0.74, -0.62, 0.04, 0.12, 0.26);
-      add(G.box, dk, 1.975, 0.66, 0, 0.02, 0.16, 0.6);
-      for (const [a, b] of [[1.3, 0.8], [1.3, -0.8], [-1.3, 0.8], [-1.3, -0.8]]) { add(TIRE_GEO, tmat(T.tread()), a, 0.33, b, 0.33, 0.24, 0.33, Math.PI / 2); add(G.cyl12, tmat(T.hubcap()), a, 0.33, b + Math.sign(b) * 0.06, 0.2, 0.02, 0.2, Math.PI / 2); }
+    g.add(compose('car3' + type + c, add => {
+      const paint = tmat(T.carPaint(c)), side = tmat(T.carSide(c)), glass = tmat(T.carGlass(c)), dk = col(0x17111f), bump = col(0x2b2833), chrome = col(0x9a9da8), [cx, cl, ch] = ty.cab;
+      add(G.box, paint, 0, 0.66, 0, L, 0.58, 1.76); add(G.box, side, 0, 0.66, 0.885, L - 0.3, 0.5, 0.01); add(G.box, side, 0, 0.66, -0.885, L - 0.3, 0.5, 0.01, 0, Math.PI);
+      if (type === 'van') { add(G.box, paint, cx, 0.95 + ch / 2, 0, cl, ch, 1.74); add(G.box, glass, cx + cl / 2 - 0.35, 0.95 + ch * 0.62, 0, 0.72, ch * 0.5, 1.76); add(G.box, glass, cx + cl / 2 + 0.005, 0.95 + ch * 0.62, 0, 0.01, ch * 0.5, 1.5);
+        add(G.box, dk, cx - 0.4, 0.95 + ch * 0.5, 0.875, 0.02, ch * 0.9, 0.01); add(G.box, col(0xf1e8ff), cx - 0.6, 0.95 + ch * 0.55, 0.88, 1.6, 0.18, 0.01); add(G.box, col(0xf1e8ff), cx - 0.6, 0.95 + ch * 0.55, -0.88, 1.6, 0.18, 0.01); }
+      else { add(CAR_CABIN, glass, cx, 0.95 + ch / 2, 0, cl, ch, 1.58); add(G.box, paint, cx, 0.95 + ch - 0.02, 0, cl * 0.7, 0.05, 1.32); }
+      if (type === 'pickup') { add(G.box, dk, -0.95, 0.96, 0, 1.9, 0.04, 1.6); for (const sz of [-1, 1]) add(G.box, paint, -0.95, 1.08, sz * 0.84, 1.9, 0.26, 0.08); add(G.box, tmat(T.crate()), -1.2, 1.2, 0.2, 0.5, 0.45, 0.5); }
+      if (type === 'taxi') { add(G.box, tmat(T.checker()), 0, 0.82, 0.888, L - 0.4, 0.1, 0.01); add(G.box, tmat(T.checker()), 0, 0.82, -0.888, L - 0.4, 0.1, 0.01, 0, Math.PI);
+        add(G.box, glow(0xf5c542), cx, 0.95 + ch + 0.1, 0, 0.5, 0.16, 0.3); add(G.box, tmat(T.sign('ТАКСИ', '#f5c542', '#17111f')), cx, 0.95 + ch + 0.1, 0.152, 0.48, 0.14, 0.005); add(G.box, tmat(T.sign('ТАКСИ', '#f5c542', '#17111f')), cx, 0.95 + ch + 0.1, -0.152, 0.48, 0.14, 0.005, 0, Math.PI); }
+      for (const sx of [-1, 1]) { add(G.box, bump, sx * (hl + 0.05), 0.48, 0, 0.14, 0.22, 1.8); add(G.box, tmat(T.plate()), sx * (hl + 0.125), 0.5, 0, 0.01, 0.12, 0.42); }
+      const wx = hl - 0.65;
+      for (const sz of [-1, 1]) { add(G.box, chrome, cx + cl / 2 - (type === 'van' ? 0.6 : 0.3), 1.0, sz * 0.92, 0.12, 0.08, 0.1); for (const sx of [-wx, wx]) add(G.box, dk, sx, 0.52, sz * 0.86, 0.86, 0.36, 0.08); }
+      add(G.box, glow(0xfff1c0), hl + 0.01, 0.72, 0.58, 0.04, 0.14, 0.32); add(G.box, glow(0xfff1c0), hl + 0.01, 0.72, -0.58, 0.04, 0.14, 0.32);
+      add(G.box, glow(0xd8243a), -hl - 0.01, 0.74, 0.62, 0.04, 0.12, 0.26); add(G.box, glow(0xd8243a), -hl - 0.01, 0.74, -0.62, 0.04, 0.12, 0.26);
+      add(G.box, dk, hl + 0.025, 0.66, 0, 0.02, 0.16, 0.6);
+      for (const [a, b] of [[wx, 0.8], [wx, -0.8], [-wx, 0.8], [-wx, -0.8]]) { add(TIRE_GEO, tmat(T.tread()), a, 0.33, b, 0.33, 0.24, 0.33, Math.PI / 2); add(G.cyl12, tmat(T.hubcap()), a, 0.33, b + Math.sign(b) * 0.06, 0.2, 0.02, 0.2, Math.PI / 2); }
     }));
-    // крышка багажника на петле (E — открыть, один шанс найти предмет)
-    const lid = new THREE.Group(); lid.position.set(-1.32, 0.95, 0); g.add(lid); W.keep.push(lid);
-    lid.add(compose('carLid' + c, add => { add(G.box, col(c), -0.33, 0.015, 0, 0.66, 0.05, 1.7); add(G.box, col(0x9a9da8), -0.6, 0.0, 0, 0.04, 0.03, 0.3); }));
+    // крышка багажника на петле (E — открыть, один шанс найти предмет); у фургона — задняя дверь
+    const lid = new THREE.Group(); lid.position.set(-hl + 0.66, 0.95, 0); g.add(lid); W.keep.push(lid);
+    lid.add(compose('carLid3' + c, add => { add(G.box, tmat(T.carPaint(c)), -0.33, 0.015, 0, 0.66, 0.05, 1.7); add(G.box, col(0x9a9da8), -0.6, 0.0, 0, 0.04, 0.03, 0.3); }));
+    if (type === 'van') lid.position.y = 0.95 + ty.cab[2] + 0.02;
     W.cars.push({ x: this.X(x), z: this.Z(z), y: this.Y, ry, alarm: 0, lid });
-    const q = Math.abs(Math.sin(ry)) > 0.5;
-    this.solid(x, z, q ? 1.8 : 4, q ? 4 : 1.8, 0, 0.95);
-    const rx = x - Math.cos(ry) * 0.2, rz = z + Math.sin(ry) * 0.2, rw = q ? 1.5 : 2.2, rd = q ? 2.2 : 1.5;
-    this.solid(rx, rz, rw, rd, 0.95, 0.5); this.bouncer(rx - rw / 2, rz - rd / 2, rx + rw / 2, rz + rd / 2, 1.45, 8.5);
+    const q = Math.abs(Math.sin(ry)) > 0.5, top = type === 'van' ? 1.92 : 1.45;
+    this.solid(x, z, q ? 1.8 : L + 0.1, q ? L + 0.1 : 1.8, 0, 0.95);
+    const rx = x - Math.cos(ry) * ty.cab[0] * -1, rz = z - Math.sin(ry) * ty.cab[0], rw = q ? 1.5 : ty.cab[1], rd = q ? ty.cab[1] : 1.5;
+    this.solid(rx, rz, rw, rd, 0.95, top - 0.95); this.bouncer(rx - rw / 2, rz - rd / 2, rx + rw / 2, rz + rd / 2, top, 8.5);
     return g;
   }
   bus(x, z, c = 0xd8a030) {
@@ -199,7 +208,7 @@ export class Builder {
   dumpster(x, z) {
     const mt = tmat(T.corrugated(0x3e5a4a));
     this.box(x, z, 1.4, 1.1, 1.05, mt, { y: 0.12 });
-    this.m(G.box, col(0x243d32), x, 1.2, z, 1.48, 0.1, 1.18);
+    this.m(G.box, tmat(T.paintMetal(0x243d32)), x, 1.2, z, 1.48, 0.1, 1.18); this.m(G.box, tmat(T.rust()), x, 0.2, z + 0.56, 1.42, 0.16, 0.02);
     this.solid(x, z, 1.48, 1.18, 1.15, 0.1);
     this.m(G.box, col(0x22222c), x, 1.28, z + 0.18, 0.4, 0.06, 0.07);
     W.hides.push({ x: this.X(x), y: this.Y, z: this.Z(z), r: 1.4, kind: 'bin', out: [0, 1] });
@@ -252,7 +261,7 @@ export class Builder {
   // урна — толкаемая
   bin(x, z) { addPushable(this, 'bin', x, z); if (this.Y > -1) this.fireSpot(x, z); }
   hydrant(x, z) {
-    const red = col(0xc8243a), mt = tmat(T.metal());
+    const red = tmat(T.paintMetal(0xc8243a)), mt = tmat(T.metal());
     this.m(G.cyl6, red, x, 0.35, z, 0.18, 0.7, 0.18); const cap = this.m(G.cone6, red, x, 0.76, z, 0.23, 0.18, 0.23); W.keep.push(cap);
     W.hydrants.push({ x: this.X(x), y: this.Y, z: this.Z(z), cap, on: 0, t: 0 });
     this.m(G.cyl6, mt, x, 0.05, z, 0.25, 0.1, 0.25);
@@ -268,7 +277,7 @@ export class Builder {
       return;
     }
     const along = Math.abs(x1 - x0) > Math.abs(z1 - z0), len = along ? Math.abs(x1 - x0) : Math.abs(z1 - z0);
-    const mat = kind === 'iron' ? col(0x1e1a24) : kind === 'mesh' ? col(0x6a6d78) : tmat(T.wood());
+    const mat = kind === 'iron' ? tmat(T.paintMetal(0x2a2434)) : kind === 'mesh' ? tmat(T.metal()) : tmat(T.wood());
     const n = Math.max(1, Math.round(len / (kind === 'iron' ? 0.35 : 2)));
     for (let i = 0; i <= n; i++) {
       const t = i / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;

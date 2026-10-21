@@ -16,8 +16,9 @@ export function buildShells(x, y, z, f) {
   mesh(G.box, wd, 0, 0.8, 0, 1.8, 0.08, 0.9, g);
   for (const [a, b] of [[-0.8, -0.38], [0.8, -0.38], [-0.8, 0.38], [0.8, 0.38]]) mesh(G.box, dk, a, 0.4, b, 0.06, 0.8, 0.06, g);
   mesh(G.box, tmat(T.awning('#d8243a', '#f1e8ff')), 0, 0.86, 0, 1.7, 0.02, 0.8, g);
-  mesh(G.plane, tmat(T.sign('НАПЕРСТКИ', '#2a1f3d', '#f5c542')), 0, 1.6, -0.46, 1.2, 0.3, 1, g);
-  for (const s of [-0.85, 0.85]) mesh(G.box, dk, s, 1.2, -0.44, 0.04, 0.8, 0.04, g);
+  // вывеска — доска на двух стойках, закреплена (v0.21): надпись с обеих сторон, без «парящих» плоскостей
+  { const sm = tmat(T.sign('НАПЕРСТКИ', '#2a1f3d', '#f5c542')); mesh(G.box, [dk, dk, dk, dk, sm, sm], 0, 1.62, -0.44, 1.3, 0.34, 0.05, g); }
+  for (const s of [-0.62, 0.62]) mesh(G.box, dk, s, 1.25, -0.44, 0.05, 0.9, 0.05, g);
   const cupGeo = new THREE.CylinderGeometry(0.11, 0.15, 0.26, 10), cupM = col(0xd04a4a);
   const cups = [-0.45, 0, 0.45].map(px => { const c = mesh(cupGeo, cupM, px, 0.99, 0, 1, 1, 1, g); return c; });
   const ball = mesh(G.sph10, tmat(T.pumpkin()), 0, 0.92, 0, 0.07, 0.06, 0.07, g);
@@ -58,7 +59,7 @@ export function buildTargets(x, y, z, f) {
     return { post, t, hit: false, i };
   });
   mesh(G.box, tmat(T.hazard()), 0, 0.02, 0, 3.6, 0.04, 0.12, g);
-  mesh(G.plane, tmat(T.sign('ТИР', '#d8243a', '#f1e8ff')), 0, 2.2, -6.06, 1.4, 0.4, 1, g);
+  mesh(G.plane, tmat(T.sign('ТИР', '#d8243a', '#f1e8ff')), 0, 2.2, -6.06, 1.4, 0.4, 1, g); mesh(G.box, col(0x2a2232), 0, 2.2, -6.11, 1.55, 0.52, 0.08, g); for (const sx of [-0.82, 0.82]) mesh(G.box, col(0x2a2232), sx, 1.22, -6.11, 0.07, 2.44, 0.07, g); // щит на двух стойках
   mesh(G.box, wd, 1.6, 0.25, 0.6, 0.7, 0.5, 0.5, g);
   g.updateMatrixWorld(true);
   // мишени твёрдые: брошенное в них ударяется

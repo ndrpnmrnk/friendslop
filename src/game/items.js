@@ -39,7 +39,7 @@ function build(type) {
     mesh(G.box, tmat(T.brickItem()), 0, 0, 0, 0.42, 0.18, 0.22, g);
     mesh(G.box, col(0x6a2a1c), 0, 0.091, 0, 0.24, 0.005, 0.1, g);
   } else if (type === 'trash') g.add(trashModel());
-  else if (type === 'litter') g.add(litterModel());
+  else if (type === 'litter') g.add(litterModel((Math.random() * 5) | 0));
   else if (type === 'parcel') { mesh(G.box, col(0xc8a070), 0, -0.05, 0, 0.5, 0.14, 0.5, g); mesh(G.box, col(0xc8a070), 0, 0.1, 0, 0.46, 0.14, 0.46, g); mesh(G.box, col(0xd8243a), 0, 0.03, 0.252, 0.3, 0.06, 0.01, g); mesh(G.box, col(0xf1e8ff), 0, 0.172, 0, 0.47, 0.005, 0.08, g); }
   else if (type === 'can') { mesh(G.cyl8, lam({ color: 0xd8243a, emissive: 0x3a0808 }, 'canBody'), 0, 0, 0, 0.065, 0.2, 0.065, g); mesh(G.cyl8, col(0xd8d8e0), 0, 0.105, 0, 0.06, 0.012, 0.06, g); mesh(G.box, col(0xf1e8ff), 0, 0.02, 0.066, 0.06, 0.06, 0.004, g); }
   else if (type === 'monitor') { const dk = col(0x2b2533); mesh(G.box, dk, 0, 0.06, 0, 0.56, 0.36, 0.05, g); mesh(G.box, tmat(T.screen()), 0, 0.06, 0.027, 0.5, 0.3, 0.005, g); mesh(G.box, dk, 0, -0.16, -0.02, 0.06, 0.12, 0.05, g); mesh(G.box, dk, 0, -0.22, 0, 0.26, 0.02, 0.16, g); }

@@ -61,9 +61,11 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   if (p.drone) {
     // вертушка — камера от третьего лица, как за персонажем: сзади-сверху, плавно
     const dir = new V3(-Math.sin(cam.yaw) * Math.cos(cam.pitch), -Math.sin(cam.pitch), -Math.cos(cam.yaw) * Math.cos(cam.pitch));
-    const want = p.pos.clone().addScaledVector(dir, -4.2).add(new V3(0, 1.1, 0));
+    // плечевая камера как у персонажа: сзади, чуть правее и выше
+    const right = new V3(-Math.cos(cam.yaw), 0, Math.sin(cam.yaw));
+    const want = p.pos.clone().addScaledVector(dir, -3.6).addScaledVector(right, 0.9).add(new V3(0, 0.9, 0));
     if (!cam.dronePos || snap) cam.dronePos = want.clone(); cam.dronePos.lerp(want, damp(8, dt));
-    camera.position.copy(cam.dronePos); camera.lookAt(p.pos.clone().addScaledVector(dir, 6).add(new V3(0, 0.3, 0))); return;
+    camera.position.copy(cam.dronePos); camera.lookAt(p.pos.clone().addScaledVector(dir, 6).addScaledVector(right, 0.9).add(new V3(0, 0.3, 0))); return;
   }
   let P, L;
   if (cam.orbit && !cam.pose) {

@@ -38,9 +38,9 @@ export function ps1(m, stable = false) {
 
 // Постобработка: дизеринг Bayer 4x4 и урезанная палитра
 const post = new THREE.ShaderMaterial({
-  uniforms: { t: { value: rt.texture }, px: { value: new THREE.Vector2(1 / 256, 1 / 144) } },
+  uniforms: { t: { value: rt.texture }, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 } },
   vertexShader: 'varying vec2 v; void main(){ v = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-  fragmentShader: `uniform sampler2D t; uniform vec2 px; varying vec2 v;
+  fragmentShader: `uniform sampler2D t; uniform vec2 px; uniform float glowK; varying vec2 v;
     float b2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
     float b4(vec2 a){ return b2(0.5 * a) * 0.25 + b2(a); }
     vec3 bright(vec2 o){ vec3 s = texture2D(t, v + o).rgb; return max(s - 0.74, 0.0); }
@@ -50,7 +50,7 @@ const post = new THREE.ShaderMaterial({
       vec3 g = vec3(0.0);
       for (int i = 0; i < 8; i++) { float a = float(i) * 0.785; vec2 d = vec2(cos(a), sin(a));
         g += bright(d * px * 3.0) * 0.6 + bright(d * px * 7.0) * 0.4; }
-      c += g * 0.26 * vec3(1.0, 0.85, 0.7);
+      c += g * 0.26 * glowK * vec3(1.0, 0.85, 0.7);
       // сумеречная цветокоррекция: тени в сливовый, свет в тёплый
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c = mix(c * vec3(0.92, 0.9, 1.06), c * vec3(1.06, 1.0, 0.92), smoothstep(0.2, 0.8, l)) + vec3(0.012, 0.006, 0.02);
@@ -166,3 +166,6 @@ export function sprite(tex, size, opts = {}) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, ...opts }));
   s.scale.set(size, size, 1); return s;
 }
+
+// сила свечения ярких мест: в мини-играх ослабляем (v0.21 — стол с напёрстками не «светится»)
+export function setGlow(k) { post.uniforms.glowK.value = k; }

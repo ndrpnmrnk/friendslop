@@ -365,3 +365,10 @@ body:not(.playing) #speedl{display:none}
 /* v0.19: карточка «в руках» — что делает предмет и эффект */
 #held .hcd{font-size:12px;color:var(--text);opacity:.85;margin-top:3px;white-space:normal;max-width:260px}
 #held .fx{font-style:normal;font-family:var(--px);font-size:8px;color:#17111f;background:var(--fx);padding:2px 5px 1px;margin-left:8px;vertical-align:middle}
+
+#droneHud{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);display:flex;gap:10px;pointer-events:none;z-index:15}
+#droneHud .dh{position:relative;width:58px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);overflow:hidden}
+#droneHud .dh span{font-family:var(--px);font-size:10px;color:var(--gold)}
+#droneHud .dh.off{opacity:.35;filter:grayscale(1)}
+#droneHud .dh i{display:block;line-height:0}
+#droneHud .dh b{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);pointer-events:none}
