@@ -381,3 +381,5 @@ body:not(.playing) #speedl{display:none}
 body.ui-cursor-on,body.ui-cursor-on *{cursor:none!important}
 
 #dot.ui-cursor i,#dot.ui-cursor b{display:none}
+
+#dhNet::after{content:attr(data-cd);position:absolute;right:4px;top:4px;font:10px var(--px);color:#f5c542;text-shadow:1px 1px #17111f;z-index:2}

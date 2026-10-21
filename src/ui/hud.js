@@ -83,7 +83,7 @@ export function renderHud(S, P, prompt, dt) {
     const w = el.querySelector('.where'), wt = m.where || ''; if (w.textContent !== wt) w.textContent = wt;
     const bar = el.querySelector('.bar'); bar.firstChild.style.width = Math.max(0, m.life / m.maxLife * 100) + '%'; bar.classList.toggle('warn', m.life < m.maxLife * 0.25);
     const occupied=(m.claimedBy||m.doer), mine=occupied===P;
-    el.querySelector('.mstatus').textContent=occupied?(mine?(m.busy?'Выполняешь · Z отменить':'Принято · E продолжить'):'Выполняется · можно помешать'):'';
+    el.querySelector('.mstatus').textContent=occupied?(mine?(m.busy?'Выполняешь · Z отменить':'Принято · E продолжить'):'Выполняется'):'';
     if(occupied&&m.progress!=null)bar.firstChild.style.width=Math.min(100,Math.max(0,m.progress*100))+'%';
     el.classList.toggle('taken', !!occupied&&!mine);
     el.classList.toggle('active', !!m.busy); el.classList.toggle('main', m === nearest && !m.busy); el.classList.toggle('dim', m !== nearest);
@@ -95,7 +95,7 @@ export function renderHud(S, P, prompt, dt) {
 }
 
 // стамина: пиксельное кольцо из сегментов у персонажа, цифра в центре
-export function renderStamina(P, dt) {
+export function renderStamina(P, dt, missionTool=null) {
   const c = $('stam'), g = c.getContext('2d'), wrap = $('stamwrap'), v = Math.max(0, P.stamina), gold = P.energy > 0;
   if (v >= 1 && !gold) H.stamFullT += dt; else H.stamFullT = 0;
   wrap.classList.toggle('off', H.stamFullT > 1);
@@ -125,11 +125,12 @@ export function renderStamina(P, dt) {
     const acts = [v && !(d.ammo && it.ammo <= 0) ? `<span><span class="key">ЛКМ</span>${v}</span>` : '', `<span><span class="key">ПКМ</span>${TEXT.heldThrow}</span>`, `<span><span class="key">E</span>${TEXT.heldDrop}</span>`].filter(Boolean).join('');
     const info = TOOL_INFO[it.type], fx = info && FX_LABEL[info[1]];
     held = `<div class="hci${cd >= 0 ? ' cd' : ''}">${img(it.type, 40)}${cd >= 0 ? `<i class="cdf" style="height:${cd}%"></i>` : ''}</div><div class="hct"><b>${d.name}${am}${fx ? `<em class="fx" style="--fx:${fx[1]}">${fx[0]}</em>` : ''}</b>${info ? `<div class="hcd">${info[0]}</div>` : ''}<div class="hck">${acts}</div></div>`; }
+  if(!held&&missionTool?.toolName&&missionTool.equipped!==false){const tool=missionTool;held=`<div class="hci">${img(tool.toolIcon,40)}</div><div class="hct"><b>${tool.toolName}</b><div class="hck"><span class="key">ЛКМ</span>${tool.toolAction}</div></div>`;}
   if (held !== H.held) { const was = H.heldType, now = P.held ? P.held.type : P.grab ? 'grab' : P.holding ? 'hold' : P.heldBy ? 'held' : '';
     H.held = held; H.heldType = now; const e2 = $('held'); e2.innerHTML = held; e2.classList.toggle('hidden', !held);
     if (held && now !== was) { e2.classList.remove('new'); void e2.offsetWidth; e2.classList.add('new'); } }
   // эффекты на персонаже: ботинки, маска, энергетик — маленькие значки с отсчётом
-  const fx = [P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : '', P.stBoost > 0 ? `${img('energy', 16)}${Math.ceil(P.stBoost)}` : ''].filter(Boolean).join('');
+  const fx = [P.webT>0?`${img('web',16)}${Math.ceil(P.webT)}`:'', P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : '', P.stBoost > 0 ? `${img('energy', 16)}${Math.ceil(P.stBoost)}` : ''].filter(Boolean).join('');
   if (fx !== H.gslot) { H.gslot = fx; const e3 = $('gslot'); e3.innerHTML = fx; e3.classList.toggle('hidden', !fx); }
   // конфетти перед глазами
   const bl = $('blind'), blind = P.blind > 0;

@@ -223,7 +223,7 @@ function webTrap(x, y, z, owner = null) {
 /* сетка накрыла: 2.5 с еле ползёшь, первые 1.2 с — оглушение; сверху видна сетка */
 const NETM = () => lam({ color: 0xe8e0c8, wireframe: true }, 'netWire');
 export function netActor(a, owner) {
-  if (a.hidden || a.caged) return; if (a.ride && W.dismount) W.dismount(a); a.netT = 2.2; a.webT = Math.max(a.webT || 0, 3); dropHeld(a);
+  if (a.hidden || a.caged) return; if (a.ride && W.dismount) W.dismount(a); if(a.holding)W.letGo?.(a);a.vel.x*=0.12;a.vel.z*=0.12; a.netT = 2.2; a.webT = Math.max(a.webT || 0, 3); dropHeld(a);
   if (!GS.nets.has(a)) { const m = mesh(G.sph10, NETM(), 0, 0, 0, 0.75, 1.0, 0.75, W.group); GS.nets.set(a, m); }
   sfx('grab', { at: a.pos }); burst(a.pos.x, a.pos.y + 1.2, a.pos.z, 8, { color: 0xe8e0c8, size: 0.12, speed: 1.8 }); W.onHit && W.onHit(owner, a, 'heavy');
 }
@@ -278,7 +278,7 @@ export function updateTools(dt, t) {
     if (a.blind > 0) a.blind -= dt;
     if (a.startle > 0) a.startle -= dt;
     if (a.swatT > 0) a.swatT -= dt;
-    { const nm = GS.nets.get(a); if (a.netT > 0) { a.netT -= dt; if (nm) { nm.visible = true; nm.position.set(a.pos.x, a.pos.y + 0.85, a.pos.z); nm.rotation.y += dt; } } else if (nm) { W.group.remove(nm); GS.nets.delete(a); } }
+    { const nm = GS.nets.get(a); if (a.netT > 0) { a.netT -= dt;a.vel.x*=Math.exp(-dt*10);a.vel.z*=Math.exp(-dt*10); if (nm) { nm.visible = true; nm.position.set(a.pos.x, a.pos.y + 0.85, a.pos.z); nm.rotation.y += dt; } } else if (nm) { W.group.remove(nm); GS.nets.delete(a); } }
     // пузырь: висит в воздухе и медленно поднимается
     let bub = GS.bubbles.get(a);
     /* пузырь (v0.18): объёмный, полупрозрачный, с бликом; персонаж внутри виден и подлетает ~1 с.

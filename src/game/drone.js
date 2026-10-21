@@ -1,17 +1,21 @@
-import { THREE, V3, G, mesh, col, lam } from '../core/gfx.js';
+import { THREE, V3, G, mesh, col, lam, tmat } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { keys } from '../core/input.js';
 import { groundAt, isFree, raySolids } from '../world/physics.js';
-import { actors, dropHeld, shove } from './actors.js';
+import { actors, dropHeld } from './actors.js';
 import { dismount, release } from './ride.js';
 import { puff, burst, smokeRing } from '../world/particles.js';
 import { sfx } from '../core/sfx.js';
+import { shoot } from './tools.js';
+import { T } from '../core/textures.js';
+import { CANDY_TYPES, candyModel, applyCandy } from './candy.js';
 import { cam } from './camera.js';
 
-const darts = [], candies = [], marks = new Map(), flyOff = [];
+export const DRONE_NET_COOLDOWN=10;
+const candies = [], flyOff = [];
 /* Вертушка выбывшего (v0.21): маленький пиксельный «телевизор» с мордочкой на экране, антенны-усики,
    сверху мачта с двухлопастным пропеллером (лопасти + полупрозрачный «смаз» вращения), снизу люк и полозья,
-   сбоку пушка с дротиком. В полёте наклоняется по инерции (крен/тангаж), покачивается. */
+   сбоку сетемёт. В полёте наклоняется по инерции (крен/тангаж), покачивается. */
 export function helicopter(a) {
   const g = new THREE.Group(), dark = col(0x2b2533), shell = lam({ color: 0xcfc2a8 }, 'droneShell3'), acc = col(0xff8a1f), metal = col(0x9a9da8);
   const body = new THREE.Group(); g.add(body);
@@ -33,14 +37,17 @@ export function helicopter(a) {
   for (const r of [0, Math.PI]) { const bl = new THREE.Group(); bl.rotation.y = r; rotor.add(bl); const m = mesh(G.box, acc, 0.33, 0, 0, 0.62, 0.015, 0.09, bl); m.rotation.x = 0.22; mesh(G.box, dark, 0.62, 0, 0, 0.05, 0.02, 0.1, bl); }
   mesh(G.sph, acc, 0, 0.02, 0, 0.05, 0.04, 0.05, rotor);
   const blur = mesh(G.disc, new THREE.MeshBasicMaterial({ color: 0xffb070, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }), 0, 0.5, -0.05, 0.68, 0.68, 1, body); blur.rotation.x = -Math.PI / 2;
-  // пушка с дротиком
-  const gun = new THREE.Group(); gun.position.set(0.38, -0.12, 0.02); body.add(gun);
-  mesh(G.cyl8, metal, 0, 0, 0.1, 0.045, 0.26, 0.045, gun).rotation.x = Math.PI / 2; const dartM = mesh(G.box, col(0xf5c542), 0, 0, 0.26, 0.02, 0.02, 0.12, gun); mesh(G.box, col(0xd8243a), 0, 0, 0.19, 0.06, 0.06, 0.015, gun);
+  // Широкий раструб и сложенная сеть вместо иглы дротика.
+  const gun=new THREE.Group();gun.position.set(0.4,-0.12,0.02);body.add(gun);
+  mesh(G.cyl8,metal,0,0,0.11,0.08,0.28,0.08,gun).rotation.x=Math.PI/2;
+  mesh(G.cone8,dark,0,0,0.28,0.13,0.16,0.13,gun).rotation.x=-Math.PI/2;
+  const readyMesh=mesh(G.sph10,tmat(T.grate()),0,0,0.31,0.105,0.07,0.05,gun);
+  const muzzle=new THREE.Group();muzzle.position.z=0.4;gun.add(muzzle);
   // полозья и люк
   for (const x of [-0.2, 0.2]) { mesh(G.box, dark, x, -0.38, 0.0, 0.03, 0.03, 0.5, body); mesh(G.box, dark, x, -0.31, 0.12, 0.02, 0.14, 0.02, body); mesh(G.box, dark, x, -0.31, -0.12, 0.02, 0.14, 0.02, body); }
   const flaps = [-1, 1].map(sx => { const q = new THREE.Group(); q.position.set(sx * 0.13, -0.245, 0); body.add(q); mesh(G.box, acc, -sx * 0.065, 0, 0, 0.13, 0.02, 0.22, q); return q; });
   const rope = mesh(G.box, col(0x17111f), 0, -0.45, 0, 0.025, 1, 0.025, g); rope.visible = false;
-  W.group.add(g); W.keep.push(g); return { g, body, rotor, blur, dartM, screen, tex, flaps, rope, hatch: 0, v: new V3(), spin: 0 };
+  W.group.add(g); W.keep.push(g); return { g, body, rotor, blur, readyMesh, muzzle, screen, tex, flaps, rope, hatch: 0, v: new V3(), spin: 0 };
 }
 const setHatch = (d, k) => { d.hatch = k; d.flaps.forEach((f, i) => (f.rotation.z = (i ? -1 : 1) * k * 1.4)); };
 function removeHeli(d) { W.group.remove(d.g); W.keep = W.keep.filter(q => q !== d.g); d.screen.dispose(); d.tex.dispose(); }
@@ -58,18 +65,15 @@ export function eliminate(a, seconds) {
 }
 export function droneAction(a, button, direction) {
   const d = a.drone; if (!d) return;
-  if (button === 0 && d.cd <= 0 && !(d.intro > 0) && !(d.tumble > 0)) {
-    d.cd = 1.5; const m = mesh(G.box, col(0xf5c542), a.pos.x, a.pos.y - 0.12, a.pos.z, 0.045, 0.045, 0.3, W.group);
-    const v = direction.clone().normalize().multiplyScalar(38); m.lookAt(m.position.clone().add(v)); darts.push({ m, v, a, life: 2 }); sfx('throw');
+  if(button===0&&d.cd<=0&&!(d.intro>0)&&!(d.tumble>0)){
+    d.cd=DRONE_NET_COOLDOWN;const from=d.muzzle.getWorldPosition(new V3());shoot('net',from,direction.clone().normalize(),22,0,a);sfx('throw',{at:a.pos});
   }
-  if (button === 2 && d.candy && !(d.intro > 0) && !(d.tumble > 0)) {
-    d.candy = false; d.hatchT = 0.8; const m = new THREE.Group(); m.position.copy(a.pos).add(new V3(0, -0.5, 0)); W.group.add(m);
-    mesh(G.sph, col(0xff5a9e), 0, 0, 0, 0.22, 0.16, 0.16, m); for (const x of [-0.3, 0.3]) mesh(G.box, col(0xf5c542), x, 0, 0, 0.16, 0.22, 0.22, m).rotation.x = 0.8;
-    candies.push({ m, v: 0, boost: Math.random() < 0.5, life: 15, landed: false }); sfx('drop');
-  }
+  if(button===2&&d.candy&&!(d.intro>0)&&!(d.tumble>0))dropCandy(a);
 }
-function mark(a) {
-  let m = marks.get(a); if (!m) { const mat = new THREE.MeshBasicMaterial({ color: 0xf5c542, depthTest: false }); const g = mesh(G.sph, mat, 0, 0, 0, 0.18, 0.25, 0.18, W.group); g.renderOrder = 20; m = { g, left: 3 }; marks.set(a, m); } m.left = 3; a.marked = 3;
+function dropCandy(a){
+  const d=a.drone;if(!d||!d.candy)return;d.candy=false;d.hatchT=0.8;
+  const def=CANDY_TYPES[(Math.random()*CANDY_TYPES.length)|0],m=candyModel(def);m.position.copy(a.pos).add(new V3(0,-0.5,0));W.group.add(m);
+  candies.push({m,def,owner:a,v:0,life:18,landed:false});sfx('drop',{at:a.pos});
 }
 function returnStart(a) {
   const d = a.drone, candidates = W.spawns.filter(p => isFree(p.x - 0.5, p.z - 0.5, p.x + 0.5, p.z + 0.5, p.y + 0.1, p.y + 10));
@@ -81,14 +85,14 @@ export function updateDrones(dt, t) {
   for (const a of [W.player, ...(W.bots || [])].filter(Boolean)) {
     const d = a.drone;
     if (d) {
-      d.left -= dt; d.cd -= dt; if (d.hatchT > 0) { d.hatchT -= dt; } setHatch(d, d.hatchT > 0 ? Math.min(1, d.hatch + dt * 6) : Math.max(0, d.hatch - dt * 4));
+      d.left -= dt; d.cd=Math.max(0,d.cd-dt); if (d.hatchT > 0) { d.hatchT -= dt; } setHatch(d, d.hatchT > 0 ? Math.min(1, d.hatch + dt * 6) : Math.max(0, d.hatch - dt * 4));
       // пропеллер: плавно раскручивается, при быстром вращении виден «смаз»
-      d.spin = Math.min(1, (d.spin || 0) + dt * 1.5); d.rotor.rotation.y += dt * (6 + 40 * d.spin); d.blur.material.opacity = 0.08 + 0.2 * d.spin; d.dartM.visible = d.cd <= 0;
+      d.spin = Math.min(1, (d.spin || 0) + dt * 1.5); d.rotor.rotation.y += dt * (6 + 40 * d.spin); d.blur.material.opacity = 0.08 + 0.2 * d.spin; d.readyMesh.visible = d.cd <= 0;
       // прилёт: подлетает сбоку, управления нет
       if (d.intro > 0) { d.intro -= dt; const k = 1 - Math.max(0, d.intro) / 1.2, e = k * k * (3 - 2 * k); d.g.position.lerpVectors(d.from, a.pos, e); d.body.rotation.z = (1 - e) * 0.5; d.g.rotation.y = Math.atan2(a.pos.x - d.from.x, a.pos.z - d.from.z); continue; }
       // сбили броском: кувыркается, конфета вываливается, потом выравнивается
       for (const it of W.items) if (it.state === 'fly' && it.owner !== a && !(d.tumble > 0) && it.pos.distanceTo(a.pos) < 0.9) { d.tumble = 1.6; it.vel.multiplyScalar(-0.3); sfx('bonk', { at: a.pos }); burst(a.pos.x, a.pos.y, a.pos.z, 10, { color: 0xd8d0e4, size: 0.12, speed: 3 });
-        if (d.candy) { droneAction(a, 2, new V3()); } break; }
+        if (d.candy) dropCandy(a); break; }
       if (d.tumble > 0) { d.tumble -= dt; d.body.rotation.z += dt * 12; d.body.rotation.x = Math.sin(d.tumble * 9) * 0.6; a.pos.y = Math.max(groundAt(a.pos.x, a.pos.z, 0.4, 100) + 2, a.pos.y - dt * 2);
         if (d.tumble <= 0) { d.body.rotation.set(0, 0, 0); } d.g.position.copy(a.pos); if (d.left <= 0) returnStart(a); continue; }
       let dx = 0, dz = 0, dy = 0;
@@ -126,26 +130,28 @@ export function updateDrones(dt, t) {
     }
   }
   for (let i = flyOff.length - 1; i >= 0; i--) { const f = flyOff[i]; f.t += dt; f.g.rotor.rotation.y += dt * 38; f.g.g.position.y += dt * 8; f.g.g.position.x += dt * 5; setHatch(f.g, Math.max(0, f.g.hatch - dt * 4)); if (f.t > 2.5) { removeHeli(f.g); flyOff.splice(i, 1); } }
-  for (let i = darts.length - 1; i >= 0; i--) {
-    const d = darts[i], from = d.m.position.clone(), len = d.v.length() * dt, dir = d.v.clone().normalize(); let hit = null, best = raySolids(from, dir, len);
-    for (const a of actors()) { if (a === d.a || a.hidden) continue; const center = a.pos.clone().add(new V3(0, 1, 0)), along = center.clone().sub(from).dot(dir); if (along >= 0 && along <= best && center.distanceTo(from.clone().addScaledVector(dir, along)) < 0.65) { best = along; hit = a; } }
-    d.m.position.addScaledVector(dir, best); d.life -= dt; if (hit) { mark(hit); sfx('tick'); } if (hit || best < len || d.life <= 0) { W.group.remove(d.m); darts.splice(i, 1); }
-  }
-  for (let i = candies.length - 1; i >= 0; i--) {
-    const c = candies[i]; c.life -= dt; const p = c.m.position, floor = groundAt(p.x, p.z, 0.1, p.y);
-    if (!c.landed) { c.v -= dt * 12; p.y = Math.max(floor + 0.2, p.y + c.v * dt); c.landed = p.y <= floor + 0.21; }
-    if (c.landed) {
-      if (!c.boost) { burst(p.x, p.y, p.z, 16, { color: 0xff5a9e, size: 0.15, speed: 3, up: 3 }); for (const a of actors()) if (a.pos.distanceTo(p) < 2) shove(a, a.pos.x - p.x, a.pos.z - p.z, 4, 3, false); sfx('pop', { at: p }); c.life = 0; }
-      else { const a = actors().find(a => a.pos.distanceTo(p) < 1.1); if (a) { a.energy = 5; sfx('drink', { at: p }); c.life = 0; } }
+  for(let i=candies.length-1;i>=0;i--){
+    const candy=candies[i],p=candy.m.position; candy.life-=dt;
+    const floor=groundAt(p.x,p.z,0.1,p.y);
+    if(!candy.landed){candy.v-=dt*12;p.y=Math.max(floor+0.2,p.y+candy.v*dt);candy.landed=p.y<=floor+0.21;candy.m.rotation.x+=dt*3;}
+    if(candy.landed){
+      if(candy.def.onLand){
+        burst(p.x,p.y,p.z,16,{color:candy.def.color,size:0.13,speed:3,up:3});sfx('pop',{at:p});
+        for(const a of actors()){const to=a.pos.clone().add(new V3(0,0.5,0)).sub(p),len=to.length();if(len<2&&len>0&&raySolids(p,to.multiplyScalar(1/len),len)>=len-0.2)applyCandy(candy.def,a,candy.owner,p);}
+        candy.life=0;
+      }else{
+        const a=actors().filter(a=>!a.hidden&&!a.caged&&a.pos.distanceTo(p)<0.95).sort((a,b)=>a.pos.distanceToSquared(p)-b.pos.distanceToSquared(p))[0];
+        if(a){applyCandy(candy.def,a,candy.owner);burst(p.x,p.y,p.z,8,{color:candy.def.color,size:0.09,speed:1.8,up:1});candy.life=0;}
+      }
     }
-    c.m.rotation.y += dt * 3; if (c.life <= 0) { W.group.remove(c.m); candies.splice(i, 1); }
+    candy.m.rotation.y+=dt*(candy.landed?0.6:2);if(candy.life<=0){candy.m.removeFromParent();candies.splice(i,1);}
   }
-  for (const [a, m] of marks) { m.left -= dt; a.marked = Math.max(0, m.left); m.g.position.copy(a.pos).add(new V3(0, 2.7, 0)); if (m.left <= 0) { W.group.remove(m.g); m.g.material.dispose(); marks.delete(a); } }
 }
+
 export function resetDrones() {
   for (const a of [W.player, ...(W.bots || [])].filter(Boolean)) { const d = a.drone || a.returning; if (d) removeHeli(d); a.drone = a.returning = null; a.marked = 0; }
   cam.ret = null;
-  for (const d of darts) W.group.remove(d.m); for (const c of candies) W.group.remove(c.m); for (const m of marks.values()) { W.group.remove(m.g); m.g.material.dispose(); }
+  for (const c of candies) W.group.remove(c.m);
   for (const f of flyOff) removeHeli(f.g); flyOff.length = 0;
-  darts.length = candies.length = 0; marks.clear(); cam.free = null;
+  candies.length = 0; cam.free = null;
 }

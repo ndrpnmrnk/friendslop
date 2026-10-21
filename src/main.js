@@ -1,5 +1,5 @@
 import { updateOcclusion } from './game/occlusion.js';
-import { eliminate, updateDrones, resetDrones, droneAction } from './game/drone.js';
+import { eliminate, updateDrones, resetDrones, droneAction, DRONE_NET_COOLDOWN } from './game/drone.js';
 import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies.js';
 import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
@@ -389,6 +389,7 @@ function openMission(m) {
   S.mg = { m, game: null, start:P.pos.clone() };
   unlock(); $('lockhint').classList.add('hidden');
   S.mg.game = ALL_GAMES[m.def.game](m.obj, api, { cursor: setCursor, character: P.ch });
+  if(S.mg?.game.hint)$('mghint').textContent=S.mg.game.hint;
 }
 function closeMission(res) {
   if (!S.mg) return;
@@ -437,6 +438,7 @@ function award(a, pts, at) {
 }
 // события «весёлых» действий: попадания, ловушки, перила — для комбо и короны
 function hookFun() {
+  W.onCandy=(a,def)=>{if(a===P)toast(def.label+' · '+def.effect, ['stun','slow','pop'].includes(def.id)?'bad':'good');};
   W.onEliminate = a => { if (a === P) { if (S.mg) closeMission(null); if (S.wm) closeWorld(null); if (S.crane) exitCrane(); } else interruptBot(a); };
 
   // удар/попадание: мелкий бонус (по лидеру — чуть больше); ударил того, кто делает миссию, — СОРВАЛ
@@ -510,6 +512,7 @@ on('down', btn => {
   if (btn === 2 && P.hotPotato) { throwPotato(P, aim(camera).ray.direction); return; }
   if (S.mg) { if (btn === 0 && S.mg.game.down) S.mg.game.down(aim(camera)); return; }
   if (S.crane || P.heldBy) return;
+  if(btn===0&&S.wm?.game.down&&S.wm.game.equipped!==false){S.wm.game.down(aim(camera));return;}
   // тележку/тачку хватаешь любой кнопкой мыши, ей же отпускаешь (с толчком)
   if (P.grab && (btn === 0 || btn === 2)) { release(P, 1.1); return; }
   // замах (ПКМ зажата): ЛКМ — передумал, опустить руку (бросок отменён)
@@ -690,7 +693,7 @@ function frame() {
       if (S.mg) S.mg.game.update(dt);
       if (S.wm) S.wm.game.update(dt);
       S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText(), 0.1); S.hudT = 0.1; }
-      renderStamina(P, dt);
+      renderStamina(P, dt, S.wm?.game);
       if (!S.tut) { updateEvents(dt, eventUi); updateSupplies(dt); }
       // ритм раунда: подпись под таймером, предупреждение о событии, финальный рывок ×2
       { const ph = phaseOf(EV.t); W.scoreMul = ph === 'final' ? 2 : 1;
@@ -722,8 +725,8 @@ function frame() {
     }
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
     const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt); updateGlow(); setGlow(S.mg ? 0.15 : 1); updateDust(t, P); { const dt2 = $('droneT'), on = !!(P && (P.drone || P.returning)); dt2.classList.toggle('hidden', !on); if (on) { const v = P.drone ? Math.max(0, Math.ceil(P.drone.left)) : 0, h = P.drone ? String(v) : 'СЕЙЧАС'; if (dt2.lastChild.textContent !== h) dt2.lastChild.textContent = h; } } { const h = $('droneHud'), on = !!(P && P.drone && !(P.drone.intro > 0)); h.classList.toggle('hidden', !on);
-      if (on) { if (!h.dataset.ok) { h.dataset.ok = 1; for (const [id, n] of [['dhDart', 'dart'], ['dhCandy', 'candy'], ['dhUp', 'updown']]) { $(id).firstChild.innerHTML = img(n, 28); $(id).insertAdjacentHTML('beforeend', '<b></b>'); } }
-        const cd = Math.max(0, P.drone.cd) / 1.5; $('dhDart').lastChild.style.top = (100 - cd * 100) + '%'; $('dhCandy').classList.toggle('off', !P.drone.candy); } }
+      if (on) { if (!h.dataset.ok) { h.dataset.ok = 1; for (const [id, n] of [['dhNet', 'net'], ['dhCandy', 'candy'], ['dhUp', 'updown']]) { $(id).firstChild.innerHTML = img(n, 28); $(id).insertAdjacentHTML('beforeend', '<b></b>'); } }
+        const cd = Math.max(0, P.drone.cd) / DRONE_NET_COOLDOWN; $('dhNet').dataset.cd=P.drone.cd>0?Math.ceil(P.drone.cd)+'с':''; $('dhNet').lastChild.style.top = (100 - cd * 100) + '%'; $('dhCandy').classList.toggle('off', !P.drone.candy); } }
     W.wmActive = !!S.wm; if (boomL.intensity > 0) boomL.intensity = Math.max(0, boomL.intensity - dt * 30);
     if (P) P.root.visible = !P.drone && (!P.returning || P.returning.t >= 1.25) && !S.mg && !S.crane && !P.hidden && !(S.state === 'intro' && !S.intro.drop);
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
