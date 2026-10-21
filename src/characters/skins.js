@@ -1,3 +1,4 @@
+import { CAVEMAN_SKIN } from './caveman.js';
 import { THREE, G, mesh, tmat, col, lam, frontBack, basic, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { COATS } from '../game/cats.js';
@@ -143,5 +144,6 @@ export const SKINS = {
     },
     face(c, e) { const u = c.head.userData; u.h.material[0] = e === 'blink' || e === 'dizzy' ? u.faces.closed : e === 'wow' ? u.faces.wow : u.faces.open; },
   },
+  caveman: CAVEMAN_SKIN,
 };
 export const SKIN_IDS = Object.keys(SKINS);
