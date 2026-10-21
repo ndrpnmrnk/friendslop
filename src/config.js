@@ -79,6 +79,14 @@ export const CONFIG = {
     pumpkin: { name: 'Тыква', icon: '🎃', heavy: true, r: 0.32, respawn: 12, mass: 3, drag: 0, bounce: 0.15 },
     ball:    { name: 'Мяч', icon: '🏀', heavy: false, r: 0.24, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.65 },
     brick:   { name: 'Кирпич', icon: '🧱', heavy: true, r: 0.2, respawn: 10, mass: 2.5, drag: 0, bounce: 0.1, sinks: true },
+    // мелочь из квартир и офисов (v0.19): можно взять и бросить; хрупкое разбивается от сильного удара (breaks — скорость)
+    monitor: { name: 'Монитор', heavy: true, r: 0.24, respawn: 0, mass: 1.4, drag: 0.03, bounce: 0.1, breaks: 6.5 },
+    pc:      { name: 'Системник', heavy: true, r: 0.26, respawn: 0, mass: 2.2, drag: 0.02, bounce: 0.1, breaks: 9 },
+    keyboard: { name: 'Клавиатура', heavy: false, r: 0.12, respawn: 0, mass: 0.5, drag: 0.1, bounce: 0.2 },
+    mug:     { name: 'Кружка', heavy: false, r: 0.08, respawn: 0, mass: 0.25, drag: 0.05, bounce: 0.1, breaks: 5 },
+    books:   { name: 'Стопка книг', heavy: false, r: 0.14, respawn: 0, mass: 0.8, drag: 0.08, bounce: 0.1 },
+    dlamp:   { name: 'Настольная лампа', heavy: false, r: 0.16, respawn: 0, mass: 0.6, drag: 0.06, bounce: 0.1, breaks: 6 },
+    pot:     { name: 'Цветок в горшке', heavy: true, r: 0.17, respawn: 0, mass: 1.0, drag: 0.04, bounce: 0.05, breaks: 5.5 },
     chair:   { name: 'Стул', icon: '🪑', heavy: true, r: 0.3, respawn: 15, mass: 1.6, drag: 0.05, bounce: 0.2, rest: 0.0 },
     trash:   { name: 'Мусорный пакет', icon: '🗑️', heavy: false, r: 0.28, respawn: 25, mass: 1.0, drag: 0.12, bounce: 0.2 },
     litter:  { name: 'Мусор', icon: '🥫', heavy: false, r: 0.12, respawn: 0, mass: 0.2, drag: 0.15, bounce: 0.35 },
@@ -146,5 +154,6 @@ export const HINTS = {
 export const DIFF = { easy: 0x9be36b, mid: 0xf5c542, hard: 0xff5a6e };
 export const HW = CONFIG.season === 'halloween';
 export const SEASON = HW
-  ? { bg: 0x2a1f3d, fog: [0x2a1f3d, 45, 135], hemi: [0xa890e0, 0x2a2035, 1.15], sun: [0xffc89a, 0.75], lit: '#ffa94d', lamp: 0xffb35c }
+  // v0.19: свет луны — холодный, сильнее, рассеянный ниже: тени от объектов на улице читаются чётче
+  ? { bg: 0x2a1f3d, fog: [0x2a1f3d, 45, 135], hemi: [0xa890e0, 0x231a30, 0.88], sun: [0xc8ccff, 1.15], lit: '#ffa94d', lamp: 0xffb35c }
   : { bg: 0x9fd3ff, fog: [0x9fd3ff, 60, 150], hemi: [0xffffff, 0x6a7a5a, 1.0], sun: [0xffffff, 0.8], lit: '#fff1b0', lamp: 0xfff1b0 };

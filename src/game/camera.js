@@ -59,8 +59,11 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
     cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens * (aiming ? 0.75 : 1), -0.75, 1.5);
   }
   if (p.drone) {
+    // вертушка — камера от третьего лица, как за персонажем: сзади-сверху, плавно
     const dir = new V3(-Math.sin(cam.yaw) * Math.cos(cam.pitch), -Math.sin(cam.pitch), -Math.cos(cam.yaw) * Math.cos(cam.pitch));
-    camera.position.copy(p.pos).addScaledVector(dir, -1.8).add(new V3(0, 0.45, 0)); camera.lookAt(p.pos.clone().addScaledVector(dir, 20)); return;
+    const want = p.pos.clone().addScaledVector(dir, -4.2).add(new V3(0, 1.1, 0));
+    if (!cam.dronePos || snap) cam.dronePos = want.clone(); cam.dronePos.lerp(want, damp(8, dt));
+    camera.position.copy(cam.dronePos); camera.lookAt(p.pos.clone().addScaledVector(dir, 6).add(new V3(0, 0.3, 0))); return;
   }
   let P, L;
   if (cam.orbit && !cam.pose) {
@@ -81,8 +84,9 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
     P = want.copy(cam.pose.p); L = cam.pose.l;
   }
   else {
-    cam.aimK += ((aiming ? 1 : 0) - cam.aimK) * damp(10, dt);
-    const k = cam.aimK, N = cam.normal, A = cam.aim;
+    // приближение к плечу при замахе — слабое и очень плавное (v0.19)
+    cam.aimK += ((aiming ? 1 : 0) - cam.aimK) * damp(2.5, dt);
+    const k = cam.aimK * 0.5, N = cam.normal, A = cam.aim;
     if (snap) { orbitPitch = cam.pitch; orbitYaw = cam.yaw; }
     else { orbitPitch += (cam.pitch - orbitPitch) * damp(30, dt); orbitYaw += (cam.yaw - orbitYaw) * damp(30, dt); }
     const dist = N.dist + (A.dist - N.dist) * k, shoulder = (N.shoulder + (A.shoulder - N.shoulder) * k) * Math.cos(Math.max(0, orbitPitch) * 0.8);

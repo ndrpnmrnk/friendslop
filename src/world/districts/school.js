@@ -19,7 +19,7 @@ export default {
           f.plantPot(27.6, 8.4); f.cabinet(27.9, 3, 0.6, 1.6, 1.8, 0x6a5a4a, 0, -Math.PI / 2);
         } else if (k === 1) {
           for (const x of [13.5, 18, 22.5]) f.shelf(x, 5.6, 3.2, 0);
-          f.table(15.8, 7.9, 0.8); f.table(20.3, 7.9, 0.8); f.chair(15.8, 7.1, 0); f.chair(20.3, 7.1, 0);
+          f.ptable(15.8, 7.9, 0.8); f.ptable(20.3, 7.9, 0.8); f.chair(15.8, 7.1, 0); f.chair(20.3, 7.1, 0);
           f.rug(26, 6, 2.4, 3, '#2a6a4a', '#f5c542'); f.safe(28.3, 4.4, -Math.PI / 2); f.sofa(26, 8.2, Math.PI, 0x4a5a8a); f.plantPot(11.4, 8.4);
         } else {
           for (const x of [14, 19, 24]) { f.box(x, 6, 2.6, 1.1, 0.9, tmat(T.cabinet(0xd8d8e0))); f.m(G.box, col(0x2b2533), x, 0.93, 6, 2.62, 0.05, 1.12);
@@ -51,11 +51,11 @@ export default {
     b.fence(17, 31.3, 21, 31.3, 1.2, 'wood');
     b.bench(23, 18, -Math.PI / 2);
     // флагшток, велопарковка, деревья
-    b.m(G.cyl6, col(0xd8d8e0), 16.5, 3.5, 10.2, 0.05, 7, 0.05); b.solid(16.5, 10.2, 0.2, 0.2, 0, 7); b.m(G.box, col(0xff8a1f), 17.1, 6.4, 10.2, 1.1, 0.7, 0.02);
+    b.m(G.cyl6, col(0xd8d8e0), 20.5, 3.5, 11.2, 0.05, 7, 0.05); b.solid(20.5, 11.2, 0.2, 0.2, 0, 7); b.m(G.box, col(0xff8a1f), 21.1, 6.4, 11.2, 1.1, 0.7, 0.02);
     for (let i = 0; i < 4; i++) { const t = b.m(G.torus, col(0x6a6d78), 23 + i * 0.8, 0.5, 10.6, 0.4, 0.4, 0.4); }
     b.solid(24.2, 10.6, 3.4, 0.2, 0, 0.9);
     b.tree(30, 30); b.tree(16.5, 30); b.cone(13, 20); b.cone(13, 22);
-    b.lamp(16.5, 10.6, 0); b.lamp(1, 30.5, Math.PI / 2); b.lamp(31, 11, -Math.PI / 2);
+    b.lamp(11.5, 11.0, 0); b.lamp(1, 30.5, Math.PI / 2); b.lamp(31, 11, -Math.PI / 2);
     b.zone('floor', 2.5, 11.5, 15.5, 27.5); b.zone('floor', 17.5, 14.5, 27.5, 29);
     b.cats(17.5, 11, 28, 30);
     b.spawn(9, 13); b.spawn(24, 22);

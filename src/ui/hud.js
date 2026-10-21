@@ -2,7 +2,7 @@ import { M } from '../missions/missions.js';
 import { V3 } from '../core/gfx.js';
 import { cam } from '../game/camera.js';
 import { icon, img } from './icons.js';
-import { TEXT } from './text.js';
+import { TOOL_INFO, FX_LABEL, TEXT } from './text.js';
 import { toolVerb } from '../game/tools.js';
 import { W } from '../world/state.js';
 
@@ -119,12 +119,13 @@ export function renderStamina(P, dt) {
     const am = d.charge ? `<span class="bar"><i style="width:${Math.round(Math.max(0, it.ammo) / d.ammo * 20) * 5}%"></i></span>` : d.ammo && d.ammo < 50 ? `<span class="n">×${Math.max(0, it.ammo)}</span>` : '';
     const cd = d.cdMax && it.cd > 0 ? Math.round((1 - it.cd / d.cdMax) * 20) * 5 : -1;
     const acts = [v && !(d.ammo && it.ammo <= 0) ? `<span><span class="key">ЛКМ</span>${v}</span>` : '', `<span><span class="key">ПКМ</span>${TEXT.heldThrow}</span>`, `<span><span class="key">E</span>${TEXT.heldDrop}</span>`].filter(Boolean).join('');
-    held = `<div class="hci${cd >= 0 ? ' cd' : ''}">${img(it.type, 40)}${cd >= 0 ? `<i class="cdf" style="height:${cd}%"></i>` : ''}</div><div class="hct"><b>${d.name}${am}</b><div class="hck">${acts}</div></div>`; }
+    const info = TOOL_INFO[it.type], fx = info && FX_LABEL[info[1]];
+    held = `<div class="hci${cd >= 0 ? ' cd' : ''}">${img(it.type, 40)}${cd >= 0 ? `<i class="cdf" style="height:${cd}%"></i>` : ''}</div><div class="hct"><b>${d.name}${am}${fx ? `<em class="fx" style="--fx:${fx[1]}">${fx[0]}</em>` : ''}</b>${info ? `<div class="hcd">${info[0]}</div>` : ''}<div class="hck">${acts}</div></div>`; }
   if (held !== H.held) { const was = H.heldType, now = P.held ? P.held.type : P.grab ? 'grab' : P.holding ? 'hold' : P.heldBy ? 'held' : '';
     H.held = held; H.heldType = now; const e2 = $('held'); e2.innerHTML = held; e2.classList.toggle('hidden', !held);
     if (held && now !== was) { e2.classList.remove('new'); void e2.offsetWidth; e2.classList.add('new'); } }
   // эффекты на персонаже: ботинки, маска, энергетик — маленькие значки с отсчётом
-  const fx = [P.boots > 0 ? `${img('boots', 16)}${P.boots}` : '', P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : ''].filter(Boolean).join('');
+  const fx = [P.boots > 0 ? `${img('boots', 16)}${P.boots}` : '', P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : '', P.stBoost > 0 ? `${img('energy', 16)}${Math.ceil(P.stBoost)}` : ''].filter(Boolean).join('');
   if (fx !== H.gslot) { H.gslot = fx; const e3 = $('gslot'); e3.innerHTML = fx; e3.classList.toggle('hidden', !fx); }
   // конфетти перед глазами
   const bl = $('blind'), blind = P.blind > 0;

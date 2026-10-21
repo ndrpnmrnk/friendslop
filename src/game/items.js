@@ -1,4 +1,4 @@
-import { THREE, G, V3, mesh, col, tmat, lam, compose } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
 import { addOutline, OUTLINE } from './outline.js';
 import { chairModel, coneModel, trashModel, litterModel } from '../world/props.js';
 import { PFACE } from '../world/builder.js';
@@ -22,10 +22,11 @@ function build(type) {
     mesh(G.sph, lam({ map: T.balloon(), transparent: true, opacity: 0.92 }, 'balloon'), 0, 0, 0, 0.22, 0.26, 0.22, g);
     mesh(G.cone4, col(0x1a5ab0), 0, -0.27, 0, 0.05, 0.07, 0.05, g);
   } else if (type === 'tomato') {
-    mesh(G.sph, tmat(T.tomato()), 0, 0, 0, 0.16, 0.14, 0.16, g);
-    mesh(G.cone4, col(0x3f6b2a), 0, 0.14, 0, 0.08, 0.05, 0.08, g);
+    mesh(G.sph, tmat(T.tomato()), 0, 0, 0, 0.16, 0.13, 0.16, g);
+    for (let i = 0; i < 5; i++) { const l = mesh(G.box, col(0x3f6b2a), Math.cos(i * 1.26) * 0.04, 0.13, Math.sin(i * 1.26) * 0.04, 0.07, 0.01, 0.025, g); l.rotation.y = -i * 1.26; }
+    mesh(G.cyl6, col(0x3f6b2a), 0, 0.15, 0, 0.012, 0.04, 0.012, g);
   } else if (type === 'pumpkin') {
-    mesh(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.26, 0.32, g);
+    mesh(G.sph, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.25, 0.32, g); // low-poly, «PS1»
     mesh(G.cyl6, col(0x3f6b2a), 0, 0.28, 0, 0.05, 0.14, 0.05, g);
     const f = mesh(G.plane, PFACE(), 0, 0.01, 0.315, 0.36, 0.3, 1, g); f.userData.noOutline = true;
   } else if (type === 'bigpumpkin') {
@@ -41,6 +42,13 @@ function build(type) {
   else if (type === 'litter') g.add(litterModel());
   else if (type === 'parcel') { mesh(G.box, col(0xc8a070), 0, -0.05, 0, 0.5, 0.14, 0.5, g); mesh(G.box, col(0xc8a070), 0, 0.1, 0, 0.46, 0.14, 0.46, g); mesh(G.box, col(0xd8243a), 0, 0.03, 0.252, 0.3, 0.06, 0.01, g); mesh(G.box, col(0xf1e8ff), 0, 0.172, 0, 0.47, 0.005, 0.08, g); }
   else if (type === 'can') { mesh(G.cyl8, lam({ color: 0xd8243a, emissive: 0x3a0808 }, 'canBody'), 0, 0, 0, 0.065, 0.2, 0.065, g); mesh(G.cyl8, col(0xd8d8e0), 0, 0.105, 0, 0.06, 0.012, 0.06, g); mesh(G.box, col(0xf1e8ff), 0, 0.02, 0.066, 0.06, 0.06, 0.004, g); }
+  else if (type === 'monitor') { const dk = col(0x2b2533); mesh(G.box, dk, 0, 0.06, 0, 0.56, 0.36, 0.05, g); mesh(G.box, tmat(T.screen()), 0, 0.06, 0.027, 0.5, 0.3, 0.005, g); mesh(G.box, dk, 0, -0.16, -0.02, 0.06, 0.12, 0.05, g); mesh(G.box, dk, 0, -0.22, 0, 0.26, 0.02, 0.16, g); }
+  else if (type === 'pc') { mesh(G.box, col(0xd8d0c0), 0, 0, 0, 0.2, 0.44, 0.42, g); mesh(G.box, col(0x3a3440), 0.101, 0.1, 0.08, 0.005, 0.12, 0.2, g); mesh(G.box, glow(0x9be36b), 0.102, -0.12, 0.15, 0.005, 0.02, 0.02, g); mesh(G.box, col(0x6a6d78), 0.102, 0.02, 0, 0.005, 0.02, 0.3, g); }
+  else if (type === 'keyboard') { mesh(G.box, col(0xd8d0c0), 0, 0, 0, 0.44, 0.03, 0.15, g); for (let i = 0; i < 3; i++) mesh(G.box, col(0x9a9da8), 0, 0.017, -0.045 + i * 0.045, 0.4, 0.008, 0.03, g); }
+  else if (type === 'mug') { const c = [0xd8243a, 0xf1e8ff, 0x4ab0f0, 0xf5c542][(Math.random() * 4) | 0]; mesh(G.cyl8, col(c), 0, 0, 0, 0.07, 0.16, 0.07, g); mesh(G.cyl8, col(0x3a2418), 0, 0.075, 0, 0.06, 0.01, 0.06, g); mesh(G.torus, col(c), 0.08, 0, 0, 0.04, 0.04, 0.04, g).rotation.x = Math.PI / 2; }
+  else if (type === 'books') { const cs = [0x7b4bc4, 0xd8243a, 0x4a8ac8, 0x6aa84f]; for (let i = 0; i < 3; i++) { const b = mesh(G.box, col(cs[(i + (Math.random() * 4 | 0)) % 4]), (Math.random() - 0.5) * 0.03, -0.08 + i * 0.07, 0, 0.3, 0.06, 0.22, g); b.rotation.y = (Math.random() - 0.5) * 0.4; mesh(G.box, col(0xf1e8ff), 0.151, -0.08 + i * 0.07, 0, 0.004, 0.05, 0.2, g).rotation.y = b.rotation.y; } }
+  else if (type === 'dlamp') { const c = col(0x3a6a4a); mesh(G.cyl8, c, 0, -0.15, 0, 0.1, 0.03, 0.1, g); mesh(G.cyl6, c, 0, -0.02, 0, 0.015, 0.26, 0.015, g); mesh(G.cone8, lam({ color: 0x4a8a5a, emissive: 0x1a2a1a }, 'lampShade'), 0, 0.14, 0, 0.13, 0.14, 0.13, g); mesh(G.sph, glow(0xfff0c0), 0, 0.08, 0, 0.04, 0.04, 0.04, g); }
+  else if (type === 'pot') { mesh(G.cyl8, col(0xc8643a), 0, -0.08, 0, 0.13, 0.2, 0.1, g); mesh(G.cyl8, col(0x3a2418), 0, 0.02, 0, 0.12, 0.01, 0.12, g); for (let i = 0; i < 5; i++) { const l = mesh(G.ico, tmat(T.leaves(2)), Math.cos(i * 1.3) * 0.06, 0.12 + i * 0.03, Math.sin(i * 1.3) * 0.06, 0.09, 0.07, 0.09, g); l.rotation.y = i; } }
   else if (type === 'chair') g.add(chairModel());
   else if (type === 'cone') g.add(coneModel());
   else g.add(toolModel(type, g));
@@ -84,9 +92,9 @@ function toolModel(type, g) {
         a(G.sph, C(0x17111f), 0, -0.04, 0, 0.05, 0.04, 0.06); for (let i = 0; i < 3; i++) a(G.box, C(0xeee8f8), 0, 0.02, 0, 0.2, 0.006, 0.006, 0, i * 1.05, 0.2); break; }
       case 'boots': { const p = C(0xb18cff); a(G.box, p, 0, 0.04, 0, 0.12, 0.16, 0.12); a(G.box, p, 0, -0.03, 0.06, 0.12, 0.08, 0.14); for (let i = 0; i < 3; i++) a(G.torus, C(0xc8c8d8), 0, -0.1 - i * 0.035, 0.02, 0.05, 0.05, 0.05, Math.PI / 2); a(G.box, C(0x2b2533), 0, -0.21, 0.02, 0.12, 0.02, 0.16); break; }
       case 'mask': { const w = lam({ color: 0xeee8ff, emissive: 0x4a4460 }, 'maskW'); a(G.sph10, w, 0, 0, 0, 0.16, 0.18, 0.08); for (const sx of [-1, 1]) a(G.box, C(0x17111f), sx * 0.055, 0.03, 0.075, 0.045, 0.06, 0.01); a(G.box, C(0x17111f), 0, -0.07, 0.075, 0.06, 0.03, 0.01); break; }
-      case 'cucumber': { const gr = lam({ color: 0x3f8a2a }, 'cuc'); a(G.cyl8, gr, 0, 0, 0, 0.06, 0.26, 0.06, Math.PI / 2); for (const sz of [-0.13, 0.13]) a(G.sph, gr, 0, 0, sz, 0.06, 0.06, 0.06); a(G.box, C(0x6aa84f), 0, 0.05, 0, 0.02, 0.01, 0.2); break; }
+      case 'cucumber': { const gr = lam({ map: T.cucumber() }, 'cuc2'); a(G.cyl8, gr, 0, 0, 0, 0.06, 0.26, 0.06, Math.PI / 2); for (const sz of [-0.13, 0.13]) a(G.sph, gr, 0, 0, sz, 0.06, 0.06, 0.06); a(G.box, C(0x6aa84f), 0, 0.05, 0, 0.02, 0.01, 0.2); break; }
       case 'bulb': { a(G.sph10, lam({ color: 0xfff6d0, emissive: 0x6a5a30 }, 'bulbItem'), 0, 0.04, 0, 0.08, 0.09, 0.08); a(G.cyl8, C(0xc8c8d8), 0, -0.06, 0, 0.04, 0.06, 0.04); a(G.cyl8, C(0x2b2533), 0, -0.1, 0, 0.025, 0.02, 0.025); break; }
-      case 'pizza': { const bx = C(0xd8b888); a(G.box, bx, 0, 0, 0, 0.46, 0.07, 0.46); a(G.box, tmat(T.sign('ПИЦЦА', '#d8243a', '#f1e8ff')), 0, 0.036, 0, 0.3, 0.002, 0.14); a(G.box, C(0x8a6a4a), 0, -0.036, 0, 0.47, 0.004, 0.47); break; }
+      case 'pizza': { const bx = C(0xd8b888); a(G.box, bx, 0, 0, 0, 0.46, 0.07, 0.46); a(G.cyl12, tmat(T.pizzaTop()), 0, 0.04, 0, 0.21, 0.012, 0.21); a(G.box, tmat(T.sign('ПИЦЦА', '#d8243a', '#f1e8ff')), 0, 0.0, 0.232, 0.3, 0.05, 0.004); a(G.box, C(0x8a6a4a), 0, -0.036, 0, 0.47, 0.004, 0.47); break; }
       case 'rake': { const w = tmat(T.wood()), m = C(0x8a8d98); a(G.box, w, 0, 0.0, 0, 0.05, 0.05, 1.1); a(G.box, m, 0, 0, 0.55, 0.4, 0.04, 0.05); for (let i = 0; i < 6; i++) a(G.box, m, -0.17 + i * 0.07, -0.04, 0.58, 0.02, 0.08, 0.02); break; }
       case 'cushion': { const p = lam({ color: 0xff5a9e }, 'cushion'); a(G.sph10, p, 0, 0, 0, 0.2, 0.06, 0.2); a(G.cyl6, p, 0, 0, 0.22, 0.04, 0.08, 0.04, Math.PI / 2); break; }
       // сетемёт: короткий ствол-раструб, рукоять, свёрнутая сетка сверху
@@ -129,6 +137,11 @@ function hitActors(it, p, heavy) {
 }
 function impact(it, n, speed) {
   const p = it.pos, t = it.type, gy = groundAt(p.x, p.z, 0.1, p.y + 0.3);
+  // хрупкая мелочь: сильный удар — разбилось (осколки, звон), до конца раунда
+  if (it.def.breaks && speed > it.def.breaks) { const glass = t === 'monitor' || t === 'dlamp' || t === 'mug';
+    for (let i = 0; i < 9; i++) chunk(p.x, p.y + 0.1, p.z, [(Math.random() - 0.5) * 4, 2 + Math.random() * 2, (Math.random() - 0.5) * 4], { mat: col([0x2b2533, 0x9a9da8, t === 'pot' ? 0xc8643a : 0xd8d0c0, 0x3a3440][i % 4]), size: 0.07, sy: 0.6, life: 5 });
+    if (glass) burst(p.x, p.y + 0.2, p.z, 8, { color: 0xc8e8ff, size: 0.08, speed: 3, up: 2 }); if (t === 'pot') burst(p.x, p.y, p.z, 8, { color: 0x6a4a2a, size: 0.12, speed: 2, up: 1.5 });
+    sfx(glass ? 'glass' : 'wood', { at: p }); for (const h of W.hitHooks.slice()) h(it, p); hitActors(it, p, it.def.heavy); vanish(it); return; }
   for (const h of W.hitHooks.slice()) h(it, p);
   hitBreakables(p, it.def.r + 0.12, [it.vel.x, it.vel.y, it.vel.z], it.def.mass);
   if (!(it.noHitT > 0)) hitActors(it, p, it.def.heavy || (it.def.knock && speed > 7));
@@ -273,8 +286,11 @@ export function throwVelocity(from, target, charge, def) {
   // вес решает всё: лёгкое (тапок, помидор) летит далеко, быстро и почти прямо — точный бросок;
   // тяжёлое (тыква, кирпич) — недалеко, медленно и высоким навесом
   const heavy = Math.max(0, Math.min(1, (def.mass - 0.4) / 2.4)), mk = 1.35 - heavy * 0.9;
-  const { minRange, maxRange } = CONFIG.throw, range = (minRange + (maxRange - minRange) * charge) * mk, d = Math.min(dist, range);
-  const T = 0.14 + d * (0.018 + heavy * 0.04) + heavy * 0.35, vh = d / T, dy = (dist <= range ? target.y : from.y - 0.5) - from.y;
+  const { minRange, maxRange } = CONFIG.throw, range = (minRange + (maxRange - minRange) * charge) * mk;
+  // цель дальше силы броска — летим к точке на луче прицела (а не «в землю»): вверх так вверх (моль, окна, крыши)
+  if (dist > range + 0.01) { const k = range / dist; target = { x: from.x + dx * k, y: from.y + (target.y - from.y) * k, z: from.z + dz * k }; return throwVelocity(from, target, charge, def); }
+  const d = dist;
+  const T = 0.14 + d * (0.018 + heavy * 0.04) + heavy * 0.35, vh = d / T, dy = target.y - from.y;
   // поправка на сопротивление воздуха, чтобы лёгкое прилетало в прицел
   const dragK = 1 + def.drag * T * 0.5;
   return new V3(dx / dist * vh * dragK, (dy + 0.5 * GRAV * T * T) / T, dz / dist * vh * dragK);

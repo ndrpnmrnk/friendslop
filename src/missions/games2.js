@@ -1,7 +1,7 @@
 import { nearbyItemPoint, routeTo } from './location.js';
 import { sfx } from '../core/sfx.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow } from '../core/gfx.js';
-import { T } from '../core/textures.js';
+import { T, pix } from '../core/textures.js';
 import { W } from '../world/state.js';
 import { zoneAt } from '../world/physics.js';
 import { clamp } from '../core/rng.js';
@@ -9,6 +9,7 @@ import { burst, splash, ripple, smokeRing, puff } from '../world/particles.js';
 import { addItem } from '../game/items.js';
 import { brickWall, breakPiece } from '../world/breakables.js';
 import { spawnLitter } from './objects2.js';
+import { fishModel, pickFish } from '../game/fishes.js';
 
 /* Новые мини-игры.
    Панельные (камера встаёт к объекту, мышь): наперстки, рыбалка, щиток, сейф.
@@ -41,7 +42,7 @@ export const PANEL_GAMES = {
           sw.t += dt / dur; const k = Math.min(1, sw.t), ca = pos.indexOf(sw.a), cb = pos.indexOf(sw.b);
           const xa = slot[sw.a] + (slot[sw.b] - slot[sw.a]) * k, xb = slot[sw.b] + (slot[sw.a] - slot[sw.b]) * k;
           cupAt(ca, xa, 0); cupAt(cb, xb, 0); o.cups[ca].position.z = Math.sin(k * Math.PI) * 0.25; o.cups[cb].position.z = -Math.sin(k * Math.PI) * 0.25;
-          if (k >= 1) { pos[ca] = sw.b; pos[cb] = sw.a; o.cups[ca].position.z = o.cups[cb].position.z = 0; sw = null; swaps++; if (swaps >= total) { phase = 'pick'; api.msg('Где тыковка? Кликни по стакану'); } }
+          if (k >= 1) { pos[ca] = sw.b; pos[cb] = sw.a; o.cups[ca].position.z = o.cups[cb].position.z = 0; sw = null; swaps++; if (swaps >= total) { phase = 'pick'; api.msg('ГДЕ ТЫКВА?', 'good'); } }
         } else if (phase === 'reveal') { for (let c = 0; c < 3; c++) cupAt(c, slot[pos[c]], (c === o.picked || c === ball) ? Math.min(0.3, t * 0.8) : 0); endT -= dt; if (endT <= 0) api.finish(res); }
       },
       stop() { o.cups.forEach((c, i) => { c.position.set(slot[i], 0.99, 0); }); o.ball.position.x = 0; o.ball.visible = true; },
@@ -59,18 +60,23 @@ export const PANEL_GAMES = {
     const aimRing = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xf5c542, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }), 0, wy + 0.04, 0, 0.35, 0.35, 1, W.group); aimRing.rotation.x = -Math.PI / 2;
     const shadowM = new THREE.MeshBasicMaterial({ color: 0x0a1420, transparent: true, opacity: 0.55, depthWrite: false });
     const fishes = [0, 1, 2].map(() => { const m = mesh(G.disc, shadowM, cx, wy + 0.03, cz, 0.32, 0.12, 1, W.group); m.rotation.x = -Math.PI / 2; const a = Math.random() * 6.28; return { m, a, r: Math.random() * (s.R ?? 2) * 0.6, sp: 0.4 + Math.random() * 0.4, t: Math.random() * 6 }; });
-    const catchFish = mesh(G.ico, col(0xff8a3a), 0, 0, 0, 0.24, 0.14, 0.12, W.group); catchFish.visible = false;
+    // пойманная рыба: вид и вес выбираются заранее; редкая — больше очков
+    const fishPick = pickFish(), catchFish = fishModel(fishPick.sp); catchFish.visible = false; W.group.add(catchFish);
+    const camP = me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), camL = new V3(cx, wy, cz).addScaledVector(toW, -0.5), show = camP.clone().addScaledVector(camL.clone().sub(camP).normalize(), 1.7);
+    // подсказки на воде: «!» над поплавком при поклёвке и кольцо натяжения лески
+    const bang = new THREE.Sprite(new THREE.SpriteMaterial({ map: pix('bang', 8, 16, (g) => { g.fillStyle = '#17111f'; g.fillRect(1, 0, 6, 16); g.fillStyle = '#f5c542'; g.fillRect(2, 1, 4, 9); g.fillRect(2, 12, 4, 3); }), depthTest: false, transparent: true })); bang.scale.set(0.2, 0.4, 1); bang.renderOrder = 12; bang.visible = false; W.group.add(bang);
+    const tRing = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }), 0, wy + 0.05, 0, 0.5, 0.5, 1, W.group); tRing.rotation.x = -Math.PI / 2; tRing.visible = false;
     let phase = 'aim', t = 0, aim = null, castT = 0, from = new V3(), to = new V3(), hunter = null, huntT = 0, biteT = 0, down = false, pull = false, pullT = 1.2, tension = 0, d0 = 1, endT = -1, res = null;
-    api.progress(null); api.msg('Наведи мышь на воду и кликни — заброс');
-    const end = (ok, txt) => { phase = 'end'; res = ok ? { success: true, mult: 1 } : { success: false }; api.msg(txt, ok ? 'good' : 'bad'); endT = 1.6; };
+    api.progress(null); api.msg('Кликни по воде — заброс');
+    const end = (ok, txt) => { phase = 'end'; res = ok ? { success: true, mult: fishPick.sp.rare ? 1.6 : 1 } : { success: false }; api.msg(txt, ok ? 'good' : 'bad'); endT = ok ? 2.4 : 1.6; bang.visible = tRing.visible = false; };
     const bp = o.bob.position;
     return {
       move(ray) { const p = onPlane(ray, new V3(0, 1, 0), new V3(0, wy, 0)); if (!p) return; const d = Math.hypot(p.x - s.x, p.z - s.z); aim = d > 1.5 && d < 10 && inWater(p.x, p.z) ? p : null; },
       down(ray) {
         down = true;
-        if (phase === 'aim') { this.move(ray); if (!aim) { api.msg('Целься в воду (не слишком близко)', 'bad'); return; } phase = 'cast'; castT = 0; from.copy(o.tip()); to.copy(aim); api.msg('Заброс...'); }
-        else if (phase === 'wait') { api.msg('Рано! Рыба испугалась', 'bad'); if (hunter) { hunter.a += Math.PI; hunter = null; } huntT = 2 + Math.random() * 2; }
-        else if (phase === 'bite') { phase = 'reel'; d0 = Math.hypot(bp.x - s.x, bp.z - s.z); tension = 0; api.progress(0); api.msg('Подсёк! Держи ЛКМ — мотай'); splash(bp.x, wy, bp.z, 0.7); if (hunter) hunter.m.visible = false; }
+        if (phase === 'aim') { this.move(ray); if (!aim) { api.msg('Дальше, в воду!', 'bad'); return; } phase = 'cast'; castT = 0; from.copy(o.tip()); to.copy(aim); }
+        else if (phase === 'wait') { api.msg('РАНО!', 'bad'); if (hunter) { hunter.a += Math.PI; hunter = null; } huntT = 2 + Math.random() * 2; }
+        else if (phase === 'bite') { phase = 'reel'; d0 = Math.hypot(bp.x - s.x, bp.z - s.z); tension = 0; api.progress(0); api.msg('ПОДСЁК! ДЕРЖИ — МОТАЙ', 'good'); bang.visible = false; tRing.visible = true; splash(bp.x, wy, bp.z, 0.7); if (hunter) hunter.m.visible = false; }
       },
       up() { down = false; },
       update(dt) {
@@ -82,17 +88,18 @@ export const PANEL_GAMES = {
         if (phase === 'aim') { bp.copy(o.tip()); }
         else if (phase === 'cast') {
           castT += dt / 0.6; const k = Math.min(1, castT); bp.lerpVectors(from, to, k); bp.y = from.y + (to.y + 0.1 - from.y) * k + Math.sin(k * Math.PI) * 1.5;
-          if (k >= 1) { phase = 'wait'; huntT = 1.2 + Math.random() * 2.5; splash(to.x, wy, to.z, 0.3); api.msg('Ждём... рыба заметит поплавок'); }
+          if (k >= 1) { phase = 'wait'; huntT = 1.2 + Math.random() * 2.5; splash(to.x, wy, to.z, 0.3); }
         } else if (phase === 'wait') {
           bp.y = wy + 0.1 + Math.sin(t * 2) * 0.02; huntT -= dt;
           if (!hunter && huntT <= 0) hunter = fishes.reduce((a, b) => (Math.hypot(a.m.position.x - bp.x, a.m.position.z - bp.z) < Math.hypot(b.m.position.x - bp.x, b.m.position.z - bp.z) ? a : b));
           if (hunter) { const hp = hunter.m.position, dx = bp.x - hp.x, dz = bp.z - hp.z, d = Math.hypot(dx, dz); hp.x += dx / (d || 1) * Math.min(d, dt * 0.9); hp.z += dz / (d || 1) * Math.min(d, dt * 0.9); hunter.m.rotation.z = -Math.atan2(dz, dx);
-            if (d < 0.25) { phase = 'bite'; biteT = 0.9; api.msg('КЛЮЁТ! Кликни!', 'good'); ripple(bp.x, wy, bp.z, 0.6, 0.6); } }
+            if (d < 0.25) { phase = 'bite'; biteT = 0.9; api.msg('КЛЮЁТ! ЖМИ!', 'good'); bang.visible = true; ripple(bp.x, wy, bp.z, 0.6, 0.6); } }
         } else if (phase === 'bite') {
+          bang.position.set(bp.x, wy + 0.55 + Math.abs(Math.sin(t * 10)) * 0.08, bp.z);
           bp.y = wy + 0.02 + Math.sin(t * 32) * 0.06; biteT -= dt;
-          if (biteT <= 0) { phase = 'wait'; hunter.a = Math.random() * 6.28; hunter = null; huntT = 1.5 + Math.random() * 2; api.msg('Сорвалась... ждём ещё'); }
+          if (biteT <= 0) { phase = 'wait'; hunter.a = Math.random() * 6.28; hunter = null; huntT = 1.5 + Math.random() * 2; bang.visible = false; api.msg('Сорвалась', 'bad'); }
         } else if (phase === 'reel') {
-          pullT -= dt; if (pullT <= 0) { pull = !pull; pullT = pull ? 0.6 + Math.random() * 0.7 : 0.9 + Math.random() * 1.2; api.msg(pull ? 'Рвётся! Отпусти!' : 'Мотай!', pull ? 'bad' : 'good'); }
+          pullT -= dt; if (pullT <= 0) { pull = !pull; pullT = pull ? 0.6 + Math.random() * 0.7 : 0.9 + Math.random() * 1.2; api.msg(pull ? 'ОТПУСТИ!' : 'ТЯНИ!', pull ? 'bad' : 'good'); }
           const dx = s.x - bp.x, dz = s.z - bp.z, d = Math.hypot(dx, dz) || 1;
           if (down && !pull) { bp.x += dx / d * dt * 1.6; bp.z += dz / d * dt * 1.6; tension = Math.max(0, tension - dt * 0.3); }
           else if (pull) { const a = t * 0.7; bp.x -= dx / d * dt * 0.8 - Math.cos(a) * dt * 0.5; bp.z -= dz / d * dt * 0.8 - Math.sin(a) * dt * 0.5; if (!inWater(bp.x, bp.z)) { bp.x += dx / d * dt * 0.8; bp.z += dz / d * dt * 0.8; } if (down) tension += dt * 1.3; }
@@ -102,16 +109,19 @@ export const PANEL_GAMES = {
           o.rod.rotation.x = 0.9 + (down ? -0.35 : 0) + (pull ? Math.sin(t * 22) * 0.1 : 0);
           const prog = 1 - (Math.hypot(bp.x - s.x, bp.z - s.z) - 1.2) / Math.max(0.5, d0 - 1.2);
           api.progress(Math.max(0, Math.min(1, prog)));
+          // кольцо натяжения: зелёное → жёлтое → красное; рыба рвётся — мигает
+          tRing.position.set(bp.x, wy + 0.05, bp.z); tRing.scale.setScalar(0.35 + tension * 0.35); tRing.material.color.setHSL(0.33 * (1 - Math.min(1, tension)), 0.9, pull && Math.sin(t * 20) > 0 ? 0.65 : 0.5);
           if (tension > 1) end(false, 'Леска лопнула!');
-          else if (Math.hypot(bp.x - s.x, bp.z - s.z) < 1.3) { end(true, 'Поймал рыбу!'); splash(bp.x, wy, bp.z, 1.2); catchFish.visible = true; catchFish.position.copy(bp); }
+          else if (Math.hypot(bp.x - s.x, bp.z - s.z) < 1.3) { end(true, `${fishPick.sp.name} · ${String(fishPick.kg).replace('.', ',')} кг${fishPick.sp.rare ? ' · РЕДКАЯ!' : ''}`); splash(bp.x, wy, bp.z, 1.2); catchFish.visible = true; catchFish.position.copy(bp); catchFish.scale.setScalar(0.5); sfx('done'); }
           else if (d > (s.R ?? 3) * 2.5 + 4) end(false, 'Рыба ушла');
         } else {
-          if (catchFish.visible) { catchFish.position.lerp(o.tip(), dt * 3); catchFish.rotation.z = Math.sin(t * 20) * 0.6; }
+          // пойманная рыба вылетает к камере и крутится крупным планом
+          if (catchFish.visible) { catchFish.position.lerp(show, Math.min(1, dt * 5)); catchFish.scale.setScalar(Math.min(1.6, catchFish.scale.x + dt * 3)); catchFish.rotation.y += dt * 2.6; catchFish.rotation.z = Math.sin(t * 9) * 0.25; }
           endT -= dt; if (endT <= 0) api.finish(res);
         }
         o.upd();
       },
-      stop() { W.group.remove(aimRing); fishes.forEach(f => W.group.remove(f.m)); W.group.remove(catchFish); bp.set(s.wx, wy + 0.12, s.wz); o.rod.rotation.x = 0.9; o.upd(); },
+      stop() { W.group.remove(aimRing); fishes.forEach(f => W.group.remove(f.m)); W.group.remove(catchFish, bang, tRing); bp.set(s.wx, wy + 0.12, s.wz); o.rod.rotation.x = 0.9; o.upd(); },
     };
   },
 
@@ -159,7 +169,7 @@ export const PANEL_GAMES = {
       if (done.size === K) { api.msg('Свет есть!', 'good'); endT = 0.9; } api.progress(done.size / K); };
     const onUp = () => { cur = -1; };
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); addEventListener('pointerup', onUp);
-    draw(); api.progress(0); api.msg('Соедини клеммы одного цвета');
+    draw(); api.progress(0); api.msg('Соедини одинаковые цвета');
     return {
       update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
       stop() { ui.remove(); removeEventListener('pointerup', onUp); },
@@ -182,7 +192,7 @@ export const PANEL_GAMES = {
     const code = [0, 1, 2].map(() => (Math.random() * 40) | 0), N = 40;
     let ang = 0, step = 0, drag = false, lastA = null, clickT = 0, endT = -1, lastN = -1;
     const num = () => ((Math.round(-ang / (Math.PI * 2) * N) % N) + N) % N;
-    api.progress(0); api.msg('Крути диск, жди щелчка, жми на ручку');
+    api.progress(0); api.msg('Крути диск — лови «щёлк»');
     const angleOf = ray => { const p = onPlane(ray, F, c0); if (!p) return null; const l = grp.worldToLocal(p.clone()); return Math.atan2(l.x, l.y); };
     return {
       down(ray) {
@@ -216,7 +226,7 @@ export const WORLD_GAMES = {
     o.items = ['tomato', 'ball', 'tomato', 'ball', 'tomato'].map((k, i) => { const it = addItem(k, box.x + (i - 2) * 0.12, box.y - 0.1, box.z, 0); it.def = { ...it.def, respawn: 0 }; return it; });
     let time = 60, left = 3;
     const hook = (it, p) => { for (const t of o.targets) { if (t.hit) continue; const c = t.t.getWorldPosition(new V3()); if (c.distanceTo(p) < 0.85) { t.hit = true; o.sols[t.i].on = false; left--; burst(c.x, c.y, c.z, 10, { color: 0xff8a1f, size: 0.2, speed: 2.5 }); api.msg(left ? `Попал! Осталось ${left}` : 'Все мишени сбиты!', 'good'); } } };
-    W.hitHooks.push(hook); api.msg('Сбей 3 мишени — бросай с линии (ПКМ)');
+    W.hitHooks.push(hook); api.msg('Сбей 3 мишени с линии');
     return {
       target: () => o.world(0, 1.3, -6),
       update(dt) {
@@ -236,7 +246,7 @@ export const WORLD_GAMES = {
     for (let i = 0; i < N; i++) { const { x, y, z } = nearbyItemPoint(c);
       const it = spawnLitter(x, y, z); o.litter.push(it); it.outline.set(true);
       const rg = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, 0.35, 0.35, 1, W.group); rg.rotation.x = -Math.PI / 2; it.ring = rg; }
-    api.msg('Собери мусор в урну (бросай или клади рядом)');
+    api.msg('Мусор — в урну');
     const take = it => { if (it.taken) return; it.taken = true; it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) { W.group.remove(it.ring); it.ring.material.dispose(); it.ring = null; } got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
     const hook = (it, p) => { if (o.litter.includes(it) && Math.hypot(p.x - c.x, p.z - c.z) < 0.9 && Math.abs(p.y - c.y) < 1.5) take(it); };
     W.hitHooks.push(hook);

@@ -16,8 +16,28 @@ export default {
         for (const [x, z] of [[r.x0 + 0.5, r.z0 + 0.5], [r.x1 - 0.5, r.z0 + 0.5], [r.x0 + 0.5, r.z1 - 0.6], [r.x1 - 0.5, r.z1 - 0.6]]) {
           b.box(x, z, 0.3, 0.3, 0.9, tmat(T.stone())); b.m(G.box, col(0xf1e8d0), x, 1.05, z, 0.08, 0.2, 0.08); b.m(G.box, glow(0xffb35c), x, 1.2, z, 0.05, 0.08, 0.05); b.light(x, z, 1.2, 0.95);
         }
+        // v0.19: склеп изнутри — ниши с черепами и свечами, стоящие гробы, витраж, дорожка к саркофагу, паутина, венок
+        const dk = col(0x17111f), bone = col(0xe8e0d0), wd = tmat(T.oldWood ? T.oldWood() : T.wood());
+        for (const x of [14, 16, 18]) { b.m(G.box, dk, x, 1.5, r.z0 + 0.05, 0.9, 0.9, 0.06); b.m(G.box, st, x, 1.02, r.z0 + 0.15, 1.0, 0.08, 0.25);
+          b.m(G.sph, bone, x - 0.15, 1.2, r.z0 + 0.14, 0.13, 0.12, 0.12); b.m(G.box, dk, x - 0.2, 1.22, r.z0 + 0.25, 0.04, 0.04, 0.02); b.m(G.box, dk, x - 0.1, 1.22, r.z0 + 0.25, 0.04, 0.04, 0.02);
+          b.m(G.box, col(0xf1e8d0), x + 0.22, 1.16, r.z0 + 0.15, 0.06, 0.16, 0.06); b.m(G.box, glow(0xffb35c), x + 0.22, 1.27, r.z0 + 0.15, 0.04, 0.06, 0.04); }
+        const win = b.m(G.plane, glow(0x9a6ad8), 16, 2.75, r.z0 + 0.03, 1.4, 0.7, 1); void win; b.m(G.box, dk, 16, 2.75, r.z0 + 0.04, 0.06, 0.72, 0.02); b.m(G.box, dk, 16, 2.75, r.z0 + 0.04, 1.42, 0.06, 0.02); b.m(G.plane, glow(0xff8a1f), 15.65, 2.95, r.z0 + 0.035, 0.6, 0.25, 1);
+        for (const z of [3.6, 5.0]) { const c = b.m(G.box, wd, r.x1 - 0.35, 1.0, z, 0.3, 1.9, 0.62); void c; b.m(G.box, col(0xd8c080), r.x1 - 0.52, 1.25, z, 0.02, 0.5, 0.06); b.m(G.box, col(0xd8c080), r.x1 - 0.52, 1.35, z, 0.02, 0.06, 0.28); b.solid(r.x1 - 0.35, z, 0.3, 0.62, 0, 1.9); }
+        b.rug(16, 7.3, 1.2, 2.8, '#5a1a2a', '#c8a040');
+        b.web(r.x0 + 0.3, 3.0, r.z0 + 0.3, Math.PI / 4, 1); b.web(r.x1 - 0.3, 3.0, r.z0 + 0.3, -Math.PI / 4, 1);
+        b.m(G.torus, col(0x2a5a2a), 16, 1.02, 6.15, 0.3, 0.3, 0.3, Math.PI / 2); for (let i = 0; i < 6; i++) b.m(G.sph, col([0xd8243a, 0xf1e8ff, 0xf5c542][i % 3]), 16 + Math.cos(i) * 0.3, 1.04, 6.15 + Math.sin(i) * 0.3, 0.06, 0.05, 0.06);
       } });
     const pd = b.m(G.cone4, tmat(T.stone()), 16, 4.3, 9.05, 1, 1, 1); pd.rotation.y = Math.PI / 4; pd.scale.set(4, 1.4, 0.3);
+    // v0.19: склеп снаружи — портик с колоннами, карниз, табличка над входом, урны, статуя-ангел на крыше, мох
+    { const st = tmat(T.stone()), dk = col(0x2b2533);
+      for (const x of [12.6, 14.2, 17.8, 19.4]) { b.m(G.box, st, x, 0.12, 9.5, 0.6, 0.24, 0.6); b.m(G.cyl8, st, x, 1.7, 9.5, 0.2, 2.9, 0.2); b.m(G.box, st, x, 3.25, 9.5, 0.55, 0.2, 0.55); b.solid(x, 9.5, 0.45, 0.45, 0, 3.3); }
+      b.m(G.box, st, 16, 3.45, 9.5, 8.0, 0.25, 0.9); b.m(G.box, st, 16, 3.66, 9.05, 10.3, 0.12, 0.25);
+      b.sign(16, 2.85, 9.04, 0, 'СЕМЕЙСТВО ТЫКВИНЫХ', '#5a5466', '#17111f', 2.6, 0.3);
+      for (const x of [11.4, 20.6]) { b.m(G.box, st, x, 0.35, 9.6, 0.5, 0.7, 0.5); b.m(G.cyl8, st, x, 0.85, 9.6, 0.24, 0.3, 0.24); b.m(G.ico, tmat(T.bush()), x, 1.1, 9.6, 0.3, 0.25, 0.3); b.solid(x, 9.6, 0.5, 0.5, 0, 0.9); }
+      // ангел: голова, тело-колокол, крылья
+      b.m(G.box, st, 16, 4.0, 8.4, 0.7, 0.4, 0.7); b.m(G.cone8, st, 16, 4.75, 8.4, 0.28, 1.0, 0.28); b.m(G.sph, st, 16, 5.4, 8.4, 0.17, 0.18, 0.17);
+      for (const sx of [-1, 1]) { const w = b.m(G.box, st, 16 + sx * 0.3, 5.0, 8.3, 0.5, 0.7, 0.05); w.rotation.z = sx * 0.5; }
+      for (let i = 0; i < 14; i++) b.m(G.box, col(0x3a5a2a), 11 + Math.random() * 10, 0.2 + Math.random() * 3, 9.02, 0.3 + Math.random() * 0.4, 0.1, 0.02); void dk; }
     for (let z = 13; z <= 28; z += 3) for (let x = 3.5; x <= 29; x += 3.4) if (Math.abs(x - 16) > 2 && Math.random() < 0.85) b.grave(x + (Math.random() - 0.5) * 0.5, z);
     b.deadTree(28, 6); b.deadTree(4, 22);
     b.gateArch(16, 31, 3.6, 'ПОКОЙ');

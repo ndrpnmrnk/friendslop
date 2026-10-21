@@ -5,7 +5,7 @@ import { W } from '../world/state.js';
 import { pushOut, groundAt, impulsePushables } from '../world/physics.js';
 import { burst, puff, chunk, smokeRing, decal } from '../world/particles.js';
 import { hitBreakables } from '../world/breakables.js';
-import { scareBirds } from '../world/birds.js';
+import { scareBirds, featherTex } from '../world/birds.js';
 import { actors, shove, knockDown, dropHeld } from './actors.js';
 import { gust, WX } from '../world/weather.js';
 import { shake } from './worldfx.js';
@@ -29,6 +29,9 @@ export function resetTown() {
   const homes = W.catHomes.slice().sort(() => Math.random() - 0.5).slice(0, 2);
   for (const h of homes) TOWN.folks.push(dog(h));
   W.dogs = TOWN.folks.filter(f => f.kind === 'dog');
+  // скелеты-NPC: 1–2 на карту, в разных местах улицы
+  { const sps = W.spawns.slice().sort(() => Math.random() - 0.5), n = 1 + (Math.random() < 0.6 ? 1 : 0);
+    for (let i = 0; i < n && i < sps.length; i++) TOWN.folks.push(skelNpc(sps[i], i === 0 ? 'smoke' : 'beer')); }
 }
 function setupBody(g, x, y, z) { g.position.set(x, y, z); W.group.add(g); W.keep.push(g); }
 
@@ -92,22 +95,24 @@ function granny(bed) {
   if (weapon === 'broom') tool.add(compose('broom', a => { a(G.cyl6, tmat(T.wood()), 0, 0.1, 0, 0.025, 1.3, 0.025); a(G.cone6, tmat(T.hay()), 0, -0.65, 0, 0.16, 0.4, 0.16, Math.PI); a(G.box, col(0xd8243a), 0, -0.45, 0, 0.12, 0.04, 0.12); }));
   else tool.add(compose('wcan', a => { const gr = col(0x4aa86a); a(G.cyl12, gr, 0, -0.12, 0.1, 0.12, 0.2, 0.12); a(G.cyl8, gr, 0, -0.06, 0.32, 0.025, 0.3, 0.025, 1.0); a(G.cyl8, col(0x2b6a3a), 0, 0.05, 0.47, 0.05, 0.04, 0.05, 1.0);
     a(G.torus, col(0x2b6a3a), 0, 0.02, 0.05, 0.09, 0.09, 0.09, 0, Math.PI / 2); }));
-  const curse = new THREE.Sprite(new THREE.SpriteMaterial({ map: curseTex(), transparent: true, depthWrite: false })); curse.scale.set(0.9, 0.22, 1); curse.position.y = 2.0; curse.visible = false; g.add(curse);
+  const curse = new THREE.Sprite(new THREE.SpriteMaterial({ map: curseTex(), transparent: true, depthWrite: false })); curse.material.depthTest = false; curse.renderOrder = 12; curse.scale.set(1.3, 0.33, 1); curse.position.y = 2.25; curse.visible = false; g.add(curse);
   const cx = (bed.x0 + bed.x1) / 2, cz = (bed.z0 + bed.z1) / 2, home = new V3(cx, bed.y, bed.z1 + 1.0);
   setupBody(g, home.x, home.y, home.z);
   return { kind: 'granny', weapon, g, arms, tool, curse, bed, home, pos: g.position, vel: new V3(), target: null, angry: 0, rage: 0, cd: 0, swat: 0, wt: 0, wp: home.clone(), stun: 0, ph: 0, job: null, jobT: 6 + Math.random() * 6 };
 }
 function updGranny(f, dt, t) {
   const p = f.pos, bed = f.bed, A = f.arms;
-  f.curse.visible = f.rage > 0; if (f.rage > 0) f.curse.position.y = 2.0 + Math.abs(Math.sin(t * 12)) * 0.08;
+  f.curse.visible = f.rage > 0; if (f.rage > 0) { f.curse.position.y = 2.25 + Math.abs(Math.sin(t * 10)) * 0.08; f.curse.material.rotation = Math.sin(t * 20) * 0.08; }
+  if (f.gy === undefined) f.gy = p.y;
   if (f.stun > 0) { f.stun -= dt; f.g.rotation.z = Math.sin(t * 10) * 0.2; return; } f.g.rotation.z = 0;
   // кто топчет клумбу или носится рядом — тот враг
   if (!f.target) for (const a of actors()) { if (a.hidden) continue; const inBed = a.pos.x > bed.x0 - 0.2 && a.pos.x < bed.x1 + 0.2 && a.pos.z > bed.z0 - 0.2 && a.pos.z < bed.z1 + 0.2 && Math.abs(a.pos.y - bed.top) < 0.4;
-    const fast = Math.hypot(a.vel.x, a.vel.z) > 9 && Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < 3;
-    if (inBed || fast) { f.target = a; f.angry = 7; f.rage = 1; f.job = null; sfx('curse', { at: p }); sfx('granny', { at: p }); break; } }
+    if (inBed) { f.target = a; f.angry = 6; f.rage = 1; f.job = null; sfx('curse', { at: p }); sfx('granny', { at: p }); break; } }
   // злится: стоит, трясёт орудием над головой
   if (f.rage > 0) { f.rage -= dt; const tg = f.target; if (tg) f.g.rotation.y = Math.atan2(tg.pos.x - p.x, tg.pos.z - p.z);
-    A[1].rotation.x = -2.8 + Math.sin(t * 18) * 0.3; A[0].rotation.x = -2.4 + Math.sin(t * 18 + 1) * 0.3; f.g.position.y = p.y + Math.abs(Math.sin(t * 14)) * 0.06; f.vel.set(0, 0, 0); return; }
+    // стоит на месте ~1 с: орудие поднято, другой рукой грозит (качает «пальцем»)
+    A[1].rotation.x = -2.6 + Math.sin(t * 10) * 0.15; A[0].rotation.x = -1.7; A[0].rotation.z = Math.sin(t * 16) * 0.35; p.y = f.gy; f.vel.set(0, 0, 0); return; }
+  A[0].rotation.z = 0;
   let goal = f.wp, sp = 1.4;
   if (f.target) { f.angry -= dt; goal = f.target.pos; sp = 5.6; if (f.angry <= 0 || f.target.hidden || Math.hypot(goal.x - f.home.x, goal.z - f.home.z) > 14) { f.target = null; } }
   else {
@@ -121,9 +126,9 @@ function updGranny(f, dt, t) {
   }
   const dx = goal.x - p.x, dz = goal.z - p.z, d = Math.hypot(dx, dz);
   if (d > (f.job && !f.target ? 0.25 : 0.9)) { f.vel.x += (dx / d * sp - f.vel.x) * Math.min(1, dt * 5); f.vel.z += (dz / d * sp - f.vel.z) * Math.min(1, dt * 5); } else { f.vel.multiplyScalar(0.8); }
-  p.x += f.vel.x * dt; p.z += f.vel.z * dt; pushOut(p, 0.35, p.y + 0.3, p.y + 1.6); p.y = groundAt(p.x, p.z, 0.2, p.y + 0.45);
+  p.x += f.vel.x * dt; p.z += f.vel.z * dt; pushOut(p, 0.35, p.y + 0.3, p.y + 1.6); p.y = groundAt(p.x, p.z, 0.2, f.gy + 0.45); f.gy = p.y;
   const v = Math.hypot(f.vel.x, f.vel.z); if (v > 0.3) f.g.rotation.y = Math.atan2(f.vel.x, f.vel.z);
-  f.ph += dt * v * 5; f.g.position.y = p.y + Math.abs(Math.sin(f.ph)) * 0.05;
+  f.ph += dt * v * 5; p.y = f.gy + Math.abs(Math.sin(f.ph)) * 0.05;
   A[0].rotation.x = Math.sin(f.ph) * 0.3;
   // работа на месте: лейка — наклон и струйка воды, метла — поправляет (машет над цветами)
   if (f.job && !f.target && d < 0.4) { const fl = f.job.fl; f.job.t += dt; f.g.rotation.y = Math.atan2(fl.x - p.x, fl.z - p.z);
@@ -162,8 +167,24 @@ function dog(h) {
   const x = (h.x0 + h.x1) / 2, z = (h.z0 + h.z1) / 2; setupBody(g, x, h.y, z);
   return { kind: 'dog', g, body, head, ears, legs, tail, home: h, pos: g.position, vel: new V3(), it: null, runT: 0, wt: 0, wp: new V3(x, h.y, z), barkT: 3, ph: 0, chase: null, catT: 8 + Math.random() * 8, cat: null, beg: null, begCD: 0 };
 }
+// взять собаку на руки (ЛКМ вплотную, руки пустые): гавкает и вырывается ~2 с, из пасти всё выпадает
+export function grabDog(P) {
+  const f = (W.dogs || []).find(d => !d.heldBy && Math.hypot(d.pos.x - P.pos.x, d.pos.z - P.pos.z) < 1.3 && Math.abs(d.pos.y - P.pos.y) < 1); if (!f) return false;
+  f.heldBy = P; f.holdT = 2; P.dogHeld = f; f.chase = null; f.cat = null; f.beg = null; sfx('bark', { at: f.pos });
+  if (f.it) { const it = f.it; f.it = null; it.state = 'rest'; it.landT = 0; it.pos.set(f.pos.x, f.pos.y + it.def.r, f.pos.z); } return true;
+}
+function dogDrop(f) { const it = f.it; if (!it) return; f.it = null; it.state = 'rest'; it.landT = 0; it.pos.set(f.pos.x, f.pos.y + it.def.r, f.pos.z); }
 function updDog(f, dt, t) {
   const p = f.pos, h = f.home;
+  // на руках: держим перед собой, вырывается
+  if (f.heldBy) { const P = f.heldBy, fy = P.root.rotation.y; f.holdT -= dt; p.set(P.pos.x + Math.sin(fy) * 0.6, P.pos.y + 0.55, P.pos.z + Math.cos(fy) * 0.6); f.g.rotation.y = fy + Math.sin(t * 14) * 0.5;
+    f.legs.forEach((l, i) => (l.rotation.x = Math.sin(t * 22 + i) * 0.9)); f.tail.rotation.z = Math.sin(t * 30) * 0.8; if (Math.random() < dt * 2.5) sfx('bark', { at: p, v: 0.8 });
+    if (f.holdT <= 0 || P.stun > 0 || P.drone) { f.heldBy = null; P.dogHeld = null; f.vel.set(Math.sin(fy) * 4, 0, Math.cos(fy) * 4); p.y = groundAt(p.x, p.z, 0.2, p.y + 0.5); f.runT = 2; f.wp.set(p.x + Math.sin(fy) * 6, p.y, p.z + Math.cos(fy) * 6); f.wt = 2; burst(p.x, p.y + 0.5, p.z, 6, { color: 0x9a6a3a, size: 0.12, speed: 2 }); }
+    return; }
+  // оглушена броском: лежит со звёздочками, добыча выпала
+  if (f.stunT > 0) { f.stunT -= dt; f.body.rotation.z = Math.min(1.4, f.body.rotation.z + dt * 6); f.legs.forEach(l => (l.rotation.x = 0.6)); if (Math.random() < dt * 3) puff(p.x, p.y + 0.8, p.z, { color: 0xf5c542, size: 0.08, grow: 0, vy: 0.3, life: 0.5 }); return; }
+  f.body.rotation.z *= 0.85;
+  for (const it of W.items) if (it.state === 'fly' && it !== f.it && it.vel.length() > 5 && it.pos.distanceTo(new V3(p.x, p.y + 0.45, p.z)) < 0.6) { f.stunT = 2.5; dogDrop(f); f.chase = null; sfx('bark', { at: p }); burst(p.x, p.y + 0.6, p.z, 8, { color: 0xf5c542, size: 0.1, speed: 2 }); it.vel.multiplyScalar(-0.3); return; }
   // заметил брошенный предмет — бежит за ним
   if (!f.it && !f.chase) for (const it of W.items) { if (it.state === 'rest' && it.landT > 0 && it.def.mass < 2 && Math.hypot(it.pos.x - p.x, it.pos.z - p.z) < 13 && Math.abs(it.pos.y - p.y) < 1) { f.chase = it; sfx('bark', { at: p }); break; } }
   for (const it of W.items) if (it.landT > 0) it.landT -= dt / Math.max(1, TOWN.folks.length);
@@ -198,11 +219,61 @@ function updDog(f, dt, t) {
     if (a.dive === 'air' && dd < 0.9 && f.it) { const it = f.it; f.it = null; it.state = 'rest'; it.pos.set(p.x, p.y + 0.4, p.z); f.runT = 0; } }
 }
 
+/* ---------- скелеты-NPC (v0.19) ----------
+   1–2 скелета гуляют по городу: один курит, другой с пивом («ЛУННОЕ»), ворчат на тех, кто носится рядом.
+   E рядом — «Попросить сигаретку» / «Выпить пивка»: стоите вдвоём ~10 с (убежать нельзя), потом бодрость 25 с. */
+function skelModel(kind) {
+  const g = new THREE.Group(), bone = lam({ map: T.bone ? T.bone() : null, color: 0xe8e0d0 }, 'npcBone'), dk = col(0x17111f);
+  const body = new THREE.Group(); g.add(body);
+  body.add(compose('npcSkel', a => {
+    a(G.sph10, bone, 0, 1.62, 0, 0.17, 0.19, 0.18); a(G.box, bone, 0, 1.46, 0.05, 0.2, 0.08, 0.16);
+    for (const sx of [-1, 1]) a(G.box, dk, sx * 0.065, 1.64, 0.15, 0.06, 0.07, 0.04); a(G.box, dk, 0, 1.56, 0.17, 0.03, 0.04, 0.02);
+    for (let i = 0; i < 5; i++) a(G.box, dk, -0.06 + i * 0.03, 1.47, 0.135, 0.012, 0.04, 0.01);
+    a(G.cyl6, bone, 0, 1.22, 0, 0.035, 0.42, 0.035);
+    for (let i = 0; i < 4; i++) a(G.torus, bone, 0, 1.36 - i * 0.07, 0, 0.16 - i * 0.012, 0.16 - i * 0.012, 0.14, Math.PI / 2);
+    a(G.box, bone, 0, 0.98, 0, 0.3, 0.1, 0.16); }));
+  const limb = (x, y, len) => { const q = new THREE.Group(); q.position.set(x, y, 0); body.add(q); q.add(compose('npcLimb' + len, a => { a(G.box, lam({ color: 0xe8e0d0 }, 'npcBone2'), 0, -len / 2, 0, 0.05, len, 0.05); a(G.sph, lam({ color: 0xe8e0d0 }, 'npcBone2'), 0, -len, 0, 0.05, 0.05, 0.05); })); return q; };
+  const arms = [limb(-0.2, 1.4, 0.55), limb(0.2, 1.4, 0.55)], legs = [limb(-0.09, 0.95, 0.9), limb(0.09, 0.95, 0.9)];
+  const prop = new THREE.Group(); prop.position.set(0, -0.55, 0.05); arms[1].add(prop);
+  if (kind === 'smoke') prop.add(compose('cig', a => { a(G.box, col(0xf1e8ff), 0, 0, 0.06, 0.02, 0.02, 0.14); a(G.box, col(0xd8a060), 0, 0, -0.02, 0.022, 0.022, 0.03); a(G.box, glow(0xff6a1a), 0, 0, 0.135, 0.022, 0.022, 0.012); }));
+  else prop.add(compose('beerCan', a => { a(G.cyl8, lam({ map: T.sign('ЛУННОЕ', '#d8e0f0', '#2a4a8a') }, 'beerLbl'), 0, 0, 0.04, 0.045, 0.14, 0.045); a(G.cyl8, col(0x9a9da8), 0, 0.075, 0.04, 0.04, 0.012, 0.04); }));
+  return { g, body, arms, legs, prop };
+}
+function skelNpc(sp, kind) {
+  const m = skelModel(kind); setupBody(m.g, sp.x, sp.y, sp.z);
+  const f = { kind: 'skel', act: kind, ...m, pos: m.g.position, vel: new V3(), home: new V3(sp.x, sp.y, sp.z), wp: new V3(sp.x, sp.y, sp.z), wt: 0, ph: 0, grumT: 0, busy: 0, gy: sp.y };
+  W.interacts.push({ get x() { return f.pos.x; }, get z() { return f.pos.z; }, get y() { return f.gy; }, r: 1.4, label: kind === 'smoke' ? 'Попросить сигаретку' : 'Выпить пивка', enabled: P => !P.held && !P.holding && f.busy <= 0 && !P.chill,
+    act: P => { f.busy = 10; P.chill = { t: 10, npc: f }; P.vel.set(0, P.vel.y, 0); const dx = P.pos.x - f.pos.x, dz = P.pos.z - f.pos.z, d = Math.hypot(dx, dz) || 1;
+      P.pos.x = f.pos.x + dx / d * 0.9; P.pos.z = f.pos.z + dz / d * 0.9; P.root.rotation.y = P.facing = Math.atan2(-dx, -dz); f.g.rotation.y = Math.atan2(dx, dz); sfx(kind === 'smoke' ? 'hiss' : 'can', { at: f.pos }); toast(kind === 'smoke' ? 'ПЕРЕКУР…' : 'ПО ПИВКУ…'); } });
+  return f;
+}
+function updSkel(f, dt, t) {
+  const p = f.pos, P = W.player;
+  if (f.busy > 0) { f.busy -= dt; f.legs.forEach(l => (l.rotation.x = 0)); const up = Math.max(0, Math.sin(t * 1.3 + 1)); f.arms[1].rotation.x = -2.2 * up; f.body.rotation.z = Math.sin(t * 0.8) * 0.03;
+    if (Math.random() < dt * (f.act === 'smoke' ? 3 : 0.5)) puff(p.x + Math.sin(f.g.rotation.y) * 0.25, p.y + 1.55, p.z + Math.cos(f.g.rotation.y) * 0.25, { color: 0xd8d0e4, size: 0.1, grow: 0.8, vy: 0.5, life: 1.4, opacity: 0.5 });
+    if (P && P.chill && P.chill.npc === f && Math.random() < dt * 1.5) puff(P.pos.x, P.pos.y + 1.4, P.pos.z, { color: 0xd8d0e4, size: 0.1, grow: 0.8, vy: 0.5, life: 1.4, opacity: 0.5 });
+    if (f.busy <= 0 && P && !P.chill) toast('БОДРОСТЬ +25 С'); return; }
+  // ворчит на тех, кто носится рядом или кинул в него
+  if (f.grumT > 0) f.grumT -= dt;
+  for (const a of actors()) { const d = Math.hypot(a.pos.x - p.x, a.pos.z - p.z); if (d < 3 && Math.hypot(a.vel.x, a.vel.z) > 7 && f.grumT <= 0) { f.grumT = 4; f.g.rotation.y = Math.atan2(a.pos.x - p.x, a.pos.z - p.z); sfx('curse', { at: p, v: 0.6 }); f.shake = 0.8; } }
+  for (const it of W.items) if (it.state === 'fly' && it.pos.distanceTo(new V3(p.x, p.y + 1, p.z)) < 0.8 && f.grumT <= 1) { f.grumT = 4; f.shake = 1; sfx('bonk', { at: p }); sfx('curse', { at: p }); burst(p.x, p.y + 1.5, p.z, 6, { color: 0xe8e0d0, size: 0.1, speed: 2 }); }
+  if (f.shake > 0) { f.shake -= dt; f.body.rotation.z = Math.sin(t * 30) * 0.08; f.arms[0].rotation.x = -1.6 + Math.sin(t * 20) * 0.3; f.vel.multiplyScalar(0.8); f.pos.y = f.gy; return; }
+  f.body.rotation.z = 0;
+  f.wt -= dt; if (f.wt <= 0) { f.wt = 3 + Math.random() * 5; const a = Math.random() * 6.28, r = Math.random() * 5; const x = f.home.x + Math.cos(a) * r, z = f.home.z + Math.sin(a) * r; f.wp.set(x, f.home.y, z); }
+  const dx = f.wp.x - p.x, dz = f.wp.z - p.z, d = Math.hypot(dx, dz), sp = 1.1;
+  if (d > 0.4) { f.vel.x += (dx / d * sp - f.vel.x) * Math.min(1, dt * 4); f.vel.z += (dz / d * sp - f.vel.z) * Math.min(1, dt * 4); } else f.vel.multiplyScalar(0.8);
+  p.x += f.vel.x * dt; p.z += f.vel.z * dt; pushOut(p, 0.3, f.gy + 0.3, f.gy + 1.7); f.gy = groundAt(p.x, p.z, 0.2, f.gy + 0.45);
+  const v = Math.hypot(f.vel.x, f.vel.z); if (v > 0.2) f.g.rotation.y = Math.atan2(f.vel.x, f.vel.z);
+  f.ph += dt * v * 5; const sw = Math.sin(f.ph) * 0.5 * Math.min(1, v); f.legs[0].rotation.x = sw; f.legs[1].rotation.x = -sw; f.arms[0].rotation.x = -sw * 0.6;
+  // курит/пьёт на ходу
+  const up = Math.max(0, Math.sin(t * 0.9)); f.arms[1].rotation.x = -2.0 * up * up; p.y = f.gy + Math.abs(Math.sin(f.ph)) * 0.03;
+  if (f.act === 'smoke' && Math.random() < dt * 2) puff(p.x + Math.sin(f.g.rotation.y) * 0.2, p.y + 1.55, p.z + Math.cos(f.g.rotation.y) * 0.2, { color: 0xd8d0e4, size: 0.08, grow: 0.7, vy: 0.4, life: 1.2, opacity: 0.45 });
+}
 /* ---------- ворона-воришка (v0.18, умеренно) ----------
    Раз в ~минуту прилетает за маленьким блестящим предметом (банка, лампочка, жетон, свисток) и утаскивает на крышу.
    Сбить ворону с добычей (бросок/рогатка) — предмет падает. */
 const SHINY = new Set(['can', 'bulb', 'badge', 'whistle', 'firework', 'energy']);
-function crowModel() { const g = new THREE.Group(), b = col(0x17141c);
+function crowModel() { const g = new THREE.Group(), b = new THREE.MeshLambertMaterial({ map: featherTex('crow') });
   const add = (geo, m, x, y, z, sx, sy, sz) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); g.add(o); return o; };
   add(G.sph10, b, 0, 0, 0, 0.16, 0.14, 0.28); add(G.sph10, b, 0, 0.1, 0.24, 0.11, 0.11, 0.11); add(G.cone4, col(0x3a3440), 0, 0.08, 0.38, 0.04, 0.12, 0.04).rotation.x = Math.PI / 2;
   for (const sx of [-1, 1]) add(G.box, col(0xf5c542), sx * 0.06, 0.13, 0.31, 0.025, 0.025, 0.01);
@@ -279,7 +350,7 @@ const INC = {
 };
 export function updateTown(dt, t, P, bigActive) {
   updFlowers(dt); updThief(dt, t, P);
-  for (const f of TOWN.folks) { if (f.kind === 'granny') updGranny(f, dt, t); else updDog(f, dt, t); }
+  for (const f of TOWN.folks) { if (f.kind === 'granny') updGranny(f, dt, t); else if (f.kind === 'skel') updSkel(f, dt, t); else updDog(f, dt, t); }
   if (!P) return;
   if (TOWN.inc) { if (TOWN.inc.update(dt) === 'end') { TOWN.inc.stop(); TOWN.inc = null; } return; }
   TOWN.incT -= dt;

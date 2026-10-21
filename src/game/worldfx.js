@@ -102,7 +102,7 @@ export function updateWorldFx(dt, t, P) {
     if (d < c.r && d > 0.7 && P.onGround && Math.abs(P.pos.y - c.top) < 0.15) { const a = c.w * dt, ca = Math.cos(a), sa = Math.sin(a); P.pos.x = c.x + dx * ca + dz * sa; P.pos.z = c.z - dx * sa + dz * ca; P.root.rotation.y += a; P.facing += a; }
   }
   // сидящие на скамейках: держим на сиденье
-  for (const b of W.benches) for (const r of b.riders) { const a = r.a; a.pos.set(b.x + Math.cos(b.ry) * r.side + Math.sin(b.ry) * 0.05, b.y + 0.12, b.z - Math.sin(b.ry) * r.side + Math.cos(b.ry) * 0.05); a.vel.set(0, 0, 0); a.root.rotation.y = b.ry; a.onGround = true; a.airPeak = a.pos.y; }
+  for (const b of W.benches) for (const r of b.riders) { const a = r.a; a.pos.set(b.x + Math.cos(b.ry) * r.side + Math.sin(b.ry) * 0.02, b.y + 0.5, b.z - Math.sin(b.ry) * r.side + Math.cos(b.ry) * 0.02); a.vel.set(0, 0, 0); a.root.rotation.y = b.ry; a.onGround = true; a.airPeak = a.pos.y; }
   // качели с сидящим
   for (const s of W.swingSeats) if (s.rider) {
     const p = s.pivot.position, ry = s.pivot.rotation.y, a = s.ang, L = s.len;

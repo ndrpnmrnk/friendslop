@@ -351,3 +351,17 @@ body:not(.playing) #speedl{display:none}
 #tut .tk .key{font-size:12px;padding:6px 8px 5px}
 #tut button{margin-top:10px;background:none;border:0;color:var(--muted);font-size:12px;cursor:pointer;pointer-events:auto}
 #tut.go{animation:awin .5s steps(6)}
+
+/* v0.19: подсказка у прицела при замахе (первые несколько раз) */
+#throwTip{position:fixed;left:50%;top:calc(50% + 26px);transform:translateX(-50%);font-size:11px;color:var(--muted);pointer-events:none;z-index:20;white-space:nowrap;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+#throwTip span{color:var(--text);font-weight:700}
+#droneT{position:fixed;left:50%;top:92px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:15;padding:6px 14px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge)}
+#droneT small{font-size:10px;color:var(--muted);letter-spacing:1px}#droneT b{font-family:var(--px);font-size:22px;color:var(--gold)}
+/* v0.19: подсказка мини-игры по факту — ниже центра */
+#mgcall{position:fixed;left:50%;top:66%;transform:translateX(-50%);pointer-events:none;z-index:14;font-family:var(--px);text-align:center;white-space:nowrap;text-shadow:0 2px 0 #17111f,2px 0 0 #17111f,-2px 0 0 #17111f,0 -2px 0 #17111f;transition:opacity .4s steps(4)}
+#mgcall.c-good{font-size:26px;color:var(--gold)}#mgcall.c-bad{font-size:26px;color:var(--blood)}#mgcall.c-info{font-size:14px;color:var(--text)}
+#mgcall.pop{animation:callin .3s steps(5)}#mgcall.fade{opacity:0}
+@keyframes callin{0%{transform:translateX(-50%) scale(1.6);opacity:0}60%{transform:translateX(-50%) scale(.92);opacity:1}100%{transform:translateX(-50%) scale(1)}}
+/* v0.19: карточка «в руках» — что делает предмет и эффект */
+#held .hcd{font-size:12px;color:var(--text);opacity:.85;margin-top:3px;white-space:normal;max-width:260px}
+#held .fx{font-style:normal;font-family:var(--px);font-size:8px;color:#17111f;background:var(--fx);padding:2px 5px 1px;margin-left:8px;vertical-align:middle}

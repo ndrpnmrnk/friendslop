@@ -21,7 +21,7 @@ export default {
           const cx = (r.x0 + r.x1) / 2;
           if (k === 0) {
             if (s.kind === 'bakery') { W.spots.pickup.push({ x: f.X(r.x0 + 2.2), z: f.Z(r.z0 + 1.9), y: f.Y, f: [0, -1], district: 'Торговая улица', label: 'пекарня' }); f.box(r.x0 + 2.2, r.z0 + 0.8, 3, 0.8, 1.0, tmat(T.wood())); f.m(G.box, tmat(T.produce('pumpkin')), r.x0 + 2.2, 1.03, r.z0 + 0.8, 2.8, 0.06, 0.6); f.shelf(r.x1 - 0.3, r.z0 + 2, 2.6, -Math.PI / 2); }
-            if (s.kind === 'cafe') { f.table(r.x0 + 1.6, r.z1 - 1.3, 0.8); f.chair(r.x0 + 1.6, r.z1 - 0.5, Math.PI); f.table(r.x1 - 1.6, r.z1 - 1.3, 0.8);
+            if (s.kind === 'cafe') { f.ptable(r.x0 + 1.6, r.z1 - 1.3, 0.8); f.chair(r.x0 + 1.6, r.z1 - 0.5, Math.PI); f.ptable(r.x1 - 1.6, r.z1 - 1.3, 0.8);
               f.box(cx, r.z0 + 0.45, 4, 0.8, 1.05, tmat(T.wood())); f.box(cx + 1.2, r.z0 + 0.45, 0.5, 0.5, 0.6, col(0x3a3a40), { y: 1.05 }); f.ride('chair', r.x1 - 1.6, r.z1 - 0.5, Math.PI); }
             if (s.kind === 'mart') { f.shelf(r.x0 + 2, r.z0 + 1.5, 2.6, Math.PI / 2); f.shelf(r.x0 + 4.2, r.z0 + 1.5, 2.6, Math.PI / 2); f.cabinet(r.x1 - 0.5, r.z0 + 1.2, 0.6, 1.8, 2, 0xd8d8e0, 0, -Math.PI / 2); }
           } else {
@@ -66,6 +66,6 @@ export default {
     b.tree(3, 29.5); b.tree(29, 29.5);
     b.zone('floor', 1, 10.5, 31, 31);
     b.spawn(16, 17.6); b.spawn(5, 18);
-    b.hw(() => { b.pumpkin(4.2, 9.2); b.pumpkin(27.8, 9.2); b.stringLights(1.5, 8.9, 30.5, 8.9, 3.4); });
+    b.hw(() => { b.pumpkin(4.2, 9.2); b.pumpkin(27.8, 9.2); b.stringLights(1.5, 11.2, 30.5, 11.2, 3.4); });
   },
 };

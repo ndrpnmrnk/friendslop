@@ -42,7 +42,7 @@ export const GAMES = {
         if (down && onCat && !done) {
           if (last) {
             const ddx = hand.position.x - last.x, ddz = hand.position.z - last.z, d = Math.hypot(ddx, ddz), sp = d / Math.max(dt, 1e-3), dx = ddx * F.x + ddz * F.z;
-            if (sp > 3.4) { if (hiss <= 0) { hiss = 0.9; prog = Math.max(0, prog - 0.08); api.msg('Ш-ш-ш! Слишком резко', 'bad'); } }
+            if (sp > 3.4) { if (hiss <= 0) { hiss = 0.9; prog = Math.max(0, prog - 0.08); api.msg('ПЛАВНЕЕ!', 'bad'); } }
             else if (hiss <= 0 && d > 0.002) { prog += d * (dx < 0 ? 1 : 0.6) / 3.6; happy = 0.4; if (purr <= 0) { api.msg('Мррр...', 'good'); purr = 1.4; } }
           }
           last = hand.position.clone();
@@ -65,21 +65,22 @@ export const GAMES = {
   puzzle(board, api, ctx) {
     const F = new V3(board.f[0], 0, board.f[1]);
     api.pose(board.center.clone().addScaledVector(F, 4.2), board.center.clone());
-    const o = board.order;
-    do { for (let i = 8; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } } while (o.every((v, i) => v === i));
-    let sel = -1, moves = 0, done = false, doneT = 0, t = 0; const tv = new V3();
-    api.progress(null); api.msg('Ходов: 0');
+    // сначала ~2 с показываем целую картинку, потом плитки перемешиваются
+    const o = board.order; for (let i = 0; i < 9; i++) o[i] = i;
+    let sel = -1, moves = 0, done = false, doneT = 0, t = 0, show = 2.2; const tv = new V3();
+    api.progress(null); api.msg('Запомни картинку!');
+    const shuffle = () => { do { for (let i = 8; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } } while (o.every((v, i) => v === i)); api.msg('Собери!', 'good');  };
     return {
       down(ray) {
-        if (done) return;
+        if (done || show > 0) return;
         const hits = ray.intersectObjects(board.tiles.map(x => x.mesh)); if (!hits.length) return;
         const tile = board.tiles.find(x => x.mesh === hits[0].object), slot = o.indexOf(tile.idx);
         if (sel < 0) sel = slot; else if (sel === slot) sel = -1;
-        else { [o[sel], o[slot]] = [o[slot], o[sel]]; sel = -1; moves++; api.msg('Ходов: ' + moves);
+        else { [o[sel], o[slot]] = [o[slot], o[sel]]; sel = -1; moves++;
           if (o.every((v, i) => v === i)) { done = true; doneT = 1.1; api.msg('Собрано!', 'good'); } }
       },
       update(dt) {
-        t += dt;
+        t += dt; if (show > 0) { show -= dt; if (show <= 0) shuffle(); }
         board.tiles.forEach(tile => {
           const slot = o.indexOf(tile.idx), s = board.slots[slot];
           tv.set(s.x, s.y, s.z + (slot === sel ? 0.18 : 0) + (done ? Math.abs(Math.sin(t * 9 + slot)) * 0.06 : 0));

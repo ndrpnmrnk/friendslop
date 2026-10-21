@@ -86,7 +86,7 @@ export const PANEL3 = {
       const v = veg[vi], w = v.len / v.n;
       for (let i = 0; i < v.n; i++) { const p = mesh(vi ? G.sph10 : G.cyl8, lam({ color: v.c }, 'veg' + v.c), -0.12 - v.len / 2 + w * (i + 0.5), 0.025 + v.r, 0, vi ? w * 0.55 : v.r, vi ? v.r : w * 0.5, v.r, grp); if (!vi) p.rotation.z = Math.PI / 2; pieces.push(p); }
       for (let i = 1; i < v.n; i++) for (let k = 0; k < 4; k++) { const l = mesh(G.box, lineM, -0.12 - v.len / 2 + w * i, 0.03 + v.r * 2 + 0.005, -0.12 + k * 0.08, 0.008, 0.002, 0.04, grp); l.userData.i = i; lines.push(l); }
-      api.msg(vi ? 'Теперь помидор' : 'Режь огурец: веди мышью поперёк линий'); api.progress(vi * 0.5);
+      api.msg(vi ? 'ТЕПЕРЬ ПОМИДОР!' : 'РЕЖЬ! Веди поперёк', 'good'); api.progress(vi * 0.5);
     };
     setup();
     const local = ray => { const p = onPlane(ray, new V3(0, 1, 0), new V3(0, top + 0.05, 0)); return p ? grp.worldToLocal(p) : null; };
@@ -105,7 +105,7 @@ export const PANEL3 = {
           // кусочки — в миску
           const keep = pieces; pieces = []; let k = 0; for (const q of keep) { const tgt = new V3(0.36 + (Math.random() - 0.5) * 0.14, 0.12 + inBowl * 0.006, (Math.random() - 0.5) * 0.14); const st = q.position.clone(), d0 = 0.15 + k * 0.05; k++; inBowl++;
             let tt = -d0; const anim = dt => { tt += dt; const kk = Math.min(1, Math.max(0, tt / 0.35)); q.position.lerpVectors(st, tgt, kk); q.position.y += Math.sin(kk * Math.PI) * 0.12; if (kk >= 1) { const i2 = W.animated.indexOf(anim); if (i2 >= 0) W.animated.splice(i2, 1); } }; W.animated.push(anim); }
-          if (vi === 0) { vi = 1; setTimeout(() => { if (!done) setup(); }, 500); } else { done = true; api.msg('Кликни по миске — перемешать!'); } }
+          if (vi === 0) { vi = 1; setTimeout(() => { if (!done) setup(); }, 500); } else { done = true; api.msg('МЕШАЙ! Клик по миске', 'good'); } }
       },
       up() { drag = false; last = null; },
       update(dt) { if (endT > 0) { bowl.rotation.y += dt * 8; endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
@@ -150,7 +150,7 @@ export const PANEL3 = {
     bulb.position.copy(c0).add(new V3(0, -0.14, 0)); W.group.add(bulb);
     const N = new V3().subVectors(c0, camP).normalize();
     let ang = 0, last = null, drag = false, endT = -1, clickA = 0;
-    api.progress(0); api.msg('Зажми ЛКМ и крути по кругу');
+    api.progress(0); api.msg('КРУТИ! Зажми и веди по кругу');
     const angleOf = ray => { const p = onPlane(ray, N, c0); if (!p) return null; const u = new V3().crossVectors(N, new V3(0, 1, 0)).normalize(), v = new V3().crossVectors(u, N); p.sub(c0); return Math.atan2(p.dot(v), p.dot(u)); };
     return {
       down(ray) { drag = true; last = angleOf(ray); }, up() { drag = false; last = null; },
@@ -223,7 +223,7 @@ export const WORLD3 = {
       let x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; if (!isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, c.y + 0.05, c.y + 0.8)) { x = c.x + Math.cos(a) * 3; z = c.z + Math.sin(a) * 3; }
       k.root.position.set(x, c.y, z); W.group.add(k.root); return { root: k.root, cat: k, vx: 0, vz: 0, vy: 0, wt: 0, wx: 0, wz: 0, st: 'run', dash: 0, rest: 0, holdT: 0, ph: Math.random() * 6 }; });
     let time = 90, got = 0, held = null;
-    api.msg('Догони котёнка и возьми на руки (E) — неси или кидай в коробку (ПКМ)');
+    api.msg('Лови котят — в коробку!');
     const toBox = k => { k.st = 'box'; got++; sfx('candy'); burst(c.x, c.y + 0.8, c.z, 10, { color: 0xc8a070, size: 0.14, speed: 1.5, up: 2 }); api.msg(got < 2 ? 'Один в коробке!' : 'Оба котёнка дома!', 'good'); };
     const release = (k, vx, vy, vz) => { k.st = 'fly'; k.vx = vx; k.vy = vy; k.vz = vz; if (held === k) held = null; };
     const near = () => o.kittens.filter(k => k.st === 'run').sort((a, b) => a.root.position.distanceTo(P.pos) - b.root.position.distanceTo(P.pos))[0];

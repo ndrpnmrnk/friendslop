@@ -80,7 +80,7 @@ export const PANEL4 = {
     for (let i = 0; i < 360; i++) { const [x, z] = spot(); const m = mesh(G.box, lam({ color: LEAF[i % 5] }, 'leafM' + (i % 5)), x * 1.15, 0.07 + Math.random() * 0.65 * Math.max(0.2, 1 - Math.hypot(x, z) / 1.3), z * 1.15, 0.16, 0.012, 0.11, grp);
       m.rotation.set((Math.random() - 0.5) * 0.6, Math.random() * 6, (Math.random() - 0.5) * 0.6); leaves.push({ m, v: null }); }
     let down = false, time = 55, endT = -1, rust = 0;
-    api.progress(0); api.msg('Зажми ЛКМ и разгребай. Кликни по находке');
+    api.progress(0); api.msg('Разгребай! Клик по находке');
     const covered = f => leaves.some(l => !l.v && Math.hypot(l.m.position.x - f.x, l.m.position.z - f.z) < 0.12);
     return {
       down(ray) { down = true; const h = ray.intersectObjects(finds.map(f => f.m)); if (h.length) { const f = finds.find(q => q.m === h[0].object); if (f && !covered(f)) {

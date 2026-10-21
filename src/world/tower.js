@@ -2,6 +2,7 @@ import { THREE, G, col, tmat, glow, own, lam, flat } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { HW } from '../config.js';
 import { W } from './state.js';
+import { addItem } from '../game/items.js';
 import { breakModel, breakBox } from './breakables.js';
 import { potModel } from './props.js';
 let _ao; const aoMat = () => _ao || (_ao = lam({ map: T.aoStrip(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }, 'aoStrip', true));
@@ -313,7 +314,10 @@ export const TowerMethods = {
     const a = (px, py, pz, sx, sy, sz, mm) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
     a(0, 0.74, 0, 1.4, 0.05, 0.7, wd); for (const xx of [-0.66, 0.66]) a(xx, 0.37, 0, 0.05, 0.74, 0.66, dk); a(0.45, 0.45, 0, 0.42, 0.5, 0.6, tmat(T.cabinet(0x6a6d78)));
     if (pc && Math.random() < 0.35) this.phoneSpot(x, z, [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))]);
-    if (pc) { a(0, 1.05, -0.18, 0.6, 0.4, 0.04, dk); a(0, 1.05, -0.155, 0.54, 0.34, 0.01, tmat(T.screen())); a(0, 0.82, -0.18, 0.08, 0.12, 0.06, dk); a(0, 0.775, 0.1, 0.45, 0.02, 0.15, col(0x3a3440)); }
+    // компьютер, клавиатура и мелочь на столе — настоящие предметы: взять, бросить, разбить (v0.19)
+    if (pc) { g.updateMatrixWorld(true); const put = (type, lx, lz, oy) => { const v = new THREE.Vector3(lx, 0.77, lz); g.localToWorld(v); addItem(type, v.x, v.y + (oy || 0), v.z, ry); };
+      put('monitor', -0.1, -0.15, 0.02); if (Math.random() < 0.5) put('keyboard', -0.1, 0.15); if (Math.random() < 0.5) put('pc', -0.42, 0.08, -0.77);
+      if (Math.random() < 0.45) put(['mug', 'dlamp', 'books', 'pot'][(Math.random() * 4) | 0], -0.55, -0.15); }
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.7 : 1.4, q ? 1.4 : 0.7, 0, 0.78);
   },
   rug(x, z, w, d, c1 = '#7b4bc4', c2 = '#f5c542') { const m = this.m(G.plane, flat(T.awning(c1, c2)), x, 0.02, z, w, d, 1); m.rotation.x = -Math.PI / 2; },

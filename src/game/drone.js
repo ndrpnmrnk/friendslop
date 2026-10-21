@@ -8,44 +8,59 @@ import { puff, burst, smokeRing } from '../world/particles.js';
 import { sfx } from '../core/sfx.js';
 import { cam } from './camera.js';
 
-const darts = [], candies = [], marks = new Map();
+const darts = [], candies = [], marks = new Map(), flyOff = [];
+/* Вертушка выбывшего (v0.19): круглый корпус-экранчик с мордочкой игрока, пропеллер на «макушке»,
+   пушка-дротик сбоку, люк снизу (из него падает конфета, на тросе спускается персонаж при возвращении). */
 export function helicopter(a) {
-  const g = new THREE.Group(), dark = col(0x292333), purple = col(0x8a6aba);
-  mesh(G.box, purple, 0, 0, 0, 0.85, 0.48, 0.7, g);
-  mesh(G.box, dark, 0, -0.05, 0.38, 0.68, 0.4, 0.08, g);
-  // Пиксельная мордочка выбранного персонажа на встроенном экране камеры.
+  const g = new THREE.Group(), dark = col(0x2b2533), shell = col(0xd8d0e4), acc = col(0xff8a1f), metal = col(0x9a9da8);
+  const body = new THREE.Group(); g.add(body);
+  mesh(G.cyl12, shell, 0, 0, 0, 0.42, 0.42, 0.42, body).rotation.x = Math.PI / 2;            // «телевизор-шайба»
+  mesh(G.cyl12, dark, 0, 0, 0.215, 0.36, 0.02, 0.36, body).rotation.x = Math.PI / 2;
+  mesh(G.box, acc, 0, 0.0, 0, 0.88, 0.08, 0.3, body); mesh(G.box, dark, 0, -0.41, 0, 0.36, 0.05, 0.3, body);
+  // экранчик с пиксельной мордочкой
   const cv = document.createElement('canvas'); cv.width = cv.height = 24; const c = cv.getContext('2d'), skin = a.ch.skinId;
-  c.fillStyle = '#12232a'; c.fillRect(0, 0, 24, 24); c.fillStyle = ({cat:'#d89a5a',tv:'#b18cff',shark:'#6a9aaa',frog:'#79aa55'})[skin] || '#b18cff';
+  c.fillStyle = '#12232a'; c.fillRect(0, 0, 24, 24); c.fillStyle = ({ cat: '#d89a5a', tv: '#b18cff', shark: '#6a9aaa', frog: '#79aa55' })[skin] || '#b18cff';
   c.fillRect(5, 7, 14, 12); if (skin === 'cat') { c.fillRect(4, 3, 5, 7); c.fillRect(15, 3, 5, 7); } if (skin === 'shark') c.fillRect(10, 2, 4, 7); if (skin === 'frog') { c.fillRect(4, 4, 6, 6); c.fillRect(14, 4, 6, 6); }
   c.fillStyle = '#ffffff'; c.fillRect(7, 9, 3, 4); c.fillRect(14, 9, 3, 4); c.fillRect(9, 16, 6, 2); c.fillStyle = '#17111f'; c.fillRect(8, 10, 2, 2); c.fillRect(15, 10, 2, 2);
-  const tex = new THREE.CanvasTexture(cv); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
-  const screen = new THREE.MeshBasicMaterial({ map: tex }); mesh(G.plane, screen, 0, -0.03, 0.43, 0.6, 0.35, 1, g);
-  mesh(G.cyl8, dark, 0.35, -0.24, 0.38, 0.12, 0.16, 0.12, g).rotation.x = Math.PI / 2;
-  mesh(G.box, purple, 0, 0.1, -0.85, 0.15, 0.14, 1.1, g);
-  mesh(G.box, dark, 0, 0.3, -1.3, 0.08, 0.5, 0.3, g);
-  mesh(G.cyl5, dark, 0, 0.4, 0, 0.04, 0.5, 0.04, g);
-  const rotor = new THREE.Group(); rotor.position.y = 0.65; g.add(rotor);
-  for (const angle of [0, Math.PI / 2]) mesh(G.box, dark, 0, 0, 0, 2.4, 0.035, 0.12, rotor).rotation.y = angle;
-  for (const x of [-0.4, 0.4]) mesh(G.box, dark, x, -0.4, 0, 0.07, 0.07, 1.1, g);
-  W.group.add(g); W.keep.push(g); return { g, rotor, screen, tex };
+  c.fillStyle = 'rgba(255,255,255,.12)'; for (let y = 0; y < 24; y += 2) c.fillRect(0, y, 24, 1);
+  const tex = new THREE.CanvasTexture(cv); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+  const screen = new THREE.MeshBasicMaterial({ map: tex }); const sc = mesh(G.disc, screen, 0, 0, 0.228, 0.3, 0.3, 1, body);
+  // пропеллер на макушке
+  mesh(G.cyl6, dark, 0, 0.53, 0, 0.035, 0.24, 0.035, body); mesh(G.sph, acc, 0, 0.66, 0, 0.06, 0.05, 0.06, body);
+  const rotor = new THREE.Group(); rotor.position.y = 0.66; body.add(rotor);
+  for (const r of [0, Math.PI]) { const bl = mesh(G.box, dark, 0.38, 0, 0, 0.7, 0.02, 0.1, rotor); bl.rotation.y = r; bl.position.set(Math.cos(r) * 0.38, 0, -Math.sin(r) * 0.38); bl.rotation.x = 0.15; }
+  // пушка с дротиком
+  const gun = new THREE.Group(); gun.position.set(0.47, -0.14, 0.05); body.add(gun);
+  mesh(G.cyl8, metal, 0, 0, 0.12, 0.05, 0.3, 0.05, gun).rotation.x = Math.PI / 2; mesh(G.box, col(0xf5c542), 0, 0, 0.3, 0.02, 0.02, 0.12, gun); mesh(G.box, col(0xd8243a), 0, 0, 0.22, 0.06, 0.06, 0.02, gun);
+  // полозья
+  for (const x of [-0.24, 0.24]) { mesh(G.box, dark, x, -0.56, 0, 0.03, 0.03, 0.55, body); mesh(G.box, dark, x, -0.48, 0.13, 0.02, 0.16, 0.02, body); mesh(G.box, dark, x, -0.48, -0.13, 0.02, 0.16, 0.02, body); }
+  // люк снизу: две створки
+  const flaps = [-1, 1].map(sx => { const q = new THREE.Group(); q.position.set(sx * 0.14, -0.44, 0); body.add(q); mesh(G.box, acc, -sx * 0.07, 0, 0, 0.14, 0.02, 0.24, q); return q; });
+  // трос (виден, когда спускает персонажа)
+  const rope = mesh(G.box, col(0x17111f), 0, -0.45, 0, 0.025, 1, 0.025, g); rope.visible = false;
+  void sc;
+  W.group.add(g); W.keep.push(g); return { g, body, rotor, screen, tex, flaps, rope, hatch: 0 };
 }
+const setHatch = (d, k) => { d.hatch = k; d.flaps.forEach((f, i) => (f.rotation.z = (i ? -1 : 1) * k * 1.4)); };
 function removeHeli(d) { W.group.remove(d.g); W.keep = W.keep.filter(q => q !== d.g); d.screen.dispose(); d.tex.dispose(); }
 export function eliminate(a, seconds) {
   if (!a || a.drone || a.returning) return;
   W.onEliminate && W.onEliminate(a);
   dropHeld(a); if (a.ride) dismount(a, false); if (a.grab) release(a, 0); if (a.holding && W.letGo) W.letGo(a); if (a.heldBy && W.letGo) W.letGo(a.heldBy);
   if (a.swing) { a.swing.rider = null; a.swing = null; } a.hidden = null; a.zip = null; a.climb = null; a.mantle = null; a.hang = null; a.caged = null; a.goal = null;
-  a.drone = { ...helicopter(a), left: seconds, cd: 0, candy: true, home: a.pos.clone() };
-  a.pos.y = Math.max(groundAt(a.pos.x, a.pos.z, 0.2, 100) + 4, a.pos.y + 5); a.vel.set(0, 0, 0); a.push && a.push.set(0, 0, 0); a.root.visible = false; a.charging = false; a.hotPotato = false;
+  a.drone = { ...helicopter(a), left: seconds, cd: 0, candy: true, home: a.pos.clone(), intro: 1.2, tumble: 0 };
+  a.pos.y = Math.max(groundAt(a.pos.x, a.pos.z, 0.2, 100) + 4, a.pos.y + 4);
+  // вертушка прилетает сбоку к месту выбывания
+  a.drone.from = a.pos.clone().add(new V3(9, 5, 6)); a.vel.set(0, 0, 0); a.push && a.push.set(0, 0, 0); a.root.visible = false; a.charging = false; a.hotPotato = false;
 }
 export function droneAction(a, button, direction) {
   const d = a.drone; if (!d) return;
-  if (button === 0 && d.cd <= 0) {
-    d.cd = 1.5; const m = mesh(G.box, col(0xf5c542), a.pos.x, a.pos.y, a.pos.z, 0.045, 0.045, 0.3, W.group);
+  if (button === 0 && d.cd <= 0 && !(d.intro > 0) && !(d.tumble > 0)) {
+    d.cd = 1.5; const m = mesh(G.box, col(0xf5c542), a.pos.x, a.pos.y - 0.12, a.pos.z, 0.045, 0.045, 0.3, W.group);
     const v = direction.clone().normalize().multiplyScalar(38); m.lookAt(m.position.clone().add(v)); darts.push({ m, v, a, life: 2 }); sfx('throw');
   }
-  if (button === 2 && d.candy) {
-    d.candy = false; const m = new THREE.Group(); m.position.copy(a.pos); W.group.add(m);
+  if (button === 2 && d.candy && !(d.intro > 0) && !(d.tumble > 0)) {
+    d.candy = false; d.hatchT = 0.8; const m = new THREE.Group(); m.position.copy(a.pos).add(new V3(0, -0.5, 0)); W.group.add(m);
     mesh(G.sph, col(0xff5a9e), 0, 0, 0, 0.22, 0.16, 0.16, m); for (const x of [-0.3, 0.3]) mesh(G.box, col(0xf5c542), x, 0, 0, 0.16, 0.22, 0.22, m).rotation.x = 0.8;
     candies.push({ m, v: 0, boost: Math.random() < 0.5, life: 15, landed: false }); sfx('drop');
   }
@@ -63,23 +78,46 @@ export function updateDrones(dt, t) {
   for (const a of [W.player, ...(W.bots || [])].filter(Boolean)) {
     const d = a.drone;
     if (d) {
-      d.left -= dt; d.cd -= dt;
+      d.left -= dt; d.cd -= dt; if (d.hatchT > 0) { d.hatchT -= dt; } setHatch(d, d.hatchT > 0 ? Math.min(1, d.hatch + dt * 6) : Math.max(0, d.hatch - dt * 4));
+      d.rotor.rotation.y += dt * 38;
+      // прилёт: подлетает сбоку, управления нет
+      if (d.intro > 0) { d.intro -= dt; const k = 1 - Math.max(0, d.intro) / 1.2, e = k * k * (3 - 2 * k); d.g.position.lerpVectors(d.from, a.pos, e); d.body.rotation.z = (1 - e) * 0.5; d.g.rotation.y = Math.atan2(a.pos.x - d.from.x, a.pos.z - d.from.z); continue; }
+      // сбили броском: кувыркается, конфета вываливается, потом выравнивается
+      for (const it of W.items) if (it.state === 'fly' && it.owner !== a && !(d.tumble > 0) && it.pos.distanceTo(a.pos) < 0.9) { d.tumble = 1.6; it.vel.multiplyScalar(-0.3); sfx('bonk', { at: a.pos }); burst(a.pos.x, a.pos.y, a.pos.z, 10, { color: 0xd8d0e4, size: 0.12, speed: 3 });
+        if (d.candy) { droneAction(a, 2, new V3()); } break; }
+      if (d.tumble > 0) { d.tumble -= dt; d.body.rotation.z += dt * 12; d.body.rotation.x = Math.sin(d.tumble * 9) * 0.6; a.pos.y = Math.max(groundAt(a.pos.x, a.pos.z, 0.4, 100) + 2, a.pos.y - dt * 2);
+        if (d.tumble <= 0) { d.body.rotation.set(0, 0, 0); } d.g.position.copy(a.pos); if (d.left <= 0) returnStart(a); continue; }
       let dx = 0, dz = 0, dy = 0;
       if (a === W.player) { dx = Number(!!keys.KeyD) - Number(!!keys.KeyA); dz = Number(!!keys.KeyS) - Number(!!keys.KeyW); dy = Number(!!keys.Space) - Number(!!(keys.ControlLeft || keys.KeyC)); const x = dx; dx = x * Math.cos(cam.yaw) + dz * Math.sin(cam.yaw); dz = -x * Math.sin(cam.yaw) + dz * Math.cos(cam.yaw); }
       else { dx = Math.cos(t * 0.5 + W.bots.indexOf(a)); dz = Math.sin(t * 0.5 + W.bots.indexOf(a)); }
       const len = Math.max(1, Math.hypot(dx, dz)); a.pos.x = Math.max(-W.bounds + 2, Math.min(W.bounds - 2, a.pos.x + dx / len * dt * 10)); a.pos.z = Math.max(-W.bounds + 2, Math.min(W.bounds - 2, a.pos.z + dz / len * dt * 10));
       const floor = groundAt(a.pos.x, a.pos.z, 0.4, 100); a.pos.y = Math.max(floor + 3, Math.min(48, a.pos.y + dy * dt * 7));
-      d.g.position.copy(a.pos); d.g.position.y += Math.sin(t * 5) * 0.08; d.g.rotation.y = a === W.player ? cam.yaw + Math.PI : Math.atan2(dx, dz); d.rotor.rotation.y += dt * 38;
+      d.g.position.copy(a.pos); d.g.position.y += Math.sin(t * 5) * 0.06; d.g.rotation.y = a === W.player ? cam.yaw + Math.PI : Math.atan2(dx, dz);
+      d.body.rotation.x += ((dz || dx ? 0.25 : 0) - d.body.rotation.x) * Math.min(1, dt * 6); d.body.rotation.z = 0;
       if (d.left <= 0) returnStart(a);
     }
     const r = a.returning;
     if (r) {
-      r.t += dt; r.rotor.rotation.y += dt * 38; r.g.position.set(r.p.x + (r.t - 0.7) * 7, r.p.y + 8, r.p.z); r.g.rotation.y = Math.PI / 2;
-      a.pos.copy(r.p); a.pos.y += Math.max(0, 8 - Math.max(0, r.t - 0.7) ** 2 * 9); a.root.visible = r.t >= 0.7; a.ch.animate(dt, { t, speed: 0, air: a.pos.y > r.p.y, vy: -5 });
-      if (a === W.player) cam.free = { p: r.p.clone().add(new V3(7, 4, 9)), l: a.pos.clone().add(new V3(0, 1, 0)) };
-      if (r.t > 1.7) { a.pos.copy(r.p); a.vel.set(0, 0, 0); a.onGround = true; a.airPeak = a.pos.y; a.noMountT = 2; a.burnCD = (W.time || 0) + 3; a.returning = null; a.root.visible = true; removeHeli(r); smokeRing(a.pos.x, a.pos.y + 0.05, a.pos.z, 12, { speed: 3 }); sfx('land', { at: a.pos }); if (a === W.player) { cam.free = null; cam.blend = 0; } }
+      /* возвращение: вертушка летит к точке, зависает на 4.5 м, открывает люк и опускает персонажа на тросе;
+         отцепила — закрывает люк и улетает вверх. Видно всем. */
+      r.t += dt; r.rotor.rotation.y += dt * 38; const H = 4.6, top = r.p.y + H, T1 = 1.0, T2 = 1.3, T3 = 2.9;
+      if (!r.from) r.from = r.g.position.clone();
+      if (r.t < T1) { const k = r.t / T1, e = k * k * (3 - 2 * k); r.g.position.set(r.from.x + (r.p.x - r.from.x) * e, r.from.y + (top - r.from.y) * e, r.from.z + (r.p.z - r.from.z) * e); }
+      else if (r.t < T3 + 0.2) r.g.position.set(r.p.x, top + Math.sin(t * 5) * 0.05, r.p.z);
+      else { r.g.position.y += dt * 9; r.g.position.x += dt * 4; }
+      setHatch(r, r.t > T1 && r.t < T3 + 0.4 ? Math.min(1, (r.t - T1) / 0.3) : Math.max(0, r.hatch - dt * 4));
+      const lower = r.t < T2 ? 0 : Math.min(1, (r.t - T2) / (T3 - T2)), ry = top - 0.35 - lower * (H - 0.35);
+      a.pos.set(r.p.x, Math.max(r.p.y, ry - 1.05), r.p.z);
+      a.root.visible = r.t >= T2 - 0.05;
+      r.rope.visible = r.t >= T2 && r.t < T3 + 0.1; const rl = Math.max(0.05, r.g.position.y - 0.45 - (a.pos.y + 1.25)); r.rope.scale.y = rl; r.rope.position.y = -0.45 - rl / 2;
+      a.ch.animate(dt, { t, speed: 0, zip: true, air: false, vy: 0 });
+      if (a === W.player) cam.free = { p: r.p.clone().add(new V3(6, 3.5, 8)), l: a.pos.clone().add(new V3(0, 1.2, 0)) };
+      if (r.t > T3 && !r.landed) { r.landed = true; a.pos.copy(r.p); a.vel.set(0, 0, 0); a.onGround = true; a.airPeak = a.pos.y; a.noMountT = 2; a.burnCD = (W.time || 0) + 3; a.root.visible = true; smokeRing(a.pos.x, a.pos.y + 0.05, a.pos.z, 12, { speed: 3 }); sfx('land', { at: a.pos }); if (a === W.player) { cam.free = null; cam.blend = 0; } a.returning = null; r.rope.visible = false;
+        // вертушка улетает сама и исчезает
+        const g = r; flyOff.push({ g, t: 0 }); }
     }
   }
+  for (let i = flyOff.length - 1; i >= 0; i--) { const f = flyOff[i]; f.t += dt; f.g.rotor.rotation.y += dt * 38; f.g.g.position.y += dt * 8; f.g.g.position.x += dt * 5; setHatch(f.g, Math.max(0, f.g.hatch - dt * 4)); if (f.t > 2.5) { removeHeli(f.g); flyOff.splice(i, 1); } }
   for (let i = darts.length - 1; i >= 0; i--) {
     const d = darts[i], from = d.m.position.clone(), len = d.v.length() * dt, dir = d.v.clone().normalize(); let hit = null, best = raySolids(from, dir, len);
     for (const a of actors()) { if (a === d.a || a.hidden) continue; const center = a.pos.clone().add(new V3(0, 1, 0)), along = center.clone().sub(from).dot(dir); if (along >= 0 && along <= best && center.distanceTo(from.clone().addScaledVector(dir, along)) < 0.65) { best = along; hit = a; } }
@@ -99,5 +137,6 @@ export function updateDrones(dt, t) {
 export function resetDrones() {
   for (const a of [W.player, ...(W.bots || [])].filter(Boolean)) { const d = a.drone || a.returning; if (d) removeHeli(d); a.drone = a.returning = null; a.marked = 0; }
   for (const d of darts) W.group.remove(d.m); for (const c of candies) W.group.remove(c.m); for (const m of marks.values()) { W.group.remove(m.g); m.g.material.dispose(); }
+  for (const f of flyOff) removeHeli(f.g); flyOff.length = 0;
   darts.length = candies.length = 0; marks.clear(); cam.free = null;
 }

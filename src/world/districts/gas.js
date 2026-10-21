@@ -58,8 +58,8 @@ export default {
     // автостоянка: ряд машин (по ним можно прыгать), будка охраны с креслом, шлагбаум, кирпичная ограда ломается
     for (let x = 1.5; x <= 16.5; x += 3) b.marking(x, 21.6, 0.12, 4.4);
     [[3, 0xc8a040], [6, 0x3a7ac8], [12, 0x6a8a5a], [15, 0xc83a3a]].forEach(([x, c], i) => b.car(x, 21.6, Math.PI / 2 + (i % 2 ? Math.PI : 0), c));
-    b.house({ x: 1, z: 27.6, w: 3.6, d: 3.4, h: 2.7, wall: 0xd8d0c0, brick: false, lit: 1, door: { side: 'e', at: 0.5 }, parapet: false,
-      interior(b, r) { b.box((r.x0 + r.x1) / 2, r.z0 + 0.4, 2.4, 0.6, 0.85, tmat(T.wood())); b.m(G.box, tmat(T.screen()), (r.x0 + r.x1) / 2, 1.15, r.z0 + 0.3, 0.6, 0.45, 0.3); b.ride('chair', (r.x0 + r.x1) / 2, r.z0 + 1.6, Math.PI); } });
+    b.house({ x: 1, z: 27.6, w: 3.6, d: 3.4, h: 2.7, wall: 0xd8d0c0, brick: false, lit: 1, door: { side: 'n', at: 0.5 }, parapet: false,
+      interior(b, r) { b.box((r.x0 + r.x1) / 2, r.z1 - 0.4, 2.4, 0.6, 0.85, tmat(T.wood())); b.m(G.box, tmat(T.screen()), (r.x0 + r.x1) / 2, 1.15, r.z1 - 0.3, 0.6, 0.45, 0.3); b.ride('chair', (r.x0 + r.x1) / 2, r.z1 - 1.4, 0); } });
     b.box(5.4, 29.6, 0.4, 0.4, 1.1, col(0x6a6d78)); b.m(G.box, glow(0xd8243a), 5.4, 1.25, 29.6, 0.15, 0.15, 0.15);
     b.m(G.box, tmat(T.stripe()), 8.4, 1.0, 29.6, 5.6, 0.12, 0.12); b.solid(8.4, 29.6, 5.6, 0.2, 0.92, 0.16);
     b.brickWall(16.5, 31.3, 7, 1.0, 'x', 0, { bw: 1, bh: 0.5 });

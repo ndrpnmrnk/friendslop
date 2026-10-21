@@ -75,7 +75,8 @@ function animateRide(c, dt, s) {
     c.body.position.y = -0.38; c.body.rotation.x += (-0.08 - sp * 0.1 - c.body.rotation.x) * f; c.body.rotation.z = 0;
     // сидит на скамейке/качелях: ноги болтаются по очереди, голова осматривается
     const dg = s.dangle ? Math.sin(t * 3.2) * 0.12 : 0;
-    setHand(c.footL, -d.footX, d.footY + 0.05 + dg * 0.4, 0.42 + dg, f); setHand(c.footR, d.footX, d.footY + 0.05 - dg * 0.4, 0.42 - dg, f);
+    const fy0 = d.footY + (s.dangle ? -0.22 : 0.05), fz0 = s.dangle ? 0.34 : 0.42;
+    setHand(c.footL, -d.footX, fy0 + dg * 0.4, fz0 + dg, f); setHand(c.footR, d.footX, fy0 - dg * 0.4, fz0 - dg, f);
     if (s.look !== undefined) c.head.rotation.y += (s.look - c.head.rotation.y) * damp(4, dt); else c.head.rotation.y *= 0.9;
     setHand(c.handL, -d.handX, d.handY - 0.2, 0.25, f); setHand(c.handR, d.handX, d.handY - 0.2, 0.25, f);
   }
@@ -154,6 +155,9 @@ function animate(c, dt, s) {
     setHand(c.handL, -hx * 0.8, d.top - 0.2 + sn * 0.22, 0.4, f); setHand(c.handR, hx * 0.8, d.top - 0.2 - sn * 0.22, 0.4, f);
   } else if (s.air) {
     setHand(c.handL, -hx - 0.1, hy + 0.35, hz, f); setHand(c.handR, hx + 0.1, hy + 0.35, hz, f);
+  } else if (s.act === 'smoke') {
+    // курит/пьёт: правая рука периодически подносится ко рту
+    const up = Math.max(0, Math.sin(t * 1.3)); setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx * 0.45, hy + (d.top - 0.35 - hy) * up, hz + 0.25 * up, damp(8, dt));
   } else if (s.act === 'stretch') {
     const a = Math.sin(Math.min(1, s.actK) * Math.PI);
     setHand(c.handL, -hx - 0.15 * a, hy + (d.top - hy + 0.35) * a, hz, f); setHand(c.handR, hx + 0.15 * a, hy + (d.top - hy + 0.35) * a, hz, f); c.body.scale.y *= 1 + 0.08 * a;

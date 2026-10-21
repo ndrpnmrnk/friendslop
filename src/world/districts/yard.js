@@ -21,8 +21,8 @@ export default {
         f.partition(15.5, 1.25, 15.5, r.z1, 3.6, 0.65, 2);
         if (k === 1) {
           f.sofa(9, back, Math.PI); f.tvStand(9, front, 0); f.cupboard(5.2, back, Math.PI); f.rug(9, (front + back) / 2, 2.6, 1.6, '#4a6a9a', '#f1e8ff');
-          f.table(13.5, back - 0.7, 0.7); f.chair(13.5, back + 0.1, Math.PI);
-          f.kitchen(19.5, 1.6, 3); f.table(20, 6, 0.9); f.chair(19, 6, Math.PI / 2); f.chair(21, 6, -Math.PI / 2); f.plantPot(23.3, back);
+          f.ptable(13.5, back - 0.7, 0.7); f.chair(13.5, back + 0.1, Math.PI);
+          f.kitchen(19.5, 1.6, 3); f.ptable(20, 6, 0.9); f.chair(19, 6, Math.PI / 2); f.chair(21, 6, -Math.PI / 2); f.plantPot(23.3, back);
         } else if (k === 2) {
           f.bed(12.8, back - 0.6, Math.PI / 2, 0x7b4bc4); f.wardrobe(5, back, 0); f.rug(9, front + 1, 3, 2);
           f.bed(22.4, back - 0.7, Math.PI, 0x6aa84f); f.wardrobe(16.4, 2, Math.PI / 2); f.desk(19.5, back, Math.PI, true); f.item('ball', 18.5, 4.5);
@@ -35,7 +35,7 @@ export default {
     b.dropLadder(4, 4.5, 'w', 15.2);
     b.tower({ x: 25, z: 1, w: 6, d: 9, floors: 4, fh: 3.8, wall: 0x9c6a6a, door: { side: 's', at: 0.5 }, gaps: [{ side: 'w', at: 0.5 }],
       run: 0.3, entry: 1.5, lane: 1.65, floor: T.floorWood(),
-      interior(f, k, r) { if (k % 2 === 0) f.shelf(k === 0 ? r.x1 - 0.85 : (r.x0 + r.x1) / 2, r.z1 - 0.3, k === 0 ? 1.4 : 3.4, Math.PI); else { f.table((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, 0.8); f.chair((r.x0 + r.x1) / 2 + 0.9, (r.z0 + r.z1) / 2, -Math.PI / 2); } } });
+      interior(f, k, r) { if (k % 2 === 0) f.shelf(k === 0 ? r.x1 - 0.85 : (r.x0 + r.x1) / 2, r.z1 - 0.3, k === 0 ? 1.4 : 3.4, Math.PI); else { f.ptable((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, 0.8); f.chair((r.x0 + r.x1) / 2 + 0.9, (r.z0 + r.z1) / 2, -Math.PI / 2); } } });
     b.plank(24, 4.5, 25, 4.5, 15.2, 1.1);
     // на крыше: водонапорный бак, антенны, кондиционеры
     b.box(17, 5, 2.4, 2.4, 0.6, tmat(T.metal()), { y: 15.2 }); b.m(G.cyl12, tmat(T.rust()), 17, 17.1, 5, 1.1, 2.2, 1.1); b.m(G.cone8, tmat(T.rust()), 17, 18.6, 5, 1.2, 0.8, 1.2); b.solid(17, 5, 2.2, 2.2, 15.8, 2.2);

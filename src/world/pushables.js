@@ -35,6 +35,9 @@ export function addPushable(b, kind, x, z, y = 0) {
       a(G.box, lam({ map: T.sign('ЗЕРНО', '#e8d8b0', '#6a3a1a') }, 'sackTag'), 0, 0.28, 0.255, 0.3, 0.12, 0.01); }));
     g.rotation.y = Math.random() * 6; r = 0.32;
   }
+  // стол из квартиры/кафе/офиса (v0.19): можно толкать, на него можно запрыгнуть
+  else if (kind === 'table') { g.add(compose('ptable', a => { const w = tmat(T.wood()), dk = col(0x2b2533); a(G.box, w, 0, 0.76, 0, 1.12, 0.08, 0.72); a(G.box, dk, 0, 0.71, 0, 1.0, 0.04, 0.6);
+      for (const [x, z] of [[-0.48, -0.28], [0.48, -0.28], [-0.48, 0.28], [0.48, 0.28]]) a(G.box, dk, x, 0.36, z, 0.06, 0.72, 0.06); })); r = 0.5; }
   else if (kind === 'bin') { g.add(binModel()); r = 0.4;
   } else if (kind === 'skate') {
     g.add(compose('skate', add => {
@@ -89,8 +92,8 @@ export function addPushable(b, kind, x, z, y = 0) {
     r = 0.5;
   }
   // mass: тележка катится легко, урна потяжелее, бочка тяжёлая
-  const mass = { sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
-  const h = { sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
+  const mass = { table: 2.4, sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
+  const h = { table: 0.8, sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
   const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y + y, vx: 0, vz: 0, r, mass, h, ride: RIDE[kind] || null, heading: 0 };
   if (p.ride) p.outline = addOutline(g, 0.04);
   g.position.set(p.x, p.y, p.z); W.pushables.push(p); return p;

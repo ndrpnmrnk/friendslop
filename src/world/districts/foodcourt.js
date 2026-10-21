@@ -27,7 +27,7 @@ export default {
             f.sign(r.x1 - 0.02, 1.9, z, -Math.PI / 2, 'МЕНЮ · КОМБО · НАПИТКИ', '#17111f', '#f1e8ff', 2.8, 0.4);
             W.spots.pickup.push({ x: f.X(r.x1 - 1.6), z: f.Z(z), y: f.Y, f: [1, 0], district: 'Фудкорт', label: nm.toLowerCase() });
           });
-          for (const [x, z] of [[23.5, 14], [23.5, 18.5], [23.5, 23], [26.2, 27.5]]) { f.table(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); f.bottles(x, 0.82, z, 2); }
+          for (const [x, z] of [[23.5, 14], [23.5, 18.5], [23.5, 23], [26.2, 27.5]]) { f.ptable(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); f.item(Math.random() < 0.5 ? 'mug' : 'books', x + 0.25, z, 0.85); }
           f.plantPot(21.3, 29.5, 1.2); f.vending(21.4, 13.3);
           // центр зала: островок с растением и указателем, навесные баннеры; проход от дверей свободен
           f.box(27.4, 16.2, 1.6, 1.6, 0.5, tmat(T.planter())); f.m(G.ico, tmat(T.bush()), 27.4, 1.0, 16.2, 0.7, 0.6, 0.7);
@@ -37,7 +37,7 @@ export default {
         }
         // второй этаж: игровые автоматы, диваны
         [0x7b4bc4, 0xd8243a, 0x4ab0f0, 0x6aa84f, 0xf5c542].forEach((c, i) => f.arcade(r.x1 - 0.5, 13 + i * 1.3, -Math.PI / 2, c));
-        f.sofa(23, 29.5, Math.PI, 0x3a4a6a); f.rug(24.5, 24, 3, 3, '#2a1f3d', '#ff8a1f'); f.table(24.5, 24, 0.8); f.item('ball', 24, 21);
+        f.sofa(23, 29.5, Math.PI, 0x3a4a6a); f.rug(24.5, 24, 3, 3, '#2a1f3d', '#ff8a1f'); f.ptable(24.5, 24, 0.8); f.item('ball', 24, 21);
         f.ride('chair', 26, 20, 0); f.plantPot(21.3, 13.5); f.plantPot(30.6, 29.6);
       } });
     // неоновая вывеска на крыше ТЦ

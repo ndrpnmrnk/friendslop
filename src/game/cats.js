@@ -10,6 +10,9 @@ export const COATS = [
   { name: 'ginger', base: '#d48a4a', light: '#efc08a', dark: '#9a5420', eye: '#a8b86a', muzzle: 'rgba(250,240,225,.85)', stripes: true },
   { name: 'gray', base: '#8a8a94', light: '#c4c4cc', dark: '#4b4b56', eye: '#d8c04a', muzzle: 'rgba(245,245,245,.8)', stripes: true },
   { name: 'black', base: '#2a2530', light: '#4a4452', dark: '#141118', eye: '#e8c040', muzzle: 'rgba(80,72,90,.5)', stripes: false },
+  // v0.19: сиамский (тёмные «носочки», уши, хвост, маска) и трёхцветный
+  { name: 'siamese', base: '#e8dcc4', light: '#f6efe0', dark: '#a89070', eye: '#5aa8e8', muzzle: 'rgba(60,40,30,.0)', stripes: false, points: '#4a3428' },
+  { name: 'calico', base: '#f1e8dc', light: '#fff8f0', dark: '#c8b8a8', eye: '#c8b040', muzzle: 'rgba(255,250,240,.9)', stripes: false, patches: ['#d8742a', '#2a2530'] },
 ];
 let HEAD;
 const headGeo = () => HEAD || (HEAD = frontBack(new THREE.SphereGeometry(1, 7, 5), 0.15));
@@ -34,6 +37,8 @@ export function buildCat(coat) {
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.03; sh.scale.set(0.25, 0.42, 1); root.add(sh);
   const stars = new THREE.Group(); stars.position.set(0, 0.85, 0.3); root.add(stars); stars.visible = false;
   for (let i = 0; i < 3; i++) { const s = sprite(T.star(), 0.18); s.position.set(Math.cos(i * 2.1) * 0.25, 0, Math.sin(i * 2.1) * 0.25); stars.add(s); }
+  if (coat.points) { const pm = lam({ map: T.fur({ name: 'pts' + coat.name, base: coat.points, light: '#6a4a38', dark: '#2a1a14', stripes: false }) }, 'catPts' + coat.name);
+    ears.forEach(e => (e.material = pm)); legs.forEach(l => { const paw = l.children[0]; if (paw) { const sock = new THREE.Mesh(G.box, pm); sock.position.set(0, -0.22, 0); sock.scale.set(0.075, 0.14, 0.075); l.add(sock); } }); tail2.children.forEach(c => (c.material = pm)); }
   root.scale.setScalar(1.25);
   let cur = 'open';
   const cat = {

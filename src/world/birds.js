@@ -1,18 +1,35 @@
 import { THREE, G, mesh, col, lam } from '../core/gfx.js';
+import { photo } from '../core/textures.js';
 import { W } from './state.js';
 
 /* Голуби (площадь) и вороны (кладбище): клюют, а от бегущих и брошенных предметов взлетают */
+/* PS1-стиль (v0.19, референс docs/refs/v0.19/pigeon.png): угловатое «коробочное» тело, сплющенное и чуть кривое,
+   фото-подобная текстура перьев (полосы на крыльях, переливы на шее), красный глаз, розовые лапки */
+export function featherTex(kind) {
+  return photo('feath' + kind, 32, 32, (g, W, H) => {
+    const base = kind === 'crow' ? '#1e1a26' : kind === 'gull' ? '#e8e8f0' : '#7a7a8c', dark = kind === 'crow' ? '#0a080e' : kind === 'gull' ? '#8a8a98' : '#4a4a5a';
+    g.fillStyle = base; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 260; i++) { g.fillStyle = Math.random() < 0.5 ? dark : kind === 'gull' ? '#ffffff' : '#9a9aa8'; g.globalAlpha = 0.25; g.fillRect(Math.random() * W, Math.random() * H, W / 16, H / 32); }
+    g.globalAlpha = 1;
+    if (kind !== 'gull') { const gr = g.createLinearGradient(0, 0, W, 0); gr.addColorStop(0, kind === 'crow' ? '#2a3a5a' : '#3a7a5a'); gr.addColorStop(0.5, kind === 'crow' ? '#3a2a5a' : '#6a4a8a'); gr.addColorStop(1, kind === 'crow' ? '#1a2a3a' : '#3a6a7a');
+      g.globalAlpha = 0.75; g.fillStyle = gr; g.fillRect(0, 0, W, H * 0.3); g.globalAlpha = 1; }
+    g.fillStyle = dark; for (const y of [0.55, 0.72]) g.fillRect(W * 0.1, H * y, W * 0.8, H * 0.06);
+  }, 4);
+}
 export function addBirds(kind, rect, n) {
-  const body = kind === 'crow' ? 0x1e1a26 : kind === 'gull' ? 0xeeeef4 : 0x7a7a8c, wingC = kind === 'crow' ? 0x14111a : kind === 'gull' ? 0x9a9aa8 : 0x5a5a6c;
+  const fm = new THREE.MeshLambertMaterial({ map: featherTex(kind) }), leg = col(kind === 'crow' ? 0x2a2a30 : 0xd88a9a), beakC = col(kind === 'crow' ? 0x2a2a30 : kind === 'gull' ? 0xf5c542 : 0xe8d8b0);
   for (let i = 0; i < n; i++) {
     const g = new THREE.Group(); W.group.add(g);
     const b = new THREE.Group(); g.add(b);
-    mesh(G.sphL, lam({ color: body }, 'bird' + body), 0, 0.16, 0, 0.13, 0.11, 0.2, b);
-    const head = mesh(G.sphL, lam({ color: kind === 'crow' || kind === 'gull' ? body : 0x5a6a7a }, 'bh' + kind), 0, 0.3, 0.15, 0.08, 0.08, 0.08, b);
-    const beak = mesh(G.cone4, col(kind === 'crow' ? 0x2a2a30 : kind === 'gull' ? 0xf5c542 : 0xd8a040), 0, 0.29, 0.25, 0.025, 0.08, 0.025, b); beak.rotation.x = Math.PI / 2;
-    mesh(G.box, col(0x111111), 0.05, 0.32, 0.19, 0.02, 0.02, 0.02, b); mesh(G.box, col(0x111111), -0.05, 0.32, 0.19, 0.02, 0.02, 0.02, b);
-    mesh(G.box, col(wingC), 0, 0.14, -0.2, 0.1, 0.03, 0.14, b);
-    const wings = [-1, 1].map(s => { const p = new THREE.Group(); p.position.set(s * 0.1, 0.2, 0); b.add(p); mesh(G.box, col(wingC), s * 0.15, 0, 0, 0.3, 0.03, 0.16, p); return p; });
+    // тело — повёрнутый «кубик», слегка сплющенный и перекошенный
+    const body = mesh(G.box, fm, 0, 0.17, -0.02, 0.2, 0.2, 0.26, b); body.rotation.set(0.55, 0, 0.08 * (Math.random() - 0.5));
+    const head = new THREE.Group(); head.position.set(0, 0.32, 0.13); b.add(head);
+    mesh(G.box, fm, 0, 0, 0, 0.12, 0.12, 0.13, head).rotation.set(0.25, 0, 0);
+    const beak = mesh(G.cone4, beakC, 0, -0.01, 0.1, 0.025, 0.08, 0.03, head); beak.rotation.x = Math.PI / 2;
+    for (const sx of [-1, 1]) { mesh(G.box, col(0xd8243a), sx * 0.062, 0.02, 0.03, 0.015, 0.03, 0.03, head); mesh(G.box, col(0x111111), sx * 0.064, 0.02, 0.035, 0.01, 0.014, 0.014, head); }
+    mesh(G.box, fm, 0, 0.13, -0.24, 0.12, 0.03, 0.16, b).rotation.x = -0.25;
+    for (const sx of [-1, 1]) { mesh(G.box, leg, sx * 0.05, 0.05, 0.0, 0.02, 0.1, 0.02, b); for (const a of [-0.5, 0, 0.5]) { const t = mesh(G.box, leg, sx * 0.05 + Math.sin(a) * 0.03, 0.005, 0.03 * Math.cos(a), 0.012, 0.01, 0.06, b); t.rotation.y = a; } }
+    const wings = [-1, 1].map(s => { const p = new THREE.Group(); p.position.set(s * 0.1, 0.2, -0.02); b.add(p); mesh(G.box, fm, s * 0.15, 0, 0, 0.3, 0.025, 0.18, p); return p; });
     const bird = { g, b, head, wings, rect, kind, state: 'peck', t: Math.random() * 3, vx: 0, vy: 0, vz: 0, hide: 0 };
     place(bird); W.birds.push(bird);
   }
@@ -37,7 +54,7 @@ export function updateBirds(dt, t, player) {
     if (bd.state === 'peck') {
       bd.t -= dt;
       const peck = Math.max(0, Math.sin(t * 9 + bd.g.id));
-      bd.head.position.y = 0.3 - peck * 0.08; bd.head.position.z = 0.15 + peck * 0.05;
+      bd.head.position.y = 0.32 - peck * 0.08; bd.head.position.z = 0.13 + peck * 0.05;
       if (bd.t < 0) { bd.t = 1 + Math.random() * 3; bd.g.rotation.y += (Math.random() - 0.5) * 2; const a = bd.g.rotation.y; bd.g.position.x += Math.sin(a) * 0.25; bd.g.position.z += Math.cos(a) * 0.25; }
     } else if (bd.state === 'fly') {
       bd.t += dt; bd.vy += 1.5 * dt;

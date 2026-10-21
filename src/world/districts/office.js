@@ -29,7 +29,7 @@ export default {
         if (k === N - 1) {
           // столовая наверху
           f.kitchen(20, 1.6, 4); f.vending(24.1, 5);
-          for (const [x, z] of [[10, 7], [13.5, 7], [10, 10.5], [13.5, 10.5], [18, 10.5], [21.5, 10.5]]) { f.table(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); }
+          for (const [x, z] of [[10, 7], [13.5, 7], [10, 10.5], [13.5, 10.5], [18, 10.5], [21.5, 10.5]]) { f.ptable(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); }
           f.sofa(21, 13.1, Math.PI, 0x7b4bc4); f.plantPot(8, 13.2); f.plantPot(24.2, 13.2);
           return;
         }
@@ -41,7 +41,7 @@ export default {
         if (k % 3 === 1) f.item('chair', 9.5, 11.4);
         // переговорка: стеклянные стены (бьются), стол, доска
         f.vitrine(21.5, 9.2, 6.2, 2.2, 'x', 0.2); f.vitrine(18.4, 11.9, 3.2, 2.2, 'z', 0.2);
-        f.table(21.5, 11.6, 1.1); f.chair(20.4, 11.6, Math.PI / 2); f.chair(22.6, 11.6, -Math.PI / 2); f.whiteboard(24.6, 1.6, 11.6, -Math.PI / 2, 2.4);
+        f.ptable(21.5, 11.6, 1.1); f.chair(20.4, 11.6, Math.PI / 2); f.chair(22.6, 11.6, -Math.PI / 2); f.whiteboard(24.6, 1.6, 11.6, -Math.PI / 2, 2.4);
         f.waterCooler(24.3, 4); f.cabinet(24.3, 6, 0.6, 1.2, 1.1, 0xd8d8e0, 0, -Math.PI / 2); f.plantPot(8, 13.2); f.plantPot(17, 13.2, 0.9);
         f.cabinet(16.5, 13.4, 2, 0.5, 1.6, 0x6a6d78, 0, Math.PI);
         if (k % 2 === 1) f.safe(7.75, 11.4, Math.PI / 2);

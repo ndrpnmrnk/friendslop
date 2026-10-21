@@ -5,7 +5,7 @@ import { W } from '../world/state.js';
 import { groundAt, solidHit, addZone, impulsePushables } from '../world/physics.js';
 import { burst, puff, smokeRing, decal } from '../world/particles.js';
 import { splatter } from '../world/splat.js';
-import { scareBirds } from '../world/birds.js';
+import { scareBirds, featherTex } from '../world/birds.js';
 import { hitBreakables } from '../world/breakables.js';
 import { worldHit, shake, hitFreeze } from './worldfx.js';
 import { addItem, launch } from './items.js';
@@ -53,7 +53,7 @@ function scatterTools() {
 }
 /* Раз в ~40 с над городом пролетает ворона (на Хэллоуин — летучая мышь) и роняет предмет в случайном открытом месте */
 function flyerModel() {
-  const bat = HW, g = new THREE.Group(), body = col(bat ? 0x2b2533 : 0x17141c), eye = col(bat ? 0xff7a1a : 0xf5c542);
+  const bat = HW, g = new THREE.Group(), body = bat ? col(0x2b2533) : new THREE.MeshLambertMaterial({ map: featherTex('crow') }), eye = col(bat ? 0xff7a1a : 0xf5c542);
   mesh(G.sph10, body, 0, 0, 0, 0.32, 0.26, 0.5, g); mesh(G.sph10, body, 0, 0.1, 0.45, 0.2, 0.2, 0.2, g);
   if (!bat) mesh(G.cone8, col(0x3a3440), 0, 0.08, 0.68, 0.06, 0.16, 0.06, g).rotation.x = Math.PI / 2; else for (const s of [-1, 1]) mesh(G.cone8, body, s * 0.1, 0.32, 0.45, 0.05, 0.14, 0.05, g);
   for (const s of [-1, 1]) mesh(G.box, eye, s * 0.08, 0.15, 0.6, 0.04, 0.04, 0.02, g);

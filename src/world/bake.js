@@ -35,6 +35,10 @@ export function bakeStatic(group) {
         const c = new THREE.Vector3(); g.computeBoundingBox(); g.boundingBox.getCenter(c);
         if (o.geometry === G.box && axisAligned(o.matrixWorld)) { boxes.push({ g, bb: g.boundingBox.clone() }); worldUV(g, mats, Array.isArray(o.material)); }
         const cell = Math.floor(c.x / CELL) + ':' + Math.floor(c.z / CELL);
+        // «паспорт» объекта для камеры мини-игр (game/occlusion.js): центр, радиус+100, полувысота
+        { const sz = new THREE.Vector3(); g.boundingBox.getSize(sz); const n = g.attributes.position.count, a = new Float32Array(n * 4), h = new Float32Array(n), r = Math.hypot(sz.x, sz.z) / 2;
+          for (let i = 0; i < n; i++) { a[i * 4] = c.x; a[i * 4 + 1] = c.y; a[i * 4 + 2] = c.z; a[i * 4 + 3] = r + 100; h[i] = sz.y / 2; }
+          g.setAttribute('aObj', new THREE.BufferAttribute(a, 4)); g.setAttribute('aObjH', new THREE.BufferAttribute(h, 1)); }
         pending.push({ o, g, mats, cell }); removed.push(o); return;
       }
     }
@@ -96,13 +100,13 @@ function canon(mat, g) {
   return c;
 }
 function strip(g) {
-  for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k);
+  for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv' && k !== 'aObj' && k !== 'aObjH') g.deleteAttribute(k);
   g.clearGroups(); g.morphAttributes = {};
   return g;
 }
 function slice(g, start, count) {
   const out = new THREE.BufferGeometry();
-  for (const k of ['position', 'normal', 'uv']) { const a = g.attributes[k]; out.setAttribute(k, new THREE.BufferAttribute(a.array.slice(start * a.itemSize, (start + count) * a.itemSize), a.itemSize)); }
+  for (const k of ['position', 'normal', 'uv', 'aObj', 'aObjH']) { const a = g.attributes[k]; if (!a) continue; out.setAttribute(k, new THREE.BufferAttribute(a.array.slice(start * a.itemSize, (start + count) * a.itemSize), a.itemSize)); }
   return out;
 }
 function flip(g) {

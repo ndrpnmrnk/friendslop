@@ -47,7 +47,9 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.noMountT > 0) p.noMountT -= dt;
   // в клетке: стоим, ждём (E — головоломка замка, см. main)
   if (p.caged) { p.vel.set(0, 0, 0); p.ch.animate(dt, { t, speed: 0, grabbed: true }); groundBlob(p); return; }
-  const ctrl = canMove && p.stun <= 0 && !(p.getT > 0) && !p.frozen && !(p.knockT > 0) && !(p.floatT > 0) && !(p.netT > 0);
+  // перекур/пивко со скелетом: стоим рядом, пока не докурим (убежать нельзя)
+  if (p.chill) { p.chill.t -= dt; p.vel.set(0, p.vel.y, 0); if (p.chill.t <= 0) { p.stBoost = 25; p.chill = null; } }
+  const ctrl = !p.chill && canMove && p.stun <= 0 && !(p.getT > 0) && !p.frozen && !(p.knockT > 0) && !(p.floatT > 0) && !(p.netT > 0);
   let ix = 0, iz = 0;
   if (ctrl) {
     if (keys.KeyA || keys.ArrowLeft) ix--; if (keys.KeyD || keys.ArrowRight) ix++;
@@ -126,8 +128,10 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.grab && tapped('KeyC')) release(p, 1);
   if (p.exhausted && p.stamina > PC.stamina.restart) p.exhausted = false;
   p.sprinting = wantSprint && !p.exhausted && p.stamina > 0;
-  if (p.sprinting && !(p.energy > 0)) { p.stamina -= PC.stamina.drain * dt; p.stDelay = PC.stamina.delay; if (p.stamina <= 0) { p.stamina = 0; p.exhausted = true; } }
-  else { p.stDelay -= dt; if (p.stDelay <= 0) p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt); }
+  // бодрость после перекура/пивка со скелетом: усталость копится втрое медленнее, отдых быстрее
+  if (p.stBoost > 0) p.stBoost -= dt;
+  if (p.sprinting && !(p.energy > 0)) { p.stamina -= PC.stamina.drain * dt * (p.stBoost > 0 ? 0.35 : 1); p.stDelay = PC.stamina.delay; if (p.stamina <= 0) { p.stamina = 0; p.exhausted = true; } }
+  else { p.stDelay -= dt; if (p.stDelay <= 0) p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt * (p.stBoost > 0 ? 1.8 : 1)); }
   // поверхность под ногами
   const water = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'water');
   const slick = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'oil') || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle');
@@ -292,7 +296,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
       const d = decal(T.foot(), p.pos.x + sx, p.pos.y, p.pos.z + sz, 0.32, 4 + p.wetT, 0xffffff); d.rotation.z = f; d.material.opacity = 0.3 + 0.2 * p.wetT / 3; } }
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
-  p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, rag: ragK(p), daze: p.daze > 0, grabbed: p.netT > 0 && !(p.stun > 0), climb: !!p.climb,
+  p.ch.animate(dt, { t, act: p.chill ? 'smoke' : undefined, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, rag: ragK(p), daze: p.daze > 0, grabbed: p.netT > 0 && !(p.stun > 0), climb: !!p.climb,
     hold: (!!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
     emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, swat: p.swatT > 0 ? p.swatT : 0 });

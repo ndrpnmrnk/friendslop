@@ -115,7 +115,7 @@ export class Builder {
     const lm = tmat(T.leaves(kind === 'maple' ? 0 : 1));
     this.m(G.cyl6, bk, x, y + 1.0 * s, z, 0.19 * s, 2.0 * s, 0.19 * s);
     this.m(G.cone6, bk, x, y + 0.18 * s, z, 0.36 * s, 0.36 * s, 0.36 * s);
-    for (const a of [rand() * 6, rand() * 6, rand() * 6]) { const br = this.m(G.cyl5, bk, x + Math.cos(a) * 0.32 * s, y + 2.1 * s, z + Math.sin(a) * 0.32 * s, 0.06 * s, 0.85 * s, 0.06 * s); br.rotation.z = Math.cos(a) * 0.75; br.rotation.x = -Math.sin(a) * 0.75; }
+    for (const a of [rand() * 6, rand() * 6, rand() * 6]) { const br = this.m(G.cyl5, bk, x + Math.cos(a) * 0.32 * s, y + 2.1 * s, z + Math.sin(a) * 0.32 * s, 0.06 * s, 0.85 * s, 0.06 * s); br.rotation.z = -Math.cos(a) * 0.75; br.rotation.x = Math.sin(a) * 0.75; } // ветви растут из ствола наружу (v0.19)
     const n = kind === 'maple' ? 7 : 5;
     for (let i = 0; i < n; i++) {
       const a = i / n * 6.28 + rand() * 0.6, d = i === 0 ? 0 : (kind === 'maple' ? 0.75 : 0.55) * (0.7 + rand() * 0.4), r = (kind === 'maple' ? 0.72 : 0.95) * (0.8 + rand() * 0.35);
@@ -132,7 +132,7 @@ export class Builder {
     this.m(G.cyl5, b, x, 1.6, z, 0.3, 3.2, 0.3);
     for (const [a, l, y] of [[0.7, 1.6, 2.4], [-0.9, 1.4, 2.9], [2.3, 1.2, 2.0], [3.6, 1.0, 3.1]]) {
       const br = this.m(G.cyl5, b, x + Math.cos(a) * l * 0.4, y + 0.3, z + Math.sin(a) * l * 0.4, 0.08, l, 0.08);
-      br.rotation.z = Math.cos(a) * 0.9; br.rotation.x = Math.sin(a) * 0.9;
+      br.rotation.z = -Math.cos(a) * 0.9; br.rotation.x = Math.sin(a) * 0.9;
     }
     this.solid(x, z, 0.6, 0.6, 0, 3);
   }
@@ -299,6 +299,8 @@ export class Builder {
   stringLights(x0, z0, x1, z1, y, colors = [0xff8a1f, 0xb18cff, 0x9be36b]) {
     const len = Math.hypot(x1 - x0, z1 - z0), spans = Math.max(1, Math.ceil(len / 8)), pole = col(0x2b2533);
     for (let k = 0; k <= spans; k++) { const t = k / spans, px = x0 + (x1 - x0) * t, pz = z0 + (z1 - z0) * t;
+      // столб не ставим перед дверью (вход всегда свободен)
+      if (W.doors.some(d => Math.hypot(d.x - this.X(px), d.z - this.Z(pz)) < 1.8 && Math.abs(d.y - this.Y) < 1)) continue;
       this.m(G.cyl6, pole, px, (y + 0.15) / 2, pz, 0.06, y + 0.15, 0.06); this.solid(px, pz, 0.16, 0.16, 0, y); }
     const pts = [];
     for (let k = 0; k < spans; k++) {
@@ -315,6 +317,8 @@ export class Builder {
     for (const [a, b] of [[-0.6, -0.35], [0.6, -0.35], [-0.6, 0.35], [0.6, 0.35]]) this.m(G.box, col(0x2b2533), x + a * s, y + 0.38, z + b * s, 0.07, 0.76, 0.07);
     this.solid(x, z, 1.4 * s, 0.9 * s, y, 0.82);
   }
+  // стол в помещении — толкаемый (v0.19); s — масштаб (визуально как обычный стол)
+  ptable(x, z, s = 1) { const p = addPushable(this, 'table', x, z, 0); p.mesh.scale.set(s + 0.2, 1, s + 0.2); return p; }
   chair(x, z, ry = 0, y = 0) { return this.item('chair', x, z, y, ry); }
   cone(x, z) { return this.item('cone', x, z); }
   staticChair(x, z, ry = 0) {

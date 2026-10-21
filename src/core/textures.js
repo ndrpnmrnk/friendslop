@@ -6,6 +6,17 @@ import { HW, SEASON } from '../config.js';
    Получается та самая размытая пиксельная фактура PS1. Позже любую можно заменить
    реальным фото — достаточно вернуть текстуру с тем же ключом. */
 const C = new Map();
+/* v0.19: реальные фото-текстуры (Poly Haven, CC0), ужатые до 64–128 px и 5 бит на канал (src/assets/ps1).
+   Грузятся до генерации карты (phReady); если картинки нет — работает старая процедурная текстура. */
+const URLS = import.meta.glob('../assets/ps1/*.png', { eager: true, query: '?url', import: 'default' });
+export const PH = {};
+export const phReady = Promise.all(Object.entries(URLS).map(([p, u]) => new Promise(res => { const im = new Image(); im.onload = im.onerror = () => res(); im.src = u; PH[p.split('/').pop().replace('.png', '')] = im; })));
+const phOk = k => PH[k] && PH[k].complete && PH[k].naturalWidth > 0;
+// замостить фото rx×ry раз и (по желанию) умножить на цвет
+function phDraw(g, W, H, k, tint, rx = 1, ry = 1) {
+  const im = PH[k]; for (let i = 0; i < rx; i++) for (let j = 0; j < ry; j++) g.drawImage(im, i * W / rx, j * H / ry, W / rx, H / ry);
+  if (tint) { g.globalCompositeOperation = 'multiply'; g.fillStyle = tint; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; }
+}
 function finish(c, alpha) {
   const t = new THREE.CanvasTexture(c);
   t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = ANISO;
@@ -252,6 +263,8 @@ export const T = {
   }),
   fur: coat => photo('fur' + coat.name, 32, 32, (g, W, H) => {
     fill(g, W, H, coat.base);
+    // трёхцветная: крупные непрозрачные пятна рыжего и чёрного
+    if (coat.patches) for (let i = 0; i < 9; i++) { g.fillStyle = coat.patches[i % coat.patches.length]; g.beginPath(); g.ellipse(R() * W, R() * H, W * (0.12 + R() * 0.16), H * (0.1 + R() * 0.14), R() * 3, 0, 7); g.fill(); }
     blobs(g, W, H, [coat.light, coat.dark], 40, 10, 30, 0.25);
     if (coat.stripes) { g.globalAlpha = 0.55; g.fillStyle = coat.dark; for (let x = 0; x < W; x += W / 5) { g.beginPath(); for (let y = 0; y <= H; y += 8) g.lineTo(x + Math.sin(y * 0.06) * 12, y); for (let y = H; y >= 0; y -= 8) g.lineTo(x + 14 + Math.sin(y * 0.06) * 12, y); g.fill(); } g.globalAlpha = 1; }
     strokes(g, W, H, [coat.light, coat.dark, coat.base], 900, 10, Math.PI / 2, 0.6, 2, 0.5);
@@ -262,6 +275,9 @@ export const T = {
     g.fillStyle = radial(g, W / 2, H * 0.45, W * 0.55, coat.light, coat.base); g.fillRect(0, 0, W, H);
     if (coat.stripes) { g.globalAlpha = 0.5; g.strokeStyle = coat.dark; g.lineWidth = W * 0.025; for (const dx of [-0.08, 0, 0.08]) { g.beginPath(); g.moveTo(W * (0.5 + dx), H * 0.05); g.lineTo(W * (0.5 + dx * 0.6), H * 0.28); g.stroke(); } g.globalAlpha = 1; }
     strokes(g, W, H, [coat.light, coat.dark], 500, 12, Math.PI / 2, 1.2, 2, 0.35);
+    // сиамская «маска» вокруг носа и глаз
+    if (coat.points) { g.fillStyle = radial(g, W / 2, H * 0.62, W * 0.36, coat.points, 'rgba(0,0,0,0)'); g.fillRect(0, 0, W, H); }
+    if (coat.patches) { g.fillStyle = coat.patches[0]; g.beginPath(); g.ellipse(W * 0.25, H * 0.25, W * 0.22, H * 0.25, 0.4, 0, 7); g.fill(); g.fillStyle = coat.patches[1]; g.beginPath(); g.ellipse(W * 0.78, H * 0.2, W * 0.2, H * 0.22, -0.4, 0, 7); g.fill(); }
     // светлая мордочка
     g.fillStyle = radial(g, W / 2, H * 0.72, W * 0.2, coat.muzzle, 'rgba(0,0,0,0)'); g.fillRect(0, 0, W, H);
     const ex = [W * 0.33, W * 0.67], ey = H * 0.48, er = W * 0.095;
@@ -386,7 +402,12 @@ export const T = {
   }),
 
   /* ---------- предметы ---------- */
-  pumpkin: () => photo('pumpkin', 32, 32, (g, W, H) => {
+  pumpkin: () => photo('pumpkin2', 32, 32, (g, W, H) => {
+    fill(g, W, H, '#d8641a'); for (let x = 0; x < W; x += W / 8) { const gr = g.createLinearGradient(x, 0, x + W / 8, 0); gr.addColorStop(0, '#8a3a0c'); gr.addColorStop(0.5, '#f8923a'); gr.addColorStop(1, '#8a3a0c'); g.fillStyle = gr; g.fillRect(x, 0, W / 8, H); }
+    blobs(g, W, H, ['#f8a84a', '#a84a10', '#e8c070'], 120, 1, 3, 0.35); strokes(g, W, H, ['#6a2a08', '#f8b860'], 200, 20, Math.PI / 2, 0.1, 1.5, 0.35);
+    g.fillStyle = 'rgba(80,90,30,.5)'; g.fillRect(0, 0, W, H * 0.08); grain(g, W, H, 16);
+  }),
+  pumpkinOld: () => photo('pumpkin', 32, 32, (g, W, H) => {
     fill(g, W, H, '#e0701a'); for (let x = 0; x < W; x += W / 6) { const gr = g.createLinearGradient(x, 0, x + W / 6, 0); gr.addColorStop(0, '#a8480c'); gr.addColorStop(0.5, '#f08a2a'); gr.addColorStop(1, '#a8480c'); g.fillStyle = gr; g.fillRect(x, 0, W / 6, H); }
     grain(g, W, H, 12);
   }),
@@ -395,7 +416,14 @@ export const T = {
     g.beginPath(); g.moveTo(2, 7); g.lineTo(4.5, 3); g.lineTo(7, 7); g.fill(); g.beginPath(); g.moveTo(9, 7); g.lineTo(11.5, 3); g.lineTo(14, 7); g.fill();
     g.fillRect(3, 10, 10, 3); g.clearRect(5, 10, 2, 1); g.clearRect(9, 12, 2, 1);
   }),
-  tomato: () => photo('tomato', 16, 16, (g, W, H) => { g.fillStyle = radial(g, W * 0.35, H * 0.35, W * 0.8, '#ff6a4a', '#8a120a'); g.fillRect(0, 0, W, H); grain(g, W, H, 10); }),
+  // v0.19: еда «под фото» — блики, неровный цвет, прожилки, зерно
+  tomato: () => photo('tomato2', 24, 24, (g, W, H) => { g.fillStyle = radial(g, W * 0.35, H * 0.3, W * 0.9, '#ff7a5a', '#7a0e08'); g.fillRect(0, 0, W, H); blobs(g, W, H, ['#c8200e', '#e8402a', '#a01408'], 40, 2, 6, 0.35);
+    g.fillStyle = 'rgba(255,240,220,.7)'; g.beginPath(); g.ellipse(W * 0.3, H * 0.28, W * 0.12, H * 0.07, -0.5, 0, 7); g.fill(); g.fillStyle = '#e8c040'; g.globalAlpha = 0.4; for (let i = 0; i < 8; i++) g.fillRect(R() * W, R() * H, 1, 1); g.globalAlpha = 1; grain(g, W, H, 14); }),
+  cucumber: () => photo('cucumber', 32, 16, (g, W, H) => { fill(g, W, H, '#2f6a22'); for (let y = 0; y < H; y += 3) { g.fillStyle = y % 6 ? '#3f8a2a' : '#5aa040'; g.fillRect(0, y, W, 1.5); }
+    blobs(g, W, H, ['#e8e8a0', '#1e4a14'], 70, 0.6, 1.4, 0.7); grain(g, W, H, 16); }),
+  pizzaTop: () => photo('pizzaTop', 32, 32, (g, W, H) => { fill(g, W, H, '#c8862a'); g.fillStyle = radial(g, W / 2, H / 2, W * 0.5, '#e8b04a', '#a8601a'); g.beginPath(); g.arc(W / 2, H / 2, W * 0.46, 0, 7); g.fill();
+    g.fillStyle = '#c83a1a'; g.beginPath(); g.arc(W / 2, H / 2, W * 0.38, 0, 7); g.fill(); blobs(g, W, H, ['#f8e8b0', '#f1d890'], 30, 2, 5, 0.85); for (let i = 0; i < 7; i++) { const a = R() * 6.3, r = R() * W * 0.3; g.fillStyle = '#a0281a'; g.beginPath(); g.arc(W / 2 + Math.cos(a) * r, H / 2 + Math.sin(a) * r, W * 0.06, 0, 7); g.fill(); }
+    blobs(g, W, H, ['#3a6a2a'], 10, 1, 2, 0.8); grain(g, W, H, 14); }),
   ball: () => photo('ball', 32, 32, (g, W, H) => {
     fill(g, W, H, '#d86a1a'); blobs(g, W, H, ['#c05a12', '#e87a2a'], 200, 1, 3, 0.6);
     g.strokeStyle = '#1a0e08'; g.lineWidth = W * 0.03; g.beginPath(); g.moveTo(W / 2, 0); g.lineTo(W / 2, H); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
@@ -596,6 +624,43 @@ export const T = {
   fog: () => photo('fog', 32, 32, (g, W, H) => { g.fillStyle = radial(g, W / 2, H / 2, W / 2, 'rgba(210,200,230,.5)', 'rgba(210,200,230,0)'); g.fillRect(0, 0, W, H); }, 4),
   dot: () => pix('dot', 6, 6, (g) => { g.fillStyle = '#ffffff'; g.fillRect(1, 0, 4, 6); g.fillRect(0, 1, 6, 4); }),
   star: () => pix('star', 9, 9, (g) => { g.fillStyle = '#f5c542'; g.fillRect(4, 0, 1, 9); g.fillRect(0, 4, 9, 1); g.fillRect(3, 3, 3, 3); g.fillStyle = '#fff'; g.fillRect(4, 4, 1, 1); }),
+  // картинки для пазла (v0.19): понятные сюжеты в стиле игры, у каждой плитки свои детали
+  puzzlePic: k => photo('pz' + k, 48, 48, (g, W, H) => {
+    const s = W / 96; g.scale(s, s); const R = (c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); }, C = (c, x, y, r) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill(); };
+    const sky = (a, b) => { const gr = g.createLinearGradient(0, 0, 0, 96); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.fillRect(0, 0, 96, 96); [[8, 8], [26, 18], [60, 6], [88, 26], [40, 30]].forEach(([x, y]) => R('#f5c542', x, y, 2, 2)); };
+    if (k === 0) { // кот на крыше под луной
+      sky('#2a1f3d', '#5a3a7a'); C('#f1e8c0', 72, 22, 13); C('#d8d0a8', 68, 18, 3);
+      for (let i = 0; i < 5; i++) R(i % 2 ? '#3a2a50' : '#2a1f3d', i * 20, 62 - (i % 2) * 8, 20, 40);
+      R('#ffd25c', 6, 72, 5, 6); R('#ffd25c', 46, 64, 5, 6); R('#ffd25c', 84, 72, 5, 6);
+      R('#5a4a6a', 20, 50, 56, 6); C('#17111f', 46, 40, 10); R('#17111f', 38, 40, 18, 12); g.fillStyle = '#17111f'; g.beginPath(); g.moveTo(37, 34); g.lineTo(40, 24); g.lineTo(44, 32); g.fill(); g.beginPath(); g.moveTo(48, 32); g.lineTo(52, 24); g.lineTo(55, 34); g.fill();
+      R('#9be36b', 41, 38, 3, 2); R('#9be36b', 49, 38, 3, 2); R('#17111f', 56, 46, 14, 3);
+    } else if (k === 1) { // бабушка поливает клумбу
+      sky('#3a2458', '#7a4a6a'); R('#4a6a3a', 0, 70, 96, 26); R('#7a6a8a', 6, 66, 60, 10);
+      [[12, '#ff5a6e'], [24, '#f5c542'], [36, '#b18cff'], [48, '#f1e8ff'], [58, '#ff5a6e']].forEach(([x, c]) => { R('#3a5a2a', x, 54, 2, 12); C(c, x + 1, 52, 4); });
+      R('#6a4aa8', 68, 46, 18, 30); C('#e8c0a0', 77, 38, 8); C('#d8d8e0', 77, 31, 7); R('#17111f', 72, 37, 3, 2); R('#17111f', 79, 37, 3, 2);
+      R('#4aa86a', 54, 42, 12, 10); R('#4aa86a', 46, 40, 10, 3); for (let i = 0; i < 5; i++) R('#9ccbec', 40 - i * 2, 44 + i * 3, 2, 2);
+    } else if (k === 2) { // тыквенный двор
+      sky('#2a1f3d', '#3a2458'); C('#f1e8ff', 76, 18, 11); C('#3a2458', 71, 15, 10); R('#2a1f3d', 0, 70, 96, 26);
+      for (let x = 0; x < 96; x += 8) R('#5a4030', x, 56, 5, 16); R('#5a4030', 0, 60, 96, 3);
+      C('#e8731a', 30, 72, 16); C('#e8731a', 68, 76, 12); R('#3f6b2a', 28, 54, 4, 6); R('#3f6b2a', 66, 62, 3, 5);
+      g.fillStyle = '#ffd25c'; [[22, 68], [34, 68]].forEach(([x, y]) => { g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4, y - 6); g.lineTo(x + 8, y); g.fill(); }); R('#ffd25c', 22, 77, 16, 4); R('#ffd25c', 62, 74, 4, 4); R('#ffd25c', 70, 74, 4, 4);
+    } else if (k === 3) { // вертушка над городом
+      sky('#3a2458', '#ff8a5a'); for (let i = 0; i < 8; i++) R(['#2a1f3d', '#3a2a50'][i % 2], i * 12, 58 - (i * 7) % 20, 12, 60); for (let i = 0; i < 14; i++) R('#ffd25c', 4 + (i * 13) % 90, 64 + (i * 7) % 26, 3, 3);
+      C('#d8d0e4', 48, 34, 14); C('#17111f', 48, 34, 10); R('#d89a5a', 42, 29, 12, 10); R('#f1e8ff', 44, 31, 3, 3); R('#f1e8ff', 50, 31, 3, 3); R('#ff8a1f', 30, 31, 36, 3);
+      R('#2b2533', 47, 14, 2, 8); R('#2b2533', 30, 12, 36, 2); R('#2b2533', 40, 48, 2, 6); R('#2b2533', 55, 48, 2, 6); R('#2b2533', 38, 53, 20, 2);
+    } else if (k === 4) { // скелет с банкой на скамейке
+      sky('#2a1f3d', '#4a3a6a'); R('#3a3046', 0, 74, 96, 22); R('#8a6a4a', 14, 56, 66, 5); R('#8a6a4a', 14, 46, 66, 4); R('#2b2533', 18, 61, 3, 13); R('#2b2533', 73, 61, 3, 13);
+      C('#f1e8d0', 46, 30, 9); R('#17111f', 41, 28, 4, 4); R('#17111f', 48, 28, 4, 4); R('#17111f', 43, 35, 7, 1);
+      R('#f1e8d0', 44, 39, 4, 14); for (let i = 0; i < 3; i++) R('#f1e8d0', 39, 41 + i * 4, 14, 2); R('#f1e8d0', 52, 42, 10, 2); R('#d8243a', 61, 36, 5, 8); R('#d8d8e0', 61, 35, 5, 1);
+      R('#f1e8d0', 40, 53, 2, 18); R('#f1e8d0', 50, 53, 2, 18); C('#f1e8c0', 80, 14, 7);
+    } else { // собака с тапком
+      sky('#3a2458', '#6a4a7a'); R('#5a5068', 0, 70, 96, 26); for (let x = 0; x < 96; x += 12) R('#4a4058', x, 70, 1, 26);
+      R('#9a6a3a', 26, 50, 36, 16); C('#9a6a3a', 66, 46, 11); R('#5a3a1e', 60, 36, 5, 12); R('#5a3a1e', 72, 36, 5, 12); R('#e8d0b0', 70, 50, 10, 6); R('#17111f', 78, 49, 3, 3); R('#17111f', 63, 43, 2, 2); R('#17111f', 69, 43, 2, 2);
+      for (const x of [28, 36, 50, 58]) R('#9a6a3a', x, 64, 5, 10); R('#9a6a3a', 18, 46, 10, 3); R('#d8243a', 56, 52, 8, 3);
+      R('#ff7aa8', 74, 56, 18, 6); R('#f1e8ff', 76, 57, 6, 3);
+    }
+    g.strokeStyle = 'rgba(23,17,31,.7)'; g.lineWidth = 2; g.strokeRect(1, 1, 94, 94);
+  }),
   puzzle: () => photo('puzzleImg', 48, 48, (g, W, H) => {
     const s = W / 96; g.scale(s, s);
     g.fillStyle = '#3a2458'; g.fillRect(0, 0, 96, 96); g.fillStyle = '#2a1f3d'; g.fillRect(0, 70, 96, 26);
@@ -615,14 +680,26 @@ export const T = {
 
 /* ---------- фасад с окнами (уникальный под каждую стену) ---------- */
 let facN = 0;
+// фото-версии основных материалов (если картинка загрузилась)
+{ const ORIG = { ...T }, over = (name, k, w, h, tint, tile = 1) => { T[name] = (...a) => phOk(k) ? photo('ph_' + name + (a[0] ?? ''), w, h, (g, W, H) => phDraw(g, W, H, k, tint ? tint(...a) : null, tile, tile), 1) : ORIG[name](...a); };
+  over('asphalt', 'asphalt', 64, 64); over('pave', 'pave', 64, 64); over('cobble', 'cobble', 64, 64); over('flag', 'flag', 64, 64);
+  over('grass', 'grass', 64, 64, HW ? () => '#c8a070' : null); over('dirt', 'dirt', 64, 64); over('concrete', 'concrete', 64, 64);
+  over('wood', 'wood', 64, 64); over('floorWood', 'planks', 64, 64); over('oldBrick', 'oldbrick', 64, 64); over('plaster', 'plaster', 32, 32);
+  over('roof', 'roof', 32, 32, () => '#8a7a9a'); over('metal', 'metal', 32, 32); over('rust', 'rust', 32, 32);
+  over('corrugated', 'corrug_g', 32, 32, c => shade(c, 30)); over('bark', 'bark', 16, 32); over('stone', 'stone', 32, 32); over('soil', 'soil', 32, 32);
+  over('carpet', 'carpet_g', 32, 32, c => shade(c ?? 0x3a4458, 40)); over('brickWall', 'brick', 64, 64); }
 export function facade(base, wM, hM, opt = {}) {
-  const pw = Math.max(8, Math.round(wM * 6)), ph = Math.max(8, Math.round(hM * 6));
+  const D = 12, pw = Math.max(8, Math.round(wM * D)), ph = Math.max(8, Math.round(hM * D)); // 12 px на метр (v0.19)
   const brick = opt.brick !== false;
   return photo(null, pw, ph, (g, W, H) => {
     const s = W / pw; // пикселей hi-res на 1 px текстуры
     g.fillStyle = shade(base, -10); g.fillRect(0, 0, W, H);
-    if (brick) {
-      const bh = 3 * s, bw = 6 * s;
+    // стены — из фото кирпича/штукатурки, окрашенного в цвет дома (плитка ~1.4 м)
+    const pk = brick ? 'brick_g' : 'plaster_g';
+    if (phOk(pk)) { const tw = (brick ? 1.4 : 2.2) * D * s, th = tw; for (let y = H; y > -th; y -= th) for (let x = 0; x < W; x += tw) g.drawImage(PH[pk], x, y - th, tw, th);
+      g.globalCompositeOperation = 'multiply'; g.fillStyle = shade(base, 18); g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; }
+    else if (brick) {
+      const bh = 3 * s * D / 6, bw = 6 * s * D / 6;
       for (let y = 0, r = 0; y < H; y += bh, r++) for (let x = -bw; x < W; x += bw) {
         g.fillStyle = shade(base, (R() - 0.5) * 26); g.fillRect(x + (r % 2 ? bw / 2 : 0) + s * 0.4, y + s * 0.4, bw - s * 0.8, bh - s * 0.8);
       }
@@ -630,11 +707,11 @@ export function facade(base, wM, hM, opt = {}) {
     blobs(g, W, H, ['rgba(20,14,26,.6)'], 18, s * 2, s * 10, 0.15);
     // окна
     if (opt.windows !== false) {
-      const per = 6; // м на этаж-ряд ~2.4
+      const per = D;
       const rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9;
       for (let fy = r0; fy < hM - 1.3; fy += rs) for (let fx = 0.7; fx < wM - 1; fx += 2.0) {
         if (opt.door && fy < 2.2 && fx + 1.1 > opt.door[0] && fx - 0.2 < opt.door[1]) continue;
-        const x = fx * per * s, y = (hM - fy - 1.4) * per * s, w = 6 * s, h = 7.5 * s;
+        const x = fx * per * s, y = (hM - fy - 1.4) * per * s, w = D * s, h = 1.25 * D * s;
         g.fillStyle = '#1a1420'; g.fillRect(x - s, y - s, w + 2 * s, h + 2 * s);
         const lit = R() < (opt.lit ?? 0.45);
         const gr = g.createLinearGradient(x, y, x + w, y + h);

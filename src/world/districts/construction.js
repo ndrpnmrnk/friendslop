@@ -30,7 +30,7 @@ export default {
     b.shed(3, 15, 4, 3.5);
     // бытовка
     b.house({ x: 20, z: 23.5, w: 6.5, d: 3.4, h: 2.6, wall: 0x3a6a9a, brick: false, door: { side: 'n', at: 0.3 }, parapet: false, web: false,
-      interior(b, r) { b.table((r.x0 + r.x1) / 2 + 0.6, (r.z0 + r.z1) / 2, 0.8); b.chair(r.x0 + 3.4, r.z1 - 0.5, Math.PI); b.cabinet(r.x1 - 0.4, (r.z0 + r.z1) / 2, 0.5, 1.6, 1.6, 0x58616b, 0, -Math.PI / 2); } });
+      interior(b, r) { b.ptable(r.x0 + 1.2, (r.z0 + r.z1) / 2 + 0.3, 0.8); b.chair(r.x0 + 3.4, r.z1 - 0.5, Math.PI); b.cabinet(r.x1 - 0.4, (r.z0 + r.z1) / 2, 0.5, 1.6, 1.6, 0x58616b, 0, -Math.PI / 2); } });
     // поддон с кирпичами, тачка
     b.pallet(12, 18);
     b.item('brick', 11.6, 17.8, 0.18); b.item('brick', 12.4, 17.8, 0.18); b.item('brick', 12, 18.3, 0.18); b.item('brick', 12, 17.6, 0.36);
