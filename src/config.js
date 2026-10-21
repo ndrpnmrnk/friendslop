@@ -120,14 +120,13 @@ export const CONFIG = {
     popper:  { name: 'Хлопушка', tool: true, heavy: false, r: 0.1, respawn: 0, mass: 0.2, drag: 0.1, bounce: 0.3 },
     sling:   { name: 'Рогатка', tool: true, heavy: false, r: 0.12, respawn: 0, mass: 0.3, drag: 0.1, bounce: 0.3, ammo: 8 },
     web:     { name: 'Паутина', tool: true, heavy: false, r: 0.14, respawn: 0, mass: 0.3, drag: 0.2, bounce: 0.1 },
-    boots:   { name: 'Пружинные ботинки', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.6, drag: 0.1, bounce: 0.6 },
     rake:    { name: 'Грабли', tool: true, heavy: true, r: 0.2, respawn: 0, mass: 1.2, drag: 0.05, bounce: 0.1 },
     cushion: { name: 'Подушка-пердушка', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.2, drag: 0.3, bounce: 0.5 },
     mask:    { name: 'Маска-призрак', tool: true, heavy: false, r: 0.14, respawn: 0, mass: 0.2, drag: 0.3, bounce: 0.2 },
   },
   // инструменты, которые выпадают из ящиков (золотые ящики — только «редкие»)
-  toolPool: ['net', 'glove', 'vacuum', 'badge', 'slipper', 'umbrella', 'extinguisher', 'banana', 'pillow', 'duck', 'bubbles', 'whistle', 'magnet', 'paint', 'energy', 'water', 'firework', 'popper', 'sling', 'web', 'boots', 'mask'],
-  toolRare: ['glove', 'badge', 'vacuum', 'net', 'extinguisher', 'magnet', 'firework', 'boots', 'mask', 'bubbles', 'paint'],
+  toolPool: ['net', 'glove', 'vacuum', 'badge', 'slipper', 'umbrella', 'extinguisher', 'banana', 'pillow', 'duck', 'bubbles', 'whistle', 'magnet', 'paint', 'energy', 'water', 'firework', 'popper', 'sling', 'web', 'mask'],
+  toolRare: ['glove', 'badge', 'vacuum', 'net', 'extinguisher', 'magnet', 'firework', 'mask', 'bubbles', 'paint'],
   throw: { minRange: 3, maxRange: 17, chargeTime: 0.9 },
 };
 

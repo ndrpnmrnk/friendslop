@@ -687,7 +687,26 @@ let facN = 0;
   over('wood', 'wood', 64, 64); over('floorWood', 'planks', 64, 64); over('oldBrick', 'oldbrick', 64, 64); over('plaster', 'plaster', 32, 32);
   over('roof', 'roof', 32, 32, () => '#8a7a9a'); over('metal', 'metal', 32, 32); over('rust', 'rust', 32, 32);
   over('corrugated', 'corrug_g', 32, 32, c => shade(c, 30)); over('bark', 'bark', 16, 32); over('stone', 'stone', 32, 32); over('soil', 'soil', 32, 32);
-  over('carpet', 'carpet_g', 32, 32, c => shade(c ?? 0x3a4458, 40)); over('brickWall', 'brick', 64, 64); }
+  over('carpet', 'carpet_g', 32, 32, c => shade(c ?? 0x3a4458, 40)); over('brickWall', 'brick', 64, 64);
+  over('cardboard', 'cardboard', 32, 32); over('floorTile', 'tiles', 64, 64, () => '#d8c8e8'); }
+/* v0.20: стены квартир изнутри — фото обоев (2 раза по ширине), окрашены в цвет квартиры, плинтус и карниз;
+   текстура на один этаж по высоте. Ткань/кожа для диванов и кроватей, фанера для ящиков. */
+T.wallIn = (c = 0xc8b8d8, k = 'wallpaper_g') => phOk(k) ? photo('wallIn' + c + k, 64, 64, (g, W, H) => { phDraw(g, W, H * 0.86, k, shade(c, 10), 2, 2);
+  g.fillStyle = shade(c, 40); g.fillRect(0, 0, W, H * 0.04); g.fillStyle = '#2a2030'; g.fillRect(0, H * 0.86, W, H * 0.14); g.fillStyle = 'rgba(255,255,255,.15)'; g.fillRect(0, H * 0.86, W, H * 0.015); }, 1) : T.plaster();
+T.cloth = (c = 0x6a3a5a, k = 'velvet_g') => phOk(k) ? photo('cloth' + c + k, 32, 32, (g, W, H) => phDraw(g, W, H, k, shade(c, 25)), 1) : null;
+T.crateP = () => phOk('plywood') ? photo('crateP', 64, 64, (g, W, H) => { phDraw(g, W, H, 'plywood'); g.fillStyle = 'rgba(40,24,12,.85)'; const b = W * 0.12;
+  g.fillRect(0, 0, W, b); g.fillRect(0, H - b, W, b); g.fillRect(0, 0, b, H); g.fillRect(W - b, 0, b, H); g.save(); g.translate(W / 2, H / 2); g.rotate(Math.PI / 4); g.fillRect(-W * 0.7, -b / 2, W * 1.4, b); g.restore();
+  g.fillStyle = '#17111f'; for (const [x, y] of [[b / 2, b / 2], [W - b / 2, b / 2], [b / 2, H - b / 2], [W - b / 2, H - b / 2]]) g.fillRect(x - 1, y - 1, 2, 2); }, 1) : null;
+{ const o = T.crate; T.crate = () => T.crateP() || o(); }
+// кость (скелеты) и лицо бабушки — «фото»-фактура в стиле PS1 (v0.20)
+T.bone = () => photo('bone', 32, 32, (g, W, H) => { fill(g, W, H, '#e8dfc8'); blobs(g, W, H, ['#d8ccb0', '#f4eedc', '#c8b898', '#b8a888'], 120, 1, 4, 0.5);
+  strokes(g, W, H, ['rgba(90,70,50,.5)'], 30, 8, 0.3, 0.8, 1, 0.5); blobs(g, W, H, ['rgba(120,100,60,.35)'], 12, 2, 6, 0.6); grain(g, W, H, 18); });
+T.grannyFace = () => photo('grannyFace', 48, 24, (g, W, H) => { fill(g, W, H, '#e2b898'); blobs(g, W, H, ['#d8a888', '#ecc8a8', '#c89878'], 160, 1, 3, 0.4);
+  const cx = W * 0.25; // перед головы (u=0.25)
+  g.fillStyle = 'rgba(220,110,110,.45)'; for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(cx + sx * W * 0.07, H * 0.62, W * 0.035, H * 0.08, 0, 0, 7); g.fill(); }
+  g.strokeStyle = 'rgba(120,70,50,.6)'; g.lineWidth = 1; for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(cx + sx * W * 0.1, H * (0.42 + i * 0.05)); g.lineTo(cx + sx * W * 0.13, H * (0.4 + i * 0.06)); g.stroke(); }
+  for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(cx - W * 0.05, H * (0.22 + i * 0.05)); g.lineTo(cx + W * 0.05, H * (0.22 + i * 0.05)); g.stroke(); }
+  g.fillStyle = '#c88a70'; g.fillRect(cx - 1.5, H * 0.45, 3, H * 0.15); g.fillStyle = '#7a3a3a'; g.fillRect(cx - W * 0.035, H * 0.74, W * 0.07, 1.5); grain(g, W, H, 14); });
 export function facade(base, wM, hM, opt = {}) {
   const D = 12, pw = Math.max(8, Math.round(wM * D)), ph = Math.max(8, Math.round(hM * D)); // 12 px на метр (v0.19)
   const brick = opt.brick !== false;

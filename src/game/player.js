@@ -197,7 +197,6 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (ctrl && tapped('Space') && (p.onGround || p.climb) && !p.dive) {
     if (p.slideT > 0) { p.slideT = 0; }
     p.vel.y = PC.jump * (water ? 0.75 : 1); sfx('jump'); if (Math.random() < 0.35) voice(p.ch, 'jump');
-    if (p.boots > 0 && !p.climb) { p.boots--; p.vel.y = 14.5; p.airPeak = p.pos.y + 7; sfx('spring'); smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 10, { speed: 3, color: 0xb18cff }); shake(0.12); }
     // с лестницы: назад от стены + вбок по нажатой стрелке
     if (p.climb) { const l = p.climb, tx = -l.nz, tz = l.nx, side = ix * tx + iz * tz; p.vel.x = l.nx * 4.5 + tx * side * 4; p.vel.z = l.nz * 4.5 + tz * side * 4; p.vel.y = PC.jump * 0.8; p.climb = null; p.ladderCD = 0.4; }
     smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 5, { speed: 1.6, size: 0.14, grow: 0.42, life: 0.5 });
@@ -296,7 +295,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
       const d = decal(T.foot(), p.pos.x + sx, p.pos.y, p.pos.z + sz, 0.32, 4 + p.wetT, 0xffffff); d.rotation.z = f; d.material.opacity = 0.3 + 0.2 * p.wetT / 3; } }
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
-  p.ch.animate(dt, { t, act: p.chill ? 'smoke' : undefined, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, rag: ragK(p), daze: p.daze > 0, grabbed: p.netT > 0 && !(p.stun > 0), climb: !!p.climb,
+  p.ch.animate(dt, { t, act: p.chill ? 'smoke' : undefined, smokePh: p.chill ? (p.chill.t > 8.8 ? 'take' : p.chill.t < 0.8 ? 'flick' : 'smoke') : undefined, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, rag: ragK(p), daze: p.daze > 0, grabbed: p.netT > 0 && !(p.stun > 0), climb: !!p.climb,
     hold: (!!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
     emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, swat: p.swatT > 0 ? p.swatT : 0 });

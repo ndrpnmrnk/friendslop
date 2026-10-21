@@ -125,7 +125,7 @@ export function renderStamina(P, dt) {
     H.held = held; H.heldType = now; const e2 = $('held'); e2.innerHTML = held; e2.classList.toggle('hidden', !held);
     if (held && now !== was) { e2.classList.remove('new'); void e2.offsetWidth; e2.classList.add('new'); } }
   // эффекты на персонаже: ботинки, маска, энергетик — маленькие значки с отсчётом
-  const fx = [P.boots > 0 ? `${img('boots', 16)}${P.boots}` : '', P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : '', P.stBoost > 0 ? `${img('energy', 16)}${Math.ceil(P.stBoost)}` : ''].filter(Boolean).join('');
+  const fx = [P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : '', P.stBoost > 0 ? `${img('energy', 16)}${Math.ceil(P.stBoost)}` : ''].filter(Boolean).join('');
   if (fx !== H.gslot) { H.gslot = fx; const e3 = $('gslot'); e3.innerHTML = fx; e3.classList.toggle('hidden', !fx); }
   // конфетти перед глазами
   const bl = $('blind'), blind = P.blind > 0;

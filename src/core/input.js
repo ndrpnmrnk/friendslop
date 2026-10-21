@@ -43,10 +43,18 @@ canvas.addEventListener('pointerdown', e => {
   try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   handlers.down.forEach(f => f(e.button));
 });
-addEventListener('pointermove', e => { if (locked()) { look.dx += e.movementX || 0; look.dy += e.movementY || 0; } setPos(e); handlers.move.forEach(f => f()); });
+addEventListener('pointermove', e => { if (locked()) { look.dx += e.movementX || 0; look.dy += e.movementY || 0; } setPos(e);
+  // вторая кнопка, нажатая при уже зажатой первой («аккорд»), приходит только как pointermove — ловим её здесь
+  // (например, ЛКМ во время замаха ПКМ — отмена броска)
+  if ((mouse.left || mouse.right) && (e.target === canvas || locked())) { const L = (e.buttons & 1) !== 0, Rb = (e.buttons & 2) !== 0;
+    if (L !== mouse.left) { mouse.left = L; handlers[L ? 'down' : 'up'].forEach(f => f(0)); }
+    if (Rb !== mouse.right) { mouse.right = Rb; handlers[Rb ? 'down' : 'up'].forEach(f => f(2)); } }
+  handlers.move.forEach(f => f()); });
 export const takeLook = () => { const d = { dx: look.dx, dy: look.dy }; look.dx = look.dy = 0; return d; };
 addEventListener('pointerup', e => {
   setPos(e);
+  // кнопку уже «отпустили» через аккорд в pointermove — второй раз не шлём
+  if ((e.button === 0 && !mouse.left) || (e.button === 2 && !mouse.right)) return;
   if (e.button === 0) mouse.left = false;
   if (e.button === 2) mouse.right = false;
   handlers.up.forEach(f => f(e.button));

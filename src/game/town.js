@@ -84,7 +84,7 @@ function granny(bed) {
   g.add(compose('granny2', a => { const dress = lam({ map: T.awning('#6a4aa8', '#5a3a98') }, 'grannyDress'), skin = col(0xe8c0a0), hair = col(0xd8d8e0), apron = col(0xf1e8ff), shoe = col(0x2b2533);
     a(G.cone8, dress, 0, 0.52, 0, 0.42, 1.0, 0.42); a(G.sph10, dress, 0, 1.0, 0, 0.3, 0.28, 0.26);
     a(G.box, apron, 0, 0.7, 0.3, 0.34, 0.5, 0.02, -0.18); a(G.box, apron, 0, 0.98, 0.25, 0.26, 0.2, 0.02); a(G.box, col(0xff8aa8), 0, 0.62, 0.36, 0.12, 0.08, 0.02, -0.18);
-    a(G.sph10, skin, 0, 1.38, 0.02, 0.22, 0.24, 0.21); a(G.sph, skin, 0, 1.35, 0.23, 0.05, 0.05, 0.05);
+    a(G.sph10, lam({ map: T.grannyFace() }, 'grannyFace'), 0, 1.38, 0.02, 0.22, 0.24, 0.21); a(G.sph, skin, 0, 1.35, 0.23, 0.05, 0.05, 0.05);
     a(G.sph10, hair, 0, 1.52, -0.08, 0.21, 0.15, 0.19); a(G.sph, hair, 0, 1.64, -0.16, 0.11, 0.1, 0.11); a(G.box, col(0x8a6ac8), 0, 1.6, -0.2, 0.12, 0.03, 0.03);
     for (const sx of [-1, 1]) { a(G.torus, col(0x2b2533), sx * 0.08, 1.4, 0.2, 0.06, 0.06, 0.06); a(G.box, col(0x17111f), sx * 0.08, 1.4, 0.21, 0.025, 0.025, 0.01); a(G.sph, col(0xff9a9a), sx * 0.13, 1.31, 0.17, 0.04, 0.025, 0.02); }
     a(G.box, col(0x2b2533), 0.0, 1.47, 0.2, 0.06, 0.012, 0.01); a(G.torus, col(0xd8243a), 0, 1.18, 0, 0.2, 0.2, 0.25, Math.PI / 2); a(G.box, col(0x8a4a4a), 0, 1.28, 0.21, 0.07, 0.015, 0.01);
@@ -223,7 +223,7 @@ function updDog(f, dt, t) {
    1–2 скелета гуляют по городу: один курит, другой с пивом («ЛУННОЕ»), ворчат на тех, кто носится рядом.
    E рядом — «Попросить сигаретку» / «Выпить пивка»: стоите вдвоём ~10 с (убежать нельзя), потом бодрость 25 с. */
 function skelModel(kind) {
-  const g = new THREE.Group(), bone = lam({ map: T.bone ? T.bone() : null, color: 0xe8e0d0 }, 'npcBone'), dk = col(0x17111f);
+  const g = new THREE.Group(), bone = lam({ map: T.bone() }, 'npcBone2t'), dk = col(0x17111f);
   const body = new THREE.Group(); g.add(body);
   body.add(compose('npcSkel', a => {
     a(G.sph10, bone, 0, 1.62, 0, 0.17, 0.19, 0.18); a(G.box, bone, 0, 1.46, 0.05, 0.2, 0.08, 0.16);
@@ -232,27 +232,50 @@ function skelModel(kind) {
     a(G.cyl6, bone, 0, 1.22, 0, 0.035, 0.42, 0.035);
     for (let i = 0; i < 4; i++) a(G.torus, bone, 0, 1.36 - i * 0.07, 0, 0.16 - i * 0.012, 0.16 - i * 0.012, 0.14, Math.PI / 2);
     a(G.box, bone, 0, 0.98, 0, 0.3, 0.1, 0.16); }));
-  const limb = (x, y, len) => { const q = new THREE.Group(); q.position.set(x, y, 0); body.add(q); q.add(compose('npcLimb' + len, a => { a(G.box, lam({ color: 0xe8e0d0 }, 'npcBone2'), 0, -len / 2, 0, 0.05, len, 0.05); a(G.sph, lam({ color: 0xe8e0d0 }, 'npcBone2'), 0, -len, 0, 0.05, 0.05, 0.05); })); return q; };
+  const limb = (x, y, len) => { const q = new THREE.Group(); q.position.set(x, y, 0); body.add(q); q.add(compose('npcLimb' + len, a => { a(G.box, lam({ map: T.bone() }, 'npcBone2t'), 0, -len / 2, 0, 0.05, len, 0.05); a(G.sph, lam({ map: T.bone() }, 'npcBone2t'), 0, -len, 0, 0.05, 0.05, 0.05); })); return q; };
   const arms = [limb(-0.2, 1.4, 0.55), limb(0.2, 1.4, 0.55)], legs = [limb(-0.09, 0.95, 0.9), limb(0.09, 0.95, 0.9)];
   const prop = new THREE.Group(); prop.position.set(0, -0.55, 0.05); arms[1].add(prop);
   if (kind === 'smoke') prop.add(compose('cig', a => { a(G.box, col(0xf1e8ff), 0, 0, 0.06, 0.02, 0.02, 0.14); a(G.box, col(0xd8a060), 0, 0, -0.02, 0.022, 0.022, 0.03); a(G.box, glow(0xff6a1a), 0, 0, 0.135, 0.022, 0.022, 0.012); }));
   else prop.add(compose('beerCan', a => { a(G.cyl8, lam({ map: T.sign('ЛУННОЕ', '#d8e0f0', '#2a4a8a') }, 'beerLbl'), 0, 0, 0.04, 0.045, 0.14, 0.045); a(G.cyl8, col(0x9a9da8), 0, 0.075, 0.04, 0.04, 0.012, 0.04); }));
-  return { g, body, arms, legs, prop };
+  // пачка сигарет / вторая банка — протягивает игроку
+  const offer = new THREE.Group(); offer.position.set(0, -0.58, 0.08); arms[1].add(offer); offer.visible = false;
+  if (kind === 'smoke') offer.add(compose('cigPack', a => { a(G.box, lam({ map: T.sign('ТЫКВЕННЫЕ', '#f1e8ff', '#d8243a') }, 'packLbl'), 0, 0, 0, 0.07, 0.1, 0.035); a(G.box, col(0xd8243a), 0, 0.04, 0, 0.072, 0.025, 0.037); a(G.box, col(0xf1e8ff), 0.015, 0.065, 0, 0.012, 0.03, 0.012); }));
+  else offer.add(compose('beerCan', a => { a(G.cyl8, lam({ map: T.sign('ЛУННОЕ', '#d8e0f0', '#2a4a8a') }, 'beerLbl'), 0, 0, 0.04, 0.045, 0.14, 0.045); a(G.cyl8, col(0x9a9da8), 0, 0.075, 0.04, 0.04, 0.012, 0.04); }));
+  return { g, body, arms, legs, prop, offer };
+}
+// предмет в руке игрока на перекуре: сигарета или банка (создаётся один раз и висит на правой руке)
+function handProp(P) {
+  const h = P.ch.handR; if (h.userData.chill) return h.userData.chill;
+  const cig = compose('cigP', a => { a(G.box, col(0xf1e8ff), 0, 0.02, 0.1, 0.022, 0.022, 0.15); a(G.box, col(0xd8a060), 0, 0.02, 0.02, 0.024, 0.024, 0.035); a(G.box, glow(0xff6a1a), 0, 0.02, 0.18, 0.024, 0.024, 0.014); });
+  const can = compose('canP', a => { a(G.cyl8, lam({ map: T.sign('ЛУННОЕ', '#d8e0f0', '#2a4a8a') }, 'beerLbl'), 0, 0.03, 0.05, 0.05, 0.15, 0.05); a(G.cyl8, col(0x9a9da8), 0, 0.11, 0.05, 0.045, 0.012, 0.045); });
+  cig.visible = can.visible = false; h.add(cig, can); return (h.userData.chill = { cig, can });
 }
 function skelNpc(sp, kind) {
   const m = skelModel(kind); setupBody(m.g, sp.x, sp.y, sp.z);
   const f = { kind: 'skel', act: kind, ...m, pos: m.g.position, vel: new V3(), home: new V3(sp.x, sp.y, sp.z), wp: new V3(sp.x, sp.y, sp.z), wt: 0, ph: 0, grumT: 0, busy: 0, gy: sp.y };
   W.interacts.push({ get x() { return f.pos.x; }, get z() { return f.pos.z; }, get y() { return f.gy; }, r: 1.4, label: kind === 'smoke' ? 'Попросить сигаретку' : 'Выпить пивка', enabled: P => !P.held && !P.holding && f.busy <= 0 && !P.chill,
     act: P => { f.busy = 10; P.chill = { t: 10, npc: f }; P.vel.set(0, P.vel.y, 0); const dx = P.pos.x - f.pos.x, dz = P.pos.z - f.pos.z, d = Math.hypot(dx, dz) || 1;
-      P.pos.x = f.pos.x + dx / d * 0.9; P.pos.z = f.pos.z + dz / d * 0.9; P.root.rotation.y = P.facing = Math.atan2(-dx, -dz); f.g.rotation.y = Math.atan2(dx, dz); sfx(kind === 'smoke' ? 'hiss' : 'can', { at: f.pos }); toast(kind === 'smoke' ? 'ПЕРЕКУР…' : 'ПО ПИВКУ…'); } });
+      P.pos.x = f.pos.x + dx / d * 1.25; P.pos.z = f.pos.z + dz / d * 1.25; P.root.rotation.y = P.facing = Math.atan2(-dx, -dz); f.g.rotation.y = Math.atan2(dx, dz); sfx(kind === 'smoke' ? 'hiss' : 'can', { at: f.pos }); toast(kind === 'smoke' ? 'ПЕРЕКУР…' : 'ПО ПИВКУ…'); } });
   return f;
 }
 function updSkel(f, dt, t) {
   const p = f.pos, P = W.player;
-  if (f.busy > 0) { f.busy -= dt; f.legs.forEach(l => (l.rotation.x = 0)); const up = Math.max(0, Math.sin(t * 1.3 + 1)); f.arms[1].rotation.x = -2.2 * up; f.body.rotation.z = Math.sin(t * 0.8) * 0.03;
-    if (Math.random() < dt * (f.act === 'smoke' ? 3 : 0.5)) puff(p.x + Math.sin(f.g.rotation.y) * 0.25, p.y + 1.55, p.z + Math.cos(f.g.rotation.y) * 0.25, { color: 0xd8d0e4, size: 0.1, grow: 0.8, vy: 0.5, life: 1.4, opacity: 0.5 });
-    if (P && P.chill && P.chill.npc === f && Math.random() < dt * 1.5) puff(P.pos.x, P.pos.y + 1.4, P.pos.z, { color: 0xd8d0e4, size: 0.1, grow: 0.8, vy: 0.5, life: 1.4, opacity: 0.5 });
-    if (f.busy <= 0 && P && !P.chill) toast('БОДРОСТЬ +25 С'); return; }
+  if (f.busy > 0) {
+    /* перекур/пивко: 0–1.2 с скелет протягивает пачку (банку), игрок берёт; потом оба курят/пьют у лица, дым от обоих;
+       в конце игрок щелчком выкидывает окурок (сминает и бросает банку) */
+    f.busy -= dt; const el = 10 - f.busy, mine = P && P.chill && P.chill.npc === f, hp = mine ? handProp(P) : null, smoke = f.act === 'smoke';
+    f.legs.forEach(l => (l.rotation.x = 0)); f.body.rotation.z = Math.sin(t * 0.8) * 0.03;
+    if (el < 1.2) { f.arms[1].rotation.x = -1.35; f.offer.visible = true; if (smoke) f.prop.visible = false; if (hp && el > 0.8) (smoke ? hp.cig : hp.can).visible = true; }
+    else { f.offer.visible = false; f.prop.visible = true; const up = Math.max(0, Math.sin(t * 1.1 + 1)); f.arms[1].rotation.x = -2.25 * up; }
+    // дым: у скелета — от сигареты, у игрока — от кончика сигареты и выдох изо рта
+    const fy = f.g.rotation.y; if (smoke && Math.random() < dt * 3) puff(p.x + Math.sin(fy) * 0.25, p.y + 1.6, p.z + Math.cos(fy) * 0.25, { color: 0xd8d0e4, size: 0.08, grow: 0.9, vy: 0.5, life: 1.4, opacity: 0.5 });
+    if (hp && smoke && hp.cig.visible) { const w = hp.cig.getWorldPosition(new V3()); if (Math.random() < dt * 6) puff(w.x, w.y + 0.03, w.z, { color: 0xd8d0e4, size: 0.05, grow: 0.7, vy: 0.45, life: 1.2, opacity: 0.45 });
+      if (Math.random() < dt * 0.9) { const r = P.root.rotation.y; puff(P.pos.x + Math.sin(r) * 0.45, P.pos.y + P.ch.d.top - 0.4, P.pos.z + Math.cos(r) * 0.45, { color: 0xe8e0f0, size: 0.12, grow: 1.4, vx: Math.sin(r) * 0.6, vy: 0.3, vz: Math.cos(r) * 0.6, life: 1.6, opacity: 0.5 }); } }
+    // финал: окурок/банка летит в сторону и тлеет/гремит
+    if (hp && f.busy < 0.45 && !f.flicked) { f.flicked = true; const it = smoke ? hp.cig : hp.can, w = it.getWorldPosition(new V3()), r = P.root.rotation.y + 0.8; it.visible = false;
+      chunk(w.x, w.y, w.z, [Math.sin(r) * 3, 2.5, Math.cos(r) * 3], { mat: col(smoke ? 0xf1e8ff : 0x9a9da8), size: smoke ? 0.04 : 0.08, sy: smoke ? 0.4 : 0.6, life: 6 }); if (smoke) burst(w.x, w.y, w.z, 4, { color: 0xff8a1f, size: 0.04, speed: 2, up: 2 }); else sfx('can', { at: w }); }
+    if (f.busy <= 0) { f.flicked = false; f.offer.visible = false; f.prop.visible = true; if (hp) hp.cig.visible = hp.can.visible = false; if (P && !P.chill) toast('БОДРОСТЬ +25 С'); }
+    return; }
   // ворчит на тех, кто носится рядом или кинул в него
   if (f.grumT > 0) f.grumT -= dt;
   for (const a of actors()) { const d = Math.hypot(a.pos.x - p.x, a.pos.z - p.z); if (d < 3 && Math.hypot(a.vel.x, a.vel.z) > 7 && f.grumT <= 0) { f.grumT = 4; f.g.rotation.y = Math.atan2(a.pos.x - p.x, a.pos.z - p.z); sfx('curse', { at: p, v: 0.6 }); f.shake = 0.8; } }

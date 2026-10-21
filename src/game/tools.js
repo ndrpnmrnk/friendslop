@@ -128,7 +128,6 @@ export function useTool(a, it, aim, dt = 0) {
     case 'firework': { if (it.lit === undefined) { it.lit = 2.4; return 'fuse'; } return null; }
     case 'rake': case 'cushion': { const f = a.root.rotation.y, x = a.pos.x + Math.sin(f) * 1.1, z = a.pos.z + Math.cos(f) * 1.1, gy = groundAt(x, z, 0.2, a.pos.y + 0.6);
       if (k === 'rake') placeRake(x, gy, z, f + Math.PI, a); else placeCushion(x, gy, z, a); consume(a, it); return 'drop'; }
-    case 'boots': { a.boots = 3; burst(a.pos.x, a.pos.y + 0.2, a.pos.z, 10, { color: 0xb18cff, size: 0.16, speed: 2, up: 1 }); spend(); return 'spring'; }
     case 'mask': { a.ghost = 8; burst(a.pos.x, a.pos.y + 1, a.pos.z, 12, { color: 0xeee8ff, size: 0.3, speed: 1.5 }); spend(); return 'ghost'; }
     case 'extinguisher': {
       it.ammo -= dt; it.sprayT = 0.1;
@@ -374,4 +373,4 @@ export function updateTools(dt, t) {
 }
 // иконка-подсказка для HUD: есть ли у инструмента действие на ЛКМ
 export const toolVerb = it => ({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: 'выстрел сеткой', badge: it && hasPolice(it.owner) ? 'брось в соперника (ПКМ)' : 'вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
-  water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', boots: 'надеть', mask: 'надеть', rake: 'поставить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';
+  water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', mask: 'надеть', rake: 'поставить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';

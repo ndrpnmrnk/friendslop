@@ -24,7 +24,7 @@ export const TowerMethods = {
     const hsteps = Math.max(2, Math.round(fh / 2 / 0.28)), rise = fh / 2 / hsteps, Lh = hsteps * run;
     const ix0 = x + t, iz0 = z + t, ix1 = x + w - t, iz1 = z + d - t;
     const sx0 = o.stairX ?? ix0, sz0 = iz0, f0 = sx0 + EL, f1 = f0 + Lh, sx1 = hasStairs ? f1 + ML : sx0, sz1 = hasStairs ? sz0 + lane * 2 : sz0;
-    const dw = o.doorW ?? 2.0, dh = 2.35, plain = col(base), inner = o.inner || T.plaster();
+    const dw = o.doorW ?? 2.0, dh = 2.35, plain = col(base), inner = o.inner || T.wallIn([0xc8b8d8, 0xd8c8a8, 0xa8c0d0, 0xd0b0b0, 0xb8d0b0][(Math.random() * 5) | 0], Math.random() < 0.5 ? 'wallpaper_g' : 'wallpaper2_g');
     const doors = o.doors || (o.door ? [o.door] : []);
     // пожарная лестница (только на боковых стенах e/w): площадки на каждом этаже «ёлочкой», марши между ними,
     // снизу — красная откидная секция, сверху — лестница на крышу
@@ -278,7 +278,7 @@ export const TowerMethods = {
     }
   },
   sofa(x, z, ry = 0, c = 0x6a3a5a) {
-    const g = this.prop(x, z, ry), m = col(c), m2 = col(c - 0x101010 > 0 ? c - 0x101010 : c);
+    const cl = T.cloth(c, Math.random() < 0.5 ? 'velvet_g' : 'leather_g'), g = this.prop(x, z, ry), m = cl ? tmat(cl) : col(c), m2 = cl ? tmat(T.cloth(c - 0x101010 > 0 ? c - 0x101010 : c, 'fabric_g')) : col(c - 0x101010 > 0 ? c - 0x101010 : c);
     const a = (px, py, pz, sx, sy, sz, mm = m) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
     a(0, 0.22, 0.05, 1.9, 0.3, 0.8, m2); for (const xx of [-0.45, 0.45]) a(xx, 0.42, 0.08, 0.88, 0.14, 0.7); a(0, 0.65, -0.3, 1.9, 0.6, 0.22);
     for (const s of [-1, 1]) a(s * 0.92, 0.5, 0.05, 0.16, 0.42, 0.8, m2);
@@ -293,7 +293,7 @@ export const TowerMethods = {
   bed(x, z, ry = 0, c = 0x4a6a9a) {
     const g = this.prop(x, z, ry), wd = tmat(T.wood());
     const a = (px, py, pz, sx, sy, sz, mm) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
-    a(0, 0.2, 0, 1.4, 0.3, 2.0, wd); a(0, 0.42, 0.05, 1.32, 0.16, 1.88, col(0xe8e2d4)); a(0, 0.52, 0.25, 1.36, 0.06, 1.4, col(c));
+    a(0, 0.2, 0, 1.4, 0.3, 2.0, wd); a(0, 0.42, 0.05, 1.32, 0.16, 1.88, col(0xe8e2d4)); a(0, 0.52, 0.25, 1.36, 0.06, 1.4, T.cloth(c, 'fabric_g') ? tmat(T.cloth(c, 'fabric_g')) : col(c));
     a(0, 0.56, -0.72, 1.0, 0.12, 0.35, col(0xf1e8ff)); a(0, 0.65, -0.98, 1.4, 0.9, 0.08, wd);
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 2 : 1.4, q ? 1.4 : 2, 0, 0.58);
   },

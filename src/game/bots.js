@@ -46,7 +46,8 @@ function pickMission(b) {
   for (const m of M.list) {
     if (m.busy || m.doer || !m.obj || !m.obj.pos || !visibleTo(m, b)) continue; const o = takenBy(m); if (o && o !== b) continue;
     // своя (личная) миссия — в приоритете
-    const p = m.obj.pos(), d = Math.hypot(p.x - b.pos.x, p.z - b.pos.z) + Math.abs(p.y - b.pos.y) * 4 + Math.random() * 8 - (m.owner === b ? 25 : 0);
+    const p = m.obj.pos(); if (p.y < CONFIG.base - 1.2 && b.pos.y > CONFIG.base - 1.2) continue; // в подземку боты не лезут (v0.20)
+    const d = Math.hypot(p.x - b.pos.x, p.z - b.pos.z) + Math.abs(p.y - b.pos.y) * 4 + Math.random() * 8 - (m.owner === b ? 25 : 0);
     if (d < bd) { bd = d; best = m; }
   }
   if (!best) return null;
@@ -89,9 +90,9 @@ function waypoint(b, g) {
   return g;
 }
 // лестница вниз: ближайшая, у которой верх на нашей высоте
-function ladderDown(b) {
+function ladderDown(b, goal) {
   let best = null, bd = 30;
-  for (const l of W.ladders) { if (Math.abs(l.y1 - b.pos.y) > 1.0) continue; const d = Math.hypot((l.x0 + l.x1) / 2 - b.pos.x, (l.z0 + l.z1) / 2 - b.pos.z); if (d < bd) { bd = d; best = l; } }
+  for (const l of W.ladders) { if (Math.abs(l.y1 - b.pos.y) > 1.0 || l.y0 < CONFIG.base - 1.2 || Math.abs(l.y0 - goal.y) > 1.5) continue; const d = Math.hypot((l.x0 + l.x1) / 2 - b.pos.x, (l.z0 + l.z1) / 2 - b.pos.z); if (d < bd) { bd = d; best = l; } }
   return best;
 }
 function ladderTo(b, goal) {
@@ -124,6 +125,11 @@ export function updateBots(dt, t, P) {
   for (const b of W.bots || []) {
     if (b.drone || b.returning) continue;
     tickStun(b, dt);
+    // застрял под землёй без дела дольше 10 с — вылезает через ближайший люк (v0.20)
+    if (b.pos.y < CONFIG.base - 1.5 && !(b.goal && b.goal.y < CONFIG.base - 1.2)) { b.ugT = (b.ugT || 0) + dt;
+      if (b.ugT > 10 && W.manholes.length) { const mh = W.manholes.reduce((a, c) => Math.hypot(c.x - b.pos.x, c.z - b.pos.z) < Math.hypot(a.x - b.pos.x, a.z - b.pos.z) ? c : a);
+        b.pos.set(mh.x + 0.9, CONFIG.base + 0.1, mh.z + 0.9); b.vel.set(0, 5, 0); b.onGround = false; b.airPeak = b.pos.y; b.ugT = 0; b.goal = null; b.ladder = b.ladderDn = null; b.climbing = false; smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 8, { speed: 2 }); } }
+    else b.ugT = 0;
     if (b.webT > 0) b.webT -= dt;
     if (b.knockT > 0) b.knockT -= dt;
     if (b.diveHitT > 0) b.diveHitT -= dt;
@@ -161,10 +167,10 @@ export function updateBots(dt, t, P) {
       if (b.dodge) { ix = b.dodge.x; iz = b.dodge.z; run = 1.15; b.dodge.t -= dt; if (b.dodge.t <= 0) b.dodge = null; }
       else if (W.lure && W.lure.by !== b && Math.hypot(W.lure.x - b.pos.x, W.lure.z - b.pos.z) < 16) [ix, iz] = steer(b, W.lure.x, W.lure.z, dt);
       else if (b.goal) {
-        const g0 = b.goal.who ? b.goal.who.pos : b.goal, d0 = Math.hypot(g0.x - b.pos.x, g0.z - b.pos.z), g = b.goal.who || (d0 < 1.6 && Math.abs(g0.y - b.pos.y) < 1.5) ? g0 : waypoint(b, g0);
+        const g0 = b.goal.who ? b.goal.who.pos : b.goal, d0 = Math.hypot(g0.x - b.pos.x, g0.z - b.pos.z), g = b.goal.who || (d0 < 1.6 && Math.abs(g0.y - b.pos.y) < 1.5) || !['mission', 'fetch', 'event'].includes(b.goal.kind) ? g0 : waypoint(b, g0);
         const dx = g.x - b.pos.x, dz = g.z - b.pos.z, d = Math.hypot(dx, dz), dy = g.y - b.pos.y;
         // ниже (с крыши) — к лестнице вниз и слезть
-        if (dy < -1.8 && !b.goal.who && (b.ladderDn || (b.ladderDn = ladderDown(b)))) { const l = b.ladderDn, cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2;
+        if (dy < -1.8 && !b.goal.who && (b.ladderDn || (b.ladderDn = ladderDown(b, g)))) { const l = b.ladderDn, cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2;
           if (b.pos.x > l.x0 - 0.1 && b.pos.x < l.x1 + 0.1 && b.pos.z > l.z0 - 0.1 && b.pos.z < l.z1 + 0.1 && b.pos.y > l.y0 + 0.05) { ix = (cx - b.pos.x) * 3; iz = (cz - b.pos.z) * 3; b.vel.y = -PC.climb * 1.4; b.climbing = true; b.airPeak = b.pos.y; }
           else { b.climbing = false; [ix, iz] = steer(b, cx - l.nx * 0.3, cz - l.nz * 0.3, dt); if (b.pos.y < l.y0 + 0.3) b.ladderDn = null; } }
         // высоко — к лестнице
@@ -272,7 +278,7 @@ function act(b, P, dt) {
   const g = b.goal; b.aimAt = null;
   const it = b.held;
   // инструменты, которые лучше применить сразу
-  if (it && it.def.tool && ['energy', 'boots', 'mask'].includes(it.type)) { useTool(b, it, b.pos.clone()); return; }
+  if (it && it.def.tool && ['energy', 'mask'].includes(it.type)) { useTool(b, it, b.pos.clone()); return; }
   if (it && it.type === 'duck' && Math.random() < dt * 0.3) useTool(b, it, b.pos.clone());
   // ловушки — у миссий и на пути соперников
   if (it && ['banana', 'rake', 'cushion', 'paint'].includes(it.type) && b.actCD <= 0) { const nearM = M.list.some(m => { const p = m.obj.pos(); return Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 4; });

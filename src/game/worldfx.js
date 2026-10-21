@@ -171,7 +171,7 @@ export function registerInteracts() {
       act: P => { c.open = !c.open; sfx('open', { at: P.pos });
         if (c.open && !c.looted) { c.looted = true; const at = new V3(c.x - 1.6 * Math.cos(c.ry), c.y + 1.0, c.z + 1.6 * Math.sin(c.ry));
           if (W.containerLoot && W.containerLoot(at)) c.gave = true;
-          else if (Math.random() < 0.35) { c.gave = true; const l = ['umbrella', 'extinguisher', 'ball', 'can', 'banana', 'rake', 'boots', 'water'], it = addItem(l[(Math.random() * l.length) | 0], at.x, at.y, at.z); it.noHitT = 0.6; launch(it, at.clone(), new V3(-Math.cos(c.ry) * 2, 3, Math.sin(c.ry) * 2)); } } } });
+          else if (Math.random() < 0.35) { c.gave = true; const l = ['umbrella', 'extinguisher', 'ball', 'can', 'banana', 'rake', 'water'], it = addItem(l[(Math.random() * l.length) | 0], at.x, at.y, at.z); it.noHitT = 0.6; launch(it, at.clone(), new V3(-Math.cos(c.ry) * 2, 3, Math.sin(c.ry) * 2)); } } } });
     W.animated.push(dt => { const want = c.open ? 1 : 0; c.lidK = (c.lidK || 0) + (want - (c.lidK || 0)) * Math.min(1, dt * 8); c.lid.rotation.z = -c.lidK * 1.3; }); }
   for (const b of W.benches) W.interacts.push({ x: b.x + Math.sin(b.ry) * 0.6, z: b.z + Math.cos(b.ry) * 0.6, y: b.y, r: 1.1, label: 'Сесть на скамейку', enabled: P => !P.held && !P.holding && b.riders.length < (b.skel ? 1 : 2), act: P => sitBench(P, b) });
   for (const s of W.swingSeats) W.interacts.push({ get x() { return s.pivot.position.x; }, get z() { return s.pivot.position.z; }, y: s.pivot.position.y - 2.46, r: 0.9, label: 'Сесть на качели', enabled: P => !s.rider && !P.held, act: P => sitSwing(P, s) });

@@ -192,7 +192,7 @@ export const PropMethods = {
       s(G.cyl8, 0, 0.66, 0.24, 0.045, 0.06, 0.045, Math.PI / 2); s(G.box, 0, 0.02, 0.24, 0.12, 0.04, 0.12); s(G.box, 0, 0.02, -0.38, 0.12, 0.04, 0.12);
     }
     // Хэллоуин: изредка на скамейке сидит весёлый скелет (машет, нога на ногу, держит тыкву; бывает в шляпе или шарфе)
-    const skel = HW && Math.random() < (globalThis.__skel ?? 0.03); // v0.19: на лавочках почти не сидят — по городу ходят скелеты-NPC
+    const skel = HW && Math.random() < (globalThis.__skel ?? 0); // v0.19: на лавочках почти не сидят — по городу ходят скелеты-NPC
     if (skel) skeleton(g, ['wave', 'cross', 'pumpkin'][(Math.random() * 3) | 0], Math.random() < 0.5 ? (Math.random() < 0.5 ? 'hat' : 'scarf') : null, Math.random() < 0.5 ? -0.4 : 0.4);
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.6 : 2, q ? 2 : 0.6, 0, 0.55);
     W.benches.push({ x: this.X(x), y: this.Y, z: this.Z(z), ry: g.rotation.y, skel, riders: [] });
