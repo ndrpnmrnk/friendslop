@@ -4,6 +4,7 @@ import { SEASON, HW } from '../config.js';
 import { makeCharacter } from '../characters/rig.js';
 import { SKINS, SKIN_IDS } from '../characters/skins.js';
 import { PFACE } from '../world/builder.js';
+import { buildCat, COATS } from '../game/cats.js';
 import { sfx } from '../core/sfx.js';
 
 /* Главное меню — живая сцена в том же PS1-рендере, что игра: персонаж на углу улицы под прожектором,
@@ -55,10 +56,41 @@ export function createMenu() {
   const batM = col(0x17111f), wings = [];
   for (let i = 0; i < 6; i++) { const b = new THREE.Group(); b.position.set(i * 0.7 - 2, Math.sin(i) * 0.5, Math.cos(i * 2) * 0.6); mesh(G.sphL, batM, 0, 0, 0, 0.12, 0.1, 0.16, b);
     const wl = mesh(new THREE.BoxGeometry(1, 1, 1).translate(-0.5, 0, 0), batM, -0.08, 0, 0, 0.4, 0.02, 0.2, b), wr = mesh(new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0, 0), batM, 0.08, 0, 0, 0.4, 0.02, 0.2, b); wings.push([wl, wr, Math.random() * 6]); bats.add(b); }
-  const ghost = compose('menuGhost', q => { const wm = lam({ color: 0xeee8ff, emissive: 0x8a80a8, emissiveIntensity: 0.6, transparent: true, opacity: 0.75 }, 'mghost'); q(G.sph10, wm, 0, 0.6, 0, 0.32, 0.32, 0.32); q(G.cone8, wm, 0, 0.1, 0, 0.42, 0.8, 0.42); q(G.box, col(0x17111f), -0.1, 0.63, 0.29, 0.07, 0.1, 0.02); q(G.box, col(0x17111f), 0.1, 0.63, 0.29, 0.07, 0.1, 0.02); });
-  scene.add(ghost); ghost.visible = false;
-  const cat = compose('menuCat', q => { const k = col(0x1a1622); q(G.sphL, k, 0, 0.3, 0, 0.2, 0.17, 0.32); q(G.sphL, k, 0, 0.42, 0.3, 0.14, 0.13, 0.13); q(G.cone4, k, 0.07, 0.56, 0.3, 0.04, 0.08, 0.04); q(G.cone4, k, -0.07, 0.56, 0.3, 0.04, 0.08, 0.04); q(G.cyl5, k, 0, 0.45, -0.38, 0.03, 0.35, 0.03, -0.6); for (const [x, z] of [[0.1, 0.18], [-0.1, 0.18], [0.1, -0.18], [-0.1, -0.18]]) q(G.box, k, x, 0.1, z, 0.06, 0.2, 0.06); q(G.box, glow(0x9be36b), 0.05, 0.44, 0.42, 0.03, 0.03, 0.02); q(G.box, glow(0x9be36b), -0.05, 0.44, 0.42, 0.03, 0.03, 0.02); });
-  scene.add(cat); cat.visible = false;
+  // Замкнутые маршруты проходят за домами. Актёры не включаются и не исчезают в кадре.
+  const ghost = new THREE.Group();scene.add(ghost);
+  const sheet=lam({map:T.cloth(0xe8dfef,'cloth_g'),emissive:0x272035},'menuSheet25');
+  const verts=[],indices=[];const count=10;
+  for(let row=0;row<3;row++)for(let i=0;i<count;i++){const a=i/count*Math.PI*2,r=[0.3,0.34,0.42][row];verts.push(Math.sin(a)*r,[0.62,0.27,-0.32+(i%2)*0.12][row],Math.cos(a)*r);}
+  for(let row=0;row<2;row++)for(let i=0;i<count;i++){const a=row*count+i,b=row*count+(i+1)%count;indices.push(a,a+count,b,b,a+count,b+count);}
+  for(let i=1;i<count-1;i++)indices.push(0,i, i+1);
+  for(let i=1;i<count-1;i++)indices.push(20,20+i+1,20+i);
+  const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));sg.setIndex(indices);sg.computeVertexNormals();
+  const uv=[];for(let row=0;row<3;row++)for(let i=0;i<count;i++)uv.push(i/count,1-row/2);sg.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  mesh(sg,sheet,0,0,0,1,1,1,ghost);mesh(G.sph10,sheet,0,0.63,0,0.3,0.29,0.3,ghost);
+  for(const x of [-0.1,0.1])mesh(G.box,col(0x17111f),x,0.66,0.285,0.07,0.1,0.025,ghost);
+  const menuCat=buildCat(COATS[4]),cat=menuCat.root;scene.add(cat);
+  scene.add(compose('menuStreet25',a=>{
+    const brick=tmat(T.oldBrick()),wood=tmat(T.wood()),metal=tmat(T.metal()),dark=col(0x292331);
+    // Ближние боковые фасады перекрывают уходящий за угол маршрут.
+    for(const x of [-6.5,6.5]){
+      a(G.box,brick,x,2,-3.5,4.3,4,4);a(G.box,tmat(T.roof()),x,4.1,-3.5,4.5,0.2,4.2);
+      a(G.box,dark,x,1.25,-1.47,1.1,2.5,0.06);a(G.box,wood,x,1.2,-1.43,0.9,2.35,0.03);
+      a(G.box,tmat(T.sign(x<0?'ПОЧТА':'ЛАВКА','#34283d','#f5c542')),x,3.1,-1.42,2,0.45,0.04);
+      a(G.box,metal,x+0.62,1.1,-1.37,0.1,0.04,0.04);
+      a(G.box,glow(0xffcf8a),x-1.4,2.1,-1.43,0.7,1.1,0.02);
+      for(const yy of [1.8,2.4])a(G.box,dark,x-1.4,yy,-1.38,0.8,0.035,0.04);
+      a(G.box,metal,x+1.85,2,-1.34,0.07,4,0.07);
+    }
+    // Лавочка, посылки, решётка стока, объявления и ограждение вдоль дорожки.
+    for(const x of [1.8,3.2])a(G.box,metal,x,0.25,-3,0.06,0.5,0.6);
+    for(let i=0;i<3;i++)a(G.box,wood,2.5,0.52,-2.8-i*0.15,1.65,0.05,0.12);
+    a(G.box,wood,2.5,0.8,-3.16,1.65,0.4,0.06);
+    for(const [x,z,h] of [[-4,-2.7,0.4],[-3.5,-3.1,0.6]])a(G.box,tmat(T.crate()),x,h/2,z,0.5,h,0.5);
+    a(G.box,tmat(T.grate()),1.2,0.012,1.8,0.6,0.02,0.4);
+    a(G.box,tmat(T.sign('ПРОПАЛ КОТ','#d8ccb0','#34283d')),-3.9,1.7,-1.44,0.4,0.5,0.01);
+    for(let i=0;i<7;i++)a(G.box,metal,-2.2+i*0.7,0.55,-4.2,0.035,1.1,0.035);
+    a(G.box,metal,-0.1,0.9,-4.2,4.3,0.035,0.035);
+  }));
   const camera = makeCamera(38);
   camera.position.set(0, 1.7, 8.2); camera.lookAt(0, 1.0, 0);
 
@@ -99,16 +131,20 @@ export function createMenu() {
     T.mist().offset.x += dt * 0.01;
     spot.intensity += (30 - spot.intensity) * Math.min(1, dt * 5);
     for (const l of leaves) { l.t += dt * 0.25; const k = l.t % 1; l.m.position.set(-2.6 + Math.sin(l.s + k * 6) * 1.6 + k * 2.5, 3.2 - k * 3.2, -1.4 + Math.cos(l.s * 2 + k * 4) * 0.8); l.m.rotation.set(t * l.s, t, t * 0.5); }
-    // эпизоды
+    // Полный круг непрерывен: передняя половина видна, обратная проходит за фасадами.
+    const ca=t*0.18,ga=t*0.12+2.3;
+    cat.position.set(Math.sin(ca)*11,0.16,-5.2+Math.cos(ca)*2.1);cat.rotation.y=Math.atan2(Math.cos(ca),-Math.sin(ca)*2.1/11);
+    menuCat.legs.forEach((l,i)=>l.rotation.x=Math.sin(t*10+(i===0||i===3?0:Math.PI))*0.55);
+    menuCat.tail.rotation.x=0.6;menuCat.tail2.rotation.y=Math.sin(t*2)*0.3;
+    ghost.position.set(Math.sin(ga)*11,1.3+Math.sin(t*2)*0.12,-5.4+Math.cos(ga)*2);ghost.rotation.y=Math.atan2(Math.cos(ga),-Math.sin(ga)*2/11);
+    bats.visible=true;const ba=t*0.16;bats.position.set(Math.sin(ba)*19,5.4+Math.sin(t)*0.25,-9+Math.cos(ba)*2);
+    bats.rotation.y=Math.atan2(Math.cos(ba),-Math.sin(ba)*2/19);for(const [wl,wr,ph]of wings){wl.rotation.z=Math.sin(t*20+ph)*0.9;wr.rotation.z=-wl.rotation.z;}
+    // Только свет и ветер запускаются эпизодами.
     st.epT -= dt;
-    if (!st.ep && st.epT <= 0) { st.ep = { k: ['bats', 'ghost', 'cat', 'flicker', 'gust'][(Math.random() * 5) | 0], t: 0, dir: Math.random() < 0.5 ? 1 : -1 }; }
+    if (!st.ep && st.epT <= 0) { st.ep = { k: ['flicker', 'gust'][(Math.random() * 2) | 0], t: 0, dir: Math.random() < 0.5 ? 1 : -1 }; }
     if (st.ep) {
       const e = st.ep; e.t += dt; let done = false;
-      if (e.k === 'bats') { bats.visible = true; bats.position.set(-9 * e.dir + e.t * 6 * e.dir, 4.5 + Math.sin(e.t * 2) * 0.6, -3 + Math.sin(e.t) * 0.5); bats.rotation.y = e.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
-        for (const [wl, wr, ph] of wings) { const f = Math.sin(t * 20 + ph) * 0.9; wl.rotation.z = -f; wr.rotation.z = f; } done = e.t > 3.2; if (done) bats.visible = false; }
-      else if (e.k === 'ghost') { ghost.visible = true; const k = e.t / 4; ghost.position.set(-6 * e.dir + k * 12 * e.dir, 1.1 + Math.sin(e.t * 2.5) * 0.25, -2.8); ghost.rotation.y = e.dir * Math.PI / 2; ghost.traverse(o => { if (o.material && o.material.transparent) o.material.opacity = Math.sin(Math.min(1, k) * Math.PI) * 0.75; }); done = e.t > 4; if (done) ghost.visible = false; }
-      else if (e.k === 'cat') { cat.visible = true; const k = e.t / 5; cat.position.set(-7 * e.dir + k * 14 * e.dir, 0.16 + Math.abs(Math.sin(e.t * 8)) * 0.03, -2.6); cat.rotation.y = e.dir * Math.PI / 2; done = e.t > 5; if (done) cat.visible = false; }
-      else if (e.k === 'flicker') { const on = !(e.t < 1.2 && Math.sin(e.t * 40) > 0.2); lampL.intensity = on ? 6 : 0.4; bulbM.emissiveIntensity = on ? 1 : 0.1; done = e.t > 1.3; if (done) { lampL.intensity = 6; bulbM.emissiveIntensity = 1; } }
+      if (e.k === 'flicker') { const on = !(e.t < 1.2 && Math.sin(e.t * 40) > 0.2); lampL.intensity = on ? 6 : 0.4; bulbM.emissiveIntensity = on ? 1 : 0.1; done = e.t > 1.3; if (done) { lampL.intensity = 6; bulbM.emissiveIntensity = 1; } }
       else if (e.k === 'gust') { crown.rotation.z = Math.sin(e.t * 6) * 0.15 * (1 - e.t / 2); for (const l of leaves) l.t += dt * 1.5; done = e.t > 2; }
       if (done) { st.ep = null; st.epT = 6 + Math.random() * 6; }
     }

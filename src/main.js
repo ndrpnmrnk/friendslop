@@ -23,6 +23,7 @@ import { resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spaw
 import { knockDown } from './game/actors.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import { mouse as M_ } from './core/input.js';
+import { cargoPosition } from './game/handheld.js';
 import { createBots, updateBots, botHitHook, interruptBot } from './game/bots.js';
 import { voice } from './game/voice.js';
 import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide, leaveBench } from './game/worldfx.js';
@@ -97,8 +98,8 @@ const camera = makeCamera(CONFIG.camera.fov);
 const menu = createMenu();
 const podium = createPodium();
 // мышь захватывается для камеры во время игры (кроме мини-игр)
-lock.want = () => S.state === 'play' && !S.mg;
-document.addEventListener('pointerlockchange', () => { $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
+lock.want = () => ['starting','roulette','intro','play'].includes(S.state) && !S.mg;
+document.addEventListener('pointerlockchange', () => { if(locked()&&!lock.want())unlock(); setCursor(S.cursor);  $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
 
 const S = { state: 'menu', intro: null, time: 0, score: 0, done: 0, mg: null, wm: null, crane: false, hudT: 0, cursor: true };
 let P = null;
@@ -114,8 +115,8 @@ function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k
 function buildLogo() { const l = $('logo'); if (l.childElementCount) return; for (const ch of TEXT.title) { const s = document.createElement('span'); s.textContent = ch; l.appendChild(s); } }
 let logoT = 0;
 function showMenu() {
-  S.state = 'menu'; document.body.classList.remove('playing'); menu.active = true; buildLogo();
-  screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); $('dot').classList.add('hidden'); unlock();
+  S.state = 'menu'; setCursor(true); document.body.classList.remove('playing'); menu.active = true; buildLogo();
+  screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
 function showMode() {
   S.state = 'mode'; menu.active = false; screen('mode'); drawCard($('modeArt'), 'mode'); $('modeCard').classList.remove('pressed'); $('modeCard').focus(); sfx('click');
@@ -126,8 +127,8 @@ $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 $('playBtn').onclick = () => showMode();
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
-$('modeCard').onclick = () => { requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(tutSeen() ? startRoulette : startTutorial, 220); };
-$('tutBtn').onclick = () => { requestLock(); sfx('click'); startTutorial(); };
+$('modeCard').onclick = () => { S.state='starting';requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(tutSeen() ? startRoulette : startTutorial, 220); };
+$('tutBtn').onclick = () => { S.state='starting';requestLock(); sfx('click'); startTutorial(); };
 $('modeBack').onclick = () => { sfx('click'); showMenu(); };
 /* настройки: микрофон */
 $('setBtn').innerHTML = img('gear', 28); $('micIco').innerHTML = img('mic', 20);
@@ -151,9 +152,9 @@ function drawMicMeter() {
   $('micThr').style.left = Math.round((m.thr || 0.1) * 100) + '%'; $('micLoud').style.left = Math.min(98, Math.round((m.loud || 0.5) * 100)) + '%';
   const st = !MIC.on ? 'выключен' : MIC.err ? MIC.err : !MIC.ok ? 'включаю…' : MIC.cal > 0 ? 'тишина… калибрую' : m.shout > 0.2 ? 'КРИК!' : m.talk > 0.1 ? 'говоришь' : 'тишина'; if ($('micState').textContent !== st) $('micState').textContent = st;
 }
-$('againBtn').onclick = () => { requestLock(); startRoulette(); };
+$('againBtn').onclick = () => { S.state='starting';requestLock(); startRoulette(); };
 $('menuBtn').onclick = () => { sfx('click'); showMenu(); };
-$('mgexit').onclick = () => { if (S.wm) closeWorld(null); else closeMission(null); };
+$('mgexit').onclick = cancelMission;
 
 /* Рулетка тематики: лента карточек крутится с замедлением, щёлкает на каждой, всегда останавливается на «ГОРОДЕ» */
 function startRoulette() {
@@ -233,6 +234,8 @@ function tutEnd(done) {
 const tutSeen = () => { try { return localStorage.getItem('friendslop.tut') === '1'; } catch (_) { return true; } };
 /* ---------- раунд ---------- */
 function prepareRound(tut = false) {
+  if(S.mg)closeMission(null);if(S.wm)closeWorld(null);
+  for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
   if (tut) globalThis.__forceDistricts = ['yard', 'plaza', 'park'];
   generateMap(scene, (Math.random() * 1e9) | 0);
   if (tut) globalThis.__forceDistricts = null;
@@ -289,12 +292,14 @@ function goRound() {
   setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
 }
 function endRound() {
+  S.state='results';
   resetDrones();
   stopEvent(); eventChip(null); stopWeather(scene); closeCageUI();
   if (S.mg) closeMission(null);
   if (S.wm) closeWorld(null);
   if (S.crane) exitCrane();
-  S.state = 'results'; document.body.classList.remove('playing'); $('dot').classList.add('hidden'); unlock(); $('lockhint').classList.add('hidden');
+  for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
+  S.state = 'results'; document.body.classList.remove('playing'); setCursor(true); unlock(); $('lockhint').classList.add('hidden');
   $('hud').classList.add('hidden');
   screen('results'); sfx('win');
   // места и награды: у каждого — заголовок по его стилю игры, подпись и очки
@@ -316,28 +321,35 @@ function endRound() {
 
 function findMat(key) { let m = null; W.group.traverse(o => { if (!m && o.isMesh && o.material && o.material.emissive && o.material.color && o.material.emissive.getHex() === 0xff9a4a) m = o.material; }); return m; }
 /* ---------- курсор-точка ---------- */
-function setCursor(v) { S.cursor = v; $('dot').classList.toggle('hidden', !v || S.state !== 'play'); }
+function setCursor(v) { S.cursor=v; const ui=S.state!=='play';$('dot').classList.toggle('hidden',!v&&!ui);$('dot').classList.toggle('ui-cursor',ui);if(ui){$('dot').classList.remove('charge','focus');$('dot').style.transform=`translate(${mouse.x}px,${mouse.y}px)`;}document.body.classList.toggle('ui-cursor-on',ui); }
 on('move', () => { const d = $('dot'); d.style.transform = `translate(${mouse.x}px,${mouse.y}px)`; if (S.mg && S.mg.game.move) S.mg.game.move(aim(camera)); });
 
 /* ---------- миссии ---------- */
 /* Уличная миссия: игрок бегает как обычно, справа внизу панель с таймером и прогрессом */
+function cancelMission() {
+  if(S.wm){closeWorld(null);return;}
+  if(S.mg){const m=S.mg.m;closeMission(null);if(m.claimedBy===P)removeMission(m);}
+}
 function openWorld(m) {
+  if(m.claimedBy&&m.claimedBy!==P)return;
   if (P.ride) dismount(P, false);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
-  m.busy = true; S.wm = { m, game: null };
+  m.claimedBy=P; m.busy = true; S.wm = { m, game: null };
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden'); $('mgbar').classList.remove('hidden'); $('mgbar').firstChild.style.width = '0%';
   const api = {
     msg: (text, cls = '') => callout(text, cls),
-    progress: v => { $('mgbar').firstChild.style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; },
+    progress: v => { m.progress=v; $('mgbar').firstChild.style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; },
     where: t => { m.where = t; },
     timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))}`; },
     finish: res => { if (S.wm && S.wm.m === m) closeWorld(res); },
   };
-  const ctx = { player: P, camera, mission: m, give: it => { pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
+  const ctx = { player: P, camera, mission: m, give: it => { pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; it.mission=m; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
     enterCrane: () => { if (!S.crane) enterCrane(); }, exitCrane: () => { if (S.crane) exitCrane(); } };
+  const before=new Set(W.items);
   S.wm.game = WORLD_GAMES[m.def.game](m.obj, api, ctx);
+  for(const it of W.items)if(!before.has(it))it.mission=m;
   { const g = S.wm.game; m.track = g.target ? () => g.target() : null; }
 }
 /* Подсказки мини-игр (v0.19): короткая фраза по факту — ниже центра экрана, крупно, сама гаснет.
@@ -359,31 +371,32 @@ function closeWorld(res) {
   removeMission(m);
 }
 function openMission(m) {
+  if(m.claimedBy&&m.claimedBy!==P)return;
   if (m.def.world) return openWorld(m);
   if (P.ride) dismount(P, false);
   if (P.grab) release(P, 0);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
-  m.busy = true; P.root.visible = false; P.charging = false;
+  m.doer=P; m.busy = true; P.root.visible = false; P.charging = false;
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden');
   const api = {
     pose: (p, l) => { cam.pose = { p, l, ignore: m.obj.solid }; updateCamera(camera, P, 0, true); },
-    progress: v => { const bar = $('mgbar'); if (v === null) bar.classList.add('hidden'); else { bar.classList.remove('hidden'); bar.firstChild.style.width = (v * 100) + '%'; } },
+    progress: v => { m.progress=v; const bar = $('mgbar'); if (v === null) bar.classList.add('hidden'); else { bar.classList.remove('hidden'); bar.firstChild.style.width = (v * 100) + '%'; } },
     msg: (text, cls = '') => callout(text, cls),
     finish: res => { if (S.mg && S.mg.m === m) closeMission(res); },
   };
-  S.mg = { m, game: null };
+  S.mg = { m, game: null, start:P.pos.clone() };
   unlock(); $('lockhint').classList.add('hidden');
   S.mg.game = ALL_GAMES[m.def.game](m.obj, api, { cursor: setCursor, character: P.ch });
 }
 function closeMission(res) {
   if (!S.mg) return;
   const { m, game } = S.mg;
-  game.stop(); S.mg = null; cam.pose = null; updateOcclusion(camera, null); m.busy = false; P.root.visible = true; setCursor(true); requestLock();
+  game.stop(); S.mg = null; cam.pose = null; updateOcclusion(camera, null); m.busy = false; m.doer=null; P.root.visible = true; setCursor(true); requestLock();
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
-  if (!res) return;
+  if (!res) {m.progress=0;return;}
   if (res.success) { const pts = Math.round(m.pts * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
   removeMission(m);
 }
@@ -504,7 +517,6 @@ on('down', btn => {
   // в руках инструмент: ЛКМ — применить
   if (btn === 0 && P.held) { if (!P.held.def.hold) { const snd = useTool(P, P.held, aimPoint()); if (snd) sfx(snd); } return; }
   if (P.holding) { if (btn === 0 || btn === 2) letGo(P); return; }
-  if (P.carryCrate) return;
   if (!P.held && !P.ride && !P.holding && (btn === 0 || btn === 2)) {
     const c = nearestRideable(P, 1.7, true), d = btn === 0 ? nearDoor() : null;
     if (c && (!d || Math.hypot(c.x - P.pos.x, c.z - P.pos.z) < Math.hypot(d.x - P.pos.x, d.z - P.pos.z))) { grab(P, c); return; }
@@ -525,7 +537,7 @@ on('up', btn => {
   if (btn === 0 && P.held && P.held.type === 'vacuum') { const n = vacuumFire(P, P.held, aimPoint()); if (n) P.throwT = 0.3; }
   if (btn === 2 && P.charging) {
     P.charging = false; $('dot').classList.remove('charge'); throwTip(true); if (tipN < 4) { tipN++; try { localStorage.setItem('friendslop.throwTip', tipN); } catch (_) {} }
-    const it = P.held, from = P.ch.holdPoint.clone(), tgt = aimPoint();
+    const it = P.held, from = P.held?P.held.pos.clone():P.ch.holdPoint.clone(), tgt = aimPoint();
     if (it && tgt) { const v = throwVelocity(from, tgt, P.charge, it.def); it.owner = P; launch(it, from, v); P.held = null; P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
 
     else if (carryK() && tgt) { const v = throwVelocity(from, tgt, P.charge, KITTEN); S.wm.game.throwCarry(v); P.throwT = 0.3; sfx('throw'); }
@@ -537,6 +549,7 @@ on('key', code => {
   if (S.state === 'menu') { if (code === 'KeyA' || code === 'ArrowLeft') menu.next(-1); if (code === 'KeyD' || code === 'ArrowRight') menu.next(1); if (code === 'Enter') showMode(); return; }
   if (S.state === 'mode' && code === 'Enter') { $('modeCard').click(); return; }
   if (S.state !== 'play') return;
+  if (code === 'KeyZ' && (S.mg||S.wm)) { cancelMission();return; }
   if (code === 'Escape') { if (S.mg) closeMission(null); else if (S.crane) exitCrane(); else if (S.wm) closeWorld(null); else if (S.tut) tutEnd(false); }
 });
 const _aimHit = new V3();
@@ -576,6 +589,7 @@ function updateGlow() {
   glowOn = want;
 }
 function interact() {
+  if(P.heldBy||P.stun>0||P.getT>0)return;
   if (P.drone || P.returning) return;
   if (S.mg) return;
   if (S.wm && S.wm.game.interact && S.wm.game.interact()) return;
@@ -607,7 +621,7 @@ function eTarget() {
     if (d < q.r && Math.abs(q.y - P.pos.y) < (q.dy ?? 0.9)) c.push({ s: sc(q.x, q.z, d), label: q.label, act: () => q.act(P) }); }
   for (const d of W.doors) { const dist = Math.hypot(d.x - P.pos.x, d.z - P.pos.z); if (dist < 2.2 && Math.abs(d.y - P.pos.y) < 1)
     c.push({ s: sc(d.x, d.z, dist) * 1.1, label: d.open ? TEXT.door.close : TEXT.door.open, act: () => { d.open = !d.open; d.dirS = null; d.av = 0; sfx('door', { at: d, v: 0.6 }); } }); }
-  if (!P.held) { for (const it of W.items) { if (it.state !== 'rest' || (it.boxed && !it.boxed.open)) continue; const d = Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z); if (d > 1.5 || it.pos.y < P.pos.y - 0.6 || it.pos.y > P.pos.y + 1.8) continue;
+  if (!P.held) { for (const it of W.items) { if ((it.state !== 'rest' && it.state !== 'placed') || (it.boxed && !it.boxed.open)) continue; const d = Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z); if (d > 1.5 || it.pos.y < P.pos.y - 0.6 || it.pos.y > P.pos.y + 1.8) continue;
       c.push({ s: sc(it.pos.x, it.pos.z, d) * 0.85, label: `${TEXT.take} ${it.def.name.toLowerCase()}`, act: () => { if (it.steal && it.mine !== P) { stealItem(it); return; } pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; sfx('pickup'); } }); }
     const rb = nearestRideable(P); if (rb) c.push({ s: sc(rb.x, rb.z, Math.hypot(rb.x - P.pos.x, rb.z - P.pos.z)) * 1.1, label: RIDE_NAME[rb.kind] ? (rb.ride && rb.ride.pose === 'stand' ? 'Встать на ' : 'Сесть в ') + RIDE_NAME[rb.kind] : TEXT.ride, act: () => mount(P, rb) }); }
   c.sort((a, b) => a.s - b.s); return c[0] || null;
@@ -660,9 +674,10 @@ function frame() {
       // инструмент, который действует пока зажата ЛКМ (огнетушитель, магнит)
       if (M_.left && P.held && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT = 0.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
       if (P.charging && !P.chargeManual) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
+      if(S.mg&&(P.heldBy||P.stun>0||P.daze>0||P.pos.distanceTo(S.mg.start)>0.65))closeMission(null);
       updatePlayer(P, dt, t, !S.mg && !S.crane, cam.yaw);
       voiceInput(dt);
-      if (P.held) { P.held.pos.copy(P.ch.holdPoint); P.held.g.rotation.y = P.root.rotation.y; }
+      if (P.held) { cargoPosition(P,P.held.pos,P.held.def.r); P.held.g.rotation.y = P.root.rotation.y; }
       if (P.charging && !P.held && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
       W.time = EV.t;
@@ -695,7 +710,7 @@ function frame() {
       const tgt = aimPoint();
       if (tgt) {
         P.aimYaw = Math.atan2(tgt.x - P.pos.x, tgt.z - P.pos.z);
-        const def = P.held ? P.held.def : KITTEN, from = P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge, def);
+        const def = P.held ? P.held.def : KITTEN, from = P.held?P.held.pos.clone():P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge, def);
         shown = predict(from, v, arc, arc.length, def, land);
         // траектория проходит через цель (персонаж, кот, моль, ворона) — точки и кольцо становятся красными
         let onT = false; const tg = [...(W.bots || []).map(b => ({ x: b.pos.x, y: b.pos.y + 0.9, z: b.pos.z, r: 0.7 })), ...W.cats.map(c => ({ x: c.root.position.x, y: c.root.position.y + 0.4, z: c.root.position.z, r: 0.6 }))];

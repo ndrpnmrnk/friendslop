@@ -31,6 +31,7 @@ export const GAMES = {
     let down = false, prog = 0, last = null, done = false, doneT = 0, happy = 0, hiss = 0, purr = 0, t = 0;
     api.progress(0); ctx.cursor(false);
     return {
+      botStep(dt, brain) { down=true;const q=Wp(Math.sin(brain.time*2.2)*0.45,0);target.set(q[0],backY,q[1]); },
       move(ray) { if (ray.ray.intersectPlane(plane, hit)) { const a = clamp((hit.x - cx) * F.x + (hit.z - cz) * F.z, -0.95, 0.95), b = clamp((hit.x - cx) * C.x + (hit.z - cz) * C.z, -0.55, 0.8); [target.x, target.z] = Wp(a, b); } },
       down(ray) { down = true; this.move(ray); }, up() { down = false; last = null; },
       update(dt) {
@@ -71,6 +72,7 @@ export const GAMES = {
     api.progress(null); api.msg('Запомни картинку!');
     const shuffle = () => { do { for (let i = 8; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } } while (o.every((v, i) => v === i)); api.msg('Собери!', 'good');  };
     return {
+      botStep(dt, brain) { if(!brain.ready(0.75)||show>0||done)return;const i=o.findIndex((v,i)=>v!==i);if(i<0)return;const j=o.indexOf(i);this.down(brain.hit(board.tiles[o[i]].mesh));this.down(brain.hit(board.tiles[o[j]].mesh)); },
       down(ray) {
         if (done || show > 0) return;
         const hits = ray.intersectObjects(board.tiles.map(x => x.mesh)); if (!hits.length) return;
@@ -114,6 +116,7 @@ export const GAMES = {
     }
     function end(mult, text, cls) { over = true; api.msg(text, cls); res = mult > 0 ? { success: true, mult } : { success: false }; endT = 1.1; }
     return {
+      botStep(dt, brain) { if(!brain.ready(0.9)||lock||over)return;this.down(brain.hit(table.cells[botMove()])); },
       down(ray) {
         if (lock || over) return;
         const hits = ray.intersectObjects(table.cells); if (!hits.length) return;

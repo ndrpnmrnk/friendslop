@@ -25,6 +25,7 @@ export const PANEL_GAMES = {
     const cupAt = (c, x, lift) => { o.cups[c].position.set(x, 0.99 + lift, o.cups[c].position.z); };
     api.progress(null); api.msg('Запомни, где тыковка');
     return {
+      botStep(dt, brain) { if(phase==='pick'&&brain.ready(0.6))this.down(brain.hit(o.cups[ball])); },
       down(ray) {
         if (phase !== 'pick') return;
         const hits = ray.intersectObjects(o.cups); if (!hits.length) return;
@@ -71,6 +72,7 @@ export const PANEL_GAMES = {
     const end = (ok, txt) => { phase = 'end'; res = ok ? { success: true, mult: fishPick.sp.rare ? 1.6 : 1 } : { success: false }; api.msg(txt, ok ? 'good' : 'bad'); endT = ok ? 2.4 : 1.6; bang.visible = tRing.visible = false; };
     const bp = o.bob.position;
     return {
+      botStep(dt, brain) { if(phase==='aim'){const q=new V3(cx,wy,cz);if(!inWater(q.x,q.z))return;this.down(brain.rayTo(q));}else if(phase==='bite')this.down(brain.rayTo(bp));else if(phase==='reel')down=!pull; },
       move(ray) { const p = onPlane(ray, new V3(0, 1, 0), new V3(0, wy, 0)); if (!p) return; const d = Math.hypot(p.x - s.x, p.z - s.z); aim = d > 1.5 && d < 10 && inWater(p.x, p.z) ? p : null; },
       down(ray) {
         down = true;
@@ -129,13 +131,13 @@ export const PANEL_GAMES = {
   /* Щиток — «Проводка»: на сетке пары цветных клемм. Веди провод мышью по клеткам от клеммы к клемме того же
      цвета; провода не пересекаются и не проходят через чужие клеммы. Уровень строится от готового решения
      (случайная «змейка» через всю сетку режется на куски), поэтому решить можно всегда. */
-  fuse(o, api) {
+  fuse(o, api, ctx) {
     const s = o.spot, F = new V3(s.f[0], 0, s.f[1]);
     const c0 = new V3(s.bx, s.y + 0.85, s.bz).addScaledVector(F, 0.23);
     api.pose(c0.clone().addScaledVector(F, 1.25), c0.clone());
     const N = 5, K = 4 + (Math.random() < 0.5 ? 1 : 0), lvl = flowLevel(N, K);
     const COLS = ['#ff5a6e', '#4ab0f0', '#f5c542', '#9be36b', '#b18cff'];
-    const ui = document.createElement('div'); ui.id = 'wireui'; ui.innerHTML = '<div class="wt">ЩИТОК · проведи провода</div><canvas width="300" height="300"></canvas><div class="ws">Тяни от клеммы к клемме того же цвета. Провода не пересекаются.</div>'; document.body.appendChild(ui);
+    const ui = document.createElement('div'); ui.id = 'wireui'; ui.innerHTML = '<div class="wt">ЩИТОК · проведи провода</div><canvas width="300" height="300"></canvas><div class="ws">Тяни от клеммы к клемме того же цвета. Провода не пересекаются.</div>'; document.body.appendChild(ui); if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
     const cv = ui.querySelector('canvas'), g = cv.getContext('2d'), CS = 300 / N;
     const paths = lvl.pairs.map(() => []), done = new Set(); let cur = -1, endT = -1;
     const owner = (x, y) => { for (let k = 0; k < paths.length; k++) if (paths[k].some(q => q[0] === x && q[1] === y)) return k; return -1; };
@@ -171,6 +173,7 @@ export const PANEL_GAMES = {
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); addEventListener('pointerup', onUp);
     draw(); api.progress(0); api.msg('Соедини одинаковые цвета');
     return {
+      botStep(dt, brain) { if(!brain.ready(0.22)||endT>0)return;const k=paths.findIndex((p,i)=>p.length<lvl.routes[i].length);if(k<0)return;paths[k].push(lvl.routes[k][paths[k].length]);checkDone(k);draw();api.progress(done.size/K);if(done.size===K)endT=0.9; },
       update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
       stop() { ui.remove(); removeEventListener('pointerup', onUp); },
     };
@@ -195,6 +198,7 @@ export const PANEL_GAMES = {
     api.progress(0); api.msg('Крути диск — лови «щёлк»');
     const angleOf = ray => { const p = onPlane(ray, F, c0); if (!p) return null; const l = grp.worldToLocal(p.clone()); return Math.atan2(l.x, l.y); };
     return {
+      botStep(dt, brain) { if(endT>0||step>=3)return;const n=num();if(n!==code[step])ang-=Math.PI*2/N;else if(brain.ready(0.55))this.down(brain.hit(handle)); },
       down(ray) {
         if (endT > 0) return;
         if (ray.intersectObject(handle).length) {
@@ -228,6 +232,8 @@ export const WORLD_GAMES = {
     const hook = (it, p) => { for (const t of o.targets) { if (t.hit) continue; const c = t.t.getWorldPosition(new V3()); if (c.distanceTo(p) < 0.85) { t.hit = true; o.sols[t.i].on = false; left--; burst(c.x, c.y, c.z, 10, { color: 0xff8a1f, size: 0.2, speed: 2.5 }); api.msg(left ? `Попал! Осталось ${left}` : 'Все мишени сбиты!', 'good'); } } };
     W.hitHooks.push(hook); api.msg('Сбей 3 мишени с линии');
     return {
+      botItems:()=>o.items, botTarget:()=>o.world(0,0,0.6),
+      botStep(dt,brain){if(!brain.actor.held||!brain.ready(1.3))return;const t=o.targets.find(q=>!q.hit);if(t)brain.throwTo(t.t.getWorldPosition(new V3()));},
       target: () => o.world(0, 1.3, -6),
       update(dt) {
         time -= dt; api.timer(time);
@@ -248,10 +254,13 @@ export const WORLD_GAMES = {
       const rg = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, 0.35, 0.35, 1, W.group); rg.rotation.x = -Math.PI / 2; it.ring = rg; }
     api.msg('Мусор — в урну');
     const take = it => { if (it.taken) return; it.taken = true; it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) { W.group.remove(it.ring); it.ring.material.dispose(); it.ring = null; } got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
-    const hook = (it, p) => { if (o.litter.includes(it) && Math.hypot(p.x - c.x, p.z - c.z) < 0.9 && Math.abs(p.y - c.y) < 1.5) take(it); };
+    const hook = (it, p) => { if (it.state !== 'held' && o.litter.includes(it) && Math.hypot(p.x - c.x, p.z - c.z) < 0.9 && Math.abs(p.y - c.y) < 1.5) take(it); };
     W.hitHooks.push(hook);
     return {
-      target: () => { const l = o.litter.find(it => it.state !== 'gone'); return l ? l.pos : c; },
+      target: () => ctx.player.held && o.litter.includes(ctx.player.held) ? o.front?.() || c : (o.litter.find(it => it.state !== 'gone' && it.state !== 'held') || o.litter.find(it => it.state !== 'gone'))?.pos || c,
+      botItems: () => o.litter.filter(it=>!it.taken),
+      botDeposit: () => c,
+      botDrop: true,
       update(dt) {
         time -= dt; api.timer(time);
         for (const it of o.litter) if (it.state === 'rest' && Math.hypot(it.pos.x - c.x, it.pos.z - c.z) < 1.0 && Math.abs(it.pos.y - c.y) < 1.5) take(it);
@@ -277,8 +286,8 @@ function deliveryCore(o, api, ctx, kind) {
     const P = ctx.player, from = o.pos(), dests = W.spots.deliver.filter(d => Math.hypot(d.x - from.x, d.z - from.z) > 14);
     const pool = dests.length ? dests : W.spots.deliver, dest = pool[(Math.random() * pool.length) | 0], g = dest.guide;
     const parcel = addItem(kind, from.x, from.y + 0.2, from.z, 0); parcel.def = { ...parcel.def, respawn: 0 };
-    // выронил (сбили) — заказ могут украсть и сдать сами
-    parcel.steal = { pts: ctx.mission ? ctx.mission.pts : 200, key: kind }; parcel.mine = P;
+    // Выронил - соперник может унести заказ, но очки остаются только исполнителю.
+    parcel.mission = ctx.mission; parcel.mine = P;
     const stolen = () => parcel.state === 'held' && P.held !== parcel;
     let heat = 1, steamT = 0;
     ctx.give(parcel);
@@ -290,6 +299,7 @@ function deliveryCore(o, api, ctx, kind) {
     const inside = () => g && P.pos.x > g.box[0] && P.pos.x < g.box[2] && P.pos.z > g.box[1] && P.pos.z < g.box[3] && P.pos.y > g.y0 - 0.6;
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     return {
+      botItems:()=>[parcel],
       target() {
         if (P.held !== parcel) { say(kind === 'pizza' ? 'Подбери пиццу (E)' : 'Подбери заказ (E)'); return parcel.pos; }
         return routeTo(P.pos, { x: dest.x, y: dest.y, z: dest.z });
@@ -300,12 +310,12 @@ function deliveryCore(o, api, ctx, kind) {
           if (heat <= 0) { api.msg('Пицца остыла...', 'bad'); return api.finish({ success: false }); } }
         else api.progress(1 - Math.min(1, Math.hypot(P.pos.x - dest.x, P.pos.z - dest.z) / 40));
         const near = Math.hypot(parcel.pos.x - dest.x, parcel.pos.z - dest.z) < 2.2 && Math.abs(parcel.pos.y - dest.y) < 1.8;
-        if (near && (P.held === parcel || parcel.state === 'rest')) { burst(dest.x, dest.y + 1, dest.z, 12, { color: 0x9be36b, size: 0.2, speed: 2 }); return api.finish({ success: true, mult: kind === 'pizza' ? 0.6 + heat * 0.6 : 1 }); }
-        if (stolen()) { api.msg('Украли!', 'bad'); parcel.mine = null; return api.finish({ success: false, stolen: parcel.owner }); }
+        if (near && (P.held === parcel || (parcel.state === 'rest' && parcel.owner === P))) { burst(dest.x, dest.y + 1, dest.z, 12, { color: 0x9be36b, size: 0.2, speed: 2 }); return api.finish({ success: true, mult: kind === 'pizza' ? 0.6 + heat * 0.6 : 1 }); }
+        if (stolen()) say('Заказ у соперника! Верни его');
         if (parcel.state === 'gone') return api.finish({ success: false });
         if (time <= 0) return api.finish({ success: false });
       },
-      stop() { W.group.remove(beam); W.group.remove(sky); if (P.held === parcel) P.held = null; if (stolen()) return; parcel.state = 'gone'; parcel.g.visible = false; parcel.steal = null; },
+      stop() { W.group.remove(beam); W.group.remove(sky); if (P.held === parcel) P.held = null; if(parcel.owner && parcel.owner.held===parcel)parcel.owner.held=null; parcel.state = 'gone'; parcel.g.visible = false; parcel.steal = null; },
     };
 }
 void breakPiece; void brickWall; void tmat; void T;
@@ -323,9 +333,9 @@ function flowLevel(N, K, tries = 0) {
   }
   const L = path.length, cuts = new Set();
   while (cuts.size < K - 1) { const c = 3 + ((Math.random() * (L - 6)) | 0); if ([...cuts].every(o => Math.abs(o - c) >= 3)) cuts.add(c); }
-  const cs = [0, ...[...cuts].sort((a, b) => a - b), L], pairs = [];
-  for (let k = 0; k < K; k++) { const seg = path.slice(cs[k], cs[k + 1]); pairs.push([seg[0], seg[seg.length - 1]]); }
+  const routes = []; const cs = [0, ...[...cuts].sort((a, b) => a - b), L], pairs = [];
+  for (let k = 0; k < K; k++) { const seg = path.slice(cs[k], cs[k + 1]); pairs.push([seg[0], seg[seg.length - 1]]); routes.push(seg); }
   // клеммы вплотную друг к другу — слишком просто, строим заново
   if (tries < 60 && pairs.some(([a, b]) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 2)) return flowLevel(N, K, tries + 1);
-  return { pairs };
+  return { pairs, routes };
 }

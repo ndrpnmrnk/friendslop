@@ -372,3 +372,12 @@ body:not(.playing) #speedl{display:none}
 #droneHud .dh.off{opacity:.35;filter:grayscale(1)}
 #droneHud .dh i{display:block;line-height:0}
 #droneHud .dh b{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);pointer-events:none}
+
+/* v0.25: состояние задания и заметная отмена; курсор поверх итогов/меню. */
+.mstatus{font-size:11px;color:#f5c542;margin-top:4px;line-height:1.3}
+.mcard.taken{filter:saturate(.65);border-left:3px solid #b18cff}
+#mgexit{position:relative;top:auto;right:auto;display:flex;align-items:center;gap:7px;margin:10px 0 0 auto;padding:6px 9px;background:#33283f;color:#eee8ff;font:12px Rubik,sans-serif;pointer-events:auto}
+#dot.ui-cursor{display:block!important;z-index:10000;pointer-events:none;width:7px;height:7px;border:1px solid #17111f;background:#f1e8ff;box-shadow:0 0 0 1px #b18cff;border-radius:0}
+body.ui-cursor-on,body.ui-cursor-on *{cursor:none!important}
+
+#dot.ui-cursor i,#dot.ui-cursor b{display:none}

@@ -51,6 +51,14 @@ export function updateGrabs(dt) {
     // Сопротивление в горизонтальной плоскости. Положение и высоту обоих решает обычная физика.
     const limit = b.stun > 0 ? 0.5 : 1.6;
     for (const actor of [a, b]) { const speed = Math.hypot(actor.vel.x, actor.vel.z); if (speed > limit) { actor.vel.x *= limit / speed; actor.vel.z *= limit / speed; } }
+    if (a.onGround && b.onGround && d > 0.65) {
+      const speed = Math.hypot(a.vel.x, a.vel.z);
+      if (speed > 0.15) {
+        const pull = Math.min(1.5, speed * 0.8 + Math.max(0, d - 1) * 2);
+        b.vel.x += ((a.pos.x - b.pos.x) / d * pull + a.vel.x * 0.55 - b.vel.x) * Math.min(1, dt * 9);
+        b.vel.z += ((a.pos.z - b.pos.z) / d * pull + a.vel.z * 0.55 - b.vel.z) * Math.min(1, dt * 9);
+      }
+    }
     a.root.rotation.y = Math.atan2(b.pos.x - a.pos.x, b.pos.z - a.pos.z);
   }
 }

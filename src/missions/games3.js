@@ -1,3 +1,4 @@
+import { cargoPosition } from '../game/handheld.js';
 import { nearbyItemPoint } from './location.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -107,6 +108,7 @@ export const PANEL3 = {
     const toBowl = () => { let k = 0; for (const g of done) { g.userData.anim = { st: g.position.clone(), tg: new V3(BX + (Math.random() - 0.5) * 0.14, 0.11 + k * 0.004, (Math.random() - 0.5) * 0.14), t: -0.12 * k, arc: 0.14 }; k++; } };
     const angleOf = ray => { const p = local(ray); return p ? Math.atan2(p.z, p.x - BX) : null; };
     return {
+      botStep(dt, brain) { const a=brain.time*3;let q;if(phase==='cut'){q=new V3(-0.12+Math.sin(a)*0.32,0.05,0);grp.localToWorld(q);}else if(phase==='spin'){q=new V3(BX+Math.cos(a)*0.12,0.05,Math.sin(a)*0.12);grp.localToWorld(q);}else q=grp.localToWorld(new V3(0,0.05,0));const ray=brain.rayTo(q);if(!drag)this.down(ray);this.move(ray);if(phase==='bowl')this.down(ray); },
       down(ray) { drag = true; last = local(ray); lastA = angleOf(ray);
         if (phase === 'bowl') { phase = 'drop'; moveT = 0; bowl.visible = true; sfx('click'); api.msg('Миска на месте', 'good'); } },
       move(ray) {
@@ -143,7 +145,7 @@ export const PANEL3 = {
     api.pose(c0.clone().addScaledVector(F, 0.55).add(new V3(0, 0.7, 0)), c0.clone());
     const friends = (W.bots || []).map(b => ({ b, name: b.name, skin: b.skin, sent: false }));
     const STICK = ['pumpkin', 'mask', 'cat', 'firework', 'duck', 'crown'];
-    const ui = document.createElement('div'); ui.id = 'phoneui'; document.body.appendChild(ui);
+    const ui = document.createElement('div'); ui.id = 'phoneui'; document.body.appendChild(ui); if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
     let pick = null, endT = -1;
     const render = () => {
       ui.innerHTML = `<div class="ph-top"><span>${'▮▮▮'}</span><b>ГУЛЯТЬ?</b><span>23:59</span></div>
@@ -161,6 +163,7 @@ export const PANEL3 = {
     });
     if (!friends.length) endT = 0.5;
     return {
+      botStep(dt, brain) { if(!brain.ready(0.65)||endT>0)return;const f=friends.find(q=>!q.sent);if(f){f.sent=STICK[(Math.random()*STICK.length)|0];render();api.progress(friends.filter(q=>q.sent).length/friends.length);sfx('msg',{at:ctx.player.pos});}if(friends.every(q=>q.sent))endT=1.2; },
       update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
       stop() { ui.remove(); },
     };
@@ -177,6 +180,7 @@ export const PANEL3 = {
     api.progress(0); api.msg('КРУТИ! Зажми и веди по кругу');
     const angleOf = ray => { const p = onPlane(ray, N, c0); if (!p) return null; const u = new V3().crossVectors(N, new V3(0, 1, 0)).normalize(), v = new V3().crossVectors(u, N); p.sub(c0); return Math.atan2(p.dot(v), p.dot(u)); };
     return {
+      botStep(dt, brain) { const u=new V3().crossVectors(N,new V3(0,1,0)).normalize(),v=new V3().crossVectors(u,N);const q=c0.clone().addScaledVector(u,Math.cos(brain.time*3)*0.12).addScaledVector(v,Math.sin(brain.time*3)*0.12),ray=brain.rayTo(q);if(!drag)this.down(ray);this.move(ray); },
       down(ray) { drag = true; last = angleOf(ray); }, up() { drag = false; last = null; },
       move(ray) { if (!drag || endT > 0) return; const a = angleOf(ray); if (a === null || last === null) { last = a; return; } let da = a - last; da = Math.atan2(Math.sin(da), Math.cos(da)); last = a;
         ang += Math.abs(da) < 1.2 ? Math.abs(da) : 0; if (ang - clickA > 1.2) { clickA = ang; sfx('screw'); }
@@ -198,7 +202,8 @@ export const WORLD3 = {
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     const atHome = it => Math.hypot(it.pos.x - home.x, it.pos.z - home.z) < 1.8 && Math.abs(it.pos.y - home.y) < 1.6;
     return {
-      target() { const l = items.find(it => !atHome(it) && P.held !== it); if (l) { say(l.type === 'cucumber' ? 'Найди огурец' : 'Найди помидор'); return l.pos; } say('Неси на кухню'); return home; },
+      botItems:()=>items,botPickable:it=>!atHome(it), botTarget:()=>P.held&&items.includes(P.held)?home:null,botDeposit:()=>home,botDrop:true,
+      target() { if(items.includes(P.held))return home;const l = items.find(it => !atHome(it) && P.held !== it); if (l) { say(l.type === 'cucumber' ? 'Найди огурец' : 'Найди помидор'); return l.pos; } say('Неси на кухню'); return home; },
       update(dt) {
         time -= dt; api.timer(time);
         for (const it of items) { it.ring.visible = it.state === 'rest' && !atHome(it); it.ring.position.set(it.pos.x, it.pos.y - it.def.r + 0.04, it.pos.z); it.outline.set(it.state === 'rest'); }
@@ -221,21 +226,22 @@ export const WORLD3 = {
       for (let y = 0.3; y < 2.4; y += 0.35) a(G.box, col(0xf5c542), 0, y, 0.12 + (y - 1.25) * 0.12, 0.62, 0.04, 0.12);
       a(G.box, col(0xf5c542), 0, 2.52, 0.33, 0.66, 0.05, 0.3); for (const sx of [-0.3, 0.3]) a(G.box, al, sx, 0.75, 0.42, 0.02, 0.02, 0.5); }));
     const lz = { x0: hx - 0.55, x1: hx + 0.55, z0: hz - 0.55, z1: hz + 0.55, y0: L.y, y1: L.y + 2.25, nx: d.x, nz: d.z }; W.ladders.push(lz);
-    const p0 = farPoint(new V3(L.x, L.y, L.z), 6, 18), bulb = addItem('bulb', p0.x, p0.y, p0.z); bulb.def = { ...bulb.def, respawn: 0 }; bulb.steal = { pts: ctx.mission ? ctx.mission.pts : 200, key: 'bulb' }; bulb.mine = P; const rg = ringMark(0xf5c542);
+    const p0 = farPoint(new V3(L.x, L.y, L.z), 6, 18), bulb = addItem('bulb', p0.x, p0.y, p0.z); bulb.def = { ...bulb.def, respawn: 0 }; bulb.mission = ctx.mission; bulb.mine = P; const rg = ringMark(0xf5c542);
     let time = 105, hint = '';
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     const up = () => P.pos.y > L.y + 1.7 && Math.hypot(P.pos.x - hx, P.pos.z - hz) < 1.4;
     return {
+      botItems:()=>[bulb],botTarget:()=>P.held===bulb?new V3(hx,L.y+2.25,hz):bulb.pos,
       target() { if (P.held !== bulb) { say('1) Возьми лампочку (E) — жёлтое кольцо'); return bulb.pos; } if (!up()) { say('2) Залезь по стремянке к фонарю (W у лестницы)'); return new V3(hx + d.x * 0.8, L.y, hz + d.z * 0.8); } say('3) Нажми E — и вкрути лампочку мышью'); return new V3(L.lx, L.y + 3, L.lz); },
       prompt: () => P.held === bulb && up() ? '<b>E</b>Вкрутить лампочку' : '',
       interact() { if (P.held === bulb && up()) { api.finish({ chain: 'bulbScrew' }); return true; } return false; },
       update(dt) {
         time -= dt; api.timer(time); rg.visible = bulb.state === 'rest'; rg.position.set(bulb.pos.x, bulb.pos.y - 0.1, bulb.pos.z); bulb.outline.set(bulb.state === 'rest');
         api.progress(P.held === bulb ? (up() ? 0.66 : 0.33) : 0);
-        if (bulb.state === 'held' && P.held !== bulb && bulb.owner !== P && bulb.wasHeld) { api.msg('Украли!', 'bad'); bulb.mine = null; return api.finish({ success: false, stolen: bulb.owner }); }
+        if (bulb.state === 'held' && bulb.owner !== P) say('Лампочка у соперника - верни её');
         if (bulb.state === 'gone' || time <= 0) api.finish({ success: false });
       },
-      stop() { W.group.remove(lad); W.group.remove(rg); W.ladders.splice(W.ladders.indexOf(lz), 1); if (P.held === bulb) P.held = null; bulb.outline.set(false); if (bulb.state === 'held' && bulb.owner !== P) return; bulb.state = 'gone'; bulb.g.visible = false; bulb.steal = null; },
+      stop() { W.group.remove(lad); W.group.remove(rg); W.ladders.splice(W.ladders.indexOf(lz), 1); if (P.held === bulb) P.held = null; bulb.outline.set(false); if(bulb.owner?.held===bulb)bulb.owner.held=null; bulb.state = 'gone'; bulb.g.visible = false; bulb.steal = null; },
     };
   },
 
@@ -269,10 +275,10 @@ export const WORLD3 = {
           if (k.st === 'box') { p.lerp(new V3(c.x + (k === o.kittens[0] ? -0.2 : 0.2), c.y + 0.25, c.z), dt * 6); k.cat.head.rotation.y = Math.sin(performance.now() * 0.004 + k.ph) * 0.5; continue; }
           if (k.st === 'held') {
             // на руках: брыкается и через пару секунд вырывается
-            k.holdT -= dt; p.copy(P.ch.holdPoint); p.y -= 0.25; k.root.rotation.y = P.root.rotation.y + Math.sin(performance.now() * 0.03) * (k.holdT < 0.8 ? 0.6 : 0.2);
+            k.holdT -= dt; cargoPosition(P,p,0.42); p.y -= 0.3; k.root.rotation.y = P.root.rotation.y + Math.PI/2 + Math.sin(performance.now() * 0.03) * (k.holdT < 0.8 ? 0.6 : 0.2);
             const sw = Math.sin(performance.now() * 0.03) * 0.9; k.cat.legs.forEach((l, i) => (l.rotation.x = i % 2 ? sw : -sw));
             if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.1) { held = null; toBox(k); continue; }
-            if (k.holdT <= 0 || P.stun > 0) { const a = Math.random() * 6.28; release(k, Math.cos(a) * 4, 4, Math.sin(a) * 4); sfx('meow', { at: p }); api.msg('Вырвался!', 'bad'); }
+            if (k.holdT <= 0 || P.stun > 0 || P.heldBy) { const a = Math.random() * 6.28; release(k, Math.cos(a) * 4, 4, Math.sin(a) * 4); sfx('meow', { at: p }); api.msg('Вырвался!', 'bad'); }
             continue;
           }
           if (k.st === 'fly') {
@@ -320,6 +326,7 @@ export const WORLD3 = {
     W.hitHooks.push(hook);
     const armed = () => P.held && ['extinguisher', 'water', 'balloon'].includes(P.held.type);
     return {
+      botItems:()=>ext?[ext]:[],botStep(dt,brain){if(armed()&&Math.hypot(P.pos.x-f.x,P.pos.z-f.z)<4.5)brain.use(new V3(f.x,f.y+0.8,f.z),dt);},
       target: () => !armed() && ext && ext.state !== 'gone' ? ext.pos : o.pos(),
       prompt: () => !armed() && ext && ext.state === 'rest' && Math.hypot(ext.pos.x - P.pos.x, ext.pos.z - P.pos.z) < 1.5 ? '<b>E</b>Взять огнетушитель' : '',
       update(dt) {

@@ -1,3 +1,5 @@
+import { beginBotWork, tickBotWork, interruptBotWork, poseBotWork } from '../missions/bot-work.js';
+import { cargoPosition } from './handheld.js';
 import { detour } from './navigation.js';
 import { V3, THREE } from '../core/gfx.js';
 import { CONFIG } from '../config.js';
@@ -5,7 +7,7 @@ import { W } from '../world/state.js';
 import { moveBody, groundAt, solidsNear, raySolids } from '../world/physics.js';
 import { makeCharacter } from '../characters/rig.js';
 import { SKIN_IDS, SKINS } from '../characters/skins.js';
-import { nearestItem, pickUp, throwVelocity, launch, addItem } from './items.js';
+import { nearestItem, pickUp, throwVelocity, launch } from './items.js';
 import { smoke, smokeRing, burst } from '../world/particles.js';
 import { M, removeMission, missionDone, visibleTo, canReach } from '../missions/missions.js';
 import { statsOf } from './score.js';
@@ -47,7 +49,7 @@ const takenBy = m => (W.bots || []).find(b => b.goal && b.goal.m === m);
 function pickMission(b) {
   let best = null, bd = 1e9;
   for (const m of M.list) {
-    if (b.avoid?.m===m || m.busy || m.doer || !m.obj || !m.obj.pos || !visibleTo(m, b)) continue; const o = takenBy(m); if (o && o !== b) continue;
+    if (b.avoid?.m===m || (m.claimedBy && m.claimedBy!==b) || m.busy || m.doer || !m.obj || !m.obj.pos || !visibleTo(m, b)) continue; const o = takenBy(m); if (o && o !== b) continue;
     // своя (личная) миссия — в приоритете
     const p = m.obj.pos(); if (p.y < CONFIG.base - 1.2 && b.pos.y > CONFIG.base - 1.2) continue; // в подземку боты не лезут (v0.20)
     const d = Math.hypot(p.x - b.pos.x, p.z - b.pos.z) + Math.abs(p.y - b.pos.y) * 4 + Math.random() * 8 - (m.owner === b ? 25 : 0);
@@ -150,7 +152,7 @@ function steer(b, tx, tz, dt) {
 /* ---------- обновление ---------- */
 export function updateBots(dt, t, P) {
   for (const b of W.bots || []) {
-    if (b.drone || b.returning) continue;
+    if (b.drone || b.returning) { if(b.work&&!b.work.world)interruptBotWork(b);continue; }
     tickStun(b, dt);
     if (b.escapeLadder && b.pos.y >= b.escapeLadder.y1 - 0.08) {
       const l=b.escapeLadder;b.pos.x+=l.nx*0.8;b.pos.z+=l.nz*0.8;b.vel.set(0,0,0);b.climbing=false;b.escapeLadder=b.ladder=null;b.goal=null;b.think=0;b.pos.y=groundAt(b.pos.x,b.pos.z,b.r,b.pos.y+0.5);
@@ -174,25 +176,16 @@ export function updateBots(dt, t, P) {
     if (b.caged) { b.ch.animate(dt, { t, speed: 0, grabbed: true }); blob(b); progBar(b); continue; }
     // прячется
     if (b.hidden) { b.hideT -= dt; if (b.hideT <= 0) { const h = b.hidden; b.hidden = null; b.root.visible = true; b.vel.set((Math.random() - 0.5) * 6, 6, (Math.random() - 0.5) * 6); b.onGround = false; burst(h.x, h.y + 0.6, h.z, 12, { color: h.kind === 'leaves' ? 0xe0902e : 0xd8d0e4, size: 0.22, speed: 3, up: 3 }); } else { b.root.visible = false; continue; } }
+    tickBotWork(b,dt);
     const ctrl = !b.heldBy && b.stun <= 0 && !(b.getT > 0) && !(b.knockT > 0) && !(b.floatT > 0) && !(b.netT > 0);
     let ix = 0, iz = 0, run = 1;
     const ev = W.eventBot ? W.eventBot(b) : null;
-    if (b.doT > 0) {
-      // «выполняет» миссию: стоит рядом; игрок забрал — ищет другую
-      b.doT -= dt; const m = b.goal && b.goal.m;
-      if (!m || m.busy || !M.list.includes(m)) { b.doT = 0; b.goal = null; if (m && m.doer === b) m.doer = null; }
-      else if (b.doT <= 0) { const pts = Math.round(m.pts * (W.scoreMul || 1)); b.score += pts; const st = statsOf(b); st.missions++; st.mpts += pts; missionDone(m); removeMission(m); W.onBotMission && W.onBotMission(b, m, pts); b.goal = null; if (Math.random() < 0.5) startEmote(b, 'dance'); }
-    } else if (ctrl && b.carry) {
-      // несёт заказ/пиццу/лампочку: бежит к «точке сдачи», через несколько секунд — очки
-      const c = b.carry; c.t -= dt;
-      if (b.held !== c.it) b.carry = null;
-      else if (c.t <= 0) { const pts = Math.round(c.pts * (W.scoreMul || 1)); b.score += pts; const st = statsOf(b); st.missions++; st.mpts += pts; if (c.stolen) st.steals++; b.held = null; c.it.state = 'gone'; c.it.g.visible = false; b.carry = null; W.onBotMission && W.onBotMission(b, null, pts); startEmote(b, 'dance'); }
-      else { [ix, iz] = steer(b, c.x, c.z, dt); run = 1.05; }
-      act(b, P, dt);
+    if (b.work && !b.work.world) {
+      b.vel.x*=Math.exp(-dt*15);b.vel.z*=Math.exp(-dt*15);
     } else if (ctrl) {
       // приоритеты: событие раунда → увернуться → приманка-уточка → характер
-      if (ev && !b.escapeLadder && !(b.mood === 'worker' && M.list.some(m => !m.owner && !m.doer))) b.goal = ev;
-      if (b.think <= 0 && (!ev || b.goal !== ev)) { b.think = 0.6 + Math.random() * 0.6; decide(b, P); }
+      if (!b.work && ev && !b.escapeLadder && !(b.mood === 'worker' && M.list.some(m => !m.owner && !m.doer))) b.goal = ev;
+      if (!b.work && b.think <= 0 && (!ev || b.goal !== ev)) { b.think = 0.6 + Math.random() * 0.6; decide(b, P); }
       // увернуться от летящего предмета
       if (!b.dodge && (b.mood === 'coward' || Math.random() < 0.5)) for (const it of W.items) {
         if (it.state !== 'fly' || it.owner === b) continue; const dx = b.pos.x - it.pos.x, dz = b.pos.z - it.pos.z, d = Math.hypot(dx, dz);
@@ -201,7 +194,7 @@ export function updateBots(dt, t, P) {
       if (b.dodge) { ix = b.dodge.x; iz = b.dodge.z; run = 1.15; b.dodge.t -= dt; if (b.dodge.t <= 0) b.dodge = null; }
       else if (W.lure && W.lure.by !== b && Math.hypot(W.lure.x - b.pos.x, W.lure.z - b.pos.z) < 16) [ix, iz] = steer(b, W.lure.x, W.lure.z, dt);
       else if (b.goal) {
-        const g0 = b.goal.who ? b.goal.who.pos : b.goal, d0 = Math.hypot(g0.x - b.pos.x, g0.z - b.pos.z), g = b.goal.who || (d0 < 1.6 && Math.abs(g0.y - b.pos.y) < 1.5) || !['mission', 'fetch', 'event'].includes(b.goal.kind) ? g0 : waypoint(b, g0);
+        const g0 = b.goal.who ? b.goal.who.pos : b.goal, d0 = Math.hypot(g0.x - b.pos.x, g0.z - b.pos.z), g = b.goal.who || (d0 < 1.6 && Math.abs(g0.y - b.pos.y) < 1.5) || !['mission', 'fetch', 'event', 'work'].includes(b.goal.kind) ? g0 : waypoint(b, g0);
         const dx = g.x - b.pos.x, dz = g.z - b.pos.z, d = Math.hypot(dx, dz), dy = g.y - b.pos.y;
         // ниже (с крыши) — к лестнице вниз и слезть
         if (dy < -1.8 && !b.goal.who && (b.ladderDn || (b.ladderDn = ladderDown(b, g)))) { const l = b.ladderDn, cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2;
@@ -214,11 +207,11 @@ export function updateBots(dt, t, P) {
         else { b.ladder = null; b.ladderDn = null; b.climbing = false;
           const near = b.goal.kind === 'mission' ? 1.4 : b.goal.kind === 'fight' ? 1.0 : b.goal.near || 1.2;
           if (d < near && Math.abs(dy) < 1.5 && !b.stairRoute && Math.hypot(g0.x-b.pos.x,g0.z-b.pos.z)<near) arrive(b, P);
-          else { [ix, iz] = steer(b, g.x, g.z, dt); if (b.goal.kind === 'flee') run = 1.1; } }
+          else { [ix, iz] = steer(b, g.x, g.z, dt); if (b.goal?.kind === 'flee') run = 1.1; } }
       } else { b.climbing = false; }
       if (b.blind > 0) { ix = Math.sin(t * 3 + b.pos.x); iz = Math.cos(t * 2.4); }
       botDive(b, ix, iz);
-      act(b, P, dt);
+      if(!b.work)act(b, P, dt);
     }
     // Измеряем продвижение за несколько секунд, чтобы прыжки на месте не сбрасывали диагностику.
     if (ctrl && (ix || iz) && !b.climbing) {
@@ -229,6 +222,7 @@ export function updateBots(dt, t, P) {
     b.stuck = Math.hypot(b.pos.x - b.last.x, b.pos.z - b.last.z) < dt * 0.8 && Math.abs(b.pos.y - b.last.y) < dt * 0.6 && (ix || iz) ? b.stuck + dt : 0; b.last.copy(b.pos);
     if (b.stuck > 0.7 && b.onGround && !b.heldBy) { b.vel.y = PC.jump; b.onGround = false; if (b.stuck > 1.4) { const a = Math.random() * 6.28; b.dodge = { x: Math.cos(a), z: Math.sin(a), t: 0.9 }; b.stuck = 0; b.nav=null;b.navCD=0;b.failures=(b.failures||0)+1;if(b.failures>=3){if(b.goal?.m)b.avoid={m:b.goal.m,left:12};b.goal=null;b.think=0;b.stairRoute=null;b.failures=0;} b.ladder = null; b.ladderDn = null; } }
     // движение
+    if(b.work?.game.botSpeed)run*=b.work.game.botSpeed;
     const sp = (b.webT > 0 ? 0.4 : 1) * (b.daze > 0 ? 0.18 : 1) * (b.holding ? 0.4 : 1) * (b.heldBy ? 0.24 : 1) * (b.energy > 0 ? 1.2 : 1) * PC.sprint * 0.8 * run, k = b.onGround ? 8 : 2;
     if (ctrl && !(b.diveT > 0)) { b.vel.x += (ix * sp - b.vel.x) * Math.min(1, dt * k); b.vel.z += (iz * sp - b.vel.z) * Math.min(1, dt * k); }
     b.vel.x += b.push.x; b.vel.z += b.push.z; b.push.set(0, 0, 0);
@@ -250,19 +244,20 @@ export function updateBots(dt, t, P) {
     if (b.onGround && spd > 7 && Math.random() < dt * 10) smoke(b.pos.x - b.vel.x / spd * 0.4, b.pos.y + 0.12, b.pos.z - b.vel.z / spd * 0.4, { size: 0.12, grow: 0.5, life: 0.5, vy: 0.4 });
     if (b.throwT > 0) b.throwT -= dt;
     updateEmote(b, dt, spd > 1);
-    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, dive: b.diveT > 0 ? 'air' : null, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, hold: (b.doT > 0 || !!b.held) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
+    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, dive: b.diveT > 0 ? 'air' : null, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, payload:b.carryCrate?0.5:b.carryKitten?0.42:b.held?.def.r||0,missionTool:!!b.missionTool,hold: (!!b.work || !!b.held || b.carryKitten || b.carryCrate || b.carryNet) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
       emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, restrained: !!b.heldBy, swat: b.swatT > 0 ? b.swatT : 0, zombie: !!b.zombie });
-    if (b.held) { b.held.pos.copy(b.ch.holdPoint); b.held.g.rotation.y = b.root.rotation.y; }
+    poseBotWork(b);
+    if (b.held) { cargoPosition(b,b.held.pos,b.held.def.r); b.held.g.rotation.y = b.root.rotation.y; }
     b.root.visible = true; blob(b); progBar(b);
   }
 }
 /* полоска прогресса над ботом, пока он делает миссию: видно, кого стоит сбить (перехват) */
 function progBar(b) {
-  const on = b.doT > 0 && b.doTotal;
+  const on = !!b.work;
   if (!b.bar) { if (!on) return; const c = document.createElement('canvas'); c.width = 34; c.height = 8; const tex = new THREE.CanvasTexture(c); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })); sp.scale.set(1.1, 0.26, 1); sp.renderOrder = 9; b.root.add(sp); b.bar = { sp, c, g: c.getContext('2d'), tex, k: -1 }; }
   const B = b.bar; B.sp.visible = !!on; if (!on) return;
-  B.sp.position.y = (b.ch.d.top || 1.8) + 0.45; const k = Math.round((1 - b.doT / b.doTotal) * 30); if (k === B.k) return; B.k = k;
+  B.sp.position.y = (b.ch.d.top || 1.8) + 0.45; const k = Math.round(Math.max(0,Math.min(1,b.work?.m.progress||0))*30); if (k === B.k) return; B.k = k;
   const g = B.g; g.fillStyle = '#17111f'; g.fillRect(0, 0, 34, 8); g.fillStyle = '#3a3046'; g.fillRect(2, 2, 30, 4); g.fillStyle = '#f5c542'; g.fillRect(2, 2, k, 4); B.tex.needsUpdate = true;
 }
 function blob(b) { const gb = b.ch.blob; if (!gb) return; const g = groundAt(b.pos.x, b.pos.z, 0.1, b.pos.y + 0.05), h = Math.max(0, b.pos.y - g), kk = Math.max(0, 1 - h / 6); gb.position.y = g - b.pos.y + 0.03; gb.scale.setScalar(b.ch.blobS * (0.55 + 0.45 * kk)); gb.material.opacity = 0.32 * kk; }
@@ -277,7 +272,7 @@ function decide(b, P) {
       const h = W.hides.find(q => Math.hypot(q.x - b.pos.x, q.z - b.pos.z) < 7 && Math.abs(q.y - b.pos.y) < 1 && !(q.pb && (!q.pb.looted || q.pb.tipped)) && !actors().some(a => a.hidden === q));
       if (h && r < 0.5) { b.goal = { x: h.x, y: h.y, z: h.z, kind: 'hide', h, near: h.r }; return; }
       const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z; b.goal = { x: b.pos.x + dx / (d || 1) * 8, y: b.pos.y, z: b.pos.z + dz / (d || 1) * 8, kind: 'flee' }; return; } }
-  // ничей предмет миссии лежит рядом (выронили заказ, пиццу, лампочку) — украсть и сдать самому
+  // Выброшенные вещи можно подобрать; очки задания не переходят с предметом.
   if (!b.held) { const sit = W.items.find(q => q.steal && q.wasHeld && q.state === 'rest' && Math.hypot(q.pos.x - b.pos.x, q.pos.z - b.pos.z) < 14 && Math.abs(q.pos.y - b.pos.y) < 2);
     if (sit && r < (mood === 'bully' ? 0.9 : 0.6)) { b.goal = { x: sit.pos.x, y: sit.pos.y - sit.def.r, z: sit.pos.z, kind: 'fetch', it: sit, near: 1.1 }; return; } }
   // задира (или обиженный): найти жертву; без предмета — сначала подобрать что-нибудь
@@ -293,24 +288,17 @@ function arrive(b, P) {
   const g = b.goal;
   if (g.kind === 'mission') { const m = g.m;
     if (!m || m.doer || m.busy || !M.list.includes(m) || !canReach(b, m.obj.front ? m.obj.front() : m.obj.pos(), m.obj.solid, m.obj.reach || 1.8)) { b.goal = null; return; }
-    // заказ и пицца: бот забирает коробку и несёт её — по дороге её можно выбить и украсть
-    if (CARRY[m.key]) { const it = addItem(CARRY[m.key], b.pos.x, b.pos.y + 1, b.pos.z, 0); it.def = { ...it.def, respawn: 0 }; pickUp(it); it.state = 'held'; it.owner = b; b.held = it;
-      it.steal = { pts: m.pts, key: m.key }; startCarry(b, it, m.pts, false); missionDone(m); removeMission(m); b.goal = null; return; }
-    m.doer = b; b.doT = b.doTotal = 6 + Math.random() * 4; return; }
+    beginBotWork(b,m); return; }
+  if(g.kind==='work')return;
   if (g.kind === 'fetch') { const it = g.it; if (it.state === 'rest' && !b.held) { pickUp(it); it.state = 'held'; b.held = it; const prev = it.owner; it.owner = b;
-      if (it.steal) { startCarry(b, it, it.steal.pts, true); W.onSteal && W.onSteal(b, prev, it); } }
+      if (it.steal) W.onSteal?.(b,prev,it); }
     b.goal = null; b.think = 0; return; }
   if (g.kind === 'hide') { if (!actors().some(a => a.hidden === g.h)) { b.hidden = g.h; b.hideT = 2.5 + Math.random() * 3; b.pos.set(g.h.x, g.h.y, g.h.z); b.vel.set(0, 0, 0); sfx('hide', { at: b.pos }); } b.goal = null; return; }
   if (g.kind === 'fight' || g.kind === 'eventThrow' || g.kind === 'event') return; // действие — в act()
   b.goal = null;
 }
-const CARRY = { delivery: 'parcel', pizza: 'pizza' };
-function startCarry(b, it, pts, stolen) { const a = Math.random() * 6.28; b.carry = { it, pts, stolen, t: 6 + Math.random() * 3, x: b.pos.x + Math.cos(a) * 14, z: b.pos.z + Math.sin(a) * 14 }; }
-// сорвали: бота ударили, пока он делал миссию — прогресс пропал, миссия снова свободна
-export function interruptBot(b) {
-  if (!(b.doT > 0)) return null; const m = b.goal && b.goal.m; b.doT = 0; b.goal = null; b.think = 0.3;
-  if (m && m.doer === b) { m.doer = null; return m; } return null;
-}
+// Стационарная попытка сбрасывается, уличное задание остаётся за исполнителем.
+export function interruptBot(b) { return interruptBotWork(b); }
 // атака: бросок, удар инструментом, выпад, захват
 function act(b, P, dt) {
   // Удерживает на земле, затем отпускает. Броска персонажей нет.

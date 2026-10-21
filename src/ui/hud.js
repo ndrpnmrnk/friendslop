@@ -70,19 +70,22 @@ export function renderHud(S, P, prompt, dt) {
   // карточки миссий: элемент живёт столько же, сколько миссия
   const live = new Set();
   // главная цель — одна: ближайшая миссия (её выбирает main.js), остальные карточки приглушены
-  const nearest = M.list.find(m => m.busy) || S.main || null;
+  const nearest = M.list.find(m => (m.busy && m.claimedBy===P) || m.doer===P) || S.main || null;
   for (const m of M.list) {
     if (m.owner && m.owner !== P) continue;
     live.add(m.id);
     let el = H.cards.get(m.id);
     if (!el) { const tag = m.owner ? `<span class="tag">${m.outsider ? TEXT.tagOutsider : TEXT.tagPersonal}</span>` : '';
-      el = document.createElement('div'); el.className = `mcard new d-${m.def.diff}${m.owner ? ' mine' : ''}`; el.innerHTML = `${img(m.key, 30)}<div class="mt"><div class="mn">${tag}${(TEXT.missions[m.key] || [m.def.name])[0]}</div><div class="ms"><span class="pts">${m.pts}</span><span class="dist"></span></div><div class="where"></div><div class="bar"><i></i></div></div>`; $('missions').appendChild(el); H.cards.set(m.id, el); setTimeout(() => el.classList.remove('new'), 600); }
+      el = document.createElement('div'); el.className = `mcard new d-${m.def.diff}${m.owner ? ' mine' : ''}`; el.innerHTML = `${img(m.key, 30)}<div class="mt"><div class="mn">${tag}${(TEXT.missions[m.key] || [m.def.name])[0]}</div><div class="ms"><span class="pts">${m.pts}</span><span class="dist"></span></div><div class="where"></div><div class="mstatus"></div><div class="bar"><i></i></div></div>`; $('missions').appendChild(el); H.cards.set(m.id, el); setTimeout(() => el.classList.remove('new'), 600); }
     const p = (m.busy && m.track && m.track()) || m.obj.pos(), dx = p.x - P.pos.x, dz = p.z - P.pos.z;
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), ang = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz);
     el.querySelector('.dist').textContent = `${Math.round(Math.hypot(dx, dz))}м`;
     const w = el.querySelector('.where'), wt = m.where || ''; if (w.textContent !== wt) w.textContent = wt;
     const bar = el.querySelector('.bar'); bar.firstChild.style.width = Math.max(0, m.life / m.maxLife * 100) + '%'; bar.classList.toggle('warn', m.life < m.maxLife * 0.25);
-    el.classList.toggle('taken', !!m.doer);
+    const occupied=(m.claimedBy||m.doer), mine=occupied===P;
+    el.querySelector('.mstatus').textContent=occupied?(mine?(m.busy?'Выполняешь · Z отменить':'Принято · E продолжить'):'Выполняется · можно помешать'):'';
+    if(occupied&&m.progress!=null)bar.firstChild.style.width=Math.min(100,Math.max(0,m.progress*100))+'%';
+    el.classList.toggle('taken', !!occupied&&!mine);
     el.classList.toggle('active', !!m.busy); el.classList.toggle('main', m === nearest && !m.busy); el.classList.toggle('dim', m !== nearest);
   }
   for (const [id, el] of H.cards) if (!live.has(id)) { H.cards.delete(id); el.classList.add(H.won.has(id) ? 'won' : 'gone'); setTimeout(() => el.remove(), 520); }

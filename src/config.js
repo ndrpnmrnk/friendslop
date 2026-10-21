@@ -107,6 +107,7 @@ export const CONFIG = {
     litter:  { name: 'Мусор', icon: '🥫', heavy: false, r: 0.12, respawn: 0, mass: 0.2, drag: 0.15, bounce: 0.35 },
     parcel:  { name: 'Заказ', icon: '📦', heavy: false, r: 0.24, respawn: 0, mass: 0.8, drag: 0.1, bounce: 0.2 },
     // v0.23: для миссий
+    missioncrate: { name: 'Ящик для лесенки', heavy:true, r:0.45,halfHeight:0.35,respawn:0,mass:2.4,drag:0.05,bounce:0.08 },
     canister: { name: 'Канистра', heavy: true, r: 0.22, respawn: 0, mass: 1.6, drag: 0.03, bounce: 0.1 },
     letter:  { name: 'Письмо', heavy: false, r: 0.1, respawn: 0, mass: 0.15, drag: 0.08, bounce: 0.1 },
     can:     { name: 'Банка газировки', icon: '🥤', heavy: false, r: 0.1, respawn: 0, mass: 0.4, drag: 0.1, bounce: 0.45 },

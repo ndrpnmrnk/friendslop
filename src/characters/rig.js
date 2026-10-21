@@ -148,9 +148,10 @@ function animate(c, dt, s) {
     const ch = s.charge;
     setHand(c.handR, hx * 0.9, d.top - 0.1 + ch * 0.25, -0.15 - ch * 0.4, damp(12, dt));
     setHand(c.handL, -hx * 0.7, hy + 0.3, hz + 0.45, f);
-  } else if (s.hold) {
-    setHand(c.handL, -d.holdX, d.holdY, d.holdZ, f);
-    setHand(c.handR, d.holdX, d.holdY, d.holdZ, f);
+  } else if (s.hold && !s.missionTool) {
+    const load=s.payload||0,zz=Math.max(d.holdZ+0.12,d.holdZ*0.5+load+0.16),xx=load>0.3?Math.max(d.holdX,load*0.85):d.holdX;
+    setHand(c.handL, -xx, d.holdY, zz, f);
+    setHand(c.handR, xx, d.holdY, zz, f);
   } else if (s.climb) {
     setHand(c.handL, -hx * 0.8, d.top - 0.2 + sn * 0.22, 0.4, f); setHand(c.handR, hx * 0.8, d.top - 0.2 - sn * 0.22, 0.4, f);
   } else if (s.air) {
@@ -198,6 +199,9 @@ function animate(c, dt, s) {
     // его держат: болтает руками и ногами
     setHand(c.handL, -hx - 0.2, hy + 0.3 + Math.sin(t * 14) * 0.15, hz, f); setHand(c.handR, hx + 0.2, hy + 0.3 - Math.sin(t * 14) * 0.15, hz, f);
     setHand(c.footL, -fx, fy + 0.1 + Math.max(0, Math.sin(t * 16)) * 0.2, 0.15, f); setHand(c.footR, fx, fy + 0.1 + Math.max(0, -Math.sin(t * 16)) * 0.2, 0.15, f); c.body.rotation.z = Math.sin(t * 12) * 0.15;
+  } else if (s.missionTool) {
+    setHand(c.handL, -hx, hy, hz, f);
+    setHand(c.handR, Math.max(hx, d.holdX) + 0.12, d.holdY, d.holdZ + 0.22, f);
   } else if (s.swat) {
     // удар тапком / подушкой: правая рука резко сверху вниз
     const k2 = s.swat / 0.3; setHand(c.handR, hx * 0.6, d.top - 0.1 - (1 - k2) * 0.6, 0.35 + (1 - k2) * 0.3, damp(30, dt)); setHand(c.handL, -hx, hy + fl, hz, f);

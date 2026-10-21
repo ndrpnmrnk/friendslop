@@ -34,10 +34,16 @@ export function buildGraffitiWall(x, y, z, f) {
   o.type = 'graffiti'; return o;
 }
 export function buildIntercom(x, y, z, f) {
-  const o = place(x, y, z, f, g => g.add(compose('intercom', a => { a(G.box, col(0x3a3440), 0, 0.7, 0, 0.3, 1.4, 0.25); a(G.box, col(0x8a8d98), 0, 1.15, 0.13, 0.26, 0.4, 0.02);
-    for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) a(G.box, glow(0x9be36b), -0.07 + c * 0.07, 1.25 - r * 0.07, 0.145, 0.04, 0.04, 0.01);
-    a(G.box, tmat(T.sign('ДОМОФОН', '#2a5a8a', '#f1e8ff')), 0, 1.5, 0.13, 0.3, 0.08, 0.01); })), [0.4, 0.4], 1.4, 1.6);
-  o.type = 'intercom'; return o;
+  const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=Math.atan2(f[0],f[1]);W.group.add(g);
+  g.add(compose('intercom25',a=>{
+    a(G.box,tmat(T.metal()),0,1.27,0,0.32,0.56,0.12);
+    a(G.box,tmat(T.vent()),0,1.43,0.066,0.23,0.12,0.012);
+    a(G.box,col(0x17111f),0,1.31,0.066,0.22,0.07,0.012);
+    a(G.box,glow(0x9be36b),0,1.31,0.074,0.16,0.025,0.01);
+    for(let row=0;row<4;row++)for(let c=0;c<3;c++)a(G.box,col(0xc8c0b0),-0.075+c*0.075,1.23-row*0.055,0.075,0.045,0.035,0.022);
+    a(G.box,tmat(T.sign('КОД', '#2a2533','#d8d0b8')),0,1.67,0,0.32,0.13,0.025);
+  }));
+  return {g,f,type:'intercom',reach:1.6,pos:()=>g.position,front:()=>new V3(x+f[0]*0.85,y,z+f[1]*0.85),dispose(){g.removeFromParent();}};
 }
 export function buildChest(x, y, z, f) {
   const o = place(x, y, z, f, g => g.add(compose('lockChest', a => { const w = tmat(T.wood()), m = col(0x4a4458); a(G.box, w, 0, 0.3, 0, 1.0, 0.6, 0.6); a(G.box, w, 0, 0.66, 0, 1.02, 0.14, 0.62);
@@ -83,6 +89,7 @@ export const PANEL4 = {
     api.progress(0); api.msg('Разгребай! Клик по находке');
     const covered = f => leaves.some(l => !l.v && Math.hypot(l.m.position.x - f.x, l.m.position.z - f.z) < 0.12);
     return {
+      botStep(dt, brain) { if(endT>0)return;const gold=finds.find(q=>q.gold);const q=new V3(c.x+gold.x,c.y+0.2,c.z+gold.z),ray=brain.rayTo(q);this.down(brain.hit(gold.m));this.move(ray); },
       down(ray) { down = true; const h = ray.intersectObjects(finds.map(f => f.m)); if (h.length) { const f = finds.find(q => q.m === h[0].object); if (f && !covered(f)) {
         if (f.gold) { api.msg('ЗОЛОТОЙ БИЛЕТ!', 'good'); sfx('done'); burst(c.x + f.x, c.y + 0.2, c.z + f.z, 14, { color: 0xf5c542, size: 0.08, speed: 2, up: 2 }); endT = 1.0; }
         else { api.msg(`Это ${f.name}…`, 'bad'); sfx('drop'); f.m.position.y = 0.5; f.m.visible = false; } } } },
@@ -133,6 +140,7 @@ export const PANEL4 = {
       tex.needsUpdate = true; sprayT -= 1; if (sprayT <= 0) { sprayT = 8; sfx('spray', { v: 0.5 }); }
       if (Math.random() < 0.3) puff(h[0].point.x, h[0].point.y, h[0].point.z, { color: parseInt(COL.slice(1), 16), size: 0.12, vx: F.x, vz: F.z, vy: 0.2, life: 0.4, grow: 1.5, opacity: 0.5 }); };
     return {
+      botStep(dt, brain) { if(endT>0)return;const i=inside.findIndex((v,i)=>v&&!paint[i]);if(i<0)return;const uv=new THREE.Vector2((i%CW+0.5)/CW,1-((i/CW|0)+0.5)/CH);const point=board.localToWorld(new V3((uv.x-.5)*2.2,(uv.y-.5)*1.5,0));brain.workPoint=point;this.down({intersectObject:()=>[{uv,point}]}); },
       down(ray) { down = true; spray(ray); }, up() { down = false; }, move(ray) { if (down && endT < 0) spray(ray); },
       update(dt) { time -= dt; const k = pin / total; api.progress(Math.min(1, k / 0.8));
         if (endT < 0 && k >= 0.8) { const out = pout / total; endT = 1.0; api.msg(out < 0.15 ? 'Чисто! Как по трафарету' : 'Готово, но с кляксами', out < 0.15 ? 'good' : ''); sfx('done'); }
@@ -145,20 +153,21 @@ export const PANEL4 = {
   // Код домофона — ввод: кнопки 0–9, сброс; найденные цифры подсказаны сверху
   keypad(o, api, ctx) {
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.0).add(new V3(0, 1.35, 0)), c.clone().add(new V3(0, 1.15, 0)));
-    const ui = document.createElement('div'); ui.id = 'keyui'; ui.className = 'mgui'; document.body.appendChild(ui);
+    const ui = document.createElement('div'); ui.id = 'keyui'; ui.className = 'mgui'; document.body.appendChild(ui); if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
     let entry = '', endT = -1;
     const render = () => { ui.innerHTML = `<div class="wt">ДОМОФОН</div><div class="kd">${(entry + '___').slice(0, 3).split('').join(' ')}</div><div class="kh">Найдено: ${o.code.join(' ')}</div><div class="kg">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, '✓'].map(k => `<button data-k="${k}">${k}</button>`).join('')}</div>`; };
     render(); api.msg('Набери код из найденных цифр');
     ui.addEventListener('pointerdown', e => { const b = e.target.closest('button'); if (!b || endT > 0) return; const k = b.dataset.k; sfx('click');
       if (k === 'C') entry = ''; else if (k === '✓') { if (entry === o.code.join('')) { api.msg('Дверь открыта!', 'good'); sfx('bell'); endT = 0.9; } else { api.msg('Неверный код', 'bad'); sfx('alarm', { v: 0.4 }); entry = ''; } }
       else if (entry.length < 3) entry += k; render(); });
-    return { update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } }, stop() { ui.remove(); } };
+    return {
+      botStep(dt, brain) { if(!brain.ready(0.7)||endT>0)return;if(entry.length<3){entry+=o.code[entry.length];render();sfx('click');api.progress(entry.length/4);}else if(entry===o.code.join(''))endT=0.9; }, update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } }, stop() { ui.remove(); } };
   },
 
   // Отмычка: двигай мышью — угол отмычки; зажми ЛКМ — проворачивай замок. Не там — замок упирается, отмычка трещит
   lockpick(o, api, ctx) {
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.1).add(new V3(0, 1.0, 0)), c.clone().add(new V3(0, 0.4, 0)));
-    const { ui, cv, g } = overlay('lockui', 'ОТМЫЧКА', 'Води мышью — ищи точку. Зажми ЛКМ — проворачивай. Замок упёрся — отпусти, иначе сломаешь', 300, 220);
+    const { ui, cv, g } = overlay('lockui', 'ОТМЫЧКА', 'Води мышью — ищи точку. Зажми ЛКМ — проворачивай. Замок упёрся — отпусти, иначе сломаешь', 300, 220);if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
     const sweet = (Math.random() * 140 - 70) * Math.PI / 180, WIN = 7 * Math.PI / 180, ZONE = 40 * Math.PI / 180;
     let pick = 0, turn = 0, holding = false, strain = 0, picks = 3, endT = -1, shake = 0;
     const draw = () => {
@@ -175,6 +184,7 @@ export const PANEL4 = {
     cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerdown', onDown); addEventListener('pointerup', onUp);
     api.progress(0); api.msg('Найди точку и проверни замок');
     return {
+      botStep(dt, brain) { pick+=(sweet-pick)*Math.min(1,dt*2);holding=Math.abs(pick-sweet)<WIN; },
       update(dt) {
         if (endT > 0) { endT -= dt; draw(); if (endT <= 0) api.finish({ success: true, mult: 0.6 + picks * 0.15 }); return; }
         const off = Math.abs(pick - sweet), maxT = off < WIN ? Math.PI / 2 : Math.max(0, 1 - (off - WIN) / ZONE) * Math.PI / 2 * 0.85;
@@ -192,7 +202,7 @@ export const PANEL4 = {
   // Трубы: клик — повернуть секцию на 90°. Вода течёт от входа (слева) до выхода (справа)
   pipes(o, api, ctx) {
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.3).add(new V3(0, 1.1, 0)), c.clone().add(new V3(0, 0.6, 0)));
-    const N = 3, { ui, cv, g } = overlay('pipeui', 'ТРУБЫ', 'Клик: поворот на 90°. Соедини синий вход слева с зелёным выходом справа'), CS = 300 / N;
+    const N = 3, { ui, cv, g } = overlay('pipeui', 'ТРУБЫ', 'Клик: поворот на 90°. Соедини синий вход слева с зелёным выходом справа'), CS = 300 / N;if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
     // биты выходов: 1 — верх, 2 — право, 4 — низ, 8 — лево
     const rot = m => ((m << 1) | (m >> 3)) & 15, grid = [], sy = (Math.random() * N) | 0;
     // Монотонный путь: 3–5 клеток, всегда выходит справа, без тупика генератора.
@@ -203,6 +213,7 @@ export const PANEL4 = {
     const dirBit = (a, b) => b[0] > a[0] ? 2 : b[0] < a[0] ? 8 : b[1] > a[1] ? 4 : 1, opp = b => ({ 1: 4, 4: 1, 2: 8, 8: 2 })[b];
     for (let y = 0; y < N; y++) { grid.push([]); for (let x = 0; x < N; x++) grid[y].push([3, 5, 7, 6, 11][(Math.random() * 5) | 0]); }
     path.forEach((p, i) => { let m = 0; m |= i === 0 ? 8 : opp(dirBit(path[i - 1], p)); m |= i === path.length - 1 ? 2 : dirBit(p, path[i + 1]); grid[p[1]][p[0]] = m; });
+    const solved=grid.map(row=>row.slice());
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const r = (Math.random() * 4) | 0; for (let k = 0; k < r; k++) grid[y][x] = rot(grid[y][x]); }
     const ey = path[path.length - 1][1]; let wet = new Set(), endT = -1;
     const flow = () => { wet = new Set(); if (!(grid[sy][0] & 8)) return false; const st = [[0, sy]]; wet.add('0,' + sy);
@@ -219,7 +230,8 @@ export const PANEL4 = {
       if (flow()) { endT = 1.0; api.msg('Вода пошла!', 'good'); sfx('water'); } api.progress(Math.min(1, wet.size / path.length)); draw(); });
     if (flow()) { grid[sy][0] = rot(grid[sy][0]); flow(); }
     draw(); api.progress(0); api.msg('Соедини вход и выход');
-    return { update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } }, stop() { ui.remove(); } };
+    return {
+      botStep(dt, brain) { if(!brain.ready(0.45)||endT>0)return;const q=path.find(([x,y])=>grid[y][x]!==solved[y][x]);if(q){grid[q[1]][q[0]]=rot(grid[q[1]][q[0]]);flow();draw();api.progress(wet.size/path.length);}if(flow())endT=1; }, update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } }, stop() { ui.remove(); } };
   },
 };
 
@@ -227,25 +239,35 @@ export const PANEL4 = {
 export const WORLD4 = {
   intercom(o, api, ctx) {
     const P = ctx.player, c = o.pos(); o.code = [0, 0, 0].map(() => (Math.random() * 10) | 0);
-    const plates = o.code.map((d, i) => { const p = farFloor(c, 6 + i * 3, 20 + i * 4), cv = document.createElement('canvas'); cv.width = 24; cv.height = 16; const g = cv.getContext('2d');
-      g.fillStyle = '#17111f'; g.fillRect(0, 0, 24, 16); g.fillStyle = '#2a5a8a'; g.fillRect(1, 1, 22, 14); g.fillStyle = '#f1e8ff'; g.font = '10px monospace'; g.textAlign = 'center'; g.fillText(`${i + 1}:${d}`, 12, 12);
-      const t = new THREE.CanvasTexture(cv); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
-      const grp = new THREE.Group(); grp.position.copy(p); W.group.add(grp); mesh(G.box, col(0x3a3440), 0, 0.55, 0, 0.06, 1.1, 0.06, grp);
-      const sp = sprite(t, 0.6); sp.scale.set(0.9, 0.6, 1); sp.position.y = 1.35; grp.add(sp); return { grp, p, got: false, i }; });
+    const used=[];
+    const plates = o.code.map((d,i)=>{
+      let p;for(let n=0;n<20;n++){p=nearbyItemPoint(o.front());if(used.every(q=>q.distanceTo(p)>1.8))break;}used.push(p.clone());
+      const cv=document.createElement('canvas');cv.width=96;cv.height=64;const g=cv.getContext('2d');
+      g.fillStyle='#d8ccb0';g.fillRect(0,0,96,64);g.fillStyle='#b8aa90';for(let n=0;n<100;n++)g.fillRect(Math.random()*96,Math.random()*64,1,1);
+      g.fillStyle='#342c30';g.font='bold 10px monospace';g.fillText('КОД ПОДЪЕЗДА',6,13);g.font='10px monospace';g.fillText('ЦИФРА '+(i+1)+' / 3',6,26);g.font='bold 30px monospace';g.fillText(String(d),39,54);
+      g.strokeStyle='#8a785c';g.strokeRect(2,2,91,59);g.fillStyle='#a86a40';g.fillRect(7,3,20,5);g.fillRect(70,55,19,5);
+      const tex=new THREE.CanvasTexture(cv);tex.magFilter=tex.minFilter=THREE.NearestFilter;tex.generateMipmaps=false;
+      const grp=new THREE.Group();grp.position.copy(p);grp.rotation.y=Math.atan2(c.x-p.x,c.z-p.z);W.group.add(grp);
+      // Записка на крышке небольшого ящика, с лентой и загнутым уголком.
+      mesh(G.box,tmat(T.crate()),0,0.23,0,0.65,0.46,0.5,grp);
+      const mat=new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide});const paper=mesh(G.plane,mat,0,0.468,0,0.56,0.38,1,grp);paper.rotation.x=-Math.PI/2;
+      mesh(G.box,col(0xbda478),0.2,0.48,-0.14,0.12,0.012,0.05,grp);
+      const solid=addSolid(p.x-0.32,p.z-0.32,p.x+0.32,p.z+0.32,p.y,p.y+0.46);
+      return {grp,p,got:false,i,tex,mat,solid};
+    });o.notes=plates;
     let hint = ''; const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     const codeStr = () => o.code.map((d, i) => plates[i].got ? d : '_').join(' ');
     const all = () => plates.every(q => q.got); let time = 120;
     return {
-      target() { const left = plates.filter(q => !q.got).sort((a, b) => a.p.distanceTo(P.pos) - b.p.distanceTo(P.pos)); if (left.length) { say(`Найди таблички с цифрами · код: ${codeStr()}`); return left[0].p; } say(`Код ${codeStr()} — беги к домофону, E`); return c; },
-      prompt: () => all() && Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.8 ? '<b>E</b>Набрать код' : '',
-      interact() { if (all() && Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.8) { api.finish({ chain: 'keypad' }); return true; } return false; },
+      target() { const left = plates.filter(q => !q.got).sort((a, b) => a.p.distanceTo(P.pos) - b.p.distanceTo(P.pos)); if (left.length) { say(`Найди таблички с цифрами · код: ${codeStr()}`); return left[0].p; } say(`Код ${codeStr()} — беги к домофону, E`); return o.front(); },
+      prompt: () => plates.some(q=>!q.got&&q.p.distanceTo(P.pos)<1.8)?'<b>E</b>Прочитать записку':all()&&P.pos.distanceTo(o.front())<1.8?'<b>E</b>Набрать код':'',
+      interact() { const q=plates.find(q=>!q.got&&q.p.distanceTo(P.pos)<1.8);if(q){q.got=true;sfx('pickup');api.msg('Цифра '+(q.i+1)+': '+o.code[q.i]+' · код '+codeStr(),'good');return true;} if (all() && Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.8) { api.finish({ chain: 'keypad' }); return true; } return false; },
       update(dt) {
         time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false });
-        for (const q of plates) { q.grp.children[1].position.y = 1.35 + Math.sin(performance.now() * 0.004 + q.i) * 0.06;
-          if (!q.got && Math.hypot(P.pos.x - q.p.x, P.pos.z - q.p.z) < 1.6 && Math.abs(P.pos.y - q.p.y) < 1.5) { q.got = true; sfx('pickup'); burst(q.p.x, q.p.y + 1.3, q.p.z, 8, { color: 0x4ab0f0, size: 0.1, speed: 1.5 }); q.grp.children[1].material.opacity = 0.35; } }
-        api.progress(plates.filter(q => q.got).length / 4);
+
+        api.progress(plates.filter(q => q.got).length / 3);
       },
-      stop() { for (const q of plates) W.group.remove(q.grp); },
+      stop() { for (const q of plates) {q.grp.removeFromParent();q.solid.on=false;q.tex.dispose();q.mat.dispose();} o.notes=null; },
     };
   },
 };

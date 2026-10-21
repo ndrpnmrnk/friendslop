@@ -98,11 +98,13 @@ function canSpawn(key, def) {
   if ((M.cooldown[key] || 0) > 0) return false;
   const n = M.list.filter(m => m.key === key).length;
   if (n >= def.max) return false;
+  if (key === 'intercom') return entrances().length > 0;
   if (key === 'cat') return W.cats.some(c => !M.list.some(m => m.obj === c));
   if (def.needs && !(W.spots[def.needs] || []).length) return false;
   if (def.spot) return freeSpots(def.spot).length > 0;
   return true;
 }
+const entrances = () => (W.buildings || []).filter(g => g.intercom && !M.list.some(m => m.obj.entrance === g)).filter(g => { const p=g.intercom, x=p.x+p.f[0]*0.9,z=p.z+p.f[1]*0.9; return isFree(x-0.3,z-0.3,x+0.3,z+0.3,p.y+0.05,p.y+1.8) && Math.abs(groundAt(x,z,0.25,p.y+0.3)-p.y)<0.2; });
 const freeSpots = kind => (W.spots[kind] || []).filter(sp => !M.list.some(m => m.obj.spot === sp) && !(sp.lamp && (sp.lamp.dead || (sp.lamp.pool && sp.lamp.pool.userData.broken))) && isFree(sp.x - 0.3, sp.z - 0.3, sp.x + 0.3, sp.z + 0.3, sp.y + 0.05, sp.y + 1.5) && Math.abs(groundAt(sp.x, sp.z, 0.2, sp.y + 0.4) - sp.y) < 0.25);
 
 // таймер миссии: от расстояния до ближайшего игрока (25–50 с), в финальном рывке короче
@@ -136,6 +138,9 @@ export function spawnMission(player, only = null, opts = {}) {
       const free = W.cats.filter(c => !M.list.some(m => m.obj === c));
       free.sort((a, b) => minDist(b.root.position, others) - minDist(a.root.position, others));
       obj = free[0]; if (!obj) continue; where = obj.home.district;
+    } else if (key === 'intercom') {
+      const list=entrances(); const g=list[(Math.random()*list.length)|0]; if(!g)continue; const p=g.intercom;
+      obj=buildIntercom(p.x,p.y,p.z,p.f); obj.entrance=g; where=g.name+' · у входа';
     } else if (def.spot) {
       // место подальше от других миссий волны
       const list = freeSpots(def.spot).sort((a, b) => minDist(b, others) - minDist(a, others) + (Math.random() - 0.5) * 8);
@@ -159,6 +164,8 @@ export function spawnMission(player, only = null, opts = {}) {
 }
 const minDist = (p, list) => list.reduce((d, q) => Math.min(d, Math.hypot(q.x - p.x, q.z - p.z)), 60);
 export function removeMission(m, silent = false) {
+  m.onRemove?.(); m.onRemove=null;
+  for(const it of W.items)if(it.mission===m){if(it.owner?.held===it)it.owner.held=null;it.state='gone';it.g.visible=false;it.outline?.set(false);it.ring?.removeFromParent();}
   W.group.remove(m.marker.g); m.marker.bm.dispose(); m.marker.rm.dispose(); m.marker.wm.dispose(); m.marker.sp.material.dispose(); m.marker.tex.dispose();
   if (m.obj.dispose) m.obj.dispose();
   M.list = M.list.filter(x => x !== m);
@@ -223,7 +230,7 @@ export function canReach(player, p, skip, reach = 1.8) {
 export function nearMission(player) {
   let best = null, bd = 1e9;
   for (const m of M.list) {
-    if (m.busy || m.doer || !visibleTo(m, player)) continue;
+    if (m.busy || m.doer || (m.claimedBy && m.claimedBy !== player) || !visibleTo(m, player)) continue;
     const p = m.obj.pos(), c = m.obj.front ? m.obj.front() : p, d = Math.hypot(c.x - player.pos.x, c.z - player.pos.z);
     const reach = m.key === 'cat' ? 1.6 : (m.obj.reach || 1.8);
     if (d < bd && canReach(player, c, m.obj.solid, reach)) { bd = d; best = m; }

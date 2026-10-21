@@ -37,7 +37,7 @@ export const TowerMethods = {
     const sides = { s: { len: w, at: z + d - t / 2, axis: 'x', out: 4, inn: 5 }, n: { len: w, at: z + t / 2, axis: 'x', out: 5, inn: 4 },
       e: { len: d - 2 * t, at: x + w - t / 2, axis: 'z', out: 0, inn: 1 }, w: { len: d - 2 * t, at: x + t / 2, axis: 'z', out: 1, inn: 0 } };
     const frame = col(0x2a2232), sill = col(0xc8c0b4), curtain = lam({ color: 0xffb070, emissive: 0xff9a4a, emissiveIntensity: 0.55 }, 'curtain');
-    let doorOut = null;
+    let doorOut = null, intercom = null;
     for (const [k, sd] of Object.entries(sides)) {
       const dr = doors.find(q => q.side === k);
       const g0 = dr ? dr.at * sd.len - dw / 2 : -1, g1 = g0 + dw;
@@ -128,6 +128,7 @@ export const TowerMethods = {
         const hinge = ax ? [Math.min(e0[0], e1[0]), sd.at] : [sd.at, Math.min(e0[1], e1[1])];
         this.door(hinge[0], hinge[1], sd.axis, { s: 1, n: -1, e: -1, w: 1 }[k], 0, dw, dh, dr.style || o.doorStyle || 'wood');
         const [cx, cz] = U((g0 + g1) / 2);
+        if (!intercom) { const side = dr.at > 0.65 ? -1 : 1, q = U((g0 + g1) / 2 + side * (dw / 2 + 0.27)); intercom = { x: this.X(q[0] + nrm[0] * (t / 2 + 0.08)), z: this.Z(q[1] + nrm[1] * (t / 2 + 0.08)), y: this.Y, f: nrm }; }
         if (!doorOut) doorOut = [this.X(cx + nrm[0] * 1.3), this.Z(cz + nrm[1] * 1.3), this.X(cx - nrm[0] * 1.0), this.Z(cz - nrm[1] * 1.0)];
         if (!o.awning && o.canopy !== false) {
           this.m(G.box, col(0x2b2533), cx + nrm[0] * 0.78, dh + 0.36, cz + nrm[1] * 0.78, ax ? dw + 1 : 1.3, 0.12, ax ? 1.3 : dw + 1);
@@ -264,7 +265,7 @@ export const TowerMethods = {
     if (o.awning) { const a = this.m(G.box, tmat(T.awning(...o.awning)), x + w / 2, 2.72, z + d + 0.62, w - 0.6, 0.1, 1.2); a.rotation.x = 0.25;
       // маркиза-батут: упругая ткань подбрасывает
       this.solid(x + w / 2, z + d + 0.62, w - 0.6, 1.1, 2.6, 0.12); this.bouncer(x + 0.3, z + d + 0.1, x + w - 0.3, z + d + 1.15, 2.72, 11); }
-    const guide = { name: o.name || (o.sign && o.sign[0]) || this.d, box: [this.X(ix0), this.Z(iz0), this.X(ix1), this.Z(iz1)], y0: this.Y, fh, floors: n, door: doorOut,
+    const guide = { name: o.name || (o.sign && o.sign[0]) || this.d, box: [this.X(ix0), this.Z(iz0), this.X(ix1), this.Z(iz1)], y0: this.Y, fh, floors: n, door: doorOut, intercom,
       stairPath: hasStairs ? { entryX: this.X(sx0 + EL / 2), midX: this.X(f1 + ML / 2), za: this.Z(sz0 + lane / 2), zb: this.Z(sz0 + lane * 1.5) } : null,
       stair: hasStairs ? [this.X(sx0 + EL / 2), this.Z(sz0 + lane * 1.5), this.X(f0 + 0.4), this.Z(sz0 + lane / 2)] : null };
     W.buildings.push(guide);

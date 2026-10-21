@@ -7,9 +7,9 @@ export const mouse = { x: innerWidth / 2, y: innerHeight / 2, left: false, right
 export const look = { dx: 0, dy: 0 };
 export const lock = { want: () => false };
 export const locked = () => document.pointerLockElement === canvas;
-export function unlock() { if (locked()) document.exitPointerLock(); }
+export function unlock() { mouse.left=mouse.right=false;look.dx=look.dy=0;if (locked()) document.exitPointerLock(); }
 // захват мыши без отдельного клика: вызывается из любого действия пользователя (клик по кнопке, нажатие клавиши)
-export function requestLock() { if (locked()) return; try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
+export function requestLock() { if (!lock.want() || locked()) return; try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
 const handlers = { down: [], up: [], move: [], key: [], wheel: [] };
 // колёсико мыши (сила броска); страницу не прокручиваем
 addEventListener('wheel', e => { if (!handlers.wheel.length) return; e.preventDefault(); handlers.wheel.forEach(f => f(Math.sign(e.deltaY))); }, { passive: false });
