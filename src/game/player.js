@@ -38,12 +38,7 @@ export function groundBlob(p) {
 export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.drone || p.returning) return;
   if (p.knockT > 0) p.knockT -= dt;
-  // схвачен: вырываешься частыми нажатиями, сам не двигаешься
-  if (p.heldBy) {
-    if (canMove && ['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE'].some(k => tapped(k))) struggleTap(p);
-    if (p.stun > 0 || p.getT > 0) tickStun(p, dt);
-    p.ch.animate(dt, { t, speed: 0, air: false, grabbed: !(p.stun > 0), rag: p.stun > 0 ? 0.75 : 0 }); groundBlob(p); return;
-  }
+  if (p.heldBy && canMove && ['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE'].some(k => tapped(k))) struggleTap(p);
   if (p.noMountT > 0) p.noMountT -= dt;
   // в клетке: стоим, ждём (E — головоломка замка, см. main)
   if (p.caged) { p.vel.set(0, 0, 0); p.ch.animate(dt, { t, speed: 0, grabbed: true }); groundBlob(p); return; }
@@ -115,7 +110,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 6, { speed: 2.2 });
   }
   // выпад стоит четверть стамины: без неё не прыгнешь, спамить нельзя
-  if (ctrl && tapped('KeyQ') && !p.dive && p.diveCD <= 0 && !p.climb && p.slideT <= 0 && p.stamina >= PC.diveCost && !p.exhausted) {
+  if (ctrl && !p.holding && !p.heldBy && !p.carryCrate && tapped('KeyQ') && !p.dive && p.diveCD <= 0 && !p.climb && p.slideT <= 0 && p.stamina >= PC.diveCost && !p.exhausted) {
     sfx('dive'); voice(p.ch, 'dive'); const f = p.root.rotation.y; p.dive = 'air'; p.diveCD = PC.diveCooldown; p.stamina -= PC.diveCost; p.stDelay = PC.stamina.delay;
     p.vel.x = Math.sin(f) * PC.diveSpeed + p.vel.x * 0.2; p.vel.z = Math.cos(f) * PC.diveSpeed + p.vel.z * 0.2;
     p.vel.y = p.onGround ? PC.diveUp : Math.max(p.vel.y, 2); p.onGround = false; p.airPeak = p.pos.y;
@@ -127,7 +122,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const wantSprint = ctrl && il > 0 && (keys.ShiftLeft || keys.ShiftRight) && !p.climb && !p.crouch;
   if (p.grab && tapped('KeyC')) release(p, 1);
   if (p.exhausted && p.stamina > PC.stamina.restart) p.exhausted = false;
-  p.sprinting = wantSprint && !p.exhausted && p.stamina > 0;
+  p.sprinting = !p.holding && !p.heldBy && !p.carryCrate && wantSprint && !p.exhausted && p.stamina > 0;
   // бодрость после перекура/пивка со скелетом: усталость копится втрое медленнее, отдых быстрее
   if (p.stBoost > 0) p.stBoost -= dt;
   if (p.sprinting && !(p.energy > 0)) { p.stamina -= PC.stamina.drain * dt * (p.stBoost > 0 ? 0.35 : 1); p.stDelay = PC.stamina.delay; if (p.stamina <= 0) { p.stamina = 0; p.exhausted = true; } }
@@ -145,7 +140,9 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.daze > 0) top *= 0.18;
   if (p.crouch) top = Math.min(top, PC.crouchSpeed);
   if (p.grab) top *= p.grab.kind === 'barrow' ? 0.82 : 0.92;
-  if (p.holding) top *= 0.72;
+  if (p.holding) top *= 0.4;
+  if (p.heldBy) top *= 0.24;
+  if (p.carryCrate) top *= 0.6;
   const cur = Math.hypot(p.vel.x, p.vel.z);
   let acc;
   if (!p.onGround) acc = 3;
@@ -194,7 +191,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     }
   }
   // прыжок
-  if (ctrl && tapped('Space') && (p.onGround || p.climb) && !p.dive) {
+  if (ctrl && !p.holding && !p.heldBy && tapped('Space') && (p.onGround || p.climb) && !p.dive) {
     if (p.slideT > 0) { p.slideT = 0; }
     p.vel.y = PC.jump * (water ? 0.75 : 1); sfx('jump'); if (Math.random() < 0.35) voice(p.ch, 'jump');
     // с лестницы: назад от стены + вбок по нажатой стрелке
@@ -297,9 +294,9 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
   p.ch.animate(dt, { t, act: p.chill ? 'smoke' : undefined, smokePh: p.chill ? (p.chill.t > 8.8 ? 'take' : p.chill.t < 0.8 ? 'flick' : 'smoke') : undefined, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, rag: ragK(p), daze: p.daze > 0, grabbed: p.netT > 0 && !(p.stun > 0), climb: !!p.climb,
-    hold: (!!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
+    hold: (!!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten || !!p.carryCrate || !!p.carryNet) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
-    emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, swat: p.swatT > 0 ? p.swatT : 0 });
+    emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, restrained: !!p.heldBy, swat: p.swatT > 0 ? p.swatT : 0 });
 }
 
 // выбить дверь выпадом (v0.22): дверь распахивается в сторону выпада и летит по инерции (игрок и боты)

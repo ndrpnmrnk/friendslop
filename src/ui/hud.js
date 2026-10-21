@@ -110,7 +110,8 @@ export function renderStamina(P, dt) {
   // предмет в руках: инструмент — «ЛКМ действие · ПКМ бросок», заряды
   let held = '';
   if (P.grab) held = `${img('cart', 22)}${TEXT.grab[P.grab.kind] || ''} <span class="key">E</span>${TEXT.keys.hop}`;
-  else if (P.holding) held = `${img('mouse', 22)}${P.holding.bot ? P.holding.name : TEXT.you} <span class="key">ПКМ</span>${TEXT.keys.throw} <span class="key">E</span>${TEXT.keys.drop}`;
+  else if (P.holding) held = `${img('mouse', 22)}${P.holding.bot ? P.holding.name : TEXT.you} <span class="key">E / ЛКМ / ПКМ</span>Отпустить`;
+  else if (P.carryCrate) held = `${img('parcel', 22)}Ящик в руках <span class="key">E</span>Поставить на метку`;
   else if (P.heldBy) held = `<span class="key">ПРОБЕЛ</span>${TEXT.keys.struggle}`;
   else if (P.held) {
     // карточка «в руках»: крупная иконка, название, заряды и что с этим делать

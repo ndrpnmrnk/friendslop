@@ -503,14 +503,15 @@ on('down', btn => {
   if (btn === 0 && P.charging) { P.charging = false; P.chargeManual = false; $('dot').classList.remove('charge'); sfx('click'); throwTip(true); return; }
   // в руках инструмент: ЛКМ — применить
   if (btn === 0 && P.held) { if (!P.held.def.hold) { const snd = useTool(P, P.held, aimPoint()); if (snd) sfx(snd); } return; }
-  if (btn === 0 && P.holding) return;
+  if (P.holding) { if (btn === 0 || btn === 2) letGo(P); return; }
+  if (P.carryCrate) return;
   if (!P.held && !P.ride && !P.holding && (btn === 0 || btn === 2)) {
     const c = nearestRideable(P, 1.7, true), d = btn === 0 ? nearDoor() : null;
     if (c && (!d || Math.hypot(c.x - P.pos.x, c.z - P.pos.z) < Math.hypot(d.x - P.pos.x, d.z - P.pos.z))) { grab(P, c); return; }
   }
   // пустые руки: ЛКМ вплотную к персонажу — схватить; к собаке — взять на руки
   if (btn === 0 && !P.held && !P.ride) { const v = grabTarget(P); if (v) { grabActor(P, v); return; } if (!P.dogHeld && grabDog(P)) return; }
-  if (btn === 2 && (P.held || P.holding || carryK()) && P.stun <= 0) { P.charging = true; P.charge = 0; P.chargeManual = false; P.aimYaw = P.root.rotation.y; $('dot').classList.add('charge'); throwTip(); }
+  if (btn === 2 && (P.held || carryK()) && P.stun <= 0) { P.charging = true; P.charge = 0; P.chargeManual = false; P.aimYaw = P.root.rotation.y; $('dot').classList.add('charge'); throwTip(); }
 });
 // колёсико во время замаха — точнее сила броска (вверх — сильнее, вниз — слабее)
 on('wheel', d => { if (S.state !== 'play' || !P || !P.charging) return; P.chargeManual = true; P.charge = Math.max(0.05, Math.min(1, P.charge - d * 0.1)); sfx('tick'); });
@@ -526,7 +527,7 @@ on('up', btn => {
     P.charging = false; $('dot').classList.remove('charge'); throwTip(true); if (tipN < 4) { tipN++; try { localStorage.setItem('friendslop.throwTip', tipN); } catch (_) {} }
     const it = P.held, from = P.ch.holdPoint.clone(), tgt = aimPoint();
     if (it && tgt) { const v = throwVelocity(from, tgt, P.charge, it.def); it.owner = P; launch(it, from, v); P.held = null; P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
-    else if (P.holding && tgt) { const v = throwVelocity(from, tgt, P.charge, BODY); letGo(P, v); P.throwT = 0.3; sfx('throw'); voice(P.ch, 'throw'); }
+
     else if (carryK() && tgt) { const v = throwVelocity(from, tgt, P.charge, KITTEN); S.wm.game.throwCarry(v); P.throwT = 0.3; sfx('throw'); }
   }
 });
@@ -539,7 +540,6 @@ on('key', code => {
   if (code === 'Escape') { if (S.mg) closeMission(null); else if (S.crane) exitCrane(); else if (S.wm) closeWorld(null); else if (S.tut) tutEnd(false); }
 });
 const _aimHit = new V3();
-const BODY = { mass: 2.2, drag: 0, r: 0.4 }; // бросок персонажа
 const KITTEN = { mass: 0.9, drag: 0, r: 0.25 }; // бросок котёнка в коробку
 const carryK = () => !!(S.wm && S.wm.game.carrying && S.wm.game.carrying());
 function aimPoint() {
@@ -579,6 +579,7 @@ function interact() {
   if (P.drone || P.returning) return;
   if (S.mg) return;
   if (S.wm && S.wm.game.interact && S.wm.game.interact()) return;
+  if (P.carryCrate) return;
   if (S.crane) { exitCrane(); return; }
   if (P.ride) { dismount(P, false); return; }
   if (P.swing) { leaveSwing(P, false); return; }
@@ -662,7 +663,7 @@ function frame() {
       updatePlayer(P, dt, t, !S.mg && !S.crane, cam.yaw);
       voiceInput(dt);
       if (P.held) { P.held.pos.copy(P.ch.holdPoint); P.held.g.rotation.y = P.root.rotation.y; }
-      if (P.charging && !P.held && !P.holding && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
+      if (P.charging && !P.held && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
       W.time = EV.t;
       updateMissions(dt, t, P, { phase: phaseOf(EV.t), t: EV.t, playerScore: () => S.score });
@@ -690,11 +691,11 @@ function frame() {
     if (P) { setGhost(P, P.ghost > 0); setListener(P.pos.x, P.pos.y, P.pos.z); }
     // траектория броска
     let shown = 0;
-    if (S.state === 'play' && P.charging && (P.held || P.holding || carryK())) {
+    if (S.state === 'play' && P.charging && (P.held || carryK())) {
       const tgt = aimPoint();
       if (tgt) {
         P.aimYaw = Math.atan2(tgt.x - P.pos.x, tgt.z - P.pos.z);
-        const def = P.held ? P.held.def : P.holding ? BODY : KITTEN, from = P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge, def);
+        const def = P.held ? P.held.def : KITTEN, from = P.ch.holdPoint.clone(), v = throwVelocity(from, tgt, P.charge, def);
         shown = predict(from, v, arc, arc.length, def, land);
         // траектория проходит через цель (персонаж, кот, моль, ворона) — точки и кольцо становятся красными
         let onT = false; const tg = [...(W.bots || []).map(b => ({ x: b.pos.x, y: b.pos.y + 0.9, z: b.pos.z, r: 0.7 })), ...W.cats.map(c => ({ x: c.root.position.x, y: c.root.position.y + 0.4, z: c.root.position.z, r: 0.6 }))];

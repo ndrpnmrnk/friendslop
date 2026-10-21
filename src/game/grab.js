@@ -1,64 +1,57 @@
 import { V3 } from '../core/gfx.js';
 import { W } from '../world/state.js';
-import { burst, smokeRing } from '../world/particles.js';
+import { smokeRing } from '../world/particles.js';
 import { actors, dropHeld } from './actors.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
+import { raySolids } from '../world/physics.js';
 
-/* Схватить другого персонажа руками (ЛКМ вплотную, руки пустые).
-   Схваченный дёргается и тянет держащего в свою сторону, может вырваться
-   (игрок — частыми нажатиями пробела/WASD, бот — сам через пару секунд).
-   Держащего можно донести и бросить (ПКМ, как предмет). */
+/* Захват удерживает соперника за одежду на земле. Оба продолжают ходить,
+   схваченный сильно замедлен и может вырваться. Подъёма и броска персонажа нет. */
+const gripFrom = new V3(), gripDir = new V3();
+function clearGrip(a, b) {
+  gripFrom.copy(a.pos).y += 0.8; gripDir.subVectors(b.pos, a.pos); gripDir.y = 0;
+  const d = gripDir.length(); return d < 0.01 || raySolids(gripFrom, gripDir.multiplyScalar(1 / d), d) >= d - 0.1;
+}
 export function grabTarget(a, r = 1.35) {
+  if (a.held || a.holding || a.heldBy || a.carryCrate || a.dogHeld) return null;
   const f = a.root.rotation.y, fx = Math.sin(f), fz = Math.cos(f); let best = null, bd = r;
   for (const b of actors()) {
-    if (b === a || b.hidden || b.heldBy || b.holding || b.ride || b.swing || b.mantle) continue;
+    if (b === a || b.hidden || b.heldBy || b.holding || b.ride || b.swing || b.mantle || b.climb || b.caged) continue;
     const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz);
-    if (d < bd && Math.abs(b.pos.y - a.pos.y) < 1 && (dx * fx + dz * fz) / (d || 1) > 0.2) { bd = d; best = b; }
+    if (d < bd && Math.abs(b.pos.y - a.pos.y) < 0.7 && (dx * fx + dz * fz) / (d || 1) > 0.2 && clearGrip(a, b)) { bd = d; best = b; }
   }
   return best;
 }
 export function grabActor(a, b) {
-  if (!b || a.held || a.holding) return false;
-  a.holding = b; b.heldBy = a; b.struggle = 0; b.wrig = { x: 0, z: 0, t: 0 }; b.vel.set(0, 0, 0); b.emote = null;
-  dropHeld(b); if (b.charging) b.charging = false;
-  burst(b.pos.x, b.pos.y + 1, b.pos.z, 6, { color: 0xf1e8ff, size: 0.16, speed: 1.6, up: 1 });
-  sfx('grab', { at: b.pos }); voice(b.ch, 'hurt', b.pos); W.onHit && W.onHit(a, b, 'melee');
-  return true;
+  if (!b || a === b || a.held || a.holding || a.heldBy || a.carryCrate || b.heldBy || b.holding || b.drone || b.returning || a.drone || !a.onGround || !b.onGround || Math.abs(a.pos.y - b.pos.y) > 0.7 || a.pos.distanceTo(b.pos) > 1.6 || !clearGrip(a, b)) return false;
+  a.holding = b; a.gripT = 0; b.heldBy = a; b.struggle = 0; b.emote = null;
+  dropHeld(b); b.charging = false; a.charging = false;
+  sfx('grab', { at: b.pos }); voice(b.ch, 'hurt', b.pos); W.onHit && W.onHit(a, b, 'melee'); return true;
 }
-// отпустить; vel — бросок
-export function letGo(a, vel = null) {
-  const b = a.holding; if (!b) return; a.holding = null; b.heldBy = null; b.onGround = false; b.airPeak = b.pos.y;
-  if (vel) { b.vel.copy(vel); b.knockT = 0.7; b.thrown = true; } else b.vel.set(0, 2, 0);
+// Отпускаем без импульса: ни один вызывающий код не может бросить персонажа.
+export function letGo(a) {
+  const b = a.holding; if (!b) return;
+  a.holding = null; a.gripT = 0; b.heldBy = null; b.struggle = 0; b.thrown = false; a.charging = false;
 }
-// вырвался: отпрыгивает, держащего слегка отбрасывает назад
 function breakFree(b) {
   const a = b.heldBy; if (!a) return;
-  const f = a.root.rotation.y, fx = Math.sin(f), fz = Math.cos(f);
-  letGo(a); b.vel.set(fx * 4, 6, fz * 4); a.vel.x -= fx * 3; a.vel.z -= fz * 3; a.knockT = 0.25;
-  smokeRing(b.pos.x, b.pos.y + 0.6, b.pos.z, 6, { speed: 2 }); sfx('jump', { at: b.pos });
-  if (b.bot) b.revenge = 5; // бот запомнил обидчика
+  letGo(a); a.knockT = Math.max(a.knockT || 0, 0.18);
+  smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1 }); sfx('grab', { at: b.pos }); if (b.bot) b.revenge = 5;
 }
-// игрок пытается вырваться: каждое нажатие — рывок
-export function struggleTap(b) { if (!b.heldBy || b.stun > 0) return; b.struggle += 0.13; b.wrig.t = 0.15; if (b.struggle >= 1) breakFree(b); }
-
-export function updateGrabs(dt, t) {
+export function struggleTap(b) { if (!b.heldBy || b.stun > 0) return; b.struggle += 0.15; if (b.struggle >= 1) breakFree(b); }
+export function updateGrabs(dt) {
   for (const a of actors()) {
     const b = a.holding; if (!b) continue;
-    if (a.stun > 0 || a.hidden || a.ride || a.mantle || b.hidden) { letGo(a); continue; }
-    // бот вырывается сам, через 1.6–3 c
-    if (b.bot && !(b.stun > 0)) { b.struggle += dt * (0.35 + Math.random() * 0.3); if (b.struggle >= 1) { breakFree(b); continue; } }
-    // рывки схваченного: случайное направление, держащего тянет туда (как физика)
-    const w = b.wrig; w.t -= dt;
-    if (w.t <= 0) { const ang = Math.random() * 6.28; w.x = Math.cos(ang); w.z = Math.sin(ang); w.t = 0.25 + Math.random() * 0.3; }
-    const pull = 3.2 + b.struggle * 3;
-    a.vel.x += w.x * pull * dt * 6; a.vel.z += w.z * pull * dt * 6;
-    // держим перед собой, приподнятым
-    const f = a.root.rotation.y, k = Math.sin(t * 14) * 0.05;
-    // лежачего (рэгдолл) тащат за руку/ногу: волочится сбоку-сзади, не вырывается, пока не очнётся
-    if (b.stun > 0) { w.x = w.z = 0; b.pos.set(a.pos.x + Math.cos(f) * 0.55 - Math.sin(f) * 0.35, a.pos.y + 0.05 + Math.abs(k), a.pos.z - Math.sin(f) * 0.55 - Math.cos(f) * 0.35); b.vel.set(0, 0, 0); b.onGround = true; b.root.rotation.y = f + Math.PI * 0.5 + Math.sin(t * 5) * 0.15; continue; }
-    b.pos.set(a.pos.x + Math.sin(f) * 0.75 + w.x * 0.08, a.pos.y + 0.45 + k, a.pos.z + Math.cos(f) * 0.75 + w.z * 0.08);
-    b.vel.set(0, 0, 0); b.onGround = false; b.airPeak = b.pos.y; b.root.rotation.y = f + Math.PI + Math.sin(t * 9) * 0.3;
+    a.gripT = (a.gripT || 0) + dt;
+    const d = Math.hypot(b.pos.x - a.pos.x, b.pos.z - a.pos.z);
+    if (a.stun > 0 || a.hidden || a.ride || a.mantle || a.climb || b.hidden || a.gripT > 4 || d > 1.8 || Math.abs(a.pos.y - b.pos.y) > 0.75 || !clearGrip(a, b)) { letGo(a); continue; }
+    if (b.bot && !(b.stun > 0)) b.struggle += dt * 0.42;
+    if (b.struggle >= 1) { breakFree(b); continue; }
+    // Сопротивление в горизонтальной плоскости. Положение и высоту обоих решает обычная физика.
+    const limit = b.stun > 0 ? 0.5 : 1.6;
+    for (const actor of [a, b]) { const speed = Math.hypot(actor.vel.x, actor.vel.z); if (speed > limit) { actor.vel.x *= limit / speed; actor.vel.z *= limit / speed; } }
+    a.root.rotation.y = Math.atan2(b.pos.x - a.pos.x, b.pos.z - a.pos.z);
   }
 }
 

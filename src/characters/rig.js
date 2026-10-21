@@ -189,8 +189,11 @@ function animate(c, dt, s) {
     else if (e === 'call') { c.body.rotation.x = 0.15; const k2 = Math.min(1, et * 4);
       setHand(c.handL, -0.2, d.top - 0.35 * k2, 0.42, damp(14, dt)); setHand(c.handR, 0.2, d.top - 0.35 * k2, 0.42, damp(14, dt)); c.head.rotation.x = -0.1; }
   } else if (s.held2) {
-    // держит другого персонажа перед собой
-    setHand(c.handL, -d.holdX, d.holdY + 0.25, d.holdZ + 0.15, f); setHand(c.handR, d.holdX, d.holdY + 0.25, d.holdZ + 0.15, f); c.body.rotation.x = -0.12;
+    // держит соперника за одежду, руки на уровне корпуса
+    setHand(c.handL, -d.holdX, d.handY, d.holdZ + 0.1, f); setHand(c.handR, d.holdX, d.handY, d.holdZ + 0.1, f); c.body.rotation.x = -0.12;
+  } else if (s.restrained) {
+    // Упирается ногами, медленно идёт: ступни остаются в обычной ходьбе.
+    setHand(c.handL, -hx, hy + 0.08, hz + 0.15, f); setHand(c.handR, hx, hy + 0.1, hz + 0.2, f); c.body.rotation.z = Math.sin(t * 10) * 0.06;
   } else if (s.grabbed) {
     // его держат: болтает руками и ногами
     setHand(c.handL, -hx - 0.2, hy + 0.3 + Math.sin(t * 14) * 0.15, hz, f); setHand(c.handR, hx + 0.2, hy + 0.3 - Math.sin(t * 14) * 0.15, hz, f);

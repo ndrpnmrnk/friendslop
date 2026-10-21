@@ -18,7 +18,7 @@ import { voice } from './voice.js';
    Происшествия раз в 30–40 с: по улице катится огромная тыква, едет мусоровоз, налетает порыв ветра. */
 export const TOWN = { folks: [], inc: null, incT: 30, toast: null };
 export function resetTown() {
-  for (const f of TOWN.folks) W.group.remove(f.g); TOWN.folks = [];
+  for (const f of TOWN.folks) { W.group.remove(f.g); f.coat?.dispose(); } TOWN.folks = [];
   if (TOWN.inc) TOWN.inc.stop(); TOWN.inc = null;
   if (TOWN.thief) { W.group.remove(TOWN.thief.g); } TOWN.thief = W.thief = null; TOWN.thiefT = 45 + Math.random() * 20; TOWN.incT = 28 + Math.random() * 10;
   // бабка — у клумбы с цветами (в одном-двух районах)
@@ -27,7 +27,7 @@ export function resetTown() {
   buildFlowers();
   // собака — во дворе или парке (там, где живут коты)
   const homes = W.catHomes.slice().sort(() => Math.random() - 0.5).slice(0, 2);
-  for (const h of homes) TOWN.folks.push(dog(h));
+  for (const h of homes) TOWN.folks.push(createDog(h));
   W.dogs = TOWN.folks.filter(f => f.kind === 'dog');
   // скелеты-NPC: 1–2 на карту, в разных местах улицы
   { const sps = W.spawns.slice().sort(() => Math.random() - 0.5), n = 1 + (Math.random() < 0.6 ? 1 : 0);
@@ -168,7 +168,7 @@ const FOOD = new Set(['pizza', 'tomato', 'cucumber', 'can', 'pumpkin']);
 function loft(rings, n = 6) {
   const pos = [], uv = [], idx = [], R = rings.length;
   rings.forEach(([z, y, rx, ry, x = 0], i) => { for (let k = 0; k <= n; k++) { const a = k / n * Math.PI * 2 + Math.PI / n; pos.push(x + Math.cos(a) * rx, y + Math.sin(a) * ry, z); uv.push(k / n, i / (R - 1)); } });
-  for (let i = 0; i < R - 1; i++) for (let k = 0; k < n; k++) { const a = i * (n + 1) + k, b = a + n + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  for (let i = 0; i < R - 1; i++) for (let k = 0; k < n; k++) { const a = i * (n + 1) + k, b = a + n + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
   for (const [i, flip] of [[0, true], [R - 1, false]]) { const [z, y, , , x = 0] = rings[i], c = pos.length / 3; pos.push(x, y, z); uv.push(0.5, i / (R - 1)); for (let k = 0; k < n; k++) { const a = i * (n + 1) + k; flip ? idx.push(c, a + 1, a) : idx.push(c, a, a + 1); } }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
 }
@@ -194,17 +194,18 @@ function dogGeo(bk) {
   const tl = B.tail === 'bush' ? loft([[0, 0, 0.04, 0.045], [0.14, -0.02, 0.06, 0.065], [0.3, -0.05, 0.02, 0.02]], 5) : B.tail === 'stub' ? loft([[0, 0, 0.04, 0.04], [0.05, 0, 0.03, 0.03]], 5) : loft([[0, 0, 0.035, 0.035], [0.24, 0, 0.012, 0.012]], 5);
   const r = { body: loft(B.body, 6), head: loft(B.head, 6), leg, tail: tl }; DOGGEO.set(bk, r); return r;
 }
-function dog(h) {
-  const bk = Object.keys(BREEDS)[(Math.random() * 4) | 0], B = BREEDS[bk], [c0, c1, c2] = B.coats[(Math.random() * B.coats.length) | 0], key = bk + c0, GG = dogGeo(bk);
+export function createDog(h, breed = null) {
+  const bk = breed && BREEDS[breed] ? breed : Object.keys(BREEDS)[(Math.random() * 4) | 0], B = BREEDS[bk], [c0, c1, c2] = B.coats[(Math.random() * B.coats.length) | 0], key = bk + c0, GG = dogGeo(bk);
   const g = new THREE.Group(), M = (c, d, l, v) => lam({ map: T.dogCoat(c, d, l, v), flatShading: true }, 'dogC' + c + '_' + d + '_' + v);
   const fur = M(c0, c1, c2, 0), furV = M(c0, c1, c2, 1), dk = M(c1, c1, c0, 0), lt = M(c2, c0, c2, 0);
   const fr = B.fringe ? lam({ map: T.dogFringe(c0, c1, c2), alphaTest: 0.5, side: THREE.DoubleSide }, 'dogFr' + key) : null, nose = col(0x17111f);
   const top = B.body[3][1] + B.body[3][3];
   const body = new THREE.Group(); g.add(body);
-  body.add(compose('dogB5' + key, a => {
-    a(GG.body, fur, 0, 0, 0);
-    if (B.saddle) a(GG.body, dk, 0, 0.012, -0.03, 0.9, 0.96, 0.75); // чёрное «седло» овчарки — та же сетка чуть меньше и выше
-    if (B.bib) a(GG.body, lt, 0, -0.02, 0.05, 0.85, 0.9, 0.85);
+  const coat = GG.body.toNonIndexed(), positions = coat.attributes.position;
+  for (let i=0;i<positions.count;i+=3) { const y=(positions.getY(i)+positions.getY(i+1)+positions.getY(i+2))/3,z=(positions.getZ(i)+positions.getZ(i+1)+positions.getZ(i+2))/3;
+    coat.addGroup(i,3,B.saddle && y>B.body[2][1] && z<0.2?1:B.bib && (y<B.body[2][1]||z>0.2)?2:0); }
+  const torso=new THREE.Mesh(coat,[fur,dk,lt]);torso.castShadow=torso.receiveShadow=true;body.add(torso);
+  body.add(compose('dogB6' + key, a => {
     if (fr) for (const sx of [-1, 1]) a(G.plane, fr, sx * 0.165, B.body[2][1] - 0.13, 0, 0.56, 0.22, 1, 0, sx * Math.PI / 2);
     { const [z4, y4, rx4, ry4] = B.body[4], [z5, y5, rx5, ry5] = B.body[5], zc = (z4 + z5) / 2, yc = (y4 + y5) / 2, rx = (rx4 + rx5) / 2 * 1.06, ry = (ry4 + ry5) / 2 * 1.06; // ошейник — кольцо на шее
       a(loft([[zc - 0.02, yc, rx, ry], [zc + 0.02, yc, rx, ry]], 6), col(0xd8243a), 0, 0, 0); a(G.cyl6, glow(0xf5c542), 0, yc - ry - 0.02, zc + 0.01, 0.03, 0.01, 0.03, Math.PI / 2); } }));
@@ -218,13 +219,13 @@ function dog(h) {
     q.add(compose('dogE5' + B.ear + key, a => { const e = B.earS;
       if (B.ear === 'flop') a(G.box, dk, sx * 0.03, -e * 0.45, 0, 0.025, e, e * 0.7); else { a(PYR, fur, 0, e * 0.5, 0, e * (B.ear === 'big' ? 0.5 : 0.36), e, e * 0.2); a(PYR, col(0xc87a7a), 0, e * 0.42, e * 0.05, e * 0.24, e * 0.65, e * 0.04); } }));
     q.rotation.z = sx * (B.ear === 'flop' ? 0.15 : -0.18); return q; });
-  const legs = [[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([sx, sz]) => { const q = new THREE.Group(); q.position.set(sx * B.body[2][2] * 0.55, B.leg + 0.01, sz * (B.body[2][0] + (sz > 0 ? 0.24 : -0.2))); g.add(q);
-    q.add(compose('dogL5' + key, a => { a(GG.leg, furV, 0, 0, 0); a(G.box, B.bib ? lt : furV, 0, -B.leg + 0.015, 0.025, B.legR * 1.9, 0.03, B.legR * 2.6); })); return q; });
+  const legs = [[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([sx, sz]) => { const q = new THREE.Group(); q.position.set(sx * B.body[2][2] * 0.72, B.leg + 0.06, sz > 0 ? B.body[3][0] + 0.04 : B.body[1][0] + 0.04); body.add(q);
+    q.add(compose('dogL5' + key, a => { a(GG.leg, furV, 0, 0, 0, 1, (B.leg + 0.025) / B.leg, 1); a(G.box, B.bib ? lt : furV, 0, -B.leg - 0.01, 0.035, B.legR * 1.9, 0.03, B.legR * 2.6); })); return q; });
   const tail = new THREE.Group(); tail.position.set(0, B.body[0][1] + 0.03, B.body[0][0] + 0.02); body.add(tail);
   tail.add(compose('dogT5' + key, a => { const t2 = a(GG.tail, furV, 0, 0, 0, 1, 1, 1, B.tail === 'up' ? -2.2 : B.tail === 'down' ? 2.5 : B.tail === 'bush' ? 2.3 : 3.14); void t2; }));
   void top;
   const x = (h.x0 + h.x1) / 2, z = (h.z0 + h.z1) / 2; setupBody(g, x, h.y, z);
-  return { kind: 'dog', g, body, head, ears, legs, tail, home: h, pos: g.position, vel: new V3(), it: null, runT: 0, wt: 0, wp: new V3(x, h.y, z), barkT: 3, ph: 0, chase: null, catT: 8 + Math.random() * 8, cat: null, beg: null, begCD: 0 };
+  return { kind: 'dog', g, coat, body, head, ears, legs, tail, home: h, pos: g.position, vel: new V3(), it: null, runT: 0, wt: 0, wp: new V3(x, h.y, z), barkT: 3, ph: 0, chase: null, catT: 8 + Math.random() * 8, cat: null, beg: null, begCD: 0 };
 }
 // взять собаку на руки (ЛКМ вплотную, руки пустые): гавкает и вырывается ~2 с, из пасти всё выпадает
 export function grabDog(P) {

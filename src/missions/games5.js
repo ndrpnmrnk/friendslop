@@ -50,7 +50,7 @@ let _gh; const ghostTex = () => _gh || (_gh = (() => { const c = document.create
 const mkGhost = () => { const s = sprite(ghostTex(), 1); s.material = new THREE.SpriteMaterial({ map: ghostTex(), transparent: true, opacity: 0.8, depthWrite: false }); s.scale.set(1.0, 1.15, 1); W.group.add(s); return s; };
 const numTex = (n, c) => { const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16; const g = cv.getContext('2d'); g.fillStyle = '#' + c.toString(16).padStart(6, '0'); g.fillRect(0, 0, 16, 16); g.fillStyle = '#f1e8ff'; g.font = 'bold 12px monospace'; g.textAlign = 'center'; g.fillText(String(n), 8, 12);
   const t = new THREE.CanvasTexture(cv); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; };
-const crateMesh = () => compose('m5crate', a => { const c = tmat(T.crate()); a(G.box, c, 0, 0.31, 0, 0.62, 0.62, 0.62); });
+const crateMesh = () => compose('m24crate', a => { const c=tmat(T.crate());a(G.box,c,0,0.35,0,0.9,0.7,0.9);for(const x of [-0.38,0.38])a(G.box,tmat(T.wood()),x,0.35,0.46,0.08,0.7,0.03);a(G.box,col(0x6a5638),0,0.35,0.47,0.9,0.06,0.025,0,0,0.55); });
 
 /* ====================== объекты (ставит генератор миссий) ====================== */
 export function buildDoor(x, y, z, f) {
@@ -87,9 +87,23 @@ export function buildBells(x, y, z, f) {
 }
 const BELL = new THREE.CylinderGeometry(0.45, 1, 1, 10, 1, true); BELL.translate(0, 0, 0);
 export function buildTree(x, y, z, f) {
-  const o = place(x, y, z, f, g => { g.add(compose('m5tree', a => { a(G.cyl6, tmat(T.bark()), 0, 1.6, 0, 0.22, 3.2, 0.22); a(G.ico, tmat(T.bush()), 0, 3.6, 0, 1.4, 1.1, 1.4); a(G.ico, tmat(T.bush()), 0.6, 3.1, 0.3, 0.8, 0.7, 0.8); }));
-    const bl = new THREE.Group(); bl.position.set(0, 3.9, 0.9); g.add(bl); mesh(G.sph10, lam({ color: 0xff5a6e, emissive: 0x3a0a10 }, 'm5bal'), 0, 0, 0, 0.26, 0.3, 0.26, bl); mesh(G.box, col(0xf1e8ff), 0, -0.55, 0, 0.01, 0.8, 0.01, bl); g.userData.bl = bl; }, [0.5, 0.5], 3.2);
-  o.type = 'tree'; o.bl = o.g.userData.bl; return o;
+  const o = place(x, y, z, f, g => { g.add(compose('m24tree', a => {
+    const bark = tmat(T.bark()), leaf = tmat(T.bush());
+    a(G.cyl6, bark, 0, 2.2, 0, 0.26, 4.4, 0.26);
+    a(G.cyl6, bark, 0.15, 4.35, 0.68, 0.11, 1.65, 0.11, Math.PI / 2 - 0.25);
+    for (const [xx, yy, zz, size] of [[0,5.1,-0.3,1.65],[-1,4.7,0,1.1],[0.9,4.8,-0.15,1.15]]) a(G.ico, leaf, xx, yy, zz, size, size * 0.75, size);
+    for (const sx of [-1,1]) a(G.cyl5, bark, sx * 0.35, 0.17, 0.05, 0.08, 0.85, 0.08, 0, 0, sx * 1.15);
+  }));
+    const bl = new THREE.Group(); bl.position.set(0.18, 5.15, 1.65); g.add(bl);
+    bl.add(compose('m24balloon', a => { a(G.sph10, lam({color:0xff5a6e, emissive:0x2a0810}, 'm24balloon'), 0, 0, 0, 0.34, 0.43, 0.34);
+      a(G.cone4, col(0xd8243a), 0, -0.44, 0, 0.06, 0.1, 0.06, Math.PI); a(G.box, col(0xffd8e0), -0.12, 0.13, 0.3, 0.07, 0.13, 0.015); }));
+    const thread = new THREE.Group(); thread.position.y = -0.48; bl.add(thread);
+    for (let i=0;i<5;i++) mesh(G.box,col(0xe8dfc8),Math.sin(i*1.4)*0.035,-i*0.13,0,0.012,0.15,0.012,thread);
+    g.userData.bl = bl;
+  }, [0.6, 0.6], 4.4);
+  o.type = 'tree'; o.bl = o.g.userData.bl;
+  const tick = (dt,t) => { if (!o.bl.visible) return; o.bl.rotation.z = Math.sin(t*2.5+x)*0.1; o.bl.position.y=5.15+Math.sin(t*2.8+z)*0.09; };
+  W.animated.push(tick); const dispose=o.dispose; o.dispose=()=>{ W.animated=W.animated.filter(fn=>fn!==tick);dispose(); }; return o;
 }
 export function buildDetectorSign(x, y, z, f) {
   const o = place(x, y, z, f, g => g.add(compose('m5dig', a => { a(G.box, tmat(T.sign('КЛАД?', '#c9662a', '#17111f')), 0, 1.05, 0, 0.6, 0.3, 0.03); a(G.box, tmat(T.wood()), 0, 0.5, -0.02, 0.06, 1.0, 0.04);
@@ -196,6 +210,8 @@ export const WORLD5 = {
     const wing = lam({ map: T.mothWing ? T.mothWing() : null, color: 0xd8c8b0, side: THREE.DoubleSide, alphaTest: 0.3 }, 'm5wing');
     const moths = [0, 1, 2, 3, 4].map(i => { const g = new THREE.Group(); W.group.add(g); const wl = mesh(G.plane, wing, -0.07, 0, 0, 0.14, 0.1, 1, g), wr = mesh(G.plane, wing, 0.07, 0, 0, 0.14, 0.1, 1, g); mesh(G.box, col(0x6a5a4a), 0, 0, 0, 0.03, 0.03, 0.09, g);
       wl.rotation.x = wr.rotation.x = -Math.PI / 2; return { g, wl, wr, a: i * 1.3, h: 1.7 + (i % 3) * 0.45, r: 0.6 + (i % 2) * 0.5, sp: 1.4 + i * 0.2, got: false }; });
+    const net=compose('m24butterflyNet',a=>{a(G.cyl6,tmat(T.wood()),0,-0.3,0,0.018,0.65,0.018);a(G.ring,col(0xc8c0a8),0,0.12,0,0.22,0.22,1);a(G.cone8,lam({map:T.grate(),transparent:true,opacity:0.55,side:THREE.DoubleSide},'m24netting'),0,0.12,-0.12,0.2,0.28,0.2,Math.PI/2);});W.group.add(net);
+    P.carryNet=true;
     const hand = () => new V3(P.pos.x + Math.sin(P.root.rotation.y) * 0.5, P.pos.y + 1.5, P.pos.z + Math.cos(P.root.rotation.y) * 0.5);
     const near = () => moths.find(m => !m.got && m.g.position.distanceTo(hand()) < 1.25);
     api.msg('Лови мотыльков у фонаря: E — сачок. Не бегай — спугнёшь');
@@ -204,39 +220,46 @@ export const WORLD5 = {
       prompt: () => caught >= 3 ? (flat(P.pos, jarP) < 1.6 ? '<b>E</b>В банку' : '') : near() ? '<b>E</b>Взмах сачком' : '',
       interact() {
         if (caught >= 3 && flat(P.pos, jarP) < 1.6) { sfx('done'); api.finish({ success: true, mult: 1 }); return true; }
-        P.swatT = 0.25; sfx('swat'); const m = near(); if (!m) return true; m.got = true; m.g.visible = false; caught++; sfx('pickup'); burst(m.g.position.x, m.g.position.y, m.g.position.z, 6, { color: 0xd8c8b0, size: 0.06, speed: 1 });
+        P.swatT = 0.25; sfx('swat'); const m = near(); if (!m) return true; m.got = true; m.g.visible = true;jar.add(m.g);m.g.position.set((caught%2?1:-1)*0.05,0.18+caught*0.06,0);m.g.scale.setScalar(0.5);caught++; sfx('pickup'); burst(m.g.position.x, m.g.position.y, m.g.position.z, 6, { color: 0xd8c8b0, size: 0.06, speed: 1 });
         api.progress(caught / 3 * 0.9); if (caught >= 3) api.msg('Есть! Неси в банку', 'good'); return true; },
       update(dt) {
         time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false });
         const run = Math.hypot(P.vel.x, P.vel.z) > 5.2 && flat(P.pos, lc) < 4; if (run && flee <= 0) { flee = 1.8; api.msg('Спугнул!', 'bad'); }
-        flee -= dt; const t = performance.now() / 1000;
+        flee -= dt; const t = performance.now() / 1000;net.position.copy(hand());net.rotation.set(-0.4+(P.swatT||0)*3,P.root.rotation.y,0);
         for (const m of moths) { if (m.got) continue; m.a += dt * m.sp * (flee > 0 ? 2.2 : 1); const r = m.r + (flee > 0 ? 1.4 : 0), h = m.h + (flee > 0 ? 1.0 : 0);
           m.g.position.set(lc.x + Math.cos(m.a) * r, lc.y + h + Math.sin(t * 5 + m.a) * 0.15, lc.z + Math.sin(m.a * 1.2) * r); m.g.rotation.y = -m.a; const fl = Math.sin(t * 30 + m.a) * 0.8; m.wl.rotation.y = fl; m.wr.rotation.y = -fl; }
       },
-      stop() { for (const m of moths) W.group.remove(m.g); W.group.remove(jar); },
+      stop() { P.carryNet=false;for (const m of moths) m.g.removeFromParent(); W.group.remove(jar,net); },
     };
   },
-  // 8. Шарик на дереве: таскай ящики (E) и ставь лесенкой у ствола (E), залезь — и шарик твой
+  // Ящики складываются в три доступные ступени: 0.7, 1.4 и 2.1 м.
   balloon(o, api, ctx) {
-    const P = ctx.player, c = o.pos(), yaw = o.g.rotation.y, fx = Math.sin(yaw), fz = Math.cos(yaw), base = new V3(c.x + fx * 0.9, c.y, c.z + fz * 0.9); let time = 90, carry = null, stack = 0;
-    const crates = [0, 1, 2].map(i => { const p = farFloor(c, 4, 9), g = crateMesh(); g.position.copy(p); W.group.add(g); return { g, p: p.clone(), placed: false, s: null }; });
-    const bl = o.bl, bw = new V3(); api.msg('Шарик застрял! Поставь ящики лесенкой у ствола');
+    const P=ctx.player,c=o.pos(),yaw=o.g.rotation.y,F=new V3(Math.sin(yaw),0,Math.cos(yaw)),R=new V3(F.z,0,-F.x);
+    let time=110,carry=null,stack=0,done=false;
+    const slots=[3.0,2.7,2.4].map((d,i)=>({p:c.clone().addScaledVector(F,d).addScaledVector(R,0.18),h:0.7*(i+1)}));
+    const crates=slots.map((_,i)=>{ const p=nearbyItemPoint(c.clone().addScaledVector(F,3.5)),g=crateMesh();g.position.copy(p);W.group.add(g);return{g,p:p.clone(),placed:false,s:null,i}; });
+    const markerMat=new THREE.MeshBasicMaterial({color:0x9be36b,transparent:true,opacity:0.4,depthWrite:false,side:THREE.DoubleSide});
+    const markers=slots.map(q=>{const m=mesh(G.ring,markerMat,q.p.x,q.p.y+0.04,q.p.z,0.62,0.62,1,W.group);m.rotation.x=-Math.PI/2;return m});
+    const bw=new V3(); api.msg('Три ящика: ставь на зелёные метки, затем запрыгни за шариком');
+    const next=()=>slots[Math.min(stack,2)].p;
     return {
-      target: () => carry ? base : (crates.find(q => !q.placed) || { p: base }).p,
-      prompt: () => carry ? (flat(P.pos, base) < 1.6 ? '<b>E</b>Поставить ящик' : '') : crates.some(q => !q.placed && flat(P.pos, q.p) < 1.3) ? '<b>E</b>Взять ящик' : '',
-      interact() {
-        if (carry) { if (flat(P.pos, base) > 1.6) return false; const q = carry; carry = null; q.placed = true; const y = c.y + stack * 0.62, ox = (stack % 2 ? 0.15 : -0.1);
-          q.g.position.set(base.x + ox, y, base.z); q.g.rotation.y = stack * 0.4; q.s = addSolid(base.x + ox - 0.31, base.z - 0.31, base.x + ox + 0.31, base.z + 0.31, y, y + 0.62); stack++; sfx('imp', { at: base }); api.progress(stack / 3 * 0.7);
-          // отодвинуть игрока, чтобы не застрял в ящике
-          if (flat(P.pos, base) < 0.6) { P.pos.x += fx * 0.7; P.pos.z += fz * 0.7; } return true; }
-        const q = crates.find(k => !k.placed && flat(P.pos, k.p) < 1.3); if (!q) return false; carry = q; sfx('pickup'); return true; },
-      update(dt) {
-        time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false });
-        if (carry) { carry.g.position.set(P.pos.x, P.pos.y + 1.95, P.pos.z); carry.g.rotation.y = P.root.rotation.y; carry.p.copy(P.pos); }
-        bl.position.y = 3.9 + Math.sin(performance.now() * 0.003) * 0.06; bl.getWorldPosition(bw);
-        if (Math.hypot(P.pos.x - bw.x, P.pos.z - bw.z) < 1.2 && P.pos.y + 1.9 > bw.y - 0.35) { bl.visible = false; sfx('done'); burst(bw.x, bw.y, bw.z, 12, { color: 0xff5a6e, size: 0.1, speed: 2 }); api.finish({ success: true, mult: 1 }); }
+      target:()=>stack===3?o.bl.getWorldPosition(bw):carry?next():(crates.find(q=>!q.placed)||{p:next()}).p,
+      prompt:()=>done?'':carry?(flat(P.pos,next())<1.7?'<b>E</b>Поставить ступень':''):stack===3&&P.pos.y+1.8>o.bl.getWorldPosition(bw).y-0.15&&flat(P.pos,bw)<1.1?'<b>E</b>Снять шарик':crates.some(q=>!q.placed&&flat(P.pos,q.p)<1.4)?'<b>E</b>Взять ящик':'',
+      interact(){
+        if(done)return false;
+        if(carry){if(flat(P.pos,next())>1.7||!P.onGround)return false; const q=carry,slot=slots[stack]; carry=null;P.carryCrate=null;q.placed=true;q.g.position.copy(slot.p);q.g.position.y=c.y+stack*0.7;q.g.rotation.set(0,yaw,0);q.g.scale.set(1,1,1);
+          q.s=addSolid(slot.p.x-0.45,slot.p.z-0.45,slot.p.x+0.45,slot.p.z+0.45,c.y+(stack)*0.7,c.y+slot.h);q.p.copy(slot.p);stack++;sfx('wood',{at:slot.p});api.progress(stack/3*0.7);
+          if(flat(P.pos,slot.p)<1.1)P.pos.addScaledVector(F,1.05); api.msg(stack===3?'Лесенка готова! На верхний ящик, прыгни и нажми E у шарика':'Следующий ящик - на новую метку'); return true;
+        }
+        o.bl.getWorldPosition(bw);
+        if(stack===3&&P.pos.y+1.8>bw.y-0.15&&flat(P.pos,bw)<1.1){done=true;o.bl.visible=false;sfx('done');burst(bw.x,bw.y,bw.z,12,{color:0xff5a6e,size:0.1,speed:1.5});api.finish({success:true,mult:1});return true;}
+        if(P.held||P.holding)return false;const q=crates.find(q=>!q.placed&&flat(P.pos,q.p)<1.4&&Math.abs(P.pos.y-q.p.y)<0.7);if(!q)return false;carry=q;P.carryCrate=q;sfx('pickup');return true;
       },
-      stop() { for (const q of crates) { W.group.remove(q.g); if (q.s) q.s.on = false; } bl.visible = true; },
+      update(dt){time-=dt;api.timer(time);if(time<=0)return api.finish({success:false});
+        if(carry){const hp=P.ch.holdPoint;carry.g.position.copy(hp);carry.g.position.y-=0.3;carry.g.position.addScaledVector(new V3(Math.sin(P.root.rotation.y),0,Math.cos(P.root.rotation.y)),0.22);carry.g.rotation.y=P.root.rotation.y;carry.p.copy(P.pos);}
+        markers.forEach((m,i)=>m.visible=i===stack&&stack<3);markerMat.opacity=0.35+Math.sin(performance.now()*0.005)*0.12;
+      },
+      stop(){P.carryCrate=null;for(const q of crates){W.group.remove(q.g);if(q.s)q.s.on=false;}for(const m of markers)W.group.remove(m);markerMat.dispose();o.bl.visible=!done;},
     };
   },
   // 9. Почтальон: 3 письма по цветным ящикам (можно закинуть броском)
@@ -268,6 +291,9 @@ export const WORLD5 = {
   detector(o, api, ctx) {
     const P = ctx.player, c = o.pos(), pts = [farFloor(c, 3, 12), farFloor(c, 3, 12), farFloor(c, 3, 12)]; let time = 80, beepT = 0, digT = 0, holes = [], said = '';
     const goal = pts[0], decoy = pts.slice(1); const dz = new Set();
+    const detector=new THREE.Group();W.group.add(detector);detector.add(compose('m24detector',a=>{const metal=tmat(T.metal());a(G.cyl6,metal,0,-0.25,0.3,0.022,0.85,0.022,-0.8);a(G.ring,col(0x3a3440),0,-0.55,0.6,0.2,0.2,1,-Math.PI/2);a(G.box,col(0x8a6a3a),0,0.02,0.05,0.17,0.1,0.13);}));
+    const led=mesh(G.box,glow(0x9be36b),0,0.075,0.07,0.13,0.01,0.05,detector);
+    const shovel=compose('m24shovel',a=>{a(G.cyl6,tmat(T.wood()),0,0,0,0.025,0.7,0.025);a(G.box,tmat(T.metal()),0,-0.42,0,0.16,0.22,0.035);});W.group.add(shovel);shovel.visible=false;
     api.msg('Ходи кругами: писк чаще — ближе к кладу. E — копать');
     return {
       target: () => c,
@@ -281,11 +307,14 @@ export const WORLD5 = {
         else { time -= 4; api.msg('Пусто (−4 с)', 'bad'); } return true; },
       update(dt) {
         time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false }); digT -= dt;
+        detector.position.copy(P.pos).add(new V3(0,0.9,0));detector.rotation.y=P.root.rotation.y+Math.sin(time*5)*0.4;
+        detector.visible=digT<=0;shovel.visible=digT>0;shovel.position.copy(P.ch.holdPoint);shovel.rotation.set(-0.8-Math.sin(digT*10)*0.5,P.root.rotation.y,0);
         const live = [goal, ...decoy.filter(q => !dz.has(q))], d = Math.min(...live.map(q => flat(P.pos, q))), k = Math.max(0, 1 - d / 10);
+        led.scale.x=0.3+k*0.7;led.material.color.setHex(k>0.8?0xf5c542:0x9be36b);
         beepT -= dt; if (beepT <= 0 && flat(P.pos, c) < 18) { beepT = 0.08 + (1 - k) * 1.0; sfx('beep', { p: k }); }
         api.progress(k); const h = d < 1.2 ? 'ОЧЕНЬ ГОРЯЧО' : d < 3 ? 'Горячо' : d < 6 ? 'Теплее' : 'Холодно'; if (h !== said) { said = h; api.msg(h, d < 3 ? 'good' : ''); }
       },
-      stop() { for (const h of holes) W.group.remove(h); },
+      stop() { W.group.remove(detector,shovel); for (const h of holes) W.group.remove(h); },
     };
   },
   // 11. Тележка: довези гору продуктов до машины; резко дёрнешь/врежешься — продукты падают (собери и закинь обратно)
@@ -293,7 +322,12 @@ export const WORLD5 = {
     const P = ctx.player, c = o.pos(), yaw = o.g.rotation.y, st = new V3(c.x + Math.sin(yaw) * 1.4, c.y, c.z + Math.cos(yaw) * 1.4);
     const pc = addPushable({ X: v => v, Z: v => v, Y: c.y, g: W.group }, 'cart', st.x, st.z); pc.mesh.rotation.y = yaw;
     const goods = new THREE.Group(); goods.position.y = 0.95; pc.mesh.add(goods); const GD = ['tomato', 'can', 'banana', 'cucumber', 'parcel'], gm = [];
-    const addGood = i => { const m = compose('m5good' + (i % 5), a => { const cc = [0xd8301a, 0xd8243a, 0xf5d442, 0x3f8a2a, 0xc8a070][i % 5]; a(G.box, col(cc), 0, 0, 0, 0.22, 0.16, 0.18); }); m.position.set((i % 3 - 1) * 0.2, Math.floor(i / 3) * 0.17, (i % 2) * 0.15 - 0.07); goods.add(m); gm.push(m); };
+    const addGood = i => { const m = compose('m24good' + (i % 5), a => {const type=i%5,cc=[0xd8301a,0xd8243a,0xf5d442,0x3f8a2a,0xc8a070][type];
+        if(type===0){a(G.sph,col(cc),0,0,0,0.11,0.09,0.1);a(G.box,col(0x3f8a2a),0,0.1,0,0.09,0.015,0.03);}
+        else if(type===1){a(G.cyl8,tmat(T.metal()),0,0,0,0.07,0.19,0.07);a(G.cyl8,col(cc),0,0,0,0.072,0.13,0.072);}
+        else if(type===2){for(let j=0;j<3;j++)a(G.box,col(cc),-0.07+j*0.06,j===1?-0.025:0.005,0,0.08,0.05,0.12,0,0,(j-1)*0.4);}
+        else if(type===3)a(G.sph,col(cc),0,0,0,0.055,0.055,0.17);
+        else{a(G.box,tmat(T.crate()),0,0,0,0.22,0.18,0.18);a(G.box,col(0xe8dfbd),0,0.094,0,0.05,0.01,0.18);}}); m.position.set((i % 3 - 1) * 0.2, Math.floor(i / 3) * 0.17, (i % 2) * 0.15 - 0.07); goods.add(m); gm.push(m); };
     for (let i = 0; i < 6; i++) addGood(i);
     const car = (W.cars || []).filter(q => Math.abs(q.y - c.y) < 0.5).map(q => ({ q, d: Math.hypot(q.x - c.x, q.z - c.z) })).filter(q => q.d > 10 && q.d < 45).sort((a, b) => a.d - b.d)[0];
     const dest = car ? new V3(car.q.x - Math.cos(car.q.ry) * 2.6, c.y, car.q.z + Math.sin(car.q.ry) * 2.6) : farFloor(c, 14, 26); const rg = ring(0x9be36b); rg.scale.setScalar(2.2); rg.position.set(dest.x, dest.y + 0.06, dest.z);
@@ -302,8 +336,8 @@ export const WORLD5 = {
       target: () => dest,
       update(dt) {
         time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false }); cd -= dt;
-        const v = new V3(pc.vx, 0, pc.vz), jerk = v.distanceTo(lv) / Math.max(dt, 0.001); lv.copy(v);
-        if (jerk > 26 && v.length() + lv.length() > 1 && cd <= 0 && gm.length) { cd = 0.5; const m = gm.pop(); goods.remove(m); const wp = new V3(); pc.mesh.getWorldPosition(wp);
+        const v = new V3(pc.vx, 0, pc.vz), jerk = v.distanceTo(lv) / Math.max(dt, 0.001); const oldSpeed=lv.length();lv.copy(v);
+        if (jerk > 26 && v.length() + oldSpeed > 1 && cd <= 0 && gm.length) { cd = 0.5; const m = gm.pop(); goods.remove(m); const wp = new V3(); pc.mesh.getWorldPosition(wp);
           const it = addItem(GD[gm.length % 5], wp.x, wp.y + 1.2, wp.z); it.def = { ...it.def, respawn: 0 }; launch(it, it.pos.clone(), new V3((Math.random() - 0.5) * 4, 3, (Math.random() - 0.5) * 4)); lost.push(it); sfx('imp', { at: wp }); api.msg('Уронил! Собери', 'bad'); }
         // упавшее — обратно в тележку (положить/закинуть рядом с корзиной)
         const wp = new V3(); pc.mesh.getWorldPosition(wp);
@@ -340,8 +374,10 @@ export const WORLD5 = {
   pigeon(o, api, ctx) {
     const P = ctx.player, c = o.pos(), home = farFloor(c, 5, 10); let time = 80, got = false, fly = null, wt = 0, hop = 0;
     const g = new THREE.Group(); g.position.copy(home); W.group.add(g);
-    g.add(compose('m5pigeon', a => { const gr = lam({ color: 0x8a8aa0 }, 'm5pg'), dk = col(0x4a4a60); a(G.sph, gr, 0, 0.18, 0, 0.13, 0.12, 0.2); a(G.sph, dk, 0, 0.32, 0.14, 0.08, 0.08, 0.08); a(G.box, col(0x6a8a6a), 0, 0.25, 0.12, 0.1, 0.06, 0.06);
+    g.add(compose('m5pigeon', a => { const gr = lam({ map: T.dogCoat(0x8a8aa0,0x4a4a60,0xb8b8c8,0) }, 'm24pg'), dk = col(0x4a4a60); a(G.sph, gr, 0, 0.18, 0, 0.13, 0.12, 0.2); a(G.sph, dk, 0, 0.32, 0.14, 0.08, 0.08, 0.08); a(G.box, col(0x6a8a6a), 0, 0.25, 0.12, 0.1, 0.06, 0.06);
       a(G.cone4, col(0xd8a030), 0, 0.31, 0.24, 0.02, 0.07, 0.02, Math.PI / 2); a(G.box, dk, 0, 0.2, -0.22, 0.12, 0.03, 0.12, 0.3); for (const sx of [-0.04, 0.04]) a(G.box, col(0xd8606a), sx, 0.04, 0, 0.015, 0.08, 0.015); }));
+    const wings=[-1,1].map(sx=>{const p=new THREE.Group();p.position.set(sx*0.1,0.22,0);g.add(p);mesh(G.box,tmat(T.dogCoat(0x7a7a90,0x3a3a50,0xb8b8c8,0)),sx*0.07,0,-0.03,0.15,0.035,0.28,p);return p;});
+    for(const sx of [-1,1])mesh(G.sph,col(0x17111f),sx*0.068,0.34,0.17,0.015,0.015,0.015,g);
     const wp = home.clone(); api.msg('Подкрадись к голубю — шагом, не бегом');
     return {
       target: () => got ? o.front() : g.position,
@@ -351,7 +387,8 @@ export const WORLD5 = {
         if (flat(P.pos, g.position) > 1.3 || fly) return false; got = true; sfx('pickup'); api.msg('Попался! В голубятню его', 'good'); api.progress(0.6); return true; },
       update(dt) {
         time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false });
-        if (got) { g.position.set(P.pos.x, P.pos.y + 1.15, P.pos.z); g.rotation.y = P.root.rotation.y; if (P.stun > 0 || P.daze > 0) { got = false; api.msg('Вырвался!', 'bad'); fly = { from: g.position.clone(), to: farFloor(P.pos, 4, 8), t: 0 }; } return; }
+        wings.forEach((w,i)=>w.rotation.z=(i?-1:1)*(fly||got?Math.sin(time*32)*0.85:0.12));
+        if (got) { g.position.copy(P.ch.holdPoint); g.rotation.y = P.root.rotation.y; if (P.stun > 0 || P.daze > 0) { got = false; api.msg('Вырвался!', 'bad'); fly = { from: g.position.clone(), to: farFloor(P.pos, 4, 8), t: 0 }; } return; }
         const sp = Math.hypot(P.vel.x, P.vel.z), d = flat(P.pos, g.position);
         if (!fly && ((d < 4 && sp > 4.6) || d < 0.6)) { fly = { from: g.position.clone(), to: farFloor(g.position, 4, 8), t: 0 }; sfx('feather'); api.msg('Спугнул! Тише', 'bad'); }
         if (fly) { fly.t += dt / 0.8; const k = Math.min(1, fly.t); g.position.lerpVectors(fly.from, fly.to, k); g.position.y += Math.sin(k * Math.PI) * 1.6; g.rotation.y = Math.atan2(fly.to.x - fly.from.x, fly.to.z - fly.from.z); if (k >= 1) { fly = null; wp.copy(g.position); } return; }
@@ -380,9 +417,11 @@ export const PANEL5 = {
     const shade = (k, m) => { if (k < 3.5) tmp.copy(RAW).lerp(DONE, k / 3.5); else if (k < 6.5) tmp.copy(DONE); else tmp.copy(DONE).lerp(BURN, Math.min(1, (k - 6.5) / 1.5)); m.color.copy(tmp); };
     const P3 = [-0.33, -0.15, 0.03].map((x, i) => { const g = new THREE.Group(); g.position.set(x, 0.07, 0); grp.add(g); const top = mesh(G.cyl12, lam({ color: 0xd87a7a }), 0, 0.015, 0, 0.075, 0.03, 0.075, g), bot = mesh(G.cyl12, lam({ color: 0xd87a7a }), 0, -0.012, 0, 0.076, 0.026, 0.076, g);
       top.userData.i = bot.userData.i = i; return { g, top, bot, a: 0, b: 0, flips: 0, flipT: 0, dead: 0 }; });
+    const spatula=compose('m24spatula',a=>{a(G.box,col(0x3a2418),0,0,0.13,0.035,0.035,0.18);a(G.box,tmat(T.metal()),0,-0.01,-0.02,0.12,0.014,0.14);for(const x of [-0.035,0,0.035])a(G.box,col(0x2a2232),x,0,-0.02,0.008,0.003,0.09);});grp.add(spatula);spatula.visible=false;
+    for(const p of P3)for(const x of [-0.035,0,0.035])mesh(G.box,col(0x5a3020),x,0.032,0,0.008,0.003,0.09,p.g);
     let good = 0, endT = -1, buns = 0;
     const reset = p => { p.a = 0; p.b = 0; p.flips = 0; p.g.visible = true; p.g.position.y = 0.07; p.g.rotation.x = 0; };
-    const bun = () => { const b = new THREE.Group(); b.position.set(0.36, 0.04, -0.1 + buns * 0.1); grp.add(b); b.add(compose('m5bun', a => { a(G.cyl12, col(0xe8a050), 0, 0.012, 0, 0.07, 0.024, 0.07); a(G.cyl12, col(0x6a3a1e), 0, 0.034, 0, 0.068, 0.02, 0.068); a(G.cyl12, col(0x6aa84f), 0, 0.048, 0, 0.072, 0.006, 0.072); a(G.sph10, col(0xe8a050), 0, 0.055, 0, 0.07, 0.04, 0.07); })); buns++; };
+    const bun = () => { const b = new THREE.Group(); b.position.set(0.36, 0.04, -0.1 + buns * 0.1); grp.add(b); b.add(compose('m5bun', a => { a(G.cyl12, col(0xe8a050), 0, 0.012, 0, 0.07, 0.024, 0.07); a(G.cyl12, col(0x6a3a1e), 0, 0.034, 0, 0.068, 0.02, 0.068); a(G.cyl12, col(0x6aa84f), 0, 0.048, 0, 0.072, 0.006, 0.072); a(G.sph10, col(0xe8a050), 0, 0.055, 0, 0.07, 0.04, 0.07); })); for(let i=0;i<5;i++)mesh(G.box,col(0xf1dfaa),Math.sin(i*2.4)*0.04,0.088,Math.cos(i*2.4)*0.035,0.009,0.004,0.005,b);buns++; };
     api.progress(0); api.msg('Клик по котлете — перевернуть. Обе стороны готовы — клик, в булку');
     return {
       down(ray) { if (endT > 0) return; const h = ray.intersectObjects(P3.flatMap(p => [p.top, p.bot]), false)[0]; if (!h) return; const p = P3[h.object.userData.i]; if (p.flipT > 0 || p.dead > 0) return;
@@ -393,9 +432,9 @@ export const PANEL5 = {
         reset(p); },
       update(dt) {
         if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); }
-        for (const p of P3) { if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) reset(p); continue; }
+        spatula.visible=false;for (const p of P3) { if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) reset(p); continue; }
           p.b += dt; shade(p.b, p.bot.material); shade(p.a, p.top.material);
-          if (p.flipT > 0) { p.flipT -= dt; const k = 1 - p.flipT / 0.35; p.g.position.y = 0.07 + Math.sin(k * Math.PI) * 0.12; p.g.rotation.x = k * Math.PI; if (p.flipT <= 0) p.g.rotation.x = 0; }
+          if (p.flipT > 0) { p.flipT -= dt; const k = 1 - p.flipT / 0.35; spatula.visible=true;spatula.position.set(p.g.position.x,0.04+Math.sin(k*Math.PI)*0.08,0.1);spatula.rotation.x=-Math.sin(k*Math.PI)*0.5; p.g.position.y = 0.07 + Math.sin(k * Math.PI) * 0.12; p.g.rotation.x = k * Math.PI; if (p.flipT <= 0) p.g.rotation.x = 0; }
           if (Math.random() < dt * (p.b > 6.5 ? 14 : 3)) { const w = new V3(); p.g.getWorldPosition(w); puff(w.x, w.y + 0.05, w.z, { color: p.b > 6.5 ? 0x2a2230 : 0xd8d0e4, size: 0.06, vy: 0.6, life: 0.6 }); }
           if (p.b > 8.5) { p.dead = 1; p.g.visible = false; api.msg('Сгорела! Новая котлета', 'bad'); sfx('bonk'); } }
       },
@@ -411,19 +450,22 @@ export const PANEL5 = {
     const cv = document.createElement('canvas'); cv.width = cv.height = 32; const g = cv.getContext('2d'); g.fillStyle = '#f1e8ff'; g.beginPath(); g.arc(16, 16, 15, 0, 7); g.fill();
     const arc = (a0, a1, cc) => { g.strokeStyle = cc; g.lineWidth = 5; g.beginPath(); g.arc(16, 16, 11, Math.PI + a0 * Math.PI, Math.PI + a1 * Math.PI); g.stroke(); }; arc(0, 0.55, '#8a8d98'); arc(0.55, 0.78, '#3a9a4a'); arc(0.78, 1, '#d8243a');
     const tx = new THREE.CanvasTexture(cv); tx.magFilter = tx.minFilter = THREE.NearestFilter; const face = mesh(G.plane, new THREE.MeshBasicMaterial({ map: tx }), dial.x, dial.y, dial.z, 0.3, 0.3, 1, W.group); face.rotation.y = yaw; face.position.addScaledVector(F, 0.012);
+    const pour=new THREE.Group();pour.position.copy(c).addScaledVector(R,-0.6).addScaledVector(F,0.55).add(new V3(0,1.2,0));W.group.add(pour);
+    pour.add(compose('m24fuelCan',a=>{const m=col(0x8a6a32);a(G.box,m,0,0,0,0.3,0.4,0.18);a(G.box,col(0x3a3440),0,0.25,0,0.18,0.07,0.06);a(G.box,tmat(T.metal()),0.18,0.18,0,0.17,0.045,0.045,0,0,-0.3);}));
+    const flow=mesh(G.box,col(0xd8b04a),0.25,-0.16,0,0.025,0.52,0.025,pour);flow.visible=false;
     let p = 0, fill = 0, hold = false, endT = -1; api.progress(0); api.msg('Держи ЛКМ — стрелка в ЗЕЛЁНОЙ зоне');
     return {
       down() { hold = true; }, up() { hold = false },
       update(dt) {
         if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); return; }
-        p += (hold ? 0.55 : -0.7) * dt + (Math.random() - 0.5) * dt * 0.6; p = Math.max(0, Math.min(1, p)); o.needle.rotation.z = Math.PI / 2 - p * Math.PI;
+        p += (hold ? 0.55 : -0.7) * dt + (Math.random() - 0.5) * dt * 0.6; p = Math.max(0, Math.min(1, p));pour.rotation.z=hold?-0.65:0;flow.visible=hold;flow.scale.y=0.5+p*0.5; o.needle.rotation.z = Math.PI / 2 - p * Math.PI;
         if (p >= 0.55 && p < 0.78) { fill += dt * 0.22; if (Math.random() < dt * 6) sfx('tick'); }
         else if (p >= 0.78) { fill = Math.max(0, fill - dt * 0.15); if (Math.random() < dt * 10) puff(dial.x, dial.y + 0.4, dial.z, { color: 0xd8c040, size: 0.08, vy: 1, life: 0.4 }); if (Math.random() < dt * 2) api.msg('Переливаешь!', 'bad'); }
         api.progress(fill);
         if (fill >= 1) { endT = 1.2; api.msg('Свет есть!', 'good'); sfx('done'); for (const b of o.bulbs) { b.material.emissive.setHex([0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0][(Math.random() * 4) | 0]); b.material.emissiveIntensity = 1; }
           W.flash && W.flash(c, 0xffd8a0, 0.5); }
       },
-      stop() { W.group.remove(face); },
+      stop() { W.group.remove(face,pour);face.material.dispose();tx.dispose(); },
     };
   },
   // 5. Колокола: призрак звонит по порядку — повтори кликами (камешек летит в колокол). 3 раунда, 3 ошибки — провал
@@ -451,28 +493,41 @@ export const PANEL5 = {
       stop() { W.group.remove(gs); for (const p of pebbles) W.group.remove(p.m); },
     };
   },
-  // 7. Мойка: ЛКМ и три грязь щёткой (пена), потом смой пену струёй — машина блестит
-  carwash(o, api) {
-    const sp = o.spot, car = sp.car, cg = car.g, side = new V3(sp.x - car.x, 0, sp.z - car.z).normalize(), along = new V3(side.z, 0, -side.x);
-    const center = new V3(car.x, car.y + 0.8, car.z); api.pose(center.clone().addScaledVector(side, 3.4).add(new V3(0, 0.25, 0)), center.clone().add(new V3(0, -0.1, 0)));
-    const L = (car.L || 3.9) * 0.8, n = 6, spots = [];
-    const mudM = new THREE.MeshBasicMaterial({ color: 0x4a3a28, transparent: true, depthWrite: false }), foamM = new THREE.MeshBasicMaterial({ color: 0xf1f0ff, transparent: true, depthWrite: false });
-    for (let i = 0; i < n; i++) { const p = center.clone().addScaledVector(along, -L / 2 + (i + 0.5) * L / n + (Math.random() - 0.5) * 0.2).addScaledVector(side, 0.92).add(new V3(0, (Math.random() - 0.5) * 0.35 - 0.1, 0));
-      const m = mesh(G.disc, mudM.clone(), p.x, p.y, p.z, 0.22 + Math.random() * 0.08, 0.16 + Math.random() * 0.06, 1, W.group); m.lookAt(p.clone().add(side)); m.material.opacity = 0.9; spots.push({ m, p, dirt: 1, foam: 0, f: null }); }
-    let mode = 'scrub', drag = false, endT = -1; void cg; void foamM;
-    api.progress(0); api.msg('Зажми ЛКМ и три грязь');
-    const plane = center.clone().addScaledVector(side, 0.92);
-    return {
-      down() { drag = true; }, up() { drag = false; },
-      move(ray) { if (!drag || endT > 0) return; const h = onPlane(ray, side, plane); if (!h) return;
-        for (const s of spots) { if (h.distanceTo(s.p) > 0.3) continue;
-          if (mode === 'scrub' && s.dirt > 0) { s.dirt = Math.max(0, s.dirt - 0.06); s.m.material.opacity = s.dirt * 0.9; if (Math.random() < 0.5) puff(h.x, h.y, h.z, { color: 0xf1f0ff, size: 0.07, vy: 0.2, life: 0.8, grow: 0.5 });
-            if (s.dirt <= 0 && !s.f) { s.f = mesh(G.disc, foamM.clone(), s.p.x, s.p.y, s.p.z, 0.26, 0.2, 1, W.group); s.f.lookAt(s.p.clone().add(side)); s.f.position.addScaledVector(side, 0.003); s.foam = 1; } }
-          if (mode === 'rinse' && s.foam > 0) { s.foam = Math.max(0, s.foam - 0.07); s.f.material.opacity = s.foam; if (Math.random() < 0.6) burst(h.x, h.y, h.z, 2, { color: 0x9ccbec, size: 0.05, speed: 1.2, life: 0.4 }); } }
-        if (mode === 'scrub') { const k = spots.reduce((a, s) => a + (1 - s.dirt), 0) / n; api.progress(k * 0.6); if (k >= 1) { mode = 'rinse'; api.msg('Смой пену — веди струёй', 'good'); sfx('water'); } }
-        else { const k = spots.reduce((a, s) => a + (1 - s.foam), 0) / n; api.progress(0.6 + k * 0.4); if (k >= 1 && endT < 0) { endT = 1.2; sfx('done'); api.msg('Блестит!', 'good'); burst(center.x, center.y + 0.6, center.z, 18, { color: 0xffffff, size: 0.08, speed: 2.5 }); } } },
-      update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
-      stop() { for (const s of spots) { W.group.remove(s.m); if (s.f) W.group.remove(s.f); } },
+  // Три этапа с пиксельной маской прямо на кузове: вода, губка с пеной, чистый смыв.
+  carwash(o, api, ctx) {
+    const car=o.spot.car,side=new V3(o.spot.x-car.x,0,o.spot.z-car.z).normalize(),along=new V3(side.z,0,-side.x);
+    const center=new V3(car.x,car.y+0.69,car.z).addScaledVector(side,0.907),width=(car.L||3.9)-0.35,height=0.5,CW=72,CH=12;
+    api.pose(new V3(car.x,car.y+0.8,car.z).addScaledVector(side,4).add(new V3(0,0.9,0)),new V3(car.x,car.y+0.78,car.z));ctx?.cursor(true);
+    const cv=document.createElement('canvas');cv.width=CW;cv.height=CH;const g=cv.getContext('2d'),tex=new THREE.CanvasTexture(cv);tex.magFilter=tex.minFilter=THREE.NearestFilter;tex.generateMipmaps=false;
+    const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1});
+    const geo=new THREE.PlaneGeometry(width,height),layer=mesh(geo,mat,center.x,center.y,center.z,1,1,1,W.group);layer.lookAt(center.clone().add(side));
+    const mask=Array.from({length:CW*CH},(_,i)=>{const x=i%CW,y=Math.floor(i/CW);return (x>3&&x<CW-4&&y>0&&y<CH-1&&Math.random()<0.87)?1:0}),amount=new Float32Array(mask.length);let count=mask.reduce((a,b)=>a+b,0);
+    const sponge=compose('m24sponge',a=>{a(G.box,tmat(T.foam()),0,0,0,0.32,0.17,0.13);a(G.box,col(0xe8bd40),0,0,0.06,0.31,0.15,0.03);for(const [x,y]of[[-0.09,0.04],[0.04,-0.03],[0.1,0.02]])a(G.box,col(0x9a7a2a),x,y,0.079,0.025,0.018,0.006);});W.group.add(sponge);
+    const nozzle=compose('m24hose',a=>{a(G.cyl8,col(0x4a6a4a),0,-0.12,0,0.035,0.28,0.035);a(G.cyl8,tmat(T.metal()),0,0,0.06,0.055,0.22,0.055,Math.PI/2);a(G.box,col(0xd8a030),0.06,-0.05,0.02,0.04,0.1,0.1);});W.group.add(nozzle);
+    const waterMat=new THREE.MeshBasicMaterial({color:0x9ccbec,transparent:true,opacity:0.65,depthWrite:false}),stream=mesh(G.box,waterMat,0,0,0,0.025,0.025,0.35,W.group);
+    let stage=0,down=false,hit=null,endT=-1,fxT=0,stroke=null;
+    const title=['1/3 · Вода: смой рыхлую грязь','2/3 · Губка: напень весь борт','3/3 · Вода: смой всю пену'];api.msg(title[0]);api.progress(0);
+    const draw=()=>{g.clearRect(0,0,CW,CH);for(let i=0;i<mask.length;i++){if(!mask[i])continue;const x=i%CW,y=(i/CW)|0,a=amount[i];
+      if(stage===0){g.fillStyle=`rgba(${i%3?74:102},${i%3?55:72},35,${0.38+(1-a)*0.62})`;g.fillRect(x,y,1,1);}
+      else if(stage===1){g.fillStyle='rgba(78,63,42,.4)';g.fillRect(x,y,1,1);if(a>0){g.fillStyle=i%5?'#f1f0ff':'#a8c8dc';g.globalAlpha=a;g.fillRect(x,y,1,1);g.globalAlpha=1;}}
+      else if(a<1){g.fillStyle=i%5?'#f1f0ff':'#a8c8dc';g.globalAlpha=1-a;g.fillRect(x,y,1,1);g.globalAlpha=1;}}
+      tex.needsUpdate=true;};draw();
+    const track=ray=>{const p=onPlane(ray,side,center);hit=p&&Math.abs(p.clone().sub(center).dot(along))<width/2+0.2&&Math.abs(p.y-center.y)<height/2+0.2?p:null;};
+    return{
+      down(ray){down=true;track(ray);},up(){down=false;stroke=null;},move(ray){track(ray);},
+      update(dt){
+        if(endT>0){endT-=dt;if(endT<=0)api.finish({success:true,mult:1});return;}
+        const p=hit||center;const tool=stage===1?sponge:nozzle;sponge.visible=stage===1;nozzle.visible=stage!==1;tool.position.copy(p).addScaledVector(side,stage===1?0.09:0.5);tool.lookAt(p.clone().add(side));stream.visible=down&&!!hit&&stage!==1;
+        if(!down||!hit)return;
+        const moved=stroke?stroke.distanceTo(hit):0.1;stroke=hit.clone();const rate=stage===1?Math.min(0.55,moved*7):dt*2.4;
+        const u=hit.clone().sub(center).dot(along)/width+0.5,v=0.5-(hit.y-center.y)/height,r=stage===1?0.19:0.24;let sum=0;
+        for(let i=0;i<mask.length;i++){if(!mask[i])continue;const dx=((i%CW+0.5)/CW-u)*width,dy=(((i/CW)|0)+0.5)/CH-v;if(Math.hypot(dx,dy*height)<r)amount[i]=Math.min(1,amount[i]+rate);sum+=amount[i];}
+        draw();const k=sum/count;api.progress((stage+k)/3);
+        stream.position.copy(hit).addScaledVector(side,0.24);stream.lookAt(hit);fxT-=dt;
+        if(fxT<=0){fxT=0.065;sfx(stage===1?'step':'spray',{v:0.18});burst(hit.x,hit.y,hit.z,2,{color:stage===1?0xf1f0ff:0x9ccbec,size:0.035,speed:0.5,up:0.2,g:4,life:0.35});}
+        if(k>0.96){stage++;down=false;stroke=null;if(stage===3){layer.visible=false;stream.visible=false;endT=1;sfx('done');api.progress(1);api.msg('Чисто! Грязь и пена смыты','good');}else{amount.fill(0);draw();api.msg(title[stage],'good');sfx('water');}}
+      },
+      stop(){W.group.remove(layer,sponge,nozzle,stream);geo.dispose();mat.dispose();tex.dispose();waterMat.dispose();ctx?.cursor(true);},
     };
   },
   // 13. Антенна: тяни мышью — тарелка поворачивается; лампочки и ТВ показывают сигнал; удержи максимум 1.5 с

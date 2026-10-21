@@ -265,6 +265,7 @@ export const TowerMethods = {
       // маркиза-батут: упругая ткань подбрасывает
       this.solid(x + w / 2, z + d + 0.62, w - 0.6, 1.1, 2.6, 0.12); this.bouncer(x + 0.3, z + d + 0.1, x + w - 0.3, z + d + 1.15, 2.72, 11); }
     const guide = { name: o.name || (o.sign && o.sign[0]) || this.d, box: [this.X(ix0), this.Z(iz0), this.X(ix1), this.Z(iz1)], y0: this.Y, fh, floors: n, door: doorOut,
+      stairPath: hasStairs ? { entryX: this.X(sx0 + EL / 2), midX: this.X(f1 + ML / 2), za: this.Z(sz0 + lane / 2), zb: this.Z(sz0 + lane * 1.5) } : null,
       stair: hasStairs ? [this.X(sx0 + EL / 2), this.Z(sz0 + lane * 1.5), this.X(f0 + 0.4), this.Z(sz0 + lane / 2)] : null };
     W.buildings.push(guide);
     // этажи: свет на потолке + наполнение
