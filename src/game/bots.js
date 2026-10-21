@@ -11,6 +11,8 @@ import { statsOf } from './score.js';
 import { arrest, hasPolice } from './police.js';
 import { vacuumFire } from './tools.js';
 import { sfx } from '../core/sfx.js';
+import { slamDoor } from './player.js';
+import { hitBreakables } from '../world/breakables.js';
 import { voice } from './voice.js';
 import { buildingAt, floorAt, routeTo } from '../missions/location.js';
 import { actors, shove, knockDown, tickStun, ragK, daze } from './actors.js';
@@ -133,6 +135,8 @@ export function updateBots(dt, t, P) {
     if (b.webT > 0) b.webT -= dt;
     if (b.knockT > 0) b.knockT -= dt;
     if (b.diveHitT > 0) b.diveHitT -= dt;
+    if (b.diveCD > 0) b.diveCD -= dt;
+    if (b.diveT > 0) { b.diveT -= dt; hitBreakables({ x: b.pos.x + b.vel.x * 0.05, y: b.pos.y + 0.6, z: b.pos.z + b.vel.z * 0.05 }, 0.6, [b.vel.x, b.vel.y, b.vel.z], 1, ['glass', 'crate']); }
     if (b.revenge > 0) b.revenge -= dt;
     b.think -= dt; b.throwCD -= dt; b.actCD -= dt;
     // схвачен — ничего не делает (вырывается сам в grab.js)
@@ -183,6 +187,7 @@ export function updateBots(dt, t, P) {
           else { [ix, iz] = steer(b, g.x, g.z, dt); if (b.goal.kind === 'flee') run = 1.1; } }
       } else { b.climbing = false; }
       if (b.blind > 0) { ix = Math.sin(t * 3 + b.pos.x); iz = Math.cos(t * 2.4); }
+      botDive(b, ix, iz);
       act(b, P, dt);
     }
     // застрял — шаг в сторону
@@ -190,7 +195,7 @@ export function updateBots(dt, t, P) {
     if (b.stuck > 0.7 && b.onGround) { b.vel.y = PC.jump; b.onGround = false; if (b.stuck > 1.4) { const a = Math.random() * 6.28; b.dodge = { x: Math.cos(a), z: Math.sin(a), t: 0.9 }; b.stuck = 0; b.ladder = null; b.ladderDn = null; } }
     // движение
     const sp = (b.webT > 0 ? 0.4 : 1) * (b.daze > 0 ? 0.18 : 1) * (b.holding ? 0.72 : 1) * (b.energy > 0 ? 1.2 : 1) * PC.sprint * 0.8 * run, k = b.onGround ? 8 : 2;
-    if (ctrl) { b.vel.x += (ix * sp - b.vel.x) * Math.min(1, dt * k); b.vel.z += (iz * sp - b.vel.z) * Math.min(1, dt * k); }
+    if (ctrl && !(b.diveT > 0)) { b.vel.x += (ix * sp - b.vel.x) * Math.min(1, dt * k); b.vel.z += (iz * sp - b.vel.z) * Math.min(1, dt * k); }
     b.vel.x += b.push.x; b.vel.z += b.push.z; b.push.set(0, 0, 0);
     if (b.stun > 0 || b.getT > 0) { b.vel.x *= 0.9; b.vel.z *= 0.9; }
     // толкотня с игроком
@@ -210,7 +215,7 @@ export function updateBots(dt, t, P) {
     if (b.onGround && spd > 7 && Math.random() < dt * 10) smoke(b.pos.x - b.vel.x / spd * 0.4, b.pos.y + 0.12, b.pos.z - b.vel.z / spd * 0.4, { size: 0.12, grow: 0.5, life: 0.5, vy: 0.4 });
     if (b.throwT > 0) b.throwT -= dt;
     updateEmote(b, dt, spd > 1);
-    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, hold: (b.doT > 0 || !!b.held) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
+    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, dive: b.diveT > 0 ? 'air' : null, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, hold: (b.doT > 0 || !!b.held) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
       emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, swat: b.swatT > 0 ? b.swatT : 0, zombie: !!b.zombie });
     if (b.held) { b.held.pos.copy(b.ch.holdPoint); b.held.g.rotation.y = b.root.rotation.y; }
     b.root.visible = true; blob(b); progBar(b);
@@ -345,3 +350,16 @@ export function botHitHook(it, p, heavy, r) {
 }
 export const botLabel = b => `${b.name} (${SKINS[b.skin].name})`;
 void grabTarget;
+
+// бот (v0.22): закрытая дверь или стекло прямо на пути — выпад (как Q у игрока): дверь распахивается по инерции, стекло бьётся
+function botDive(b, ix, iz) {
+  if (b.diveT > 0 || b.diveCD > 0 || !b.onGround || b.climbing || (b.held && b.held.def.heavy) || b.holding) return;
+  const l = Math.hypot(ix, iz); if (l < 0.5) return; const ux = ix / l, uz = iz / l;
+  let why = null;
+  for (const d of W.doors) if (!d.open && Math.abs(d.y - b.pos.y) < 1.2) { const dx = d.x - b.pos.x, dz = d.z - b.pos.z, dd = Math.hypot(dx, dz); if (dd < 1.8 && dd > 0.3 && (dx * ux + dz * uz) / dd > 0.6) { why = d; break; } }
+  if (!why) for (const p of W.breakables || []) { if (!p.alive || !p.solid || p.kind !== 'glass') continue; const s = p.solid; if (s.y0 > b.pos.y + 1.4 || s.y1 < b.pos.y + 0.3) continue;
+    const ax = b.pos.x + ux * 1.1, az = b.pos.z + uz * 1.1; if (ax > s.x0 - 0.25 && ax < s.x1 + 0.25 && az > s.z0 - 0.25 && az < s.z1 + 0.25) { why = 'glass'; break; } }
+  if (!why) return;
+  b.diveT = 0.5; b.diveCD = 2.5; b.vel.x = ux * 9; b.vel.z = uz * 9; b.vel.y = 2.6; b.onGround = false; sfx('dive', { at: b.pos });
+  if (why !== 'glass') { slamDoor(why, ux, uz, 9); sfx('door', { at: why }); smokeRing(why.x, why.y + 1, why.z, 6, { speed: 2 }); }
+}

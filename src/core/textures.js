@@ -770,3 +770,6 @@ T.cupTex = () => photo('cupTex', 32, 32, (g, W, H) => { if (phOk('cardboard')) {
 T.newsTex = () => photo('newsTex', 32, 32, (g, W, H) => { if (phOk('plaster_g')) phDraw(g, W, H, 'plaster_g', '#e8e2d0'); else fill(g, W, H, '#e0dccc');
   g.fillStyle = 'rgba(30,26,34,.7)'; g.fillRect(W * 0.08, H * 0.06, W * 0.84, H * 0.1); g.fillStyle = 'rgba(30,26,34,.35)'; for (let y = H * 0.22; y < H * 0.95; y += H * 0.07) for (const x of [0.08, 0.54]) g.fillRect(W * x, y, W * 0.38, H * 0.025);
   g.fillStyle = 'rgba(120,110,100,.5)'; g.fillRect(W * 0.54, H * 0.22, W * 0.38, H * 0.25); }, 4);
+// v0.22: огурец для нарезки — полоски вдоль, пупырышки
+T.cucumberL = () => photo('cucumberL', 32, 16, (g, W, H) => { fill(g, W, H, '#2f6a22'); for (let x = 0; x < W; x += 4) { g.fillStyle = x % 8 ? '#3f8a2a' : '#5aa040'; g.fillRect(x, 0, 2, H); }
+  g.fillStyle = 'rgba(200,230,150,.5)'; for (let i = 0; i < 24; i++) g.fillRect((i * 13) % W, (i * 7) % H, 1, 1); }, 4);

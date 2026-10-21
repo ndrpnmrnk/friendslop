@@ -377,7 +377,7 @@ export class Builder {
     if (style !== 'glass') { mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : 0.07, 1.05, axis === 'x' ? 0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);
       mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : -0.07, 1.05, axis === 'x' ? -0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot); }
     const s = axis === 'x' ? this.solid(hx + w / 2, hz, w, 0.16, y, h) : this.solid(hx, hz + w / 2, 0.16, w, y, h);
-    const d = { pivot, solid: s, open: false, ang: 0, inward, x: this.X(hx + px), z: this.Z(hz + pz), y: this.Y + y, outline: addOutline(pivot, 0.04) };
+    const d = { pivot, solid: s, open: false, ang: 0, inward, axis, x: this.X(hx + px), z: this.Z(hz + pz), y: this.Y + y, outline: addOutline(pivot, 0.04) };
     W.doors.push(d); return d;
   }
 

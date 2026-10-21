@@ -44,7 +44,7 @@ export default {
     // ФИШКА: люк в полу склепа → подвал с гробами → тайный ход в тоннель под дорогой
     {
       const st = tmat(T.stone()), ob = tmat(T.oldBrick()), F = -4.15;
-      const S = (x0, z0, x1, z1, y0, y1, m) => { b.m(G.box, m, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0); b.solid((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, y0, y1 - y0); };
+      const e = () => 0.004 + Math.random() * 0.012, S = (x0, z0, x1, z1, y0, y1, m) => { b.m(G.box, m, (x0 + x1) / 2, (y0 + y1) / 2 - 0.004, (z0 + z1) / 2, x1 - x0 - e(), y1 - y0 - e(), z1 - z0 - e()); b.solid((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, y0, y1 - y0); };
       for (const [dx, dz, w, d] of [[0, -0.65, 1.4, 0.1], [0, 0.65, 1.4, 0.1], [-0.65, 0, 0.1, 1.4], [0.65, 0, 0.1, 1.4]]) b.m(G.box, col(0x2b2533), 13 + dx, 0.03, 7.2 + dz, w, 0.05, d);
       const lid = b.m(G.box, tmat(T.wood()), 14.1, 0.5, 7.2, 0.1, 1.0, 1.2); lid.rotation.z = 0.25;
       b.ladder(13, 6.6, 's', 0.05, F);

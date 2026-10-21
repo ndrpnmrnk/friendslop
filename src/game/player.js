@@ -217,6 +217,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     // выпад в закрытую дверь: распахивается резко, кто стоял за ней — отлетает рэгдоллом
     for (const d of W.doors) if (!d.open && Math.hypot(d.x - p.pos.x, d.z - p.pos.z) < 1.0 && Math.abs(d.y - p.pos.y) < 1.2) { d.open = true; d.slam = 1; sfx('door', { at: d }); shake(0.18); smokeRing(d.x, d.y + 1, d.z, 6, { speed: 2 });
       const vl = Math.hypot(p.vel.x, p.vel.z) || 1, ux = p.vel.x / vl, uz = p.vel.z / vl;
+      slamDoor(d, ux, uz, vl);
       for (const b of actors()) { if (b === p || b.hidden) continue; const dx = b.pos.x - d.x, dz = b.pos.z - d.z; if (Math.hypot(dx, dz) < 1.6 && dx * ux + dz * uz > 0 && Math.abs(b.pos.y - d.y) < 1.2) { knockDown(b, ux * 9, uz * 9, 1.4); voice(b.ch, 'hurt', b.pos); W.onHit && W.onHit(p, b, 'heavy'); } } }
   }
   if (p.diveHitT > 0) p.diveHitT -= dt;
@@ -299,4 +300,9 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     hold: (!!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
     emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, swat: p.swatT > 0 ? p.swatT : 0 });
+}
+
+// выбить дверь выпадом (v0.22): дверь распахивается в сторону выпада и летит по инерции (игрок и боты)
+export function slamDoor(d, ux, uz, speed = 8) {
+  const sg = d.axis === 'x' ? -Math.sign(uz || 1) : Math.sign(ux || 1); d.open = true; d.slam = 1; d.dirS = sg; d.av = sg * Math.max(7, speed * 1.4);
 }

@@ -1,5 +1,4 @@
 import { updateOcclusion } from './game/occlusion.js';
-import { music, districtAmb } from './core/music.js';
 import { eliminate, updateDrones, resetDrones, droneAction } from './game/drone.js';
 import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies.js';
 import { routeTo } from './missions/location.js';
@@ -109,7 +108,7 @@ function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k
 function buildLogo() { const l = $('logo'); if (l.childElementCount) return; for (const ch of TEXT.title) { const s = document.createElement('span'); s.textContent = ch; l.appendChild(s); } }
 let logoT = 0;
 function showMenu() {
-  music.stop(); districtAmb(0, null); S.state = 'menu'; document.body.classList.remove('playing'); menu.active = true; buildLogo();
+  S.state = 'menu'; document.body.classList.remove('playing'); menu.active = true; buildLogo();
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); $('dot').classList.add('hidden'); unlock();
 }
 function showMode() {
@@ -268,7 +267,7 @@ function updateIntro(dt) {
   if (t > 5.2) {
     const left = Math.ceil(8.2 - t), c = $('count');
     if (left !== I.cd) { I.cd = left; c.classList.remove('tick', 'go'); void c.offsetWidth;
-      if (left > 0) { c.textContent = left; sfx('count'); music.count(left); } else { c.textContent = TEXT.go; c.classList.add('go'); sfx('go'); music.go(); goRound(); }
+      if (left > 0) { c.textContent = left; sfx('count'); } else { c.textContent = TEXT.go; c.classList.add('go'); sfx('go'); goRound(); }
       c.classList.add('tick'); }
   }
 }
@@ -285,7 +284,7 @@ function endRound() {
   if (S.mg) closeMission(null);
   if (S.wm) closeWorld(null);
   if (S.crane) exitCrane();
-  music.end(); S.state = 'results'; document.body.classList.remove('playing'); $('dot').classList.add('hidden'); unlock(); $('lockhint').classList.add('hidden');
+  S.state = 'results'; document.body.classList.remove('playing'); $('dot').classList.add('hidden'); unlock(); $('lockhint').classList.add('hidden');
   $('hud').classList.add('hidden');
   screen('results'); sfx('win');
   // места и награды: у каждого — заголовок по его стилю игры, подпись и очки
@@ -559,7 +558,7 @@ let glowOn = new Set();
 function updateGlow() {
   const want = new Set();
   if (P && S.state === 'play' && !P.drone && !S.mg && !S.crane) {
-    for (const it of W.items) if (it.state === 'rest' && it.g.visible && Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z) < 2.2 && Math.abs(it.pos.y - P.pos.y - 0.4) < 1.6) want.add(it.outline);
+    for (const it of W.items) if (it.state === 'rest' && it.g.visible && !(it.boxed && !it.boxed.open) && Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z) < 2.2 && Math.abs(it.pos.y - P.pos.y - 0.4) < 1.6) want.add(it.outline);
     for (const q of W.interacts) if (q.outline && (!q.glow || q.glow()) && Math.hypot(q.x - P.pos.x, q.z - P.pos.z) < q.r + 0.7 && Math.abs(q.y - P.pos.y) < (q.dy ?? 0.9) + 0.3) want.add(q.outline);
   }
   for (const o of glowOn) if (!want.has(o) && o !== lastFocus) o.set(false);
@@ -596,8 +595,8 @@ function eTarget() {
   if (!P.held) for (const q of W.interacts) { if (q.enabled && !q.enabled(P)) continue; const d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z);
     if (d < q.r && Math.abs(q.y - P.pos.y) < (q.dy ?? 0.9)) c.push({ s: sc(q.x, q.z, d), label: q.label, act: () => q.act(P) }); }
   for (const d of W.doors) { const dist = Math.hypot(d.x - P.pos.x, d.z - P.pos.z); if (dist < 2.2 && Math.abs(d.y - P.pos.y) < 1)
-    c.push({ s: sc(d.x, d.z, dist) * 1.1, label: d.open ? TEXT.door.close : TEXT.door.open, act: () => { d.open = !d.open; sfx('door', { at: d, v: 0.6 }); } }); }
-  if (!P.held) { for (const it of W.items) { if (it.state !== 'rest') continue; const d = Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z); if (d > 1.5 || it.pos.y < P.pos.y - 0.6 || it.pos.y > P.pos.y + 1.8) continue;
+    c.push({ s: sc(d.x, d.z, dist) * 1.1, label: d.open ? TEXT.door.close : TEXT.door.open, act: () => { d.open = !d.open; d.dirS = null; d.av = 0; sfx('door', { at: d, v: 0.6 }); } }); }
+  if (!P.held) { for (const it of W.items) { if (it.state !== 'rest' || (it.boxed && !it.boxed.open)) continue; const d = Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z); if (d > 1.5 || it.pos.y < P.pos.y - 0.6 || it.pos.y > P.pos.y + 1.8) continue;
       c.push({ s: sc(it.pos.x, it.pos.z, d) * 0.85, label: `${TEXT.take} ${it.def.name.toLowerCase()}`, act: () => { if (it.steal && it.mine !== P) { stealItem(it); return; } pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; sfx('pickup'); } }); }
     const rb = nearestRideable(P); if (rb) c.push({ s: sc(rb.x, rb.z, Math.hypot(rb.x - P.pos.x, rb.z - P.pos.z)) * 1.1, label: RIDE_NAME[rb.kind] ? (rb.ride && rb.ride.pose === 'stand' ? 'Встать на ' : 'Сесть в ') + RIDE_NAME[rb.kind] : TEXT.ride, act: () => mount(P, rb) }); }
   c.sort((a, b) => a.s - b.s); return c[0] || null;
@@ -644,8 +643,6 @@ function frame() {
     if (S.state === 'play') {
       updateDrones(dt, t);
       S.time -= dt;
-      // музыка: накал растёт к концу раунда, события — громче и быстрее, последние 10 с — финал
-      music.update(dt, Math.min(1, 0.2 + 0.5 * (1 - S.time / CONFIG.roundTime) + (EV.cur ? 0.4 : 0) + (S.time <= 10 ? 0.5 : 0)), S.time <= 10);
       if (S.time > 0 && S.time <= 10) { S.beep = (S.beep || 0) - dt; if (S.beep <= 0) { S.beep = 0.18 + 0.082 * S.time; sfx('deadline', { urgency: 1 - S.time / 10 }); } } else S.beep = 0;
       if (S.tut) updateTutorial(dt);
       if (tapped('KeyE')) interact();
@@ -680,8 +677,7 @@ function frame() {
       { const bt = bigTarget(); drawMinimap(P, M.list.filter(m => visibleTo(m, P)), S.wm && S.wm.game.target ? S.wm.game.target() : null, bt ? [{ x: bt.x, z: bt.z, color: '#ff8a1f', icon: TEXT.eventIcon[EV.big.key] }] : null, S.nav); }
       if (S.time <= 0) { S.time = 0; renderHud(S, P, '', 0); endRound(); }
     }
-    if (P) { setGhost(P, P.ghost > 0); setListener(P.pos.x, P.pos.y, P.pos.z);
-      { let did = null; if (S.state === 'play' || S.state === 'intro') { const q = P.pos; for (const d of W.districts) if (q.x >= d.ox && q.x < d.x1 && q.z >= d.oz && q.z < d.z1) { did = q.y < -1.5 ? 'sewer' : d.id; break; } } districtAmb(dt, did); } }
+    if (P) { setGhost(P, P.ghost > 0); setListener(P.pos.x, P.pos.y, P.pos.z); }
     // траектория броска
     let shown = 0;
     if (S.state === 'play' && P.charging && (P.held || P.holding || carryK())) {
@@ -730,7 +726,11 @@ function frame() {
       S.nav = nt; renderNav(camera, P, nt);
     }
     for (const d of W.doors) {
-      const want = d.open ? 1.65 * d.inward : 0; d.ang += (want - d.ang) * Math.min(1, dt * (d.slam > 0 ? 22 : 8)); d.pivot.rotation.y = d.ang; if (d.slam > 0) d.slam -= dt;
+      // выбитая выпадом дверь (v0.22) летит в сторону выпада по инерции, бьётся об упор и чуть отскакивает
+      const want = d.open ? 1.65 * (d.dirS || d.inward) : 0;
+      if (d.av) { d.ang += d.av * dt; d.av *= Math.exp(-dt * 2.2); if (Math.abs(d.ang) > 1.8) { d.ang = Math.sign(d.ang) * 1.8; d.av = -d.av * 0.3; } if (Math.abs(d.av) < 0.4) d.av = 0; }
+      else d.ang += (want - d.ang) * Math.min(1, dt * 8);
+      d.pivot.rotation.y = d.ang; if (d.slam > 0) d.slam -= dt;
       d.solid.on = !d.open && Math.abs(d.ang) < 0.5;
     }
     for (const f of W.animated) f(dt, t);
@@ -767,6 +767,6 @@ function loop() {
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('Графика перезапускается…', 'bad'); });
 canvas.addEventListener('webglcontextrestored', () => toast('Графика восстановлена'));
 // отладочный доступ из консоли браузера
-window.__fs = { music, districtAmb, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
+window.__fs = { eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 showMenu();
 loop();

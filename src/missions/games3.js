@@ -69,46 +69,70 @@ export function buildCatBox(x, y, z, f) {
 
 /* ---------- панельные игры ---------- */
 export const PANEL3 = {
-  // Нарезка: веди мышью поперёк пунктирных линий (зажав ЛКМ), потом кликни по миске
+  // Нарезка (v0.22): огурец лежит ЦЕЛЫЙ — режем поперёк пунктира (зажав ЛКМ), он распадается на кружки; потом так же помидор.
+  // Потом клик — ставим миску, нарезка ссыпается в неё, и миску раскручиваем: зажать ЛКМ и водить мышью по кругу.
   saladCut(o, api, ctx) {
-    const s = o.spot, F = new V3(s.f[0], 0, s.f[1]), R = new V3(F.z, 0, -F.x), top = s.y + 0.96;
+    const s = o.spot, F = new V3(s.f[0], 0, s.f[1]), top = s.y + 0.96;
     const c0 = new V3(s.bx, top, s.bz).addScaledVector(F, 0.05);
     api.pose(c0.clone().addScaledVector(F, 0.85).add(new V3(0, 0.95, 0)), c0.clone().addScaledVector(F, -0.05));
     const grp = new THREE.Group(); grp.position.copy(c0); grp.rotation.y = Math.atan2(F.x, F.z); W.group.add(grp);
     mesh(G.box, tmat(T.wood()), -0.12, 0.012, 0, 0.62, 0.025, 0.3, grp);
-    const bowl = compose('bowl', a => { a(new THREE.SphereGeometry(1, 10, 5, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), lam({ color: 0xb8b0c8, side: THREE.DoubleSide }, 'bowl'), 0, 0.1, 0, 0.16, 0.1, 0.16); }); bowl.position.set(0.36, 0.0, 0); grp.add(bowl);
-    // овощ = ряд кусочков, линии разреза между ними
-    const veg = [{ c: 0x3f8a2a, n: 5, len: 0.42, r: 0.045 }, { c: 0xd8301a, n: 3, len: 0.18, r: 0.08 }];
-    let vi = 0, pieces = [], lines = [], cuts = new Set(), done = false, endT = -1, drag = false, last = null, inBowl = 0;
+    const bowl = compose('bowl2', a => { a(new THREE.SphereGeometry(1, 10, 5, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), lam({ color: 0xb8b0c8, side: THREE.DoubleSide }, 'bowl'), 0, 0.1, 0, 0.16, 0.1, 0.16);
+      a(G.torus, col(0x8a84a0), 0, 0.1, 0, 0.16, 0.16, 0.06, Math.PI / 2); });
+    const BX = 0.36; bowl.position.set(BX, 0, 0.6); bowl.visible = false; grp.add(bowl);
+    const VEG = [{ k: 'cucumber', n: 5, len: 0.42, r: 0.045, inner: 0xc8e8a0 }, { k: 'tomato', n: 3, len: 0.2, r: 0.085, inner: 0xff8a6a }];
+    const skin = [lam({ map: T.cucumberL() }, 'saladCuc2'), lam({ map: T.tomato() }, 'saladTom')];
+    let vi = 0, chunks = [], meshes = [], lines = [], cuts = new Set(), phase = 'cut', drag = false, last = null, spinA = 0, lastA = null, endT = -1, moveT = 0;
+    const done = [];
     const lineM = new THREE.MeshBasicMaterial({ color: 0xf1e8ff, transparent: true, opacity: 0.85 });
+    const x0 = () => -0.12 - VEG[vi].len / 2;
+    // перерисовать овощ: каждый кусок между разрезами — один меш (целый овощ = один кусок), на срезах — светлая мякоть
+    const draw = () => {
+      for (const m of meshes) grp.remove(m); meshes = []; const v = VEG[vi], w = v.len / v.n; let gap = 0;
+      for (const [a, b] of chunks) { const len = (b - a) * w, cx = x0() + (a + b) / 2 * w + (a > 0 ? (gap += 0.012) : 0), g = new THREE.Group(); g.position.set(cx, 0.025 + v.r, 0); grp.add(g); meshes.push(g);
+        if (vi === 0) { const m = mesh(G.cyl8, skin[0], 0, 0, 0, v.r, len, v.r, g); m.rotation.z = Math.PI / 2; }
+        else mesh(G.sph10, skin[1], 0, 0, 0, Math.min(v.len / 2, len * 0.5 + 0.004), v.r, v.r, g);
+        const half = vi ? Math.min(v.len / 2, len * 0.5 + 0.004) * 0.9 : len / 2 + 0.001;
+        for (const [e, sg] of [[a, -1], [b, 1]]) if (e > 0 && e < v.n) { const d = mesh(G.disc, lam({ color: v.inner }, 'pulp' + v.inner), sg * half, 0, 0, v.r * (vi ? 0.8 : 0.9), v.r * (vi ? 0.8 : 0.9), 1, g); d.rotation.y = sg * Math.PI / 2; } }
+    };
     const setup = () => {
-      for (const p of pieces) grp.remove(p); for (const l of lines) grp.remove(l); pieces = []; lines = []; cuts = new Set();
-      const v = veg[vi], w = v.len / v.n;
-      for (let i = 0; i < v.n; i++) { const p = mesh(vi ? G.sph10 : G.cyl8, lam({ color: v.c }, 'veg' + v.c), -0.12 - v.len / 2 + w * (i + 0.5), 0.025 + v.r, 0, vi ? w * 0.55 : v.r, vi ? v.r : w * 0.5, v.r, grp); if (!vi) p.rotation.z = Math.PI / 2; pieces.push(p); }
-      for (let i = 1; i < v.n; i++) for (let k = 0; k < 4; k++) { const l = mesh(G.box, lineM, -0.12 - v.len / 2 + w * i, 0.03 + v.r * 2 + 0.005, -0.12 + k * 0.08, 0.008, 0.002, 0.04, grp); l.userData.i = i; lines.push(l); }
-      api.msg(vi ? 'ТЕПЕРЬ ПОМИДОР!' : 'РЕЖЬ! Веди поперёк', 'good'); api.progress(vi * 0.5);
+      for (const l of lines) grp.remove(l); lines = []; cuts = new Set(); const v = VEG[vi], w = v.len / v.n; chunks = [[0, v.n]]; draw();
+      for (let i = 1; i < v.n; i++) for (let k = 0; k < 4; k++) { const l = mesh(G.box, lineM, x0() + w * i, 0.03 + v.r * 2 + 0.005, -0.12 + k * 0.08, 0.008, 0.002, 0.04, grp); l.userData.i = i; lines.push(l); }
+      api.msg(vi ? 'ТЕПЕРЬ ПОМИДОР! Режь поперёк' : 'РЕЖЬ ОГУРЕЦ! Зажми ЛКМ и веди поперёк', 'good'); api.progress(vi * 0.35);
     };
     setup();
     const local = ray => { const p = onPlane(ray, new V3(0, 1, 0), new V3(0, top + 0.05, 0)); return p ? grp.worldToLocal(p) : null; };
+    // нарезанное — в сторону (назад по доске), потом всё ссыпается в миску
+    const park = () => { for (const g of meshes) { const st = g.position.clone(), tg = new V3(st.x, st.y, -0.15); g.userData.anim = { st, tg, t: 0 }; done.push(g); } meshes = []; };
+    const toBowl = () => { let k = 0; for (const g of done) { g.userData.anim = { st: g.position.clone(), tg: new V3(BX + (Math.random() - 0.5) * 0.14, 0.11 + k * 0.004, (Math.random() - 0.5) * 0.14), t: -0.12 * k, arc: 0.14 }; k++; } };
+    const angleOf = ray => { const p = local(ray); return p ? Math.atan2(p.z, p.x - BX) : null; };
     return {
-      down(ray) { drag = true; last = local(ray);
-        if (done && ray.intersectObject(bowl, true).length) { /* в миску */ }
-        if (done && endT < 0) { const l = local(ray); if (l && Math.hypot(l.x - 0.36, l.z) < 0.2) { endT = 1.0; api.msg('Салат готов!', 'good'); sfx('done'); } } },
+      down(ray) { drag = true; last = local(ray); lastA = angleOf(ray);
+        if (phase === 'bowl') { phase = 'drop'; moveT = 0; bowl.visible = true; sfx('click'); api.msg('Миска на месте', 'good'); } },
       move(ray) {
-        if (!drag || done) return; const p = local(ray); if (!p || !last) { last = p; return; }
-        const v = veg[vi], w = v.len / v.n;
-        for (let i = 1; i < v.n; i++) { const lx = -0.12 - v.len / 2 + w * i; if (cuts.has(i)) continue;
-          if ((last.x - lx) * (p.x - lx) < 0 && Math.abs(p.z) < 0.18) { cuts.add(i); sfx('chop'); for (let j = 0; j < pieces.length; j++) pieces[j].position.x += (j < i ? -0.012 : 0.012);
-            for (const l of lines) if (l.userData.i === i) l.visible = false; const wp = grp.localToWorld(new V3(lx, 0.06, 0)); burst(wp.x, wp.y, wp.z, 5, { color: v.c, size: 0.04, speed: 0.6, up: 0.6, g: 6, life: 0.4, grow: 0 }); } }
+        if (!drag) return;
+        if (phase === 'spin') { const a = angleOf(ray); if (a === null || lastA === null) { lastA = a; return; } let da = a - lastA; da = Math.atan2(Math.sin(da), Math.cos(da)); lastA = a;
+          if (Math.abs(da) < 1.2) spinA += Math.abs(da); const k = Math.min(1, spinA / (Math.PI * 6)); api.progress(0.7 + k * 0.3);
+          if (k >= 1 && endT < 0) { endT = 1.0; api.msg('Салат готов!', 'good'); sfx('done'); } return; }
+        if (phase !== 'cut') return; const p = local(ray); if (!p || !last) { last = p; return; }
+        const v = VEG[vi], w = v.len / v.n;
+        for (let i = 1; i < v.n; i++) { const lx = x0() + w * i; if (cuts.has(i)) continue;
+          if ((last.x - lx) * (p.x - lx) < 0 && Math.abs(p.z) < 0.18) { cuts.add(i); sfx('chop');
+            const ci = chunks.findIndex(([a, b]) => a < i && i < b), [a, b] = chunks[ci]; chunks.splice(ci, 1, [a, i], [i, b]); chunks.sort((q, r) => q[0] - r[0]); draw();
+            for (const l of lines) if (l.userData.i === i) l.visible = false; const wp = grp.localToWorld(new V3(lx, 0.06, 0)); burst(wp.x, wp.y, wp.z, 5, { color: v.inner, size: 0.04, speed: 0.6, up: 0.6, g: 6, life: 0.4, grow: 0 }); } }
         last = p;
-        if (cuts.size >= v.n - 1) { api.progress((vi + 1) * 0.5);
-          // кусочки — в миску
-          const keep = pieces; pieces = []; let k = 0; for (const q of keep) { const tgt = new V3(0.36 + (Math.random() - 0.5) * 0.14, 0.12 + inBowl * 0.006, (Math.random() - 0.5) * 0.14); const st = q.position.clone(), d0 = 0.15 + k * 0.05; k++; inBowl++;
-            let tt = -d0; const anim = dt => { tt += dt; const kk = Math.min(1, Math.max(0, tt / 0.35)); q.position.lerpVectors(st, tgt, kk); q.position.y += Math.sin(kk * Math.PI) * 0.12; if (kk >= 1) { const i2 = W.animated.indexOf(anim); if (i2 >= 0) W.animated.splice(i2, 1); } }; W.animated.push(anim); }
-          if (vi === 0) { vi = 1; setTimeout(() => { if (!done) setup(); }, 500); } else { done = true; api.msg('МЕШАЙ! Клик по миске', 'good'); } }
+        if (cuts.size >= v.n - 1) { park(); api.progress((vi + 1) * 0.35);
+          if (vi === 0) { vi = 1; phase = 'wait'; setTimeout(() => { phase = 'cut'; setup(); }, 450); } else { phase = 'bowl'; for (const l of lines) l.visible = false; api.msg('Поставь миску: клик по доске', 'good'); } }
       },
-      up() { drag = false; last = null; },
-      update(dt) { if (endT > 0) { bowl.rotation.y += dt * 8; endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
+      up() { drag = false; last = null; lastA = null; },
+      update(dt) {
+        for (const g of done) { const A = g.userData.anim; if (!A || A.t >= 1) continue; A.t += dt / 0.35; const k = Math.min(1, Math.max(0, A.t)); g.position.lerpVectors(A.st, A.tg, k); if (A.arc) g.position.y += Math.sin(k * Math.PI) * A.arc; }
+        if (phase === 'drop') { moveT += dt; bowl.position.z = Math.max(0, 0.6 - moveT * 2.4); if (bowl.position.z <= 0) { phase = 'fill'; moveT = 0; toBowl(); } }
+        else if (phase === 'fill') { moveT += dt; if (moveT > 0.35 + done.length * 0.12) { phase = 'spin'; api.msg('МЕШАЙ! Зажми ЛКМ и крути по кругу', 'good'); api.progress(0.7); } }
+        // миска крутится вслед за мышью, нарезка в ней ездит по кругу
+        if (phase === 'spin' || endT > 0) { const r = spinA + (endT > 0 ? (1 - endT) * 10 : 0); bowl.rotation.y = -r; done.forEach((g, i) => { const a = -r + i * 1.3, rr = 0.05 + (i % 3) * 0.02; g.position.set(BX + Math.cos(a) * rr, 0.11 + (i % 4) * 0.01, Math.sin(a) * rr); g.rotation.y = -r; }); }
+        if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); }
+      },
       stop() { W.group.remove(grp); },
     };
   },

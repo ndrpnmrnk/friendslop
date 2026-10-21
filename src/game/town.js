@@ -6,7 +6,7 @@ import { pushOut, groundAt, impulsePushables } from '../world/physics.js';
 import { burst, puff, chunk, smokeRing, decal } from '../world/particles.js';
 import { hitBreakables } from '../world/breakables.js';
 import { scareBirds, featherTex } from '../world/birds.js';
-import { actors, shove, knockDown, dropHeld } from './actors.js';
+import { actors, shove, knockDown, dropHeld, daze } from './actors.js';
 import { gust, WX } from '../world/weather.js';
 import { shake } from './worldfx.js';
 import { sfx } from '../core/sfx.js';
@@ -131,9 +131,14 @@ function updGranny(f, dt, t) {
   }
   const dx = goal.x - p.x, dz = goal.z - p.z, d = Math.hypot(dx, dz);
   if (d > (f.job && !f.target ? 0.25 : 0.9)) { f.vel.x += (dx / d * sp - f.vel.x) * Math.min(1, dt * 5); f.vel.z += (dz / d * sp - f.vel.z) * Math.min(1, dt * 5); } else { f.vel.multiplyScalar(0.8); }
-  p.x += f.vel.x * dt; p.z += f.vel.z * dt; pushOut(p, 0.35, p.y + 0.3, p.y + 1.6); p.y = groundAt(p.x, p.z, 0.2, f.gy + 0.45); f.gy = p.y;
+  // прыжок через препятствие (v0.22): впереди что-то по колено-пояс — бабка подпрыгивает и перелезает, а не упирается
+  const v0 = Math.hypot(f.vel.x, f.vel.z);
+  if (!f.air && v0 > 0.8) { const ax = p.x + f.vel.x / v0 * 0.55, az = p.z + f.vel.z / v0 * 0.55, h = groundAt(ax, az, 0.2, f.gy + 1.1); if (h > f.gy + 0.4 && h < f.gy + 1.05) { f.air = true; f.jv = 6.6; f.ay = f.gy; } }
+  p.x += f.vel.x * dt; p.z += f.vel.z * dt;
+  if (f.air) { f.jv -= 20 * dt; f.ay += f.jv * dt; pushOut(p, 0.35, f.ay + 0.3, f.ay + 1.6); const gnd = groundAt(p.x, p.z, 0.2, f.ay + 0.3); if (f.jv < 0 && f.ay <= gnd) { f.air = false; f.gy = gnd; } }
+  if (!f.air) { pushOut(p, 0.35, f.gy + 0.3, f.gy + 1.6); f.gy = groundAt(p.x, p.z, 0.2, f.gy + 0.45); }
   const v = Math.hypot(f.vel.x, f.vel.z); if (v > 0.3) f.g.rotation.y = Math.atan2(f.vel.x, f.vel.z);
-  f.ph += dt * v * 5; p.y = f.gy + Math.abs(Math.sin(f.ph)) * 0.05;
+  f.ph += dt * v * 5; p.y = f.air ? f.ay : f.gy + Math.abs(Math.sin(f.ph)) * 0.05;
   A[0].rotation.x = Math.sin(f.ph) * 0.3;
   // работа на месте: лейка — наклон и струйка воды, метла — поправляет (машет над цветами)
   if (f.job && !f.target && d < 0.4) { const fl = f.job.fl; f.job.t += dt; f.g.rotation.y = Math.atan2(fl.x - p.x, fl.z - p.z);
@@ -144,8 +149,10 @@ function updGranny(f, dt, t) {
   // удар орудием
   f.cd -= dt; if (f.swat > 0) { f.swat -= dt; A[1].rotation.x = -2.6 + (1 - f.swat / 0.4) * 2.6; f.tool.rotation.x = 0; } else { A[1].rotation.x = f.target ? -0.6 + Math.sin(t * 9) * 0.4 : Math.sin(t * 2) * 0.1; f.tool.rotation.x = 0; }
   if (f.target && d < 1.3 && f.cd <= 0) { f.cd = 1.2; f.swat = 0.4; const a = f.target; voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); sfx('granny', { at: p, v: 0.8 });
-    if (f.weapon === 'broom') { shove(a, dx, dz, 7, 3.5, true); sfx('swat', { at: p }); burst(a.pos.x, a.pos.y + 1, a.pos.z, 6, { color: 0xd8b060, size: 0.12, speed: 2 }); }
-    else { a.push && a.push.set(dx / (d || 1) * 3, 0, dz / (d || 1) * 3); a.wetT = 5; a.slipT = 3; sfx('splash', { at: a.pos }); for (let i = 0; i < 12; i++) puff(a.pos.x, a.pos.y + 1.6, a.pos.z, { color: 0x9ccbec, size: 0.1, grow: 0, vx: (Math.random() - 0.5) * 2, vy: -1, vz: (Math.random() - 0.5) * 2, g: 9, life: 0.5 }); }
+    // удар бабки (v0.22): обычный стан на 2 с (звёздочки, замедление) + лёгкий толчок, без рэгдолла и подлёта
+    daze(a, 2); a.push && a.push.set(dx / (d || 1) * 2.5, 0, dz / (d || 1) * 2.5);
+    if (f.weapon === 'broom') { sfx('swat', { at: p }); burst(a.pos.x, a.pos.y + 1, a.pos.z, 6, { color: 0xd8b060, size: 0.12, speed: 2 }); }
+    else { a.wetT = 5; sfx('splash', { at: a.pos }); for (let i = 0; i < 12; i++) puff(a.pos.x, a.pos.y + 1.6, a.pos.z, { color: 0x9ccbec, size: 0.1, grow: 0, vx: (Math.random() - 0.5) * 2, vy: -1, vz: (Math.random() - 0.5) * 2, g: 9, life: 0.5 }); }
     W.onFunny && W.onFunny(a, 'granny'); }
   // выпад в бабку — она шатается
   for (const a of actors()) if (a.dive === 'air' && Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < 0.9) { f.stun = 1.2; f.target = a; f.angry = 7; sfx('granny', { at: p }); }

@@ -270,7 +270,7 @@ export function updateItems(dt, pl) {
 export function nearestItem(p, r) {
   let best = null, bd = r;
   for (const it of W.items) {
-    if (it.state !== 'rest') continue;
+    if (it.state !== 'rest' || (it.boxed && !it.boxed.open)) continue;
     const d = Math.hypot(it.pos.x - p.x, it.pos.z - p.z);
     if (d < bd && it.pos.y > p.y - 0.6 && it.pos.y < p.y + 1.8) { bd = d; best = it; }
   }
