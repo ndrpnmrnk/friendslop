@@ -19,7 +19,7 @@ import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
 import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
-import { resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool } from './game/tools.js';
+import { resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow } from './game/tools.js';
 import { knockDown } from './game/actors.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import { mouse as M_ } from './core/input.js';
@@ -31,7 +31,7 @@ import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict, addItem } from './game/items.js';
 import { updateCamera, cam, resetCamera } from './game/camera.js';
-import { M, resetMissions, spawnWave, spawnMission, removeMission, updateMissions, nearMission, missionDone, visibleTo, ALL_GAMES, WORLD_GAMES } from './missions/missions.js';
+import { M, resetMissions, spawnWave, spawnMission, removeMission, updateMissions, nearMission, missionDone, startMissionClock, visibleTo, ALL_GAMES, WORLD_GAMES } from './missions/missions.js';
 import { resetScore, bonus, statsOf, PTS } from './game/score.js';
 import { isFree, solidsNear } from './world/physics.js';
 import { pulseOutline } from './game/outline.js';
@@ -85,7 +85,7 @@ const flash = new THREE.SpotLight(0xfff0d0, 0, 26, 0.55, 0.5, 1.2); scene.add(fl
 const boomL = new THREE.PointLight(0xffb050, 0, 12, 1.5); scene.add(boomL);
 initDust(scene);
 W.flash = (p, c, k = 1) => { boomL.position.set(p.x, p.y + 1, p.z); boomL.color.setHex(c); boomL.intensity = 8 * k; };
-initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }), award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
+initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }),prepareRace:()=>{if(S.mg)closeMission({success:false});if(S.wm)closeWorld({success:false});for(const b of W.bots||[])if(b.work)removeMission(b.work.m);}, award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
 const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => eventChip(null) };
 function followSun(x, y, z) {
   // привязка к текселю карты теней, чтобы края теней не дрожали при движении
@@ -335,6 +335,7 @@ function openWorld(m) {
   if(m.claimedBy&&m.claimedBy!==P)return;
   if (P.ride) dismount(P, false);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
+  startMissionClock(m);m.onExpire=()=>closeWorld({success:false});
   m.claimedBy=P; m.busy = true; S.wm = { m, game: null };
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; callout('');
@@ -346,7 +347,7 @@ function openWorld(m) {
     progress: v => { m.progress=v; $('mgbar').classList.toggle('hidden',worldFeedback||v===null);$('mgbar').firstChild.style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; },
     where: t => { m.where = t; },
     countdown:missionCountdown,
-    timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))}`; },
+    timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(Math.min(tm,m.activeLeft??tm)))}`; },
     finish: res => { if (S.wm && S.wm.m === m) closeWorld(res); },
   };
   const ctx = { player: P, camera, mission: m, give: it => { pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; it.mission=m; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
@@ -368,7 +369,7 @@ function callout(text, cls = '') {
 }
 function closeWorld(res) {
   if (!S.wm) return;
-  const { m, game } = S.wm; S.wm = null; game.stop();missionCountdown(0); m.busy = false; m.track = null;
+  const { m, game } = S.wm; m.onExpire=null; S.wm = null; game.stop();missionCountdown(0); m.busy = false; m.track = null;
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
   // вторая часть миссии — мини-игра у объекта (салат: нарезка, лампочка: вкрутить)
   if (res && res.chain) { m.def = { ...m.def, world: false, game: res.chain }; openMission(m); return; }
@@ -382,6 +383,7 @@ function openMission(m) {
   if (P.ride) dismount(P, false);
   if (P.grab) release(P, 0);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
+  startMissionClock(m);m.onExpire=()=>{closeMission({success:false});};
   m.doer=P; m.busy = true;P.stationaryWork=true;P.vel.x=P.vel.z=0;P.push.x=P.push.z=0; P.root.visible = false; P.charging = false;
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; callout('');
@@ -401,7 +403,7 @@ function openMission(m) {
 }
 function closeMission(res) {
   if (!S.mg) return;
-  const { m, game } = S.mg;
+  const { m, game } = S.mg;m.onExpire=null;
   game.stop();P.stationaryWork=false; S.mg = null; cam.pose = null; updateOcclusion(camera, null); m.busy = false; m.doer=null; P.root.visible = true; setCursor(true); requestLock();
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
@@ -545,6 +547,7 @@ on('up', btn => {
   if (S.state !== 'play') return;
   if (S.mg) { if (btn === 0 && S.mg.game.up) S.mg.game.up(aim(camera)); return; }
   // пылесос: отпустил ЛКМ — содержимое вылетает очередью
+  if(btn===0&&P.held?.type==='bow')releaseBow(P,P.held,aimPoint());
   if (btn === 0 && P.held && P.held.type === 'vacuum') { const n = vacuumFire(P, P.held, aimPoint()); if (n) P.throwT = 0.3; }
   if (btn === 2 && P.charging) {
     P.charging = false; $('dot').classList.remove('charge'); throwTip(true); if (tipN < 4) { tipN++; try { localStorage.setItem('friendslop.throwTip', tipN); } catch (_) {} }
@@ -620,7 +623,7 @@ function interact() {
   if (P.held) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; return; }
   // поймать предмет на лету
   { let fl = null, fd = 1.7; for (const q of W.items) if (q.state === 'fly' && q.owner !== P && !q.def.heavy) { const d = Math.hypot(q.pos.x - P.pos.x, q.pos.z - P.pos.z); if (d < fd && q.pos.y > P.pos.y && q.pos.y < P.pos.y + 2.4) { fd = d; fl = q; } }
-    if (fl) { pickUp(fl); P.held = fl; fl.owner = P; fl.wasHeld = true; sfx('pickup'); comboAct(P, 'catches', PTS.catch, P.pos); return; } }
+    if (fl&&!fl.noPickup) { pickUp(fl); P.held = fl; fl.owner = P; fl.wasHeld = true; sfx('pickup'); comboAct(P, 'catches', PTS.catch, P.pos); return; } }
   if (nearCrane()) enterCrane();
 }
 /* E (v0.21): из всего, что рядом (предметы, шкафы/багажники/скамейки…, двери, транспорт), выбирается БЛИЖАЙШЕЕ,
@@ -632,7 +635,7 @@ function eTarget() {
     if (d < q.r && Math.abs(q.y - P.pos.y) < (q.dy ?? 0.9) && (!q.aim||q.aim(aim(camera)))) c.push({ s: sc(q.x, q.z, d), label:q.label,allowHeld:q.allowHeld,act:()=>q.act(P) }); }
   for (const d of W.doors) { const dist = Math.hypot(d.x - P.pos.x, d.z - P.pos.z); if (dist < 2.2 && Math.abs(d.y - P.pos.y) < 1)
     c.push({ s: sc(d.x, d.z, dist) * 1.1, label: d.open ? TEXT.door.close : TEXT.door.open, act: () => { d.open = !d.open; d.dirS = null; d.av = 0; sfx('door', { at: d, v: 0.6 }); } }); }
-  if (!P.held) { for (const it of W.items) { if ((it.state !== 'rest' && it.state !== 'placed') || (it.boxed && !it.boxed.open)) continue; const d = Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z); if (d > 1.5 || it.pos.y < P.pos.y - 0.6 || it.pos.y > P.pos.y + 1.8) continue;
+  if (!P.held) { for (const it of W.items) { if (it.noPickup||(it.state !== 'rest' && it.state !== 'placed') || (it.boxed && !it.boxed.open)) continue; const d = Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z); if (d > 1.5 || it.pos.y < P.pos.y - 0.6 || it.pos.y > P.pos.y + 1.8) continue;
       c.push({ s: sc(it.pos.x, it.pos.z, d) * 0.85, label: `${TEXT.take} ${it.def.name.toLowerCase()}`, act: () => { if (it.steal && it.mine !== P) { stealItem(it); return; } pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; sfx('pickup'); } }); }
     const rb = nearestRideable(P); if (rb) c.push({ s: sc(rb.x, rb.z, Math.hypot(rb.x - P.pos.x, rb.z - P.pos.z)) * 1.1, label: RIDE_NAME[rb.kind] ? (rb.ride && rb.ride.pose === 'stand' ? 'Встать на ' : 'Сесть в ') + RIDE_NAME[rb.kind] : TEXT.ride, act: () => mount(P, rb) }); }
   c.sort((a, b) => a.s - b.s); return c[0] || null;
@@ -683,7 +686,7 @@ function frame() {
       if (S.tut) updateTutorial(dt);
       if (tapped('KeyE')) interact();
       // инструмент, который действует пока зажата ЛКМ (огнетушитель, магнит)
-      if (M_.left && P.held && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT = 0.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
+      if (M_.left && P.held && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT=P.held.type==='bow'?0:.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; if(P.held.type!=='bow')sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
       if (P.charging && !P.chargeManual) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
       if(S.mg&&(P.heldBy||P.stun>0||P.daze>0||P.pos.distanceTo(S.mg.start)>0.65))closeMission(null);
       updatePlayer(P, dt, t, !S.mg && !S.crane, cam.yaw);
@@ -692,6 +695,7 @@ function frame() {
       if (P.charging && !P.held && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
       W.time = EV.t;
+      {const m=S.mg?.m||S.wm?.m;if(m?.activeLeft!=null)$('mgpts').textContent=`+${m.pts} · ${Math.ceil(Math.max(0,m.activeLeft))} с`;}
       updateMissions(dt, t, P, { phase: phaseOf(EV.t), t: EV.t, playerScore: () => S.score });
       // главная цель — одна: ближайшая видимая миссия (своя личная — в приоритете), остальные приглушены
       { let best = null, bd = 1e9; if (!EV.big && !S.wm) for (const m of M.list) { if (m.busy || m.doer || !visibleTo(m, P)) continue; const q = m.obj.pos(), d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z) + Math.abs(q.y - P.pos.y) * 3 - (m.owner === P ? 20 : 0); if (d < bd) { bd = d; best = m; } }

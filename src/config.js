@@ -39,6 +39,7 @@ export const CONFIG = {
   cats: 2,
   // zones: где миссия может появиться; foot: размер объекта; clear: свободное место перед ним
   missions: {
+    perfume:{name:'Смешай парфюм',icon:'',points:260,diff:'mid',life:65,workLimit:90,max:1,game:'perfume',zones:['inside'],foot:[2.4,.9],clear:2.2},
     mammoth:{name:'Трусики для мамонта',home:'park',icon:'',points:300,diff:'hard',life:80,max:1,game:'mammoth',world:true,zones:['floor'],foot:[3.2,4.6],clear:3},
     cat:    { name: 'Погладить кота', icon: '🐈', points: 100, diff: 'easy', life: 40, max: 2, game: 'cat' },
     puzzle: { name: 'Собрать пазл на стенде', home: 'school', icon: '🧩', points: 200, diff: 'mid', life: 55, max: 1, game: 'puzzle',
@@ -130,6 +131,8 @@ export const CONFIG = {
     bubbles: { name: 'Мыльные пузыри', tool: true, heavy: false, r: 0.12, respawn: 0, mass: 0.3, drag: 0.1, bounce: 0.3, ammo: 5 },
     whistle: { name: 'Свисток', tool: true, heavy: false, r: 0.08, respawn: 0, mass: 0.1, drag: 0.1, bounce: 0.3, ammo: 3 },
     net:     { name: 'Сетемёт', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.8, drag: 0.05, bounce: 0.2, cdMax: 10 },
+    perfume:{name:'Парфюм',tool:true,heavy:false,r:.12,mass:.3,respawn:0,drag:.1,bounce:.2,ammo:3},
+    bow:{name:'Лук',tool:true,heavy:false,r:.25,mass:.7,respawn:0,drag:.1,bounce:.25,ammo:8,hold:true},
     badge:   { name: 'Полицейский жетон', tool: true, heavy: false, r: 0.1, respawn: 0, mass: 0.25, drag: 0.02, bounce: 0.3 },
     glove:   { name: 'Перчатка-пружина', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.3, ammo: 6 },
     vacuum:  { name: 'Пылесос', tool: true, heavy: false, r: 0.2, respawn: 0, mass: 1.2, drag: 0.05, bounce: 0.2, ammo: 16, hold: true, charge: true },
@@ -146,13 +149,13 @@ export const CONFIG = {
     mask:    { name: 'Маска-призрак', tool: true, heavy: false, r: 0.14, respawn: 0, mass: 0.2, drag: 0.3, bounce: 0.2 },
   },
   // инструменты, которые выпадают из ящиков (золотые ящики — только «редкие»)
-  toolPool: ['net', 'badge', 'slipper', 'umbrella', 'extinguisher', 'banana', 'pillow', 'duck', 'bubbles', 'whistle', 'magnet', 'paint', 'energy', 'water', 'firework', 'popper', 'sling', 'web', 'mask'],
-  toolRare: ['badge', 'net', 'extinguisher', 'magnet', 'firework', 'mask', 'bubbles', 'paint'],
+  toolPool: ['bow', 'net', 'badge', 'slipper', 'umbrella', 'extinguisher', 'banana', 'pillow', 'duck', 'bubbles', 'whistle', 'magnet', 'paint', 'energy', 'water', 'firework', 'popper', 'sling', 'web', 'mask'],
+  toolRare: ['bow', 'badge', 'net', 'extinguisher', 'magnet', 'firework', 'mask', 'bubbles', 'paint'],
   throw: { minRange: 3, maxRange: 17, chargeTime: 0.9 },
 };
 
 export const HINTS = {
-  mammoth:'Возьми трусики, подойди к мамонту сзади и нажми E. ЛКМ - плавно тяни четыре края вверх. Отпускай у пояса, чтобы закрепить; рывки срывают край.',
+  mammoth:'Возьми трусики, подойди к мамонту сзади и нажми E. ЛКМ по ткани - постепенно подтягивай слева и справа. Затем повтори с другого ракурса.',
   graffiti:'Распыляй ЛКМ внутри контура. В баллончике виден остаток краски. Аккуратный рисунок даёт все очки, сильный выход за контур - ноль.',
   cat: 'Зажми кнопку мыши и гладь кота, водя рукой туда-сюда. От головы к хвосту приятнее всего. Резкие движения его злят.',
   puzzle: 'Кликни по двум плиткам, чтобы поменять их местами, и собери картинку.',

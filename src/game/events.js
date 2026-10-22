@@ -1,3 +1,6 @@
+import {pantsTexture} from '../characters/mammoth.js';
+import {raceEvent} from './race.js';
+import {footballEvent} from './football.js';
 import { eliminate } from './drone.js';
 import { raySolids } from '../world/physics.js';
 import { THREE, V3, G, mesh, col, lam, tmat, compose, alphaMat } from '../core/gfx.js';
@@ -99,20 +102,20 @@ const BIG = {
       const P = ctx.player(); s.c = new V3(P.pos.x, P.pos.y, P.pos.z); s.hp = 12; s.max = 12; s.ang = 0; s.y = P.pos.y + 6; s.dive = null; s.diveT = 3; s.slipT = 0; s.hitCD = 0;
       s.g = new THREE.Group(); W.group.add(s.g); W.keep.push(s.g);
       const fur = lam({ map: T.mothFur() }, 'mothFur');
-      s.body = compose('mothBody', a => { a(G.sph10, fur, 0, 0, 0, 0.55, 0.6, 0.9); a(G.sph10, fur, 0, 0.25, 0.8, 0.45, 0.42, 0.42);
-        for (const sx of [-1, 1]) { a(G.sph10, col(0x17111f), sx * 0.2, 0.36, 1.12, 0.14, 0.16, 0.1); a(G.box, col(0xf1e8ff), sx * 0.24, 0.42, 1.2, 0.04, 0.05, 0.02); a(G.cyl5, col(0x6a5a4a), sx * 0.18, 0.75, 1.0, 0.02, 0.6, 0.02, 0.5, 0, sx * -0.4); a(G.box, fur, sx * 0.3, 1.0, 1.2, 0.18, 0.06, 0.06, 0, 0, sx * 0.4); }
-        a(G.box, lam({ map: T.awning('#f5c542', '#ff5a6e') }, 'undies'), 0, -0.25, -0.35, 0.95, 0.42, 0.75); a(G.box, col(0xf1e8ff), 0, -0.05, -0.35, 0.98, 0.08, 0.78);
+      s.body = compose('mothBody', a => { a(G.sph10, fur, 0, 0, 0, 0.55, 0.6, 0.9);for(let i=0;i<4;i++){a(G.sph10,fur,0,-.04-i*.03,-.30-i*.22,.49-i*.08,.43-i*.06,.25);}a(G.sph10,fur,0,.18,.55,.58,.47,.40); a(G.sph10, fur, 0, 0.25, 0.8, 0.45, 0.42, 0.42);
+        for (const sx of [-1, 1]) { a(G.sph10, col(0x17111f), sx * 0.2, 0.36, 1.12, 0.14, 0.16, 0.1); a(G.box, col(0xf1e8ff), sx * 0.24, 0.42, 1.2, 0.04, 0.05, 0.02); a(G.cyl5, col(0x6a5a4a), sx * 0.18, 0.75, 1.0, 0.025, 0.6, 0.025, 0.5, 0, sx * -0.4);a(G.sphL,fur,sx*.31,1.04,1.13,.15,.06,.10,0,0,-sx*.4); a(G.box, fur, sx * 0.3, 1.0, 1.2, 0.18, 0.06, 0.06, 0, 0, sx * 0.4); }
         for (const sx of [-1, 1]) for (const k of [0.3, -0.1]) a(G.cyl5, col(0x4a3a2e), sx * 0.45, -0.45, k + 0.2, 0.03, 0.5, 0.03, 0.4, 0, sx * 0.6); }); s.g.add(s.body);
+      s.pants=new THREE.Group();s.pants.position.set(0,-.22,-.42);s.g.add(s.pants);s.pants.add(compose('mothUndies30',a=>{const m=lam({map:pantsTexture(),flatShading:true},'mothPants30');a(G.sph10,m,0,-.05,0,.54,.36,.60);a(G.cyl12,col(0xe8d8be),0,.16,0,.53,.06,.56);for(const x of [-.25,.25])a(G.cyl8,col(0xebc4d3),x,-.25,0,.22,.07,.40);}));s.prev=new V3();s.g.position.set(s.c.x+7,s.y,s.c.z);
       const wingM = lam({ map: T.mothWing(), side: THREE.DoubleSide, alphaTest: 0.4 }, 'mothWing');
       s.wings = [-1, 1].map(sx => { const p = new THREE.Group(); p.position.set(sx * 0.35, 0.3, 0.1); s.g.add(p); const w = mesh(G.plane, wingM, sx * 1.3, 0, 0, 2.6, 2.0, 1, p); w.rotation.x = -Math.PI / 2; w.scale.x *= sx; return p; });
       // полоска здоровья
       s.bar = document.createElement('canvas'); s.bar.width = 64; s.bar.height = 10; s.barT = new THREE.CanvasTexture(s.bar); s.barT.magFilter = THREE.NearestFilter;
       s.hpS = new THREE.Sprite(new THREE.SpriteMaterial({ map: s.barT, depthTest: false })); s.hpS.scale.set(2.4, 0.38, 1); s.hpS.renderOrder = 11; W.group.add(s.hpS);
-      drawBar(s); W.moth = { g: s.g, hitAt: (p, dmg) => hitMoth(s, p, dmg, null) }; sfx('moth', { v: 1 });
+      drawBar(s); W.moth = { g: s.g, hitAt:(p,dmg,owner)=>{if(s.g.position.distanceTo(p)<1.7)hitMoth(s,p,dmg,owner);} }; sfx('moth', { v: 1 });
     },
     target: s => s.g.position,
     update(s, dt, t) {
-      s.hitCD -= dt;
+      s.hitCD -= dt;s.prev.copy(s.g.position);
       // полёт: круги над районом, иногда пике на кого-нибудь
       if (s.dead) { s.g.position.y -= dt * 6; s.g.rotation.z += dt * 6; s.hpS.visible = false; if (s.g.position.y < s.c.y) { burst(s.g.position.x, s.c.y + 0.5, s.g.position.z, 24, { color: 0xb8a890, size: 0.3, speed: 4, up: 3 }); smokeRing(s.g.position.x, s.c.y + 0.1, s.g.position.z, 12, { speed: 3 }); shake(0.3); return 'end'; } return null; }
       if (!s.dive) { s.ang += dt * 0.5; const R = 7; const tx = s.c.x + Math.cos(s.ang) * R, tz = s.c.z + Math.sin(s.ang) * R, ty = s.y + Math.sin(t * 1.3) * 0.8;
@@ -123,8 +126,8 @@ const BIG = {
         else { s.g.position.y += dt * 8; if (d.t > 2.0) s.dive = null; }
         if (!d.hit && s.g.position.distanceTo(tgt) < 1.3) { d.hit = true; shove(d.v, d.v.pos.x - d.from.x, d.v.pos.z - d.from.z, 7, 5, true); voice(d.v.ch, 'hurt', d.v.pos); sfx('hit', { at: d.v.pos }); } }
       // курс и взмахи крыльев
-      const fw = s.g.position.clone(); s.g.lookAt(fw.x + Math.cos(s.ang + 1.57) * -1, fw.y, fw.z + Math.sin(s.ang + 1.57) * -1);
-      const flap = Math.sin(t * (s.dive ? 22 : 12)) * 0.7; s.wings[0].rotation.z = flap; s.wings[1].rotation.z = -flap;
+      const motion=s.g.position.clone().sub(s.prev);if(motion.lengthSq()>.00001)s.g.lookAt(s.g.position.clone().add(motion));s.g.rotation.z=Math.sin(t*.7)*.10;s.pants.rotation.x=Math.sin(t*6)*.07;s.pants.scale.set(1+Math.sin(t*8)*.035,1-Math.sin(t*8)*.05,1);
+      const flap = Math.sin(t * (s.dive ? 22 : 12)) * 0.7; s.wings[0].rotation.z = flap; s.wings[1].rotation.z = -flap;s.wings[0].rotation.y=.15+Math.cos(t*12)*.06;s.wings[1].rotation.y=-.15-Math.cos(t*12)*.06;
       s.hpS.position.copy(s.g.position).add(new V3(0, 2.0, 0));
       // тапки падают с неба вокруг
       s.slipT -= dt; if (s.slipT <= 0) { s.slipT = 1.0 + Math.random() * 0.6; const P = ctx.player(), a = Math.random() * 6.28, r = 2 + Math.random() * 8;
@@ -140,47 +143,12 @@ const BIG = {
       let best = null, bd = 14; for (const it of W.items) if (it.state === 'rest' && it.type === 'slipper') { const d = Math.hypot(it.pos.x - b.pos.x, it.pos.z - b.pos.z); if (d < bd) { bd = d; best = it; } }
       return best ? { x: best.pos.x, y: best.pos.y - 0.14, z: best.pos.z, kind: 'fetch', it: best, near: 1.1 } : null;
     },
-    stop(s) { W.group.remove(s.g); W.group.remove(s.hpS); W.moth = null; },
+    stop(s) { W.group.remove(s.g); W.group.remove(s.hpS);s.barT.dispose();s.hpS.material.dispose(); W.moth = null; },
     info: s => `${Math.max(0, Math.ceil(s.hp))}/${s.max}`,
   },
 
-  // Тыквенный футбол: большая тыква-мяч, двое ворот; пинай, бросай, толкай — гол даёт очки последнему, кто коснулся
-  football: { dur: 45,
-    start(s) {
-      if (!W.pitch || !W.goals.length) makePitch(s);
-      const p = W.pitch; s.ball = addItem('bigpumpkin', p.cx, p.y + 0.5, p.cz, 0); s.ball.def = { ...s.ball.def, respawn: 0 }; s.goals = W.goals.slice(0, 2); s.cd = 0; s.score = [0, 0];
-      s.ring = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xff8a1f, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, 0.9, 0.9, 1, W.group); s.ring.rotation.x = -Math.PI / 2;
-      W.scoreboard && W.scoreboard(0, 0);
-    },
-    target: s => s.ball.pos,
-    update(s, dt, t) {
-      const b = s.ball, P = ctx.player(); s.cd -= dt;
-      if (b.state === 'gone') { const p = W.pitch; b.state = 'rest'; b.g.visible = true; b.pos.set(p.cx, p.y + 2, p.cz); b.vel.set(0, 0, 0); }
-      if (b.state === 'held') { const h = actors().find(a => a.held === b); if (h) s.last = h; }
-      // пинок: кто вбежал в тыкву — она летит
-      for (const a of actors()) { if (b.state !== 'rest' && b.state !== 'fly') break; if (a === P && b.state === 'rest') { if (Math.hypot(b.pos.x - a.pos.x, b.pos.z - a.pos.z) < 1.0) s.last = a; continue; }
-        const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz); if (d < 0.95 && d > 0.01 && Math.abs(b.pos.y - a.pos.y - 0.4) < 1) { const sp = Math.max(5, Math.hypot(a.vel.x, a.vel.z) * 1.2); b.state = 'fly'; b.owner = a; b.noHitT = 0.3; b.vel.set(dx / d * sp, 3, dz / d * sp); b.pos.y += 0.05; s.last = a; sfx('bounce', { at: b.pos }); } }
-      s.ring.position.set(b.pos.x, groundAt(b.pos.x, b.pos.z, 0.2, b.pos.y) + 0.05, b.pos.z); s.ring.scale.setScalar(0.9 + Math.sin(t * 6) * 0.1);
-      // гол
-      if (s.cd <= 0) for (let i = 0; i < s.goals.length; i++) { const g = s.goals[i], dx = b.pos.x - g.x, dz = b.pos.z - g.z, along = dx * g.fx + dz * g.fz, side = dx * g.rx + dz * g.rz;
-        if (along < -0.1 && along > -1.4 && Math.abs(side) < g.w / 2 && b.pos.y < g.y + g.h) {
-          s.cd = 2; s.score[1 - i]++; W.scoreboard && W.scoreboard(s.score[0], s.score[1]); sfx('goal');
-          for (const c of [0xff8a1f, 0xf5c542, 0x9be36b, 0xb18cff]) burst(g.x, g.y + 1.5, g.z, 10, { color: c, size: 0.2, speed: 4, up: 4, g: 5, life: 1.4 });
-          if (s.last) award(s.last, 100, b.pos);
-          setTimeout(() => { if (!EV.big || EV.big.s !== s || !W.pitch) return; const p = W.pitch; if (b.state === 'held') { const h = actors().find(a => a.held === b); if (h) h.held = null; } b.state = 'fly'; b.pos.set(p.cx, p.y + 4, p.cz); b.vel.set(0, 0, 0); smokeRing(p.cx, p.y + 0.1, p.cz, 10, { speed: 2.5 }); }, 900);
-        } }
-      return null;
-    },
-    bot(s, b) {
-      const ball = s.ball.pos, g = s.goals[W.bots.indexOf(b) % 2 === 0 ? 0 : 1], dx = ball.x - g.x, dz = ball.z - g.z, d = Math.hypot(dx, dz) || 1;
-      // встать за мячом со стороны, противоположной воротам, и пробежать сквозь него
-      const behind = new V3(ball.x + dx / d * 1.2, ball.y, ball.z + dz / d * 1.2), db = Math.hypot(b.pos.x - behind.x, b.pos.z - behind.z);
-      if (db < 1.0 || (b.kick > 0)) { b.kick = (b.kick > 0 ? b.kick : 0.6) - 0.016; return { x: ball.x - dx / d * 2, y: ball.y, z: ball.z - dz / d * 2, kind: 'event', near: 0.3 }; }
-      return { x: behind.x, y: behind.y, z: behind.z, kind: 'event', near: 0.6 };
-    },
-    stop(s) { s.ball.state = 'gone'; s.ball.g.visible = false; W.group.remove(s.ring); if (s.tmp) for (const o of s.tmp) W.group.remove(o); if (s.tmpGoals) { W.goals = []; W.pitch = null; } },
-    info: s => `${s.score[0]}:${s.score[1]}`,
-  },
+  football:footballEvent(()=>ctx,award,makePitch),
+  race:raceEvent({player:()=>ctx.player(),prepareRace:()=>ctx.prepareRace?.()},award),
 
   /* Зомби-заражение (как в Move or Die): один — зомби, касанием заражает. Люди отбиваются: попал предметом
      или ударом — зомби на 2 с падает. Зомби — +30 за заражение; кто дожил человеком до конца — +120. */

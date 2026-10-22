@@ -239,23 +239,7 @@ export const PropMethods = {
     for (let i = 0; i < n; i++) this.item('trash', x + (i - (n - 1) / 2) * 0.55, z + (Math.random() - 0.5) * 0.2, 0, Math.random() * 3);
   },
   // Велосипед у стойки (декор): колёса-кольца, рама, седло, руль
-  bicycle(x, z, ry = 0, c = 0x3a7ac8) {
-    const g = this.prop(x, z, ry), fr = col(c), dk = col(0x17141c), mt = col(0x9a9da8);
-    const add = (geo, m, px, py, pz, sx, sy, sz, rx = 0, ryy = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.set(rx, ryy, rz); g.add(o); };
-    const R = 0.33, wy = R + 0.01;
-    for (const zz of [-0.52, 0.52]) {
-      add(BIKE_TYRE, dk, 0, wy, zz, R, R, R, 0, Math.PI / 2); add(BIKE_RIM, mt, 0, wy, zz, R * 0.86, R * 0.86, R * 0.86, 0, Math.PI / 2);
-      for (const a of [0, Math.PI / 3, -Math.PI / 3]) add(G.box, mt, 0, wy, zz, 0.006, R * 1.7, 0.006, a);
-      add(G.cyl6, mt, 0, wy, zz, 0.03, 0.08, 0.03, 0, 0, Math.PI / 2);
-    }
-    // рама: верхняя и нижняя трубы, подседельная, перья, вилка
-    const bar = (y0, z0, y1, z1, th = 0.03, m = fr) => { const dy = y1 - y0, dz = z1 - z0, l = Math.hypot(dy, dz); add(G.box, m, 0, (y0 + y1) / 2, (z0 + z1) / 2, th, th, l, -Math.atan2(dy, dz)); };
-    bar(0.78, -0.12, 0.76, 0.36); bar(0.4, -0.04, 0.76, 0.36); bar(0.4, -0.04, 0.8, -0.18); bar(0.4, -0.04, wy, -0.52, 0.022); bar(0.8, -0.18, wy, -0.52, 0.022);
-    bar(0.86, 0.38, wy, 0.52, 0.026, mt);
-    add(G.box, dk, 0, 0.86, -0.2, 0.1, 0.04, 0.24); add(G.box, mt, 0, 0.94, 0.36, 0.48, 0.022, 0.022); for (const s2 of [-1, 1]) add(G.cyl6, dk, s2 * 0.22, 0.94, 0.36, 0.02, 0.1, 0.02, 0, 0, Math.PI / 2);
-    add(G.cyl8, mt, 0, 0.4, -0.04, 0.08, 0.02, 0.08, 0, 0, Math.PI / 2); for (const s2 of [-1, 1]) add(G.box, dk, s2 * 0.08, 0.4 + s2 * 0.06, -0.04, 0.02, 0.14, 0.02);
-    return g;
-  },
+  bicycle(x,z,ry=0,c=0x3a7ac8){return this.ride('bike',x,z,ry).mesh;},
   // Велопарковка-«волна» на несколько мест, часть с велосипедами
   bikeRack(x, z, n = 4, ry = 0) {
     const mt = col(0x8a8d98), along = Math.abs(Math.sin(ry)) < 0.5;

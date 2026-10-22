@@ -59,7 +59,9 @@ function animateMove(c, dt, s) {
 function animateRide(c, dt, s) {
   const d = c.d, f = damp(14, dt), sp = Math.min(1, (s.rideSpeed || 0) / 10), t = s.t;
   c.stars.visible = false; c.body.scale.set(1, 1, 1); c.body.rotation.y += (0 - c.body.rotation.y) * f;
-  if (s.ride === 'stand') {
+  if(s.ride==='cycle'){const ph=s.cyclePhase||0;c.body.position.y=-.42;c.body.rotation.x=.22;c.body.rotation.z=0;setHand(c.handL,-.26,.2,.42,1);setHand(c.handR,.26,.2,.42,1);setHand(c.footL,-.15,-.48+Math.cos(ph)*.24,-.08+Math.sin(ph)*.24,1);setHand(c.footR,.15,-.48-Math.cos(ph)*.24,-.08-Math.sin(ph)*.24,1);
+  }else if(s.ride==='kart'){c.body.position.y=-.40;c.body.rotation.x=-.1;c.body.rotation.z=0;setHand(c.handL,-.18,.26,.28,1);setHand(c.handR,.18,.26,.28,1);setHand(c.footL,-.18,-.13,.65,1);setHand(c.footR,.18,-.13,.65,1);
+  }else if (s.ride === 'stand') {
     /* стоит на доске боком: передняя нога на носу, задняя на хвосте; руки у тела для равновесия.
        Толчок (kick 0..1): задняя нога опускается сбоку на землю и уходит назад. Трюк: присел, ноги поджаты. */
     const tr = s.trick || 0, kick = s.kick, scoot = s.board === 'scooter';

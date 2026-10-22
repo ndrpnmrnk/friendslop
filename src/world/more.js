@@ -72,9 +72,10 @@ export const MoreMethods = {
   /* ---------- стадион ---------- */
   bleachers(x, z, w, rows = 4, ry = 0) {
     const g = this.prop(x, z, ry), cs = [0xd8243a, 0xf1e8ff, 0x4ab0f0];
-    g.add(compose('bleach' + w + rows, a => { for (let i = 0; i < rows; i++) { a(G.box, tmat(T.concrete()), 0, (i + 0.5) * 0.45, -i * 0.8, w, (i + 1) * 0.45, 0.8); for (let k = 0; k < Math.floor(w / 0.6); k++) a(G.box, col(cs[(k + i) % 3]), -w / 2 + 0.3 + k * 0.6, (i + 1) * 0.45 + 0.08, -i * 0.8 + 0.1, 0.42, 0.14, 0.4); } a(G.box, col(0x3a3440), 0, rows * 0.45 + 0.5, -(rows - 1) * 0.8 - 0.35, w, 1.0, 0.1); }));
+    g.add(compose('bleach' + w + rows, a => { for (let i = 0; i < rows; i++) { a(G.box, tmat(T.concrete()), 0, (i+1)*0.45/2, -i*0.82, w, (i+1)*0.45, 0.82); for (let k = 0; k < Math.floor(w / 0.6); k++) a(G.box, col(cs[(k + i) % 3]), -w / 2 + 0.3 + k * 0.6, (i + 1) * 0.45 + 0.08, -i * 0.82 + 0.1, 0.42, 0.14, 0.4); } for(const x of [-w/2+.1,w/2-.1])for(let r=0;r<rows;r++){a(G.box,col(0x55515d),x,(r+1)*.45/2,-r*.82,.10,(r+1)*.45,.7);a(G.box,col(0x8a8d98),x,(r+1)*.45+.22,-r*.82,.04,.4,.04);}
+    a(G.box, col(0x3a3440), 0, rows * 0.45 + 0.5, -(rows - 1) * 0.8 - 0.35, w, 1.0, 0.1); }));
     const fx = Math.sin(ry), fz = Math.cos(ry), q = Math.abs(fx) > 0.5;
-    for (let i = 0; i < rows; i++) this.solid(x - fx * i * 0.8, z - fz * i * 0.8, q ? 0.8 : w, q ? w : 0.8, 0, (i + 1) * 0.45);
+    for (let i = 0; i < rows; i++) this.solid(x - fx * i * 0.82, z - fz * i * 0.82, q ? 0.8 : w, q ? w : 0.8, 0, (i + 1) * 0.45);
   },
   // Футбольные ворота (v0.18): сетка как у настоящих — сверху от перекладины назад, задняя стенка наклонно к земле, боковины-трапеции
   goal(x, z, ry = 0, w = 4, h = 2) {

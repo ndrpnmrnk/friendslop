@@ -23,7 +23,7 @@ export function resetTown() {
   if (TOWN.thief) { W.group.remove(TOWN.thief.g); } TOWN.thief = W.thief = null; TOWN.thiefT = 45 + Math.random() * 20; TOWN.incT = 28 + Math.random() * 10;
   // бабка — у клумбы с цветами (в одном-двух районах)
   const beds = W.flowerbeds.filter(b => b.x1 - b.x0 > 1.5).sort(() => Math.random() - 0.5).slice(0, 2);
-  for (const bed of beds) TOWN.folks.push(granny(bed));
+  for (const bed of beds.slice(0,1)) TOWN.folks.push(granny(bed));
   buildFlowers();
   // собака — во дворе или парке (там, где живут коты)
   const homes = W.catHomes.slice().sort(() => Math.random() - 0.5).slice(0, 2);
@@ -261,10 +261,11 @@ function updDog(f, dt, t) {
     if (Math.hypot(wh.x - p.x, wh.z - p.z) < 1.4) { if (f.it) { const it = f.it; f.it = null; it.state = 'rest'; it.landT = 0; it.pos.set(p.x, p.y + it.def.r, p.z); } wh.t = 0; sfx('bark', { at: p }); } }
   if (f.chase) { if (f.chase.state !== 'rest') f.chase = null; else { goal = f.chase.pos; sp = 7.5; if (Math.hypot(goal.x - p.x, goal.z - p.z) < 0.6) { f.it = f.chase; f.chase = null; f.it.state = 'held'; f.runT = 5; const a = Math.random() * 6.28; f.wp.set(p.x + Math.cos(a) * 9, p.y, p.z + Math.sin(a) * 9); } } }
   else if (f.it) { goal = f.wp; sp = 6.5; f.runT -= dt; if (f.runT <= 0 || Math.hypot(goal.x - p.x, goal.z - p.z) < 0.8) { const it = f.it; f.it = null; it.state = 'rest'; it.landT = 0; it.pos.set(p.x, p.y + it.def.r, p.z); sfx('bark', { at: p, v: 0.6 }); } }
-  else { f.wt -= dt; if (f.wt <= 0) { f.wt = 2 + Math.random() * 4; f.wp.set(h.x0 + Math.random() * (h.x1 - h.x0), h.y, h.z0 + Math.random() * (h.z1 - h.z0)); } }
-  const dx = goal.x - p.x, dz = goal.z - p.z, d = Math.hypot(dx, dz), stop = f.beg ? 1.2 : 0.4;
+  else { f.wt -= dt; if (f.wt <= 0) { f.wt = 2 + Math.random() * 4; const wx=h.x0-4+Math.random()*(h.x1-h.x0+8),wz=h.z0-4+Math.random()*(h.z1-h.z0+8);if(Math.abs(groundAt(wx,wz,.2,h.y+.3)-h.y)<.4)f.wp.set(wx,h.y,wz); } }
+  const dx = goal.x - p.x, dz = goal.z - p.z, d = Math.hypot(dx, dz), stop = f.cat?1.1:f.beg?1.2:.4;
   if (d > stop) { f.vel.x += (dx / d * sp - f.vel.x) * Math.min(1, dt * 6); f.vel.z += (dz / d * sp - f.vel.z) * Math.min(1, dt * 6); } else f.vel.multiplyScalar(0.8);
-  p.x += f.vel.x * dt; p.z += f.vel.z * dt; pushOut(p, 0.3, p.y + 0.25, p.y + 0.8); p.y = groundAt(p.x, p.z, 0.2, p.y + 0.4);
+  const beforeX=p.x,beforeZ=p.z;p.x += f.vel.x * dt; p.z += f.vel.z * dt; pushOut(p, 0.3, p.y + 0.25, p.y + 0.8); p.y = groundAt(p.x, p.z, 0.2, p.y + 0.4);
+  if(d>1&&Math.hypot(p.x-beforeX,p.z-beforeZ)<sp*dt*.15){f.blocked=(f.blocked||0)+dt;if(f.blocked>.8){f.wt=0;f.cat=null;f.chase=null;f.wp.set(p.x-dz/(d||1)*3,p.y,p.z+dx/(d||1)*3);f.blocked=0;}}else f.blocked=0;
   // твёрдая: персонажи не проходят сквозь неё — расталкиваемся
   for (const a of actors()) { if (a.hidden) continue; const ax = a.pos.x - p.x, az = a.pos.z - p.z, ad = Math.hypot(ax, az), R = 0.42 + (a.r || 0.35); if (ad < R && ad > 0.01 && Math.abs(a.pos.y - p.y) < 0.8) { const k = (R - ad) / ad; a.pos.x += ax * k * 0.7; a.pos.z += az * k * 0.7; p.x -= ax * k * 0.3; p.z -= az * k * 0.3; } }
   // сидит и просит: задние лапы подогнуты, голова вверх, хвост ходуном
@@ -345,7 +346,7 @@ function updSkel(f, dt, t) {
   f.wt -= dt; if (f.wt <= 0) { f.wt = 3 + Math.random() * 5; const a = Math.random() * 6.28, r = Math.random() * 5; const x = f.home.x + Math.cos(a) * r, z = f.home.z + Math.sin(a) * r; f.wp.set(x, f.home.y, z); }
   const dx = f.wp.x - p.x, dz = f.wp.z - p.z, d = Math.hypot(dx, dz), sp = 1.1;
   if (d > 0.4) { f.vel.x += (dx / d * sp - f.vel.x) * Math.min(1, dt * 4); f.vel.z += (dz / d * sp - f.vel.z) * Math.min(1, dt * 4); } else f.vel.multiplyScalar(0.8);
-  p.x += f.vel.x * dt; p.z += f.vel.z * dt; pushOut(p, 0.3, f.gy + 0.3, f.gy + 1.7); f.gy = groundAt(p.x, p.z, 0.2, f.gy + 0.45);
+  const beforeX=p.x,beforeZ=p.z;p.x += f.vel.x * dt; p.z += f.vel.z * dt; pushOut(p, 0.3, f.gy + 0.3, f.gy + 1.7); f.gy = groundAt(p.x, p.z, 0.2, f.gy + 0.45);
   const v = Math.hypot(f.vel.x, f.vel.z); if (v > 0.2) f.g.rotation.y = Math.atan2(f.vel.x, f.vel.z);
   f.ph += dt * v * 5; const sw = Math.sin(f.ph) * 0.5 * Math.min(1, v); f.legs[0].rotation.x = sw; f.legs[1].rotation.x = -sw; f.arms[0].rotation.x = -sw * 0.6;
   // курит/пьёт на ходу

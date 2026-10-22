@@ -1,3 +1,4 @@
+import {buildPerfume,perfumeGame} from './perfume.js';
 import { buildMammoth,mammothWorld,mammothDress } from './mammoth.js';
 import { locationLabel } from './location.js';
 import { THREE, G, V3, sprite } from '../core/gfx.js';
@@ -11,7 +12,7 @@ import { GAMES } from './games.js';
 import { PANEL_GAMES, WORLD_GAMES } from './games2.js';
 import { buildShells, buildFishing, buildSpot, buildTargets, buildCleanup } from './objects2.js';
 import { PANEL3, WORLD3, buildPhone, buildFire, buildDeadLamp, buildCatBox } from './games3.js';
-import { PANEL4, WORLD4, buildLeafPile, buildGraffitiWall, buildIntercom, buildChest, buildValve } from './games4.js';
+import { PANEL4, WORLD4, buildLeafPile, buildGraffitiWall, graffitiPlaces, buildIntercom, buildChest, buildValve } from './games4.js';
 import { PANEL5, WORLD5, buildDoor, buildSkelBench, buildGenerator, buildBells, buildTree, buildDetectorSign, buildCartStart, buildGraveCam, buildAntenna, buildDovecote, buildMailBag } from './games5.js';
 
 /* Миссии приходят ВОЛНАМИ.
@@ -28,7 +29,7 @@ const WV = () => CONFIG.wave;
 
 export function resetMissions() {
   for (const m of M.list.slice()) removeMission(m, true);
-  M.list = []; M.cooldown = {}; M.waveT = 0; M.wave = 0; M.burnt = 0; M.done = 0;M.mammothShown=false;
+  W.paintSites=[];M.list = []; M.cooldown = {}; M.waveT = 0; M.wave = 0; M.burnt = 0; M.done = 0;M.mammothShown=false;
   // фонари для миссии «Лампочка»: стоять под плафоном, со стороны кронштейна
   W.spots.bulb = (W.lamps || []).map(L => { const dx = Math.sin(L.ry), dz = Math.cos(L.ry); return { x: L.lx + dx * 1.35, z: L.lz + dz * 1.35, y: L.y, f: [-dx, -dz], lamp: L, district: L.district, label: 'фонарь' }; });
 }
@@ -81,6 +82,7 @@ function findPlace(def, from, others) {
       const along = f[0] === 0, w = along ? fw : fd, d = along ? fd : fw;
       if (zn.x1 - zn.x0 < w || zn.z1 - zn.z0 < d) continue;
       const x = zn.x0 + w / 2 + Math.random() * (zn.x1 - zn.x0 - w), z = zn.z0 + d / 2 + Math.random() * (zn.z1 - zn.z0 - d), y = zn.y;
+      if(def.game==='perfume'&&W.pushables.some(p=>Math.hypot(p.x-x,p.z-z)<2.6&&Math.abs(p.y-y)<1.4))continue;
       if (tr < 80 && Math.hypot(x - from.x, z - from.z) < 9) continue;
       if (others.some(o => Math.hypot(o.x - x, o.z - z) < (tr < 100 ? spread : 4))) continue;
       if (!isFree(x - w / 2 - 0.15, z - d / 2 - 0.15, x + w / 2 + 0.15, z + d / 2 + 0.15, y + 0.05, y + 2.6)) continue;
@@ -100,6 +102,7 @@ function canSpawn(key, def) {
   const n = M.list.filter(m => m.key === key).length;
   if (n >= def.max) return false;
   if(key==='intercom'||key==='doorbell')return entrances(key).length>0;
+  if(key==='graffiti')return graffitiPlaces().length>0;
   if (key === 'cat') return W.cats.some(c => !M.list.some(m => m.obj === c));
   if (def.needs && !(W.spots[def.needs] || []).length) return false;
   if (def.spot) return freeSpots(def.spot).length > 0;
@@ -139,6 +142,7 @@ export function spawnMission(player, only = null, opts = {}) {
       const free = W.cats.filter(c => !M.list.some(m => m.obj === c));
       free.sort((a, b) => minDist(b.root.position, others) - minDist(a.root.position, others));
       obj = free[0]; if (!obj) continue; where = obj.home.district;
+    } else if(key==='graffiti'){const list=graffitiPlaces(),q=list[Math.random()*list.length|0];if(!q)continue;obj=buildGraffitiWall(q.x,q.y,q.z,q.f,q);where='Стена города';
     } else if(key==='doorbell'){const list=entrances('doorbell'),g=list[(Math.random()*list.length)|0];if(!g)continue;obj=buildDoor(g);where=g.name+' · входная дверь';
     } else if (key === 'intercom') {
       const list=entrances(); const g=list[(Math.random()*list.length)|0]; if(!g)continue; const p=g.intercom;
@@ -153,7 +157,7 @@ export function spawnMission(player, only = null, opts = {}) {
       const pl = findPlace(def, player.pos, others);
       if (!pl) continue;
       const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox, leaves: buildLeafPile, graffiti: buildGraffitiWall, intercom: buildIntercom, lockpick: buildChest, pipes: buildValve,
-        mammoth:buildMammoth,doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
+        perfume:buildPerfume,mammoth:buildMammoth,doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
       obj = key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
       where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
     }
@@ -165,6 +169,7 @@ export function spawnMission(player, only = null, opts = {}) {
   return null;
 }
 const minDist = (p, list) => list.reduce((d, q) => Math.min(d, Math.hypot(q.x - p.x, q.z - p.z)), 60);
+export function startMissionClock(m) { if(m.activeLeft==null){m.activeMax=m.def.workLimit||({cart:150,delivery:105,pizza:90,mail:110,balloon:100,mammoth:110,graffiti:90,detector:80,perfume:90}[m.key]||Math.max(45,m.def.life||45));m.activeLeft=m.activeMax;} }
 export function removeMission(m, silent = false) {
   m.onRemove?.(); m.onRemove=null;
   for(const it of W.items)if(it.mission===m){if(it.owner?.held===it)it.owner.held=null;it.state='gone';it.g.visible=false;it.outline?.set(false);it.ring?.removeFromParent();}
@@ -184,11 +189,12 @@ export function updateMissions(dt, t, player, opts = {}) {
   for (const m of M.list.slice()) {
     const p = m.obj.pos(), mk = m.marker; mk.g.position.set(p.x, p.y, p.z);
     mk.g.visible = !m.busy && !m.doer && visibleTo(m, player);
-    if (!m.busy && !m.doer) {
+    if(m.activeLeft!=null){m.activeLeft-=dt;if(m.activeLeft<=0){m.onExpire?.();if(M.list.includes(m))removeMission(m);continue;}}
+    if (!m.busy && !m.doer && m.activeLeft==null) {
       m.life -= dt;
       if (m.life <= 0) { if (!m.owner) M.burnt++; removeMission(m); continue; }
     }
-    const k = m.life / m.maxLife;
+    const k = m.activeLeft==null?m.life/m.maxLife:m.activeLeft/m.activeMax;
     mk.drawT -= dt; if (mk.drawT <= 0) { mk.drawT = 0.25; drawPlate(m, k); }
     // появление: плашка «выпрыгивает», по земле расходится кольцо
     mk.born += dt; const b = mk.born;
@@ -239,6 +245,6 @@ export function nearMission(player) {
   }
   return best;
 }
-export const ALL_GAMES = { mammothDress, ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4, ...PANEL5 };
+export const ALL_GAMES = { perfume:perfumeGame,mammothDress, ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4, ...PANEL5 };
 const WORLD_ALL = { mammoth:mammothWorld, ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
 export { GAMES, WORLD_ALL as WORLD_GAMES };

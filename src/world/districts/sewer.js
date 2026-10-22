@@ -28,7 +28,14 @@ export default {
     W.tunnelOpenings.push({ axis: 'x', at: b.Z(32) + 1.5 + 0.2, from: b.X(12), to: b.X(20) });
     // спуски: лестницы и ступени
     b.ladder(12, 6, 'e', 0.15, LEDGE);
-    for (const z of [10, 24]) W.spots.fish.push({ x: b.X(12.9), z: b.Z(z), y: b.Y + LEDGE, f: [1, 0], wx: b.X(15.5), wz: b.Z(z), wy: b.Y + FLOOR + 0.25, cx: b.X(16), cz: b.Z(z), R: 2.4, district: 'Коллектор', label: 'в канале' });
+    // Открытая рыбацкая платформа над каналом, камера направлена вдоль воды.
+    b.box(16,10,3.8,2.6,.18,tmat(T.wood()),{y:-.03});
+    for(const x of [14.3,17.7])b.box(x,10,.12,.12,4,dk,{y:-4});
+    b.plank(12,10,14.2,10,.15,1.2);
+    W.spots.fish.push({x:b.X(16),z:b.Z(10.9),y:b.Y+.15,f:[0,1],wx:b.X(16),wz:b.Z(13),wy:b.Y+FLOOR+.25,cx:b.X(16),cz:b.Z(12.7),R:1.1,camP:[b.X(17.4),b.Y+2.5,b.Z(12.0)],district:'Коллектор',label:'рыбацкий мостик'});
+    // Прыжковый выход с нижней полки на берег, шаг высоты 0.75 м.
+    for(let i=0;i<4;i++)b.box(12.9,18.6+i*.85,1.3,.9,.22,conc,{y:LEDGE+(i+1)*.75-.22});
+    b.plank(11.1,22,13.4,22,.15,1.3);
     b.ladder(20, 27, 'w', 0.15, LEDGE);
     b.stairs(19.25, 13.2, 'n', LEDGE, 0.15, 1.3, LEDGE);
     // мост через канал

@@ -43,15 +43,19 @@ export function arrest(target, owner) {
   for (const c of cops) { c.mode = 'chase'; c.target = target; c.t = 12; }
   sfx('whistle', { at: target.pos }); return true;
 }
-function cage(target, by) {
+export function cage(target, by) {
+  if(target.ride)W.dismount?.(target);target.floatT=0;target.climb=null;target.hang=null;target.mantle=null;
   const g = compose('cage', a => { const m = col(0x8a8d98); for (let i = 0; i < 12; i++) { const an = i / 12 * 6.28; a(G.box, m, Math.cos(an) * 0.6, 1.1, Math.sin(an) * 0.6, 0.05, 2.2, 0.05); } a(G.cyl12, m, 0, 2.2, 0, 0.66, 0.08, 0.66); a(G.cyl12, m, 0, 0.04, 0, 0.66, 0.08, 0.66); a(G.box, glow(0xff5a6e), 0, 2.3, 0, 0.12, 0.08, 0.12); });
-  g.position.set(target.pos.x, target.pos.y, target.pos.z); W.group.add(g); W.keep.push(g);
+  const floor=groundAt(target.pos.x,target.pos.z,.2,target.pos.y+.1);
+  g.position.set(target.pos.x, Math.max(floor,target.pos.y), target.pos.z); W.group.add(g); W.keep.push(g);
   const k = { g, a: target, t: 20, x: target.pos.x, y: target.pos.y, z: target.pos.z, by };
+  k.vy=0;k.floor=floor;k.solids=[];for(const [dx,dz,w,d,h,yy]of [[-.64,0,.12,1.4,2.2,0],[.64,0,.12,1.4,2.2,0],[0,-.64,1.2,.12,2.2,0],[0,.64,1.2,.12,2.2,0],[0,0,1.4,1.4,.08,-.08]])k.solids.push(addSolid(k.x+dx-w/2,k.z+dz-d/2,k.x+dx+w/2,k.z+dz+d/2,k.y+yy,k.y+yy+h));
   target.caged = k; target.vel.set(0, 0, 0); if (target.held) { target.held.state = 'rest'; target.held = null; } POL.cages.push(k);
   burst(k.x, k.y + 1.2, k.z, 14, { color: 0x8a8d98, size: 0.16, speed: 2.5, up: 2 }); sfx('door', { at: target.pos }); sfx('bell', { at: target.pos, v: 0.6 });
   W.onArrest && W.onArrest(target, by);
 }
 function release(k, silent) {
+  for(const s of k.solids||[])s.on=false;
   W.group.remove(k.g); if (k.a.caged === k) k.a.caged = null; POL.cages = POL.cages.filter(q => q !== k);
   if (!silent) { burst(k.x, k.y + 1.2, k.z, 12, { color: 0xf5c542, size: 0.14, speed: 3, up: 2 }); sfx('pop', { at: k.a.pos }); }
   if (k.a === W.player) closeCageUI();
@@ -67,7 +71,8 @@ export function updatePolice(dt, t) {
       pushOut(c.pos, 0.35, c.pos.y + 0.3, c.pos.y + 1.6); c.pos.y = groundAt(c.pos.x, c.pos.z, 0.2, c.pos.y + 0.6); c.g.position.y = c.pos.y + Math.abs(Math.sin(c.ph)) * 0.08; }
   }
   for (const k of POL.cages.slice()) {
-    k.t -= dt; k.a.pos.set(k.x, k.y, k.z); k.a.vel.set(0, 0, 0);
+    k.t-=dt;const prev=k.y;k.vy-=22*dt;k.y=Math.max(k.floor,k.y+k.vy*dt);if(k.y<=k.floor)k.vy=0;k.g.position.y=k.y;for(const s of k.solids){s.y0+=k.y-prev;s.y1+=k.y-prev;}
+    k.a.pos.set(k.x,k.y+.08,k.z);k.a.root.position.copy(k.a.pos);k.a.vel.set(0,0,0);
     // бот иногда сам вскрывает замок
     if (k.a.bot && k.t < 12 && Math.random() < dt * 0.08) k.t = 0;
     if (k.t <= 0) release(k);

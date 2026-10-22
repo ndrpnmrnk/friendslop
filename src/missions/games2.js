@@ -58,14 +58,14 @@ export const PANEL_GAMES = {
     api.feedback?.();
     const s = o.spot, wy = s.wy, cx = s.cx ?? s.wx, cz = s.cz ?? s.wz, me = new V3(s.x, s.y, s.z);
     const toW = new V3(cx - s.x, 0, cz - s.z).normalize();
-    api.pose(me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), new V3(cx, wy, cz).addScaledVector(toW, -0.5));
+    api.pose(s.camP?new V3(...s.camP):me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), new V3(cx, wy, cz).addScaledVector(toW, -0.5));
     const inWater = (x, z) => !!zoneAt(x, z, wy - 0.08, 'water');
     const aimRing = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xf5c542, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }), 0, wy + 0.04, 0, 0.35, 0.35, 1, W.group); aimRing.rotation.x = -Math.PI / 2;
     const shadowM = new THREE.MeshBasicMaterial({ color: 0x0a1420, transparent: true, opacity: 0.55, depthWrite: false });
     const fishes = [0, 1, 2].map(() => { const m = mesh(G.disc, shadowM, cx, wy + 0.03, cz, 0.32, 0.12, 1, W.group); m.rotation.x = -Math.PI / 2; const a = Math.random() * 6.28; return { m, a, r: Math.random() * (s.R ?? 2) * 0.6, sp: 0.4 + Math.random() * 0.4, t: Math.random() * 6 }; });
     // пойманная рыба: вид и вес выбираются заранее; редкая — больше очков
     const fishPick = pickFish(), catchFish = fishModel(fishPick.sp); catchFish.visible = false; W.group.add(catchFish);
-    const camP = me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), camL = new V3(cx, wy, cz).addScaledVector(toW, -0.5), show = camP.clone().addScaledVector(camL.clone().sub(camP).normalize(), 1.7);
+    const camP = s.camP?new V3(...s.camP):me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), camL = new V3(cx, wy, cz).addScaledVector(toW, -0.5), show = camP.clone().addScaledVector(camL.clone().sub(camP).normalize(), 1.7);
     // подсказки на воде: «!» над поплавком при поклёвке и кольцо натяжения лески
     const bang = new THREE.Sprite(new THREE.SpriteMaterial({ map: pix('bang', 8, 16, (g) => { g.fillStyle = '#17111f'; g.fillRect(1, 0, 6, 16); g.fillStyle = '#f5c542'; g.fillRect(2, 1, 4, 9); g.fillRect(2, 12, 4, 3); }), depthTest: false, transparent: true })); bang.scale.set(0.2, 0.4, 1); bang.renderOrder = 12; bang.visible = false; W.group.add(bang);
     const tRing = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }), 0, wy + 0.05, 0, 0.5, 0.5, 1, W.group); tRing.rotation.x = -Math.PI / 2; tRing.visible = false;

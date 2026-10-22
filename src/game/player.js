@@ -97,7 +97,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     updateRide(p, dt, t, ix, iz, ctrl);
     if (p.ride) {
       p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt);
-      p.ch.animate(dt, { t, speed: 0, ride: pose, rideSpeed: p.speed, hold: false, kick: p.rideKick, trick: p.trickK || 0, board: p.ride.kind });
+      p.ch.animate(dt, { t, speed: 0, ride: pose, rideSpeed: p.speed, hold: false, kick: p.rideKick, trick: p.trickK || 0, cyclePhase:p.cyclePhase, board: p.ride.kind });
       groundBlob(p);
       return;
     }
@@ -160,7 +160,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   else if (p.dive === 'roll') { p.rollT -= dt; p.vel.x *= Math.exp(-dt * 2); p.vel.z *= Math.exp(-dt * 2); if (p.rollT <= 0) p.dive = null; }
   else { p.vel.x += (ix * top - p.vel.x) * damp(acc, dt); p.vel.z += (iz * top - p.vel.z) * damp(acc, dt); }
   // щётки автомойки отбрасывают
-  if (wash && p.onGround) { const dx = p.pos.x - wash.cx, dz = p.pos.z - wash.cz, d = Math.hypot(dx, dz) || 1; p.push.set(dx / d * 9, 0, dz / d * 9); p.vel.y = 4.5; burst(p.pos.x, p.pos.y + 0.8, p.pos.z, 8, { color: 0x9fd0f0, size: 0.25 }); }
+
   p.vel.x += p.push.x; p.vel.z += p.push.z; p.push.multiplyScalar(0);
   // лестницы (v0.18): плавно «пристёгиваемся» по центру; Shift вверх — быстро (выносливость), Shift вниз — съезжаешь;
   // пробел — отпрыгнуть назад/вбок; другой персонаж на лестнице — твёрдый, сквозь него не пролезть
