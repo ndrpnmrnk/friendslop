@@ -1,7 +1,7 @@
 import { THREE, G, col, tmat, lam, glow, mesh, compose, alphaMat } from '../core/gfx.js';
 import { addSolid, addObb } from './physics.js';
 import { addSwinger } from './swingers.js';
-import { rep } from '../core/textures.js';
+import { rep,pix } from '../core/textures.js';
 import { burst, puff } from './particles.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
@@ -80,8 +80,8 @@ export const MoreMethods = {
   // Футбольные ворота (v0.18): сетка как у настоящих — сверху от перекладины назад, задняя стенка наклонно к земле, боковины-трапеции
   goal(x, z, ry = 0, w = 4, h = 2) {
     const g = this.prop(x, z, ry), wt = col(0xf1e8ff), D0 = 0.8, D1 = 1.6;
-    const net = lam({ map: rep(T.chainlink(), w / 1.2, h / 1.2), transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }, 'goalNet');
-    const netM = lam({ map: rep(T.chainlink(), 1 / 1.2, 1 / 1.2), transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }, 'goalNetM');
+    const netTex=pix('footballNet32',32,32,c=>{c.clearRect(0,0,32,32);c.strokeStyle='#d6cbbb';c.lineWidth=1;for(let i=0;i<=32;i+=8){c.beginPath();c.moveTo(i,0);c.lineTo(i,32);c.moveTo(0,i);c.lineTo(32,i);c.stroke();}});
+    const net=lam({map:rep(netTex,w/.8,h/.8),transparent:true,alphaTest:.15,side:THREE.DoubleSide},'goalNet32'+w+':'+h),netM=lam({map:rep(netTex,1/.8,1/.8),transparent:true,alphaTest:.15,side:THREE.DoubleSide},'goalSide32');
     const bar = (px, py, pz, sx, sy, sz, rx = 0) => { const m = new THREE.Mesh(G.box, wt); m.position.set(px, py, pz); m.scale.set(sx, sy, sz); m.rotation.x = rx; g.add(m); };
     for (const sx of [-1, 1]) { bar(sx * w / 2, h / 2, 0, 0.1, h, 0.1); bar(sx * w / 2, 0.03, -D1 / 2, 0.05, 0.05, D1); bar(sx * w / 2, h, -D0 / 2, 0.05, 0.05, D0);
       const L = Math.hypot(h, D1 - D0); bar(sx * w / 2, h / 2, -(D0 + D1) / 2, 0.05, L, 0.05, Math.atan2(D1 - D0, h)); }
@@ -92,7 +92,10 @@ export const MoreMethods = {
     for (const sx of [-1, 1]) { const sd = new THREE.Mesh(sg, netM); sd.position.set(sx * w / 2, 0, 0); sd.rotation.y = Math.PI / 2; g.add(sd); }
     const fx = Math.sin(ry), fz = Math.cos(ry), rx = Math.cos(ry), rz = -Math.sin(ry);
     for (const sx of [-1, 1]) this.solid(x + rx * sx * w / 2, z + rz * sx * w / 2, 0.15, 0.15, 0, h);
-    this.solid(x - fx * 1.55, z - fz * 1.55, Math.abs(fx) > 0.5 ? 0.15 : w, Math.abs(fx) > 0.5 ? w : 0.15, 0, h * 0.5);
+    // Три полосы следуют наклону задней сетки; верх больше не проходим насквозь.
+    for(let i=0;i<3;i++){const depth=D1-(D1-D0)*(i+.5)/3;this.solid(x-fx*depth,z-fz*depth,Math.abs(fx)>.5?.32:w,Math.abs(fx)>.5?w:.32,i*h/3,h/3+.035);}
+    this.solid(x-fx*D0/2,z-fz*D0/2,Math.abs(fx)>.5?D0:w,Math.abs(fx)>.5?w:D0,h-.05,.08);
+
     for(const side of [-1,1])this.solid(x+rx*side*w/2-fx*.8,z+rz*side*w/2-fz*.8,Math.abs(fx)>.5?1.6:.14,Math.abs(fx)>.5?.14:1.6,0,h);
     this.solid(x,z,Math.abs(fx)>.5?.14:w+.12,Math.abs(fx)>.5?w+.12:.14,h-.06,.14);
     W.goals.push({ x: this.X(x), z: this.Z(z), y: this.Y, fx, fz, rx, rz, w, h, score: 0 });

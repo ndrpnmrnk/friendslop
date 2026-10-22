@@ -1,3 +1,4 @@
+import {leafHeap} from './leaf-heap.js';
 import { graffitiGame } from './graffiti.js';
 import { nearbyItemPoint } from './location.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose, sprite } from '../core/gfx.js';
@@ -24,11 +25,7 @@ function place(x, y, z, f, build, foot, h, reach = 1.9) {
 const LEAF = [0xc9662a, 0xa8452a, 0xe89a3a, 0xb8782a, 0x8a5a2a];
 
 /* ---------- объекты ---------- */
-export function buildLeafPile(x, y, z, f) {
-  const o = place(x, y, z, f, g => g.add(compose('leafMound', a => { for (let i = 0; i < 9; i++) { const an = i / 9 * 6.28, r = i ? 0.55 : 0; a(G.sph, lam({ color: LEAF[i % 5] }, 'leafM' + (i % 5)), Math.cos(an) * r, 0.18, Math.sin(an) * r, 0.5, 0.25, 0.5); }
-    a(G.box, tmat(T.sign('ИЩИ!', '#c9662a', '#17111f')), 0, 0.55, 0.9, 0.5, 0.18, 0.02); a(G.box, col(0x6a4a2a), 0, 0.25, 0.9, 0.05, 0.5, 0.05); })), [1.8, 1.8], 0.3, 2.1);
-  o.type = 'leaves'; return o;
-}
+export function buildLeafPile(x,y,z,f){const o=place(x,y,z,f,g=>{g.add(leafHeap(560,1.1,.55).g);g.add(compose('leafPileSign32',a=>{a(G.box,tmat(T.sign('ИЩИ!','#c9662a','#17111f')),0,.68,1.05,.5,.18,.025);a(G.box,tmat(T.wood()),0,.34,1.05,.045,.68,.045);}));},[2.2,2.2],.22,2.2);o.type='leaves';return o;}
 export function graffitiPlaces(){
  const out=[];
  for(const s of W.solids){if(!s.on||s.obb||s.y1-s.y0<1.65)continue;const wx=s.x1-s.x0,wz=s.z1-s.z0;
@@ -96,10 +93,7 @@ export const PANEL4 = {
     const spot = () => { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 1.05; return [Math.cos(a) * r, Math.sin(a) * r]; };
     for (const [name, cl] of JUNK) { const [x, z] = spot(); const m = mesh(G.box, col(cl), x, 0.03, z, 0.14, 0.05, 0.1, grp); m.rotation.y = Math.random() * 3; finds.push({ m, name, x, z }); }
     { const [x, z] = spot(); const m = mesh(G.box, lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.6 }, 'ticket'), x, 0.03, z, 0.2, 0.02, 0.11, grp); m.rotation.y = Math.random() * 3; finds.push({ m, name: 'БИЛЕТ', x, z, gold: true }); }
-    // листья — слоями, по ним видно, что куча толстая
-    const leaves = [];
-    for (let i = 0; i < 360; i++) { const [x, z] = spot(); const m = mesh(G.box, lam({ color: LEAF[i % 5] }, 'leafM' + (i % 5)), x * 1.15, 0.07 + Math.random() * 0.65 * Math.max(0.2, 1 - Math.hypot(x, z) / 1.3), z * 1.15, 0.16, 0.012, 0.11, grp);
-      m.rotation.set((Math.random() - 0.5) * 0.6, Math.random() * 6, (Math.random() - 0.5) * 0.6); leaves.push({ m, v: null }); }
+    const heap=leafHeap(860,1.3,.75),leaves=heap.leaves;grp.add(heap.g);
     let down = false, time = 55, endT = -1, rust = 0;
     api.progress(0); api.msg('Разгребай! Клик по находке');
     const covered = f => leaves.some(l => !l.v && Math.hypot(l.m.position.x - f.x, l.m.position.z - f.z) < 0.12);
@@ -110,15 +104,15 @@ export const PANEL4 = {
         else { api.msg(`Это ${f.name}…`, 'bad'); sfx('drop'); f.m.position.y = 0.5; f.m.visible = false; } } } },
       up() { down = false; },
       move(ray) { if (!down) return; const p = onPlaneY(ray, c.y + 0.2); if (!p) return; const lx = p.x - c.x, lz = p.z - c.z;
-        let cleared = 0; for (const l of leaves.slice().sort((a, b) => b.m.position.y - a.m.position.y)) { if (l.v || cleared >= 5) continue; const dx = l.m.position.x - lx, dz = l.m.position.z - lz, d = Math.hypot(dx, dz); if (d < 0.22) { cleared++; l.v = new V3(dx / (d || 1) * (2 + Math.random() * 2), 2 + Math.random() * 2, dz / (d || 1) * (2 + Math.random() * 2)); rust -= 1; } }
+        let cleared = 0; for (const l of heap.order) { if (l.v || cleared >= 7) continue; const dx = l.m.position.x - lx, dz = l.m.position.z - lz, d = Math.hypot(dx, dz); if (d < 0.25) { cleared++; l.v = new V3(dx / (d || 1) * (2 + Math.random() * 2), 2 + Math.random() * 2, dz / (d || 1) * (2 + Math.random() * 2)); rust -= 1; } }
         if (rust < 0) { rust = 6; sfx('step', { surf: 'grass', v: 0.8 }); } },
       update(dt) {
         time -= dt; if (endT < 0 && time <= 0) return api.finish({ success: false });
-        for (const l of leaves) if (l.v) { l.v.y -= 9 * dt; l.m.position.addScaledVector(l.v, dt); l.m.rotation.x += dt * 8; if (l.m.position.y < -0.3) l.m.visible = false; }
+        for (const l of leaves) if (l.v) { l.v.y -= 9 * dt; l.m.position.addScaledVector(l.v, dt); l.m.rotation.x += dt * 8; if (l.m.position.y < -0.3) l.m.visible = false; heap.write(l); }
         api.progress(leaves.filter(l => l.v).length / leaves.length);
         if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 0.8 + Math.max(0, time) / 55 * 0.4 }); }
       },
-      stop() { W.group.remove(grp); o.g.visible = true; ctx.cursor(true); },
+      stop() { W.group.remove(grp);heap.batch.dispose(); o.g.visible = true; ctx.cursor(true); },
     };
   },
 

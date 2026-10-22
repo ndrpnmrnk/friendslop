@@ -140,5 +140,5 @@ export function renderStamina(P, dt, missionTool=null) {
 }
 
 // события раунда: баннер на 1,5 с, потом значок с отсчётом у таймера
-export function eventBanner(key, big) { const b = $('evbanner'); b.innerHTML = `${img(TEXT.eventIcon[key], 48)}<span>${TEXT.events[key]}${big && TEXT.eventSub[key] ? `<small>${TEXT.eventSub[key]}</small>` : ''}</span>`; b.classList.remove('hidden'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; clearTimeout(H.evT); b.classList.toggle('big', !!big); H.evT = setTimeout(() => b.classList.add('hidden'), big ? 2600 : 1650); }
+export function eventBanner(key, big) { const b = $('evbanner'); b.innerHTML = `${img(TEXT.eventIcon[key], 48)}<span>${TEXT.events[key]}${big && TEXT.eventSub[key] ? `<small>${TEXT.eventSub[key]}</small>` : ''}</span>`; b.classList.remove('hidden'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; clearTimeout(H.evT); b.classList.toggle('big', !!big); H.evT = setTimeout(() => b.classList.add('hidden'), big ? 4400 : 2800); }
 export function eventChip(key, sec, info = '') { const c = $('evchip'); if (!key) { c.classList.add('hidden'); return; } const h = `${img(TEXT.eventIcon[key], 18)}${sec}${info ? `<b>${info}</b>` : ''}`; if (c.innerHTML !== h) c.innerHTML = h; c.classList.remove('hidden'); }

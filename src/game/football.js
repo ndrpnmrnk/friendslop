@@ -7,7 +7,7 @@ import {groundAt} from '../world/physics.js';
 import {burst,smokeRing} from '../world/particles.js';
 import {sfx} from '../core/sfx.js';
 export function footballEvent(getCtx,award,makePitch){return{dur:60,
- start(s){getCtx().prepareRace?.();W.football=s;if(!W.pitch||W.goals.length<2)makePitch(s);const p=W.pitch;s.ball=addItem('bigpumpkin',p.cx,p.y+.5,p.cz);s.ball.def={...s.ball.def,respawn:0,heavy:false};s.ball.noPickup=true;s.ball.football=true;s.goals=W.goals.slice(0,2);s.score=[0,0];s.team=new Map();s.goalsBy=new Map();s.assists=new Map();s.kickCD=new Map();s.touches=[];s.reset=0;s.marks=[];s.g=new THREE.Group();W.group.add(s.g);
+ start(s){getCtx().prepareRace?.();W.football=s;if(!W.pitch||W.goals.length<2)makePitch(s);const p=W.pitch;s.ball=addItem('bigpumpkin',p.cx,p.y+.5,p.cz);s.ball.def={...s.ball.def,respawn:0,heavy:false};s.ball.noPickup=true;s.ball.football=true;s.goals=W.goals.slice().sort((a,b)=>Math.hypot(a.x-p.cx,a.z-p.cz)-Math.hypot(b.x-p.cx,b.z-p.cz)).slice(0,2);s.score=[0,0];s.team=new Map();s.goalsBy=new Map();s.assists=new Map();s.kickCD=new Map();s.touches=[];s.reset=0;s.marks=[];s.g=new THREE.Group();W.group.add(s.g);
  const all=actors().sort(()=>Math.random()-.5);all.forEach((a,i)=>{s.team.set(a,i%2);const ring=mesh(G.ring,new THREE.MeshBasicMaterial({color:i%2?0xb18cff:0x4ab0f0,transparent:true,opacity:.8,depthWrite:false,side:THREE.DoubleSide}),0,0,0,.55,.55,1,s.g);ring.rotation.x=-Math.PI/2;s.marks.push({a,ring});});
  s.goals.forEach((g,i)=>{const q=mesh(G.plane,tmat(T.sign(i===s.team.get(getCtx().player())?'СВОИ · ЗАЩИЩАЙ':'ЗАБИВАЙ СЮДА',i===s.team.get(getCtx().player())?'#76539f':'#387bad','#eee8ff')),g.x,g.y+2.7,g.z,3,.45,1,s.g);q.rotation.y=Math.atan2(g.fx,g.fz);});W.scoreboard?.(0,0);
  },

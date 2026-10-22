@@ -7,7 +7,7 @@ import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
 import {predictBow} from './game/bow.js';
-import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow, setRays } from './core/gfx.js';
+import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
 import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock } from './core/input.js';
@@ -24,7 +24,7 @@ import { resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spaw
 import { knockDown } from './game/actors.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import { mouse as M_ } from './core/input.js';
-import { cargoPosition } from './game/handheld.js';
+import { cargoPosition,poseMeleeItem } from './game/handheld.js';
 import { createBots, updateBots, botHitHook, interruptBot } from './game/bots.js';
 import { voice } from './game/voice.js';
 import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide, leaveBench } from './game/worldfx.js';
@@ -693,7 +693,7 @@ function frame() {
       if(S.mg&&(P.heldBy||P.stun>0||P.daze>0||P.pos.distanceTo(S.mg.start)>0.65))closeMission(null);
       updatePlayer(P, dt, t, !S.mg && !S.crane, cam.yaw);
       voiceInput(dt);
-      if (P.held) { cargoPosition(P,P.held.pos,P.held.def.r); P.held.g.rotation.y = P.root.rotation.y; }
+      if (P.held) { cargoPosition(P,P.held.pos,P.held.def.r); P.held.g.rotation.y = P.root.rotation.y;poseMeleeItem(P,P.held); }
       if (P.charging && !P.held && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
       W.time = EV.t;
@@ -796,8 +796,7 @@ function frame() {
     updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
     { aimMoon(sky.moonDir()); const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz);
       // лунные лучи: где луна на экране (за кадром — гаснут); конусы света фонарей — вместе с фонарём
-      const mp = camera.position.clone().addScaledVector(sky.moonDir(), 150).project(camera), on = LQ.hi && mp.z < 1 && !S.mg ? Math.max(0, 1 - Math.max(0, Math.abs(mp.x) - 1, Math.abs(mp.y) - 1) * 1.5) : 0;
-      setRays(mp.x * 0.5 + 0.5, mp.y * 0.5 + 0.5, on * (1 - (WX.kind === 'fog' ? 0.6 : 0)));
+
       for (const L of W.lamps) if (L.cone) L.cone.visible = LQ.hi && L.pool.visible && !L.pool.userData.broken; }
     // камера вплотную к персонажу (у стены) — прячем его, чтобы голова не закрывала полэкрана
     if (P && P.root.visible && !S.mg && !S.crane) { const hx = P.pos.x - camera.position.x, hy = P.pos.y + 1.0 - camera.position.y, hz = P.pos.z - camera.position.z; if (hx * hx + hy * hy + hz * hz < 0.95 * 0.95) P.root.visible = false; }

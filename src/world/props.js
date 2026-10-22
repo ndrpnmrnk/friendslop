@@ -6,6 +6,7 @@ import { breakBox } from './breakables.js';
 import { addZone } from './physics.js';
 import { addSwinger } from './swingers.js';
 import { puff } from './particles.js';
+import {addCanopy} from './canopies.js';
 
 /* Детальные модели пропсов. Каждая собирается из примитивов один раз и дальше
    копируется (compose): деталей много, а отрисовок на модель — по одной на материал.
@@ -517,12 +518,7 @@ export const PropMethods = {
   },
   // Уличный зонт кафе: опора, полосатый купол-конус, утяжелитель
   parasol(x, z, c1 = '#ff8a1f', c2 = '#2a1f3d') {
-    const dk = col(0x2b2533);
-    this.m(G.cyl8, dk, x, 0.06, z, 0.3, 0.12, 0.3); this.m(G.cyl6, dk, x, 1.2, z, 0.035, 2.3, 0.035);
-    const c = this.m(G.cone8, tmat(T.awning(c1, c2)), x, 2.35, z, 1.35, 0.5, 1.35); c.rotation.y = Math.PI / 8;
-    this.m(G.sph, dk, x, 2.62, z, 0.05, 0.05, 0.05);
-    this.solid(x,z,.15,.15,0,2.3);
-    for(let ix=-3;ix<=3;ix++)for(let iz=-3;iz<=3;iz++){const dx=ix*.34,dz=iz*.34,r=Math.hypot(dx,dz);if(r>1.14)continue;const top=2.60-r*.37;this.solid(x+dx,z+dz,.36,.36,top-.09,.09);this.bouncer(x+dx-.18,z+dz-.18,x+dx+.18,z+dz+.18,top,6);}
+    const dk=col(0x2b2533);this.m(G.cyl8,dk,x,.06,z,.3,.12,.3);this.m(G.cyl6,dk,x,1.88,z,.035,3.76,.035);this.solid(x,z,.13,.13,0,3.76);addCanopy(this,x,z,{colors:[c1,c2]});
 
   },
   // Грифельная доска-«домик» у входа

@@ -1,3 +1,4 @@
+import {CONFIG} from '../config.js';
 import { V3 } from '../core/gfx.js';
 // У оборудования своя точка хвата на правой кисти, у груза - между двумя руками.
 const offset = new V3();
@@ -18,3 +19,5 @@ export function toolHand(ctx, object, x=0, y=0, z=0) {
   if(!ctx?.character || ctx.bot)return;
   const h=ctx.character.handR.clone(true);h.position.set(x,y,z);h.rotation.set(0,0,0);h.scale.setScalar(0.85);object.add(h);
 }
+
+export function poseMeleeItem(a,it){if(!['slipper','pillow','rake'].includes(it?.type))return;const u=a.swatT>0?Math.max(0,Math.min(1,1-a.swatT/CONFIG.melee.duration)):1;it.g.rotation.x=a.swatT>0?-.45+Math.sin(u*Math.PI)*1.1:0;it.g.rotation.z=a.swatT>0?-Math.sin(u*Math.PI)*.2:0;}

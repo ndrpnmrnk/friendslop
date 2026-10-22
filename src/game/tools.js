@@ -95,10 +95,12 @@ export function spawnTool(x, y, z, rare = false, type = null) {
 
 /* ---------- применение (ЛКМ). Возвращает звук или null ---------- */
 const _d = new V3();
-const front = (a, r, dot = 0.4, fn) => { const f = a.root.rotation.y, fx = Math.sin(f), fz = Math.cos(f);
-  for (const b of actors()) { if (b === a || b.hidden) continue; const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz); if (d < r && Math.abs(b.pos.y - a.pos.y) < 1.4 && (dx * fx + dz * fz) / (d || 1) > dot) fn(b, dx, dz); }
-  for (const c of W.cats) { const q = c.root.position, dx = q.x - a.pos.x, dz = q.z - a.pos.z, d = Math.hypot(dx, dz); if (d < r && (dx * fx + dz * fz) / (d || 1) > dot) c.hit && c.hit(false, dx, dz); }
-  return [fx, fz]; };
+const front = (a,r,dot=.4,fn)=>{const f=a.root.rotation.y,fx=Math.sin(f),fz=Math.cos(f),origin=a.pos.clone().add(new V3(0,.9,0));
+ const visible=p=>{const v=p.clone().sub(origin),d=v.length();return raySolids(origin,v.normalize(),d)>=d-.12;};
+ for(const b of actors()){if(b===a||b.hidden||b.drone)continue;const dx=b.pos.x-a.pos.x,dz=b.pos.z-a.pos.z,d=Math.hypot(dx,dz);if(d<r&&Math.abs(b.pos.y-a.pos.y)<1.4&&(dx*fx+dz*fz)/(d||1)>dot&&visible(b.pos.clone().add(new V3(0,.9,0))))fn(b,dx,dz);}
+ for(const n of npcList()){const p=npcPosition(n),dx=p.x-a.pos.x,dz=p.z-a.pos.z,d=Math.hypot(dx,dz);if(d<r&&Math.abs(p.y-a.pos.y)<1.4&&(dx*fx+dz*fz)/(d||1)>dot&&visible(p.clone().add(new V3(0,.5,0))))hitNPC(n,false,dx*4,dz*4);}
+ return[fx,fz];};
+const swing=(a,it,hit)=>{if(a.melee)return null;it.cd=CONFIG.melee.cooldown;a.swatT=CONFIG.melee.duration;a.melee={it,left:CONFIG.melee.duration,hit:false,apply:hit};return null;};
 export function useTool(a, it, aim, dt = 0) {
   if (!it || a.stun > 0) return null;
   const k = it.type, d = it.def, hp = a.ch ? a.ch.holdPoint : new V3(a.pos.x, a.pos.y + 1.2, a.pos.z);
@@ -112,10 +114,8 @@ export function useTool(a, it, aim, dt = 0) {
     case 'bow':{if(it.cd>0)return null;it.draw=Math.min(1,(it.draw||0)+(dt|| (a.bot?0.2:0))/1.0);it.drawAim=aim.clone();return null;}
     case 'perfume':{it.cd=.8;const shot=shoot('perfume',it.pos.clone(),dir,10,0,a);shot.p.copy(it.pos);shot.g=0;shot.v.copy(dir).multiplyScalar(10);shot.life=.32;shot.effect=it.perfumeEffect||'gas';shot.m.scale.set(.045,.045,.11);spend();return 'spray';}
     case 'can': { consume(a, it); if ((it.shake || 0) > 0.5) { sodaBlast(it.pos.clone(), a); return null; } a.stamina = 1; return 'drink'; }
-    case 'slipper': { it.cd = 0.3; const [fx, fz] = front(a, 1.6, 0.45, (b, dx, dz) => { b.push && b.push.set(dx * 1.5, 0, dz * 1.5); daze(b, 0.6); hitFreeze(0.04); W.onHit && W.onHit(a, b, 'melee'); }); a.swatT = 0.2; puff(a.pos.x + fx, a.pos.y + 1, a.pos.z + fz, { size: 0.3, life: 0.2, color: 0xffd0e0 }); return 'swat'; }
-    // подушка: удар + облако перьев; оглушает стоя, иногда на миг слепит
-    case 'pillow': { it.cd = 0.6; let hit = false; const [fx, fz] = front(a, 1.9, 0.35, (b, dx, dz) => { shove(b, dx, dz, 6, 3, false); daze(b, 1.1); if (Math.random() < 0.35) b.blind = Math.max(b.blind || 0, 1); hit = true; hitFreeze(0.06); W.onHit && W.onHit(a, b, 'melee'); });
-      a.swatT = 0.3; feathers(a.pos.x + fx * 1.1, a.pos.y + 1.1, a.pos.z + fz * 1.1, hit ? 26 : 8); return 'pillow'; }
+    case 'slipper':return swing(a,it,()=>{const[fx,fz]=front(a,1.7,.38,(b,dx,dz)=>{b.push?.set(dx*1.5,0,dz*1.5);daze(b,.6);hitFreeze(.04);W.onHit?.(a,b,'melee');});puff(a.pos.x+fx,a.pos.y+1,a.pos.z+fz,{size:.3,life:.2,color:0xffd0e0});sfx('swat',{at:a.pos});});
+    case 'pillow':return swing(a,it,()=>{let hit=false;const[fx,fz]=front(a,1.9,.35,(b,dx,dz)=>{shove(b,dx,dz,6,3,false);daze(b,1.1);if(Math.random()<.35)b.blind=Math.max(b.blind||0,1);hit=true;hitFreeze(.06);W.onHit?.(a,b,'melee');});feathers(a.pos.x+fx*1.1,a.pos.y+1.1,a.pos.z+fz*1.1,hit?26:8);sfx('pillow',{at:a.pos});});
     case 'umbrella': { it.cd = 0.25; it.open = !it.open; const c = it.g.userData.canopy; if (c) c.scale.set(it.open ? 0.78 : 0.09, it.open ? 0.8 : 1, it.open ? 0.78 : 0.09); return 'umbrella'; }
     case 'banana': { const f = a.root.rotation.y; dropHeld(a); it.state = 'gone'; placeBanana(it, a.pos.x + Math.sin(f) * 0.9, a.pos.y, a.pos.z + Math.cos(f) * 0.9, a); return 'drop'; }
     case 'duck': { it.cd = 0.8; W.lure = { x: a.pos.x, z: a.pos.z, t: 4, by: a }; for (const c of W.cats) c.lure = { x: a.pos.x, z: a.pos.z, t: 4 }; puff(hp.x, hp.y + 0.2, hp.z, { size: 0.4, life: 0.25, color: 0xf5c542 }); return 'squeak'; }
@@ -131,7 +131,7 @@ export function useTool(a, it, aim, dt = 0) {
       for (const c of cs) burst(px, a.pos.y + 1, pz, 14, { color: c, size: 0.12, speed: 4, up: 3.5, g: 2, life: 2.2, grow: 0 }); smokeRing(px, a.pos.y + 0.8, pz, 10, { speed: 3, size: 0.25, grow: 1, life: 0.6 }); scareBirds(px, pz, 6); spend(); sfx('confetti', { at: a.pos }); return 'pop'; }
     case 'web': { lob('web', from, aim, a); spend(); return 'throw'; }
     case 'firework': { if (it.lit === undefined) { it.lit = 2.4; return 'fuse'; } return null; }
-    case 'rake':{it.cd=.8;a.swatT=.3;const f=a.root.rotation.y,dir=new V3(Math.sin(f),0,Math.cos(f));for(const b of actors()){if(b===a||b.hidden)continue;const v=b.pos.clone().sub(a.pos);if(v.length()<2&&v.normalize().dot(dir)>.2){daze(b,1.2);W.onHit?.(a,b,'light');}}for(const n of npcList()){const v=npcPosition(n).clone().sub(a.pos);if(v.length()<2&&v.normalize().dot(dir)>.2)hitNPC(n,false,dir.x*7,dir.z*7);}return 'swat';}
+    case 'rake':return swing(a,it,()=>{front(a,2,.2,b=>{daze(b,1.2);W.onHit?.(a,b,'light');});sfx('swat',{at:a.pos});});
     case 'cushion': { const f = a.root.rotation.y, x = a.pos.x + Math.sin(f) * 1.1, z = a.pos.z + Math.cos(f) * 1.1, gy = groundAt(x, z, 0.2, a.pos.y + 0.6);
       if (k === 'rake') placeRake(x, gy, z, f + Math.PI, a); else placeCushion(x, gy, z, a); consume(a, it); return 'drop'; }
     case 'mask': { a.ghost = 8; burst(a.pos.x, a.pos.y + 1, a.pos.z, 12, { color: 0xeee8ff, size: 0.3, speed: 1.5 }); spend(); return 'ghost'; }
@@ -286,7 +286,8 @@ export function updateTools(dt, t) {
     if (a.ghost > 0) a.ghost -= dt;
     if (a.blind > 0) a.blind -= dt;
     if (a.startle > 0) a.startle -= dt;
-    if (a.swatT > 0) a.swatT -= dt;
+    if(a.melee){const m=a.melee;if(a.held!==m.it||a.stun>0||a.heldBy||a.getT>0){a.melee=null;a.swatT=0;}else{m.left-=dt;a.swatT=Math.max(0,m.left);if(!m.hit&&m.left<=CONFIG.melee.impactLeft){m.hit=true;m.apply();}if(m.left<=0)a.melee=null;}}
+    else if (a.swatT > 0) a.swatT -= dt;
     { const nm = GS.nets.get(a); if (a.netT > 0) { a.netT -= dt;a.vel.x*=Math.exp(-dt*10);a.vel.z*=Math.exp(-dt*10); if (nm) { nm.visible = true; nm.position.set(a.pos.x, a.pos.y + 0.85, a.pos.z); nm.rotation.y += dt; } } else if (nm) { W.group.remove(nm); GS.nets.delete(a); } }
     // пузырь: висит в воздухе и медленно поднимается
     let bub = GS.bubbles.get(a);

@@ -1,3 +1,5 @@
+import {CONFIG} from '../config.js';
+import {cameraModel,tripodModel} from './camera-model.js';
 import { buildEntranceBell,doorbellGame } from './doorbell.js';
 import { followHand, handPosition, cargoPosition, toolHand } from '../game/handheld.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose, sprite } from '../core/gfx.js';
@@ -8,7 +10,7 @@ import { burst, puff } from '../world/particles.js';
 import { addItem, launch, setLetterColor } from '../game/items.js';
 import { addPushable } from '../world/pushables.js';
 import { skelModel } from '../game/town.js';
-import { daze } from '../game/actors.js';
+import { daze,actors } from '../game/actors.js';
 import { sfx } from '../core/sfx.js';
 import { nearbyItemPoint } from './location.js';
 
@@ -108,11 +110,7 @@ export function buildCartStart(x, y, z, f) {
   const o = place(x, y, z, f, g => g.add(compose('m5cartsign', a => { a(G.box, tmat(T.sign('ПРОДУКТЫ', '#3a7a4a', '#f1e8ff')), 0, 1.6, 0, 1.2, 0.3, 0.04); for (const sx of [-0.55, 0.55]) a(G.box, col(0x2b2533), sx, 0.8, -0.03, 0.05, 1.6, 0.05); })), [1.2, 0.3], 1.75);
   o.type = 'cartstart'; return o;
 }
-export function buildGraveCam(x, y, z, f) {
-  const o = place(x, y, z, f, g => g.add(compose('m5tripod', a => { const dk = col(0x2b2533); for (let i = 0; i < 3; i++) { const an = i * 2.09; a(G.box, dk, Math.sin(an) * 0.18, 0.55, Math.cos(an) * 0.18, 0.03, 1.15, 0.03, Math.cos(an) * 0.18, 0, -Math.sin(an) * 0.18); }
-    a(G.box, col(0x3a3440), 0, 1.18, 0, 0.26, 0.18, 0.14); a(G.cyl8, col(0x17111f), 0, 1.18, 0.11, 0.06, 0.1, 0.06, Math.PI / 2); a(G.box, glow(0xff5a6e), 0.09, 1.26, 0.07, 0.02, 0.02, 0.01); })), [0.5, 0.5], 1.2);
-  o.type = 'tripod'; return o;
-}
+export function buildGraveCam(x,y,z,f){const o=place(x,y,z,f,g=>g.add(tripodModel()),[.85,.85],1.45);o.type='tripod';return o;}
 export function buildAntenna(x, y, z, f) {
   const o = place(x, y, z, f, g => { g.add(compose('m5ant', a => { const dk = col(0x2b2533); a(G.box, dk, 0, 0.6, 0, 0.08, 1.2, 0.08); a(G.box, tmat(T.crate()), 0.9, 0.3, 0.1, 0.6, 0.6, 0.6);
     a(G.box, col(0x3a3440), 0.9, 0.82, 0.1, 0.52, 0.42, 0.36); }));
@@ -292,38 +290,28 @@ export const WORLD5 = {
     };
   },
   // 10. Металлоискатель: писк чаще рядом с кладом; E — копать (лишние ямы отнимают время)
-  detector(o, api, ctx) {
-    api.feedback?.();
-    const P = ctx.player; P.missionTool=true; const c = o.pos(), pts = [farFloor(c, 3, 12), farFloor(c, 3, 12), farFloor(c, 3, 12)]; let time = 80, beepT = 0, digT = 0, holes = [], said = '', found=-1, pulse=0;
-    const goal = pts[0], decoy = pts.slice(1); const dz = new Set();
-    const detector=new THREE.Group();W.group.add(detector);detector.add(compose('detector31',a=>{const metal=tmat(T.metal()),dark=col(0x302a3a),grip=tmat(T.cloth(0x544639));a(G.cyl6,metal,0,-.29,.28,.019,.92,.019,-.66);a(G.cyl6,grip,0,.03,0,.035,.24,.035,.18);a(G.box,dark,0,.07,.06,.21,.14,.19,-.25);a(G.box,tmat(T.sign('SCAN','#344a40','#a0b08a')),0,.151,.08,.14,.008,.08);a(G.cyl6,dark,0,.15,-.1,.07,.045,.07);a(G.torus,dark,0,-.66,.55,.21,.21,.15,Math.PI/2);a(G.box,dark,0,-.66,.55,.36,.028,.04);a(G.box,dark,0,-.66,.55,.035,.028,.36);for(let i=0;i<5;i++)a(G.torus,dark,0,-.16-i*.055,.15+i*.043,.028,.028,.028,-.66);}));
-    const led=mesh(G.box,col(0x718d67),.07,.15,.08,.018,.008,.018,detector);
-    const shovel=compose('m24shovel',a=>{a(G.cyl6,tmat(T.wood()),0,0,0,0.025,0.7,0.025);a(G.box,tmat(T.metal()),0,-0.42,0,0.16,0.22,0.035);});W.group.add(shovel);shovel.visible=false;
-    const waves=Array.from({length:1},()=>{const q=ring(0x9be36b);q.material=q.material.clone();return q;});
-    api.msg('Медленные круги - далеко, чаще - ближе. E - копать');
-    return {
-      botTarget:()=>goal,botStep(dt,brain){if(flat(P.pos,goal)<0.8&&digT<=0&&brain.ready(1))this.interact();},
-      target: () => null,
-      prompt: () => flat(P.pos, c) < 16 && digT <= 0 ? '<b>E</b>Копать' : '',
-      interact() { if (flat(P.pos, c) > 16 || digT > 0) return false; digT = 0.9; P.swatT = 0.3; sfx('drop'); for (let i = 0; i < 10; i++) puff(P.pos.x, P.pos.y + 0.1, P.pos.z, { color: 0x5a4030, size: 0.15, vx: (Math.random() - 0.5) * 3, vy: 3, vz: (Math.random() - 0.5) * 3, g: 10, life: 0.6 });
-        const hole = mesh(G.disc, new THREE.MeshBasicMaterial({ color: 0x2a1e18 }), P.pos.x, P.pos.y + 0.02, P.pos.z, 0.4, 0.4, 1, W.group); hole.rotation.x = -Math.PI / 2; holes.push(hole);
-        if (flat(P.pos, goal) < 1.0) { const ch = new THREE.Group(); ch.position.set(goal.x, goal.y, goal.z); W.group.add(ch); holes.push(ch);
-          ch.add(compose('m5chest', a => { a(G.box, tmat(T.wood()), 0, 0.2, 0, 0.6, 0.35, 0.4); a(G.box, col(0xd8a030), 0, 0.2, 0.205, 0.1, 0.12, 0.02); a(G.box, glow(0xf5c542), 0, 0.4, 0, 0.5, 0.05, 0.3); }));
-          burst(goal.x, goal.y + 0.5, goal.z, 16, { color: 0xf5c542, size: 0.12, speed: 2.5, up: 2 }); sfx('done'); api.msg('КЛАД!', 'good'); found=.9; return true; }
-        const dd = decoy.find(q => flat(P.pos, q) < 1.0 && !dz.has(q)); if (dd) { dz.add(dd); const it = addItem('slipper', dd.x, dd.y + 0.4, dd.z); it.def = { ...it.def, respawn: 0 }; api.msg('Старый ботинок...', 'bad'); }
-        else { time -= 4; api.msg('Пусто (−4 с)', 'bad'); } return true; },
-      update(dt) {
-        if(found>=0){found-=dt;if(found<=0)return api.finish({success:true,mult:1});return;}
-        time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false }); digT -= dt;
-        followHand(P,detector,Math.sin(time*5)*0.09);
-        detector.visible=digT<=0;shovel.visible=digT>0;followHand(P,shovel,-0.65-Math.sin(digT*10)*0.3);
-        const live = [goal, ...decoy.filter(q => !dz.has(q))], d = Math.min(...live.map(q => flat(P.pos, q))), k = Math.max(0, 1 - d / 10);
-        led.scale.x=0.3+k*0.7;led.material.color.setHex(k>0.8?0xf5c542:0x9be36b);
-        beepT -= dt; if (beepT <= 0 && flat(P.pos, c) < 18) { beepT=.85+(1-k)*.9; sfx('beep', { p: k }); }
-        pulse+=dt/(1.75-k*.85);for(const q of waves){const ph=pulse%1;q.visible=P===W.player&&digT<=0;const coil=detector.localToWorld(new V3(0,-.66,.55));q.position.set(coil.x,P.pos.y+.035,coil.z);q.scale.setScalar(.23+ph*.95);q.material.opacity=Math.sin(ph*Math.PI)*.23;}api.progress(null);
-
-      },
-      stop() { P.missionTool=false;W.group.remove(detector,shovel,...waves);waves.forEach(q=>q.material.dispose()); for (const h of holes) W.group.remove(h); },
+  detector(o,api,ctx){
+    api.feedback?.();const tune=CONFIG.detector,P=ctx.player;P.missionTool=true;const c=o.pos(),pts=[farFloor(c,3,12),farFloor(c,3,12),farFloor(c,3,12)],goal=pts[0],decoy=pts.slice(1),dug=new Set(),holes=[];
+    let time=80,phase='search',digT=0,found=0,pulse=1,hint='',digAt=null,hole=null;
+    const detector=new THREE.Group();detector.name='metal-detector';W.group.add(detector);
+    detector.add(compose('detector32',a=>{const metal=tmat(T.metal()),dark=col(0x302a3a),rubber=tmat(T.cloth(0x554a40));a(G.cyl6,metal,0,-.29,.28,.021,.92,.021,-.66);a(G.cyl6,rubber,0,.03,0,.04,.24,.04,.18);a(G.box,dark,0,.08,.06,.22,.15,.19,-.25);a(G.box,tmat(T.sign('SCAN','#342c28','#d1b98b')),0,.16,.08,.14,.012,.085);a(G.cyl6,dark,0,.15,-.1,.065,.05,.065);a(G.torus,dark,0,-.66,.55,.19,.19,.10,Math.PI/2);a(G.box,dark,0,-.66,.55,.33,.025,.035);for(let i=0;i<5;i++)a(G.torus,rubber,0,-.16-i*.055,.15+i*.043,.024,.024,.024,-.66);}));
+    // Никакого зелёного луча или подсветки клада: только локальная волна и звук.
+    const meter=mesh(G.box,col(0xd9ad56),.055,.17,.08,.025,.012,.015,detector);
+    const shovel=compose('digShovel32',a=>{a(G.cyl6,tmat(T.wood()),0,-.1,.08,.025,.64,.025,-.2);a(G.box,tmat(T.metal()),0,-.48,.15,.22,.25,.045,-.2);a(G.box,col(0x29232e),0,.25,0,.13,.04,.045);});shovel.name='detector-shovel';W.group.add(shovel);shovel.visible=false;
+    const wave=ring(0xdfb265);wave.name='detector-wave';wave.visible=false;
+    const find=()=>{if(flat(digAt,goal)<1.05){const ch=new THREE.Group();ch.position.copy(goal);W.group.add(ch);holes.push(ch);ch.add(compose('m5chest',a=>{a(G.box,tmat(T.wood()),0,.2,0,.6,.35,.4);a(G.box,col(0xd8a030),0,.2,.205,.1,.12,.02);a(G.box,glow(0xf5c542),0,.4,0,.5,.05,.3);}));burst(goal.x,goal.y+.5,goal.z,16,{color:0xf5c542,size:.12,speed:2.5,up:2});sfx('done');api.msg('КЛАД!','good');phase='found';found=1.3;return;}
+      const d=decoy.find(q=>!dug.has(q)&&flat(digAt,q)<1.05);if(d){dug.add(d);const it=addItem('slipper',d.x,d.y+.4,d.z);it.def={...it.def,respawn:0};api.msg('Старый ботинок...','bad');}else{time-=4;api.msg('Пусто (-4 с)','bad');}phase='search';hint='';};
+    api.msg('Слушай сигнал: чем чаще писк и круг, тем ближе. E - копать');
+    return{get phase(){return phase;},botTarget:()=>goal,botStep(dt,brain){if(flat(P.pos,goal)<.8&&phase==='search'&&brain.ready(1))this.interact();},target:()=>null,prompt:()=>phase==='search'&&flat(P.pos,c)<16?'<b>E</b>Копать':'',
+      interact(){if(phase!=='search'||flat(P.pos,c)>16)return false;phase='dig';digT=tune.digTime;digAt=P.pos.clone();const f=P.root.rotation.y;hole=mesh(G.disc,new THREE.MeshBasicMaterial({color:0x2a1e18}),digAt.x+Math.sin(f)*.48,digAt.y+.022,digAt.z+Math.cos(f)*.48,.08,.08,1,W.group);hole.rotation.x=-Math.PI/2;holes.push(hole);api.msg('Копаем...');return true;},
+      update(dt){time-=dt;api.timer(time);if(time<=0)return api.finish({success:false});followHand(P,detector,Math.sin(time*4)*.07);detector.visible=phase==='search';shovel.visible=phase==='dig';
+       if(phase==='dig'){digT-=dt;const k=1-digT/tune.digTime,stroke=Math.sin(k*Math.PI*4);followHand(P,shovel,-.45+stroke*.65);shovel.position.y-=Math.max(0,stroke)*.2;hole.scale.setScalar(.08+k*(tune.holeRadius-.08));if(stroke>.8&&Math.random()<dt*30){puff(hole.position.x,hole.position.y+.08,hole.position.z,{color:0x60432d,size:.10,vx:(Math.random()-.5)*2,vy:2.5,vz:(Math.random()-.5)*2,g:9,life:.5});sfx('imp',{at:hole.position,m:'dirt',v:.3});}if(digT<=0){shovel.visible=false;find();}}
+       if(phase==='found'){found-=dt;if(found<=0)return api.finish({success:true,mult:1});}
+       const d=Math.min(...[goal,...decoy.filter(q=>!dug.has(q))].map(q=>flat(P.pos,q))),k=Math.max(0,Math.min(1,1-d/tune.range));const interval=tune.farPulse-k*(tune.farPulse-tune.nearPulse);pulse+=dt/interval;
+       if(pulse>=1){pulse%=1;if(phase==='search')sfx('beep',{at:P.pos,range:10,p:k,v:.65});}
+       wave.visible=phase==='search'&&P===W.player;const coil=detector.localToWorld(new V3(0,-.66,.55));wave.position.set(coil.x,P.pos.y+.035,coil.z);wave.scale.setScalar(.22+pulse*.95);wave.material.opacity=Math.sin(pulse*Math.PI)*(.22+k*.13);meter.scale.x=.3+k*.7;
+       const next=d<1.05?'Сигнал прямо под ногами - E, копать':d<3?'Частый сигнал - совсем близко':d<6?'Сигнал усиливается':'Редкий сигнал - ищи ближе';if(phase==='search'&&next!==hint){hint=next;api.msg(next,d<1.05?'good':'');}api.progress(null);
+      },stop(){P.missionTool=false;for(const g of [detector,shovel,wave,...holes])g.removeFromParent();wave.material.dispose();}
     };
   },
   // 11. Тележка: довези гору продуктов до машины; резко дёрнешь/врежешься — продукты падают (собери и закинь обратно)
@@ -363,33 +351,22 @@ export const WORLD5 = {
     };
   },
   // 12. Фото призрака: призрак мелькает между могил — поймай его в центр кадра и жми E (вспышка)
-  ghost(o, api, ctx) {
-    api.feedback?.();
-    const P = ctx.player, c = o.pos(), cam = ctx.camera; let time = 75, gt = 2, show = 0, gp = null, captured = -1, wasReady=false; const gs = mkGhost(); gs.visible = false;
-    P.missionTool=true;const heldCam=compose('missionCamera25',a=>{a(G.box,tmat(T.metal()),0,0,0,0.24,0.16,0.12);a(G.cyl8,col(0x17111f),0,0,0.1,0.07,0.1,0.07,Math.PI/2);a(G.box,col(0xe8dfc8),0.08,0.05,0.065,0.05,0.03,0.01);});W.group.add(heldCam);
-    const focus=new THREE.Group(),focusMat=new THREE.MeshBasicMaterial({color:0xf5c542});focus.name='ghost-focus';focus.visible=false;W.group.add(focus);
-    for(const sx of [-1,1])for(const sy of [-1,1]){mesh(G.box,focusMat,sx*0.48,sy*0.6,0,0.2,0.035,0.025,focus);mesh(G.box,focusMat,sx*0.56,sy*0.52,0,0.035,0.2,0.025,focus);}
-    const framed=()=>{if(show<=0||!gp)return false;const to=gp.clone().sub(cam.position),d=to.length(),dir=new V3();cam.getWorldDirection(dir);return d<20&&dir.dot(to.normalize())>0.975&&los(cam.position,gp);};
-    api.msg('Наведи на призрака: зелёная рамка - жми E');
-    return {
-      botStep(dt,brain){if(show>0&&gp){cam.position.copy(P.pos).y+=1.4;cam.lookAt(gp);if(brain.ready(0.7))this.interact();}},
-      target: () => c,
-      prompt: () => '<b>E</b>Снять (вспышка)',
-      interact() {
-        if(captured>=0)return true;
-        sfx('shutter'); W.flash && W.flash(P.pos, 0xffffff, 0.6);
-        if(framed()){api.msg('Есть кадр!','good');sfx('done');captured=0.7;focusMat.color.setHex(0x9be36b);api.progress(1);return true;}
-        api.msg(show > 0 ? 'Мимо — в центр кадра!' : 'Пусто...', 'bad'); return true; },
-      update(dt) {
-        followHand(P,heldCam);if(captured>=0){captured-=dt;if(captured<=0)api.finish({success:true,mult:1});return;}time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false });
-        if (show > 0) { show -= dt; gs.material.opacity = Math.min(0.85, show * 2, (1.8 - show) * 3); gs.position.y = gp.y + Math.sin(show * 6) * 0.15; if (show <= 0) { gs.visible = false; gt = 2.5 + Math.random() * 2.5; } }
-        else { gt -= dt; if (gt <= 0) { gp = farFloor(c, 5, 14); gp.y += 1.4; gs.position.copy(gp); gs.visible = true; show = 1.8; sfx('ghost', { at: gp }); } }
-        const ready=framed();focus.visible=show>0&&!!gp&&los(cam.position,gp);
-        if(gp){focus.position.copy(gs.position);focus.lookAt(cam.position);}focusMat.color.setHex(ready?0x9be36b:0xf5c542);
-        if(ready&&!wasReady)sfx('beep',{at:P.pos,v:0.3});wasReady=ready;api.progress(ready?0.8:0);
-
-      },
-      stop() { P.missionTool=false;W.group.remove(gs,heldCam,focus);focusMat.dispose(); },
+  ghost(o,api,ctx){
+    api.feedback?.();const P=ctx.player,c=o.pos(),cam=ctx.camera;let time=85,gt=1.2,show=0,base=null,shots=0,endT=0,cooldown=0,t=0,last=null,wasReady=false;const gs=mkGhost();gs.name='mission-ghost';gs.visible=false;
+    P.missionTool=true;const heldCam=cameraModel();W.group.add(heldCam);
+    const focus=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color:0xf5c542});focus.name='ghost-focus';focus.visible=false;W.group.add(focus);
+    for(const sx of [-1,1])for(const sy of [-1,1]){mesh(G.box,mat,sx*.48,sy*.6,0,.2,.035,.025,focus);mesh(G.box,mat,sx*.56,sy*.52,0,.035,.2,.025,focus);}
+    const framed=()=>{if(show<=0)return false;const v=gs.position.clone().sub(cam.position),d=v.length(),dir=cam.getWorldDirection(new V3());return d<20&&dir.dot(v.normalize())>.975&&los(cam.position,gs.position);};
+    const disappear=()=>{show=0;gs.visible=false;focus.visible=false;gt=1.7+Math.random()*1.8;};
+    api.msg('Поймай призрака в зелёную рамку. ЛКМ - снимок (нужно 3)');
+    return{get equipped(){return !P.held&&!P.holding&&!P.grab&&!P.heldBy;},toolName:'Фотокамера',toolIcon:'ghost',get toolAction(){return `Снять · ${shots}/3`;},get photos(){return shots;},get ghost(){return gs;},target:()=>null,prompt:()=>'',
+      botStep(dt,brain){if(show>0){cam.position.copy(P.pos).y+=1.4;cam.lookAt(gs.position);cam.updateMatrixWorld(true);if(brain.ready(.8))this.down();}},
+      down(){if(!this.equipped||P.stun>0||P.daze>0||cooldown>0||endT>0)return;cooldown=.65;sfx('shutter');W.flash?.(P.pos,0xffffff,.4);if(!framed()){api.msg(show>0?'Призрака в центр кадра!':'Жди появления призрака');return;}shots++;api.progress(shots/3);sfx('pickup');api.msg(`${shots}/3 - ${shots===3?'Все снимки готовы!':'Есть кадр! Ищи следующее появление'}`,'good');last=base?.clone();disappear();if(shots===3)endT=1.1;},
+      update(dt){t+=dt;cooldown-=dt;heldCam.visible=this.equipped;P.missionTool=this.equipped;followHand(P,heldCam);if(endT>0){endT-=dt;if(endT<=0)api.finish({success:true,mult:1});return;}time-=dt;api.timer(time);if(time<=0)return api.finish({success:false});
+       if(show>0){show-=dt;gs.position.copy(base).add(new V3(Math.sin(t*1.9)*.4,Math.sin(t*2.8)*.18,Math.cos(t*1.4)*.25));gs.material.opacity=Math.max(0,Math.min(.85,show*1.8,(4.2-show)*2));gs.rotation.z=Math.sin(t*2)*.08;if(show<=0)disappear();}
+       else if((gt-=dt)<=0){let candidate=null;for(let i=0;i<16;i++){const q=farFloor(P.pos,4,13);q.y+=1.45;if((!last||q.distanceTo(last)>2)&&los(cam.position,q)){candidate=q;break;}}if(candidate){base=candidate;gs.position.copy(base);gs.visible=true;show=4.2;sfx('ghost',{at:base});}else gt=.6;}
+       const ready=framed();focus.visible=show>0&&los(cam.position,gs.position);focus.position.copy(gs.position);focus.lookAt(cam.position);mat.color.setHex(ready?0x9be36b:0xf5c542);if(ready&&!wasReady)sfx('beep',{at:P.pos,v:.3});wasReady=ready;api.progress(shots/3);
+      },stop(){P.missionTool=false;gs.removeFromParent();heldCam.removeFromParent();focus.removeFromParent();gs.material.dispose();mat.dispose();}
     };
   },
   // 14. Голубь: подкрадись (не беги!), E — схватить, неси в голубятню (E)
@@ -401,7 +378,7 @@ export const WORLD5 = {
       a(G.cone4, col(0xd8a030), 0, 0.31, 0.24, 0.02, 0.07, 0.02, Math.PI / 2); a(G.box, dk, 0, 0.2, -0.22, 0.12, 0.03, 0.12, 0.3); for (const sx of [-0.04, 0.04]) a(G.box, col(0xd8606a), sx, 0.04, 0, 0.015, 0.08, 0.015); }));
     const wings=[-1,1].map(sx=>{const p=new THREE.Group();p.position.set(sx*0.1,0.22,0);g.add(p);mesh(G.box,tmat(T.dogCoat(0x7a7a90,0x3a3a50,0xb8b8c8,0)),sx*0.07,0,-0.03,0.15,0.035,0.28,p);return p;});
     for(const sx of [-1,1])mesh(G.sph,col(0x17111f),sx*0.068,0.34,0.17,0.015,0.015,0.015,g);
-    const wp = home.clone(); api.msg('Подкрадись к голубю — шагом, не бегом');
+    const wp = home.clone(); api.msg('Подкрадись к голубю - шагом и без шума');
     return {
       botSpeed:0.35,
       target: () => got ? o.front() : g.position,
@@ -412,9 +389,12 @@ export const WORLD5 = {
       update(dt) {
         time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false });
         wings.forEach((w,i)=>w.rotation.z=(i?-1:1)*(fly||got?Math.sin(time*32)*0.85:0.12));
-        if (got) { cargoPosition(P,g.position,0.3);g.position.y-=0.16; g.rotation.y = P.root.rotation.y; if (P.stun > 0 || P.daze > 0 || P.heldBy) { got = false; P.carryKitten=false; api.msg('Вырвался!', 'bad'); fly = { from: g.position.clone(), to: farFloor(P.pos, 4, 8), t: 0 }; } return; }
+        // Птица слышит настоящий микрофон, а также замечает пролетающие рядом вещи.
+        const noisy=actors().some(a=>!a.hidden&&!a.drone&&los(a.pos.clone().add(new V3(0,1.2,0)),g.position.clone().add(new V3(0,.3,0)))&&((a.ch?.shout>.22&&flat(a.pos,g.position)<9)||(a.ch?.talk>.3&&flat(a.pos,g.position)<3.7)));
+        const thrown=W.items.some(it=>{if(it.state!=='fly'||it.vel.length()<3)return false;const start=it.pos,end=start.clone().addScaledVector(it.vel,.18),v=end.clone().sub(start),k=Math.max(0,Math.min(1,g.position.clone().sub(start).dot(v)/(v.lengthSq()||1))),q=start.clone().addScaledVector(v,k);return q.distanceTo(g.position.clone().add(new V3(0,.3,0)))<1.8&&los(start,g.position.clone().add(new V3(0,.3,0)));});
+        if (got) { cargoPosition(P,g.position,0.3);g.position.y-=0.16; g.rotation.y = P.root.rotation.y; if (P.stun > 0 || P.daze > 0 || P.heldBy || noisy || thrown) { got = false; P.carryKitten=false; api.msg(noisy?'Голос спугнул голубя - вырвался!':thrown?'Голубь испугался летящего предмета!':'Вырвался!', 'bad'); fly = { from: g.position.clone(), to: farFloor(P.pos, 4, 8), t: 0 }; } return; }
         const sp = Math.hypot(P.vel.x, P.vel.z), d = flat(P.pos, g.position);
-        if (!fly && ((d < 4 && sp > 4.6) || d < 0.6)) { fly = { from: g.position.clone(), to: farFloor(g.position, 4, 8), t: 0 }; sfx('feather'); api.msg('Спугнул! Тише', 'bad'); }
+        if (!fly && (noisy || thrown || (d < 4 && sp > 4.6) || d < 0.6)) { fly = { from: g.position.clone(), to: farFloor(g.position, 4, 8), t: 0 }; sfx('feather',{at:g.position}); api.msg(noisy?'Голубь услышал голос. Тише!':thrown?'Предмет спугнул голубя!':'Спугнул! Подкрадывайся тише', 'bad'); }
         if (fly) { fly.t += dt / 0.8; const k = Math.min(1, fly.t); g.position.lerpVectors(fly.from, fly.to, k); g.position.y += Math.sin(k * Math.PI) * 1.6; g.rotation.y = Math.atan2(fly.to.x - fly.from.x, fly.to.z - fly.from.z); if (k >= 1) { fly = null; wp.copy(g.position); } return; }
         // клюёт и семенит
         wt -= dt; if (wt <= 0) { wt = 1 + Math.random() * 2; const a = Math.random() * 6.28; wp.set(g.position.x + Math.cos(a) * 0.8, g.position.y, g.position.z + Math.sin(a) * 0.8); if (!isFree(wp.x - 0.15, wp.z - 0.15, wp.x + 0.15, wp.z + 0.15, wp.y + 0.05, wp.y + 0.4)) wp.copy(g.position); }

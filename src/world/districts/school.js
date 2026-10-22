@@ -40,10 +40,7 @@ export default {
     for (const x of [8.62, 9.38]) b.m(G.box, col(0xc8422d), x, 3.12, 30.235, 0.04, 0.42, 0.02);
     for (const y of [2.91, 3.33]) b.m(G.box, col(0xc8422d), 9, y, 30.235, 0.8, 0.04, 0.02);
     b.item('ball', 6, 18); b.item('ball', 11, 15); b.item('ball', 12, 23);
-    const gw = col(0xf1e8ff);
-    for (const x of [22, 26]) b.box(x, 30.6, 0.15, 0.15, 2.2, gw);
-    b.m(G.box, gw, 24, 2.2, 30.6, 4.1, 0.15, 0.15);
-    b.m(G.plane, lam({ map: rep(T.chainlink(), 2, 1), transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }), 24, 1.1, 30.8, 4, 2.2, 1);
+    b.goal(24,29.5,Math.PI,4,2.2);
     for (const x of [19, 21]) b.box(x, 13, 0.12, 0.12, 2.2, col(0x6a6d78));
     b.m(G.box, col(0x6a6d78), 20, 2.2, 13, 2.1, 0.06, 0.06);
     for (let i = 0; i < 3; i++) b.box(29.6 + i * 0.5 - 0.5, 20, 1.4 - i * 0.5 + 0.5, 8, 0.4 * (i + 1), tmat(T.wood()));

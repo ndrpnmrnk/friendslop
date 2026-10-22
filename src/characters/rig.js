@@ -1,3 +1,4 @@
+import {CONFIG} from '../config.js';
 import { THREE, G, sprite } from '../core/gfx.js';
 import {makeSpeechMouth,animateSpeech} from './speech.js';
 import { T } from '../core/textures.js';
@@ -207,8 +208,10 @@ function animate(c, dt, s) {
     setHand(c.handL, -hx, hy, hz, f);
     setHand(c.handR, Math.max(hx, d.holdX) + 0.12, d.holdY, d.holdZ + 0.22, f);
   } else if (s.swat) {
-    // удар тапком / подушкой: правая рука резко сверху вниз
-    const k2 = s.swat / 0.3; setHand(c.handR, hx * 0.6, d.top - 0.1 - (1 - k2) * 0.6, 0.35 + (1 - k2) * 0.3, damp(30, dt)); setHand(c.handL, -hx, hy + fl, hz, f);
+    // Замах .20 с, удар вперёд .12 с, затем возврат. Контакт совпадает с tools.js.
+    const u=Math.max(0,Math.min(1,1-s.swat/CONFIG.melee.duration)),wind=Math.min(1,u/.36),strike=Math.max(0,Math.min(1,(u-.36)/.22)),back=Math.max(0,(u-.58)/.42),ease=back*back*(3-2*back);
+    const x=hx+.20*wind-.26*strike,y=d.holdY+.45*wind-.53*strike,z=d.holdZ-.22*wind+.64*strike;
+    setHand(c.handR,x+(hx-x)*ease,y+(hy-y)*ease,z+(hz-z)*ease,damp(40,dt));setHand(c.handL,-hx-.08,hy+.08,hz-.1,f);c.body.rotation.z=-.08*wind+.13*strike-.05*ease;
   } else if (s.wave) {
     setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx + 0.1, d.top - 0.1 + Math.sin(t * 9) * 0.06, 0.1 + Math.sin(t * 9) * 0.12, f);
   } else if (s.zombie) {
@@ -229,6 +232,7 @@ function animate(c, dt, s) {
   if (s.look !== undefined) c.head.rotation.y += (s.look - c.head.rotation.y) * damp(6, dt); else c.head.rotation.y *= 0.9;
   if (s.emote !== 'wave' && s.emote !== 'call') { c.head.rotation.z *= 0.85; c.head.rotation.x *= 0.85; }
   c.handL.rotation.x = s.hold ? -0.6 : run ? sn * 0.5 * k : 0; c.handR.rotation.x = s.hold ? (s.charge ? 0.8 : -0.6) : run ? -sn * 0.5 * k : 0;
+  if(s.swat){const u=Math.max(0,Math.min(1,1-s.swat/CONFIG.melee.duration));c.handR.rotation.x=-.8+Math.sin(u*Math.PI)*1.6;}
   // присед: тело ниже и сжато, ручки ближе
   // руки опускаем плавно к цели (а не вычитаем каждый кадр — иначе они «проваливаются» сквозь пол)
   c.crouchK = (c.crouchK || 0) + ((s.crouch ? 1 : 0) - (c.crouchK || 0)) * damp(14, dt);

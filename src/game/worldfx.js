@@ -31,7 +31,7 @@ export function nearInteract(P) {
 
 // ---------- батуты ----------
 export function bounceAt(x, z, y) {
-  for (const b of W.bouncers) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && Math.abs(y - b.y) < 0.15) return b;
+  for (const b of W.bouncers) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && Math.abs(y - b.y) < 0.15) {b.kick?.();return b;}
   return null;
 }
 

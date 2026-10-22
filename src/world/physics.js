@@ -52,7 +52,7 @@ export function groundAt(x, z, r, maxY) {
 export function pushOut(p, r, yLow, yHigh) {
   let hit = false;
   for (const s of solidsNear(p.x - r, p.z - r, p.x + r, p.z + r)) {
-    if (!s.on || s.oneWay || s.y1 <= yLow || s.y0 >= yHigh) continue;
+    if (!s.on || s.oneWay || s.roof || s.y1 <= yLow || s.y0 >= yHigh) continue;
     const cx = clamp(p.x, s.x0, s.x1), cz = clamp(p.z, s.z0, s.z1), dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
     if (d2 >= r * r) continue;
     hit = true;
@@ -83,6 +83,8 @@ export function moveBody(b, dt, g = 22) {
   const oldY = p.y;
   if (!b.noGrav) v.y -= g * dt;
   p.y += v.y * dt;
+  // Потолок навеса останавливает прыжок, но не выталкивает в соседние ступени купола.
+  for(const s of solidsNear(p.x-b.r*.5,p.z-b.r*.5,p.x+b.r*.5,p.z+b.r*.5))if(s.on&&s.roof&&overlapXZ(s,p.x,p.z,b.r*.5)&&oldY<s.y0-.1&&p.y+b.h>s.y0&&p.y<s.y0){p.y=s.y0-b.h-.015;v.y=Math.min(0,v.y);s.roofTouch=true;}
   const gy = groundAt(p.x, p.z, b.r * 0.6, Math.max(oldY, p.y) + b.step); b.groundObb = groundObb;
   b.landed = false;
   if (p.y <= gy) { if (v.y < -0.5 && !b.onGround) b.landed = true; p.y = gy; v.y = Math.max(0, v.y); b.onGround = true; }

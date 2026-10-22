@@ -27,7 +27,7 @@ const SND = {
   // v0.23: колокол заданной высоты (колокола склепа)
   bellN: s => { const f = [392, 494, 587, 698, 784][s.n || 0]; tone(f, f * 0.98, 0.9, 'triangle', 0.12); tone(f * 2.01, f * 2, 0.5, 'sine', 0.04); },
   shutter: () => { noise(0.05, 0.2, 3000, 2); tone(1800, 900, 0.06, 'square', 0.05, 0.05); },
-  beep: s => tone(1400 + (s.p || 0) * 600, 1400 + (s.p || 0) * 600, 0.05, 'square', 0.05),
+  beep: s => tone(1400 + (s.p || 0) * 600, 1400 + (s.p || 0) * 600, 0.05, 'square', 0.05*(s.v??1)),
   // удар по материалу (v0.18): металл звенит, дерево стучит, бетон глухой, земля/трава мягкие, вода плещет, стекло звякает
   imp: s => { const v = s.v ?? 1, m = s.m || 'concrete';
     if (m === 'metal') { tone(620, 540, 0.22, 'triangle', 0.1 * v); tone(1240, 1100, 0.16, 'square', 0.03 * v); noise(0.06, 0.1 * v, 3500, 2); }
@@ -99,7 +99,7 @@ const SND = {
   bubble: s => tone(400, 1100, 0.14, 'sine', 0.1 * (s.v ?? 1)),
   whistle: () => { tone(2600, 2700, 0.5, 'square', 0.07); tone(2650, 2600, 0.5, 'triangle', 0.05); for (let i = 0; i < 8; i++) tone(2600, 2400, 0.03, 'square', 0.03, i * 0.06); },
   fuse: () => noise(0.5, 0.08, 4000, 2, 0, 'highpass'),
-  spray: () => noise(0.28, 0.08, 3000, 0.6, 0, 'highpass'),
+  spray: s => noise(0.28, 0.08 * (s.v ?? 1), 3000, 0.6, 0, 'highpass'),
   magnet: () => tone(90, 110, 0.28, 'sawtooth', 0.04),
   slip: s => { tone(900, 200, 0.3, 'triangle', 0.1 * (s.v ?? 1)); noise(0.1, 0.12 * (s.v ?? 1), 800, 1, 0.25); },
   grab: s => { noise(0.07, 0.12 * (s.v ?? 1), 1200, 1); tone(220, 330, 0.08, 'square', 0.05 * (s.v ?? 1)); },
@@ -165,7 +165,7 @@ let listener = { x: 0, y: 0, z: 0 };
 export function setListener(x, y, z) { listener.x = x; listener.y = y; listener.z = z; }
 export function sfx(name, o = {}) {
   if (!ac || muted || !SND[name]) return;
-  if (o.at) { const d = Math.hypot(o.at.x - listener.x, o.at.y - listener.y, o.at.z - listener.z); if (d > 30) return; o.v = (o.v ?? 1) * Math.max(0.15, 1 - d / 30); }
+  if (o.at) { const d = Math.hypot(o.at.x - listener.x, o.at.y - listener.y, o.at.z - listener.z); const range=o.range??30;if (d >= range) return; o.v = (o.v ?? 1) * (o.range?Math.pow(1-d/range,1.5):Math.max(0.15,1-d/range)); }
   SND[name](o);
 }
 // фон: ветер и далёкий гул города (шум через низкочастотный фильтр, медленно плавает)

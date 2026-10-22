@@ -1,3 +1,4 @@
+import {addCanopy} from '../canopies.js';
 import { addPushable } from '../pushables.js';
 import { THREE, G, tmat, col } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
@@ -10,8 +11,9 @@ export default {
       const wd = tmat(T.wood());
       b.box(x, z, 4.4, 1.2, 1, tmat(T.crate()));
       b.m(G.box, tmat(T.produce(kind)), x, 1.06, z - 0.15, 4, 0.12, 0.7);
-      for (const [a, c] of [[-2.1, -0.7], [2.1, -0.7], [-2.1, 0.7], [2.1, 0.7]]) { b.m(G.box, col(0x2b2533), x + a, 1.3, z + c - 0.5, 0.08, 2.6, 0.08); b.solid(x + a, z + c - 0.5, 0.2, 0.2, 0, 2.6); }
-      const r = b.m(G.box, tmat(T.awning(...aw)), x, 2.7, z - 0.4, 4.8, 0.08, 2.4); r.rotation.x = -0.2;
+      for (const [a, c] of [[-2.1, -0.7], [2.1, -0.7], [-2.1, 0.7], [2.1, 0.7]]) { b.m(G.box, col(0x2b2533), x + a, 1.65, z + c - 0.5, 0.08, 3.3, 0.08); b.solid(x + a, z + c - 0.5, 0.16, 0.16, 0, 3.3); }
+      addCanopy(b,x,z-.4,{w:4.8,d:2.4,edge:3.25,rise:.48,round:false,colors:aw});
+
       b.crate(x - 0.9, z - 1.6, 0.7); b.crate(x + 0.9, z - 1.6, 0.7);
       if (kind === 'tomato') { b.item('tomato', x - 1.4, z + 0.35, 1); b.item('tomato', x - 0.4, z + 0.4, 1); b.item('tomato', x + 0.7, z + 0.35, 1); }
       if (kind === 'pumpkin') { b.item('pumpkin', x - 1.1, z + 0.25, 1); b.item('pumpkin', x + 1, z + 0.25, 1); }

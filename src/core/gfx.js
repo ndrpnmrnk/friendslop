@@ -38,9 +38,9 @@ export function ps1(m, stable = false) {
 
 // Постобработка: дизеринг Bayer 4x4 и урезанная палитра
 const post = new THREE.ShaderMaterial({
-  uniforms: { t: { value: rt.texture }, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 }, moonUV: { value: new THREE.Vector2(0.5, 0.8) }, raysK: { value: 0 } },
+  uniforms: { t: { value: rt.texture }, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 } },
   vertexShader: 'varying vec2 v; void main(){ v = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-  fragmentShader: `uniform sampler2D t; uniform vec2 px; uniform float glowK; uniform vec2 moonUV; uniform float raysK; varying vec2 v;
+  fragmentShader: `uniform sampler2D t; uniform vec2 px; uniform float glowK; varying vec2 v;
     float b2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
     float b4(vec2 a){ return b2(0.5 * a) * 0.25 + b2(a); }
     vec3 bright(vec2 o){ vec3 s = texture2D(t, v + o).rgb; return max(s - 0.74, 0.0); }
@@ -51,10 +51,6 @@ const post = new THREE.ShaderMaterial({
       for (int i = 0; i < 8; i++) { float a = float(i) * 0.785; vec2 d = vec2(cos(a), sin(a));
         g += bright(d * px * 3.0) * 0.6 + bright(d * px * 7.0) * 0.4; }
       c += g * 0.26 * glowK * vec3(1.0, 0.85, 0.7);
-      // лунные лучи (v0.23): радиальное размытие ярких пикселей неба к луне — силуэты домов «режут» свет на лучи
-      if (raysK > 0.01) { vec2 dv = (moonUV - v) / 18.0; vec2 sp = v; float dec = 1.0; vec3 acc = vec3(0.0);
-        for (int i = 0; i < 18; i++) { sp += dv; acc += max(texture2D(t, sp).rgb - 0.5, 0.0) * dec; dec *= 0.93; }
-        c += acc * 0.11 * raysK * vec3(0.78, 0.82, 1.0); }
       // сумеречная цветокоррекция: тени в сливовый, свет в тёплый
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c = mix(c * vec3(0.92, 0.9, 1.06), c * vec3(1.06, 1.0, 0.92), smoothstep(0.2, 0.8, l)) + vec3(0.012, 0.006, 0.02);
@@ -173,4 +169,3 @@ export function sprite(tex, size, opts = {}) {
 
 // сила свечения ярких мест: в мини-играх ослабляем (v0.21 — стол с напёрстками не «светится»)
 export function setGlow(k) { post.uniforms.glowK.value = k; }
-export function setRays(x, y, k) { post.uniforms.moonUV.value.set(x, y); post.uniforms.raysK.value = k; }

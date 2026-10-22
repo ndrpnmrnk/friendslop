@@ -11,7 +11,7 @@ import { LIGHTMAT, LIGHTDIM, WATERMAT } from '../world/builder.js';
 import { UG } from '../world/underground.js';
 import { splash, burst, puff, smokeRing } from '../world/particles.js';
 import { groundAt, isFree } from '../world/physics.js';
-import { actors, shove, knockDown, dropHeld } from './actors.js';
+import { actors, shove, knockDown, dropHeld, daze } from './actors.js';
 import { spawnTool, explode } from './tools.js';
 import { iconCanvas } from '../ui/icons.js';
 import { CONFIG } from '../config.js';
@@ -124,7 +124,7 @@ const BIG = {
       else { const d = s.dive; d.t += dt; const tgt = d.v.pos.clone().setY(d.v.pos.y + 1.0), k = Math.min(1, d.t / 1.1);
         if (k < 1) s.g.position.lerpVectors(d.from, tgt, k * k);
         else { s.g.position.y += dt * 8; if (d.t > 2.0) s.dive = null; }
-        if (!d.hit && s.g.position.distanceTo(tgt) < 1.3) { d.hit = true; shove(d.v, d.v.pos.x - d.from.x, d.v.pos.z - d.from.z, 7, 5, true); voice(d.v.ch, 'hurt', d.v.pos); sfx('hit', { at: d.v.pos }); } }
+        if (!d.hit && s.g.position.distanceTo(tgt) < 1.3) { d.hit = true; daze(d.v, CONFIG.mothStun); shove(d.v, d.v.pos.x - d.from.x, d.v.pos.z - d.from.z, 7, 5, true); voice(d.v.ch, 'hurt', d.v.pos); sfx('hit', { at: d.v.pos }); } }
       // курс и взмахи крыльев
       const motion=s.g.position.clone().sub(s.prev);if(motion.lengthSq()>.00001)s.g.lookAt(s.g.position.clone().add(motion));s.g.rotation.z=Math.sin(t*.7)*.10;s.pants.rotation.x=Math.sin(t*6)*.07;s.pants.scale.set(1+Math.sin(t*8)*.035,1-Math.sin(t*8)*.05,1);
       const flap = Math.sin(t * (s.dive ? 22 : 12)) * 0.7; s.wings[0].rotation.z = flap; s.wings[1].rotation.z = -flap;s.wings[0].rotation.y=.15+Math.cos(t*12)*.06;s.wings[1].rotation.y=-.15-Math.cos(t*12)*.06;

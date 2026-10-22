@@ -31,10 +31,15 @@ export function buildShells(x, y, z, f) {
 export function buildFishing(spot) {
   const { x, y, z, f } = spot, g = frame(x, y, z, f), dk = col(0x2b2533);
   const rod = new THREE.Group(); rod.position.set(0.35, 0.55, 0.2); rod.rotation.x = 0.9; g.add(rod);
-  mesh(G.cyl6, col(0x6a4a2a), 0, 1.0, 0, 0.02, 2.0, 0.02, rod); mesh(G.cyl8, dk, 0, 0.25, 0.04, 0.05, 0.08, 0.05, rod);
-  mesh(G.box, dk, 0.35, 0.28, 0.2, 0.04, 0.56, 0.04, g);
-  mesh(G.cyl8, col(0x6a6d78), -0.45, 0.18, 0.1, 0.16, 0.36, 0.16, g);
-  mesh(G.box, col(0x3a6a9a), -0.05, 0.38, -0.25, 0.4, 0.05, 0.36, g); for (const s of [-1, 1]) mesh(G.box, dk, -0.05 + s * 0.17, 0.19, -0.25, 0.03, 0.38, 0.3, g);
+  mesh(G.cyl6,tmat(T.wood()),0,1,0,.018,2,.018,rod);mesh(G.cyl6,dk,0,.16,0,.035,.32,.035,rod);
+  for(const h of [.45,.9,1.4,1.85]){const eye=mesh(G.torus,col(0xa9a7ae),0,h,.03,.028,.028,.028,rod);eye.rotation.y=Math.PI/2;}
+  mesh(G.cyl8,col(0xa6a5ad),.07,.28,.04,.075,.10,.075,rod).rotation.z=Math.PI/2;
+  const reel=new THREE.Group();reel.position.set(.13,.28,.04);rod.add(reel);
+  mesh(G.box,dk,0,-.045,0,.025,.12,.025,reel);mesh(G.cyl6,tmat(T.wood()),0,-.1,.04,.023,.08,.023,reel).rotation.x=Math.PI/2;
+  const seat=new THREE.Group();g.add(seat);
+  mesh(G.box,dk,.35,.28,.2,.04,.56,.04,seat);
+  mesh(G.cyl8,col(0x6a6d78),-.45,.18,.1,.16,.36,.16,seat);
+  mesh(G.box,tmat(T.cloth(0x3a6a9a)),-.05,.38,-.25,.4,.05,.36,seat);for(const s of [-1,1])mesh(G.box,dk,-.05+s*.17,.19,-.25,.03,.38,.3,seat);
   const bob = mesh(G.sph, col(0xd8243a), 0, 0, 0, 0.07, 0.07, 0.07, W.group); bob.position.set(spot.wx, spot.wy + 0.12, spot.wz);
   const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]), new THREE.LineBasicMaterial({ color: 0xd8d0c0 })); W.group.add(line);
   g.updateMatrixWorld(true);
@@ -42,7 +47,7 @@ export function buildFishing(spot) {
   const upd=()=>{const a=tip(),p=line.geometry.attributes.position;p.setXYZ(0,a.x,a.y,a.z);p.setXYZ(1,bob.position.x,bob.position.y,bob.position.z);p.needsUpdate=true;line.geometry.computeBoundingSphere();};
   g.traverse(n=>{if(n.isMesh)n.userData.noOcc=true;});W.keep.push(g,bob,line);
   upd();
-  return { type: 'fish', g, rod, bob, line, spot, tip, upd, pos: () => g.position, world: (a, b, c) => wl(g, a, b, c), dispose() { W.group.remove(g); W.group.remove(bob); W.group.remove(line); } };
+  return { type: 'fish', g, rod, reel, seat, bob, line, spot, tip, upd, pos: () => g.position, world: (a, b, c) => wl(g, a, b, c), dispose() { W.group.remove(g); W.group.remove(bob); W.group.remove(line);line.geometry.dispose();line.material.dispose(); } };
 }
 
 // Точка без своей модели (щиток, сейф, раздача, кран): только позиция и «лицо»

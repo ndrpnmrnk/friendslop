@@ -1,5 +1,6 @@
+import {bounceAt} from './worldfx.js';
 import { beginBotWork, tickBotWork, interruptBotWork, poseBotWork } from '../missions/bot-work.js';
-import { cargoPosition } from './handheld.js';
+import { cargoPosition,poseMeleeItem } from './handheld.js';
 import { detour } from './navigation.js';
 import { V3, THREE } from '../core/gfx.js';
 import { CONFIG } from '../config.js';
@@ -123,6 +124,20 @@ function ladderTo(b, goal) {
   }
   return best;
 }
+// Найти свободный сход с низкой ограды. Большие перепады и вода остаются опасными.
+function stepDown(b,target){
+ if((!b.onGround&&!b.stepDown)||b.climbing||b.stairRoute||b.ladderExit||b.heldBy||b.ride||b.work&&!b.work.world)return null;
+ if(b.stepDown){const q=b.stepDown;if(b.pos.y<q.from-.3||Math.hypot(b.pos.x-q.x,b.pos.z-q.z)<.25||q.left<=0){b.stepDown=null;b.nav=null;}else return q;}
+ if(target&&Math.abs(target.y-b.pos.y)<.45&&b.stuck<.5)return null;
+ let best=null,score=1e9;for(const radius of [1,1.65,2.3])for(let i=0;i<16;i++){
+  const a=i*Math.PI/8,x=b.pos.x+Math.sin(a)*radius,z=b.pos.z+Math.cos(a)*radius,y=groundAt(x,z,b.r,b.pos.y+.1),drop=b.pos.y-y;
+  if(drop<.45||drop>CONFIG.botStepDown.maxDrop||zoneAt(x,z,y,'water')||zoneAt(x,z,y,'lava'))continue;
+  if(solidsNear(x-b.r,z-b.r,x+b.r,z+b.r).some(s=>s.on&&s.y1>y+b.step&&s.y0<y+b.h&&s.x1>x-b.r&&s.x0<x+b.r&&s.z1>z-b.r&&s.z0<z+b.r))continue;
+  const from=b.pos.clone().add(new V3(0,.6,0)),dir=new V3(x-b.pos.x,0,z-b.pos.z).normalize();if(raySolids(from,dir,radius)<radius-.1)continue;
+  const cost=radius+(target?Math.hypot(x-target.x,z-target.z)*.2:0);if(cost<score){score=cost;best={x,z,y,from:b.pos.y,left:CONFIG.botStepDown.timeout};}
+ }
+ return b.stepDown=best;
+}
 // направление к цели с обходом препятствий
 function steer(b, tx, tz, dt) {
   let dx = tx - b.pos.x, dz = tz - b.pos.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
@@ -179,7 +194,8 @@ export function updateBots(dt, t, P) {
     const ctrl = !b.heldBy && b.stun <= 0 && !(b.getT > 0) && !(b.knockT > 0) && !(b.floatT > 0) && !(b.netT > 0);
     let ix = 0, iz = 0, run = 1;
     const ev = W.eventBot ? W.eventBot(b) : null;
-    if(b.ladderExit&&ctrl){const q=b.ladderExit,dx=q.x-b.pos.x,dz=q.z-b.pos.z,d=Math.hypot(dx,dz);q.left-=dt;ix=dx/(d||1)*.55;iz=dz/(d||1)*.55;b.vel.y=0;if(d<.12||q.left<=0)b.ladderExit=null;}else if (b.work && !b.work.world) {
+    const descent=ctrl?stepDown(b,b.goal?.who?.pos||b.goal):null;
+    if(descent){descent.left-=dt;const d=Math.hypot(descent.x-b.pos.x,descent.z-b.pos.z)||1;ix=(descent.x-b.pos.x)/d;iz=(descent.z-b.pos.z)/d;run=.7;b.dodge=null;b.nav=null;b.stuck=0;}else if(b.ladderExit&&ctrl){const q=b.ladderExit,dx=q.x-b.pos.x,dz=q.z-b.pos.z,d=Math.hypot(dx,dz);q.left-=dt;ix=dx/(d||1)*.55;iz=dz/(d||1)*.55;b.vel.y=0;if(d<.12||q.left<=0)b.ladderExit=null;}else if (b.work && !b.work.world) {
       b.vel.x*=Math.exp(-dt*15);b.vel.z*=Math.exp(-dt*15);
     } else if (ctrl) {
       // приоритеты: событие раунда → увернуться → приманка-уточка → характер
@@ -219,7 +235,7 @@ export function updateBots(dt, t, P) {
     } else b.progress=null;
     // застрял — шаг в сторону
     b.stuck = Math.hypot(b.pos.x - b.last.x, b.pos.z - b.last.z) < dt * 0.8 && Math.abs(b.pos.y - b.last.y) < dt * 0.6 && (ix || iz) ? b.stuck + dt : 0; b.last.copy(b.pos);
-    if (b.stuck > 0.7 && b.onGround && !b.heldBy) { b.vel.y = PC.jump; b.onGround = false; if (b.stuck > 1.4) { const a = Math.random() * 6.28; b.dodge = { x: Math.cos(a), z: Math.sin(a), t: 0.9 }; b.stuck = 0; b.nav=null;b.navCD=0;b.failures=(b.failures||0)+1;if(b.failures>=3){if(b.goal?.m)b.avoid={m:b.goal.m,left:12};b.goal=null;b.think=0;b.stairRoute=null;b.failures=0;} b.ladder = null; b.ladderDn = null; } }
+    if (b.stuck > 0.7 && b.onGround && !b.heldBy && !b.stepDown) { b.vel.y = PC.jump; b.onGround = false; if (b.stuck > 1.4) { const a = Math.random() * 6.28; b.dodge = { x: Math.cos(a), z: Math.sin(a), t: 0.9 }; b.stuck = 0; b.nav=null;b.navCD=0;b.failures=(b.failures||0)+1;if(b.failures>=3){if(b.goal?.m)b.avoid={m:b.goal.m,left:12};b.goal=null;b.think=0;b.stairRoute=null;b.failures=0;} b.ladder = null; b.ladderDn = null; } }
     // движение
     if(b.work?.game.botSpeed)run*=b.work.game.botSpeed;
     const wading=zoneAt(b.pos.x,b.pos.z,b.pos.y,'wading');
@@ -234,6 +250,7 @@ export function updateBots(dt, t, P) {
     const was = b.onGround; b.noGrav=ctrl&&(b.climbing||!!b.ladderExit);if(!ctrl){b.climbing=false;b.ladderExit=null;}
     applyGripMotion(b,dt);
     moveBody(b, dt, PC.gravity);
+    if(b.landed){const bo=bounceAt(b.pos.x,b.pos.z,b.pos.y);if(bo){b.vel.y=bo.power;b.onGround=false;b.airPeak=b.pos.y;}}
     if (b.onGround && !was) { const drop = b.airPeak - b.pos.y; if (drop > 0.6) smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1.6, size: 0.14 });
       if (b.thrown) { b.thrown = false; if (drop > 0.3) b.stun = Math.max(b.stun, 0.6); }
       if (drop > PC.fallStun) { b.stun = PC.stunTime; voice(b.ch, 'hurt', b.pos); statsOf(b).falls++; } }
@@ -249,7 +266,7 @@ export function updateBots(dt, t, P) {
     b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, dive: b.diveT > 0 ? 'air' : null, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, payload:b.carryCrate?0.5:b.carryKitten?0.42:b.held?.def.r||0,missionTool:!!b.missionTool,hold: (!!b.hotPotato || !!b.work && !b.work.world || !!b.held || b.carryKitten || b.carryCrate || b.carryNet) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
       emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, restrained: !!b.heldBy, swat: b.swatT > 0 ? b.swatT : 0, zombie: !!b.zombie });
     poseBotWork(b);
-    if (b.held) { cargoPosition(b,b.held.pos,b.held.def.r); b.held.g.rotation.y = b.root.rotation.y; }
+    if (b.held) { cargoPosition(b,b.held.pos,b.held.def.r); b.held.g.rotation.y = b.root.rotation.y;poseMeleeItem(b,b.held); }
     b.root.visible = true; blob(b); progBar(b);
   }
 }

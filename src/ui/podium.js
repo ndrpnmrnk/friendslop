@@ -60,6 +60,10 @@ export function createPodium() {
       if (s.h > 0.4) a(G.box, lam({ map: numTex(s.n, s.c), transparent: true }, 'podNum' + s.n), 0, s.h / 2, 0.86, 0.7, 0.7, 0.01); });
     p.position.set(s.x, 0, 0); scene.add(p);
   }
+  // Дворовая сцена награждения: обрамление, ткань, подсвеченные ступени.
+  scene.add(compose('awardsStage32',a=>{const metal=tmat(T.metal()),wood=tmat(T.wood());a(G.box,wood,.2,.07,.5,12.2,.14,4.7);for(const z of [2.2,2.5])a(G.box,wood,.2,.035,z,11.9,.07,.32);for(const x of [-6.1,6.3]){a(G.box,metal,x,3.3,-2.7,.16,6.6,.16);a(G.box,tmat(rep(T.cloth(0x633c60),2,5)),x>0?5.5:-5.3,3.5,-3.9,1.2,6.9,.22);for(let i=0;i<4;i++)a(G.box,col(0x3e294b),x>0?5.1+i*.24:-5.8+i*.24,3.5,-3.72,.09,6.9,.09);}a(G.box,metal,.1,6.6,-2.7,12.3,.16,.16);a(G.box,tmat(T.sign('FRIENDSLOP','#292132','#d4bea1')),.1,5.2,-4.18,5.7,.85,.05);for(const x of [-5.7,-3.7,-1.7,.3,2.3,4.3,6.1])a(G.box,glow(0xb18cff),x,.16,2.28,.44,.035,.035);for(const s of SLOTS){a(G.box,metal,s.x,s.h*.5,.88,1.78,Math.max(.10,s.h-.13),.04);a(G.box,glow(s.c),s.x,s.h+.085,.90,1.75,.025,.025);}}));
+  const reveals=SLOTS.map(s=>{const mat=new THREE.MeshBasicMaterial({color:s.c,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}),m=mesh(G.ring,mat,s.x,s.h+.095,0,.4,.4,1,scene);m.rotation.x=-Math.PI/2;m.visible=false;return{m,life:0};});
+  const crown=new THREE.Group();scene.add(crown);crown.add(compose('winnerCrown32',a=>{const gold=lam({color:0xf5c542,emissive:0x986719,emissiveIntensity:.45});a(G.torus,gold,0,0,0,.23,.23,.23,Math.PI/2);for(let i=0;i<6;i++){const an=i*Math.PI/3;a(G.cone4,gold,Math.sin(an)*.23,.12,Math.cos(an)*.23,.065,.23,.065);}}));crown.visible=false;
   // конфетти: пиксельные квадраты (одна InstancedMesh)
   const N = 220, conf = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.09, 0.09), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), N); conf.count = 0; scene.add(conf);
   conf.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(N * 3), 3);
@@ -70,7 +74,7 @@ export function createPodium() {
 
   st.start = (rows, onCard, onDone) => {
     for (const c of st.chars) scene.remove(c.ch.root);
-    st.t = 0; st.done = false; st.rows = rows; st.chars = []; st.onCard = onCard; st.onDone = onDone; cps.length = 0; conf.count = 0; key.intensity = 0;
+    st.t = 0; st.done = false; st.rows = rows; st.chars = []; st.onCard = onCard; st.onDone = onDone; cps.length = 0; conf.count = 0; st.conf=st.confBudget=0; key.intensity = 0;crown.visible=false;for(const r of reveals){r.m.visible=false;r.life=0;}for(const p of puffs)scene.remove(p.m);puffs.length=0;
     // выход: с последнего места к первому
     const order = rows.map((r, i) => i).reverse();
     order.forEach((place, k) => {
@@ -83,13 +87,14 @@ export function createPodium() {
     // камера: медленный наезд и лёгкое покачивание
     const k = Math.min(1, t / 5), e = 1 - Math.pow(1 - k, 3);
     const five=st.rows.length>4;camera.position.set((five?.35:.9)+Math.sin(t*.25)*(five?.35:.6),3.3-e*.5,(five?13.4:12.5)-e*(five?1.6:2.4));camera.lookAt(five?.35:.9,1.8,0);
-    bulbs.forEach((b, i) => (b.visible = Math.sin(t * 4 + i * 1.3) > -0.6));
+    bulbs.forEach((b,i)=>{b.visible=true;b.scale.setScalar(.11+Math.sin(t*1.7+i*.4)*.012);});
+    for(const r of reveals)if(r.life>0){r.life-=dt;r.m.visible=r.life>0;const k=1-r.life/.9;r.m.scale.setScalar(.35+k*1.1);r.m.material.opacity=(1-k)*.65;}
     let all = true;
     for (const c of st.chars) {
       const top = c.s.h + 0.08, root = c.ch.root;
       if (t < c.at) { all = false; continue; }
       root.visible = true;
-      if (!c.landed) { c.vy -= 30 * dt; c.y += c.vy * dt; if (c.y <= top) { c.y = top; c.landed = true; c.landT = t; sfx('podium', { k: 3 - Math.min(3, c.place) }); for (let i = 0; i < 8; i++) puffAt(c.s.x, top); } root.position.y = c.y; }
+      if (!c.landed) { c.vy -= 30 * dt; c.y += c.vy * dt; if (c.y <= top) { c.y = top; c.landed = true; c.landT = t;const ring=reveals[c.place];if(ring)ring.life=.9; sfx('podium', { k: 3 - Math.min(3, c.place) }); for (let i = 0; i < 8; i++) puffAt(c.s.x, top); } root.position.y = c.y; }
       if (c.landed && !c.shown) { c.shown = true; st.onCard && st.onCard(c, st.cardPos(c)); if (c.place === 0) { st.conf = 4.5; sfx('fanfare'); } }
       const since = c.landed ? t - c.landT : 0;
       c.ch.animate(dt, poseFor(c, t, since, !c.landed));
@@ -98,9 +103,9 @@ export function createPodium() {
     }
     if (st.chars.some(c => !c.landed)) all = false;
     // победитель: прожектор разгорается
-    const win = st.chars.find(c => c.place === 0); if (win && win.landed) { key.intensity += (90 - key.intensity) * Math.min(1, dt * 3); key.target.position.set(win.s.x, 1.8, 0); }
+    const win = st.chars.find(c => c.place === 0); if (win && win.landed) { key.intensity += (90 - key.intensity) * Math.min(1, dt * 3); key.target.position.set(win.s.x, 1.8, 0); crown.visible=true;crown.position.set(win.s.x,win.s.h+(win.ch.d.top||1.7)+.45+Math.sin(t*2)*.035,0);crown.rotation.y=t*.45; }
     // конфетти
-    if (st.conf > 0) { st.conf -= dt; for (let i = 0; i < 6 && cps.length < N; i++) cps.push({ p: new THREE.Vector3((Math.random() - 0.5) * 9, 7 + Math.random() * 2, (Math.random() - 0.5) * 3), v: new THREE.Vector3((Math.random() - 0.5) * 1.5, -1.5 - Math.random() * 1.5, 0), r: Math.random() * 6, c: CC[(Math.random() * CC.length) | 0] }); }
+    if (st.conf > 0) { st.conf -= dt;st.confBudget+=dt*70;const count=Math.floor(st.confBudget);st.confBudget-=count; for (let i = 0; i < count && cps.length < N; i++) cps.push({ p: new THREE.Vector3((Math.random() - 0.5) * 9, 7 + Math.random() * 2, (Math.random() - 0.5) * 3), v: new THREE.Vector3((Math.random() - 0.5) * 1.5, -1.5 - Math.random() * 1.5, 0), r: Math.random() * 6, c: CC[(Math.random() * CC.length) | 0] }); }
     let n = 0; for (const p of cps) { p.p.addScaledVector(p.v, dt); p.p.x += Math.sin(t * 3 + p.r) * dt * 0.6; p.r += dt * 5; if (p.p.y < 0.02) p.p.y = 0.02;
       _q.setFromEuler(_e.set(p.r, p.r * 0.7, 0)); _m.compose(p.p, _q, _s); conf.setMatrixAt(n, _m); conf.instanceColor.setXYZ(n, p.c.r, p.c.g, p.c.b); n++; }
     conf.count = n; conf.instanceMatrix.needsUpdate = true; if (n) conf.instanceColor.needsUpdate = true;

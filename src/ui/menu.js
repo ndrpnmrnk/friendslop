@@ -4,14 +4,12 @@ import { SEASON, HW } from '../config.js';
 import { makeCharacter } from '../characters/rig.js';
 import { SKINS, SKIN_IDS } from '../characters/skins.js';
 import { PFACE } from '../world/builder.js';
-import { buildCat, COATS } from '../game/cats.js';
+import {menuBackdrop} from './menu-backdrop.js';
 import { sfx } from '../core/sfx.js';
 import { addOutline } from '../game/outline.js';
 
-/* Главное меню — живая сцена в том же PS1-рендере, что игра: персонаж на углу улицы под прожектором,
-   за ним — дерево, фонарь, тыквы, дымка и город. Раз в 6–12 с — случайная сценка (мыши, призрак, кот,
-   порыв листьев, мигнувший фонарь). Персонажа можно крутить мышью: отпустил — он сам, переступая,
-   разворачивается к камере. Без дела — дышит, моргает, иногда тянется, машет, чешется. */
+/* Живой двор: витрины, ветер в ткани, листья и пар. Камера и взгляд персонажа
+   спокойно следуют мыши. Выбор персонажа - прямо в сцене. */
 export function createMenu() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x120d1c);
@@ -52,24 +50,6 @@ export function createMenu() {
   // падающие листья (немного, всегда)
   const leaves = []; const leafCol = [0xc9662a, 0xa8452a, 0xe89a3a];
   for (let i = 0; i < 14; i++) { const m = mesh(G.plane, lam({ color: leafCol[i % 3], side: THREE.DoubleSide, transparent:true, depthWrite:false }).clone(), 0, -5, 0, 0.12, 0.08, 1, scene); leaves.push({ m, t: Math.random(), s: Math.random() * 4 }); }
-  // эпизоды: летучие мыши, призрак, кот
-  const bats = new THREE.Group(); scene.add(bats); bats.visible = false;
-  const batM = col(0x17111f), wings = [];
-  for (let i = 0; i < 6; i++) { const b = new THREE.Group(); b.position.set(i * 0.7 - 2, Math.sin(i) * 0.5, Math.cos(i * 2) * 0.6); mesh(G.sphL, batM, 0, 0, 0, 0.12, 0.1, 0.16, b);
-    const wl = mesh(new THREE.BoxGeometry(1, 1, 1).translate(-0.5, 0, 0), batM, -0.08, 0, 0, 0.4, 0.02, 0.2, b), wr = mesh(new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0, 0), batM, 0.08, 0, 0, 0.4, 0.02, 0.2, b); wings.push([wl, wr, Math.random() * 6]); bats.add(b); }
-  // Замкнутые маршруты проходят за домами. Актёры не включаются и не исчезают в кадре.
-  const ghost = new THREE.Group();scene.add(ghost);
-  const sheet=lam({map:T.cloth(0xe8dfef,'cloth_g'),emissive:0x272035},'menuSheet25');
-  const verts=[],indices=[];const count=10;
-  for(let row=0;row<3;row++)for(let i=0;i<count;i++){const a=i/count*Math.PI*2,r=[0.3,0.34,0.42][row];verts.push(Math.sin(a)*r,[0.62,0.27,-0.32+(i%2)*0.12][row],Math.cos(a)*r);}
-  for(let row=0;row<2;row++)for(let i=0;i<count;i++){const a=row*count+i,b=row*count+(i+1)%count;indices.push(a,a+count,b,b,a+count,b+count);}
-  for(let i=1;i<count-1;i++)indices.push(0,i, i+1);
-  for(let i=1;i<count-1;i++)indices.push(20,20+i+1,20+i);
-  const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));sg.setIndex(indices);sg.computeVertexNormals();
-  const uv=[];for(let row=0;row<3;row++)for(let i=0;i<count;i++)uv.push(i/count,1-row/2);sg.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
-  mesh(sg,sheet,0,0,0,1,1,1,ghost);mesh(G.sph10,sheet,0,0.63,0,0.3,0.29,0.3,ghost);
-  for(const x of [-0.1,0.1])mesh(G.box,col(0x17111f),x,0.66,0.285,0.07,0.1,0.025,ghost);
-  const menuCat=buildCat(COATS[4]),cat=menuCat.root;scene.add(cat);
   scene.add(compose('menuStreet25',a=>{
     const brick=tmat(T.oldBrick()),wood=tmat(T.wood()),metal=tmat(T.metal()),dark=col(0x292331);
     // Ближние боковые фасады перекрывают уходящий за угол маршрут.
@@ -93,7 +73,7 @@ export function createMenu() {
     a(G.box,metal,-0.1,0.9,-4.2,4.3,0.035,0.035);
   }));
   const camera = makeCamera(38);
-  camera.position.set(1.15, 1.85, 8.6); camera.lookAt(.9, 1.0, 0);
+  camera.position.set(0,1.85,8.8);camera.lookAt(0,1,0);
 
   const st = { scene, camera, idx: 0, ch: null, t: 0, rot: 0, drag: false, lastX: 0, actT: 4, act: null, actK: 0, epT: 3, ep: null, active: true, puffT: 0 };
   try { const s = localStorage.getItem('friendslop.skin'); if (SKIN_IDS.includes(s)) st.idx = SKIN_IDS.indexOf(s); } catch (_) {}
@@ -115,18 +95,13 @@ export function createMenu() {
   addEventListener('pointerdown',e=>{if(!st.active||e.button!==0||e.target.closest?.('button')||!over(e))return;st.drag=true;st.lastX=e.clientX;travel=0;});
   addEventListener('pointermove',e=>{if(!st.active)return;const hover=over(e);outline?.set(hover);picker.classList.toggle('hover',hover);if(st.drag){const dx=e.clientX-st.lastX;travel+=Math.abs(dx);st.rot+=dx*.012;st.lastX=e.clientX;}});
   addEventListener('pointerup',()=>{if(st.drag&&travel<5)choose();st.drag=false;});
-  // Короткие случайные маршруты обходят лавку, дерево, ящики и фасады.
-  const obstacles=[[-4.3,-3.6,-3.1,-2.3],[1.55,-3.5,3.45,-2.45],[-3.1,-2.15,-2.1,-1.05],[-8.8,-5.7,-4.25,-1.4],[4.25,-5.7,8.8,-1.4]],nodes=[[-3.8,-.5],[-1.65,-.75],[-.6,-2.3],[.5,-3.6],[1,-2.1],[2.6,-1.65],[3.8,-2],[3.8,-3.9],[2.6,-3.9],[-1.5,-3.6],[-2.7,-3.8]];
-  function clear(a,b){for(const r of obstacles){let lo=0,hi=1;for(let k=0;k<2;k++){const d=b[k]-a[k],min=r[k]-.38,max=r[k+2]+.38;if(Math.abs(d)<.001){if(a[k]<min||a[k]>max){lo=2;break;}}else{const u=(min-a[k])/d,v=(max-a[k])/d;lo=Math.max(lo,Math.min(u,v));hi=Math.min(hi,Math.max(u,v));}}if(lo<=hi)return false;}return true;}
-  const paths=nodes.map((p,i)=>nodes.map((q,j)=>j!==i&&clear(p,q)?j:-1).filter(j=>j>=0));
-  const walkers=[cat,ghost].map((root,i)=>{const node=Math.random()*nodes.length|0;root.position.set(nodes[node][0],i?1.25:.04,nodes[node][1]);return{root,node,prev:-1,to:node,wait:Math.random()*3,speed:.45+Math.random()*.45,moving:false};});
-  function walk(w,dt,t,i){w.wait-=dt;w.moving=false;if(w.to===w.node){if(w.wait<=0){const choices=paths[w.node].filter(j=>j!==w.prev);if(choices.length)w.to=choices[Math.random()*choices.length|0];else w.wait=1;}}else{const q=nodes[w.to],dx=q[0]-w.root.position.x,dz=q[1]-w.root.position.z,d=Math.hypot(dx,dz),step=Math.min(d,dt*w.speed);w.moving=true;if(d>.001){w.root.position.x+=dx/d*step;w.root.position.z+=dz/d*step;const angle=Math.atan2(dx,dz)-w.root.rotation.y;w.root.rotation.y+=Math.atan2(Math.sin(angle),Math.cos(angle))*Math.min(1,dt*5);}if(d<.04){w.prev=w.node;w.node=w.to;w.wait=.8+Math.random()*3.5;w.speed=.45+Math.random()*.45;}}w.root.position.y=i?1.25+Math.sin(t*2)*.1:.04;}
-
+  const backdrop=menuBackdrop(scene),mouse={x:0,y:0},smooth={x:0,y:0};
+  addEventListener('pointermove',e=>{if(st.active){mouse.x=e.clientX/innerWidth*2-1;mouse.y=e.clientY/innerHeight*2-1;}});
   st.update = dt => {
-    dt=Math.min(.05,dt);st.t += dt; const t = st.t, c = st.ch;
+    dt=Math.min(.05,dt);smooth.x+=(mouse.x-smooth.x)*(1-Math.exp(-dt*3));smooth.y+=(mouse.y-smooth.y)*(1-Math.exp(-dt*3));camera.position.set(smooth.x*.18,1.85-smooth.y*.08,8.8);camera.lookAt(smooth.x*.045,1-smooth.y*.025,0);backdrop.update(dt,mouse);st.t += dt; const t = st.t, c = st.ch;
     labelPoint.set(0,2.05,0).project(camera);picker.style.left=`${(labelPoint.x*.5+.5)*innerWidth}px`;picker.style.top=`${(-labelPoint.y*.5+.5)*innerHeight}px`;if(!st.active){outline?.set(false);picker.classList.remove('hover');}
     // разворот к камере: не «платформа», а шаги и доворот корпуса с головой
-    let speed = 0, look;
+    let speed=0,look=smooth.x*.18;
     st.rot = Math.atan2(Math.sin(st.rot), Math.cos(st.rot));
     if (!st.drag && Math.abs(st.rot) > 0.04) { const sp = Math.min(Math.abs(st.rot), 3.2 * dt); st.rot -= Math.sign(st.rot) * sp; speed = 0.22; look = -Math.sign(st.rot) * 0.5; if (Math.abs(st.rot) <= 0.04) { st.nod = 0.4; } }
     c.root.rotation.y = st.rot;
@@ -145,11 +120,6 @@ export function createMenu() {
     T.mist().offset.x += dt * 0.01;
     spot.intensity += (30 - spot.intensity) * Math.min(1, dt * 5);
     for(const l of leaves){l.t=(l.t+dt*.105)%1;const k=l.t;l.m.position.set(-2.6+Math.sin(l.s+k*6)*.8+k*1.8,3.2-k*3.2,-1.4+Math.cos(l.s*2+k*4)*.5);l.m.rotation.set(t*l.s*.5,t*.6,t*.3);l.m.material.opacity=Math.min(1,k/.08,(1-k)/.12);}
-    walkers.forEach((w,i)=>walk(w,dt,t,i));
-    menuCat.legs.forEach((l,i)=>l.rotation.x=walkers[0].moving?Math.sin(t*10+(i===0||i===3?0:Math.PI))*.55:0);
-    menuCat.tail.rotation.x=.6;menuCat.tail2.rotation.y=Math.sin(t*2)*.3;
-    bats.visible=true;const ba=t*0.16;bats.position.set(Math.sin(ba)*19,5.4+Math.sin(t)*0.25,-9+Math.cos(ba)*2);
-    bats.rotation.y=Math.atan2(Math.cos(ba),-Math.sin(ba)*2/19);for(const [wl,wr,ph]of wings){wl.rotation.z=Math.sin(t*20+ph)*0.9;wr.rotation.z=-wl.rotation.z;}
     // Только свет и ветер запускаются эпизодами.
     st.epT -= dt;
     if (!st.ep && st.epT <= 0) { st.ep = { k: ['flicker', 'gust'][(Math.random() * 2) | 0], t: 0, dir: Math.random() < 0.5 ? 1 : -1 }; }
