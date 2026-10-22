@@ -74,7 +74,7 @@ export function createPodium() {
     // выход: с последнего места к первому
     const order = rows.map((r, i) => i).reverse();
     order.forEach((place, k) => {
-      const r = rows[place], s = SLOTS[Math.min(place, 3)], ch = makeCharacter(r.skin); ch.root.position.set(s.x, 12, 0.1); ch.root.rotation.y = 0; ch.root.visible = false; scene.add(ch.root);
+      const r = rows[place], s = SLOTS[place] || {x:-4.7,z:-1.2,h:0,c:0x80738d,n:place+1}, ch = makeCharacter(r.skin); ch.root.position.set(s.x, 12, s.z??.1); ch.root.rotation.y = 0; ch.root.visible = false; scene.add(ch.root);
       st.chars.push({ r, ch, place, s, at: 0.6 + k * 1.15, y: 12, vy: 0, landed: false, shown: false, ph: Math.random() * 6 });
     });
   };
@@ -82,7 +82,7 @@ export function createPodium() {
     st.t += dt; const t = st.t;
     // камера: медленный наезд и лёгкое покачивание
     const k = Math.min(1, t / 5), e = 1 - Math.pow(1 - k, 3);
-    camera.position.set(0.9 + Math.sin(t * 0.25) * 0.6, 3.3 - e * 0.5, 12.5 - e * 2.4); camera.lookAt(0.9, 1.8, 0);
+    const five=st.rows.length>4;camera.position.set((five?.35:.9)+Math.sin(t*.25)*(five?.35:.6),3.3-e*.5,(five?13.4:12.5)-e*(five?1.6:2.4));camera.lookAt(five?.35:.9,1.8,0);
     bulbs.forEach((b, i) => (b.visible = Math.sin(t * 4 + i * 1.3) > -0.6));
     let all = true;
     for (const c of st.chars) {
@@ -108,7 +108,7 @@ export function createPodium() {
     for (const c of st.chars) if (c.shown && c.card) { const p = st.cardPos(c); c.card.style.transform = `translate(${Math.round(p.x)}px,${Math.round(Math.max(p.y, 185))}px) translate(-50%,-100%)`; }
     if (all && !st.done && t > (st.chars.at(-1)?.at || 0) + 1.6) { st.done = true; st.onDone && st.onDone(); }
   };
-  st.cardPos = c => { _v.set(c.s.x, c.s.h + (c.ch.d.top || 1.7) + 0.55, 0); _v.project(camera); return { x: (_v.x + 1) / 2 * innerWidth, y: (1 - _v.y) / 2 * innerHeight }; };
+  st.cardPos = c => { _v.set(c.s.x, c.s.h + (c.ch.d.top || 1.7) + 0.55, c.s.z||0); _v.project(camera); return { x: (_v.x + 1) / 2 * innerWidth, y: (1 - _v.y) / 2 * innerHeight }; };
   // пылинки при приземлении
   const puffs = []; function puffAt(x, y) { const m = mesh(G.box, lam({ color: 0xd8d0e4, transparent: true, opacity: 0.8 }, 'podPuff'), x + (Math.random() - 0.5) * 1.4, y + 0.1, (Math.random() - 0.5) * 1.2, 0.12, 0.12, 0.12, scene); puffs.push({ m, t: 0 }); }
   const upd = st.update; st.update = dt => { upd(dt); for (let i = puffs.length - 1; i >= 0; i--) { const p = puffs[i]; p.t += dt; p.m.position.y += dt * 0.6; p.m.scale.setScalar(0.12 * (1 + p.t * 2)); if (p.t > 0.6) { scene.remove(p.m); puffs.splice(i, 1); } } };

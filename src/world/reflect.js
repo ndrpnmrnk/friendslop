@@ -22,7 +22,7 @@ export function buildReflections() {
     if (Math.hypot(L.lx - cx, L.lz - cz) < ext + 8 && L.y - z.y < 3) add(L.lx, L.y + 2.95, L.lz, z.y + 0.12, z.c ? { c: z.c } : { r: z.r }, 0xffd28a, false, 1);
   }
   // мокрый асфальт вокруг фонарей (только в дождь)
-  for (const L of W.lamps) add(L.lx, L.y + 2.95, L.lz, L.y + 0.03, { c: [L.lx, L.lz, 4.5] }, 0xffc890, true, 0.6);
+  // Убраны отдельные полосатые отражения на асфальте.
   // привязать отражение к фонарю: разбитый или погасший — не отражается
   for (const r of R) r.L = W.lamps.find(L => Math.abs(L.lx - r.lx) < 0.01 && Math.abs(L.lz - r.lz) < 0.01) || null;
 }

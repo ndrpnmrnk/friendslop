@@ -1,3 +1,4 @@
+import {sweepActors,npcList,npcPosition,hitNPC,heavyHit} from './impacts.js';
 import {bowModel} from './bow.js';
 import { pantsModel } from '../characters/mammoth.js';
 import { THREE, G, V3, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
@@ -7,7 +8,7 @@ import { PFACE } from '../world/builder.js';
 import { T } from '../core/textures.js';
 import { CONFIG } from '../config.js';
 import { W } from '../world/state.js';
-import { groundAt, solidHit, addZone, impulsePushables, zoneAt, materialAt } from '../world/physics.js';
+import { groundAt, solidHit, raySolids, addZone, impulsePushables, zoneAt, materialAt } from '../world/physics.js';
 import { puff, burst, chunk, splash, ripple, decal } from '../world/particles.js';
 import { splatter } from '../world/splat.js';
 import { scareBirds } from '../world/birds.js';
@@ -137,7 +138,7 @@ function respawn(it) {
 /* Попадания */
 function hitActors(it, p, heavy) {
   const r = heavy ? 1.1 : 0.9;
-  for (const c of W.cats) { const cp = c.root.position; if (Math.hypot(cp.x - p.x, cp.z - p.z) < r && Math.abs(cp.y - p.y) < 1.2) { c.hit(heavy, it.vel.x, it.vel.z); hitFreeze(0.06); } }
+  for(const a of npcList()){const cp=npcPosition(a);if(a===it.owner)continue;const d=cp.clone().add(new V3(0,a.kind==='dog'||a.type==='cat'?.4:.9,0)).sub(p),len=d.length();if((it.hitTarget===a||(!it.hitTarget&&raySolids(p,d.normalize(),len)>=len-.05))&&Math.hypot(cp.x-p.x,cp.z-p.z)<r&&p.y>cp.y-.3&&p.y<cp.y+(a.kind==='dog'||a.type==='cat'?.9:1.9))hitNPC(a,heavy,it.vel.x,it.vel.z);}
   for (const h of W.hitActors || []) h(it, p, heavy, r);
   scareBirds(p.x, p.z, heavy ? 5 : 3.5);
   impulsePushables(p.x, p.z, 0.6, heavy ? 4 : 1.5);
@@ -150,10 +151,10 @@ function impact(it, n, speed) {
   if (it.def.breaks && speed > it.def.breaks) { const glass = t === 'monitor' || t === 'dlamp' || t === 'mug';
     for (let i = 0; i < 9; i++) chunk(p.x, p.y + 0.1, p.z, [(Math.random() - 0.5) * 4, 2 + Math.random() * 2, (Math.random() - 0.5) * 4], { mat: col([0x2b2533, 0x9a9da8, t === 'pot' ? 0xc8643a : 0xd8d0c0, 0x3a3440][i % 4]), size: 0.07, sy: 0.6, life: 5 });
     if (glass) burst(p.x, p.y + 0.2, p.z, 8, { color: 0xc8e8ff, size: 0.08, speed: 3, up: 2 }); if (t === 'pot') burst(p.x, p.y, p.z, 8, { color: 0x6a4a2a, size: 0.12, speed: 2, up: 1.5 });
-    sfx(glass ? 'glass' : 'wood', { at: p }); for (const h of W.hitHooks.slice()) h(it, p); hitActors(it, p, it.def.heavy); vanish(it); return; }
+    sfx(glass ? 'glass' : 'wood', { at: p }); for (const h of W.hitHooks.slice()) h(it, p); hitActors(it,p,heavyHit(it,speed)); vanish(it); return; }
   for (const h of W.hitHooks.slice()) h(it, p);
   hitBreakables(p, it.def.r + 0.12, [it.vel.x, it.vel.y, it.vel.z], it.def.mass);
-  if (!it.football&&!(it.noHitT > 0)) hitActors(it, p, it.def.heavy || (it.def.knock && speed > 7));
+  if (!it.football&&!(it.noHitT > 0)) hitActors(it, p, heavyHit(it,speed));
   if (it.def.tool && W.toolImpact && W.toolImpact(it, p, gy)) { sfx('imp', { at: p, v: 0.5, m: materialAt(p.x, p.y, p.z) }); return; }
   worldHit(p, speed * it.def.mass * 0.35, it.vel);
   if (t === 'can' && (it.shake || 0) > 0.5 && W.sodaBlast) { it.state = 'gone'; it.g.visible = false; W.sodaBlast(p.clone(), it.owner); return; }
@@ -226,7 +227,9 @@ function simulate(it, dt, flying) {
   const steps = Math.min(6, Math.ceil(v.length() * dt / (r * 0.8)) || 1), h = dt / steps;
   const drag = Math.exp(-it.def.drag * h);
   for (let s = 0; s < steps; s++) {
-    v.y -= GRAV * h; v.multiplyScalar(drag); p.addScaledVector(v, h);
+    const old=p.clone();v.y-=GRAV*h;v.multiplyScalar(drag);const next=old.clone().addScaledVector(v,h),dv=next.clone().sub(old),len=dv.length(),wall=len?raySolids(old,dv.clone().normalize(),len):Infinity;
+    if(flying&&!it.football&&!(it.noHitT>0)){const hit=sweepActors(old,next,r,it.owner);if(hit&&hit.t*len<wall){p.lerpVectors(old,next,hit.t);it.hitTarget=hit.actor;impact(it,[0,1,0],v.length());it.hitTarget=null;return;}}
+    p.copy(next);if(wall<len){p.copy(old).addScaledVector(dv,Math.max(0,wall-.015)/Math.max(.001,len));if(flying){impact(it,[0,1,0],v.length());return;}}
     const gy = groundAt(p.x, p.z, r * 0.5, p.y + r * 0.5);
     if (p.y - ry < gy) {
       p.y = gy + ry;
@@ -308,15 +311,11 @@ export function throwVelocity(from, target, charge, def) {
   return new V3(dx / dist * vx, vy, dz / dist * vx);
 }
 export function launch(it, from, vel) { it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true; }
-export function predict(from, vel, out, n, def, end) {
-  const p = from.clone(), v = vel.clone(), h = 0.04, drag = Math.exp(-def.drag * h); let k = 0;
-  for (let i = 0; i < 120 && k < n; i++) {
-    v.y -= GRAV * h; v.multiplyScalar(drag); p.addScaledVector(v, h);
-    const gy = groundAt(p.x, p.z, 0.05, p.y + 0.2);
-    if (p.y < gy || solidHit(p, 0.05)) { if (end) { end.position.set(p.x, Math.max(gy, p.y) + 0.04, p.z); end.visible = true; } break; }
-    if (i % 2 === 0) out[k++].position.copy(p);
-  }
-  return k;
+export function predict(from,vel,out,n,def,end){
+ const p=from.clone(),v=vel.clone(),h=.04,drag=Math.exp(-def.drag*h);let k=0;if(end)end.visible=false;
+ for(let i=0;i<120&&k<n;i++){const old=p.clone();v.y-=GRAV*h;v.multiplyScalar(drag);const dv=v.clone().multiplyScalar(h),len=dv.length(),wall=len?raySolids(old,dv.clone().normalize(),len):Infinity;p.add(dv);if(wall<len)p.copy(old).addScaledVector(dv,wall/len);
+ const gy=groundAt(p.x,p.z,.05,p.y+.2);if(wall<len||p.y<gy||solidHit(p,.05)){if(end){end.position.set(p.x,Math.max(gy,p.y)+.04,p.z);end.visible=true;}break;}if(i%2===0)out[k++].position.copy(p);
+ }return k;
 }
 
 // цвет письма задаёт миссия «Почтальон» перед addItem

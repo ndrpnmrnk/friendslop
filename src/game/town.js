@@ -1,3 +1,4 @@
+import { tickNPCHit } from './impacts.js';
 import { THREE, G, V3, col, lam, tmat, glow, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { CONFIG } from '../config.js';
@@ -18,7 +19,7 @@ import { voice } from './voice.js';
    Происшествия раз в 30–40 с: по улице катится огромная тыква, едет мусоровоз, налетает порыв ветра. */
 export const TOWN = { folks: [], inc: null, incT: 30, toast: null };
 export function resetTown() {
-  for (const f of TOWN.folks) { W.group.remove(f.g); f.coat?.dispose(); } TOWN.folks = [];
+  for (const f of TOWN.folks) { W.group.remove(f.g); f.coat?.dispose(); } TOWN.folks = []; W.npcs=TOWN.folks;
   if (TOWN.inc) TOWN.inc.stop(); TOWN.inc = null;
   if (TOWN.thief) { W.group.remove(TOWN.thief.g); } TOWN.thief = W.thief = null; TOWN.thiefT = 45 + Math.random() * 20; TOWN.incT = 28 + Math.random() * 10;
   // бабка — у клумбы с цветами (в одном-двух районах)
@@ -244,7 +245,7 @@ function updDog(f, dt, t) {
   // оглушена броском: лежит со звёздочками, добыча выпала
   if (f.stunT > 0) { f.stunT -= dt; f.body.rotation.z = Math.min(1.4, f.body.rotation.z + dt * 6); f.legs.forEach(l => (l.rotation.x = 0.6)); if (Math.random() < dt * 3) puff(p.x, p.y + 0.8, p.z, { color: 0xf5c542, size: 0.08, grow: 0, vy: 0.3, life: 0.5 }); return; }
   f.body.rotation.z *= 0.85;
-  for (const it of W.items) if (it.state === 'fly' && it !== f.it && it.vel.length() > 5 && it.pos.distanceTo(new V3(p.x, p.y + 0.45, p.z)) < 0.6) { f.stunT = 2.5; dogDrop(f); f.chase = null; sfx('bark', { at: p }); burst(p.x, p.y + 0.6, p.z, 8, { color: 0xf5c542, size: 0.1, speed: 2 }); it.vel.multiplyScalar(-0.3); return; }
+
   // заметил брошенный предмет — бежит за ним
   if (!f.it && !f.chase) for (const it of W.items) { if (it.state === 'rest' && it.landT > 0 && it.def.mass < 2 && Math.hypot(it.pos.x - p.x, it.pos.z - p.z) < 13 && Math.abs(it.pos.y - p.y) < 1) { f.chase = it; sfx('bark', { at: p }); break; } }
   for (const it of W.items) if (it.landT > 0) it.landT -= dt / Math.max(1, TOWN.folks.length);
@@ -314,7 +315,7 @@ function handProp(P) {
 function skelNpc(sp, kind) {
   const m = skelModel(kind); setupBody(m.g, sp.x, sp.y, sp.z);
   const f = { kind: 'skel', act: kind, ...m, pos: m.g.position, vel: new V3(), home: new V3(sp.x, sp.y, sp.z), wp: new V3(sp.x, sp.y, sp.z), wt: 0, ph: 0, grumT: 0, busy: 0, gy: sp.y };
-  W.interacts.push({ get x() { return f.pos.x; }, get z() { return f.pos.z; }, get y() { return f.gy; }, r: 1.4, label: kind === 'smoke' ? 'Попросить сигаретку' : 'Выпить пивка', enabled: P => !P.held && !P.holding && f.busy <= 0 && !P.chill,
+  W.interacts.push({ get x() { return f.pos.x; }, get z() { return f.pos.z; }, get y() { return f.gy; }, r: 1.4, label: kind === 'smoke' ? 'Попросить сигаретку' : 'Выпить пивка', enabled: P => !P.held && !P.holding && f.busy <= 0 && !f.npcImpact && !P.chill,
     act: P => { f.busy = 10; P.chill = { t: 10, npc: f }; P.vel.set(0, P.vel.y, 0); const dx = P.pos.x - f.pos.x, dz = P.pos.z - f.pos.z, d = Math.hypot(dx, dz) || 1;
       P.pos.x = f.pos.x + dx / d * 1.25; P.pos.z = f.pos.z + dz / d * 1.25; P.root.rotation.y = P.facing = Math.atan2(-dx, -dz); f.g.rotation.y = Math.atan2(dx, dz); sfx(kind === 'smoke' ? 'hiss' : 'can', { at: f.pos }); toast(kind === 'smoke' ? 'ПЕРЕКУР…' : 'ПО ПИВКУ…'); } });
   return f;
@@ -434,7 +435,7 @@ const INC = {
 };
 export function updateTown(dt, t, P, bigActive) {
   updFlowers(dt); updThief(dt, t, P);
-  for (const f of TOWN.folks) { if (f.kind === 'granny') updGranny(f, dt, t); else if (f.kind === 'skel') updSkel(f, dt, t); else updDog(f, dt, t); }
+  for (const f of TOWN.folks) { if(tickNPCHit(f,dt,t))continue; if (f.kind === 'granny') updGranny(f, dt, t); else if (f.kind === 'skel') updSkel(f, dt, t); else updDog(f, dt, t); }
   if (!P) return;
   if (TOWN.inc) { if (TOWN.inc.update(dt) === 'end') { TOWN.inc.stop(); TOWN.inc = null; } return; }
   TOWN.incT -= dt;

@@ -9,7 +9,7 @@ const U = { cut: { value: 0 }, fade: { value: 0 }, cam: { value: new V3() }, tgt
 let t0 = 0;
 export function installOcclusion(group) {
   group.traverse(o => {
-    if (!o.isMesh) return;
+    if(!o.isMesh||o.userData.noOcc)return;
     for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
       if (!m || installed.has(m)) continue;
       installed.add(m);

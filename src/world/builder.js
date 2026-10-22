@@ -283,11 +283,11 @@ export class Builder {
     const n = Math.max(1, Math.round(len / (kind === 'iron' ? 0.35 : 2)));
     for (let i = 0; i <= n; i++) {
       const t = i / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
-      this.m(G.box, mat, x, h / 2, z, kind === 'iron' ? 0.05 : 0.1, h, kind === 'iron' ? 0.05 : 0.1);
+      this.m(G.box, mat, x, h / 2, z, kind === 'iron' ? 0.075 : 0.1, h, kind === 'iron' ? 0.075 : 0.1);
       if (kind === 'iron') this.m(G.cone4, mat, x, h + 0.08, z, 0.06, 0.16, 0.06);
     }
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    for (const y of kind === 'iron' ? [0.2, h - 0.15] : [0.4, h - 0.3]) this.m(G.box, mat, cx, y, cz, along ? len : 0.06, 0.06, along ? 0.06 : len);
+    for (const y of kind === 'iron' ? [0.2, h - 0.15] : [0.4, h - 0.3]) this.m(G.box, mat, cx, y, cz, along ? len : 0.1, 0.09, along ? 0.1 : len);
     if (kind === 'mesh') { const p = this.m(G.plane, lam({ map: rep(T.chainlink(), len / 1.5, h / 1.5), transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }), cx, h / 2, cz, len, h, 1); p.rotation.y = along ? 0 : Math.PI / 2; }
     this.solid(cx, cz, along ? len : 0.2, along ? 0.2 : len, 0, h);
   }

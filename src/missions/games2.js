@@ -1,3 +1,4 @@
+import {wiringGame} from './wiring.js';
 import { nearbyItemPoint, routeTo } from './location.js';
 import { sfx } from '../core/sfx.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow } from '../core/gfx.js';
@@ -58,18 +59,18 @@ export const PANEL_GAMES = {
     api.feedback?.();
     const s = o.spot, wy = s.wy, cx = s.cx ?? s.wx, cz = s.cz ?? s.wz, me = new V3(s.x, s.y, s.z);
     const toW = new V3(cx - s.x, 0, cz - s.z).normalize();
-    api.pose(s.camP?new V3(...s.camP):me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), new V3(cx, wy, cz).addScaledVector(toW, -0.5));
+    api.pose(s.camP?new V3(...s.camP):me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), (s.camL?new V3(...s.camL):new V3(cx,wy,cz).addScaledVector(toW,-.5)));
     const inWater = (x, z) => !!zoneAt(x, z, wy - 0.08, 'water');
     const aimRing = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xf5c542, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }), 0, wy + 0.04, 0, 0.35, 0.35, 1, W.group); aimRing.rotation.x = -Math.PI / 2;
     const shadowM = new THREE.MeshBasicMaterial({ color: 0x0a1420, transparent: true, opacity: 0.55, depthWrite: false });
     const fishes = [0, 1, 2].map(() => { const m = mesh(G.disc, shadowM, cx, wy + 0.03, cz, 0.32, 0.12, 1, W.group); m.rotation.x = -Math.PI / 2; const a = Math.random() * 6.28; return { m, a, r: Math.random() * (s.R ?? 2) * 0.6, sp: 0.4 + Math.random() * 0.4, t: Math.random() * 6 }; });
     // пойманная рыба: вид и вес выбираются заранее; редкая — больше очков
     const fishPick = pickFish(), catchFish = fishModel(fishPick.sp); catchFish.visible = false; W.group.add(catchFish);
-    const camP = s.camP?new V3(...s.camP):me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), camL = new V3(cx, wy, cz).addScaledVector(toW, -0.5), show = camP.clone().addScaledVector(camL.clone().sub(camP).normalize(), 1.7);
+    const camP = s.camP?new V3(...s.camP):me.clone().addScaledVector(toW, -2.6).add(new V3(0, 3.4, 0)), camL = (s.camL?new V3(...s.camL):new V3(cx,wy,cz).addScaledVector(toW,-.5)), show = camP.clone().addScaledVector(camL.clone().sub(camP).normalize(), 3.3);
     // подсказки на воде: «!» над поплавком при поклёвке и кольцо натяжения лески
     const bang = new THREE.Sprite(new THREE.SpriteMaterial({ map: pix('bang', 8, 16, (g) => { g.fillStyle = '#17111f'; g.fillRect(1, 0, 6, 16); g.fillStyle = '#f5c542'; g.fillRect(2, 1, 4, 9); g.fillRect(2, 12, 4, 3); }), depthTest: false, transparent: true })); bang.scale.set(0.2, 0.4, 1); bang.renderOrder = 12; bang.visible = false; W.group.add(bang);
     const tRing = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }), 0, wy + 0.05, 0, 0.5, 0.5, 1, W.group); tRing.rotation.x = -Math.PI / 2; tRing.visible = false;
-    let phase = 'aim', t = 0, aim = null, castT = 0, from = new V3(), to = new V3(), hunter = null, huntT = 0, biteT = 0, down = false, pull = false, pullT = 1.2, tension = 0, d0 = 1, endT = -1, res = null;
+    let phase = 'aim', t = 0, aim = null, castT = 0, from = new V3(), to = new V3(), hunter = null, huntT = 0, biteT = 0, down = false, pull = false, pullT=1.6,tension=0,d0=1,reelT=0, endT = -1, res = null;
     api.progress(null); api.msg('Кликни по воде — заброс');
     const end = (ok, txt) => { phase = 'end'; res = ok ? { success: true, mult: fishPick.sp.rare ? 1.6 : 1 } : { success: false }; api.msg(txt, ok ? 'good' : 'bad'); endT = ok ? 2.4 : 1.6; bang.visible = tRing.visible = false; };
     const bp = o.bob.position;
@@ -80,7 +81,7 @@ export const PANEL_GAMES = {
         down = true;
         if (phase === 'aim') { this.move(ray); if (!aim) { api.msg('Дальше, в воду!', 'bad'); return; } phase = 'cast'; castT = 0; from.copy(o.tip()); to.copy(aim); }
         else if (phase === 'wait') { api.msg('РАНО!', 'bad'); if (hunter) { hunter.a += Math.PI; hunter = null; } huntT = 2 + Math.random() * 2; }
-        else if (phase === 'bite') { phase = 'reel'; d0 = Math.hypot(bp.x - s.x, bp.z - s.z); tension = 0; api.progress(0); api.msg('ПОДСЁК! ДЕРЖИ — МОТАЙ', 'good'); bang.visible = false; tRing.visible = true; splash(bp.x, wy, bp.z, 0.7); if (hunter) hunter.m.visible = false; }
+        else if (phase === 'bite') { phase='reel';reelT=0;d0 = Math.hypot(bp.x - s.x, bp.z - s.z); tension = 0; api.progress(0); api.msg('ПОДСЁК! ДЕРЖИ — МОТАЙ', 'good'); bang.visible = false; tRing.visible = true; splash(bp.x, wy, bp.z, 0.7); if (hunter) hunter.m.visible = false; }
       },
       up() { down = false; },
       update(dt) {
@@ -92,7 +93,7 @@ export const PANEL_GAMES = {
         if (phase === 'aim') { bp.copy(o.tip()); }
         else if (phase === 'cast') {
           castT += dt / 0.6; const k = Math.min(1, castT); bp.lerpVectors(from, to, k); bp.y = from.y + (to.y + 0.1 - from.y) * k + Math.sin(k * Math.PI) * 1.5;
-          if (k >= 1) { phase = 'wait'; huntT = 1.2 + Math.random() * 2.5; splash(to.x, wy, to.z, 0.3); }
+          if (k >= 1) { phase = 'wait'; huntT=2.8+Math.random()*3; splash(to.x, wy, to.z, 0.3); }
         } else if (phase === 'wait') {
           bp.y = wy + 0.1 + Math.sin(t * 2) * 0.02; huntT -= dt;
           if (!hunter && huntT <= 0) hunter = fishes.reduce((a, b) => (Math.hypot(a.m.position.x - bp.x, a.m.position.z - bp.z) < Math.hypot(b.m.position.x - bp.x, b.m.position.z - bp.z) ? a : b));
@@ -103,10 +104,10 @@ export const PANEL_GAMES = {
           bp.y = wy + 0.02 + Math.sin(t * 32) * 0.06; biteT -= dt;
           if (biteT <= 0) { phase = 'wait'; hunter.a = Math.random() * 6.28; hunter = null; huntT = 1.5 + Math.random() * 2; bang.visible = false; api.msg('Сорвалась', 'bad'); }
         } else if (phase === 'reel') {
-          pullT -= dt; if (pullT <= 0) { pull = !pull; pullT = pull ? 0.6 + Math.random() * 0.7 : 0.9 + Math.random() * 1.2; api.msg(pull ? 'ОТПУСТИ!' : 'ТЯНИ!', pull ? 'bad' : 'good'); }
+          reelT+=dt;pullT -= dt; if (pullT <= 0) { pull = !pull; pullT = pull ? 0.6 + Math.random() * 0.7 : 0.9 + Math.random() * 1.2; api.msg(pull ? 'ОТПУСТИ!' : 'ТЯНИ!', pull ? 'bad' : 'good'); }
           const dx = s.x - bp.x, dz = s.z - bp.z, d = Math.hypot(dx, dz) || 1;
-          if (down && !pull) { bp.x += dx / d * dt * 1.6; bp.z += dz / d * dt * 1.6; tension = Math.max(0, tension - dt * 0.3); }
-          else if (pull) { const a = t * 0.7; bp.x -= dx / d * dt * 0.8 - Math.cos(a) * dt * 0.5; bp.z -= dz / d * dt * 0.8 - Math.sin(a) * dt * 0.5; if (!inWater(bp.x, bp.z)) { bp.x += dx / d * dt * 0.8; bp.z += dz / d * dt * 0.8; } if (down) tension += dt * 1.3; }
+          if (down && !pull) { bp.x += dx / d * dt*.78; bp.z+=dz/d*dt*.78; tension = Math.max(0, tension - dt * 0.3); }
+          else if (pull) { const a = t * 0.7; bp.x -= dx / d * dt * 0.8 - Math.cos(a) * dt * 0.5; bp.z -= dz / d * dt * 0.8 - Math.sin(a) * dt * 0.5; if (!inWater(bp.x, bp.z)) { bp.x += dx / d * dt * 0.8; bp.z += dz / d * dt * 0.8; } if (down) tension+=dt*1.4; }
           tension = Math.max(0, tension - dt * 0.35);
           bp.y = wy + 0.04 + (pull ? Math.sin(t * 28) * 0.06 : 0);
           if (Math.random() < dt * (pull ? 10 : 3)) ripple(bp.x, wy, bp.z, 0.4, 0.5);
@@ -116,11 +117,11 @@ export const PANEL_GAMES = {
           // кольцо натяжения: зелёное → жёлтое → красное; рыба рвётся — мигает
           tRing.position.set(bp.x, wy + 0.05, bp.z); tRing.scale.setScalar(0.35 + tension * 0.35); tRing.material.color.setHSL(0.33 * (1 - Math.min(1, tension)), 0.9, pull && Math.sin(t * 20) > 0 ? 0.65 : 0.5);
           if (tension > 1) end(false, 'Леска лопнула!');
-          else if (Math.hypot(bp.x - s.x, bp.z - s.z) < 1.3) { end(true, `${fishPick.sp.name} · ${String(fishPick.kg).replace('.', ',')} кг${fishPick.sp.rare ? ' · РЕДКАЯ!' : ''}`); splash(bp.x, wy, bp.z, 1.2); catchFish.visible = true; catchFish.position.copy(bp); catchFish.scale.setScalar(0.5); sfx('done'); }
+          else if(reelT>9&&Math.hypot(bp.x-s.x,bp.z-s.z)<1.3) { end(true, `${fishPick.sp.name} · ${String(fishPick.kg).replace('.', ',')} кг${fishPick.sp.rare ? ' · РЕДКАЯ!' : ''}`); splash(bp.x, wy, bp.z, 1.2); catchFish.visible = true; catchFish.position.copy(bp); catchFish.scale.setScalar(0.5); sfx('done'); }
           else if (d > (s.R ?? 3) * 2.5 + 4) end(false, 'Рыба ушла');
         } else {
           // пойманная рыба вылетает к камере и крутится крупным планом
-          if (catchFish.visible) { catchFish.position.lerp(show, Math.min(1, dt * 5)); catchFish.scale.setScalar(Math.min(1.6, catchFish.scale.x + dt * 3)); catchFish.rotation.y += dt * 2.6; catchFish.rotation.z = Math.sin(t * 9) * 0.25; }
+          if (catchFish.visible) { catchFish.position.lerp(show, Math.min(1, dt * 5)); catchFish.scale.setScalar(Math.min(.85,catchFish.scale.x+dt*.7)); catchFish.rotation.y+=dt*.7; catchFish.rotation.z=Math.sin(t*9)*.08;catchFish.userData.animate?.(t); }
           endT -= dt; if (endT <= 0) api.finish(res);
         }
         o.upd();
@@ -133,54 +134,7 @@ export const PANEL_GAMES = {
   /* Щиток — «Проводка»: на сетке пары цветных клемм. Веди провод мышью по клеткам от клеммы к клемме того же
      цвета; провода не пересекаются и не проходят через чужие клеммы. Уровень строится от готового решения
      (случайная «змейка» через всю сетку режется на куски), поэтому решить можно всегда. */
-  fuse(o, api, ctx) {
-    api.feedback?.();
-    const s = o.spot, F = new V3(s.f[0], 0, s.f[1]);
-    const c0 = new V3(s.bx, s.y + 0.85, s.bz).addScaledVector(F, 0.23);
-    api.pose(c0.clone().addScaledVector(F, 1.25), c0.clone());
-    const N = 5, K = 4 + (Math.random() < 0.5 ? 1 : 0), lvl = flowLevel(N, K);
-    const COLS = ['#ff5a6e', '#4ab0f0', '#f5c542', '#9be36b', '#b18cff'];
-    const ui = document.createElement('div'); ui.id = 'wireui'; ui.innerHTML = '<div class="wt">ЩИТОК · проведи провода</div><canvas width="300" height="300"></canvas><div class="ws">Тяни от клеммы к клемме того же цвета. Провода не пересекаются.</div>'; document.body.appendChild(ui); if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
-    const cv = ui.querySelector('canvas'), g = cv.getContext('2d'), CS = 300 / N;
-    const paths = lvl.pairs.map(() => []), done = new Set(); let cur = -1, endT = -1;
-    const owner = (x, y) => { for (let k = 0; k < paths.length; k++) if (paths[k].some(q => q[0] === x && q[1] === y)) return k; return -1; };
-    const endOf = (x, y) => lvl.pairs.findIndex(p => (p[0][0] === x && p[0][1] === y) || (p[1][0] === x && p[1][1] === y));
-    const cell = e => { const r = cv.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / r.width * N), Math.floor((e.clientY - r.top) / r.height * N)]; };
-    function draw() {
-      g.fillStyle = '#17111f'; g.fillRect(0, 0, 300, 300);
-      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { g.fillStyle = (x + y) % 2 ? '#241b33' : '#2a2038'; g.fillRect(x * CS + 2, y * CS + 2, CS - 4, CS - 4); }
-      paths.forEach((p, k) => { if (p.length < 2) return; g.strokeStyle = '#17111f'; g.lineWidth = CS * 0.42; g.lineCap = 'square'; g.lineJoin = 'miter'; g.beginPath(); p.forEach(([x, y], i) => (i ? g.lineTo : g.moveTo).call(g, x * CS + CS / 2, y * CS + CS / 2)); g.stroke();
-        g.strokeStyle = COLS[k]; g.lineWidth = CS * 0.3; g.stroke(); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = CS * 0.08; g.stroke(); });
-      lvl.pairs.forEach((pr, k) => pr.forEach(([x, y]) => { const cx = x * CS + CS / 2, cy = y * CS + CS / 2, r = CS * 0.34;
-        g.fillStyle = '#17111f'; g.fillRect(cx - r - 3, cy - r - 3, 2 * r + 6, 2 * r + 6); g.fillStyle = COLS[k]; g.fillRect(cx - r, cy - r, 2 * r, 2 * r);
-        g.fillStyle = done.has(k) ? '#fff' : 'rgba(0,0,0,.35)'; g.fillRect(cx - r * 0.35, cy - r * 0.35, r * 0.7, r * 0.7); }));
-    }
-    const checkDone = k => { const p = paths[k], pr = lvl.pairs[k], a = p[0], b = p[p.length - 1];
-      const isEnd = (q, e) => q && q[0] === e[0] && q[1] === e[1];
-      if (p.length > 1 && ((isEnd(a, pr[0]) && isEnd(b, pr[1])) || (isEnd(a, pr[1]) && isEnd(b, pr[0])))) { if (!done.has(k)) { done.add(k); sfx('fuse'); } } else done.delete(k); };
-    const onDown = e => { const [x, y] = cell(e), k = endOf(x, y);
-      if (k >= 0) { cur = k; paths[k] = [[x, y]]; done.delete(k); }
-      else { const ow = owner(x, y); if (ow >= 0) { cur = ow; const i = paths[ow].findIndex(q => q[0] === x && q[1] === y); paths[ow] = paths[ow].slice(0, i + 1); done.delete(ow); } }
-      draw(); };
-    const onMove = e => { if (cur < 0 || !(e.buttons & 1)) return; const [x, y] = cell(e); if (x < 0 || y < 0 || x >= N || y >= N) return; const p = paths[cur], last = p[p.length - 1];
-      if (last[0] === x && last[1] === y) return;
-      // назад по своему проводу — укоротить
-      const back = p.findIndex(q => q[0] === x && q[1] === y); if (back >= 0) { paths[cur] = p.slice(0, back + 1); checkDone(cur); draw(); return; }
-      if (Math.abs(last[0] - x) + Math.abs(last[1] - y) !== 1) return;
-      if (done.has(cur)) return;
-      const ek = endOf(x, y); if (ek >= 0 && ek !== cur) { api.msg('Искры! Чужая клемма', 'bad'); return; }
-      const ow = owner(x, y); if (ow >= 0 && ow !== cur) { api.msg('Провода не должны пересекаться', 'bad'); return; }
-      p.push([x, y]); checkDone(cur); draw();
-      if (done.size === K) { api.msg('Свет есть!', 'good'); endT = 0.9; } api.progress(done.size / K); };
-    const onUp = () => { cur = -1; };
-    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); addEventListener('pointerup', onUp);
-    draw(); api.progress(0); api.msg('Соедини одинаковые цвета');
-    return {
-      botStep(dt, brain) { if(!brain.ready(0.22)||endT>0)return;const k=paths.findIndex((p,i)=>p.length<lvl.routes[i].length);if(k<0)return;paths[k].push(lvl.routes[k][paths[k].length]);checkDone(k);draw();api.progress(done.size/K);if(done.size===K)endT=0.9; },
-      update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
-      stop() { ui.remove(); removeEventListener('pointerup', onUp); },
-    };
-  },
+  fuse(o,api,ctx){return wiringGame(o,api,ctx,flowLevel(5,4+(Math.random()<.5?1:0)));},
 
   // Сейф: крути диск (зажми ЛКМ и веди мышь), на нужной цифре щёлкает — нажми на ручку. Три цифры.
   safe(o, api) {

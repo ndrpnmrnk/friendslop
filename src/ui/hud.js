@@ -40,7 +40,7 @@ export function renderNav(camera, P, t) {
     const kx = (W2 / 2 - m) / Math.abs(dx || 1e-3), ky = (H2 / 2 - m - 30) / Math.abs(dy || 1e-3), k = Math.min(kx, ky); sx = cx + dx * k; sy = cy + dy * k; }
   el.style.transform = `translate(${Math.round(sx)}px,${Math.round(sy)}px)`;
   el.classList.toggle('edge', !on); el.querySelector('.na').style.transform = `rotate(${ang}rad)`;
-  const d = `${Math.round(Math.hypot(t.x - P.pos.x, t.z - P.pos.z))} м${t.floorDelta ? ' · ' + (t.floorDelta > 0 ? '▲' : '▼') + Math.abs(t.floorDelta) : ''}`, dd = el.querySelector('.nd'); if (dd.textContent !== d) dd.textContent = d;
+  const d = `${Math.round(Math.hypot(t.x - P.pos.x, t.z - P.pos.z))} м`, dd = el.querySelector('.nd'); if (dd.textContent !== d) dd.textContent = d;
   const lb = el.querySelector('.nl'), lt = t.label || ''; if (lb.textContent !== lt) lb.textContent = lt;
 }
 export function resetCompass() { NAV.key = ''; }

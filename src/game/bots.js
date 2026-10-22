@@ -90,7 +90,7 @@ function blockedAt(b, dx, dz, dist = 1.1) {
 function waypoint(b, g) {
   if (b.stairRoute) {
     const r = b.stairRoute, p = r.points[r.i];
-    if (Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 0.38 && Math.abs(p.y - b.pos.y) < 0.5) r.i++;
+    if (Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < .52 && Math.abs(p.y-b.pos.y)<.65) r.i++;
     if (r.i < r.points.length) return r.points[r.i];
     b.stairRoute = null; b.nav = null;
   }
@@ -154,9 +154,7 @@ export function updateBots(dt, t, P) {
   for (const b of W.bots || []) {
     if (b.drone || b.returning) { if(b.work&&!b.work.world)interruptBotWork(b);continue; }
     tickStun(b, dt);
-    if (b.escapeLadder && b.pos.y >= b.escapeLadder.y1 - 0.08) {
-      const l=b.escapeLadder;b.pos.x+=l.nx*0.8;b.pos.z+=l.nz*0.8;b.vel.set(0,0,0);b.climbing=false;b.escapeLadder=b.ladder=null;b.goal=null;b.think=0;b.pos.y=groundAt(b.pos.x,b.pos.z,b.r,b.pos.y+0.5);
-    }
+    const exiting=b.escapeLadder||b.ladder;if(b.climbing&&exiting&&b.pos.y>=exiting.y1-.06){const l=exiting,cx=(l.x0+l.x1)/2,cz=(l.z0+l.z1)/2;b.pos.y=Math.max(b.pos.y,l.y1+.06);b.ladderExit={x:cx-l.nx*.95,z:cz-l.nz*.95,left:1};b.climbing=false;b.escapeLadder=b.ladder=null;b.vel.y=0;b.nav=null;b.think=1;}
     if (b.pos.y < CONFIG.base - 1.5 || b.escapeLadder) {
       b.ugT=(b.ugT||0)+dt;
       const exits=W.ladders.filter(l=>l.y0<=b.pos.y+0.7&&l.y1>=CONFIG.base-0.4);
@@ -181,7 +179,7 @@ export function updateBots(dt, t, P) {
     const ctrl = !b.heldBy && b.stun <= 0 && !(b.getT > 0) && !(b.knockT > 0) && !(b.floatT > 0) && !(b.netT > 0);
     let ix = 0, iz = 0, run = 1;
     const ev = W.eventBot ? W.eventBot(b) : null;
-    if (b.work && !b.work.world) {
+    if(b.ladderExit&&ctrl){const q=b.ladderExit,dx=q.x-b.pos.x,dz=q.z-b.pos.z,d=Math.hypot(dx,dz);q.left-=dt;ix=dx/(d||1)*.55;iz=dz/(d||1)*.55;b.vel.y=0;if(d<.12||q.left<=0)b.ladderExit=null;}else if (b.work && !b.work.world) {
       b.vel.x*=Math.exp(-dt*15);b.vel.z*=Math.exp(-dt*15);
     } else if (ctrl) {
       // приоритеты: событие раунда → увернуться → приманка-уточка → характер
@@ -198,12 +196,12 @@ export function updateBots(dt, t, P) {
         const g0 = b.goal.who ? b.goal.who.pos : b.goal, d0 = Math.hypot(g0.x - b.pos.x, g0.z - b.pos.z), g = b.goal.who || (d0 < 1.6 && Math.abs(g0.y - b.pos.y) < 1.5) || !['mission', 'fetch', 'event', 'work'].includes(b.goal.kind) ? g0 : waypoint(b, g0);
         const dx = g.x - b.pos.x, dz = g.z - b.pos.z, d = Math.hypot(dx, dz), dy = g.y - b.pos.y;
         // ниже (с крыши) — к лестнице вниз и слезть
-        if (dy < -1.8 && !b.goal.who && (b.ladderDn || (b.ladderDn = ladderDown(b, g)))) { const l = b.ladderDn, cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2;
+        if(b.stairRoute){ix=dx/(d||1);iz=dz/(d||1);run=.65;b.climbing=false;}else if (dy < -1.8 && !b.goal.who && (b.ladderDn || (b.ladderDn = ladderDown(b, g)))) { const l = b.ladderDn, cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2;
           if (b.pos.x > l.x0 - 0.1 && b.pos.x < l.x1 + 0.1 && b.pos.z > l.z0 - 0.1 && b.pos.z < l.z1 + 0.1 && b.pos.y > l.y0 + 0.05) { ix = (cx - b.pos.x) * 3; iz = (cz - b.pos.z) * 3; b.vel.y = -PC.climb * 1.4; b.climbing = true; b.airPeak = b.pos.y; }
           else { b.climbing = false; [ix, iz] = steer(b, cx - l.nx * 0.3, cz - l.nz * 0.3, dt); if (b.pos.y < l.y0 + 0.3) b.ladderDn = null; } }
         // высоко — к лестнице
         else if ((dy > 1.6 || b.escapeLadder || (b.climbing && b.ladder && b.pos.y < b.ladder.y1 - 0.05)) && !b.goal.who) { b.ladderDn = null; const l = b.escapeLadder || b.ladder || (b.ladder = ladderTo(b, g)); if (l) { b.ladder=l; const cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2;
-          if (b.pos.x > l.x0 - 0.1 && b.pos.x < l.x1 + 0.1 && b.pos.z > l.z0 - 0.1 && b.pos.z < l.z1 + 0.1 && b.pos.y < l.y1 - 0.05) { ix = -l.nx + (cx - b.pos.x) * 2 * (l.nx ? 0 : 1); iz = -l.nz + (cz - b.pos.z) * 2 * (l.nz ? 0 : 1); b.vel.y = PC.climb; b.climbing = true; b.airPeak = b.pos.y; }
+          if (b.pos.x > l.x0 - 0.1 && b.pos.x < l.x1 + 0.1 && b.pos.z > l.z0 - 0.1 && b.pos.z < l.z1 + 0.1 && b.pos.y < l.y1 - 0.05) { ix=(cx-b.pos.x)*2;iz=(cz-b.pos.z)*2; b.vel.y = PC.climb; b.climbing = true; b.airPeak = b.pos.y; }
           else { b.climbing = false; [ix, iz] = steer(b, cx - l.nx * 0.1, cz - l.nz * 0.1, dt); } } else [ix, iz] = steer(b, g.x, g.z, dt); }
         else { b.ladder = null; b.ladderDn = null; b.climbing = false;
           const near = b.goal.kind === 'mission' ? 1.4 : b.goal.kind === 'fight' ? 1.0 : b.goal.near || 1.2;
@@ -233,7 +231,7 @@ export function updateBots(dt, t, P) {
     // толкотня с игроком
     if (P && !P.heldBy && !b.heldBy) { const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z, d = Math.hypot(dx, dz);
       if (d < b.r + P.r && d > 1e-3 && Math.abs(b.pos.y - P.pos.y) < 1.2) { const o = (b.r + P.r - d) / 2; b.pos.x += dx / d * o; b.pos.z += dz / d * o; P.pos.x -= dx / d * o; P.pos.z -= dz / d * o; } }
-    const was = b.onGround; b.noGrav = b.climbing && b.vel.y === 0;
+    const was = b.onGround; b.noGrav=ctrl&&(b.climbing||!!b.ladderExit);if(!ctrl){b.climbing=false;b.ladderExit=null;}
     applyGripMotion(b,dt);
     moveBody(b, dt, PC.gravity);
     if (b.onGround && !was) { const drop = b.airPeak - b.pos.y; if (drop > 0.6) smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1.6, size: 0.14 });
@@ -248,7 +246,7 @@ export function updateBots(dt, t, P) {
     if (b.onGround && spd > 7 && Math.random() < dt * 10) smoke(b.pos.x - b.vel.x / spd * 0.4, b.pos.y + 0.12, b.pos.z - b.vel.z / spd * 0.4, { size: 0.12, grow: 0.5, life: 0.5, vy: 0.4 });
     if (b.throwT > 0) b.throwT -= dt;
     updateEmote(b, dt, spd > 1);
-    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, dive: b.diveT > 0 ? 'air' : null, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, payload:b.carryCrate?0.5:b.carryKitten?0.42:b.held?.def.r||0,missionTool:!!b.missionTool,hold: (!!b.work && !b.work.world || !!b.held || b.carryKitten || b.carryCrate || b.carryNet) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
+    b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, dive: b.diveT > 0 ? 'air' : null, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, payload:b.carryCrate?0.5:b.carryKitten?0.42:b.held?.def.r||0,missionTool:!!b.missionTool,hold: (!!b.hotPotato || !!b.work && !b.work.world || !!b.held || b.carryKitten || b.carryCrate || b.carryNet) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
       emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, restrained: !!b.heldBy, swat: b.swatT > 0 ? b.swatT : 0, zombie: !!b.zombie });
     poseBotWork(b);
     if (b.held) { cargoPosition(b,b.held.pos,b.held.def.r); b.held.g.rotation.y = b.root.rotation.y; }
@@ -349,7 +347,7 @@ function act(b, P, dt) {
 function los(b, v) { _o.set(b.pos.x, b.pos.y + 1.3, b.pos.z); _d.set(v.pos.x - b.pos.x, v.pos.y + 1 - _o.y, v.pos.z - b.pos.z); const L = _d.length(); _d.normalize(); return raySolids(_o, _d, L) >= L - 0.2; }
 function throwAt(b, v) {
   const it = b.held; if (!it) return; b.throwCD = 3 + Math.random() * 4;
-  const from = b.ch.holdPoint.clone(), tgt = v.pos.clone().setY(v.pos.y + 1); tgt.x += v.vel.x * 0.35; tgt.z += v.vel.z * 0.35;
+  const from = it.pos.clone(), tgt = v.pos.clone().setY(v.pos.y + 1); tgt.x += v.vel.x * 0.35; tgt.z += v.vel.z * 0.35;
   const vel = throwVelocity(from, tgt, 0.55 + Math.random() * 0.35, it.def); b.held = null; it.owner = b; launch(it, from, vel);
   b.facing = Math.atan2(v.pos.x - b.pos.x, v.pos.z - b.pos.z); voice(b.ch, 'throw', b.pos); sfx('throw', { at: b.pos }); b.throwT = 0.3;
 }
@@ -359,8 +357,9 @@ const hitStat = (b, v) => { W.onHit && W.onHit(b, v, 'melee'); };
    Раскрытый зонтик спереди закрывает от бросков. */
 export function botHitHook(it, p, heavy, r) {
   for (const a of actors()) {
-    if (it.owner === a || a.hidden || a.heldBy) continue;
+    if(it.owner===a||a.hidden||(it.hitTarget&&it.hitTarget!==a))continue;
     if (!(Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < r && p.y > a.pos.y - 0.3 && p.y < a.pos.y + a.h + 0.4)) continue;
+    if(!it.hitTarget){const q=a.pos.clone().add(new V3(0,a.h*.5,0)).sub(p),len=q.length();if(raySolids(p,q.normalize(),len)<len-.05)continue;}
     // зонтик-щит
     if (a.held && a.held.type === 'umbrella' && a.held.open) { const f = a.root.rotation.y; if (-(it.vel.x * Math.sin(f) + it.vel.z * Math.cos(f)) > 2) { it.vel.multiplyScalar(-0.35); sfx('umbrella', { at: a.pos }); continue; } }
     // в пузыре: попадание лопает пузырь
@@ -368,7 +367,7 @@ export function botHitHook(it, p, heavy, r) {
     if (heavy) { knockDown(a, it.vel.x * 0.4, it.vel.z * 0.4, a === W.player ? 1.2 : 1.4); voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); }
     else { a.push.set(it.vel.x * (a.bot ? 0.2 : 0.15), 0, it.vel.z * (a.bot ? 0.2 : 0.15)); if (it.type === 'balloon') { a.wetT = 4; a.slipT = 2; }
       // мяч и шарик — стан стоя (звёздочки), без падения
-      if ((it.type === 'ball' || it.type === 'balloon') && it.vel.length() > 6) daze(a, 0.9); }
+      daze(a,Math.min(1.8,.55+it.def.mass*it.vel.length()*.035)); }
     if (it.owner && it.owner.bot && a !== it.owner) { if (a === W.player && Math.random() < 0.5) setTimeout(() => startEmote(it.owner, 'laugh'), 500); }
     W.onHit && W.onHit(it.owner, a, heavy ? 'heavy' : 'light');
     // жетон попал — если у хозяина есть наряд, тот бежит арестовывать

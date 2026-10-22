@@ -93,6 +93,8 @@ export const MoreMethods = {
     const fx = Math.sin(ry), fz = Math.cos(ry), rx = Math.cos(ry), rz = -Math.sin(ry);
     for (const sx of [-1, 1]) this.solid(x + rx * sx * w / 2, z + rz * sx * w / 2, 0.15, 0.15, 0, h);
     this.solid(x - fx * 1.55, z - fz * 1.55, Math.abs(fx) > 0.5 ? 0.15 : w, Math.abs(fx) > 0.5 ? w : 0.15, 0, h * 0.5);
+    for(const side of [-1,1])this.solid(x+rx*side*w/2-fx*.8,z+rz*side*w/2-fz*.8,Math.abs(fx)>.5?1.6:.14,Math.abs(fx)>.5?.14:1.6,0,h);
+    this.solid(x,z,Math.abs(fx)>.5?.14:w+.12,Math.abs(fx)>.5?w+.12:.14,h-.06,.14);
     W.goals.push({ x: this.X(x), z: this.Z(z), y: this.Y, fx, fz, rx, rz, w, h, score: 0 });
   },
   floodlight(x, z, ry = 0, h = 9) {

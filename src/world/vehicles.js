@@ -1,10 +1,11 @@
 import {THREE,G,mesh,col,tmat,compose} from '../core/gfx.js';
 import {T} from '../core/textures.js';
 // Общие низкополигональные модели, подвижны только колёса и педали.
+const BIKE_TIRE=new THREE.TorusGeometry(.32,.038,5,16),BIKE_RIM=new THREE.TorusGeometry(.285,.014,4,16);
 export function bicycleModel(){
  const g=new THREE.Group(),wheels=[],metal=tmat(T.metal()),frame=col(0x497db0),rubber=col(0x211d29);
  const bar=(a,b,r=.025,m=frame)=>{const v=new THREE.Vector3().subVectors(b,a),q=mesh(G.cyl6,m,0,0,0,r,v.length(),r,g);q.position.copy(a).add(b).multiplyScalar(.5);q.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());};
- for(const z of [-.62,.62]){const w=new THREE.Group();w.position.set(0,.35,z);g.add(w);wheels.push(w);mesh(G.torus,rubber,0,0,0,.35,.35,.35,w).rotation.y=Math.PI/2;mesh(G.torus,metal,0,0,0,.30,.30,.30,w).rotation.y=Math.PI/2;for(let i=0;i<5;i++)mesh(G.box,metal,0,0,0,.008,.60,.008,w).rotation.x=i*Math.PI/5;}
+ for(const z of [-.62,.62]){const w=new THREE.Group();w.position.set(0,.35,z);g.add(w);wheels.push(w);mesh(BIKE_TIRE,rubber,0,0,0,1,1,1,w).rotation.y=Math.PI/2;mesh(BIKE_RIM,metal,0,0,0,1,1,1,w).rotation.y=Math.PI/2;for(let i=0;i<5;i++)mesh(G.box,metal,0,0,0,.008,.60,.008,w).rotation.x=i*Math.PI/5;}
  const v=(y,z)=>new THREE.Vector3(0,y,z),C=v(.40,-.08),S=v(.86,-.24),F=v(.88,.40),B=v(.35,-.62),A=v(.35,.62);
  for(const [a,b]of [[C,S],[S,F],[F,C],[C,B],[B,S],[F,A]])bar(a,b);
  mesh(G.box,rubber,0,.90,-.24,.22,.05,.28,g);mesh(G.box,metal,0,1.03,.42,.58,.035,.035,g);

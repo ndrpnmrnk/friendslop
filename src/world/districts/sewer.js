@@ -32,7 +32,7 @@ export default {
     b.box(16,10,3.8,2.6,.18,tmat(T.wood()),{y:-.03});
     for(const x of [14.3,17.7])b.box(x,10,.12,.12,4,dk,{y:-4});
     b.plank(12,10,14.2,10,.15,1.2);
-    W.spots.fish.push({x:b.X(16),z:b.Z(10.9),y:b.Y+.15,f:[0,1],wx:b.X(16),wz:b.Z(13),wy:b.Y+FLOOR+.25,cx:b.X(16),cz:b.Z(12.7),R:1.1,camP:[b.X(17.4),b.Y+2.5,b.Z(12.0)],district:'Коллектор',label:'рыбацкий мостик'});
+    W.spots.fish.push({x:b.X(16),z:b.Z(10.9),y:b.Y+.15,f:[0,1],wx:b.X(16),wz:b.Z(13),wy:b.Y+FLOOR+.25,cx:b.X(16),cz:b.Z(12.7),R:2.0,camP:[b.X(16),b.Y+3.8,b.Z(7.7)],camL:[b.X(16),b.Y-1.2,b.Z(12.5)],district:'Коллектор',label:'рыбацкий мостик'});
     // Прыжковый выход с нижней полки на берег, шаг высоты 0.75 м.
     for(let i=0;i<4;i++)b.box(12.9,18.6+i*.85,1.3,.9,.22,conc,{y:LEDGE+(i+1)*.75-.22});
     b.plank(11.1,22,13.4,22,.15,1.3);

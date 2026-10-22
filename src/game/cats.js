@@ -1,3 +1,4 @@
+import { hitNPC,tickNPCHit } from './impacts.js';
 import { THREE, G, V3, mesh, tmat, lam, frontBack, sprite } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -48,9 +49,7 @@ export function buildCat(coat) {
     pos() { return root.position; },
     // попадание предметом: тяжёлый — кот оглушён, лёгкий — убегает
     hit(heavy, vx, vz) {
-      if (this.mode === 'pet') return;
-      const d = Math.hypot(vx, vz) || 1;
-      if (heavy) { this.dizzy = 2.2; this.flee = 0; } else { this.flee = 2.5; this.fx = vx / d; this.fz = vz / d; }
+      hitNPC(this,heavy,vx,vz);
     },
   };
   return cat;
@@ -80,6 +79,7 @@ function wake(c) { const sl = c.sleep; c.sleep = null; c.legs.forEach(l => (l.vi
   c.flee = 1.5; c.fx = (tx - sl.x) / d; c.fz = (tz - sl.z) / d; c.away = 30; sfx('meow', { at: c.root.position }); }
 export function purr(c) { c.purrT = 2.5; sfx('purr', { at: c.root.position }); }
 export function updateCat(c, dt, t, player) {
+  if(tickNPCHit(c,dt,t))return;
   let walking = false, speed = 1.4;
   const p = c.root.position;
   if (c.mode === 'walk' && c.sleep) {

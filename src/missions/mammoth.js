@@ -1,4 +1,4 @@
-import { THREE,G,V3,mesh,col,tmat,sprite } from '../core/gfx.js';
+import { THREE,V3 } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
 import { addSolid } from '../world/physics.js';
@@ -13,25 +13,46 @@ export function buildMammoth(x,y,z,f){
 export function mammothWorld(o,api,ctx){api.feedback?.();const P=ctx.player,spot=o.g.localToWorld(new V3(1.3,.1,-1.65)),pants=addItem('mammothpants',spot.x,spot.y,spot.z);pants.mission=ctx.mission;let time=100;api.msg('Возьми трусики рядом с мамонтом и подойди сзади');return{botItems:()=>[pants],botTarget:()=>P.held===pants?o.front():pants.pos,target:()=>P.held===pants?o.front():pants.pos,prompt:()=>P.held===pants&&P.pos.distanceTo(o.front())<2?'<b>E</b>Надеть трусики мамонту':'',interact(){if(P.held===pants&&P.pos.distanceTo(o.front())<2){api.finish({chain:'mammothDress'});return true;}return false;},update(dt){time-=dt;api.timer(time);api.progress(P.held===pants?.25:0);if(time<=0||pants.state==='gone')api.finish({success:false});},stop(){if(pants.owner?.held===pants)pants.owner.held=null;pants.state='gone';pants.g.visible=false;}};}
 export function mammothDress(o,api,ctx){
  api.feedback?.();ctx.cursor(true);
- const N=32,rows=5,p=new Float32Array((N+1)*rows*3),uv=new Float32Array((N+1)*rows*2),idx=[];
- for(let j=0;j<rows;j++)for(let i=0;i<=N;i++){const k=j*(N+1)+i;uv[k*2]=i/N*3;uv[k*2+1]=1-j/(rows-1);if(j<rows-1&&i<N){const b=k+N+1;idx.push(k,b,k+1,k+1,b,b+1);}}
- const geom=new THREE.BufferGeometry();geom.setAttribute('position',new THREE.BufferAttribute(p,3));geom.setAttribute('uv',new THREE.BufferAttribute(uv,2));geom.setIndex(idx);
- const mat=tmat(pantsTexture(),{side:THREE.DoubleSide}),cloth=new THREE.Mesh(geom,mat);cloth.name='mammoth-briefs';o.g.add(cloth);cloth.frustumCulled=false;geom.boundingSphere=new THREE.Sphere(new V3(0,1,0),3);
+ // Общие индексы пояса, промежности и штанин: три открытые кромки, без разрезов ткани.
+ const N=32,meta=[],indices=[],verts=[],uv=[],colors=[];
+ const add=(v,u,w)=>{const i=meta.length;meta.push(v);verts.push(0,0,0);uv.push(u,w);colors.push(1,1,1);return i;};
+ const join=(a,b)=>{for(let i=0;i<a.length;i++){const j=(i+1)%a.length;indices.push(a[i],b[i],a[j],a[j],b[i],b[j]);}};
+ const waist=[];for(let r=0;r<3;r++){const ring=[];for(let i=0;i<N;i++)ring.push(add({kind:'band',a:i/N*Math.PI*2,row:r},i/N*3,1-r*.12));waist.push(ring);if(r)join(waist[r-1],ring);}
+ const bridge=[];for(let j=1;j<6;j++)bridge.push(add({kind:'bridge',t:j/6},.5,j/6));
+ for(let side=0;side<2;side++){
+  const edge=side?[...waist[2].slice(16),waist[2][0],...bridge]:[...waist[2].slice(0,17),...[...bridge].reverse()];let prev=edge;
+  for(let row=1;row<=4;row++){const ring=edge.map((source,i)=>add({kind:'leg',source,side,k:row/4,a:(side?Math.PI:0)+i/edge.length*Math.PI*2},i/edge.length*2,1-row/4));join(prev,ring);prev=ring;}
+ }
+ const geom=new THREE.BufferGeometry();geom.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geom.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geom.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geom.setIndex(indices);
+ const mat=new THREE.MeshLambertMaterial({map:pantsTexture(),side:THREE.DoubleSide,vertexColors:true,flatShading:true}),cloth=new THREE.Mesh(geom,mat);cloth.name='mammoth-briefs';cloth.frustumCulled=false;o.g.add(cloth);
  const grip=new THREE.Group();o.g.add(grip);toolHand(ctx,grip);grip.visible=false;
- const heights=[.25,.25,.25,.25],vel=[0,0,0,0],plane=new THREE.Plane(),hit=new V3();let page=0,side=0,selected=-1,hy=0,base=0,goal=.25,turn=0,end=-1,bott=0;
- const look=new V3(),eye=new V3();
- function pose(){const z=page?1:-1;look.copy(o.g.localToWorld(new V3(0,.95,z*.7)));eye.copy(o.g.localToWorld(new V3(1.7,1.85,z*3.6)));api.pose(eye,look);plane.setFromNormalAndCoplanarPoint(eye.clone().sub(look).normalize(),look);}
- function msg(){api.msg((page?'Спереди: ':'Сзади: ')+(side?'подтяни справа':'подтяни слева')+' - ЛКМ по ткани, тяни вверх');}
- function release(){if(selected<0)return;const i=selected;heights[i]=Math.min(1.33,Math.max(base,heights[i]));vel[i]=0;selected=-1;side=1-side;sfx('cloth');msg();}
- pose();msg();
- return{get heights(){return heights;},get page(){return page;},
- down(ray){if(end>=0||turn>0)return;o.g.updateMatrixWorld(true);const h=ray.intersectObject(cloth);if(!h.length||!ray.ray.intersectPlane(plane,hit))return;selected=page*2+side;base=heights[selected];hy=hit.y;goal=base;},
- move(ray){if(selected<0||!ray.ray.intersectPlane(plane,hit))return;goal=Math.min(1.38,base+Math.max(0,hit.y-hy)*.8);},up:release,
- botStep(dt,brain){bott+=dt;if(turn>0)return;if(selected<0){const ix=page?(side?4:28):(side?12:20),q=geom.attributes.position,local=new V3();for(const v of [ix,ix+1,ix+N+1])local.add(new V3(q.getX(v),q.getY(v),q.getZ(v)));local.multiplyScalar(1/3);this.down(brain.rayTo(o.g.localToWorld(local)));}else{goal=Math.min(1.38,goal+dt*.45);if(heights[selected]-base>.25||heights[selected]>1.31)release();}},
- update(dt){turn=Math.max(0,turn-dt);for(let i=0;i<4;i++){const target=i===selected?goal:heights[i];vel[i]+=(target-heights[i])*65*dt;vel[i]*=Math.exp(-12*dt);heights[i]=Math.min(1.35,Math.max(.22,heights[i]+vel[i]*dt));}
- for(let j=0;j<rows;j++)for(let i=0;i<=N;i++){const a=i/N*Math.PI*2,x=Math.sin(a),z=Math.cos(a),front=z>0,left=x<0,k=(front?2:0)+(left?0:1),op=(front?0:2)+(left?0:1),top=heights[k]*.8+heights[op]*.2,y=Math.max(.12,top-j/(rows-1)*.50),body=Math.sqrt(Math.max(0,1-((y-1.5)/.94)**2)),n=(j*(N+1)+i)*3;p[n]=x*Math.max(.80,.96*body+.05);p[n+1]=y+Math.sin(a*4+bott*2)*.009;p[n+2]=z*Math.max(.90,1.25*body+.055);}
- geom.attributes.position.needsUpdate=true;geom.computeVertexNormals();grip.visible=selected>=0;if(selected>=0)grip.position.set(side?.75:-.75,heights[selected],page?1.02:-1.02);
- if(selected<0&&heights[page*2]>=1.29&&heights[page*2+1]>=1.29){if(!page){page=1;side=0;turn=.7;pose();msg();}else if(end<0){end=.8;sfx('done');api.msg('Натянули!','good');}}
- api.progress(heights.reduce((s,y)=>s+(y-.25)/1.08,0)/4);if(end>=0){end-=dt;if(end<=0)api.finish({success:true,mult:1});}
+ const heights=[.28,.28,.28,.28],velocity=[0,0,0,0],fixed=[false,false,false,false],flash=[0,0,0,0],plane=new THREE.Plane(),hit=new V3(),eye=new V3(),look=new V3(),targetEye=new V3(),targetLook=new V3(),local=new V3();let page=0,side=0,selected=-1,hy=0,base=0,goal=.28,turn=0,end=-1,time=0;
+ const part=(x,z)=>(z>0?2:0)+(x<0?0:1);
+ function pose(snap=false){const z=page?1:-1;targetLook.copy(o.g.localToWorld(new V3(0,.97,z*.65)));targetEye.copy(o.g.localToWorld(new V3(1.45,1.65,z*2.85)));if(snap){eye.copy(targetEye);look.copy(targetLook);}api.pose(eye,look);}
+ function message(){api.msg((page?'Спереди: ':'Сзади: ')+(side?'правый':'левый')+' светлый край - зажми ЛКМ и подтяни вверх');}
+ function release(){if(selected<0)return;const i=selected;velocity[i]=0;if(heights[i]>1.28){heights[i]=1.34;fixed[i]=true;flash[i]=.8;sfx('click');api.msg('Край на месте!','good');}else{sfx('cloth');}selected=-1;side=fixed[page*2+1-side]?side:1-side;if(!fixed[i])message();}
+ function project(q){
+  // Мягкая оболочка корпуса и четыре ноги удерживают ткань снаружи шерсти.
+  const y=(q.y-1.5)/.97,r=Math.hypot(q.x/.99,y,q.z/1.28);if(r<1&&r>.01){q.x/=r;q.y=1.5+(q.y-1.5)/r;q.z/=r;}
+  if(q.y<1.38)for(const x of [-.59,.59])for(const z of [-.73,.73]){const dx=q.x-x,dz=q.z-z,d=Math.hypot(dx,dz),radius=q.y>.9?.345:.30;if(d<radius){q.x=x+(d>.001?dx/d:Math.sign(x))*radius;q.z=z+(d>.001?dz/d:0)*radius;}}
+  q.y=Math.max(.055,q.y);return q;
+ }
+ function deform(){const pos=geom.attributes.position,c=geom.attributes.color;
+  for(let i=0;i<meta.length;i++){const v=meta[i];let x=0,y=0,z=0,k=0;if(v.kind==='band'){x=Math.sin(v.a);z=Math.cos(v.a);k=part(x,z);const other=k<2?k+2:k-2,blend=Math.min(1,Math.abs(z)*2);y=heights[k]*blend+(heights[k]+heights[other])*.5*(1-blend)-v.row*.13;x*=.99;z*=1.28;}
+   else if(v.kind==='bridge'){y=heights.reduce((a,b)=>a+b,0)/4-.38;z=1.28-v.t*2.56;k=part(0,z);}
+   else{const sx=pos.getX(v.source),sy=pos.getY(v.source),sz=pos.getZ(v.source),sign=v.side?-1:1,low=Math.max(.08,Math.min(heights[0],heights[1])-.58);x=sx*(1-v.k)+(sign*.59+Math.sin(v.a)*.325)*v.k;y=sy*(1-v.k)+low*v.k;z=sz*(1-v.k)+(-.73+Math.cos(v.a)*.375)*v.k;k=part(x,z);}
+   local.set(x,y,z);project(local);pos.setXYZ(i,local.x,local.y,local.z);const active=v.kind==='band'&&v.row===0&&k===page*2+side&&!fixed[k];c.setXYZ(i,flash[k]>0?.60:1,flash[k]>0?1:active?1:.91,flash[k]>0?.58:active?.48:.95);
+  }pos.needsUpdate=c.needsUpdate=true;geom.computeVertexNormals();
+ }
+ pose(true);deform();message();
+ return{get heights(){return heights;},get page(){return page;},get cloth(){return cloth;},
+ down(ray){if(end>=0||turn>0)return;o.g.updateMatrixWorld(true);const hits=ray.intersectObject(cloth);if(!hits.length||!ray.ray.intersectPlane(plane,hit))return;const q=o.g.worldToLocal(hits[0].point.clone()),i=page*2+(q.x<0?0:1);if(fixed[i])return;side=i%2;selected=i;base=heights[i];hy=hit.y;goal=base;},
+ move(ray){if(selected<0||!ray.ray.intersectPlane(plane,hit))return;goal=Math.min(1.38,base+Math.max(0,hit.y-hy)*.85);},up:release,
+ botStep(dt,brain){if(turn>0||end>=0)return;if(selected<0){const pos=geom.attributes.position,ind=geom.index;for(let j=0;j<ind.count;j+=3){const q=new V3();for(let k=0;k<3;k++)q.add(new V3().fromBufferAttribute(pos,ind.getX(j+k)));q.multiplyScalar(1/3);if((q.x<0?0:1)!==side)continue;const ray=brain.rayTo(o.g.localToWorld(q));const hits=ray.intersectObject(cloth);if(!hits.length)continue;const front=o.g.worldToLocal(hits[0].point.clone());if((front.x<0?0:1)!==side)continue;this.down(ray);if(selected>=0)break;}}else{goal=Math.min(1.38,goal+dt*.48);if(heights[selected]-base>.24||heights[selected]>1.30)release();}},
+ update(dt){time+=dt;turn=Math.max(0,turn-dt);for(let i=0;i<4;i++){flash[i]=Math.max(0,flash[i]-dt);if(fixed[i])continue;const target=i===selected?goal:heights[i];velocity[i]+=(target-heights[i])*65*dt;velocity[i]*=Math.exp(-12*dt);heights[i]=Math.min(1.36,Math.max(.26,heights[i]+velocity[i]*dt));}
+  for(const [a,b]of [[0,1],[2,3],[0,2],[1,3]]){const low=heights[a]<heights[b]?a:b,high=low===a?b:a;if(!fixed[low]&&heights[high]-heights[low]>.42)heights[low]+=dt*.28;}
+  deform();eye.lerp(targetEye,1-Math.exp(-dt*4));look.lerp(targetLook,1-Math.exp(-dt*4));api.pose(eye,look);plane.setFromNormalAndCoplanarPoint(eye.clone().sub(look).normalize(),look);grip.visible=selected>=0;if(selected>=0)grip.position.set(side?.83:-.83,heights[selected],page?1.08:-1.08);
+  if(selected<0&&fixed[page*2]&&fixed[page*2+1]){if(!page){page=1;side=0;turn=.7;pose();message();}else if(end<0){end=.9;sfx('done');api.msg('Трусики на месте!','good');}}
+  api.progress(heights.reduce((s,y)=>s+Math.max(0,(y-.28)/1.06),0)/4);if(end>=0){end-=dt;if(end<=0)api.finish({success:true,mult:1});}
  },stop(){grip.removeFromParent();cloth.removeFromParent();geom.dispose();mat.dispose();ctx.cursor(true);}};
 }

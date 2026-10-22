@@ -11,7 +11,7 @@ import { LIGHTMAT, LIGHTDIM, WATERMAT } from '../world/builder.js';
 import { UG } from '../world/underground.js';
 import { splash, burst, puff, smokeRing } from '../world/particles.js';
 import { groundAt, isFree } from '../world/physics.js';
-import { actors, shove, knockDown } from './actors.js';
+import { actors, shove, knockDown, dropHeld } from './actors.js';
 import { spawnTool, explode } from './tools.js';
 import { iconCanvas } from '../ui/icons.js';
 import { CONFIG } from '../config.js';
@@ -185,8 +185,8 @@ const BIG = {
         const gy = groundAt(s.bomb.position.x, s.bomb.position.z, 0.25, s.bomb.position.y + 0.2); if (s.bomb.position.y < gy + 0.3) { s.bomb.position.y = gy + 0.3; f.v.set(0, 0, 0); }
         if (s.cd <= 0) for (const a of actors()) if (!a.hidden && a.pos.clone().add(new V3(0, 0.8, 0)).distanceTo(s.bomb.position) < 1.25) { give(s, a); break; }
       } else if (s.h) {
-        const h = s.h; s.bomb.position.set(h.pos.x, h.pos.y + 1.6, h.pos.z);
-        if (s.cd <= 0) for (const o of actors()) if (o !== h && !o.hidden && o.pos.distanceTo(h.pos) < 1.15) { give(s, o); sfx('pop', { at: o.pos }); break; }
+        const h=s.h;if(h.drone||h.returning){const next=actors()[0];if(next)give(s,next);return null;}h.held&&dropHeld(h);const d=h.ch.d;h.ch.handL.position.set(-.22,d.holdY,d.holdZ+.08);h.ch.handR.position.set(.22,d.holdY,d.holdZ+.08);h.root.updateMatrixWorld(true);s.bomb.position.copy(h.root.localToWorld(new V3(0,d.holdY,d.holdZ+.17)));
+        if (s.cd <= 0) for (const o of actors()) if (o !== h && !o.hidden && o.pos.distanceTo(h.pos) < 1.15 && raySolids(h.pos.clone().add(new V3(0,.8,0)),o.pos.clone().sub(h.pos).normalize(),o.pos.distanceTo(h.pos))>=o.pos.distanceTo(h.pos)-.1) { give(s, o); sfx('pop', { at: o.pos }); break; }
       }
       s.bomb.rotation.y += dt * 4;
       const k = Math.max(0, s.left / s.T); s.tick -= dt; if (s.tick <= 0) { s.tick = 0.15 + k * 0.6; sfx('tick', { at: s.bomb.position, v: 0.7 }); puff(s.bomb.position.x, s.bomb.position.y + 0.45, s.bomb.position.z, { color: 0xffd25c, size: 0.08, vy: 1, life: 0.3 }); }
@@ -197,13 +197,13 @@ const BIG = {
       }
       return null;
     },
-    onHit(s, att, vic) { if (att === s.h && vic && !vic.drone && s.cd <= 0) give(s, vic); },
+    onHit(){},
     bot(s, b) { if (s.flight) return { x: s.bomb.position.x, y: s.bomb.position.y, z: s.bomb.position.z, kind: 'event', near: 0.5 };
       if (!s.h) return null;
       if (s.h === b) { const o = actors().filter(a => a !== b && !a.hidden).sort((p, q) => p.pos.distanceTo(b.pos) - q.pos.distanceTo(b.pos))[0]; return o ? { who: o, kind: 'event', near: 0.4 } : null; }
       const dx = b.pos.x - s.h.pos.x, dz = b.pos.z - s.h.pos.z, d = Math.hypot(dx, dz) || 1; return d > 8 ? null : { x: b.pos.x + dx / d * 6, y: b.pos.y, z: b.pos.z + dz / d * 6, kind: 'event', near: 1 }; },
     stop(s) { W.group.remove(s.bomb); if (s.h) s.h.hotPotato = false; },
-    info: s => `${s.h === ctx.player() ? 'У ТЕБЯ! ПКМ — бросить' : s.h?.name || 'В полёте'} · ${Math.max(0, Math.ceil(s.left))}`,
+    info: s => `${s.h === ctx.player() ? 'У ТЕБЯ! Касание / ЛКМ - передать' : s.h?.name || 'В полёте'} · ${Math.max(0, Math.ceil(s.left))}`,
   },
 
   /* Пол — лава (v0.19): единый слой лавы по всему городу поднимается в 3 ступени (0.25 → 0.6 → 1.0 м над землёй),
@@ -263,13 +263,13 @@ function infect(s, a, by) {
 }
 // горячая картошка: новый держатель, свежий фитиль
 function give(s, a, fresh = false) {
-  if (s.h) s.h.hotPotato = false; s.h = a; s.flight = null; a.hotPotato = true; s.cd = 1.35;
+  if (s.h) s.h.hotPotato = false; s.h = a; s.flight = null; a.hotPotato=true;dropHeld(a);s.cd=1.35;
   a.daze = Math.max(a.daze || 0, 1); a.vel.x = a.vel.z = 0;
   if (fresh) { s.T = s.left = 10 + Math.random() * 5; s.tick = 0; }
 }
-export function throwPotato(a, direction) {
+export function throwPotato(a,direction,contact=false){
   const b = EV.big; if (!b || b.key !== 'potato' || b.s.h !== a || b.s.cd > 0 || a.stun > 0) return false;
-  const s = b.s; s.bomb.position.copy(a.pos).add(new V3(0, 1.3, 0)); s.flight = { by: a, v: direction.clone().normalize().multiplyScalar(15).add(new V3(0, 3, 0)) }; s.h = null; a.hotPotato = false; s.cd = 0.35; sfx('throw', { at: a.pos }); return true;
+  if(!contact)return false;const v=actors().find(o=>o!==a&&!o.hidden&&o.pos.distanceTo(a.pos)<1.65&&new V3(o.pos.x-a.pos.x,0,o.pos.z-a.pos.z).normalize().dot(new V3(direction.x,0,direction.z).normalize())>.25&&raySolids(a.pos.clone().add(new V3(0,.9,0)),o.pos.clone().sub(a.pos).normalize(),o.pos.distanceTo(a.pos))>=o.pos.distanceTo(a.pos)-.1);if(!v)return false;give(b.s,v);sfx('grab',{at:v.pos});return true;
 }
 
 // покраска: клетка 1×1 м на высоте пола/объекта

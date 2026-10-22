@@ -1,4 +1,4 @@
-import { THREE, G, compose, col, tmat, lam, glow } from '../core/gfx.js';
+import { THREE, G, mesh, compose, col, tmat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { HW } from '../config.js';
 import { W } from './state.js';
@@ -225,7 +225,7 @@ export const PropMethods = {
     if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: Math.random() * 5, on: true }); }
     W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; pool.userData.broken = true; };
     // объёмный конус света под плафоном (v0.23): аддитивный, мягкий к краям и к земле; гаснет вместе с фонарём
-    const cone = new THREE.Mesh(LAMP_CONE, LAMP_CONE_M()); cone.position.set(this.X(lx), this.Y + 1.52, this.Z(lz)); cone.renderOrder = 4; cone.userData.noOcc = true; W.group.add(cone); W.keep.push(cone);
+    const cone = new THREE.Mesh(LAMP_CONE, LAMP_CONE_M()); cone.position.set(this.X(lx), this.Y + 1.52, this.Z(lz)); cone.renderOrder = 4; cone.userData.noOcc = true; cone.visible=false;W.keep.push(cone);
     W.lamps.push({ x: this.X(x), z: this.Z(z), y: this.Y, lx: this.X(lx), lz: this.Z(lz), ry, pool, bm, bulb, cone, district: this.d });
     this.solid(x, z, 0.35, 0.35, 0, 3.4);
   },
@@ -521,7 +521,9 @@ export const PropMethods = {
     this.m(G.cyl8, dk, x, 0.06, z, 0.3, 0.12, 0.3); this.m(G.cyl6, dk, x, 1.2, z, 0.035, 2.3, 0.035);
     const c = this.m(G.cone8, tmat(T.awning(c1, c2)), x, 2.35, z, 1.35, 0.5, 1.35); c.rotation.y = Math.PI / 8;
     this.m(G.sph, dk, x, 2.62, z, 0.05, 0.05, 0.05);
-    this.solid(x, z, 0.15, 0.15, 0, 2.3);
+    this.solid(x,z,.15,.15,0,2.3);
+    for(let ix=-3;ix<=3;ix++)for(let iz=-3;iz<=3;iz++){const dx=ix*.34,dz=iz*.34,r=Math.hypot(dx,dz);if(r>1.14)continue;const top=2.60-r*.37;this.solid(x+dx,z+dz,.36,.36,top-.09,.09);this.bouncer(x+dx-.18,z+dz-.18,x+dx+.18,z+dz+.18,top,6);}
+
   },
   // Грифельная доска-«домик» у входа
   chalkSign(x, z, ry = 0, text = 'СВЕЖИЙ ХЛЕБ') {
@@ -640,10 +642,8 @@ export const PropMethods = {
     for (const s2 of [-1, 1]) this.box(x, z + s2 * (d / 2 + 0.05), w + 0.2, 0.1, 0.25, tmat(T.wood()), { solid: false });
   },
   // Тёплая «уличная» деталь: электрощиток на стене / у столба
-  utilityBox(x, z, ry = 0) {
-    const nx = Math.round(Math.sin(ry)), nz = Math.round(Math.cos(ry));
-    W.spots.fuse.push({ x: this.X(x + nx * 1.0), z: this.Z(z + nz * 1.0), y: this.Y, f: [nx, nz], bx: this.X(x), bz: this.Z(z), district: this.d, label: 'щиток' });
-    this.cabinet(x, z, 0.8, 0.4, 1.2, 0x6a6d78, 0, ry); this.m(G.box, tmat(T.hazard()), x, 1.05, z, Math.abs(Math.sin(ry)) > 0.5 ? 0.42 : 0.5, 0.06, Math.abs(Math.sin(ry)) > 0.5 ? 0.5 : 0.42); },
+  utilityBox(x,z,ry=0){const nx=Math.round(Math.sin(ry)),nz=Math.round(Math.cos(ry)),g=this.prop(x,z,ry),mt=tmat(T.paintMetal(0x6a6d78)),dark=col(0x302a39);mesh(G.box,dark,0,.79,-.18,.92,1.48,.07,g);for(const sx of [-1,1])mesh(G.box,mt,sx*.46,.79,0,.055,1.48,.42,g);for(const yy of [.05,1.53])mesh(G.box,mt,0,yy,0,.96,.055,.42,g);const door=new THREE.Group();door.position.set(-.46,.79,.23);g.add(door);mesh(G.box,mt,.46,0,0,.91,1.46,.055,door);mesh(G.box,tmat(T.hazard()),.46,.28,.03,.5,.13,.008,door);mesh(G.box,dark,.82,0,.055,.045,.21,.055,door);W.keep.push(door);const cab={g,door,open:false};W.animated.push(dt=>door.rotation.y+=((cab.open?-1.95:0)-door.rotation.y)*(1-Math.exp(-dt*7)));this.solid(x,z,Math.abs(nx)>.5?.44:.96,Math.abs(nx)>.5?.96:.44,.04,1.5);W.spots.fuse.push({x:this.X(x+nx),z:this.Z(z+nz),y:this.Y,f:[nx,nz],bx:this.X(x),bz:this.Z(z),cab,district:this.d,label:'щиток'});},
+
 };
 
 /* Скелет на скамейке: череп с челюстью, рёбра, кости рук и ног. Позы: машет (рука качается), нога на ногу, держит тыкву.

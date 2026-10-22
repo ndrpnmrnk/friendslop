@@ -6,6 +6,7 @@ import '@fontsource/press-start-2p/400.css';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
+import {predictBow} from './game/bow.js';
 import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow, setRays } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
@@ -250,7 +251,7 @@ function prepareRound(tut = false) {
   P.ch.onCroak = null; // в игре «ква» звучит через голос (voice), мешок сам по себе не квакает
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
-  W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), tut ? 0 : 3); M.manual = tut; S.tut = null;
+  W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), tut ? 0 : 4); M.manual = tut; S.tut = null;
   resetScore((a, pts, at) => award(a, pts, at));
   M.onWave = (n, k) => { if (k > 1) { toast(n > 1 ? TEXT.wave(n) : TEXT.waveOne, 'wave'); sfx('wave'); flashScreen(); } };
   M.onPersonal = (m, outsider) => { toast(outsider ? TEXT.outsider : TEXT.personal, 'gold'); sfx('crown'); };
@@ -305,7 +306,7 @@ function endRound() {
   // места и награды: у каждого — заголовок по его стилю игры, подпись и очки
   const mk = (a, name, skin, score, me) => { const st = statsOf(a); return { name, skin, score, me, st: { ...st, score } }; };
   const rows = assignAwards([mk(P, TEXT.you, P.ch.skinId, S.score, true), ...(W.bots || []).map(b => mk(b, b.name, b.skin, b.score, false))]);
-  $('podcards').innerHTML = ''; $('resBtns').classList.add('hidden'); $('resMe').classList.add('hidden');
+  $('results').classList.toggle('five',rows.length>4);$('podcards').innerHTML = ''; $('resBtns').classList.add('hidden'); $('resMe').classList.add('hidden');
   podium.start(rows, (c, pos) => {
     const r = c.r, A = AWARDS[r.award], role = r.champ && r.award === 'tourist' ? AWARDS.champ : A;
     const el = document.createElement('div'); el.className = 'aw' + (r.champ ? ' champ' : '') + (r.me ? ' me' : '');
@@ -519,7 +520,7 @@ on('down', btn => {
   if (S.state !== 'play') return;
   if (P.drone) { droneAction(P, btn, aim(camera).ray.direction); return; }
   if (P.returning) return;
-  if (btn === 2 && P.hotPotato) { throwPotato(P, aim(camera).ray.direction); return; }
+  if(P.hotPotato){if(btn===0)throwPotato(P,aim(camera).ray.direction,true);return;}
   if (S.mg) { if (btn === 0 && S.mg.game.down) S.mg.game.down(aim(camera)); return; }
   if (S.crane || P.heldBy) return;
   if(btn===0&&S.wm?.game.down&&S.wm.game.equipped!==false){S.wm.game.down(aim(camera));return;}
@@ -603,6 +604,7 @@ function updateGlow() {
   glowOn = want;
 }
 function interact() {
+  if(P?.hotPotato)return;
   if(P.heldBy||P.stun>0||P.getT>0)return;
   if (P.drone || P.returning) return;
   if (S.mg) return;
@@ -735,6 +737,7 @@ function frame() {
       }
       $('dot').style.setProperty('--c', (P.charge * 100) + '%');
     }
+    if(S.state==='play'&&P.held?.type==='bow'&&(P.held.draw||0)>.05&&!S.mg){shown=predictBow(P,aimPoint(),arc,land);for(const q of arc){q.scale.setScalar(.085);q.material.depthTest=true;q.material.color.setHex(0xe8dfb9);}}else for(const q of arc){q.scale.setScalar(.2);q.material.depthTest=false;}
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
     const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt); updateGlow(); setGlow(S.mg ? 0.15 : 1); updateDust(t, P); { const dt2 = $('droneT'), on = !!(P && (P.drone || P.returning)); dt2.classList.toggle('hidden', !on); if (on) { const v = P.drone ? Math.max(0, Math.ceil(P.drone.left)) : 0, h = P.drone ? String(v) : 'СЕЙЧАС'; if (dt2.lastChild.textContent !== h) dt2.lastChild.textContent = h; } } { const h = $('droneHud'), on = !!(P && P.drone && !(P.drone.intro > 0)); h.classList.toggle('hidden', !on);
       if (on) { if (!h.dataset.ok) { h.dataset.ok = 1; for (const [id, n] of [['dhNet', 'net'], ['dhCandy', 'candy'], ['dhUp', 'updown']]) { $(id).firstChild.innerHTML = img(n, 28); $(id).insertAdjacentHTML('beforeend', '<b></b>'); } }

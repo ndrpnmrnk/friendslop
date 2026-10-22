@@ -1,4 +1,5 @@
-import {arrowModel,poseBow} from './bow.js';
+import {sweepActors,npcList,npcPosition,hitNPC} from './impacts.js';
+import {arrowModel,poseBow,bowVelocity,ARROW_GRAVITY} from './bow.js';
 import {raySolids} from '../world/physics.js';
 import { THREE, G, V3, col, lam, mesh, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -109,7 +110,7 @@ export function useTool(a, it, aim, dt = 0) {
     // тапок: быстрый шлепок — короткий «ой» (стан стоя), предмет из рук не выбивает
     // банка газировки: открыть — выпить (выносливость); если трясли на бегу — взрывается фонтаном
     case 'bow':{if(it.cd>0)return null;it.draw=Math.min(1,(it.draw||0)+(dt|| (a.bot?0.2:0))/1.0);it.drawAim=aim.clone();return null;}
-    case 'perfume':{it.cd=.8;const pos=a.pos.clone().addScaledVector(dir,1.8);GS.clouds.push({x:pos.x,y:a.pos.y,z:pos.z,t:4,effect:it.perfumeEffect||'gas',tick:0,owner:a,hit:new Set()});spend();return 'spray';}
+    case 'perfume':{it.cd=.8;const shot=shoot('perfume',it.pos.clone(),dir,10,0,a);shot.p.copy(it.pos);shot.g=0;shot.v.copy(dir).multiplyScalar(10);shot.life=.32;shot.effect=it.perfumeEffect||'gas';shot.m.scale.set(.045,.045,.11);spend();return 'spray';}
     case 'can': { consume(a, it); if ((it.shake || 0) > 0.5) { sodaBlast(it.pos.clone(), a); return null; } a.stamina = 1; return 'drink'; }
     case 'slipper': { it.cd = 0.3; const [fx, fz] = front(a, 1.6, 0.45, (b, dx, dz) => { b.push && b.push.set(dx * 1.5, 0, dz * 1.5); daze(b, 0.6); hitFreeze(0.04); W.onHit && W.onHit(a, b, 'melee'); }); a.swatT = 0.2; puff(a.pos.x + fx, a.pos.y + 1, a.pos.z + fz, { size: 0.3, life: 0.2, color: 0xffd0e0 }); return 'swat'; }
     // подушка: удар + облако перьев; оглушает стоя, иногда на миг слепит
@@ -130,7 +131,8 @@ export function useTool(a, it, aim, dt = 0) {
       for (const c of cs) burst(px, a.pos.y + 1, pz, 14, { color: c, size: 0.12, speed: 4, up: 3.5, g: 2, life: 2.2, grow: 0 }); smokeRing(px, a.pos.y + 0.8, pz, 10, { speed: 3, size: 0.25, grow: 1, life: 0.6 }); scareBirds(px, pz, 6); spend(); sfx('confetti', { at: a.pos }); return 'pop'; }
     case 'web': { lob('web', from, aim, a); spend(); return 'throw'; }
     case 'firework': { if (it.lit === undefined) { it.lit = 2.4; return 'fuse'; } return null; }
-    case 'rake': case 'cushion': { const f = a.root.rotation.y, x = a.pos.x + Math.sin(f) * 1.1, z = a.pos.z + Math.cos(f) * 1.1, gy = groundAt(x, z, 0.2, a.pos.y + 0.6);
+    case 'rake':{it.cd=.8;a.swatT=.3;const f=a.root.rotation.y,dir=new V3(Math.sin(f),0,Math.cos(f));for(const b of actors()){if(b===a||b.hidden)continue;const v=b.pos.clone().sub(a.pos);if(v.length()<2&&v.normalize().dot(dir)>.2){daze(b,1.2);W.onHit?.(a,b,'light');}}for(const n of npcList()){const v=npcPosition(n).clone().sub(a.pos);if(v.length()<2&&v.normalize().dot(dir)>.2)hitNPC(n,false,dir.x*7,dir.z*7);}return 'swat';}
+    case 'cushion': { const f = a.root.rotation.y, x = a.pos.x + Math.sin(f) * 1.1, z = a.pos.z + Math.cos(f) * 1.1, gy = groundAt(x, z, 0.2, a.pos.y + 0.6);
       if (k === 'rake') placeRake(x, gy, z, f + Math.PI, a); else placeCushion(x, gy, z, a); consume(a, it); return 'drop'; }
     case 'mask': { a.ghost = 8; burst(a.pos.x, a.pos.y + 1, a.pos.z, 12, { color: 0xeee8ff, size: 0.3, speed: 1.5 }); spend(); return 'ghost'; }
     case 'extinguisher': {
@@ -197,7 +199,7 @@ export function vacuumFire(a, it, aim) {
   for (const q of it.bag) { const k = i++; setTimeout(() => { if (q.state !== 'gone') return; q.state = 'fly'; q.g.visible = true; q.owner = a; q.noHitT = 0.15; q.pos.copy(hp).addScaledVector(dir, 0.7); q.vel.set(dir.x * 22 + (Math.random() - 0.5) * 2, dir.y * 22 + 2, dir.z * 22 + (Math.random() - 0.5) * 2); sfx('throw', { at: a.pos }); }, k * 110); }
   const n = it.bag.length; it.bag = []; return n;
 }
-export function releaseBow(a,it,aim){if(it?.type!=='bow')return;const draw=it.draw||0;it.draw=0;if(draw<.12||it.cd>0||it.ammo<=0||a.stun>0)return;const from=it.pos.clone(),dir=aim.clone().sub(from).normalize();shoot('arrow',from,dir,20+draw*24,0,a);it.ammo--;it.cd=1.05;a.throwT=.2;sfx('throw',{at:a.pos});}
+export function releaseBow(a,it,aim){if(it?.type!=='bow')return;const draw=it.draw||0;it.draw=0;if(draw<.12||it.cd>0||it.ammo<=0||a.stun>0)return;const from=it.pos.clone(),velocity=bowVelocity(from,aim,draw),shot=shoot('arrow',from,velocity.clone().normalize(),velocity.length(),0,a);shot.p.copy(from);shot.v.copy(velocity);shot.g=ARROW_GRAVITY;shot.life=3;it.ammo--;it.cd=1.05;a.throwT=.2;sfx('throw',{at:a.pos});}
 function consume(a, it) { if (a.held === it) a.held = null; it.state = 'gone'; it.g.visible = false; it.def = { ...it.def, respawn: 0 }; }
 
 /* ловушки: банановая кожура, лужа краски, паутина */
@@ -234,17 +236,17 @@ export function netActor(a, owner) {
 }
 /* выстрелы: вода, конфета из рогатки, пузырь, паутина/фейерверк навесом */
 const SHOT_GEO = new THREE.SphereGeometry(1, 5, 4);
-function shotMesh(kind) { const c = { water: 0x7ac8f0, candy: 0xff5a9e, web: 0xe8e0f0, bubble: 0xc8f0ff, net: 0xe8e0c8 }[kind];
+function shotMesh(kind) { const c = { water: 0x7ac8f0, candy: 0xff5a9e, web: 0xe8e0f0, bubble: 0xc8f0ff, net:0xe8e0c8,perfume:0xc9b4ec}[kind];
   return mesh(SHOT_GEO, lam({ color: c, emissive: c, emissiveIntensity: 0.4, transparent: kind === 'bubble', opacity: kind === 'bubble' ? 0.55 : 1 }, 'shot' + kind), 0, 0, 0, 1, 1, 1, W.group); }
 export function shoot(kind, from, dir, speed, delay, owner) {
   const m = kind==='arrow'?arrowModel():kind === 'net' ? mesh(G.sph10, NETM(), 0, 0, 0, 1, 1, 1, W.group) : shotMesh(kind); if(kind==='arrow'){W.group.add(m);m.scale.setScalar(1);}else if (kind === 'net') m.scale.set(0.3, 0.1, 0.3); else m.scale.setScalar(kind === 'water' ? 0.09 : kind === 'bubble' ? 0.28 : 0.08); m.visible = false;
-  GS.shots.push({ kind, m, p: from.clone().addScaledVector(dir, 0.6), v: dir.clone().multiplyScalar(speed).add(new V3(0, kind === 'water' ? 1.5 : kind === 'bubble' ? 0.6 : kind === 'net' ? 2 : 0.6, 0)), g: kind === 'water' ? 14 : kind === 'bubble' ? -0.4 : kind === 'net' ? 6 : 4, life: kind === 'bubble' ? 2.6 : 1.6, delay, owner });
+  const shot={ kind, m, p: from.clone().addScaledVector(dir, 0.6), v: dir.clone().multiplyScalar(speed).add(new V3(0, kind === 'water' ? 1.5 : kind === 'bubble' ? 0.6 : kind === 'net' ? 2 : 0.6, 0)), g: kind === 'water' ? 14 : kind === 'bubble' ? -0.4 : kind === 'net' ? 6 : 4, life: kind === 'bubble' ? 2.6 : 1.6, delay, owner };GS.shots.push(shot);return shot;
 }
 function lob(kind, from, aim, owner) {
   const d = new V3(aim.x - from.x, 0, aim.z - from.z), dist = Math.min(16, d.length()); d.normalize();
   const t = 0.35 + dist / 18, vx = d.x * dist / t, vz = d.z * dist / t, vy = (aim.y - from.y + 0.5 * 22 * t * t) / t;
   const m = shotMesh(kind); m.scale.setScalar(0.14);
-  GS.shots.push({ kind, m, p: from.clone(), v: new V3(vx, vy, vz), g: 22, life: 4, delay: 0, owner });
+  GS.shots.push({kind,m,p:from.clone(),v:new V3(vx,vy,vz),g:22,life:4,delay:0,owner});
 }
 function hitActorsAt(p, r, owner) { for (const a of actors()) { if (a === owner || a.hidden) continue; const q = a.pos; if (Math.hypot(q.x - p.x, q.z - p.z) < r && p.y > q.y - 0.3 && p.y < q.y + a.h + 0.3) return a; } return null; }
 export function explode(p, owner) {
@@ -267,6 +269,7 @@ export function toolImpact(it, p, gy) {
   if (k === 'banana') { it.state = 'gone'; it.g.visible = false; placeBanana(it, p.x, gy + 0.05, p.z); return true; }
   if (k === 'paint') { it.state = 'gone'; it.g.visible = false; paintPuddle(p.x, gy + 0.05, p.z, 1.6, it.owner); sfx('splash', { at: p }); return true; }
   if (k === 'web') { it.state = 'gone'; it.g.visible = false; webTrap(p.x, gy, p.z, it.owner); return true; }
+  if(k==='rake'&&p.y<gy+.4){it.state='gone';it.g.visible=false;placeRake(p.x,gy,p.z,it.g.rotation.y,it.owner);return true;}
   if (k === 'duck') sfx('squeak', { at: p });
   if (k === 'pillow') burst(p.x, p.y, p.z, 10, { color: 0xffffff, size: 0.12, speed: 2, up: 1.5, g: 1.2, life: 1.4, grow: 0 });
   return false;
@@ -323,18 +326,18 @@ export function updateTools(dt, t) {
     const s = GS.shots[i];
     if (s.delay > 0) { s.delay -= dt; continue; }
     s.m.visible = true; s.life -= dt;
-    const old=s.p.clone();s.v.y -= s.g * dt;
-    if(s.kind==='arrow'){const dv=s.v.clone().multiplyScalar(dt),len=dv.length(),dir=dv.clone().normalize(),hit=raySolids(old,dir,len);s.p.addScaledVector(dir,Math.min(len,hit));s.arrowWall=hit<len;s.m.lookAt(s.p.clone().add(s.v));}else s.p.addScaledVector(s.v,dt);
+    const old=s.p.clone(),beforeV=s.v.clone();s.v.y-=s.g*dt;
+    const dv=beforeV.multiplyScalar(dt);dv.y-=.5*s.g*dt*dt;const length=dv.length(),direction=dv.clone().normalize(),wallDist=raySolids(old,direction,length);s.p.addScaledVector(direction,Math.min(length,wallDist));s.arrowWall=wallDist<length;if(s.kind==='arrow')s.m.lookAt(s.p.clone().add(s.v));
     s.m.position.copy(s.p);
     if (W.thief && W.thief.st === 'carry' && s.p.distanceTo(W.thief.p) < 0.8) W.thief.hit = true;
     if (s.kind === 'bubble') { s.v.multiplyScalar(Math.exp(-dt * 0.6)); s.m.scale.setScalar(0.28 + Math.sin(t * 8 + i) * 0.02); }
     // сетка раскрывается в полёте и крутится
     if (s.kind === 'net') { const k = Math.min(1, (1.6 - s.life) * 4); s.m.scale.set(0.3 + k * 0.5, 0.1, 0.3 + k * 0.5); s.m.rotation.y += dt * 9; s.m.rotation.x = Math.atan2(s.v.y, Math.hypot(s.v.x, s.v.z)) * 0.5; }
-    const gy = groundAt(s.p.x, s.p.z, 0.05, s.p.y + 0.1), wall = s.arrowWall||solidHit(s.p, 0.06); let hitA = hitActorsAt(s.p, s.kind === 'bubble' ? 0.8 : 0.6, s.owner);
-    if(s.kind==='arrow'){const seg=s.p.clone().sub(old),len=seg.length();for(let u=.0;u<=len&&!hitA;u+=.16)hitA=hitActorsAt(old.clone().addScaledVector(seg,u/Math.max(.001,len)),.45,s.owner);}
+    const gy = groundAt(s.p.x, s.p.z, 0.05, s.p.y + 0.1), wall = s.arrowWall||solidHit(s.p, 0.06); let hitA=null;
+    const swept=sweepActors(old,s.p,s.kind==='bubble'?.45:.12,s.owner);let npcHit=null;if(swept){s.p.lerpVectors(old,s.p,swept.t);s.m.position.copy(s.p);if(npcList().includes(swept.actor)){npcHit=swept.actor;if(s.kind!=='perfume')hitNPC(npcHit,false,s.v.x,s.v.z);}else hitA=swept.actor;}
     if(W.moth&&['arrow','candy','water'].includes(s.kind)){const seg=s.p.clone().sub(old),v=W.moth.g.position.clone().sub(old),k=Math.max(0,Math.min(1,v.dot(seg)/Math.max(.001,seg.lengthSq()))),point=old.clone().addScaledVector(seg,k);if(point.distanceTo(W.moth.g.position)<1.4){W.moth.hitAt(point,s.kind==='water'?.25:1,s.owner);s.life=0;}}
     let gone = s.life <= 0;
-    if (s.p.y <= gy || wall || hitA) {
+    if(s.p.y<=gy||wall||hitA||npcHit){
       const pt = s.p.clone(); if (s.p.y <= gy) pt.y = gy; gone = true;
       const fakeIt = (type, mass) => ({ type, vel: s.v, def: { mass, r: 0.1, heavy: false }, pos: pt });
       if(s.kind==='arrow'){if(hitA){daze(hitA,1.5);W.onHit?.(s.owner,hitA,'light');}burst(pt.x,pt.y,pt.z,4,{color:0xe9dfc8,size:.06,speed:1.5});sfx('bonk',{at:pt});}
@@ -351,6 +354,7 @@ export function updateTools(dt, t) {
         // промах: сетка ложится на землю и через несколько секунд исчезает
         const gy2 = groundAt(pt.x, pt.z, 0.2, pt.y + 0.5), nm = mesh(G.sph10, NETM(), pt.x, gy2 + 0.04, pt.z, 0.85, 0.05, 0.85, W.group); nm.rotation.y = Math.random() * 6; GS.traps.push({ kind: 'netlie', x: pt.x, y: gy2, z: pt.z, r: 0, t: 6, m: nm }); } }
     }
+    if(gone&&s.kind==='perfume'){GS.clouds.push({x:s.p.x,y:s.p.y-.6,z:s.p.z,t:4,effect:s.effect,tick:0,owner:s.owner,grace:.8,hit:new Set()});smokeRing(s.p.x,s.p.y,s.p.z,7,{color:0xb9a0df,speed:1.4,size:.1,life:.6});}
     if (gone) { W.group.remove(s.m); GS.shots.splice(i, 1); }
   }
   // ловушки
@@ -376,8 +380,8 @@ export function updateTools(dt, t) {
       }
     }
   }
-  for (let i = GS.clouds.length - 1; i >= 0; i--) { const c = GS.clouds[i]; c.t -= dt; if (c.t <= 0) { GS.clouds.splice(i, 1); continue; }
-    if(c.effect){c.tick-=dt;if(c.tick<=0){c.tick=.12;smoke(c.x+(Math.random()-.5)*3,c.y+.8,c.z+(Math.random()-.5)*3,{color:c.effect==='haste'?0x9be36b:0xb18cff,size:.3,grow:.8,vy:.25,life:.7,opacity:.45});}for(const a of actors())if(Math.hypot(a.pos.x-c.x,a.pos.z-c.z)<2.5&&Math.abs(a.pos.y-c.y)<2){if(c.effect==='haste'){a.energy=Math.max(a.energy||0,1.4);}else{a.webT=Math.max(a.webT||0,.4);if(!c.hit.has(a)){c.hit.add(a);daze(a,1.1);}}}continue;}
+  for (let i = GS.clouds.length - 1; i >= 0; i--) { const c=GS.clouds[i];c.t-=dt;c.grace=Math.max(0,(c.grace||0)-dt); if (c.t <= 0) { GS.clouds.splice(i, 1); continue; }
+    if(c.effect){c.tick-=dt;if(c.tick<=0){c.tick=.12;smoke(c.x+(Math.random()-.5)*3,c.y+.8,c.z+(Math.random()-.5)*3,{color:c.effect==='haste'?0x9be36b:0xb18cff,size:.3,grow:.8,vy:.25,life:.7,opacity:.45});}for(const a of actors())if(!(a===c.owner&&c.grace>0)&&Math.hypot(a.pos.x-c.x,a.pos.z-c.z)<1.55&&Math.abs(a.pos.y-c.y)<1.8&&raySolids(new V3(c.x,c.y+.8,c.z),new V3(a.pos.x-c.x,a.pos.y-c.y,a.pos.z-c.z).normalize(),Math.hypot(a.pos.x-c.x,a.pos.y-c.y,a.pos.z-c.z))>=Math.hypot(a.pos.x-c.x,a.pos.y-c.y,a.pos.z-c.z)-.2){if(c.effect==='haste'){a.energy=Math.max(a.energy||0,1.4);}else{a.webT=Math.max(a.webT||0,.4);if(!c.hit.has(a)){c.hit.add(a);daze(a,1.1);}}}continue;}
     if (Math.random() < dt * 20) puff(c.x + (Math.random() - 0.5) * 3, c.y + Math.random() * 2, c.z + (Math.random() - 0.5) * 3, { size: 0.15, grow: 0, life: 0.8, vy: -0.4, color: [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff][(Math.random() * 5) | 0] });
     for (const a of actors()) if (Math.hypot(a.pos.x - c.x, a.pos.z - c.z) < 2.6 && Math.abs(a.pos.y - c.y) < 2.5) { a.blind = Math.max(a.blind || 0, 0.4); if (c.hit && a !== c.owner && !c.hit.has(a)) { c.hit.add(a); daze(a, 1.6); dropHeld(a); W.onHit && W.onHit(c.owner, a, 'light'); } } }
   if (W.lure) { W.lure.t -= dt; if (W.lure.t <= 0) W.lure = null; }
@@ -386,4 +390,4 @@ export function updateTools(dt, t) {
 }
 // иконка-подсказка для HUD: есть ли у инструмента действие на ЛКМ
 export const toolVerb = it => ({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: 'выстрел сеткой', badge: 'брось (ПКМ) — вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
-  perfume:'распылить облако',bow:'держи ЛКМ - тяни, отпусти - выстрел',water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', mask: 'надеть', rake: 'поставить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';
+  perfume:'распылить облако',bow:'держи ЛКМ - тяни, отпусти - выстрел',water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', mask: 'надеть', rake:'ЛКМ - удар, ПКМ - бросить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';

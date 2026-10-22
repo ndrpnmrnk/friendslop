@@ -39,7 +39,8 @@ export function buildFishing(spot) {
   const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]), new THREE.LineBasicMaterial({ color: 0xd8d0c0 })); W.group.add(line);
   g.updateMatrixWorld(true);
   const tip = () => rod.localToWorld(new V3(0, 2.0, 0));
-  const upd = () => { const a = tip(); line.geometry.setFromPoints([a, bob.position]); };
+  const upd=()=>{const a=tip(),p=line.geometry.attributes.position;p.setXYZ(0,a.x,a.y,a.z);p.setXYZ(1,bob.position.x,bob.position.y,bob.position.z);p.needsUpdate=true;line.geometry.computeBoundingSphere();};
+  g.traverse(n=>{if(n.isMesh)n.userData.noOcc=true;});W.keep.push(g,bob,line);
   upd();
   return { type: 'fish', g, rod, bob, line, spot, tip, upd, pos: () => g.position, world: (a, b, c) => wl(g, a, b, c), dispose() { W.group.remove(g); W.group.remove(bob); W.group.remove(line); } };
 }

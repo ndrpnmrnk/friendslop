@@ -6,6 +6,7 @@ import { SKINS, SKIN_IDS } from '../characters/skins.js';
 import { PFACE } from '../world/builder.js';
 import { buildCat, COATS } from '../game/cats.js';
 import { sfx } from '../core/sfx.js';
+import { addOutline } from '../game/outline.js';
 
 /* Главное меню — живая сцена в том же PS1-рендере, что игра: персонаж на углу улицы под прожектором,
    за ним — дерево, фонарь, тыквы, дымка и город. Раз в 6–12 с — случайная сценка (мыши, призрак, кот,
@@ -50,7 +51,7 @@ export function createMenu() {
   const fog = mesh(G.plane, alphaMat(T.mist(), { color: 0xb8a8e0, opacity: 0.35, depthWrite: false }), 0, 0.35, 0, 22, 12, 1, scene); fog.rotation.x = -Math.PI / 2;
   // падающие листья (немного, всегда)
   const leaves = []; const leafCol = [0xc9662a, 0xa8452a, 0xe89a3a];
-  for (let i = 0; i < 14; i++) { const m = mesh(G.plane, lam({ color: leafCol[i % 3], side: THREE.DoubleSide }, 'mleaf' + i % 3), 0, -5, 0, 0.12, 0.08, 1, scene); leaves.push({ m, t: Math.random() * 6, s: Math.random() * 4 }); }
+  for (let i = 0; i < 14; i++) { const m = mesh(G.plane, lam({ color: leafCol[i % 3], side: THREE.DoubleSide, transparent:true, depthWrite:false }).clone(), 0, -5, 0, 0.12, 0.08, 1, scene); leaves.push({ m, t: Math.random(), s: Math.random() * 4 }); }
   // эпизоды: летучие мыши, призрак, кот
   const bats = new THREE.Group(); scene.add(bats); bats.visible = false;
   const batM = col(0x17111f), wings = [];
@@ -92,25 +93,38 @@ export function createMenu() {
     a(G.box,metal,-0.1,0.9,-4.2,4.3,0.035,0.035);
   }));
   const camera = makeCamera(38);
-  camera.position.set(0, 1.7, 8.2); camera.lookAt(0, 1.0, 0);
+  camera.position.set(1.15, 1.85, 8.6); camera.lookAt(.9, 1.0, 0);
 
   const st = { scene, camera, idx: 0, ch: null, t: 0, rot: 0, drag: false, lastX: 0, actT: 4, act: null, actK: 0, epT: 3, ep: null, active: true, puffT: 0 };
   try { const s = localStorage.getItem('friendslop.skin'); if (SKIN_IDS.includes(s)) st.idx = SKIN_IDS.indexOf(s); } catch (_) {}
+  let outline=null;
+  const picker=document.getElementById('characterPick'),menuEl=document.getElementById('menu'),ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),labelPoint=new THREE.Vector3();
+  const choose=()=>{if(!st.active)return;menuEl.classList.toggle('choosing');if(menuEl.classList.contains('choosing'))document.getElementById('skinNext').focus();sfx('click');};
+  picker.addEventListener('click',choose);
   function show() {
     if (st.ch) scene.remove(st.ch.root);
-    st.ch = makeCharacter(SKIN_IDS[st.idx]); st.ch.onCroak = () => sfx('croak'); st.ch.root.position.set(0, 0.14, 0); scene.add(st.ch.root); st.ch.root.rotation.y = st.rot;
+    st.ch = makeCharacter(SKIN_IDS[st.idx]); st.ch.onCroak = () => sfx('croak'); st.ch.root.position.set(0, 0.14, 0); scene.add(st.ch.root); st.ch.root.rotation.y = st.rot; outline=addOutline(st.ch.root,.025,0xf5c542);
     document.getElementById('skinName').textContent = SKINS[SKIN_IDS[st.idx]].name;
     try { localStorage.setItem('friendslop.skin', SKIN_IDS[st.idx]); } catch (_) {}
   }
   st.next = d => { st.idx = (st.idx + d + SKIN_IDS.length) % SKIN_IDS.length; show(); if (st.ch.skinId === 'frog') { st.ch.croakNow(); sfx('frog_happy'); } st.ch.vy = 5; st.air = 0.01; spot.intensity = 60; st.puffT = 0.25; };
   st.skin = () => SKIN_IDS[st.idx];
-  // вращение мышью
-  addEventListener('pointerdown', e => { if (!st.active || (e.target.closest && e.target.closest('button'))) return; st.drag = true; st.lastX = e.clientX; });
-  addEventListener('pointermove', e => { if (!st.drag) return; st.rot += (e.clientX - st.lastX) * 0.012; st.lastX = e.clientX; });
-  addEventListener('pointerup', () => { st.drag = false; });
+  // Наведение выбирает персонажа, протягивание мышью поворачивает модель.
+  let travel=0;
+  const over=e=>{pointer.set(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2);camera.updateMatrixWorld();scene.updateMatrixWorld();ray.setFromCamera(pointer,camera);return ray.intersectObject(st.ch.root,true).length>0;};
+  addEventListener('pointerdown',e=>{if(!st.active||e.button!==0||e.target.closest?.('button')||!over(e))return;st.drag=true;st.lastX=e.clientX;travel=0;});
+  addEventListener('pointermove',e=>{if(!st.active)return;const hover=over(e);outline?.set(hover);picker.classList.toggle('hover',hover);if(st.drag){const dx=e.clientX-st.lastX;travel+=Math.abs(dx);st.rot+=dx*.012;st.lastX=e.clientX;}});
+  addEventListener('pointerup',()=>{if(st.drag&&travel<5)choose();st.drag=false;});
+  // Короткие случайные маршруты обходят лавку, дерево, ящики и фасады.
+  const obstacles=[[-4.3,-3.6,-3.1,-2.3],[1.55,-3.5,3.45,-2.45],[-3.1,-2.15,-2.1,-1.05],[-8.8,-5.7,-4.25,-1.4],[4.25,-5.7,8.8,-1.4]],nodes=[[-3.8,-.5],[-1.65,-.75],[-.6,-2.3],[.5,-3.6],[1,-2.1],[2.6,-1.65],[3.8,-2],[3.8,-3.9],[2.6,-3.9],[-1.5,-3.6],[-2.7,-3.8]];
+  function clear(a,b){for(const r of obstacles){let lo=0,hi=1;for(let k=0;k<2;k++){const d=b[k]-a[k],min=r[k]-.38,max=r[k+2]+.38;if(Math.abs(d)<.001){if(a[k]<min||a[k]>max){lo=2;break;}}else{const u=(min-a[k])/d,v=(max-a[k])/d;lo=Math.max(lo,Math.min(u,v));hi=Math.min(hi,Math.max(u,v));}}if(lo<=hi)return false;}return true;}
+  const paths=nodes.map((p,i)=>nodes.map((q,j)=>j!==i&&clear(p,q)?j:-1).filter(j=>j>=0));
+  const walkers=[cat,ghost].map((root,i)=>{const node=Math.random()*nodes.length|0;root.position.set(nodes[node][0],i?1.25:.04,nodes[node][1]);return{root,node,prev:-1,to:node,wait:Math.random()*3,speed:.45+Math.random()*.45,moving:false};});
+  function walk(w,dt,t,i){w.wait-=dt;w.moving=false;if(w.to===w.node){if(w.wait<=0){const choices=paths[w.node].filter(j=>j!==w.prev);if(choices.length)w.to=choices[Math.random()*choices.length|0];else w.wait=1;}}else{const q=nodes[w.to],dx=q[0]-w.root.position.x,dz=q[1]-w.root.position.z,d=Math.hypot(dx,dz),step=Math.min(d,dt*w.speed);w.moving=true;if(d>.001){w.root.position.x+=dx/d*step;w.root.position.z+=dz/d*step;const angle=Math.atan2(dx,dz)-w.root.rotation.y;w.root.rotation.y+=Math.atan2(Math.sin(angle),Math.cos(angle))*Math.min(1,dt*5);}if(d<.04){w.prev=w.node;w.node=w.to;w.wait=.8+Math.random()*3.5;w.speed=.45+Math.random()*.45;}}w.root.position.y=i?1.25+Math.sin(t*2)*.1:.04;}
 
   st.update = dt => {
-    st.t += dt; const t = st.t, c = st.ch;
+    dt=Math.min(.05,dt);st.t += dt; const t = st.t, c = st.ch;
+    labelPoint.set(0,2.05,0).project(camera);picker.style.left=`${(labelPoint.x*.5+.5)*innerWidth}px`;picker.style.top=`${(-labelPoint.y*.5+.5)*innerHeight}px`;if(!st.active){outline?.set(false);picker.classList.remove('hover');}
     // разворот к камере: не «платформа», а шаги и доворот корпуса с головой
     let speed = 0, look;
     st.rot = Math.atan2(Math.sin(st.rot), Math.cos(st.rot));
@@ -130,13 +144,10 @@ export function createMenu() {
     crown.rotation.z = Math.sin(t * 0.9) * 0.05; crown.rotation.x = Math.sin(t * 0.7 + 1) * 0.03;
     T.mist().offset.x += dt * 0.01;
     spot.intensity += (30 - spot.intensity) * Math.min(1, dt * 5);
-    for (const l of leaves) { l.t += dt * 0.25; const k = l.t % 1; l.m.position.set(-2.6 + Math.sin(l.s + k * 6) * 1.6 + k * 2.5, 3.2 - k * 3.2, -1.4 + Math.cos(l.s * 2 + k * 4) * 0.8); l.m.rotation.set(t * l.s, t, t * 0.5); }
-    // Полный круг непрерывен: передняя половина видна, обратная проходит за фасадами.
-    const ca=t*0.18,ga=t*0.12+2.3;
-    cat.position.set(Math.sin(ca)*11,0.16,-5.2+Math.cos(ca)*2.1);cat.rotation.y=Math.atan2(Math.cos(ca),-Math.sin(ca)*2.1/11);
-    menuCat.legs.forEach((l,i)=>l.rotation.x=Math.sin(t*10+(i===0||i===3?0:Math.PI))*0.55);
-    menuCat.tail.rotation.x=0.6;menuCat.tail2.rotation.y=Math.sin(t*2)*0.3;
-    ghost.position.set(Math.sin(ga)*11,1.3+Math.sin(t*2)*0.12,-5.4+Math.cos(ga)*2);ghost.rotation.y=Math.atan2(Math.cos(ga),-Math.sin(ga)*2/11);
+    for(const l of leaves){l.t=(l.t+dt*.105)%1;const k=l.t;l.m.position.set(-2.6+Math.sin(l.s+k*6)*.8+k*1.8,3.2-k*3.2,-1.4+Math.cos(l.s*2+k*4)*.5);l.m.rotation.set(t*l.s*.5,t*.6,t*.3);l.m.material.opacity=Math.min(1,k/.08,(1-k)/.12);}
+    walkers.forEach((w,i)=>walk(w,dt,t,i));
+    menuCat.legs.forEach((l,i)=>l.rotation.x=walkers[0].moving?Math.sin(t*10+(i===0||i===3?0:Math.PI))*.55:0);
+    menuCat.tail.rotation.x=.6;menuCat.tail2.rotation.y=Math.sin(t*2)*.3;
     bats.visible=true;const ba=t*0.16;bats.position.set(Math.sin(ba)*19,5.4+Math.sin(t)*0.25,-9+Math.cos(ba)*2);
     bats.rotation.y=Math.atan2(Math.cos(ba),-Math.sin(ba)*2/19);for(const [wl,wr,ph]of wings){wl.rotation.z=Math.sin(t*20+ph)*0.9;wr.rotation.z=-wl.rotation.z;}
     // Только свет и ветер запускаются эпизодами.
@@ -145,7 +156,7 @@ export function createMenu() {
     if (st.ep) {
       const e = st.ep; e.t += dt; let done = false;
       if (e.k === 'flicker') { const on = !(e.t < 1.2 && Math.sin(e.t * 40) > 0.2); lampL.intensity = on ? 6 : 0.4; bulbM.emissiveIntensity = on ? 1 : 0.1; done = e.t > 1.3; if (done) { lampL.intensity = 6; bulbM.emissiveIntensity = 1; } }
-      else if (e.k === 'gust') { crown.rotation.z = Math.sin(e.t * 6) * 0.15 * (1 - e.t / 2); for (const l of leaves) l.t += dt * 1.5; done = e.t > 2; }
+      else if (e.k === 'gust') { crown.rotation.z = Math.sin(e.t * 6) * 0.15 * (1 - e.t / 2);  done = e.t > 2; }
       if (done) { st.ep = null; st.epT = 6 + Math.random() * 6; }
     }
   };

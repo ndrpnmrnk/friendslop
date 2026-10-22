@@ -263,8 +263,9 @@ export const WORLD5 = {
   // 9. Почтальон: 3 письма по цветным ящикам (можно закинуть броском)
   mail(o, api, ctx) {
     api.feedback?.();
-    const P = ctx.player, c = o.pos(), COL = [[0xd8243a, 'красный'], [0x2a6ad8, 'синий'], [0x3a9a4a, 'зелёный']]; let time = 110, k = 0, letter = null;
-    const boxes = COL.map(([cc], i) => { const p = farFloor(c, 7 + i * 4, 18 + i * 5), g = new THREE.Group(); g.position.copy(p); g.rotation.y = Math.random() * 6; W.group.add(g);
+    const P = ctx.player, c = o.pos(), COL = [[0xd8243a, 'красный'], [0x2a6ad8, 'синий'], [0x3a9a4a, 'зелёный']]; let time=150,k=0,letter=null;
+    const destinations=[];let previous=c;for(let i=0;i<3;i++){let best=null,bestScore=-1;for(let j=0;j<32;j++){const q=farFloor(previous,i?20:30,i?40:55),min=Math.min(flat(q,c),...destinations.map(v=>flat(v,q)));if(min>bestScore){best=q;bestScore=min;}if(min>18)break;}destinations.push(best);previous=best;}
+    const boxes = COL.map(([cc], i) => { const p=destinations[i],g = new THREE.Group(); g.position.copy(p); g.rotation.y = Math.random() * 6; W.group.add(g);
       g.add(compose('m5mbox' + cc, a => { const m = lam({ map: T.paintMetal(cc) }, 'm5mb' + cc); a(G.box, col(0x2b2533), 0, 0.5, 0, 0.08, 1.0, 0.08); a(G.box, m, 0, 1.15, 0, 0.42, 0.34, 0.5); a(G.cyl8, m, 0, 1.32, 0, 0.21, 0.5, 0.21, Math.PI / 2); a(G.box, col(0x17111f), 0, 1.22, 0.255, 0.26, 0.04, 0.01); }));
       const sg = sprite(numTex(i + 1, cc), 0.5); sg.position.y = 1.9; g.add(sg); const flag=new THREE.Group();flag.name='mail-flag';flag.position.set(0.23,1.13,0);g.add(flag);flag.rotation.x=Math.PI/2;
       mesh(G.box,col(0xe8dfc8),0,0.17,0,0.025,0.34,0.025,flag);mesh(G.box,col(cc),0,0.29,0.065,0.035,0.12,0.15,flag);
@@ -295,11 +296,11 @@ export const WORLD5 = {
     api.feedback?.();
     const P = ctx.player; P.missionTool=true; const c = o.pos(), pts = [farFloor(c, 3, 12), farFloor(c, 3, 12), farFloor(c, 3, 12)]; let time = 80, beepT = 0, digT = 0, holes = [], said = '', found=-1, pulse=0;
     const goal = pts[0], decoy = pts.slice(1); const dz = new Set();
-    const detector=new THREE.Group();W.group.add(detector);detector.add(compose('m24detector',a=>{const metal=tmat(T.metal());a(G.cyl6,metal,0,-0.25,0.3,0.022,0.85,0.022,-0.8);a(G.ring,col(0x3a3440),0,-0.55,0.6,0.2,0.2,1,-Math.PI/2);a(G.box,col(0x8a6a3a),0,0.02,0.05,0.17,0.1,0.13);}));
-    const led=mesh(G.box,glow(0x9be36b),0,0.075,0.07,0.13,0.01,0.05,detector);
+    const detector=new THREE.Group();W.group.add(detector);detector.add(compose('detector31',a=>{const metal=tmat(T.metal()),dark=col(0x302a3a),grip=tmat(T.cloth(0x544639));a(G.cyl6,metal,0,-.29,.28,.019,.92,.019,-.66);a(G.cyl6,grip,0,.03,0,.035,.24,.035,.18);a(G.box,dark,0,.07,.06,.21,.14,.19,-.25);a(G.box,tmat(T.sign('SCAN','#344a40','#a0b08a')),0,.151,.08,.14,.008,.08);a(G.cyl6,dark,0,.15,-.1,.07,.045,.07);a(G.torus,dark,0,-.66,.55,.21,.21,.15,Math.PI/2);a(G.box,dark,0,-.66,.55,.36,.028,.04);a(G.box,dark,0,-.66,.55,.035,.028,.36);for(let i=0;i<5;i++)a(G.torus,dark,0,-.16-i*.055,.15+i*.043,.028,.028,.028,-.66);}));
+    const led=mesh(G.box,col(0x718d67),.07,.15,.08,.018,.008,.018,detector);
     const shovel=compose('m24shovel',a=>{a(G.cyl6,tmat(T.wood()),0,0,0,0.025,0.7,0.025);a(G.box,tmat(T.metal()),0,-0.42,0,0.16,0.22,0.035);});W.group.add(shovel);shovel.visible=false;
-    const waves=Array.from({length:3},()=>{const q=ring(0x9be36b);q.material=q.material.clone();return q;});const glowSpot=ring(0xf5c542);glowSpot.visible=false;
-    api.msg('Волны от катушки: чаще - ближе. Ходи кругами: писк чаще — ближе к кладу. E — копать');
+    const waves=Array.from({length:1},()=>{const q=ring(0x9be36b);q.material=q.material.clone();return q;});
+    api.msg('Медленные круги - далеко, чаще - ближе. E - копать');
     return {
       botTarget:()=>goal,botStep(dt,brain){if(flat(P.pos,goal)<0.8&&digT<=0&&brain.ready(1))this.interact();},
       target: () => null,
@@ -318,12 +319,11 @@ export const WORLD5 = {
         detector.visible=digT<=0;shovel.visible=digT>0;followHand(P,shovel,-0.65-Math.sin(digT*10)*0.3);
         const live = [goal, ...decoy.filter(q => !dz.has(q))], d = Math.min(...live.map(q => flat(P.pos, q))), k = Math.max(0, 1 - d / 10);
         led.scale.x=0.3+k*0.7;led.material.color.setHex(k>0.8?0xf5c542:0x9be36b);
-        beepT -= dt; if (beepT <= 0 && flat(P.pos, c) < 18) { beepT = 0.08 + (1 - k) * 1.0; sfx('beep', { p: k }); }
-        pulse+=dt*(.45+k*2.4);for(let i=0;i<3;i++){const ph=(pulse+i/3)%1,q=waves[i];q.visible=P===W.player&&digT<=0;const coil=detector.localToWorld(new V3(0,-.55,.6));q.position.set(coil.x,P.pos.y+.045,coil.z);q.scale.setScalar(.3+ph*4.2);q.material.opacity=(1-ph)*.55;}
-        const nearest=live.reduce((a,b)=>flat(P.pos,a)<flat(P.pos,b)?a:b);glowSpot.visible=P===W.player&&d<2.6;glowSpot.position.set(nearest.x,nearest.y+.04,nearest.z);glowSpot.scale.setScalar(.35+Math.sin(pulse*6.28)*.06);glowSpot.material.opacity=.3+k*.5;
-        api.progress(null); const h = d < 1.2 ? 'ОЧЕНЬ ГОРЯЧО' : d < 3 ? 'Горячо' : d < 6 ? 'Теплее' : 'Холодно'; if (h !== said) { said = h; api.msg(h, d < 3 ? 'good' : ''); }
+        beepT -= dt; if (beepT <= 0 && flat(P.pos, c) < 18) { beepT=.85+(1-k)*.9; sfx('beep', { p: k }); }
+        pulse+=dt/(1.75-k*.85);for(const q of waves){const ph=pulse%1;q.visible=P===W.player&&digT<=0;const coil=detector.localToWorld(new V3(0,-.66,.55));q.position.set(coil.x,P.pos.y+.035,coil.z);q.scale.setScalar(.23+ph*.95);q.material.opacity=Math.sin(ph*Math.PI)*.23;}api.progress(null);
+
       },
-      stop() { P.missionTool=false;W.group.remove(detector,shovel,glowSpot,...waves);waves.forEach(q=>q.material.dispose()); for (const h of holes) W.group.remove(h); },
+      stop() { P.missionTool=false;W.group.remove(detector,shovel,...waves);waves.forEach(q=>q.material.dispose()); for (const h of holes) W.group.remove(h); },
     };
   },
   // 11. Тележка: довези гору продуктов до машины; резко дёрнешь/врежешься — продукты падают (собери и закинь обратно)

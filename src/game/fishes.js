@@ -28,11 +28,12 @@ const finTex = sp => photo('fin' + sp.id, 16, 16, (g, W, H) => { g.fillStyle = s
 const TRI = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0.3, 1, 0], 3)).setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0.3, 1], 2)); TRI.computeVertexNormals();
 export function fishModel(sp) {
   const g = new THREE.Group(), body = new THREE.MeshLambertMaterial({ map: tex(sp) }), fin = new THREE.MeshLambertMaterial({ map: finTex(sp), side: THREE.DoubleSide });
-  const S = { long: [0.45, 0.17, 0.11], round: [0.34, 0.2, 0.1], tall: [0.4, 0.25, 0.08], sun: [0.3, 0.34, 0.09] }[sp.shape];
-  const b = new THREE.Mesh(G.sph, body); b.scale.set(...S); b.rotation.y = -Math.PI / 2; g.add(b); // текстура: голова спереди (+x)
+  const S = { long:[.45,.18,.17],round:[.34,.23,.17],tall:[.4,.27,.15],sun:[.3,.34,.17] }[sp.shape];
+  const b = new THREE.Mesh(G.sph, body); b.scale.set(...S); b.rotation.y=0; g.add(b); // текстура: голова спереди (+x)
   const tri = (x, y, sx, sy, rz, ry = 0) => { const m = new THREE.Mesh(TRI, fin); m.position.set(x, y, 0); m.scale.set(sx, sy, 1); m.rotation.set(0, ry, rz); g.add(m); return m; };
   if (sp.shape === 'sun') { tri(-0.05, S[1] * 0.8, 0.18, 0.42, 0); tri(-0.05, -S[1] * 0.8, 0.18, -0.42, 0); for (let i = -2; i <= 2; i++) tri(-S[0] * 0.95, i * 0.06, -0.12, 0.08, 0); }
   else { tri(-S[0] * 0.9, 0, -0.26, 0.2, -0.5); tri(-S[0] * 0.9, 0, -0.26, -0.2, 0.5); tri(-0.1, S[1] * 0.85, 0.24, 0.16, 0); if (sp.id === 'catfish') for (const s of [-1, 1]) { const w = new THREE.Mesh(G.box, new THREE.MeshLambertMaterial({ color: 0x17111f })); w.position.set(S[0] * 0.95, -0.03, s * 0.05); w.scale.set(0.22, 0.012, 0.012); w.rotation.y = s * 0.5; g.add(w); } }
   for (const s of [-1, 1]) tri(S[0] * 0.25, -S[1] * 0.4, 0.12, -0.08, 0, s * 0.4);
+  const fins=g.children.filter(m=>m.geometry===TRI);g.userData.animate=t=>{for(let i=0;i<fins.length;i++)fins[i].rotation.y=Math.sin(t*9+i)*.15;};
   return g;
 }

@@ -66,7 +66,9 @@ export default {
     tables.forEach(([x, z], i) => {
       b.table(x, z, 1);
       b.m(G.cyl6, col(0x2b2533), x, 1.6, z, 0.05, 1.6, 0.05);
-      b.m(G.cone8, tmat(T.awning(...umb[i])), x, 2.6, z, 1.6, 0.5, 1.6);
+      b.m(G.cone8,tmat(T.awning(...umb[i])),x,2.6,z,1.6,.5,1.6);
+      b.solid(x,z,.16,.16,0,2.6);for(let a=-3;a<=3;a++)for(let c=-3;c<=3;c++){const dx=a*.4,dz=c*.4,d=Math.hypot(dx,dz);if(d>1.35)continue;const top=2.85-d*.31;b.solid(x+dx,z+dz,.42,.42,top-.07,.07);b.bouncer(x+dx-.21,z+dz-.21,x+dx+.21,z+dz+.21,top,6);}
+
       b.chair(x - 1.1, z, Math.PI / 2); b.chair(x + 1.1, z, -Math.PI / 2);
     });
     b.vending(18.8, 10); b.vending(18.8, 11.3);

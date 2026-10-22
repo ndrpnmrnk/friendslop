@@ -9,7 +9,7 @@ export function followHand(a, object, tilt = 0) {
   handPosition(a, object.position); object.rotation.set(tilt, a.root.rotation.y, 0, 'YXZ');
 }
 export function cargoPosition(a, out = new V3(), radius = 0.2) {
-  if(radius<0.2){handPosition(a,out);offset.set(0,0.04,0.04).applyQuaternion(a.root.quaternion);return out.add(offset);}
+  if(radius<.2||(a.held&&!['missioncrate','mammothpants','parcel','pizza','chair','monitor','pc'].includes(a.held.type))){handPosition(a,out);offset.set(0,0.04,0.04).applyQuaternion(a.root.quaternion);out.add(offset);if(a.held?.type==='trash')out.y-=.27;return out;}
   const d = a.ch.d, z = Math.max(d.holdZ + 0.12, d.holdZ * 0.5 + radius + 0.16);
   offset.set(0, d.holdY, z); a.root.updateMatrixWorld(true); return out.copy(offset).applyMatrix4(a.root.matrixWorld);
 }

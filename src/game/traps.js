@@ -23,7 +23,7 @@ export function placeRake(x, y, z, ry, owner = null) {
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; W.group.add(g); W.keep.push(g);
   const handle = new THREE.Group(); handle.add(RAKE()); g.add(handle);
   const fx = Math.sin(ry), fz = Math.cos(ry);
-  const t = { kind: 'rake', g, handle, x, y, z, hx: x - fx * 0.0, hz: z - fz * 0.0, ry, k: 0, cd: 0, owner };
+  const t = { kind: 'rake', g, handle, x, y, z, hx: x - fx * 0.0, hz: z - fz * 0.0, ry,k:0,cd:0,owner,touched:new Set() };
   TR().push(t); addPick(t); return t;
 }
 export function placeCushion(x, y, z, owner = null) {
@@ -53,9 +53,10 @@ export function updateTraps(dt, t) {
     if (q.kind === 'rake') {
       // ручка: взлетает и падает обратно
       if (q.k > 0) { q.k = Math.max(0, q.k - dt * 2.2); q.handle.rotation.x = -Math.sin(Math.min(1, q.k * 1.4) * Math.PI / 2) * 1.35; }
-      if (q.cd > 0) continue;
-      for (const a of actors()) { if (a.hidden || !a.onGround) continue; const dx = a.pos.x - q.x, dz = a.pos.z - q.z; if (Math.hypot(dx, dz) < 0.42 && Math.abs(a.pos.y - q.y) < 0.4 && Math.hypot(a.vel.x, a.vel.z) > 1) {
-        q.k = 1; q.cd = 2; sfx('bonk', { at: a.pos }); knockDown(a, -a.vel.x * 0.3, -a.vel.z * 0.3, 1.1); voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); shake(a === W.player ? 0.25 : 0.05);
+      for(const a of q.touched)if(Math.hypot(a.pos.x-q.x,a.pos.z-q.z)>.8)q.touched.delete(a);
+      if(q.cd>0)continue;
+      for(const a of actors()){if(q.touched.has(a)||a.stun>0||a.getT>0||a.hidden||!a.onGround)continue; const dx = a.pos.x - q.x, dz = a.pos.z - q.z; if (Math.hypot(dx, dz) < 0.42 && Math.abs(a.pos.y - q.y) < 0.4 && Math.hypot(a.vel.x, a.vel.z) > 1) {
+        q.k=1;q.cd=3;q.touched.add(a); sfx('bonk', { at: a.pos }); knockDown(a, -a.vel.x * 0.3, -a.vel.z * 0.3, 1.1); voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); shake(a === W.player ? 0.25 : 0.05);
         burst(a.pos.x, a.pos.y + 1.5, a.pos.z, 6, { color: 0xf5c542, size: 0.14, speed: 2, up: 1.5 }); W.onFunny && W.onFunny(a, 'rake', q.owner); break; } }
     } else if (q.kind === 'cushion') {
       if (q.sq > 0) { q.sq -= dt; q.g.scale.set(1 + q.sq, 1 - q.sq * 1.5, 1 + q.sq); } else q.g.scale.set(1, 1, 1);
