@@ -24,6 +24,7 @@ export const CONFIG = {
   grid: 3,                        // 3x3 районов на карте
   chunk: 32, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара
   pixelScale: 2,
+  smoky: {smokeCount:6,smokeInterval:.38,smokeLife:2.2,smokeRise:.25},
   // v0.32: настройки взаимодействий без изменения геометрии моделей.
   canopy: {spring:65,damping:8,bounce:6.8,compression:.13},
   fishing: {timeout:100,minReel:12,perRadian:.036,botTurn:4.3},
