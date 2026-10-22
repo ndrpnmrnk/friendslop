@@ -1,5 +1,6 @@
 import { CAVEMAN_SKIN } from './caveman.js';
 import { SMOKY_SKIN } from './smoky.js';
+import {LATTE_SKIN} from './latte.js';
 import { THREE, G, mesh, tmat, col, lam, frontBack, basic, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { COATS } from '../game/cats.js';
@@ -147,5 +148,6 @@ export const SKINS = {
   },
   caveman: CAVEMAN_SKIN,
   smoky: SMOKY_SKIN,
+  latte:LATTE_SKIN,
 };
 export const SKIN_IDS = Object.keys(SKINS);

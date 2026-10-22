@@ -73,7 +73,7 @@ function assets(){
 }
 
 export const SMOKY_SKIN={
-  name:'Смоуки',
+  name:'Дэн Блант',rigidBody:true,
   build({root,head,torso,handL,handR,footL,footR}){
     assets();
     const white=lam({map:paper(),color:0xe7dfca,flatShading:true},'smoky34-paper'),filter=tmat(cork()),cloth=lam({map:plaid(),color:0xf2e8d2,side:THREE.DoubleSide,flatShading:true},'smoky34-cloth'),charcoal=col(0x3a322b),frame=col(0x655b46);

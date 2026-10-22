@@ -24,6 +24,7 @@ function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
 const SND = {
+  vanDrive:s=>{tone(80,170,.9,'sawtooth',.055*(s.v??1));noise(.5,.04*(s.v??1),250,.8);},
   kidYelp:s=>{const v=s.v??1;for(let i=0;i<3;i++)tone(520+i*75,850-i*80,.15,'triangle',.1*v,i*.1);},
   bongBubble:s=>{const v=s.v??1;noise(.16,.06*v,450,.7);tone(180,90,.16,'sine',.05*v);},
   bongExhale:s=>noise(.15,.055*(s.v??1),800,.7,0,'lowpass'),

@@ -17,6 +17,7 @@ export const canvas = renderer.domElement;
 document.getElementById('game').appendChild(canvas);
 
 const rt = new THREE.WebGLRenderTarget(4, 4, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+const silhouetteRT=new THREE.WebGLRenderTarget(4,4,{minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});
 export const SNAP = { value: new THREE.Vector2(256, 144) };
 
 // Дрожание вершин в стиле PS1: проекция вершины округляется до сетки экрана
@@ -38,9 +39,9 @@ export function ps1(m, stable = false) {
 
 // Постобработка: дизеринг Bayer 4x4 и урезанная палитра
 const post = new THREE.ShaderMaterial({
-  uniforms: { t: { value: rt.texture }, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 } },
+  uniforms: { t: { value: rt.texture },silhouette:{value:silhouetteRT.texture},outlineOn:{value:0}, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 } },
   vertexShader: 'varying vec2 v; void main(){ v = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-  fragmentShader: `uniform sampler2D t; uniform vec2 px; uniform float glowK; varying vec2 v;
+  fragmentShader: `uniform sampler2D t;uniform sampler2D silhouette;uniform float outlineOn; uniform vec2 px; uniform float glowK; varying vec2 v;
     float b2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
     float b4(vec2 a){ return b2(0.5 * a) * 0.25 + b2(a); }
     vec3 bright(vec2 o){ vec3 s = texture2D(t, v + o).rgb; return max(s - 0.74, 0.0); }
@@ -58,14 +59,22 @@ const post = new THREE.ShaderMaterial({
       vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * 0.55;
       // палитра как у PS1: 5 бит на канал (32 уровня) с дизерингом Bayer 4×4
       c += (b4(floor(v / px)) - 0.46875) / 32.0; c = floor(c * 31.0 + 0.5) / 31.0;
+      if(outlineOn>0.5){float center=texture2D(silhouette,v).r;float edge=0.0;for(int i=0;i<8;i++){float a=float(i)*0.785398;edge=max(edge,texture2D(silhouette,v+vec2(cos(a),sin(a))*px*1.4).r);}c=mix(c,vec3(.96,.77,.26),step(.5,edge)*(1.0-step(.5,center)));}
       gl_FragColor = vec4(c, 1.0); }`,
   depthTest: false, depthWrite: false,
 });
 const postScene = new THREE.Scene(), postCam = new THREE.Camera();
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post); quad.frustumCulled = false; postScene.add(quad);
 
-export function present(scene, camera) {
+const silhouetteMat=ps1(new THREE.MeshBasicMaterial({color:0xffffff,fog:false,side:THREE.DoubleSide}));
+export function present(scene, camera, outlineTarget=null) {
   renderer.setRenderTarget(rt); renderer.render(scene, camera);
+  post.uniforms.outlineOn.value=outlineTarget?1:0;
+  if(outlineTarget){const marked=[],layers=camera.layers.mask,bg=scene.background,override=scene.overrideMaterial,shadow=renderer.shadowMap.autoUpdate;
+    outlineTarget.traverse(o=>{if(o.isMesh&&o.visible&&!o.userData.noOutline&&o.name!=='character-shadow'){marked.push([o,o.layers.mask]);o.layers.enable(2);}});
+    try{camera.layers.set(2);scene.background=new THREE.Color(0);scene.overrideMaterial=silhouetteMat;renderer.shadowMap.autoUpdate=false;renderer.setRenderTarget(silhouetteRT);renderer.render(scene,camera);}
+    finally{camera.layers.mask=layers;scene.background=bg;scene.overrideMaterial=override;renderer.shadowMap.autoUpdate=shadow;for(const[o,mask]of marked)o.layers.mask=mask;}
+  }
   renderer.setRenderTarget(null); renderer.render(postScene, postCam);
 }
 
@@ -73,7 +82,7 @@ export const cameras = [];
 export function makeCamera(fov) { const c = new THREE.PerspectiveCamera(fov, 1, 0.12, 220); cameras.push(c); resize(); return c; }
 export function resize() {
   const s = CONFIG.pixelScale, w = Math.ceil(innerWidth / s), h = Math.ceil(innerHeight / s);
-  renderer.setSize(w, h, false); rt.setSize(w, h); SNAP.value.set(w, h); post.uniforms.px.value.set(1 / w, 1 / h);
+  renderer.setSize(w, h, false); rt.setSize(w, h);silhouetteRT.setSize(w,h); SNAP.value.set(w, h); post.uniforms.px.value.set(1 / w, 1 / h);
   for (const c of cameras) { c.aspect = innerWidth / innerHeight; c.updateProjectionMatrix(); }
 }
 addEventListener('resize', resize);

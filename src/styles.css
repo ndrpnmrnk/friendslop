@@ -395,6 +395,8 @@ body.ui-cursor-on,body.ui-cursor-on *{cursor:none!important}
 #menu #setBtn{left:16px;top:16px;right:auto;bottom:auto}
 #menu .skinrow{position:absolute;left:50%;bottom:21vh;transform:translateX(-50%);margin:0;opacity:0;visibility:hidden;transition:opacity .12s}
 #menu.choosing .skinrow{opacity:1;visibility:visible}
+#menu.choosing #characterPick{opacity:0;pointer-events:none}
+#skinDone{font:10px var(--px);padding:12px 14px;color:var(--candy);width:auto;min-width:110px;white-space:nowrap}
 #characterPick{position:absolute;transform:translate(-50%,-100%);background:var(--panel);color:var(--gold);font:10px var(--px);padding:12px;border:0;clip-path:var(--notch);opacity:0;pointer-events:none;white-space:nowrap}
 #characterPick.hover,#characterPick:focus-visible{opacity:1;pointer-events:auto}
 #mode{align-items:center;justify-content:center;padding:0}

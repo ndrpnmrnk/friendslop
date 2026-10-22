@@ -679,7 +679,7 @@ function frame() {
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
   else if (S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {
-    menu.update(dt); present(menu.scene, menu.camera);
+    menu.update(dt); present(menu.scene, menu.camera,menu.active&&menu.hover&&!menu.choosing&&!menu.drag?menu.ch.root:null);
     if (S.state === 'settings') drawMicMeter();
     // логотип: буквы по очереди подпрыгивают раз в несколько секунд
     logoT -= dt; if (logoT <= 0 && S.state === 'menu') { logoT = 4; [...$('logo').children].forEach((sp, i) => setTimeout(() => { sp.classList.remove('hop'); void sp.offsetWidth; sp.classList.add('hop'); }, i * 70)); }
@@ -787,7 +787,7 @@ function frame() {
     sky.update(camera, t, dt, P, hemi, scene.fog);
     updateLife(dt, t, S.state === 'play' ? P : null, camera);
     updateWorldFx(dt, t, S.state === 'play' ? P : null);
-    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); updateGrabs(dt, t); updateTraps(dt, t); updateTown(dt, t, P, !!EV.big); updateFun(dt, t); updatePolice(dt, t); updateBongEffects(dt,t); }
+    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); updateGrabs(dt, t); updateTraps(dt, t); updateTown(dt, t, P, !!EV.big); updateFun(dt, t); updatePolice(dt, t); updateBongEffects(dt,t);S.wm?.game.pose?.();for(const b of W.bots||[])b.work?.game.pose?.(); }
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.state === 'play' || S.state === 'results' ? 1 - Math.max(0, S.time) / CONFIG.roundTime : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
       if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
