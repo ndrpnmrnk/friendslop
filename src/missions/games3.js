@@ -1,3 +1,4 @@
+import { buildLampRepair,screwBulb } from './bulb.js';
 import { cargoPosition } from '../game/handheld.js';
 import { nearbyItemPoint } from './location.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose } from '../core/gfx.js';
@@ -52,12 +53,7 @@ export function buildFire(sp) {
     dispose() { const i = W.animated.indexOf(tick); if (i >= 0) W.animated.splice(i, 1); W.fires.splice(W.fires.indexOf(f), 1); if (can) { W.group.remove(can); sol.on = false; } } };
 }
 // погасший фонарь (лампочка перегорела)
-export function buildDeadLamp(sp) {
-  const L = sp.lamp; L.dead = true; if (L.pool) L.pool.visible = false;
-  const cap = mesh(G.box, col(0x2b2533), L.lx, L.y + 3.1, L.lz, 0.26, 0.25, 0.26, W.group);
-  return { type: 'lamp', lamp: L, cap, spot: sp, f: sp.f, pos: () => new V3(sp.x, sp.y, sp.z), reach: 2.2,
-    dispose() { W.group.remove(cap); L.dead = false; if (L.pool && !L.pool.userData.broken) L.pool.visible = true; } };
-}
+export const buildDeadLamp=buildLampRepair;
 // коробка для котят
 export function buildCatBox(x, y, z, f) {
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = Math.atan2(f[0], f[1]); W.group.add(g);
@@ -172,31 +168,8 @@ export const PANEL3 = {
   },
 
   // Вкрутить лампочку: зажми ЛКМ и крути мышью по кругу вокруг патрона
-  bulbScrew(o, api) {
-    api.feedback?.();
-    const L = o.lamp, c0 = new V3(L.lx, L.y + 2.92, L.lz), d = new V3(Math.sin(L.ry), 0, Math.cos(L.ry));
-    const camP = c0.clone().addScaledVector(d, 1.25).add(new V3(0, -0.55, 0)); api.pose(camP, c0.clone());
-    const bulb = compose('bulbItem27', a => { a(G.sph10, lam({ color: 0xfff6d0, emissive: 0x6a5a30 }, 'bulbItem'), 0, -0.06, 0, 0.08, 0.09, 0.08); a(G.cyl8, col(0xc8c8d8), 0, 0.04, 0, 0.04, 0.06, 0.04);for(let i=0;i<4;i++)a(G.torus,col(0x736b70),0,0.015+i*0.015,0,0.035,0.035,0.035,Math.PI/2); });
-    const bulbMats=[];bulb.traverse(m=>{if(m.material?.emissive){m.material=m.material.clone();bulbMats.push(m.material);}});
-    bulb.position.copy(c0).add(new V3(0, -0.14, 0)); W.group.add(bulb);
-    const oldCap=o.cap.visible;o.cap.visible=false;
-    const socket=mesh(G.cyl8,tmat(T.metal()),c0.x,c0.y+0.065,c0.z,0.068,0.11,0.068,W.group);
-    const collar=mesh(G.torus,col(0x2b2533),c0.x,c0.y+0.01,c0.z,0.057,0.057,0.057,W.group);collar.rotation.x=Math.PI/2;
-    const N = new V3().subVectors(c0, camP).normalize();
-    let ang = 0, last = null, drag = false, endT = -1, clickA = 0, idle=0, hinted=false;
-    api.progress(0); api.msg('КРУТИ! Зажми и веди по кругу');
-    const angleOf = ray => { const p = onPlane(ray, N, c0); if (!p) return null; const u = new V3().crossVectors(N, new V3(0, 1, 0)).normalize(), v = new V3().crossVectors(u, N); p.sub(c0); return Math.atan2(p.dot(v), p.dot(u)); };
-    return {
-      botStep(dt, brain) { const u=new V3().crossVectors(N,new V3(0,1,0)).normalize(),v=new V3().crossVectors(u,N);const q=c0.clone().addScaledVector(u,Math.cos(brain.time*3)*0.12).addScaledVector(v,Math.sin(brain.time*3)*0.12),ray=brain.rayTo(q);if(!drag)this.down(ray);this.move(ray); },
-      down(ray) { drag = true; last = angleOf(ray); }, up() { drag = false; last = null; },
-      move(ray) { if (!drag || endT > 0) return; const a = angleOf(ray); if (a === null || last === null) { last = a; return; } let da = a - last; da = Math.atan2(Math.sin(da), Math.cos(da)); last = a;
-        ang += Math.abs(da) < 1.2 ? Math.abs(da) : 0; if (ang - clickA > 1.2) { clickA = ang; sfx('screw'); }
-        const k = Math.min(1, ang / (Math.PI * 6)); api.progress(k);idle=0;bulb.rotation.y = -ang; bulb.position.y = c0.y - 0.14 + k * 0.1;
-        if (k >= 1) { endT = 1.0; api.msg('Да будет свет!', 'good'); o.cap.visible = false; if (L.pool) L.pool.visible = true; sfx('done'); burst(c0.x, c0.y - 0.1, c0.z, 10, { color: 0xfff0c8, size: 0.1, speed: 1.5 }); } },
-      update(dt) {idle+=dt;if(idle>3&&!hinted&&endT<0){hinted=true;api.msg('Держи ЛКМ - обведи круг вокруг патрона');}if (endT > 0) { bulb.children.forEach(m => m.material && m.material.emissive && m.material.emissive.setHex(0xfff0c8)); endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
-      stop() { W.group.remove(bulb,socket,collar);bulbMats.forEach(m=>m.dispose());if(endT<0)o.cap.visible=oldCap; },
-    };
-  },
+  bulbScrew:screwBulb,
+
 };
 
 /* ---------- уличные ---------- */
@@ -227,14 +200,7 @@ export const WORLD3 = {
   // Лампочка: возьми лампочку, поставь стремянку у фонаря (уже стоит), залезь и вкрути (E)
   bulb(o, api, ctx) {
     api.feedback?.();
-    const L = o.lamp, P = ctx.player, d = new V3(Math.sin(L.ry), 0, Math.cos(L.ry)), hx = L.lx + d.x * 0.45, hz = L.lz + d.z * 0.45;
-    // стремянка: поручни и ступени, зона лазания
-    const lad = new THREE.Group(); lad.position.set(hx, L.y, hz); lad.rotation.y = Math.atan2(d.x, d.z); W.group.add(lad);
-    lad.add(compose('stepladder', a => { const al = col(0xc8c8d8); // стремянка «домиком»: внизу ноги широко, наверху сходятся под площадкой
-      for (const sx of [-0.3, 0.3]) { a(G.box, al, sx, 1.25, 0.12, 0.05, 2.6, 0.05, 0.12); a(G.box, al, sx, 1.2, 0.6, 0.04, 2.5, 0.04, -0.25); }
-      for (let y = 0.3; y < 2.4; y += 0.35) a(G.box, col(0xf5c542), 0, y, 0.12 + (y - 1.25) * 0.12, 0.62, 0.04, 0.12);
-      a(G.box, col(0xf5c542), 0, 2.52, 0.33, 0.66, 0.05, 0.3); for (const sx of [-0.3, 0.3]) a(G.box, al, sx, 0.75, 0.42, 0.02, 0.02, 0.5); }));
-    const lz = { x0: hx - 0.55, x1: hx + 0.55, z0: hz - 0.55, z1: hz + 0.55, y0: L.y, y1: L.y + 2.25, nx: d.x, nz: d.z }; W.ladders.push(lz);
+    const L=o.lamp,P=ctx.player,hx=o.hx,hz=o.hz,d=new V3(Math.sin(L.ry),0,Math.cos(L.ry));
     const p0 = farPoint(new V3(L.x, L.y, L.z), 6, 18), bulb = addItem('bulb', p0.x, p0.y, p0.z); bulb.def = { ...bulb.def, respawn: 0 }; bulb.mission = ctx.mission; bulb.mine = P; const rg = ringMark(0xf5c542);
     let time = 105, hint = '';
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
@@ -250,7 +216,7 @@ export const WORLD3 = {
         if (bulb.state === 'held' && bulb.owner !== P) say('Лампочка у соперника - верни её');
         if (bulb.state === 'gone' || time <= 0) api.finish({ success: false });
       },
-      stop() { W.group.remove(lad); W.group.remove(rg); W.ladders.splice(W.ladders.indexOf(lz), 1); if (P.held === bulb) P.held = null; bulb.outline.set(false); if(bulb.owner?.held===bulb)bulb.owner.held=null; bulb.state = 'gone'; bulb.g.visible = false; bulb.steal = null; },
+      stop() {  W.group.remove(rg);  if (P.held === bulb) P.held = null; bulb.outline.set(false); if(bulb.owner?.held===bulb)bulb.owner.held=null; bulb.state = 'gone'; bulb.g.visible = false; bulb.steal = null; },
     };
   },
 

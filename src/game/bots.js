@@ -4,7 +4,7 @@ import { detour } from './navigation.js';
 import { V3, THREE } from '../core/gfx.js';
 import { CONFIG } from '../config.js';
 import { W } from '../world/state.js';
-import { moveBody, groundAt, solidsNear, raySolids } from '../world/physics.js';
+import { moveBody, groundAt, solidsNear, raySolids, zoneAt } from '../world/physics.js';
 import { makeCharacter } from '../characters/rig.js';
 import { SKIN_IDS, SKINS } from '../characters/skins.js';
 import { nearestItem, pickUp, throwVelocity, launch } from './items.js';
@@ -223,7 +223,9 @@ export function updateBots(dt, t, P) {
     if (b.stuck > 0.7 && b.onGround && !b.heldBy) { b.vel.y = PC.jump; b.onGround = false; if (b.stuck > 1.4) { const a = Math.random() * 6.28; b.dodge = { x: Math.cos(a), z: Math.sin(a), t: 0.9 }; b.stuck = 0; b.nav=null;b.navCD=0;b.failures=(b.failures||0)+1;if(b.failures>=3){if(b.goal?.m)b.avoid={m:b.goal.m,left:12};b.goal=null;b.think=0;b.stairRoute=null;b.failures=0;} b.ladder = null; b.ladderDn = null; } }
     // движение
     if(b.work?.game.botSpeed)run*=b.work.game.botSpeed;
-    const sp = (b.webT > 0 ? 0.4 : 1) * (b.daze > 0 ? 0.18 : 1) * (b.holding ? 0.4 : 1) * (b.heldBy ? 0.24 : 1) * (b.energy > 0 ? 1.2 : 1) * PC.sprint * 0.8 * run, k = b.onGround ? 8 : 2;
+    const wading=zoneAt(b.pos.x,b.pos.z,b.pos.y,'wading');
+    if(wading&&b.onGround&&Math.hypot(b.vel.x,b.vel.z)>1.5&&Math.random()<dt*8)burst(b.pos.x,b.pos.y+.05,b.pos.z,2,{color:0x9ccbec,size:.08,speed:1.2,up:1.6});
+    const sp = (wading?.85:1) * (b.webT > 0 ? 0.4 : 1) * (b.daze > 0 ? 0.18 : 1) * (b.holding ? 0.4 : 1) * (b.heldBy ? 0.24 : 1) * (b.energy > 0 ? 1.2 : 1) * PC.sprint * 0.8 * run, k = b.onGround ? 8 : 2;
     if (ctrl && !(b.diveT > 0)) { b.vel.x += (ix * sp - b.vel.x) * Math.min(1, dt * k); b.vel.z += (iz * sp - b.vel.z) * Math.min(1, dt * k); }
     b.vel.x += b.push.x; b.vel.z += b.push.z; b.push.set(0, 0, 0);
     if (b.stun > 0 || b.getT > 0) { b.vel.x *= 0.9; b.vel.z *= 0.9; }

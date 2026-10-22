@@ -26,7 +26,7 @@ export function beginBotWork(b, m) {
     throwTo(p) { const it=b.held;if(!it)return;const from=it.pos.clone();b.held=null;it.owner=b;launch(it,from,throwVelocity(from,p,0.65,it.def));b.throwT=0.3; },
     use(p,dt) { if(b.held)useTool(b,b.held,p,dt); }
   };
-  b.work=job;
+  b.work=job;b.stationaryWork=!job.world;if(b.stationaryWork){b.vel.x=b.vel.z=0;b.push.x=b.push.z=0;}
   const api = { feedback(){job.worldFeedback=true;}, pose(p,l) { eye.copy(p);job.look=l.clone(); }, progress(v) { m.progress=v; }, msg() {}, where(t) {m.where=t;}, timer(t){m.workTime=t;},
     finish(result) { if(!job.dead&&!job.result)job.result=result; } };
   const ctx={bot:true,player:b,character:b.ch,cursor(){},mission:m,camera:new THREE.PerspectiveCamera(),jump:CONFIG.player.jump,
@@ -51,7 +51,7 @@ export function stopBotWork(b) {
   job.dead=true;job.game?.stop();if(job.display){job.display.g.removeFromParent();job.display.tx.dispose();job.display.mat.dispose();}job.m.onRemove=null;
   if(job.m.doer===b)job.m.doer=null;
   if(job.grip && b.holding===job.grip)letGo(b);
-  b.work=null;b.goal=null;b.aimAt=null;b.think=0.6;b.missionTool=false;
+  b.stationaryWork=false;b.work=null;b.goal=null;b.aimAt=null;b.think=0.6;b.missionTool=false;
 }
 export function interruptBotWork(b) {
   const job=b.work;if(!job||job.world)return null;

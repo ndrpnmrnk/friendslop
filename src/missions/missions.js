@@ -1,3 +1,4 @@
+import { buildMammoth,mammothWorld,mammothDress } from './mammoth.js';
 import { locationLabel } from './location.js';
 import { THREE, G, V3, sprite } from '../core/gfx.js';
 import { iconCanvas } from '../ui/icons.js';
@@ -21,13 +22,13 @@ import { PANEL5, WORLD5, buildDoor, buildSkelBench, buildGenerator, buildBells, 
    Между волнами кому-то может выпасть ЛИЧНАЯ миссия (видит и может сделать только он), а с середины раунда
    отстающему — миссия АУТСАЙДЕРА с очками ×1.5.
    Миссии частично «местные»: у некоторых есть родной район (home) — там они появляются чаще, но не всегда. */
-export const M = { list: [], cooldown: {}, id: 0, waveT: 0, wave: 0, burnt: 0, done: 0, onWave: null, manual: false };
+export const M = { list: [], cooldown: {}, id: 0, waveT: 0, wave: 0, burnt: 0, done: 0, onWave: null, manual:false,mammothShown:false };
 const ZONE_RU = { floor: '', inside: 'внутри', roof: 'на крыше', nook: 'в нычке', tunnel: '' };
 const WV = () => CONFIG.wave;
 
 export function resetMissions() {
   for (const m of M.list.slice()) removeMission(m, true);
-  M.list = []; M.cooldown = {}; M.waveT = 0; M.wave = 0; M.burnt = 0; M.done = 0;
+  M.list = []; M.cooldown = {}; M.waveT = 0; M.wave = 0; M.burnt = 0; M.done = 0;M.mammothShown=false;
   // фонари для миссии «Лампочка»: стоять под плафоном, со стороны кронштейна
   W.spots.bulb = (W.lamps || []).map(L => { const dx = Math.sin(L.ry), dz = Math.cos(L.ry); return { x: L.lx + dx * 1.35, z: L.lz + dz * 1.35, y: L.y, f: [-dx, -dz], lamp: L, district: L.district, label: 'фонарь' }; });
 }
@@ -98,13 +99,13 @@ function canSpawn(key, def) {
   if ((M.cooldown[key] || 0) > 0) return false;
   const n = M.list.filter(m => m.key === key).length;
   if (n >= def.max) return false;
-  if (key === 'intercom') return entrances().length > 0;
+  if(key==='intercom'||key==='doorbell')return entrances(key).length>0;
   if (key === 'cat') return W.cats.some(c => !M.list.some(m => m.obj === c));
   if (def.needs && !(W.spots[def.needs] || []).length) return false;
   if (def.spot) return freeSpots(def.spot).length > 0;
   return true;
 }
-const entrances = () => (W.buildings || []).filter(g => g.intercom && !M.list.some(m => m.obj.entrance === g)).filter(g => { const p=g.intercom, x=p.x+p.f[0]*0.9,z=p.z+p.f[1]*0.9; return isFree(x-0.3,z-0.3,x+0.3,z+0.3,p.y+0.05,p.y+1.8) && Math.abs(groundAt(x,z,0.25,p.y+0.3)-p.y)<0.2; });
+const entrances = kind => (W.buildings || []).filter(g => (kind!=='doorbell'||g.entryDoor)&&g.intercom && !M.list.some(m => m.obj.entrance === g)).filter(g => { const p=g.intercom, x=p.x+p.f[0]*0.9,z=p.z+p.f[1]*0.9; return isFree(x-0.3,z-0.3,x+0.3,z+0.3,p.y+0.05,p.y+1.8) && Math.abs(groundAt(x,z,0.25,p.y+0.3)-p.y)<0.2; });
 const freeSpots = kind => (W.spots[kind] || []).filter(sp => !M.list.some(m => m.obj.spot === sp) && !(sp.lamp && (sp.lamp.dead || (sp.lamp.pool && sp.lamp.pool.userData.broken))) && isFree(sp.x - 0.3, sp.z - 0.3, sp.x + 0.3, sp.z + 0.3, sp.y + 0.05, sp.y + 1.5) && Math.abs(groundAt(sp.x, sp.z, 0.2, sp.y + 0.4) - sp.y) < 0.25);
 
 // таймер миссии: от расстояния до ближайшего игрока (25–50 с), в финальном рывке короче
@@ -121,7 +122,7 @@ export function waveSize(phase) {
 // новая волна: N общих миссий, разнесённых по карте
 export function spawnWave(player, phase = 'calm') {
   const n = waveSize(phase); let k = 0;
-  for (let i = 0; i < n; i++) if (spawnMission(player, null, { final: phase === 'final' })) k++;
+  for(let i=0;i<n;i++){const opts={final:phase==='final'};let m=null;if(i===0&&phase==='calm'&&!M.mammothShown)m=spawnMission(player,'mammoth',opts);if(!m)m=spawnMission(player,null,opts);if(m)k++;}
   M.waveT = 0; M.wave++; M.burnt = 0;
   if (k && M.onWave) M.onWave(k, M.wave);
   return k;
@@ -138,6 +139,7 @@ export function spawnMission(player, only = null, opts = {}) {
       const free = W.cats.filter(c => !M.list.some(m => m.obj === c));
       free.sort((a, b) => minDist(b.root.position, others) - minDist(a.root.position, others));
       obj = free[0]; if (!obj) continue; where = obj.home.district;
+    } else if(key==='doorbell'){const list=entrances('doorbell'),g=list[(Math.random()*list.length)|0];if(!g)continue;obj=buildDoor(g);where=g.name+' · входная дверь';
     } else if (key === 'intercom') {
       const list=entrances(); const g=list[(Math.random()*list.length)|0]; if(!g)continue; const p=g.intercom;
       obj=buildIntercom(p.x,p.y,p.z,p.f); obj.entrance=g; where=g.name+' · у входа';
@@ -151,13 +153,13 @@ export function spawnMission(player, only = null, opts = {}) {
       const pl = findPlace(def, player.pos, others);
       if (!pl) continue;
       const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox, leaves: buildLeafPile, graffiti: buildGraffitiWall, intercom: buildIntercom, lockpick: buildChest, pipes: buildValve,
-        doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
+        mammoth:buildMammoth,doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
       obj = key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
       where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
     }
     const p = obj.pos(); where = locationLabel(p) || where; const life = lifeFor(p, opts.final), mult = opts.mult || 1;
     const m = { id: ++M.id, key, def, obj, where, life, maxLife: life, busy: false, owner: opts.owner || null, outsider: mult > 1, mult, pts: Math.round(def.points * mult), marker: marker(def, key) };
-    drawPlate(m, 1); M.list.push(m);
+    drawPlate(m, 1); M.list.push(m);if(key==='mammoth')M.mammothShown=true;
     return m;
   }
   return null;
@@ -237,6 +239,6 @@ export function nearMission(player) {
   }
   return best;
 }
-export const ALL_GAMES = { ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4, ...PANEL5 };
-const WORLD_ALL = { ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
+export const ALL_GAMES = { mammothDress, ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4, ...PANEL5 };
+const WORLD_ALL = { mammoth:mammothWorld, ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
 export { GAMES, WORLD_ALL as WORLD_GAMES };

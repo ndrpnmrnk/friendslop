@@ -3,6 +3,7 @@
 const PAL = { k: '#17111f', o: '#ff8a1f', O: '#c85a0a', y: '#f5c542', g: '#9be36b', G: '#4f8a3a', r: '#ff5a6e', R: '#a8243a', b: '#4ab0f0', B: '#1e6aa8',
   w: '#f1e8ff', p: '#b18cff', P: '#6a4aa8', n: '#a8744a', N: '#6a4428', s: '#a8a8b8', d: '#4a4058', c: '#d8f0ff', m: '#eee8ff' };
 const ART = {
+  mammoth:['............','....nnnn....','..nnnnnnnn..','.nnnnnnnnnn.','nnnnnnnnnnnk','nnnnnnnnnnwk','nnnnnnnnn.wk','.nnnnnnnn.w.','..nn..nn..w.','..nn..nn....','..kk..kk....','............'],
   // v0.23: значки новых миссий
   doorbell: ['..kkkkkkkk..', '..knnnnnnk..', '..knNNNNnk..', '..knNNNNnk..', '..knnnnnnk..', '..knNNNNnk..', '..knNNyNnk..', '..knnnnnnk..', '..knNNNNnk..', '..knnnnnnk..', '.kkkkkkkkkk.', '............'],
   steal: ['......kkk...', '.....kwwwk..', '.....kwkwk..', '.....kwwwk..', '......kkk...', '..kk...k....', '.krrk..k....', '.krwrk.kk...', '.krrk..k.k..', '..kk..k...k.', '.....k.....k', '............'],

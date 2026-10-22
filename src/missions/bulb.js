@@ -1,0 +1,30 @@
+import { THREE,G,V3,mesh,col,tmat,lam,compose } from '../core/gfx.js';
+import { T } from '../core/textures.js';
+import { W } from '../world/state.js';
+import { addSolid } from '../world/physics.js';
+import { sfx } from '../core/sfx.js';
+import { toolHand } from '../game/handheld.js';
+export function buildLampRepair(sp){
+ const L=sp.lamp,d=new V3(Math.sin(L.ry),0,Math.cos(L.ry)),hx=L.lx+d.x*.9,hz=L.lz+d.z*.9;L.dead=true;if(L.pool)L.pool.visible=false;
+ const oldInst=L.bulb?.inst||[];for(const p of oldInst){p.im.setMatrixAt(p.i,new THREE.Matrix4().makeScale(0,0,0));p.im.instanceMatrix.needsUpdate=true;}if(L.bulb?.mesh)L.bulb.mesh.visible=false;
+ const lad=new THREE.Group();lad.name='repair-ladder';lad.position.set(hx,L.y,hz);lad.rotation.y=L.ry;W.group.add(lad);
+ lad.add(compose('repairLadder29',a=>{const al=tmat(T.metal());for(const x of [-.32,.32]){a(G.box,al,x,1.025,.325,.06,2.15,.06,-.307);a(G.box,al,x,1.025,-.225,.05,2.10,.05,.216);}for(let y=.28;y<2;y+=.30)a(G.box,col(0xf5c542),0,y,.65*(1-y/2.05),.66,.05,.16);a(G.box,col(0x6a6478),0,2.055,0,.78,.05,.68);a(G.box,col(0x6a6478),0,.8,0,.66,.04,.60);}));
+ const deck=addSolid(hx-.39,hz-.39,hx+.39,hz+.39,L.y+2.025,L.y+2.08);deck.oneWay=true;const cx=hx+d.x*.25,cz=hz+d.z*.25,ex=d.x?.85:.48,ez=d.z?.85:.48;
+ const lz={x0:cx-ex,x1:cx+ex,z0:cz-ez,z1:cz+ez,y0:L.y,y1:L.y+2.08,nx:d.x,nz:d.z};W.ladders.push(lz);
+ const housing=new THREE.Group();housing.name='repair-lamp-housing';housing.position.set(L.lx,L.y+3.1,L.lz);housing.rotation.y=L.ry;W.group.add(housing);
+ housing.add(compose('repairHousing29',a=>{const m=tmat(T.metal());for(const x of [-.215,.215])a(G.box,m,x,0,0,.03,.30,.36);a(G.box,m,0,.15,0,.46,.03,.36);a(G.box,m,0,-.15,0,.46,.03,.36);a(G.box,m,0,0,-.17,.46,.30,.03);a(G.cyl8,col(0x8a8490),0,0,-.07,.08,.13,.08,Math.PI/2);}));
+ const hatch=new THREE.Group();hatch.position.set(-.23,0,.19);housing.add(hatch);const glass=lam({color:0xb8c0bb,transparent:true,opacity:.48,depthWrite:false},'repairGlass29');mesh(G.box,glass,.23,0,0,.44,.27,.02,hatch);for(const y of [-.15,.15])mesh(G.box,col(0x2b2533),.23,y,0,.46,.025,.035,hatch);mesh(G.box,col(0x2b2533),.46,0,0,.025,.30,.035,hatch);
+ return{type:'lamp',lamp:L,spot:sp,f:sp.f,lad,lz,deck,housing,hatch,hx,hz,reach:2.2,pos:()=>new V3(sp.x,sp.y,sp.z),setLight(on){if(L.pool)L.pool.visible=on;},dispose(){lad.removeFromParent();housing.removeFromParent();deck.on=false;const i=W.ladders.indexOf(lz);if(i>=0)W.ladders.splice(i,1);L.dead=false;if(L.bulb?.alive){for(const p of oldInst){p.im.setMatrixAt(p.i,p.mx);p.im.instanceMatrix.needsUpdate=true;}if(L.bulb.mesh)L.bulb.mesh.visible=true;}if(L.pool&&!L.pool.userData.broken)L.pool.visible=true;}};
+}
+export function screwBulb(o,api,ctx){
+ api.feedback?.();const c=o.housing.getWorldPosition(new V3()),F=new V3(Math.sin(o.lamp.ry),0,Math.cos(o.lamp.ry)),R=new V3(F.z,0,-F.x);api.pose(c.clone().addScaledVector(F,1.45).add(new V3(.15,-.06,0)),c);ctx.cursor?.(true);
+ let stage='open',drag=false,last=null,turn=0,open=0,end=-1,wrong=0,insertT=0;const lightMat=lam({color:0xfff3c0,emissive:0x000000}),bulb=new THREE.Group();bulb.name='repair-bulb';o.housing.add(bulb);toolHand(ctx,bulb,.105,-.045,.035);
+ mesh(G.sph10,lightMat,0,0,.02,.075,.075,.09,bulb);mesh(G.cyl8,col(0xa8a0a0),0,0,-.07,.04,.10,.04,bulb).rotation.x=Math.PI/2;for(let i=0;i<4;i++)mesh(G.torus,col(0x665f68),0,0,-.11+i*.02,.034,.034,.034,bulb);bulb.visible=false;api.msg('ЛКМ по плафону - открой крышку');
+ const angle=ray=>{const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(F,c),q=new V3();if(!ray.ray?.intersectPlane(plane,q))return null;q.sub(c);return Math.atan2(q.y,q.dot(R));};
+ return{get stage(){return stage;},get turn(){return turn;},down(ray){if(stage==='open'){if(ray.intersectObject(o.hatch,true).length){stage='insert';api.msg('ЛКМ по лампочке - вставь её в патрон');sfx('door');}return;}if(stage==='insert'){if(open>.85&&ray.intersectObject(bulb,true).length){stage='inserting';insertT=0;sfx('click');}return;}if(stage==='close'){if(ray.intersectObject(o.hatch,true).length){stage='closing';sfx('door');}return;}if(stage==='screw'){drag=true;last=angle(ray);}},up(){drag=false;last=null;},
+ move(ray){if(!drag||stage!=='screw')return;const a=angle(ray);if(a===null){last=null;return;}if(last!==null){const da=Math.atan2(Math.sin(a-last),Math.cos(a-last));if(Math.abs(da)<1.2){turn=Math.max(0,Math.min(Math.PI*4,turn-da));if(da>.04&&wrong<=0){wrong=4;api.msg('По часовой стрелке','bad');}if(-da>.04)sfx('screw');}}last=a;},
+ botStep(dt,brain){if(stage==='open'||stage==='close'){this.down(brain.hit(o.hatch));return;}if(stage==='insert'){this.down(brain.hit(bulb));return;}if(stage==='screw'){const q=c.clone().addScaledVector(R,Math.cos(-brain.time*3)*.13);q.y+=Math.sin(-brain.time*3)*.13;const ray=brain.rayTo(q);if(!drag)this.down(ray);this.move(ray);}},
+ update(dt){wrong-=dt;const target=['open','closing','done'].includes(stage)?0:1;open+=(target-open)*Math.min(1,dt*7);o.hatch.rotation.y=-open*1.95;bulb.visible=stage!=='open';bulb.rotation.z=-turn;if(stage==='inserting'){insertT=Math.min(1,insertT+dt/.35);bulb.position.z=.34-.24*insertT;if(insertT>=1){stage='screw';api.msg('Зажми ЛКМ - вкручивай по часовой стрелке');}}else bulb.position.z=stage==='insert'?.34:.10-turn/(Math.PI*4)*.10;
+ if(stage==='screw'&&turn>=Math.PI*4-.001){drag=false;stage='close';api.msg('Лампочка на месте. ЛКМ по крышке - закрой плафон','good');}api.progress(stage==='open'?0:['insert','inserting'].includes(stage)?.2:stage==='screw'?.3+.5*turn/(Math.PI*4):.85);
+ if(stage==='closing'&&open<.025){stage='done';o.hatch.rotation.y=0;lightMat.emissive.setHex(0x8a7040);o.setLight(true);end=.7;api.progress(1);api.msg('Плафон закрыт - свет есть!','good');sfx('done');}if(end>=0){end-=dt;if(end<=0)api.finish({success:true,mult:1});}},stop(){bulb.removeFromParent();lightMat.dispose();o.hatch.rotation.y=0;ctx.cursor?.(true);}};
+}

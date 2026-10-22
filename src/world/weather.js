@@ -75,7 +75,7 @@ export function updateWeather(dt, t, camera, P, scene, roundK) {
 export function gust(dt, P, k = 1) {
   const wx = WX.wind.x, wz = WX.wind.z;
   for (const it of W.items) if (it.state === 'rest' && it.def.mass < 0.7 && Math.abs(it.pos.x - P.pos.x) < 30 && Math.abs(it.pos.z - P.pos.z) < 30) { it.vel.x += wx * 9 * dt * k / it.def.mass; it.vel.z += wz * 9 * dt * k / it.def.mass; if (Math.random() < dt * 2) it.vel.y += 2; }
-  for (const a of [P, ...(W.bots || [])]) if (a && !a.hidden) { a.vel.x += wx * 4 * dt * k; a.vel.z += wz * 4 * dt * k; }
+  for (const a of [P, ...(W.bots || [])]) if (a && !a.hidden && !a.stationaryWork) { a.vel.x += wx * 4 * dt * k; a.vel.z += wz * 4 * dt * k; }
   if (Math.random() < dt * 6) { const ax = P.pos.x - wx * 8 + (Math.random() - 0.5) * 10, az = P.pos.z - wz * 8 + (Math.random() - 0.5) * 10; puff(ax, P.pos.y + 0.3 + Math.random() * 2, az, { color: [0xc96a25, 0xa8452a, 0xe0902e][(Math.random() * 3) | 0], size: 0.12, vx: wx * 9, vy: 0.5, vz: wz * 9, g: 0, life: 1.5, grow: 0 }); }
   if (Math.random() < dt) scareBirds(P.pos.x + wx * 5, P.pos.z + wz * 5, 8);
 }

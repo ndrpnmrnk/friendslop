@@ -129,12 +129,13 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   else { p.stDelay -= dt; if (p.stDelay <= 0) p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt * (p.stBoost > 0 ? 1.8 : 1)); }
   // поверхность под ногами
   const water = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'water');
+  const wading=zoneAt(p.pos.x,p.pos.z,p.pos.y,'wading');
   const slick = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'oil') || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle');
   const wash = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'wash');
   // разгон спринта: сначала разбег, потом набор скорости; после спринта — плавное торможение
   if (p.sprinting) p.boost = Math.min(1, p.boost + dt / PC.sprintRamp); else p.boost = Math.max(0, p.boost - dt / PC.sprintFade);
   const ramp = p.boost * p.boost * (3 - 2 * p.boost);
-  let top = (PC.walk + (PC.sprint - PC.walk) * (p.sprinting ? ramp : 0)) * (water ? 0.5 : 1) * (p.held && p.held.def.heavy ? 0.85 : 1);
+  let top = (PC.walk + (PC.sprint - PC.walk) * (p.sprinting ? ramp : 0)) * (water ? 0.5 : wading ? 0.85 : 1) * (p.held && p.held.def.heavy ? 0.85 : 1);
   if (p.energy > 0) top *= 1.2; else if (p.tired > 0) top *= 0.8;
   if (p.webT > 0) { p.webT -= dt; top *= 0.4; }
   if (p.daze > 0) top *= 0.18;
@@ -278,7 +279,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     } else { p.smokeT = 0.22 + Math.random() * 0.2; smoke(p.pos.x + bx * 0.3, p.pos.y + 0.04, p.pos.z + bz * 0.3, { dust: true, vx: bx * 0.8 + (Math.random() - 0.5) * 0.6, vz: bz * 0.8 + (Math.random() - 0.5) * 0.6 }); }
   }
   // шаги: звук зависит от поверхности
-  if (p.onGround && spd > 2 && !p.crouch) { p.stepSnd = (p.stepSnd || 0) - dt * spd; if (p.stepSnd <= 0) { p.stepSnd = 2.4; sfx('step', { surf: water || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle') ? 'water' : zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves') ? 'grass' : 'stone', v: 0.6 + spd / 22 }); } }
+  if (p.onGround && spd > 2 && !p.crouch) { p.stepSnd = (p.stepSnd || 0) - dt * spd; if (p.stepSnd <= 0) { p.stepSnd = 2.4; sfx('step', { surf: water || wading || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle') ? 'water' : zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves') ? 'grass' : 'stone', v: 0.6 + spd / 22 }); } }
   if (spd < 0.5 && p.onGround) { p.idleV = (p.idleV ?? 6) - dt; if (p.idleV <= 0) { p.idleV = 6 + Math.random() * 8; voice(p.ch, 'idle'); } } else p.idleV = Math.max(p.idleV ?? 6, 3);
   if (p.throwT > 0) p.throwT -= dt;
   if (p.pushing > 0) p.pushing -= dt;
@@ -287,7 +288,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (spd > 3 && p.onGround && Math.random() < dt * 12 && zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves')) burst(p.pos.x, p.pos.y + 0.2, p.pos.z, 3, { color: [0xc96a25, 0xa8452a, 0xe0902e][(Math.random() * 3) | 0], size: 0.14, speed: 2.2, up: 2.5, g: 5, life: 1.0, grow: 0.1 });
   // вода: стоишь — расходятся круги; приземлился — всплеск; вышел — мокрые следы
   // лужа: брызги под ногами, мокрые следы ~5 с (скользко — см. slick)
-  if (!water && p.onGround && zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle')) { p.wetT = 5; if (spd > 1.5 && Math.random() < dt * 10) burst(p.pos.x, p.pos.y + 0.05, p.pos.z, 2, { color: 0x9ccbec, size: 0.08, speed: 1.2 + spd * 0.15, up: 1.6 }); if (p.landedNow) splash(p.pos.x, p.pos.y, p.pos.z, 0.6); }
+  if (!water && p.onGround && (wading || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle'))) { p.wetT = 5; if (spd > 1.5 && Math.random() < dt * 10) burst(p.pos.x, p.pos.y + 0.05, p.pos.z, 2, { color: 0x9ccbec, size: 0.08, speed: 1.2 + spd * 0.15, up: 1.6 }); if (p.landedNow) splash(p.pos.x, p.pos.y, p.pos.z, 0.6); }
   if (water) { p.wetT = 3; p.ripT = (p.ripT || 0) - dt; if (p.ripT <= 0) { p.ripT = 0.7; ripple(p.pos.x, p.pos.y, p.pos.z, 0.8, 1.2); } if (p.landedNow) splash(p.pos.x, p.pos.y, p.pos.z, 1); }
   else if (p.wetT > 0 && p.onGround) { p.wetT -= dt; p.stepT = (p.stepT || 0) - dt;
     if (p.stepT <= 0 && spd > 1.5) { p.stepT = 0.32; p.stepS = -(p.stepS || 1); const f = p.root.rotation.y, sx = Math.cos(f) * 0.14 * p.stepS, sz = -Math.sin(f) * 0.14 * p.stepS;

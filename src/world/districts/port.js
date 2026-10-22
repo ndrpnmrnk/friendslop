@@ -38,9 +38,9 @@ export default {
     // рыбалка с набережной
     for (const x of [4.2, 13.5, 18]) W.spots.fish.push({ x: b.X(x), z: b.Z(19.1), y: b.Y, f: [0, 1], wx: b.X(x), wz: b.Z(23.2), wy: b.Y + WY + 0.08, cx: b.X(x), cz: b.Z(24), R: 3.4, district: 'Порт', label: 'набережная' });
     // портальный кран над контейнерами
-    b.container(10, 9, 6, 2.4, 0x3a6a9a); b.container(10, 9, 6, 2.4, 0xd8a030, 2.6);
+    b.container(10, 9, 6, 2.4, 0x3a6a9a);
     b.gantry(10, 9, 12, 0);
-    b.zone('roof', 7.5, 8.2, 12.5, 9.8, 5.2);
+    b.zone('roof', 7.5, 8.2, 12.5, 9.8, 2.6);
     // штабели контейнеров: ступенькой, по ним можно забраться
     b.container(24, 3.4, 7, 2.6, 0x4a7a4a); b.container(24, 6.2, 7, 2.6, 0xc8243a); b.container(24, 6.2, 7, 2.6, 0x3a6a9a, 2.6);
     b.container(29.2, 11, 2.6, 6, 0x7b4bc4);

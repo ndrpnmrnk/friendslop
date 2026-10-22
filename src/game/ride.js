@@ -2,7 +2,7 @@ import { keys, tapped } from '../core/input.js';
 import { damp } from '../core/rng.js';
 import { W } from '../world/state.js';
 import { burst, smoke } from '../world/particles.js';
-import { pushOut, zoneAt } from '../world/physics.js';
+import { pushOut, zoneAt, recordImpact } from '../world/physics.js';
 import { actors, shove } from './actors.js';
 import { sfx } from '../core/sfx.js';
 
@@ -37,7 +37,7 @@ export function release(p, shove = 1) {
 export function updateGrab(p, dt) {
   const b = p.grab; if (!b) return;
   const f = p.root.rotation.y, d = b.r + p.r + 0.12, tx = p.pos.x + Math.sin(f) * d, tz = p.pos.z + Math.cos(f) * d;
-  const q = { x: tx, z: tz }; pushOut(q, b.r, b.y + 0.2, b.y + 1);
+  const q = { x: tx, z: tz };const hit=pushOut(q,b.r,b.y+.2,b.y+1);recordImpact(b,hit,Math.hypot(b.vx,b.vz));
   if (Math.hypot(q.x - tx, q.z - tz) > 0.35 || Math.abs(p.pos.y - b.y) > 0.6) { release(p, 0.3); return; }
   b.x = q.x; b.z = q.z; b.vx = p.vel.x; b.vz = p.vel.z; b.heading = f;
   b.mesh.position.set(b.x, b.y, b.z); b.mesh.rotation.y = f;

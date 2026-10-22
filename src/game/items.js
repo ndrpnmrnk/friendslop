@@ -1,3 +1,4 @@
+import { pantsModel } from '../characters/mammoth.js';
 import { THREE, G, V3, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
 import { addOutline, OUTLINE } from './outline.js';
 import { chairModel, coneModel, trashModel, litterModel } from '../world/props.js';
@@ -17,6 +18,7 @@ const MAG_ARC = new THREE.TorusGeometry(0.115, 0.047, 6, 12, Math.PI);
 /* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
 const GRAV = 22;
 function build(type) {
+  if(type==='mammothpants')return pantsModel();
   const g = new THREE.Group();
   if (type === 'balloon') {
     mesh(G.sph, lam({ map: T.balloon(), transparent: true, opacity: 0.92 }, 'balloon'), 0, 0, 0, 0.22, 0.26, 0.22, g);

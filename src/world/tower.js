@@ -5,6 +5,7 @@ import { W } from './state.js';
 import { addItem } from '../game/items.js';
 import { breakModel, breakBox } from './breakables.js';
 import { potModel } from './props.js';
+import { buildElevator } from './elevator.js';
 let _ao; const aoMat = () => _ao || (_ao = lam({ map: T.aoStrip(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }, 'aoStrip', true));
 const BM = {}; const bottleMat = c => BM[c] || (BM[c] = lam({ color: c, transparent: true, opacity: 0.8 }, 'bottle' + c));
 
@@ -37,7 +38,7 @@ export const TowerMethods = {
     const sides = { s: { len: w, at: z + d - t / 2, axis: 'x', out: 4, inn: 5 }, n: { len: w, at: z + t / 2, axis: 'x', out: 5, inn: 4 },
       e: { len: d - 2 * t, at: x + w - t / 2, axis: 'z', out: 0, inn: 1 }, w: { len: d - 2 * t, at: x + t / 2, axis: 'z', out: 1, inn: 0 } };
     const frame = col(0x2a2232), sill = col(0xc8c0b4), curtain = lam({ color: 0xffb070, emissive: 0xff9a4a, emissiveIntensity: 0.55 }, 'curtain');
-    let doorOut = null, intercom = null;
+    let doorOut=null,intercom=null,entryDoor=null;
     for (const [k, sd] of Object.entries(sides)) {
       const dr = doors.find(q => q.side === k);
       const g0 = dr ? dr.at * sd.len - dw / 2 : -1, g1 = g0 + dw;
@@ -126,7 +127,8 @@ export const TowerMethods = {
       if (dr) {
         const e0 = U(g0), e1 = U(g1);
         const hinge = ax ? [Math.min(e0[0], e1[0]), sd.at] : [sd.at, Math.min(e0[1], e1[1])];
-        this.door(hinge[0], hinge[1], sd.axis, { s: 1, n: -1, e: -1, w: 1 }[k], 0, dw, dh, dr.style || o.doorStyle || 'wood');
+        const builtDoor=this.door(hinge[0], hinge[1], sd.axis, { s: 1, n: -1, e: -1, w: 1 }[k], 0, dw, dh, dr.style || o.doorStyle || 'wood');
+        if(!entryDoor)entryDoor=builtDoor;
         const [cx, cz] = U((g0 + g1) / 2);
         if (!intercom) { const side = dr.at > 0.65 ? -1 : 1, q = U((g0 + g1) / 2 + side * (dw / 2 + 0.27)); intercom = { x: this.X(q[0] + nrm[0] * (t / 2 + 0.08)), z: this.Z(q[1] + nrm[1] * (t / 2 + 0.08)), y: this.Y, f: nrm }; }
         if (!doorOut) doorOut = [this.X(cx + nrm[0] * 1.3), this.Z(cz + nrm[1] * 1.3), this.X(cx - nrm[0] * 1.0), this.Z(cz - nrm[1] * 1.0)];
@@ -177,15 +179,16 @@ export const TowerMethods = {
     }
     // перекрытия с проёмом над пролётом, который пришёл снизу
     const floorTex = o.floor || T.floorWood(), ceil = tmat(T.plaster());
-    const slab = (y, hole, tex, roof) => {
-      const rects = hole ? [[ix0, iz0, ix1, hole[1]], [ix0, hole[3], ix1, iz1], [ix0, hole[1], hole[0], hole[3]], [hole[2], hole[1], ix1, hole[3]]] : [[ix0, iz0, ix1, iz1]];
+    const cut=(rs,h)=>!h?rs:rs.flatMap(([x0,z0,x1,z1])=>{const[a,b,c,d]=h;if(c<=x0||a>=x1||d<=z0||b>=z1)return [[x0,z0,x1,z1]];const l=Math.max(x0,a),r=Math.min(x1,c),n=Math.max(z0,b),s=Math.min(z1,d);return [[x0,z0,x1,n],[x0,s,x1,z1],[x0,n,l,s],[r,n,x1,s]].filter(q=>q[2]-q[0]>.01&&q[3]-q[1]>.01);});
+    const liftHole=o.elevator&&[o.elevator.x0,o.elevator.z0,o.elevator.x1,o.elevator.z1];
+    const slab=(y,hole,tex,roof)=>{const rects=cut(cut([[ix0,iz0,ix1,iz1]],hole),roof?null:liftHole);
       for (const [a, b2, c, e] of rects) {
         if (c - a < 0.01 || e - b2 < 0.01) continue;
         const ft = tex.clone(); ft.needsUpdate = true; ft.repeat.set((c - a) / 3, (e - b2) / 3);
         this.m(G.box, [ceil, ceil, roof ? tmat(ft) : flat(ft), ceil, ceil, ceil], (a + c) / 2, y - 0.1, (b2 + e) / 2, c - a, 0.2, e - b2); this.solid((a + c) / 2, (b2 + e) / 2, c - a, e - b2, y - 0.2, 0.2);
       }
     };
-    { const fh2 = o.floorHole, rs = fh2 ? [[ix0, iz0, ix1, fh2[1]], [ix0, fh2[3], ix1, iz1], [ix0, fh2[1], fh2[0], fh2[3]], [fh2[2], fh2[1], ix1, fh2[3]]] : [[ix0, iz0, ix1, iz1]];
+    { const rs=cut(cut([[ix0,iz0,ix1,iz1]],o.floorHole),liftHole);
       for (const [a, b2, c, e] of rs) { if (c - a < 0.01 || e - b2 < 0.01) continue; const gfl = this.m(G.plane, flat(rep(floorTex, (c - a) / 3, (e - b2) / 3)), (a + c) / 2, 0.015, (b2 + e) / 2, c - a, e - b2, 1); gfl.rotation.x = -Math.PI / 2; } }
     const rail = col(0x3a3046), railM = (cx, cz, ww, dd, y) => { this.m(G.box, rail, cx, y + 0.95, cz, ww, 0.06, dd); this.solid(cx, cz, ww, dd, y, 1.0);
       const nPost = Math.max(2, Math.round(Math.max(ww, dd) / 0.6)); for (let i = 0; i <= nPost; i++) { const tt = i / nPost - 0.5; this.m(G.box, rail, cx + (ww > dd ? tt * ww : 0), y + 0.48, cz + (ww > dd ? 0 : tt * dd), 0.04, 0.95, 0.04); } };
@@ -265,9 +268,10 @@ export const TowerMethods = {
     if (o.awning) { const a = this.m(G.box, tmat(T.awning(...o.awning)), x + w / 2, 2.72, z + d + 0.62, w - 0.6, 0.1, 1.2); a.rotation.x = 0.25;
       // маркиза-батут: упругая ткань подбрасывает
       this.solid(x + w / 2, z + d + 0.62, w - 0.6, 1.1, 2.6, 0.12); this.bouncer(x + 0.3, z + d + 0.1, x + w - 0.3, z + d + 1.15, 2.72, 11); }
-    const guide = { name: o.name || (o.sign && o.sign[0]) || this.d, box: [this.X(ix0), this.Z(iz0), this.X(ix1), this.Z(iz1)], y0: this.Y, fh, floors: n, door: doorOut, intercom,
+    const guide = { name: o.name || (o.sign && o.sign[0]) || this.d, box: [this.X(ix0), this.Z(iz0), this.X(ix1), this.Z(iz1)], y0: this.Y, fh, floors: n, door: doorOut, entryDoor, intercom,
       stairPath: hasStairs ? { entryX: this.X(sx0 + EL / 2), midX: this.X(f1 + ML / 2), za: this.Z(sz0 + lane / 2), zb: this.Z(sz0 + lane * 1.5) } : null,
       stair: hasStairs ? [this.X(sx0 + EL / 2), this.Z(sz0 + lane * 1.5), this.X(f0 + 0.4), this.Z(sz0 + lane / 2)] : null };
+    if(o.elevator)guide.elevator=buildElevator(this,o.elevator,n,fh);
     W.buildings.push(guide);
     // этажи: свет на потолке + наполнение
     for (let k = 0; k < n; k++) {

@@ -241,8 +241,8 @@ const BIG = {
   /* Пол — лава (v0.19): единый слой лавы по всему городу поднимается в 3 ступени (0.25 → 0.6 → 1.0 м над землёй),
      каждая — плавно, с предупреждением. Спасают машины, скамейки, ящики, лестницы, крыши. Коснулся — подбрасывает,
      −20 и дроном на 15 с. В конце лава опускается, +150 минус ожоги. Слой всегда выше земли — без ряби. */
-  lava: { dur: 32,
-    start(s) { s.burn = new Map(); s.lavaT = 0; s.base = CONFIG.base; s.level = -0.4; s.stage = 0; s.T = 0;
+  lava: { dur: 24,
+    start(s) { s.fallen=new Set(); s.lavaT = 0; s.base = CONFIG.base; s.level = UG.floor-s.base-.3; s.stage = 0; s.T = 0;
       const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
       g.fillStyle = '#c8320a'; g.fillRect(0, 0, 64, 64);
       for (let i = 0; i < 70; i++) { g.fillStyle = ['#ff6a1a', '#ff8a1f', '#ffd25c', '#8a1a08'][i % 4]; const x = Math.random() * 64, y = Math.random() * 64, r = 2 + Math.random() * 6; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill(); }
@@ -254,26 +254,21 @@ const BIG = {
     target: s => { const P = ctx.player(); let best = null, bd = 1e9; for (const z of W.missionZones) if (z.type === 'roof' && z.y < P.pos.y + 4) { const d = Math.hypot((z.x0 + z.x1) / 2 - P.pos.x, (z.z0 + z.z1) / 2 - P.pos.z); if (d < bd) { bd = d; best = z; } } return best ? new V3((best.x0 + best.x1) / 2, best.y, (best.z0 + best.z1) / 2) : P.pos; },
     update(s, dt, t) {
       s.T += dt;
-      // ступени: 0–3 с затишье (пузырится), 3–7 → 0.25 м, 11–15 → 0.6 м, 19–23 → 1.0 м, 29–32 — уходит
-      const STEPS = [[3, 7, 0.25], [11, 15, 0.6], [19, 23, 1.0]]; let want = -0.4;
-      { let prev = -0.05; for (const [a, b, h] of STEPS) { if (s.T < a) break; const k = Math.min(1, (s.T - a) / (b - a)); want = prev + (h - prev) * k * k * (3 - 2 * k); prev = h; } }
-      if (s.T > 29) want = Math.max(-0.4, 1.0 - (s.T - 29) * 0.5);
-      for (let i = 0; i < STEPS.length; i++) if (s.stage === i && s.T >= STEPS[i][0]) { s.stage = i + 1; sfx('fire', { v: 0.8 }); shake(0.15); }
-      s.level = want; s.sheet.position.y = s.base + s.level;
+      const smooth=k=>{k=Math.max(0,Math.min(1,k));return k*k*(3-2*k);};let want=UG.floor-s.base-.3;
+      if(s.T<5)want+=(.3-want)*smooth(s.T/5);else if(s.T<11)want=.3+.4*smooth((s.T-5)/6);else if(s.T<16)want=.7+.4*smooth((s.T-11)/5);else if(s.T<19)want=1.1;else want=1.1+(UG.floor-s.base-.6-1.1)*smooth((s.T-19)/5);
+      s.level=want;s.stage=s.T>11?2:s.T>5?1:0;s.sheet.position.y=s.base+s.level;
       s.tex.offset.x = t * 0.04; s.tex.offset.y = Math.sin(t * 0.7) * 0.05; s.mat.color.setHSL(0.03, 1, 0.55 + Math.sin(t * 4) * 0.05);
       const P = ctx.player(), top = s.base + s.level;
       s.lavaT -= dt; if (s.lavaT <= 0 && s.level > 0 && P) { s.lavaT = 0.08; const a = Math.random() * 6.28, d = 2 + Math.random() * 12; burst(P.pos.x + Math.cos(a) * d, top + 0.02, P.pos.z + Math.sin(a) * d, 2, { color: 0xffd25c, size: 0.12, speed: 1, up: 3, g: 6, life: 0.6 }); }
-      if (s.level <= 0) return null;
-      for (const a of actors()) { if (a.hidden || a.pos.y > top + 0.05 || a.pos.y < s.base - 1.5) continue;
-        if (!(a.burnCD > t)) { a.burnCD = t + 1.2; a.vel.y = 10; a.onGround = false; s.burn.set(a, (s.burn.get(a) || 0) + 1); award(a, -20, a.pos); eliminate(a, 15); burst(a.pos.x, top + 0.3, a.pos.z, 10, { color: 0xff8a1f, size: 0.2, speed: 2, up: 3 }); sfx('hit', { at: a.pos }); voice(a.ch, 'hurt', a.pos); } }
+      for(const a of actors())if(a.pos.y<=top+.02&&a.pos.y>UG.floor-2){s.fallen.add(a);const at=a.pos.clone();eliminate(a,15);burst(at.x,Math.max(at.y,top)+.2,at.z,10,{color:0xff8a1f,size:.2,speed:2,up:3});sfx('hit',{at});}
       return null;
     },
     // бот: если стоит ниже будущего уровня — бежит на ближайшую крышу/возвышение
     bot(s, b) { const next = s.base + (s.stage >= 2 ? 1.1 : s.stage >= 1 ? 0.7 : 0.35); if (b.pos.y > next) return null;
       let best = null, bd = 1e9; for (const z of W.missionZones) if ((z.type === 'roof' || z.type === 'nook') && z.y > next && z.y < b.pos.y + 9) { const d = Math.hypot((z.x0 + z.x1) / 2 - b.pos.x, (z.z0 + z.z1) / 2 - b.pos.z); if (d < bd) { bd = d; best = z; } }
       return best ? { x: (best.x0 + best.x1) / 2, y: best.y, z: (best.z0 + best.z1) / 2, kind: 'event', near: 1.5 } : null; },
-    stop(s) { W.group.remove(s.g); s.tex.dispose(); s.mat.dispose(); for (const a of actors()) award(a, Math.max(0, 150 - (s.burn.get(a) || 0) * 30), a.pos); },
-    info: s => `ожоги ${s.burn.get(ctx.player()) || 0}`,
+    stop(s) { W.group.remove(s.g); s.tex.dispose(); s.mat.dispose(); for(const a of actors())if(!s.fallen.has(a))award(a,150,a.pos); },
+    info:s=>s.T>=19?'Лава уходит':'Выше лавы!',
   },
 
   /* Покрась город (как Splatoon): за каждым остаются следы его цвета, брошенные предметы красят пятном.
@@ -355,7 +350,7 @@ export function updateEvents(dt, ui) {
 }
 function startBig(ui) {
   const keys = Object.keys(BIG), key = globalThis.__forceBig || keys[(Math.random() * keys.length) | 0];
-  EV.big = { key, def: BIG[key], s: {}, left: Math.max(0, PHASE.resume - EV.t) }; EV.bigDone = true; EV.big.def.start(EV.big.s);
+  EV.big = { key, def: BIG[key], s: {}, left:key==='lava'?Math.min(24,Math.max(0,PHASE.resume-EV.t)):Math.max(0,PHASE.resume-EV.t) }; EV.bigDone = true; EV.big.def.start(EV.big.s);
   W.eventBot = b => EV.big ? EV.big.def.bot(EV.big.s, b) : null;
   ui.start(key, true);
 }

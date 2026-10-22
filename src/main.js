@@ -330,6 +330,7 @@ function cancelMission() {
   if(S.wm){closeWorld(null);return;}
   if(S.mg){const m=S.mg.m;closeMission(null);if(m.claimedBy===P)removeMission(m);}
 }
+function missionCountdown(n,text=''){const e=$('mgcount');e.classList.toggle('hidden',!n);e.querySelector('b').textContent=n?String(n):'';e.querySelector('small').textContent=text;}
 function openWorld(m) {
   if(m.claimedBy&&m.claimedBy!==P)return;
   if (P.ride) dismount(P, false);
@@ -344,6 +345,7 @@ function openWorld(m) {
     msg: (text, cls = '') => callout(text, cls),
     progress: v => { m.progress=v; $('mgbar').classList.toggle('hidden',worldFeedback||v===null);$('mgbar').firstChild.style.width = Math.max(0, Math.min(1, v)) * 100 + '%'; },
     where: t => { m.where = t; },
+    countdown:missionCountdown,
     timer: tm => { $('mgpts').textContent = `+${m.def.points} · ${Math.max(0, Math.ceil(tm))}`; },
     finish: res => { if (S.wm && S.wm.m === m) closeWorld(res); },
   };
@@ -366,7 +368,7 @@ function callout(text, cls = '') {
 }
 function closeWorld(res) {
   if (!S.wm) return;
-  const { m, game } = S.wm; S.wm = null; game.stop(); m.busy = false; m.track = null;
+  const { m, game } = S.wm; S.wm = null; game.stop();missionCountdown(0); m.busy = false; m.track = null;
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
   // вторая часть миссии — мини-игра у объекта (салат: нарезка, лампочка: вкрутить)
   if (res && res.chain) { m.def = { ...m.def, world: false, game: res.chain }; openMission(m); return; }
@@ -380,7 +382,7 @@ function openMission(m) {
   if (P.ride) dismount(P, false);
   if (P.grab) release(P, 0);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
-  m.doer=P; m.busy = true; P.root.visible = false; P.charging = false;
+  m.doer=P; m.busy = true;P.stationaryWork=true;P.vel.x=P.vel.z=0;P.push.x=P.push.z=0; P.root.visible = false; P.charging = false;
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden');
@@ -394,13 +396,13 @@ function openMission(m) {
   };
   S.mg = { m, game: null, start:P.pos.clone() };
   unlock(); $('lockhint').classList.add('hidden');
-  S.mg.game = ALL_GAMES[m.def.game](m.obj, api, { cursor: setCursor, character: P.ch });
+  S.mg.game = ALL_GAMES[m.def.game](m.obj, api, { cursor:setCursor, character:P.ch,player:P,camera,mission:m });
   if(S.mg?.game.hint)$('mghint').textContent=S.mg.game.hint;
 }
 function closeMission(res) {
   if (!S.mg) return;
   const { m, game } = S.mg;
-  game.stop(); S.mg = null; cam.pose = null; updateOcclusion(camera, null); m.busy = false; m.doer=null; P.root.visible = true; setCursor(true); requestLock();
+  game.stop();P.stationaryWork=false; S.mg = null; cam.pose = null; updateOcclusion(camera, null); m.busy = false; m.doer=null; P.root.visible = true; setCursor(true); requestLock();
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
   if (!res) {m.progress=0;return;}
@@ -590,7 +592,7 @@ let glowOn = new Set();
 function updateGlow() {
   const want = new Set();
   if (P && S.state === 'play' && !P.drone && !S.mg && !S.crane) {
-    for (const it of W.items) if (it.state === 'rest' && it.g.visible && !(it.boxed && !it.boxed.open) && Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z) < 2.2 && Math.abs(it.pos.y - P.pos.y - 0.4) < 1.6) want.add(it.outline);
+    for (const it of W.items) if ((it.state==='rest'||it.cartSpill&&it.state==='fly') && it.g.visible && !(it.boxed && !it.boxed.open) && Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z) < (it.cartSpill?18:2.2) && Math.abs(it.pos.y-P.pos.y-.4)<(it.cartSpill?6:1.6)) want.add(it.outline);
     for (const q of W.interacts) if (q.outline && (!q.glow || q.glow()) && Math.hypot(q.x - P.pos.x, q.z - P.pos.z) < q.r + 0.7 && Math.abs(q.y - P.pos.y) < (q.dy ?? 0.9) + 0.3) want.add(q.outline);
   }
   for (const o of glowOn) if (!want.has(o) && o !== lastFocus) o.set(false);
@@ -602,7 +604,7 @@ function interact() {
   if (P.drone || P.returning) return;
   if (S.mg) return;
   if (S.wm && S.wm.game.interact && S.wm.game.interact()) return;
-  if (P.carryCrate) return;
+  if(P.carryCrate){const e=eTarget();if(e?.allowHeld)e.act();return;}
   if (S.crane) { exitCrane(); return; }
   if (P.ride) { dismount(P, false); return; }
   if (P.swing) { leaveSwing(P, false); return; }
@@ -626,8 +628,8 @@ function interact() {
 function eTarget() {
   const f = P.root.rotation.y, fx = Math.sin(f), fz = Math.cos(f), c = [];
   const sc = (x, z, d) => { const dx = x - P.pos.x, dz = z - P.pos.z, l = Math.hypot(dx, dz) || 1; return Math.max(0.05, d) * (1.35 - 0.35 * (dx * fx + dz * fz) / l); };
-  if (!P.held) for (const q of W.interacts) { if (q.enabled && !q.enabled(P)) continue; const d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z);
-    if (d < q.r && Math.abs(q.y - P.pos.y) < (q.dy ?? 0.9)) c.push({ s: sc(q.x, q.z, d), label: q.label, act: () => q.act(P) }); }
+  for (const q of W.interacts) { if(P.held&&!q.allowHeld)continue; if (q.enabled && !q.enabled(P)) continue; const d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z);
+    if (d < q.r && Math.abs(q.y - P.pos.y) < (q.dy ?? 0.9) && (!q.aim||q.aim(aim(camera)))) c.push({ s: sc(q.x, q.z, d), label:q.label,allowHeld:q.allowHeld,act:()=>q.act(P) }); }
   for (const d of W.doors) { const dist = Math.hypot(d.x - P.pos.x, d.z - P.pos.z); if (dist < 2.2 && Math.abs(d.y - P.pos.y) < 1)
     c.push({ s: sc(d.x, d.z, dist) * 1.1, label: d.open ? TEXT.door.close : TEXT.door.open, act: () => { d.open = !d.open; d.dirS = null; d.av = 0; sfx('door', { at: d, v: 0.6 }); } }); }
   if (!P.held) { for (const it of W.items) { if ((it.state !== 'rest' && it.state !== 'placed') || (it.boxed && !it.boxed.open)) continue; const d = Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z); if (d > 1.5 || it.pos.y < P.pos.y - 0.6 || it.pos.y > P.pos.y + 1.8) continue;

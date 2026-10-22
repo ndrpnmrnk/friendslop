@@ -1,3 +1,4 @@
+import { graffitiGame } from './graffiti.js';
 import { nearbyItemPoint } from './location.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose, sprite } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -109,48 +110,7 @@ export const PANEL4 = {
   },
 
   // Граффити: зажми ЛКМ и закрась силуэт; за край — клякса (меньше очков)
-  graffiti(o, api, ctx) {
-    api.feedback?.();
-    const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]), CW = 88, CH = 60;
-    const mid = c.clone().add(new V3(0, 1.0, 0)).addScaledVector(F, 0.12);
-    api.pose(mid.clone().addScaledVector(F, 2.2).add(new V3(0, 0.15, 0)), mid.clone()); ctx.cursor(true);
-    // трафарет: случайный силуэт
-    const mk = document.createElement('canvas'); mk.width = CW; mk.height = CH; const mg = mk.getContext('2d'); mg.fillStyle = '#fff';
-    const SH = {
-      pumpkin: () => { mg.beginPath(); mg.ellipse(44, 34, 24, 19, 0, 0, 7); mg.fill(); mg.fillRect(41, 8, 6, 10); },
-      ghost: () => { mg.beginPath(); mg.arc(44, 26, 17, Math.PI, 0); mg.lineTo(61, 52); for (let i = 0; i < 4; i++) mg.lineTo(61 - (i + 0.5) * 8.5, i % 2 ? 52 : 46); mg.lineTo(27, 52); mg.closePath(); mg.fill(); },
-      cat: () => { mg.beginPath(); mg.arc(44, 34, 18, 0, 7); mg.fill(); mg.beginPath(); mg.moveTo(28, 26); mg.lineTo(30, 6); mg.lineTo(42, 18); mg.fill(); mg.beginPath(); mg.moveTo(60, 26); mg.lineTo(58, 6); mg.lineTo(46, 18); mg.fill(); },
-      star: () => { mg.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 10 : 25; mg.lineTo(44 + Math.cos(a) * r, 31 + Math.sin(a) * r); } mg.fill(); },
-      bat: () => { mg.beginPath(); mg.ellipse(44, 32, 8, 11, 0, 0, 7); mg.fill(); mg.beginPath(); mg.moveTo(40, 28); mg.lineTo(14, 18); mg.lineTo(20, 32); mg.lineTo(26, 30); mg.lineTo(30, 40); mg.lineTo(40, 36); mg.fill(); mg.beginPath(); mg.moveTo(48, 28); mg.lineTo(74, 18); mg.lineTo(68, 32); mg.lineTo(62, 30); mg.lineTo(58, 40); mg.lineTo(48, 36); mg.fill(); },
-    };
-    const keys = Object.keys(SH), shape = keys[(Math.random() * keys.length) | 0]; SH[shape]();
-    const mask = mg.getImageData(0, 0, CW, CH).data, inside = new Uint8Array(CW * CH); let total = 0;
-    for (let i = 0; i < CW * CH; i++) if (mask[i * 4 + 3] > 128) { inside[i] = 1; total++; }
-    const paint = new Uint8Array(CW * CH); let pin = 0, pout = 0;
-    const cv = document.createElement('canvas'); cv.width = CW; cv.height = CH; const g = cv.getContext('2d');
-    const COL = ['#ff5a6e', '#4ab0f0', '#f5c542', '#9be36b', '#b18cff'][(Math.random() * 5) | 0];
-    // стена: бетон + пунктирный контур трафарета
-    g.fillStyle = '#6a6478'; g.fillRect(0, 0, CW, CH); for (let i = 0; i < 260; i++) { g.fillStyle = Math.random() < 0.5 ? '#5e586c' : '#77708a'; g.fillRect((Math.random() * CW) | 0, (Math.random() * CH) | 0, 1, 1); }
-    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) { const i = y * CW + x; if (!inside[i]) continue; const edge = !inside[i - 1] || !inside[i + 1] || !inside[i - CW] || !inside[i + CW]; if (edge && (x + y) % 3 !== 0) { g.fillStyle = '#f1e8ff'; g.fillRect(x, y, 1, 1); } else if (!edge && (x + y) % 6 === 0) { g.fillStyle = 'rgba(241,232,255,.25)'; g.fillRect(x, y, 1, 1); } }
-    const tex = new THREE.CanvasTexture(cv); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
-    const board = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.5), new THREE.MeshBasicMaterial({ map: tex })); board.position.copy(mid); board.lookAt(mid.clone().add(F)); W.group.add(board);
-    let down = false, time = 30, endT = -1, sprayT = 0;
-    api.progress(0); api.msg(`Закрась: ${({ pumpkin: 'тыква', ghost: 'призрак', cat: 'кот', star: 'звезда', bat: 'летучая мышь' })[shape]}. Не вылезай за край`);
-    const spray = ray => { const h = ray.intersectObject(board); if (!h.length || !h[0].uv) return; const u = h[0].uv.x * CW, v = (1 - h[0].uv.y) * CH;
-      for (let k = 0; k < 26; k++) { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 3.6, x = Math.floor(u + Math.cos(a) * r), y = Math.floor(v + Math.sin(a) * r); if (x < 0 || y < 0 || x >= CW || y >= CH) continue;
-        const i = y * CW + x; if (!paint[i]) { paint[i] = 1; if (inside[i]) pin++; else pout++; } g.fillStyle = COL; g.fillRect(x, y, 1, 1); }
-      tex.needsUpdate = true; sprayT -= 1; if (sprayT <= 0) { sprayT = 8; sfx('spray', { v: 0.5 }); }
-      if (Math.random() < 0.3) puff(h[0].point.x, h[0].point.y, h[0].point.z, { color: parseInt(COL.slice(1), 16), size: 0.12, vx: F.x, vz: F.z, vy: 0.2, life: 0.4, grow: 1.5, opacity: 0.5 }); };
-    return {
-      botStep(dt, brain) { if(endT>0)return;const i=inside.findIndex((v,i)=>v&&!paint[i]);if(i<0)return;const uv=new THREE.Vector2((i%CW+0.5)/CW,1-((i/CW|0)+0.5)/CH);const point=board.localToWorld(new V3((uv.x-.5)*2.2,(uv.y-.5)*1.5,0));brain.workPoint=point;this.down({intersectObject:()=>[{uv,point}]}); },
-      down(ray) { down = true; spray(ray); }, up() { down = false; }, move(ray) { if (down && endT < 0) spray(ray); },
-      update(dt) { time -= dt; const k = pin / total; api.progress(Math.min(1, k / 0.8));
-        if (endT < 0 && k >= 0.8) { const out = pout / total; endT = 1.0; api.msg(out < 0.15 ? 'Чисто! Как по трафарету' : 'Готово, но с кляксами', out < 0.15 ? 'good' : ''); sfx('done'); }
-        if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: Math.max(0.5, 1.1 - (pout / total) * 1.5) }); return; }
-        if (time <= 0) api.finish({ success: false }); },
-      stop() { W.group.remove(board); tex.dispose(); ctx.cursor(true); },
-    };
-  },
+  graffiti:graffitiGame,
 
   // Код домофона — ввод: кнопки 0–9, сброс; найденные цифры подсказаны сверху
   keypad(o, api, ctx) {

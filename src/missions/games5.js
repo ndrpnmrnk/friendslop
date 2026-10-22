@@ -1,3 +1,4 @@
+import { buildEntranceBell,doorbellGame } from './doorbell.js';
 import { followHand, handPosition, cargoPosition, toolHand } from '../game/handheld.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose, sprite } from '../core/gfx.js';
 import { T, pix } from '../core/textures.js';
@@ -53,14 +54,7 @@ const numTex = (n, c) => { const cv = document.createElement('canvas'); cv.width
   const t = new THREE.CanvasTexture(cv); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; };
 
 /* ====================== объекты (ставит генератор миссий) ====================== */
-export function buildDoor(x, y, z, f) {
-  const o = place(x, y, z, f, g => { g.add(compose('m5porch', a => { const br = tmat(T.oldBrick()), dk = col(0x2b2533), st = tmat(T.stone());
-    a(G.box, br, 0, 1.45, -0.15, 2.4, 2.9, 0.3); a(G.box, dk, 0, 1.2, 0.02, 1.2, 2.3, 0.06); a(G.box, st, 0, 0.08, 0.35, 1.6, 0.16, 0.6); a(G.box, lam({ map: T.cloth(0x8a2a2a, 'carpet_g') }, 'm5mat'), 0, 0.17, 0.4, 0.9, 0.02, 0.45);
-    a(G.box, dk, 0.75, 1.3, 0.03, 0.12, 0.18, 0.04); a(G.box, glow(0xf5c542), 0.75, 1.3, 0.055, 0.05, 0.05, 0.02); a(G.box, glow(0xffd8a0), 0, 2.55, 0.06, 0.25, 0.12, 0.08);
-    a(G.box, tmat(T.sign('№13', '#2a1f3d', '#f5c542')), 0, 2.72, 0.01, 0.4, 0.16, 0.02); }));
-    const door = new THREE.Group(); door.position.set(-0.55, 0, 0.05); g.add(door); door.add(compose('m5door', a => { a(G.box, tmat(T.wood()), 0.55, 1.15, 0, 1.1, 2.25, 0.06); a(G.box, col(0xf5c542), 0.95, 1.1, 0.05, 0.06, 0.06, 0.06); })); g.userData.door = door; }, [2.4, 0.5], 2.9);
-  o.type = 'porch'; o.door = o.g.userData.door; return o;
-}
+export const buildDoor=buildEntranceBell;
 export function buildSkelBench(x, y, z, f) {
   const o = place(x, y, z, f, g => { g.add(compose('m5bench', a => { const w = tmat(T.wood()), dk = col(0x2b2533); a(G.box, w, 0, 0.45, 0, 1.8, 0.06, 0.45); a(G.box, w, 0, 0.75, -0.2, 1.8, 0.35, 0.05); for (const sx of [-0.8, 0.8]) a(G.box, dk, sx, 0.22, 0, 0.06, 0.44, 0.42); }));
     const sk = skelModel('smoke'); sk.g.position.set(-0.35, -0.5, 0.0); sk.legs.forEach(l => (l.rotation.x = -1.4)); g.add(sk.g); g.userData.sk = sk; }, [1.9, 0.6], 0.5);
@@ -145,27 +139,7 @@ export const buildGrillSpot = sp => ({ type: 'spot', spot: sp, f: sp.f, pos: () 
 
 /* ====================== уличные миссии ====================== */
 export const WORLD5 = {
-  // 1. Позвони и убеги: E у двери — звонок; 4 с спрятаться (за углом, в кустах, урне); жилец выходит и смотрит 3.5 с
-  doorbell(o, api, ctx) {
-    const P = ctx.player, c = o.pos(), fr = o.front(0.6), yaw = o.g.rotation.y; let st = 'ring', t = 0, time = 60, sk = null, cone = null, look = 0, failT = -1;
-    api.msg('Подойди к двери и позвони (E)');
-    return {
-      botTarget:()=>st==='ring'?fr:c.clone().addScaledVector(new V3(-Math.sin(yaw),0,-Math.cos(yaw)),14),
-      target: () => st === 'ring' ? fr : null,
-      prompt: () => st === 'ring' && flat(P.pos, fr) < 1.6 ? '<b>E</b>Позвонить и бежать' : '',
-      interact() { if (st !== 'ring' || flat(P.pos, fr) > 1.6) return false; st = 'hide'; t = 4; sfx('bell', { at: c }); api.msg('ПРЯЧЬСЯ!', 'bad'); return true; },
-      update(dt) {
-        time -= dt; api.timer(time); if (time <= 0 && st !== 'look') return api.finish({ success: false });
-        if (failT > 0) { failT -= dt; if (failT <= 0) api.finish({ success: false }); return; }
-        if (st === 'hide') { t -= dt; api.progress(0.3 + (1 - t / 4) * 0.3); if (t <= 0) { st = 'look'; t = 3.5; sk = skelModel('beer'); sk.g.position.set(c.x + Math.sin(yaw) * 0.2, c.y, c.z + Math.cos(yaw) * 0.2); sk.g.rotation.y = yaw; W.group.add(sk.g); cone = viewCone(10, 0.55); cone.position.copy(sk.g.position); sfx('curse', { at: c }); sfx('door', { at: c }); } }
-        if (st === 'look') { t -= dt; o.door.rotation.y = Math.min(1.6, o.door.rotation.y + dt * 4); look += dt; const ly = yaw + Math.sin(look * 1.6) * 0.9; sk.g.rotation.y = ly; cone.rotation.y = ly; sk.arms[0].rotation.x = -1.2 + Math.sin(look * 9) * 0.3;
-          api.progress(0.6 + (1 - t / 3.5) * 0.4);
-          if (sees(sk.g.position, ly, 10, 0.55, P)) { st = 'caught'; failT = 1.2; api.msg('ЗАМЕТИЛ! Позор...', 'bad'); sfx('curse', { at: c }); return; }
-          if (t <= 0) { st = 'done'; api.msg('Не заметил! Красава', 'good'); sfx('done'); setTimeout(() => api.finish({ success: true, mult: 1 }), 700); } }
-      },
-      stop() { if (sk) W.group.remove(sk.g); if (cone) W.group.remove(cone); o.door.rotation.y = 0; },
-    };
-  },
+  doorbell:doorbellGame,
   // 2. Утащи у скелета: банка рядом с ним на лавке; бери, когда он не смотрит (красный сектор), и уноси за 12 м
   steal(o, api, ctx) {
     const P = ctx.player, sk = o.sk, c = o.pos(), yaw0 = o.g.rotation.y; let look = yaw0, want = yaw0, nextT = 2, strikes = 0, time = 75, hold = 0;
@@ -218,16 +192,12 @@ export const WORLD5 = {
     const moths=Array.from({length:5},(_,i)=>{const g=new THREE.Group();g.name='mission-moth';W.group.add(g);const wings=[-1,1].map(side=>{const pivot=new THREE.Group();pivot.position.x=side*0.025;g.add(pivot);const w=mesh(G.plane,wing,side*0.105,0,0,0.23,0.22,1,pivot);w.rotation.x=-Math.PI/2;return pivot;});
       g.add(compose('mothBody26',a=>{a(G.box,col(0x594535),0,0,0,0.045,0.045,0.14);for(const side of [-1,1])a(G.box,col(0xc8b488),side*0.027,0.02,0.095,0.009,0.015,0.075,0,side*0.45);}));
       return{g,wings,a:i*1.3,h:1.5+(i%3)*0.23,r:0.65+(i%2)*0.45,sp:2.3+i*0.28,got:false,turn:0,jitter:new V3(),want:new V3()};});
-    const net=new THREE.Group();net.name='mission-moth-net';W.group.add(net);net.add(compose('mothNet26',a=>{
-      a(G.cyl6,tmat(T.wood()),0,0.18,0.16,0.025,0.58,0.025,0.72);a(G.cyl8,col(0x6a4531),0,-0.08,-0.07,0.035,0.2,0.035,0.72);
-      a(G.ring,col(0xc8c0a8),0,0.46,0.4,0.38,0.38,1);
-      a(G.cone8,lam({map:T.grate(),transparent:true,opacity:0.65,side:THREE.DoubleSide},'mothNetting26'),0,0.46,0.24,0.36,0.4,0.36,Math.PI/2);
-    }));P.carryNet=true;P.missionTool=true;
+    const net=new THREE.Group();net.name='mission-moth-net';W.group.add(net);net.add(compose('mothNet29',a=>{a(G.cyl6,tmat(T.wood()),0,.14,.24,.025,.56,.025,1.06);a(G.cyl8,col(0x6a4531),0,-.04,-.07,.035,.20,.035,1.06);a(new THREE.TorusGeometry(.35,.018,4,12),col(0xc8c0a8),0,.62,.50);a(new THREE.ConeGeometry(1,1,8,1,true),lam({map:T.chainlink(),alphaTest:.35,side:THREE.DoubleSide},'mothNetting29'),0,.62,.20,.34,.60,.34,-Math.PI/2);}));P.carryNet=true;P.missionTool=true;
     const center=new V3(),previous=new V3(),mothPos=new V3(),segment=new THREE.Line3();
-    const head=()=>{net.updateWorldMatrix(true,false);return net.localToWorld(center.set(0,0.46,0.4));};
+    const head=()=>{net.updateWorldMatrix(true,false);return net.localToWorld(center.set(0,.62,.50));};
     const pose=()=>{const k=swing>0?1-swing/0.36:0;followHand(P,net,-0.35+Math.sin(k*Math.PI)*0.9);net.rotation.y+=swing>0?Math.sin(k*Math.PI*2)*0.4:0;};pose();previous.copy(head());
     const catchOne=()=>{const end=head();segment.set(previous,end);for(const m of moths){if(m.got)continue;segment.closestPointToPoint(m.g.position,true,mothPos);if(mothPos.distanceTo(m.g.position)>0.5||!los(handPosition(P),m.g.position))continue;
-        const at=m.g.position.clone();m.got=true;net.add(m.g);m.g.position.set((caught%2?1:-1)*0.07,0.43+caught*0.05,0.25);m.g.scale.setScalar(0.25);caught++;sfx('pickup',{at});burst(at.x,at.y,at.z,5,{color:0xd8c8b0,size:0.06,speed:1});api.progress(caught/3*0.9);api.msg(caught>=3?'Три пойманы! E у банки':`Поймано ${caught} из 3`,'good');return true;}return false;};
+        const at=m.g.position.clone();m.got=true;net.add(m.g);m.g.position.set((caught%2?1:-1)*0.07,.57+caught*.04,.22);m.g.scale.setScalar(0.25);caught++;sfx('pickup',{at});burst(at.x,at.y,at.z,5,{color:0xd8c8b0,size:0.06,speed:1});api.progress(caught/3*0.9);api.msg(caught>=3?'Три пойманы! E у банки':`Поймано ${caught} из 3`,'good');return true;}return false;};
     api.msg('ЛКМ - взмах сачком. Поймай трёх мотыльков, затем E у банки');
     return {
       toolName:'Сачок',toolIcon:'moths',toolAction:'Взмах',
@@ -360,27 +330,29 @@ export const WORLD5 = {
         else if(type===1){a(G.cyl8,tmat(T.metal()),0,0,0,0.07,0.19,0.07);a(G.cyl8,col(cc),0,0,0,0.072,0.13,0.072);}
         else if(type===2){for(let j=0;j<3;j++)a(G.box,col(cc),-0.07+j*0.06,j===1?-0.025:0.005,0,0.08,0.05,0.12,0,0,(j-1)*0.4);}
         else if(type===3)a(G.sph,col(cc),0,0,0,0.055,0.055,0.17);
-        else{a(G.box,tmat(T.crate()),0,0,0,0.22,0.18,0.18);a(G.box,col(0xe8dfbd),0,0.094,0,0.05,0.01,0.18);}}); m.position.set((i % 3 - 1) * 0.2, Math.floor(i / 3) * 0.17, (i % 2) * 0.15 - 0.07); goods.add(m); gm.push(m); };
+        else{a(G.box,tmat(T.crate()),0,0,0,0.22,0.18,0.18);a(G.box,col(0xe8dfbd),0,0.094,0,0.05,0.01,0.18);}}); const slot=gm.length;m.position.set((slot%3-1)*.2,Math.floor(slot/3)*.17,(slot%2)*.15-.07);m.userData.cartType=GD[i%5];goods.add(m); gm.push(m); };
     for (let i = 0; i < 6; i++) addGood(i);
-    const car = (W.cars || []).filter(q => Math.abs(q.y - c.y) < 0.5).map(q => ({ q, d: Math.hypot(q.x - c.x, q.z - c.z) })).filter(q => q.d > 10 && q.d < 45).sort((a, b) => a.d - b.d)[0];
-    const dest = car ? new V3(car.q.x - Math.cos(car.q.ry) * 2.6, c.y, car.q.z + Math.sin(car.q.ry) * 2.6) : farFloor(c, 14, 26); const rg = ring(0x9be36b); rg.scale.setScalar(2.2); rg.position.set(dest.x, dest.y + 0.06, dest.z);
-    let time = 100, lv = new V3(pc.vx, 0, pc.vz), lost = [], cd = 0; api.msg('Вези тележку к машине (E — взяться). Плавно!');
+    const candidates=(W.cars||[]).filter(q=>Math.abs(q.y-c.y)<.5).map(q=>new V3(q.x-Math.cos(q.ry)*2.6,c.y,q.z+Math.sin(q.ry)*2.6)).filter(p=>flat(p,st)>=55&&flat(p,st)<=105&&isFree(p.x-.9,p.z-.9,p.x+.9,p.z+.9,p.y+.1,p.y+1.8));
+    let dest=candidates.sort((a,b)=>Math.abs(flat(a,st)-75)-Math.abs(flat(b,st)-75))[0];for(let i=0;!dest&&i<24;i++){const p=farFloor(st,55,105);if(flat(p,st)>=50)dest=p;}
+    if(!dest)dest=(W.spawns||[]).map(p=>new V3(p.x,p.y,p.z)).filter(p=>Math.abs(p.y-c.y)<.5&&flat(p,st)>=50).sort((a,b)=>flat(a,st)-flat(b,st))[0];if(!dest)dest=st.clone().add(new V3(55,0,0));
+    const rg=ring(0x9be36b);rg.scale.setScalar(2.2);rg.position.set(dest.x,dest.y+.06,dest.z);const distance=flat(st,dest);let time=180,lost=[],cd=0,impact=pc.impactSeq||0;
+    const putBack=it=>{if(!lost.includes(it)||it.state==='gone')return;const type=it.type;for(const a of [P,...W.bots])if(a.held===it)a.held=null;it.state='gone';it.g.visible=false;it.outline.set(false);if(it.ring){it.ring.removeFromParent();it.ring.material.dispose();it.ring=null;}addGood(Math.max(0,GD.indexOf(type)));sfx('pickup');};api.msg('Довези покупки к дальней машине. Сильный удар на скорости роняет продукты');
     return {
       botItems:()=>lost,botTarget:()=>P.held?new V3(pc.x,pc.y,pc.z):lost.find(it=>it.state==='rest')?.pos||new V3(pc.x,pc.y,pc.z).addScaledVector(new V3(pc.x-dest.x,0,pc.z-dest.z).normalize(),1.1),botStep(dt,brain){if(P.held&&flat(P.pos,pc)<1.5){const it=P.held;P.held=null;it.state='rest';it.pos.set(pc.x,pc.y+1,pc.z);}else if(!lost.length&&flat(P.pos,pc)<1.9){const dx=dest.x-pc.x,dz=dest.z-pc.z,d=Math.hypot(dx,dz)||1;pc.vx+=dx/d*dt*4;pc.vz+=dz/d*dt*4;}},
+      prompt:()=>P.held&&lost.includes(P.held)&&flat(P.pos,pc)<1.8?'<b>E</b>Положить в корзину':'',
+      interact(){if(P.held&&lost.includes(P.held)&&flat(P.pos,pc)<1.8){putBack(P.held);return true;}return false;},
       target: () => dest,
       update(dt) {
         time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false }); cd -= dt;
-        const v = new V3(pc.vx, 0, pc.vz), jerk = v.distanceTo(lv) / Math.max(dt, 0.001); const oldSpeed=lv.length();lv.copy(v);
-        if (jerk > 26 && v.length() + oldSpeed > 1 && cd <= 0 && gm.length) { cd = 0.5; const m = gm.pop(); goods.remove(m); const wp = new V3(); pc.mesh.getWorldPosition(wp);
-          const it = addItem(GD[gm.length % 5], wp.x, wp.y + 1.2, wp.z); it.def = { ...it.def, respawn: 0 }; launch(it, it.pos.clone(), new V3((Math.random() - 0.5) * 4, 3, (Math.random() - 0.5) * 4)); it.mission=ctx.mission;lost.push(it); sfx('imp', { at: wp }); api.msg('Уронил! Собери', 'bad'); }
+        if((pc.impactSeq||0)!==impact){impact=pc.impactSeq||0;if(cd<=0&&gm.length&&pc.impactSpeed>=7.5){cd=1;const count=pc.impactSpeed>=10?2:1;for(let i=0;i<count&&gm.length;i++){const m=gm.pop();goods.remove(m);const it=addItem(m.userData.cartType,pc.x,pc.y+1.1,pc.z);it.def={...it.def,respawn:0};it.mission=ctx.mission;it.cartAirT=.8;it.cartSpill=true;it.outline.set(true);it.ring=ring(0xf5c542);it.ring.scale.setScalar(.8);const a=Math.atan2(pc.vx,pc.vz)+(i?1:-1)*1.1;launch(it,it.pos.clone(),new V3(Math.sin(a)*3.5,3.8,Math.cos(a)*3.5));lost.push(it);}sfx('imp',{at:pc.mesh.position});api.msg('Удар! Верни покупки в корзину','bad');}}
         // упавшее — обратно в тележку (положить/закинуть рядом с корзиной)
         const wp = new V3(); pc.mesh.getWorldPosition(wp);
-        for (const it of lost) if (it.state !== 'gone' && P.held !== it && Math.hypot(it.pos.x - wp.x, it.pos.z - wp.z) < 0.7 && it.pos.y > wp.y + 0.5) { it.state = 'gone'; it.g.visible = false; addGood(gm.length); sfx('pickup'); }
+        for(const it of lost){const show=it.state!=='gone'&&it.state!=='held';it.outline.set(show);if(it.ring){it.ring.visible=show;it.ring.position.set(it.pos.x,it.pos.y-it.def.r+.035,it.pos.z);}it.cartAirT=Math.max(0,(it.cartAirT||0)-dt);if(it.state!=='gone'&&it.state!=='held'&&!it.cartAirT&&Math.hypot(it.pos.x-wp.x,it.pos.z-wp.z)<.65&&it.pos.y>wp.y+.5&&it.pos.y<wp.y+1.7)putBack(it);}
         lost = lost.filter(it => it.state !== 'gone');
-        api.progress(Math.max(0, 1 - Math.hypot(wp.x - dest.x, wp.z - dest.z) / 25) * 0.8 + gm.length / 30);
-        if (Math.hypot(wp.x - dest.x, wp.z - dest.z) < 2.4) { if (gm.length >= 4) { sfx('done'); api.msg(`Довёз! (${gm.length}/6)`, 'good'); api.finish({ success: true, mult: gm.length / 6 }); } else api.msg('Мало продуктов — собери упавшее', 'bad'); }
+        api.progress(Math.max(0, 1 - Math.hypot(wp.x - dest.x, wp.z - dest.z) / distance) * 0.8 + gm.length / 30);
+        if(Math.hypot(wp.x-dest.x,wp.z-dest.z)<2.4){sfx('done');api.msg(`Довёз: ${gm.length} из 6`,'good');api.finish({success:true,mult:gm.length?gm.length/6:5/(ctx.mission?.pts||250)});}
       },
-      stop() { W.group.remove(rg); if (P.grab === pc && W.releaseCart) W.releaseCart(P); const i = W.pushables.indexOf(pc); if (i >= 0) W.pushables.splice(i, 1); W.group.remove(pc.mesh); for (const it of lost) { it.state = 'gone'; it.g.visible = false; } },
+      stop(){W.group.remove(rg);for(const a of [P,...W.bots]){if(a.grab===pc)W.releaseCart?.(a);if(a.ride===pc)W.dismount?.(a,false);}const i=W.pushables.indexOf(pc);if(i>=0)W.pushables.splice(i,1);W.group.remove(pc.mesh);for(const it of lost){if(it.owner?.held===it)it.owner.held=null;it.outline.set(false);if(it.ring){it.ring.removeFromParent();it.ring.material.dispose();it.ring=null;}it.state='gone';it.g.visible=false;}},
     };
   },
   // 12. Фото призрака: призрак мелькает между могил — поймай его в центр кадра и жми E (вспышка)

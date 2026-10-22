@@ -9,18 +9,16 @@ import { burst } from '../particles.js';
    на колёсиках, переговорки за стеклом (бьётся), столовая наверху. На крыше — вертолётная
    площадка и мачта. Снаружи — площадь со скамейками, клумбами, флагами и курилкой. */
 export default {
-  id: 'office', name: 'Бизнес-центр', ground: 'pave',
+  id: 'office', name: 'Бизнес-центр', ground: 'pave', holes:[[15,1.4,18.4,4.8]],
   build(b) {
     const N = 6, FH = 3.8;
-    b.tower({ x: 7, z: 1, w: 18, d: 13, floors: N, fh: FH, fireEscape: { side: 'w', at: 0.55 }, wall: 0x4e5c7a, brick: false, lit: 0.75, floor: T.carpet(),
+    b.tower({ x: 7, z: 1, w: 18, d: 13, floors: N, fh: FH, fireEscape: { side: 'w', at: 0.55 }, wall: 0x4e5c7a, brick: false, lit: 0.75, floor: T.carpet(), elevator:{x0:15,z0:1.4,x1:18.4,z1:4.8},
       door: { side: 's', at: 0.5, sign: ['БЦ «ПОЛНОЛУНИЕ»', '#17111f', '#b18cff'] },
       interior(f, k, r) {
         if (k % 3 === 1) for (let i = 0; i < 4; i++) f.locker(r.x1 - 0.4 - i * 0.6, r.z1 - 0.3, Math.PI, 0x4a5a7a);
         if (k === 0) {
           // лобби: ресепшен, лифты, турникеты, диваны
           f.box(16, 7.2, 4, 0.8, 1.1, tmat(T.wood())); f.m(G.box, col(0x2b2533), 16, 1.12, 7.2, 4.1, 0.05, 0.9); f.desk(16, 6.4, 0, true);
-          for (const x of [17.6, 20.4]) { f.m(G.box, tmat(T.metal()), x, 1.2, 1.3, 1.4, 2.4, 0.06); f.m(G.box, col(0x17141c), x, 1.2, 1.32, 0.02, 2.4, 0.04); f.m(G.box, glow(0xffb35c), x + 0.9, 1.3, 1.3, 0.12, 0.2, 0.04); }
-          f.sign(19, 2.8, 1.3, 0, 'ЛИФТЫ НЕ РАБОТАЮТ', '#17111f', '#ff5a6e', 2.6, 0.32);
           for (const x of [12.5, 13.6, 18.4, 19.5]) f.bollard(x, 9.8);
           f.sofa(10, 12.9, Math.PI, 0x3a4a6a); f.sofa(22, 12.9, Math.PI, 0x3a4a6a); f.rug(16, 11.5, 3, 2, '#2a1f3d', '#b18cff');
           f.plantPot(8, 13.2, 1.2); f.plantPot(24, 13.2, 1.2); f.plantPot(24.2, 4.5, 1.1); f.waterCooler(24.3, 6.5);
@@ -28,7 +26,7 @@ export default {
         }
         if (k === N - 1) {
           // столовая наверху
-          f.kitchen(20, 1.6, 4); f.vending(24.1, 5);
+          f.kitchen(22, 1.6, 3); f.vending(24.1, 5);
           for (const [x, z] of [[10, 7], [13.5, 7], [10, 10.5], [13.5, 10.5], [18, 10.5], [21.5, 10.5]]) { f.ptable(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); }
           f.sofa(21, 13.1, Math.PI, 0x7b4bc4); f.plantPot(8, 13.2); f.plantPot(24.2, 13.2);
           return;
@@ -83,8 +81,7 @@ export default {
         b.m(G.box, col(0x2b2533), x, 0.02, z, 0.36, 0.03, 0.36); for (const o of [-0.09, 0, 0.09]) b.m(G.box, col(0x8a8498), x + o, 0.04, z, 0.03, 0.02, 0.32);
         const c = b.m(G.cyl6, wm, x, 0.5, z, 0.06, 1, 0.06), top = b.m(G.sph, cap, x, 1, z, 0.13, 0.1, 0.13); W.keep.push(c, top); jets.push({ c, top, x: b.X(x), z: b.Z(z), i: jets.length });
       }
-      b.puddle(14.2, 24.75, 0.7); b.puddle(17.6, 24.2, 0.6);
-      addZone('puddle', { r: [b.X(13), b.Z(23), b.X(18.5), b.Z(26.5)] }, b.Y);
+      addZone('wading', { r: [b.X(13), b.Z(23), b.X(18.5), b.Z(26.5)] }, b.Y);
       let jt = 0; W.animated.push((dt, t) => { jt -= dt; const spray = jt <= 0; if (spray) jt = 0.12;
         for (const j of jets) { const col4 = j.i >> 1, k = Math.max(0, Math.sin(t * 2.2 - col4 * 0.9)), h = 0.05 + k * k * 1.7;
           j.c.scale.y = h; j.c.position.y = b.Y + h / 2; j.top.position.y = b.Y + h; j.c.visible = j.top.visible = h > 0.12;

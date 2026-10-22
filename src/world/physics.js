@@ -52,7 +52,7 @@ export function groundAt(x, z, r, maxY) {
 export function pushOut(p, r, yLow, yHigh) {
   let hit = false;
   for (const s of solidsNear(p.x - r, p.z - r, p.x + r, p.z + r)) {
-    if (!s.on || s.y1 <= yLow || s.y0 >= yHigh) continue;
+    if (!s.on || s.oneWay || s.y1 <= yLow || s.y0 >= yHigh) continue;
     const cx = clamp(p.x, s.x0, s.x1), cz = clamp(p.z, s.z0, s.z1), dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
     if (d2 >= r * r) continue;
     hit = true;
@@ -88,7 +88,7 @@ export function moveBody(b, dt, g = 22) {
   if (p.y <= gy) { if (v.y < -0.5 && !b.onGround) b.landed = true; p.y = gy; v.y = Math.max(0, v.y); b.onGround = true; }
   else b.onGround = false;
   if (v.y > 0) for (const s of solidsNear(p.x - b.r, p.z - b.r, p.x + b.r, p.z + b.r)) {
-    if (s.on && overlapXZ(s, p.x, p.z, b.r * 0.6) && s.y0 >= oldY + b.h - 0.02 && s.y0 < p.y + b.h) { p.y = s.y0 - b.h; v.y = 0; }
+    if (s.on && !s.oneWay && overlapXZ(s, p.x, p.z, b.r * 0.6) && s.y0 >= oldY + b.h - 0.02 && s.y0 < p.y + b.h) { p.y = s.y0 - b.h; v.y = 0; }
   }
   b.ground = gy;
 }
@@ -132,6 +132,7 @@ export function solidHit(p, r) {
 }
 
 /* Толкаемые предметы: тележки и бочки */
+export function recordImpact(b,hit,speed){if(hit&&!b.impactContact&&speed>1.8){b.impactSeq=(b.impactSeq||0)+1;b.impactSpeed=speed;}b.impactContact=hit;}
 export function updatePushables(dt, player) {
   for (const b of W.pushables) {
     if (b.grabbed) { b.hitSpeed = 0; continue; } // её ведёт игрок
@@ -139,7 +140,8 @@ export function updatePushables(dt, player) {
     b.x += b.vx * dt; b.z += b.vz * dt;
     const p = { x: b.x, z: b.z };
     b.hitSpeed = 0;
-    if (pushOut(p, b.r, b.y + (b.ride && b.kind !== 'ring' ? 0.5 : 0.2), b.y + 1)) { b.hitSpeed = Math.hypot(b.vx, b.vz); b.vx *= -0.3; b.vz *= -0.3; }
+    const hit=pushOut(p,b.r,b.y+(b.ride&&b.kind!=='ring'?.5:.2),b.y+1);recordImpact(b,hit,Math.hypot(b.vx,b.vz));
+    if (hit) { b.hitSpeed = Math.hypot(b.vx, b.vz); b.vx *= -0.3; b.vz *= -0.3; }
     b.x = p.x; b.z = p.z;
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
@@ -189,7 +191,7 @@ export function updatePushables(dt, player) {
   }
   for (let i = 0; i < W.pushables.length; i++) for (let j = i + 1; j < W.pushables.length; j++) {
     const a = W.pushables[i], b = W.pushables[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), m = a.r + b.r;
-    if (d < m && d > 1e-4) { const k = (m - d) / 2 / d; a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
+    if (d < m && d > 1e-4 && a.y<b.y+b.h && b.y<a.y+a.h) { const closing=((a.vx-b.vx)*dx+(a.vz-b.vz)*dz)/d;if(closing>1.8){recordImpact(a,true,closing);recordImpact(b,true,closing);const impulse=closing*.6;a.vx-=dx/d*impulse;a.vz-=dz/d*impulse;b.vx+=dx/d*impulse;b.vz+=dz/d*impulse;} const k = (m - d) / 2 / d; a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
   }
   if (player) bumpPushables(player);
 }
