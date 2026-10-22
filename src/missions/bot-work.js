@@ -1,7 +1,7 @@
 import { THREE, G, mesh, col, V3 } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { CONFIG } from '../config.js';
-import { M, ALL_GAMES, WORLD_GAMES, canReach, missionDone, removeMission } from './missions.js';
+import { M, ALL_GAMES, WORLD_GAMES, canReach, missionDone, removeMission, startMissionClock } from './missions.js';
 import { pickUp, drop, launch, throwVelocity } from '../game/items.js';
 import { grabActor, letGo } from '../game/grab.js';
 import { sfx } from '../core/sfx.js';
@@ -14,6 +14,7 @@ import { cargoPosition } from '../game/handheld.js';
 // получают самостоятельный ввод и камеру, не меняя интерфейс/камеру игрока.
 export function beginBotWork(b, m) {
   if (!M.list.includes(m) || (m.claimedBy && m.claimedBy !== b) || (m.doer && m.doer !== b) || m.busy) return false;
+  startMissionClock(m);
   if (b.held) dropHeld(b);
   if (m.def.world) m.claimedBy = b;
   m.doer = b; m.progress = 0;
@@ -94,6 +95,14 @@ export function tickBotWork(b,dt) {
   const interrupted=b.heldBy||b.stun>0||b.daze>0||b.getT>0||b.caged||b.drone||b.returning;
   if(!job.world&&(interrupted||b.pos.distanceTo(job.start)>0.65)){interruptBotWork(b);return;}
   brain.time+=dt;job.elapsed+=dt;
+  if(job.world){
+    const goal=game.botTarget?.()||game.target?.();const progress=m.progress||0;
+    if(!job.probe)job.probe={p:b.pos.clone(),progress,time:0};
+    const q=job.probe,moved=q.p.distanceTo(b.pos)>1.5,advanced=progress>q.progress+.025;
+    if(moved||advanced){q.p.copy(b.pos);q.progress=progress;q.time=0;}else q.time+=dt;
+    const lost=game.impossible?.()||goal&&goal.y<b.pos.y-3&&job.elapsed>12&&m.key==='cart';
+    if(lost||q.time>18){b.avoidM??={};b.avoidM[m.id]=30;removeMission(m);return;}
+  }
   if(!interrupted){
     if(job.world){
       let target=game.botTarget?.()||game.target?.();

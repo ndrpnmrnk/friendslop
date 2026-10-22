@@ -176,6 +176,7 @@ export function updateBots(dt, t, P) {
     if (b.caged) { b.ch.animate(dt, { t, speed: 0, grabbed: true }); blob(b); progBar(b); continue; }
     // прячется
     if (b.hidden) { b.hideT -= dt; if (b.hideT <= 0) { const h = b.hidden; b.hidden = null; b.root.visible = true; b.vel.set((Math.random() - 0.5) * 6, 6, (Math.random() - 0.5) * 6); b.onGround = false; burst(h.x, h.y + 0.6, h.z, 12, { color: h.kind === 'leaves' ? 0xe0902e : 0xd8d0e4, size: 0.22, speed: 3, up: 3 }); } else { b.root.visible = false; continue; } }
+    if(W.race&&b.ride?.kind==='kart'){W.race.drive(b,dt,t);progBar(b);continue;}
     tickBotWork(b,dt);
     const ctrl = !b.heldBy && b.stun <= 0 && !(b.getT > 0) && !(b.knockT > 0) && !(b.floatT > 0) && !(b.netT > 0);
     let ix = 0, iz = 0, run = 1;
@@ -184,7 +185,7 @@ export function updateBots(dt, t, P) {
       b.vel.x*=Math.exp(-dt*15);b.vel.z*=Math.exp(-dt*15);
     } else if (ctrl) {
       // приоритеты: событие раунда → увернуться → приманка-уточка → характер
-      if (!b.work && ev && !b.escapeLadder && !(b.mood === 'worker' && M.list.some(m => !m.owner && !m.doer))) b.goal = ev;
+      if (!b.work && ev && !b.escapeLadder && !(!W.race&&!W.football&&b.mood === 'worker' && M.list.some(m => !m.owner && !m.doer))) b.goal = ev;
       if (!b.work && b.think <= 0 && (!ev || b.goal !== ev)) { b.think = 0.6 + Math.random() * 0.6; decide(b, P); }
       // увернуться от летящего предмета
       if (!b.dodge && (b.mood === 'coward' || Math.random() < 0.5)) for (const it of W.items) {
@@ -324,7 +325,7 @@ function act(b, P, dt) {
   if (!v || v.hidden || v.heldBy || g.t <= 0) { b.goal = null; return; }
   const d = Math.hypot(v.pos.x - b.pos.x, v.pos.z - b.pos.z); b.aimAt = v.pos;
   if (it) {
-    const melee = ['slipper', 'pillow', 'glove'].includes(it.type), shooter = ['water', 'sling', 'bubbles', 'extinguisher', 'net'].includes(it.type);
+    const melee = ['slipper', 'pillow', 'glove'].includes(it.type), shooter = ['bow','perfume','water', 'sling', 'bubbles', 'extinguisher', 'net'].includes(it.type);
     // жетон: сначала вызвать наряд, потом бросить в жертву
     if (it.type === 'badge' && d < 14 && b.throwCD <= 0) { throwAt(b, v); return; }
     // пылесос: подержать на жертву и выстрелить

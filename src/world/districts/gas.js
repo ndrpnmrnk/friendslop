@@ -1,3 +1,4 @@
+import {buildCarwash} from '../carwash.js';
 import { THREE, G, tmat, col, glow, lam } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
@@ -37,16 +38,7 @@ export default {
     b.house({ x: 20, z: 1, w: 10, d: 6, h: 3.2, wall: 0xd8d0c0, brick: false, lit: 0.9, door: { side: 's', at: 0.25 }, sign: ['МАГАЗИН', '#d8243a', '#f1e8ff'], floor: T.floorTile(),
       ladder: { side: 'e', at: 0.5 }, roof: true,
       interior(b, r) { b.shelf(r.x0 + 5, r.z0 + 2, 4, 0); b.box(r.x1 - 0.6, r.z1 - 1.8, 0.8, 2.4, 1.0, tmat(T.wood())); b.cabinet(r.x0 + 0.5, r.z0 + 0.4, 0.6, 0.6, 1.5, 0x3a3a40); b.safe(r.x1 - 0.5, r.z0 + 0.5, -Math.PI / 2); } });
-    // автомойка
-    const mt = col(0x4a6a8a);
-    b.box(25.5, 19.2, 9, 0.3, 3, mt); b.box(25.5, 26.8, 9, 0.3, 3, mt);
-    b.box(25.5, 23, 9.2, 7.9, 0.3, tmat(T.metal()), { y: 3, fade: true });
-    b.sign(25.5, 3.6, 26.97, 0, 'МОЙКА', '#4ab0f0', '#f1e8ff', 2.4, 0.5);
-    const brushes = [];
-    for (const z of [20.4, 25.6]) brushes.push(b.m(G.cyl8, tmat(T.corrugated(0x2a7ac8)), 25.5, 1.4, z, 0.55, 2.6, 0.55));
-    const tb = b.m(G.cyl8, col(0xd8243a), 25.5, 2.5, 23, 0.5, 4.8, 0.5); tb.rotation.x = Math.PI / 2; brushes.push(tb);
-    W.keep.push(...brushes); W.animated.push(dt => { brushes[0].rotation.y += dt * 9; brushes[1].rotation.y -= dt * 9; brushes[2].rotation.y += dt * 9; });
-    addZone('wash', { r: [b.X(24.7), b.Z(21), b.X(26.3), b.Z(25)] }, b.Y, { cx: b.X(25.5), cz: b.Z(23) });
+    buildCarwash(b);
     b.slip(7, 26.3, 1.2); b.slip(17, 27, 1.0);
     for (let i = 0; i < 4; i++) b.m(G.cyl12, col(0x17111f), 19.2, 0.17 + i * 0.32, 25.6, 0.45, 0.3, 0.45);
     b.solid(19.2, 25.6, 0.9, 0.9, 0, 1.3);

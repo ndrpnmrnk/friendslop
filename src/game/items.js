@@ -1,3 +1,4 @@
+import {bowModel} from './bow.js';
 import { pantsModel } from '../characters/mammoth.js';
 import { THREE, G, V3, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
 import { addOutline, OUTLINE } from './outline.js';
@@ -18,6 +19,8 @@ const MAG_ARC = new THREE.TorusGeometry(0.115, 0.047, 6, 12, Math.PI);
 /* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
 const GRAV = 22;
 function build(type) {
+  if(type==='bow')return bowModel();
+  if(type==='perfume'){const g=new THREE.Group();mesh(G.box,lam({color:0xb18cff,transparent:true,opacity:.65}),0,0,0,.22,.3,.14,g);mesh(G.cyl6,tmat(T.metal()),0,.19,0,.045,.08,.045,g);mesh(G.box,col(0xf5c542),.03,.23,.02,.12,.05,.07,g);mesh(G.box,tmat(T.sign('PARFUM','#e6d0a4','#31243c')),0,0,.075,.19,.13,.01,g);return g;}
   if(type==='mammothpants')return pantsModel();
   const g = new THREE.Group();
   if (type === 'balloon') {
@@ -150,7 +153,7 @@ function impact(it, n, speed) {
     sfx(glass ? 'glass' : 'wood', { at: p }); for (const h of W.hitHooks.slice()) h(it, p); hitActors(it, p, it.def.heavy); vanish(it); return; }
   for (const h of W.hitHooks.slice()) h(it, p);
   hitBreakables(p, it.def.r + 0.12, [it.vel.x, it.vel.y, it.vel.z], it.def.mass);
-  if (!(it.noHitT > 0)) hitActors(it, p, it.def.heavy || (it.def.knock && speed > 7));
+  if (!it.football&&!(it.noHitT > 0)) hitActors(it, p, it.def.heavy || (it.def.knock && speed > 7));
   if (it.def.tool && W.toolImpact && W.toolImpact(it, p, gy)) { sfx('imp', { at: p, v: 0.5, m: materialAt(p.x, p.y, p.z) }); return; }
   worldHit(p, speed * it.def.mass * 0.35, it.vel);
   if (t === 'can' && (it.shake || 0) > 0.5 && W.sodaBlast) { it.state = 'gone'; it.g.visible = false; W.sodaBlast(p.clone(), it.owner); return; }
@@ -277,13 +280,13 @@ export function updateItems(dt, pl) {
 export function nearestItem(p, r) {
   let best = null, bd = r;
   for (const it of W.items) {
-    if ((it.state !== 'rest' && it.state !== 'placed') || (it.boxed && !it.boxed.open)) continue;
+    if (it.noPickup||(it.state !== 'rest' && it.state !== 'placed') || (it.boxed && !it.boxed.open)) continue;
     const d = Math.hypot(it.pos.x - p.x, it.pos.z - p.z);
     if (d < bd && it.pos.y > p.y - 0.6 && it.pos.y < p.y + 1.8) { bd = d; best = it; }
   }
   return best;
 }
-export function pickUp(it) { it.onPickup?.(); it.floatY = undefined; it.trail = 0; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
+export function pickUp(it) { if(it.noPickup)return false; it.onPickup?.(); it.floatY = undefined; it.trail = 0; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
 export function drop(it, x, y, z) { it.state = 'rest'; it.pos.set(x, y + (it.def.halfHeight??it.def.r) + 0.05, z); it.vel.set(0, 0, 0); }
 
 /* Расчёт броска по дуге к точке прицела */

@@ -29,10 +29,23 @@ export function buildLeafPile(x, y, z, f) {
     a(G.box, tmat(T.sign('ИЩИ!', '#c9662a', '#17111f')), 0, 0.55, 0.9, 0.5, 0.18, 0.02); a(G.box, col(0x6a4a2a), 0, 0.25, 0.9, 0.05, 0.5, 0.05); })), [1.8, 1.8], 0.3, 2.1);
   o.type = 'leaves'; return o;
 }
-export function buildGraffitiWall(x, y, z, f) {
-  const o = place(x, y, z, f, g => g.add(compose('grafWall', a => { const c = tmat(T.concrete()); a(G.box, c, 0, 1.0, 0, 2.6, 2.0, 0.22); a(G.box, col(0x3a3440), 0, 2.03, 0, 2.7, 0.08, 0.3);
-    for (const [cx, cc] of [[-0.6, 0xff5a6e], [-0.4, 0x4ab0f0], [0.5, 0xf5c542]]) { a(G.cyl8, col(cc), cx, 0.12, 0.45, 0.06, 0.24, 0.06); a(G.cyl8, col(0xd8d8e0), cx, 0.26, 0.45, 0.03, 0.05, 0.03); } })), [2.7, 0.4], 2.05, 2.2);
-  o.type = 'graffiti'; return o;
+export function graffitiPlaces(){
+ const out=[];
+ for(const s of W.solids){if(!s.on||s.obb||s.y1-s.y0<1.65)continue;const wx=s.x1-s.x0,wz=s.z1-s.z0;
+ for(const [axis,length]of [['x',wx],['z',wz]]){if(length<2.8)continue;for(const sign of [-1,1])for(const k of [.25,.5,.75]){
+  const x=axis==='x'?s.x0+wx*k:sign>0?s.x1:s.x0,z=axis==='z'?s.z0+wz*k:sign>0?s.z1:s.z0,f=axis==='x'?[0,sign]:[sign,0];
+  const px=x+f[0]*1.5,pz=z+f[1]*1.5,y=groundAt(px,pz,.25,s.y0+.35);
+  if(Math.abs(y-s.y0)>.3||s.y1<y+1.8||!isFree(px-.45,pz-.45,px+.45,pz+.45,y+.05,y+2.0))continue;
+  if((W.paintSites||[]).some(p=>Math.hypot(p.x-x,p.z-z)<2.7))continue;
+  // Весь прямоугольник должен попадать в одну физическую грань.
+  const at=axis==='x'?x:z,min=axis==='x'?s.x0:s.z0,max=axis==='x'?s.x1:s.z1;if(at-1.12<min||at+1.12>max)continue;
+  out.push({x:x+f[0]*.025,y,z:z+f[1]*.025,f,solid:s});
+ }}}
+ return out;
+}
+export function buildGraffitiWall(x,y,z,f,surface){
+ const g=new THREE.Group();g.position.set(x,y,z);W.group.add(g);(W.paintSites??=[]).push({x,z});
+ return{g,f,solid:surface?.solid,type:'graffiti',pos:()=>g.position,front:()=>new V3(x+f[0]*1.4,y,z+f[1]*1.4),dispose(){g.removeFromParent();}};
 }
 export function buildIntercom(x, y, z, f) {
   const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=Math.atan2(f[0],f[1]);W.group.add(g);

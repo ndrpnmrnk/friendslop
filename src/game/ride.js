@@ -14,14 +14,14 @@ import { sfx } from '../core/sfx.js';
 export function nearestRideable(p, r = 1.6, coast = false) {
   let best = null, bd = r;
   for (const b of W.pushables) {
-    if (!b.ride || b.rider || b.grabbed || !!b.ride.coast !== coast) continue;
+    if (b.raceOwner&&b.raceOwner!==p || !b.ride || b.rider || b.grabbed || !!b.ride.coast !== coast) continue;
     const d = Math.hypot(b.x - p.pos.x, b.z - p.pos.z);
     if (d < bd && Math.abs(b.y - p.pos.y) < 1) { bd = d; best = b; }
   }
   return best;
 }
 export function mount(p, b) {
-  if (p.held) return false;
+  if (p.held||b.raceOwner&&b.raceOwner!==p) return false;
   p.ride = b; b.rider = p; b.heading = b.mesh.rotation.y;
   b.vx += p.vel.x * 0.6; b.vz += p.vel.z * 0.6;
   b.outline && b.outline.set(false);
@@ -66,7 +66,7 @@ export function dismount(p, jump) {
 export function autoMount(p) {
   if (p.ride || p.held || p.onGround || p.vel.y >= 0 || p.noMountT > 0 || p.stun > 0) return;
   for (const b of W.pushables) {
-    if (!b.ride || b.rider || b.ride.coast) continue;
+    if (b.raceOwner&&b.raceOwner!==p||!b.ride || b.rider || b.ride.coast) continue;
     const top = b.y + b.ride.seat;
     if (Math.hypot(b.x - p.pos.x, b.z - p.pos.z) < b.r + 0.15 && p.pos.y > top - 0.15 && p.pos.y < top + 0.6) { mount(p, b); return; }
   }
@@ -76,6 +76,7 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   const b = p.ride, R = b.ride, board = b.kind === 'skate' || b.kind === 'scooter';
   const il = Math.hypot(ix, iz);
   const sp0 = Math.hypot(b.vx, b.vz);
+  ctrl=ctrl&&!(p.daze>0)&&!(p.stun>0);
   if (ctrl && il > 0.1) {
     const want = Math.atan2(ix, iz);
     let d = want - b.heading; d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -91,12 +92,16 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   } else p.rideKick = null;
   // скорость по направлению движения, боковое скольжение гасится (кроме кресла — оно крутится)
   const fx = Math.sin(b.heading), fz = Math.cos(b.heading), fwd = b.vx * fx + b.vz * fz, side = -b.vx * fz + b.vz * fx;
-  const keep = b.kind === 'chair' ? 0.92 : Math.exp(-dt * 6);
+  const drifting=b.kind==='kart'&&ctrl&&keys.Space&&sp0>5;
+  b.drifting=drifting;if(b.skid>0){b.skid=Math.max(0,b.skid-dt);b.heading+=(b.spin||1.6)*dt;}else b.spin=0;
+  const keep = drifting||b.skid>0?Math.exp(-dt*.55):b.kind === 'chair' ? 0.92 : Math.exp(-dt * 6);
   const mx = R.water && !zoneAt(b.x, b.z, b.y, 'water') ? 2 : R.max;
   let nf = Math.max(-mx * 0.4, Math.min(mx, fwd)), ns = side * keep;
   b.vx = fx * nf - fz * ns; b.vz = fz * nf + fx * ns;
   if (b.kind === 'chair') b.heading += side * dt * 0.8;
   const sp = Math.hypot(b.vx, b.vz);
+  const vehicle=b.mesh.children.find(q=>q.userData.vehicle)?.userData.vehicle;if(vehicle){b.pedalPhase=(b.pedalPhase||0)+sp*dt/0.25;for(const w of vehicle.wheels)w.rotation.x+=sp*dt/.32;if(vehicle.pedals)vehicle.pedals.rotation.x=b.pedalPhase;p.cyclePhase=b.pedalPhase;}
+  if(drifting&&Math.random()<dt*18)smoke(b.x-fx*.6,b.y+.1,b.z-fz*.6,{color:0xc5bacd,size:.18,grow:.65,life:.8});
   if (sp > 3 && Math.random() < dt * 10) smoke(b.x - fx * 0.4, b.y + 0.1, b.z - fz * 0.4, { size: 0.1, grow: 0.35, life: 0.45, vy: 0.3, vx: -fx, vz: -fz });
   // тележка остановилась — сам спрыгиваешь
   if (R.coast) { b.stopT = sp < 0.7 ? (b.stopT || 0) + dt : 0; if (b.stopT > 0.4) { dismount(p, false); return 'stop'; } }
@@ -112,9 +117,10 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   // наехал на кого-то — тот отлетает
   if (sp > 4) for (const o of actors()) { if (o === p || o.hidden || o.heldBy || o.ride) continue; if (Math.hypot(o.pos.x - b.x, o.pos.z - b.z) < b.r + 0.45 && Math.abs(o.pos.y - b.y) < 1.2 && !(o.diveHitT > 0)) { shove(o, b.vx, b.vz, sp * 0.8, 4, true); o.diveHitT = 0.6; sfx(b.kind === 'kidcar' ? 'honk' : 'hit', { at: o.pos }); } }
   // врезался
-  if (b.hitSpeed > 6) { const v = b.hitSpeed; dismount(p, false); p.vel.set(-fx * 3, 5, -fz * 3); p.onGround = false; p.stun = 0.9; p.noMountT = 2.5; burst(b.x, b.y + 0.6, b.z, 8, { size: 0.4, speed: 3 }); return 'crash'; }
+  if(b.kind==='kart'&&b.hitSpeed>8){b.skid=.85;b.spin=2.2;b.heading+=.5;b.vx-=fx*2;b.vz-=fz*2;p.daze=Math.max(p.daze||0,1);sfx('hit');}
+  if (b.kind!=='kart'&&b.hitSpeed > 6) { const v = b.hitSpeed; dismount(p, false); p.vel.set(-fx * 3, 5, -fz * 3); p.onGround = false; p.stun = 0.9; p.noMountT = 2.5; burst(b.x, b.y + 0.6, b.z, 8, { size: 0.4, speed: 3 }); return 'crash'; }
   // скейт и самокат: пробел — прыжок (олли), слезть — E
-  if (ctrl && tapped('Space')) { if (board) { if (!b.air) { b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(Math.random() * L.length) | 0], t: 0, dur: 0.48 }; } return null; } dismount(p, true); return 'jump'; }
+  if (ctrl && b.kind!=='kart' && tapped('Space')) { if (board) { if (!b.air) { b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(Math.random() * L.length) | 0], t: 0, dur: 0.48 }; } return null; } dismount(p, true); return 'jump'; }
   if (b.grind && Math.random() < dt * 30) burst(b.x, b.y + 0.05, b.z, 1, { color: 0xffd25c, size: 0.06, speed: 2, up: 1.5, g: 12, life: 0.3, grow: 0 });
   return null;
 }

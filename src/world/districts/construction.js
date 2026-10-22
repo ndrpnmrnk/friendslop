@@ -25,7 +25,12 @@ export default {
     for (const [x, z] of [[26.2, 6.2], [29.8, 6.2], [26.2, 9.8], [29.8, 9.8]]) b.box(x, z, 0.1, 0.1, 3.4, mt);
     for (const y of [1.6, 3.2]) b.box(28, 8, 3.8, 3.8, 0.1, wd, { y });
     b.ladder(30, 8, 'e', 3.3);
-    b.plank(25.25, 8, 26, 8, 3.3, 1.2);
+    b.plank(24.8, 8, 26.4, 8, 3.45, 1.4);
+    // Лестница выходит выше перекрытия; опорная площадка без зазора.
+    b.ladder(29.8,9.8,'s',3.55);b.box(28,8,3.6,3.6,.12,wd,{y:3.45});
+    for(const z of [6.2,9.8]){b.m(G.box,mt,28,1.7,z,.08,3.8,.08).rotation.z=.8;b.m(G.box,tmat(T.hazard()),28,3.65,z,3.6,.13,.04);}
+    b.cementPallet(17.5,27);b.brickStack(23,19);
+    b.box(22,8,.18,5.8,.18,mt,{y:3.45});b.box(16,8,.18,5.8,.18,mt,{y:3.45});
     // сарай в зоне досягаемости крана
     b.shed(3, 15, 4, 3.5);
     // бытовка
@@ -49,7 +54,8 @@ export default {
     const mouth = new THREE.Mesh(G.disc, frame); mouth.position.y = 0.458; mouth.rotation.x = -Math.PI / 2; mouth.scale.setScalar(0.3); drum.add(mouth);
     const wheel = new THREE.Mesh(G.torus, frame); wheel.position.set(0.66, 0.8, 0); wheel.rotation.y = Math.PI / 2; wheel.scale.setScalar(0.24); mixer.add(wheel);
     W.keep.push(mixer); W.animated.push(dt => { drum.rotation.y += dt * 1.5; }); b.solid(7.5, 24, 1.4, 1.3, 0, 1.8);
-    b.m(G.box, glow(0xff8a1f), 1.5, 2.6, 13.6, 0.25, 0.25, 0.25);
+    // Закреплённый рабочий фонарь вместо висящего куба.
+    b.box(1.5,13.6,.08,.08,2.4,mt);b.m(G.box,col(0x2b2533),1.5,2.44,13.6,.4,.3,.22);b.m(G.box,glow(0xffc070),1.5,2.44,13.73,.30,.19,.02);
     // биотуалет, мешки цемента, шины, конусы
     b.potty(29.6, 29.6, Math.PI); b.puddle(10, 17, 1.3); b.puddle(24, 26, 1); b.potty(28.2, 29.6, Math.PI); b.cementPallet(21.5, 17.4); b.brickStack(10, 14);
     W.spots.demo.push({ x: b.X(9.5), z: b.Z(1.8), y: b.Y, pieces: [] }); b.tires(2.2, 29.6, 3); b.cone(14.5, 21.5); b.cone(15.5, 23);

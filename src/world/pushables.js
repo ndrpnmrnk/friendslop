@@ -1,3 +1,4 @@
+import {bicycleModel,kartModel} from './vehicles.js';
 import { splatter } from './splat.js';
 import { THREE, G, mesh, col, tmat, compose, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -10,6 +11,8 @@ import { chunk, decal, burst } from './particles.js';
 /* На чём можно кататься: seat — высота посадки, pose — сидя или стоя,
    max — максимальная скорость, acc — разгон, turn — поворот, fric — трение */
 export const RIDE = {
+  bike:{seat:.88,pose:'cycle',max:14,acc:10,turn:2.8,fric:.35},
+  kart:{seat:.34,pose:'kart',max:21,acc:16,turn:2.7,fric:.25},
   skate:  { seat: 0.16, pose: 'stand', max: 13, acc: 9, turn: 3.2, fric: 0.25 },
   chair:  { seat: 0.55, pose: 'sit', max: 6.5, acc: 6, turn: 4.5, fric: 1.0 },
   // тележку и тачку нельзя «завести» на месте: сначала разгоняешь её руками, потом запрыгиваешь (coast)
@@ -25,7 +28,9 @@ export const RIDE = {
 export function addPushable(b, kind, x, z, y = 0) {
   const g = new THREE.Group(); W.group.add(g);
   let roller = null, r;
-  if (kind === 'cart') { g.add(cartModel()); r = 0.6; }
+  if(kind==='bike'){g.add(bicycleModel());r=.52;}
+  else if(kind==='kart'){g.add(kartModel([0xff8a1f,0x4ab0f0,0x9be36b,0xb18cff][W.pushables.filter(p=>p.kind==='kart').length%4]));r=.78;}
+  else if (kind === 'cart') { g.add(cartModel()); r = 0.6; }
   else if (kind === 'barrow') { g.add(barrowModel()); r = 0.55; }
   else if (kind === 'sack') {
     // мешок с зерном: пухлое тело из мешковины, завязанная горловина, бирка — можно толкнуть, он сползает
@@ -92,8 +97,8 @@ export function addPushable(b, kind, x, z, y = 0) {
     r = 0.5;
   }
   // mass: тележка катится легко, урна потяжелее, бочка тяжёлая
-  const mass = { table: 2.4, sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
-  const h = { table: 0.8, sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
+  const mass = { bike:.8,kart:2.2, table: 2.4, sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
+  const h = { bike:1.0,kart:.65, table: 0.8, sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
   const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y + y, vx: 0, vz: 0, r, mass, h, ride: RIDE[kind] || null, heading: 0 };
   if (p.ride) p.outline = addOutline(g, 0.04);
   g.position.set(p.x, p.y, p.z); W.pushables.push(p); return p;

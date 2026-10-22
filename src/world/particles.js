@@ -9,12 +9,14 @@ export const resetParticles = () => { pool = []; smokes = []; ripples = []; };
 // круги на воде
 export function ripple(x, y, z, size = 1, life = 0.9) {
   let p = ripples.find(q => !q.alive);
+  if(!p&&ripples.length>=48)return;
   if (!p) { const m = new THREE.Mesh(G.plane, alphaMat(T.ripple(), { opacity: 0.8 })); m.rotation.x = -Math.PI / 2; W.group.add(m); p = { m }; ripples.push(p); }
   p.alive = true; p.t = 0; p.life = life; p.size = size; p.m.position.set(x, y + 0.11, z); p.m.visible = true; p.m.scale.setScalar(0.1);
 }
 // всплеск: капли + круг
 export function splash(x, y, z, power = 1) {
   burst(x, y + 0.1, z, Math.round(6 + 8 * power), { color: 0x9ccbec, size: 0.16 + 0.08 * power, speed: 1.2 + 1.6 * power, up: 2 + 2 * power, g: 12, life: 0.6 });
+  for(let i=0;i<Math.min(10,4+Math.round(power*4));i++){const a=i*2.4;smoke(x,y+.12,z,{dust:true,color:0x9ccbec,size:.045+power*.025,grow:.02,vx:Math.cos(a)*(1+power),vz:Math.sin(a)*(1+power),vy:2+power,g:12,life:.45,opacity:.85});}
   ripple(x, y, z, 1 + power * 1.2, 0.8 + power * 0.4);
   if (power > 0.6) ripple(x, y, z, 0.6 + power, 0.6);
 }
@@ -25,6 +27,7 @@ const SMOKE_GEO = new THREE.IcosahedronGeometry(1, 0), DUST_GEO = new THREE.BoxG
 export function smoke(x, y, z, o = {}) {
   const dust = !!o.dust, geo = dust ? DUST_GEO : SMOKE_GEO;
   let p = smokes.find(q => !q.alive && q.dust === dust);
+  if(!p&&smokes.length>=180)return;
   if (!p) {
     const mat = ps1(new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, depthWrite: false, flatShading: true }));
     const m = new THREE.Mesh(geo, mat); W.group.add(m); p = { m, dust }; smokes.push(p);
@@ -42,6 +45,7 @@ export function smokeRing(x, y, z, n, o = {}) {
 }
 export function puff(x, y, z, o = {}) {
   let p = pool.find(q => !q.alive);
+  if(!p&&pool.length>=320)return;
   if (!p) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.puff(), transparent: true, depthWrite: false }));
     W.group.add(s); p = { s }; pool.push(p);
@@ -60,6 +64,7 @@ export function burst(x, y, z, n, o = {}) {
 
 /* Обломки: тыквы, кирпичи, стены */
 export function chunk(x, y, z, vel, o = {}) {
+  if(W.debris.length>=160){const q=W.debris.shift();q.m.removeFromParent();}
   const s = o.size ?? 0.18;
   const m = mesh(o.geo || G.box, o.mat, x, y, z, s * (o.sx ?? 1), s * (o.sy ?? 1), s * (o.sz ?? 1), W.group);
   m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);

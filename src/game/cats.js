@@ -58,7 +58,8 @@ export function buildCat(coat) {
 
 function freeSpot(h) {
   for (let i = 0; i < 40; i++) {
-    const x = h.x0 + Math.random() * (h.x1 - h.x0), z = h.z0 + Math.random() * (h.z1 - h.z0);
+    const pad=h.y<.5?5:0,x=h.x0-pad+Math.random()*(h.x1-h.x0+pad*2),z=h.z0-pad+Math.random()*(h.z1-h.z0+pad*2);
+    if(Math.abs(groundAt(x,z,.2,h.y+.25)-h.y)>.3||W.cats.some(c=>Math.hypot(c.root.position.x-x,c.root.position.z-z)<1.2)||(W.dogs||[]).some(d=>Math.hypot(d.pos.x-x,d.pos.z-z)<1.5))continue;
     if (!solidsNear(x - 0.5, z - 0.5, x + 0.5, z + 0.5).some(s => s.on && s.y1 > h.y + 0.05 && s.y0 < h.y + 0.6 && x > s.x0 - 0.5 && x < s.x1 + 0.5 && z > s.z0 - 0.5 && z < s.z1 + 0.5)) return { x, z };
   }
   return { x: (h.x0 + h.x1) / 2, z: (h.z0 + h.z1) / 2 };
@@ -98,7 +99,7 @@ export function updateCat(c, dt, t, player) {
       if (player && player.speed > 6 && c.flee <= 0) { const dx = p.x - player.pos.x, dz = p.z - player.pos.z, d = Math.hypot(dx, dz); if (d < 2.2 && d > 0.01) { c.flee = 1.2; c.fx = dx / d; c.fz = dz / d; } }
       // собака рядом — шипит, выгибает спину и удирает
       if (c.hissT > 0) c.hissT -= dt;
-      for (const d of W.dogs || []) { const dx = p.x - d.pos.x, dz = p.z - d.pos.z, dd = Math.hypot(dx, dz); if (dd < 3 && c.flee <= 0) { c.flee = 2.2; c.fx = dx / (dd || 1); c.fz = dz / (dd || 1); if (!(c.hissT > 0)) { c.hissT = 3; sfx('hiss', { at: p }); c.body.scale.y = 0.22; } } }
+      for (const d of W.dogs || []) { const dx = p.x - d.pos.x, dz = p.z - d.pos.z, dd = Math.hypot(dx, dz); if (dd < 3 && c.flee <= 0) { c.flee = 2.2; c.fx = dd>.01?dx/dd:Math.cos(c.ph0); c.fz = dd>.01?dz/dd:Math.sin(c.ph0); if (!(c.hissT > 0)) { c.hissT = 3; sfx('hiss', { at: p }); c.body.scale.y = 0.22; } } }
       // уточка пищит или шуршит пакет в руках у бегущего — кот идёт посмотреть
       let lure = c.lure && c.lure.t > 0 ? c.lure : null; if (c.lure) c.lure.t -= dt;
       if (!lure) for (const a of [player, ...(W.bots || [])]) if (a && a.held && (a.held.type === 'trash' || a.held.type === 'litter') && Math.hypot(a.vel.x, a.vel.z) > 1 && Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < 9) { lure = { x: a.pos.x, z: a.pos.z }; break; }
@@ -116,13 +117,14 @@ export function updateCat(c, dt, t, player) {
           const v = speed * dt, ox = p.x, oz = p.z; p.x += dx / d * v; p.z += dz / d * v;
           pushOut(p, 0.35, p.y + 0.25, p.y + 0.6);
           // не уходить из своего двора
-          if (!c.lured) { p.x = Math.max(c.home.x0 - (c.away || 0), Math.min(c.home.x1 + (c.away || 0), p.x)); p.z = Math.max(c.home.z0 - (c.away || 0), Math.min(c.home.z1 + (c.away || 0), p.z)); c.away = Math.max(0, (c.away || 0) - dt * 2); } else c.away = 12;
+          if (!c.lured) { p.x = Math.max(c.home.x0 - Math.max(5,c.away||0), Math.min(c.home.x1 + Math.max(5,c.away||0), p.x)); p.z = Math.max(c.home.z0 - Math.max(5,c.away||0), Math.min(c.home.z1 + Math.max(5,c.away||0), p.z)); c.away = Math.max(0, (c.away || 0) - dt * 2); } else c.away = 12;
           if (Math.hypot(p.x - ox, p.z - oz) < v * 0.3) c.timer = 0;
           let a = Math.atan2(dx, dz) - c.root.rotation.y; a = Math.atan2(Math.sin(a), Math.cos(a)); c.root.rotation.y += a * damp(8, dt);
           walking = true;
         }
       }
-      p.y = groundAt(p.x, p.z, 0.2, p.y + 0.3);
+      for(const dog of W.dogs||[]){if(dog.heldBy||Math.abs(dog.pos.y-p.y)>.8)continue;let dx=p.x-dog.pos.x,dz=p.z-dog.pos.z,dd=Math.hypot(dx,dz);if(dd<.85){if(dd<.01){dx=Math.cos(c.ph0);dz=Math.sin(c.ph0);dd=1;}const k=(.85-Math.min(dd,.85));p.x+=dx/dd*k;p.z+=dz/dd*k;}}
+      pushOut(p,.3,p.y+.15,p.y+.65);p.y = groundAt(p.x, p.z, 0.2, p.y + 0.3);
     }
   }
   c.ph += dt * (walking ? speed * 6 : 0);

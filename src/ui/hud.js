@@ -84,6 +84,8 @@ export function renderHud(S, P, prompt, dt) {
     const bar = el.querySelector('.bar'); bar.firstChild.style.width = Math.max(0, m.life / m.maxLife * 100) + '%'; bar.classList.toggle('warn', m.life < m.maxLife * 0.25);
     const occupied=(m.claimedBy||m.doer), mine=occupied===P;
     el.querySelector('.mstatus').textContent=occupied?(mine?(m.busy?'Выполняешь · Z отменить':'Принято · E продолжить'):'Выполняется'):'';
+    bar.classList.toggle('hidden',!!occupied&&m.key==='detector');
+    if(mine&&m.activeLeft!=null)el.querySelector('.dist').textContent=`${Math.ceil(Math.max(0,m.activeLeft))}с · ${Math.round(Math.hypot(dx,dz))}м`;
     if(occupied&&m.progress!=null)bar.firstChild.style.width=Math.min(100,Math.max(0,m.progress*100))+'%';
     el.classList.toggle('taken', !!occupied&&!mine);
     el.classList.toggle('active', !!m.busy); el.classList.toggle('main', m === nearest && !m.busy); el.classList.toggle('dim', m !== nearest);
