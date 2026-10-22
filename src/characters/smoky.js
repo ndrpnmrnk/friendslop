@@ -2,127 +2,149 @@ import {THREE,G,V3,mesh,tmat,col,lam,compose} from '../core/gfx.js';
 import {photo,pix} from '../core/textures.js';
 import {CONFIG} from '../config.js';
 
-// Сигарета в уличной одежде. Кисти и штанины со ступнями - части обычного рига.
-// Текстуры/геометрия общие; уголь и маленький пул дыма принадлежат каждой копии.
-const fabric=(key,base,draw)=>photo('smoky33-'+key,64,64,(g,w,h)=>{
+// Тонкая сигарета, открытая гранёная накидка и отдельные ботинки. Штанов и футболки нет.
+const texture=(key,base,draw)=>photo('smoky331-'+key,32,32,(g,w,h)=>{
   g.fillStyle=base;g.fillRect(0,0,w,h);draw?.(g,w,h);
-  for(let i=0;i<900;i++){g.fillStyle=i%2?'rgba(255,249,227,.09)':'rgba(44,36,30,.08)';g.fillRect((i*37%907)/907*w,(i*71%911)/911*h,w/150,h/95);}
+  for(let i=0;i<420;i++){g.fillStyle=i%2?'rgba(249,234,200,.08)':'rgba(44,34,25,.07)';g.fillRect((i*37%431)/431*w,(i*71%433)/433*h,w/70,h/90);}
 });
-const plaid=()=>fabric('plaid','#b9b2a2',(g,w,h)=>{
-  for(let i=0;i<4;i++){
-    const x=i*w/4,y=i*h/4;
-    g.fillStyle='rgba(69,65,60,.30)';g.fillRect(x,0,w*.055,h);g.fillRect(0,y,w,h*.055);
-    g.fillStyle='#5d5b55';g.fillRect(x+w*.022,0,w*.009,h);g.fillRect(0,y+h*.022,w,h*.009);
-    g.fillStyle='#e1dace';g.fillRect(x+w*.092,0,w*.018,h);g.fillRect(0,y+h*.092,w,h*.018);
-    g.fillStyle='#77736b';g.fillRect(x+w*.14,0,w*.006,h);g.fillRect(0,y+h*.14,w,h*.006);
+const plaid=()=>texture('plaid','#b5ac96',(g,w,h)=>{
+  for(let i=0;i<4;i++){const x=i*w/4,y=i*h/4;
+    g.fillStyle='#89816f';g.fillRect(x,0,w*.055,h);g.fillRect(0,y,w,h*.055);
+    g.fillStyle='#514e46';g.fillRect(x+w*.017,0,w*.012,h);g.fillRect(0,y+h*.017,w,h*.012);
+    g.fillStyle='#d3cbbb';g.fillRect(x+w*.085,0,w*.025,h);g.fillRect(0,y+h*.085,w,h*.025);
+    g.fillStyle='#726d60';g.fillRect(x+w*.14,0,w*.007,h);g.fillRect(0,y+h*.14,w,h*.007);
   }
+  g.strokeStyle='rgba(225,212,183,.7)';g.lineWidth=w*.01;g.setLineDash([w*.026,w*.02]);g.strokeRect(w*.025,h*.02,w*.95,h*.96);
 });
-const shirt=()=>fabric('shirt','#a19587',(g,w,h)=>{for(let i=0;i<14;i++){g.fillStyle='#d2c6b5';g.fillRect(0,i*h/14,w,h*.012);g.fillStyle='#766e65';g.fillRect(0,i*h/14+h*.025,w,h*.006);}});
-const cargo=()=>fabric('cargo','#b7a17e',(g,w,h)=>{
-  const shade=g.createLinearGradient(0,0,w,h);shade.addColorStop(0,'#c9b795');shade.addColorStop(.5,'#b8a27f');shade.addColorStop(1,'#8f7d64');g.fillStyle=shade;g.fillRect(0,0,w,h);
-  g.strokeStyle='#8d795f';g.lineWidth=w*.014;for(let i=0;i<5;i++){g.beginPath();g.moveTo(w*(.1+i*.22),0);g.lineTo(w*(.18+i*.15),h*.4);g.lineTo(w*(.09+i*.22),h);g.stroke();}
-  g.strokeStyle='#dac7a4';g.lineWidth=w*.008;g.strokeRect(w*.18,h*.3,w*.66,h*.32);g.fillStyle='#9b8567';g.fillRect(w*.18,h*.3,w*.66,h*.045);
+const paper=()=>texture('paper','#ded6c0',(g,w,h)=>{
+  // Без контрастного продольного шва; микрорёбра бумажной обёртки поперёк.
+  for(let y=0;y<36;y++){g.fillStyle=y%3?'#e5ddc9':'#d3cbb7';g.fillRect(0,y*h/36,w,h*.004);}
 });
-const suede=()=>fabric('suede','#8f8675',(g,w,h)=>{g.fillStyle='#c3b8a1';g.fillRect(0,h*.74,w,h*.12);g.strokeStyle='#6d6659';g.lineWidth=w*.014;g.strokeRect(w*.08,h*.12,w*.84,h*.48);for(let i=0;i<4;i++){g.fillStyle='#c0b49c';g.fillRect(w*.36,h*(.2+i*.1),w*.28,h*.025);}});
-const paper=()=>fabric('paper','#e5decb',(g,w,h)=>{
-  g.fillStyle='#c9c2b2';g.fillRect(w*.96,0,w*.025,h);
-  for(let y=0;y<30;y++){g.fillStyle=y%2?'#e0d9c6':'#eee6d4';g.fillRect(0,y*h/30,w,h*.005);}
+const cork=()=>texture('filter','#bd914c',(g,w,h)=>{
+  for(let i=0;i<220;i++){g.fillStyle=['#d6b26e','#a3763d','#c9a25d'][i%3];g.fillRect((i*31%227)/227*w,(i*59%229)/229*h,w*.018,h*.012);}
+  g.fillStyle='#b78746';g.fillRect(0,0,w,h*.04);
 });
-const cork=()=>fabric('filter','#ba8e4d',(g,w,h)=>{for(let i=0;i<240;i++){g.fillStyle=i%3?'#d6b878':'#946c39';g.fillRect((i*31%241)/241*w,(i*59%251)/251*h,w*.018,h*.014);}});
-const ash=()=>fabric('ash','#6b625a',(g,w,h)=>{for(let i=0;i<120;i++){g.fillStyle=['#aaa193','#352e2b','#897f70'][i%3];g.fillRect((i*17%127)/127*w,(i*43%131)/131*h,w*.05,h*.03);}});
-const coal=()=>pix('smoky33-coal',32,16,(g,w,h)=>{g.fillStyle='#382a28';g.fillRect(0,0,w,h);for(let i=0;i<90;i++){g.fillStyle=['#df5829','#ffab4a','#892d24','#6b342a'][i%4];g.fillRect(i*17%32,i*7%16,2,i%3+1);}});
-let jacketGeo,legGeo;
+const ash=()=>texture('ash','#756b5e',(g,w,h)=>{
+  for(let i=0;i<130;i++){g.fillStyle=['#b1a695','#3e3630','#897c69'][i%3];g.fillRect((i*17%137)/137*w,(i*43%139)/139*h,w*.04,h*.035);}
+});
+const coal=()=>pix('smoky331-coal',32,32,(g,w,h)=>{
+  g.fillStyle='#4c3c32';g.fillRect(0,0,w,h);
+  for(let i=0;i<120;i++){g.fillStyle=['#796c5b','#a8987e','#c14f25','#ec8836','#45382f'][i%5];g.fillRect(i*17%32,i*7%32,2,i%3+1);}
+});
+const leather=()=>texture('loafer','#302e2b',(g,w,h)=>{
+  const shade=g.createLinearGradient(0,0,0,h);shade.addColorStop(0,'#484540');shade.addColorStop(.5,'#282724');shade.addColorStop(1,'#1d1c1c');g.fillStyle=shade;g.fillRect(0,0,w,h);
+  g.strokeStyle='#777064';g.lineWidth=w*.014;g.setLineDash([w*.022,w*.025]);g.beginPath();g.moveTo(w*.16,h*.12);g.lineTo(w*.12,h*.65);g.quadraticCurveTo(w*.5,h*.86,w*.88,h*.65);g.lineTo(w*.84,h*.12);g.stroke();
+  g.fillStyle='#535049';g.fillRect(w*.18,h*.34,w*.64,h*.055);
+});
+const lensMap=()=>texture('lenses','#3a352c',(g,w,h)=>{
+  const shade=g.createLinearGradient(0,0,w,h);shade.addColorStop(0,'#5e594a');shade.addColorStop(.45,'#302f2a');shade.addColorStop(1,'#222827');g.fillStyle=shade;g.fillRect(0,0,w,h);
+  g.fillStyle='rgba(178,187,173,.3)';g.beginPath();g.moveTo(w*.16,0);g.lineTo(w*.25,0);g.lineTo(w*.60,h);g.lineTo(w*.49,h);g.fill();
+});
+let paperGeo,capeGeo,foldGeo,shoeGeo,rimGeo,lensGeo;
+const octagon=(w,h,c)=>[[-w/2+c,-h/2],[w/2-c,-h/2],[w/2,-h/2+c],[w/2,h/2-c],[w/2-c,h/2],[-w/2+c,h/2],[-w/2,h/2-c],[-w/2,-h/2+c]];
+const polygon=points=>{const s=new THREE.Shape();points.forEach(([x,y],i)=>i?s.lineTo(x,y):s.moveTo(x,y));s.closePath();return s;};
 function assets(){
-  jacketGeo??=new THREE.CylinderGeometry(.32,.295,.47,8,1,true,.48,Math.PI*2-.96);
-  if(!legGeo){
-    legGeo=new THREE.CylinderGeometry(1,1,.36,8,3);const p=legGeo.attributes.position;
-    for(let i=0;i<p.count;i++){const y=p.getY(i),k=(y+.18)/.36,r=.14+Math.sin(k*Math.PI)*.045;p.setX(i,p.getX(i)*r);p.setZ(i,p.getZ(i)*r);}
-    legGeo.computeVertexNormals();
+  if(paperGeo)return;
+  paperGeo=new THREE.CylinderGeometry(.145,.155,1.18,10,1,true,Math.PI);
+  const positions=[],uv=[],indices=[],N=10;
+  for(let row=0;row<3;row++)for(let i=0;i<=N;i++){
+    const a=.63+i/N*(Math.PI*2-1.26),r=[.235,.275,.315][row]+Math.sin(i*Math.PI*.85)*.012;
+    positions.push(Math.sin(a)*r,-row*.245,Math.cos(a)*r*.78);uv.push(i/N,row/2);
+    if(row<2&&i<N){const n=row*(N+1)+i;indices.push(n,n+N+1,n+1,n+1,n+N+1,n+N+2);}
   }
+  capeGeo=new THREE.BufferGeometry();capeGeo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));capeGeo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));capeGeo.setIndex(indices);capeGeo.computeVertexNormals();
+  const fp=[],fu=[],fi=[];
+  for(let row=0;row<3;row++)for(let c=0;c<3;c++){
+    fp.push((c-1)*(.063+row*.012)+row*.018,-row*.245,(c===1?.028:0)+row*.008);fu.push(c/2,1-row/2);
+    if(row<2&&c<2){const n=row*3+c;fi.push(n,n+3,n+1,n+1,n+3,n+4);}
+  }
+  foldGeo=new THREE.BufferGeometry();foldGeo.setAttribute('position',new THREE.Float32BufferAttribute(fp,3));foldGeo.setAttribute('uv',new THREE.Float32BufferAttribute(fu,2));foldGeo.setIndex(fi);foldGeo.computeVertexNormals();
+  const outside=polygon(octagon(.166,.111,.019));outside.holes.push(new THREE.Path(octagon(.143,.088,.014).map(([x,y])=>new THREE.Vector2(x,y))));
+  rimGeo=new THREE.ExtrudeGeometry(outside,{depth:.012,bevelEnabled:false,curveSegments:1});
+  lensGeo=new THREE.ShapeGeometry(polygon(octagon(.145,.090,.015)));
+  // Закрытая колодка лофера: сужающийся нос, подъём и низкий каблук.
+  const sp=[],su=[],si=[],rings=[[-.16,.092,.125],[-.06,.129,.17],[.12,.124,.11],[.235,.074,.067]];
+  rings.forEach(([z,w,h],row)=>{for(const [i,[x,y]]of [[-w,.04],[-w,h*.7],[-w*.58,h],[w*.58,h],[w,h*.7],[w,.04]].entries()){
+    sp.push(x,y,z);su.push(i/5,row/3);if(row<3){const n=row*6+i,k=row*6+(i+1)%6;si.push(n,k,n+6,k,k+6,n+6);}
+  }});
+  for(let i=1;i<5;i++){si.push(0,i+1,i);si.push(18,18+i,18+i+1);}
+  for(let i=0;i<si.length;i+=3)[si[i+1],si[i+2]]=[si[i+2],si[i+1]];
+  shoeGeo=new THREE.BufferGeometry();shoeGeo.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));shoeGeo.setAttribute('uv',new THREE.Float32BufferAttribute(su,2));shoeGeo.setIndex(si);shoeGeo.computeVertexNormals();
 }
 
 export const SMOKY_SKIN={
   name:'Смоуки',
   build({root,head,torso,handL,handR,footL,footR}){
-    assets();const white=tmat(paper()),cloth=lam({map:plaid(),side:THREE.DoubleSide},'smoky33-plaid'),tee=tmat(shirt()),pants=tmat(cargo()),shoe=tmat(suede()),dark=col(0x292730),gold=col(0xc3a167);
-    head.add(compose('smoky33-head',a=>{
-      a(G.cyl8,white,0,1.40,0,.30,.75,.30);
-      a(G.cyl8,tmat(ash()),0,1.805,0,.293,.06,.293);
-      // Неровная холодная кромка над тонкой полоской тлеющего табака.
-      for(let i=0;i<8;i++){const an=i*Math.PI/4;a(G.box,tmat(ash()),Math.sin(an)*.258,1.828+(i%3)*.006,Math.cos(an)*.258,.07,.025,.05,0,an,0);}
+    assets();
+    const white=lam({map:paper(),color:0xb8b09b,flatShading:true},'smoky331-paper'),filter=tmat(cork()),cloth=lam({map:plaid(),color:0xbfb29a,side:THREE.DoubleSide,flatShading:true},'smoky331-cloth'),charcoal=col(0x3a322b),frame=col(0x655b46);
+    // Как у остальных голов рига, без получения собственной карты теней.
+    const tube=mesh(paperGeo,white,0,1.18,0,1,1,1,head);tube.name='smoky-paper';tube.receiveShadow=false;
+    const mouth=mesh(G.box,col(0x51463b),0,1.14,.153,.058,.009,.008,head);
+    const emberMat=lam({map:coal(),emissive:0xd55a25,emissiveMap:coal(),emissiveIntensity:.58,flatShading:true});
+    const ember=mesh(G.cyl8,emberMat,0,1.787,0,.146,.025,.146,head);ember.name='smoky-ember';
+    head.add(compose('smoky331-burntEdge',a=>{
+      a(G.cyl8,tmat(ash()),0,1.81,0,.14,.028,.14);
+      for(let i=0;i<6;i++){const an=i*Math.PI/3;a(G.ico,tmat(ash()),Math.sin(an)*.108,1.826+(i%2)*.006,Math.cos(an)*.108,.035,.016,.028);}
     }));
-    const emberMat=lam({map:coal(),emissive:0xff6b24,emissiveMap:coal(),emissiveIntensity:1});
-    const ember=mesh(G.cyl8,emberMat,0,1.769,0,.302,.038,.302,head);ember.name='smoky-ember';
-    mesh(G.cyl8,emberMat,0,1.838,0,.20,.008,.20,head);
+    mesh(G.cyl8,emberMat,0,1.827,0,.098,.005,.098,head);
     const glasses=new THREE.Group();glasses.name='smoky-glasses';head.add(glasses);
-    glasses.add(compose('smoky33-glasses',a=>{
-      for(const s of [-1,1]){
-        a(G.box,dark,s*.153,1.48,.273,.25,.145,.055,0,s*.12,-s*.035);
-        a(G.box,col(0x172331),s*.153,1.485,.304,.208,.108,.013,0,s*.12,-s*.035);
-        a(G.box,col(0x8a8f89),s*.17,1.52,.315,.085,.009,.006,0,s*.12,-.16);
-        a(G.box,gold,s*.291,1.49,.155,.022,.025,.29,0,-s*.09,0);
+    const glass=lam({map:lensMap(),transparent:true,opacity:.88,depthWrite:false,side:THREE.DoubleSide},'smoky331-lenses');
+    for(const s of [-1,1]){
+      const eye=new THREE.Group();eye.position.set(s*.093,1.345,.147);eye.rotation.y=s*.10;eye.rotation.z=-s*.04;glasses.add(eye);
+      mesh(rimGeo,frame,0,0,0,1,1,1,eye);mesh(lensGeo,glass,0,0,.007,1,1,1,eye);
+    }
+    glasses.add(compose('smoky331-temples',a=>{
+      a(G.box,frame,0,1.354,.17,.032,.011,.012);for(const s of [-1,1]){
+        a(G.box,frame,s*.174,1.355,.071,.011,.014,.18,0,-s*.15,0);
+        a(G.box,charcoal,s*.159,1.34,-.027,.016,.035,.04,-.25,0,0);
+        a(G.sphL,col(0x988a68),s*.174,1.35,.157,.012,.012,.008);
       }
-      a(G.box,gold,0,1.49,.31,.065,.025,.025);
     }));
-    const mouth=mesh(G.box,dark,0,1.27,.303,.095,.014,.012,head);
-    // Узкий бумажный корпус продолжается под одеждой до фильтра.
-    torso.add(compose('smoky33-body',a=>{
-      a(G.cyl8,tmat(cork()),0,.78,0,.18,.56,.18);
-      a(G.cyl8,tee,0,.80,0,.265,.43,.215);
-      a(jacketGeo,cloth,0,.80,0,1,1,.82);
-      a(G.cyl8,cloth,0,1.04,-.035,.27,.09,.23);
-      a(G.box,tee,0,.965,.186,.28,.10,.035);
-      a(G.box,col(0x365451),0,.535,.01,.46,.07,.36);
-      a(G.box,dark,0,.49,0,.49,.09,.37);
-      a(G.cyl8,pants,0,.425,0,.285,.17,.22);
-      a(G.box,gold,.04,.49,.194,.075,.045,.018);
-      // Украшение лежит на футболке, не парит перед персонажем.
-      for(const s of [-1,1])a(G.box,gold,s*.053,.875,.225,.012,.21,.012,0,0,s*.38);
-      a(G.box,col(0xddd0a7),0,.776,.24,.045,.065,.015,0,0,.15);
-      for(const s of [-1,1])a(G.cyl6,cloth,s*.31,.93,0,.10,.17,.11,0,0,s*.65);
-    }));
+    const filterBody=mesh(G.cyl8,filter,0,.49,0,.153,.32,.153,torso);filterBody.receiveShadow=false;filterBody.name='smoky-filter';
+    const cape=mesh(capeGeo,cloth,0,1.005,-.005,1,1,1,torso);cape.name='smoky-cape';cape.castShadow=true;
     const lapels=[];
     for(const s of [-1,1]){
-      const p=new THREE.Group();p.position.set(s*.204,1.01,.23);p.rotation.y=s*.08;torso.add(p);
-      p.add(compose('smoky33-front-'+s,a=>{a(G.box,cloth,0,-.23,0,.17,.46,.045);a(G.box,col(0xd7cfbc),-s*.073,-.23,.027,.012,.45,.008);a(G.box,cloth,0,-.32,.032,.115,.10,.025);}));
-      lapels.push({g:p,s,v:0});
+      const p=new THREE.Group();p.position.set(s*.171,1.005,.148);p.rotation.y=s*.17;torso.add(p);
+      const fold=mesh(foldGeo,cloth,0,0,0,s,1,1,p);fold.name='smoky-cape-fold';
+      p.add(compose('smoky331-edge-'+s,a=>{
+        a(G.box,col(0x8a7e68),-s*.064,-.245,.007,.009,.48,.009,0,0,s*.05);
+        a(G.box,cloth,-s*.012,-.045,.015,.105,.10,.025,-.34,s*.13,-s*.35);
+      }));lapels.push({g:p,s,v:0});
+      torso.add(compose('smoky331-shoulder-'+s,a=>{a(G.cyl6,cloth,s*.242,.96,-.015,.075,.125,.105,0,0,s*.60);}));
     }
-    for(const [hand,s]of [[handL,-1],[handR,1]])hand.add(compose('smoky33-hand-'+s,a=>{
-      a(G.cyl6,cloth,0,.075,-.025,.105,.16,.09);a(G.box,tmat(cork()),0,-.035,.025,.145,.13,.15);a(G.box,tmat(cork()),-s*.073,-.025,.06,.045,.065,.07);
+    for(const [hand,s]of [[handL,-1],[handR,1]])hand.add(compose('smoky331-hand-'+s,a=>{
+      a(G.cyl6,cloth,0,.045,-.025,.075,.10,.075);a(G.box,white,0,-.025,.012,.105,.10,.12);a(G.box,white,-s*.054,-.02,.04,.035,.045,.045);
     }));
-    for(const [foot,s]of [[footL,-1],[footR,1]])foot.add(compose('smoky33-foot-'+s,a=>{
-      a(legGeo,pants,0,.31,-.015,1,1,.92);a(G.box,pants,s*.15,.34,.005,.07,.15,.17);
-      a(G.box,shoe,0,.09,.045,.245,.17,.32);a(G.box,col(0x514a40),0,.025,.045,.25,.045,.33);a(G.box,shoe,0,.13,.17,.22,.07,.07);
+    for(const foot of [footL,footR])foot.add(compose('smoky331-loafer',a=>{
+      a(shoeGeo,lam({map:leather(),flatShading:true},'smoky331-leather'),0,.008,0,1,1,1);a(shoeGeo,col(0x25221e),0,-.002,0,1.035,.20,1.025);
+      a(G.box,charcoal,0,.016,-.095,.17,.033,.12);a(G.box,col(0x4c4840),0,.138,.02,.22,.016,.055,-.23);
+      a(G.box,col(0x272624),0,.144,.021,.07,.012,.025,-.23);
     }));
-    const tune=CONFIG.smoky,smoke=new THREE.InstancedMesh(G.ico,lam({color:0xc3bacb,transparent:true,opacity:.28,depthWrite:false},'smoky33-smoke'),tune.smokeCount);
+    const tune=CONFIG.smoky,smoke=new THREE.InstancedMesh(G.ico,lam({color:0xb6afbb,transparent:true,opacity:.25,depthWrite:false},'smoky331-smoke'),tune.smokeCount);
     smoke.name='smoky-smoke';smoke.userData.noOutline=true;smoke.frustumCulled=false;smoke.raycast=()=>{};root.add(smoke);
     root.addEventListener('removed',()=>{smoke.dispose();emberMat.dispose();});
     const puffs=Array.from({length:tune.smokeCount},()=>({p:new V3(),v:new V3(),age:tune.smokeLife})),matrix=new THREE.Matrix4(),inv=new THREE.Matrix4(),local=new V3(),scale=new V3(),rotation=new THREE.Quaternion();
     for(let i=0;i<puffs.length;i++){matrix.makeScale(0,0,0);smoke.setMatrixAt(i,matrix);}
     head.userData.smoky={mouth,glasses,ember,emberMat};torso.userData.smoky={lapels,puffs,smoke,matrix,inv,local,scale,rotation,next:0,clock:0,emit:0,last:new V3(),started:false,tip:new V3()};
-    return{top:1.86,handX:.47,handY:.68,handZ:.07,footX:.185,footY:0,holdX:.27,holdY:1.01,holdZ:.46,shadow:.47};
+    return{top:1.85,handX:.365,handY:.74,handZ:.025,footX:.175,footY:0,holdX:.24,holdY:.97,holdZ:.37,shadow:.37};
   },
-  face(c,e){const u=c.head.userData.smoky;u.mouth.scale.y=e==='wow'?4:e==='dizzy'?2:1;u.mouth.rotation.z=e==='dizzy'?.24:0;u.glasses.rotation.z=e==='dizzy'?.07:0;},
+  face(c,e){const u=c.head.userData.smoky;u.mouth.scale.y=.009*(e==='wow'?4:e==='dizzy'?2:1);u.mouth.rotation.z=e==='dizzy'?.24:0;u.glasses.rotation.z=e==='dizzy'?.06:0;},
   animate(c,dt,s){
     const u=c.torso.userData.smoky,h=c.head.userData.smoky,tune=CONFIG.smoky;
     dt=Math.min(.05,Math.max(0,dt));u.clock+=dt;const t=u.clock,speed=Math.min(1.4,s.speed||0);
-    h.emberMat.emissiveIntensity=.98+Math.sin(t*4.4)*.12+Math.sin(t*11.1)*.045;
-    for(const p of u.lapels){const target=p.s*(.025+speed*.055+Math.sin(t*7+p.s)*speed*.015);p.v+=((target-p.g.rotation.z)*70-p.v*12)*dt;p.g.rotation.z=Math.max(-.13,Math.min(.13,p.g.rotation.z+p.v*dt));}
-    // Фирменный жест в меню/на подиуме: поправить очки, не меняя рабочих поз.
-    if(s.act==='special'&&!s.ride&&!s.rag&&!s.dive&&!s.hold){const k=Math.sin(Math.min(1,s.actK||0)*Math.PI);c.handR.position.lerp(new V3(.30,1.46,.32),k*.5);}
+    h.emberMat.emissiveIntensity=.57+Math.sin(t*4.4)*.09+Math.sin(t*11.1)*.035;
+    for(const p of u.lapels){const target=p.s*(.02+speed*.07+Math.sin(t*7+p.s)*speed*.018);p.v+=((target-p.g.rotation.z)*70-p.v*12)*dt;p.g.rotation.z=Math.max(-.15,Math.min(.15,p.g.rotation.z+p.v*dt));}
+    if(s.act==='special'&&!s.ride&&!s.rag&&!s.dive&&!s.hold){const k=Math.sin(Math.min(1,s.actK||0)*Math.PI);c.handR.position.lerp(new V3(.18,1.34,.16),k*.5);}
     c.root.updateWorldMatrix(true,true);c.head.localToWorld(u.tip.set(0,1.84,0));u.inv.copy(c.root.matrixWorld).invert();
-    // Телепорт/смена сцены не оставляет длинный дымовой след через всю карту.
     if(u.started&&u.last.distanceToSquared(u.tip)>16)for(const p of u.puffs)p.age=tune.smokeLife;
     u.last.copy(u.tip);u.started=true;u.emit-=dt;
     if(u.emit<=0){u.emit=tune.smokeInterval;const p=u.puffs[u.next++%u.puffs.length];p.p.copy(u.tip);p.age=0;p.v.set(Math.sin(t*2)*.035,tune.smokeRise,Math.cos(t*1.3)*.025);}
     for(let i=0;i<u.puffs.length;i++){
       const p=u.puffs[i];p.age+=dt;const k=p.age/tune.smokeLife;
       if(k>=1){u.matrix.makeScale(0,0,0);}else{
-        p.p.addScaledVector(p.v,dt);p.p.x+=Math.sin(t*2.8+i)*dt*.026;
-        u.local.copy(p.p).applyMatrix4(u.inv);const size=(.035+k*.13)*Math.sin(Math.PI*Math.min(1,k*1.15));u.scale.set(size*.75,size*1.35,size*.75);u.matrix.compose(u.local,u.rotation,u.scale);
-      }
-      u.smoke.setMatrixAt(i,u.matrix);
-    }
-    u.smoke.instanceMatrix.needsUpdate=true;
+        p.p.addScaledVector(p.v,dt);p.p.x+=Math.sin(t*2.8+i)*dt*.026;u.local.copy(p.p).applyMatrix4(u.inv);
+        const size=(.025+k*.10)*Math.sin(Math.PI*Math.min(1,k*1.15));u.scale.set(size*.70,size*1.35,size*.70);u.matrix.compose(u.local,u.rotation,u.scale);
+      }u.smoke.setMatrixAt(i,u.matrix);
+    }u.smoke.instanceMatrix.needsUpdate=true;
   },
 };
