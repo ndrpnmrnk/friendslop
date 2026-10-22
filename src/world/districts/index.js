@@ -13,6 +13,9 @@ import office from './office.js';
 import port from './port.js';
 import skatepark from './skatepark.js';
 import hospital from './hospital.js';
+import factory from './factory.js';
+import townhall from './townhall.js';
+import university from './university.js';
 
 // Все районы города. Новый район — новый файл + строка здесь.
-export const DISTRICTS = [yard, park, plaza, shops, construction, cemetery, gas, market, school, foodcourt, sewer, office, port, skatepark, hospital];
+export const DISTRICTS = [yard, park, plaza, shops, construction, cemetery, gas, market, school, foodcourt, sewer, office, port, skatepark, hospital,factory,townhall,university];

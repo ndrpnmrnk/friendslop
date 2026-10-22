@@ -10,9 +10,9 @@ import { bakeBreakables } from './breakables.js';
    а отсечение по камере продолжает работать по участкам.
    Подвижное (предметы, тележки, двери, разрушаемое, кран, птицы, анимации) не трогаем. */
 const CELL = 72; // 4 больших участка на карту: меньше отрисовок
-export function bakeStatic(group) {
+export function bakeStatic(group, section=false) {
   CANON.clear(); BASE.clear();
-  bakeBreakables(group);
+  if(!section)bakeBreakables(group);
   const keep = new Set(W.keep);
   for (const it of W.items) keep.add(it.g);
   for (const p of W.pushables) keep.add(p.mesh);
@@ -68,6 +68,7 @@ export function bakeStatic(group) {
     const geo = mergeGeometries(bk.list, false); for (const g of bk.list) g.dispose();
     if (!geo) continue;
     const m = new THREE.Mesh(geo, bk.mat); m.renderOrder = bk.ro; m.matrixAutoUpdate = false; m.userData.baked = true;
+    W.mapResources.add(geo);
     m.castShadow = !bk.mat.transparent && !bk.mat.userData.noShadow && !(bk.mat.emissive && bk.mat.emissiveIntensity > 0.5); m.receiveShadow = true;
     group.add(m); n++;
   }
@@ -86,7 +87,7 @@ function canon(mat, g) {
     for (let i = 0; i < a.length; i += 2) { a[i] = a[i] * map.repeat.x + map.offset.x; a[i + 1] = a[i + 1] * map.repeat.y + map.offset.y; }
     uv.needsUpdate = true;
     let b = BASE.get(map.source.uuid);
-    if (!b) { b = map.clone(); b.repeat.set(1, 1); b.offset.set(0, 0); b.wrapS = b.wrapT = THREE.RepeatWrapping; b.needsUpdate = true; BASE.set(map.source.uuid, b); }
+    if (!b) { b = map.clone(); b.repeat.set(1, 1); b.offset.set(0, 0); b.wrapS = b.wrapT = THREE.RepeatWrapping; b.needsUpdate = true; BASE.set(map.source.uuid, b);W.mapResources.add(b); }
     map = b;
   }
   const key = [mat.type, mat.color && mat.color.getHex(), mat.emissive && mat.emissive.getHex(), mat.emissiveIntensity, map ? map.source.uuid : '-', mat.polygonOffset ? mat.polygonOffsetFactor : 0,
@@ -94,7 +95,7 @@ function canon(mat, g) {
   let c = CANON.get(key);
   if (!c) {
     if (map === mat.map) c = mat;
-    else { c = mat.clone(); c.map = map; ps1(c, !!mat.userData.ps1Stable); }
+    else { c = mat.clone(); c.map = map; ps1(c, !!mat.userData.ps1Stable);W.mapResources.add(c); }
     CANON.set(key, c);
   }
   return c;

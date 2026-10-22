@@ -33,6 +33,7 @@ export default {
     for (const x of [13, 14.3]) { b.box(x, 23.4, 1.2, 0.8, 0.5, tmat(T.crate())); b.m(G.box, tmat(T.produce('pumpkin')), x, 0.53, 23.4, 1.1, 0.05, 0.7); }
     b.table(19.6, 23.4, 0.9); b.m(G.box, col(0x6a6d78), 19.6, 0.95, 23.4, 0.5, 0.15, 0.4); b.m(G.cyl8, col(0xd8d8e0), 19.6, 1.06, 23.4, 0.25, 0.04, 0.25);
     b.bin(10, 11); b.bin(22, 24.5);
+    b.item('boombox',19.7,23.4,1.12);b.item('bao',5,20,1.18);b.item('taco',27,20,1.18);
     b.lamp(1, 30.5, Math.PI / 2); b.lamp(31, 1.5, -Math.PI / 2); b.lamp(16, 30.5, Math.PI);
     b.zone('floor', 1, 8.5, 31, 16.2); b.zone('floor', 11, 25, 22, 31);
     b.spawn(16, 12); b.spawn(2.5, 30);

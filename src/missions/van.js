@@ -45,7 +45,7 @@ export function vanGame(o,api,ctx){
   const ol=addOutline(b.root,.018);outlines.push(ol);b.outline=ol;
  }
  o.children=kids;
- function cry(k){if(k.cry>0)return;k.cry=1.6;sfx('kidYelp',{at:k.pos,range:15});scareBirds(k.pos.x,k.pos.z,8);for(const c of W.cats)if(flat(c.root.position,k.pos)<7)c.hit?.(false,c.root.position.x-k.pos.x,c.root.position.z-k.pos.z);for(const f of TOWN.folks)if(f.kind==='dog'&&flat(f.pos,k.pos)<9)f.barkT=1.3;for(const a of actors())if(a!==P&&flat(a.pos,k.pos)<5)a.startle=Math.max(a.startle||0,.35);}
+ function cry(k){if(k.cry>0)return;k.cry=1.3+Math.random()*.5;sfx('kidYelp',{at:k.pos,range:15,p:.88+k.id*.07});scareBirds(k.pos.x,k.pos.z,8);for(const c of W.cats)if(flat(c.root.position,k.pos)<7)c.hit?.(false,c.root.position.x-k.pos.x,c.root.position.z-k.pos.z);for(const f of TOWN.folks)if(f.kind==='dog'&&flat(f.pos,k.pos)<9)f.barkT=1.3;for(const a of actors())if(a!==P&&flat(a.pos,k.pos)<5)a.startle=Math.max(a.startle||0,.35);}
  function board(k){if(k.state==='board')return;k.state='board';k.outline.set(false);if(held===k)held=null;got++;api.progress(got/5);api.msg(`В бусике ${got}/5`,'good');sfx('pickup',{at:o.g.position});if(got===5){end=1.8;o.setOpen(0);}}
  const inside=p=>Math.abs(p.x)<1.04&&p.z> -2.56&&p.z<.52&&p.y>.22&&p.y<2.16;
  function release(k,v){k.state='fly';k.vel.copy(v);k.onGround=false;k.root.rotation.x=.3;if(held===k)held=null;cry(k);}

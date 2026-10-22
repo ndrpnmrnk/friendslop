@@ -33,6 +33,7 @@ export function resetTown() {
   // скелеты-NPC: 1–2 на карту, в разных местах улицы
   { const sps = W.spawns.slice().sort(() => Math.random() - 0.5), n = 1 + (Math.random() < 0.6 ? 1 : 0);
     for (let i = 0; i < n && i < sps.length; i++) TOWN.folks.push(skelNpc(sps[i], i === 0 ? 'smoke' : 'beer')); }
+  W.npcs=W.mayor?[...TOWN.folks,W.mayor]:TOWN.folks;
 }
 function setupBody(g, x, y, z) { g.position.set(x, y, z); W.group.add(g); W.keep.push(g); }
 
@@ -329,10 +330,11 @@ function updSkel(f, dt, t) {
     f.legs.forEach(l => (l.rotation.x = 0)); f.body.rotation.z = Math.sin(t * 0.8) * 0.03;
     if (el < 1.2) { f.arms[1].rotation.x = -1.35; f.offer.visible = true; if (smoke) f.prop.visible = false; if (hp && el > 0.8) (smoke ? hp.cig : hp.can).visible = true; }
     else { f.offer.visible = false; f.prop.visible = true; const up = Math.max(0, Math.sin(t * 1.1 + 1)); f.arms[1].rotation.x = -2.25 * up; }
+    if(smoke&&el>=1.2){poseSkeletonSmoke(f,t);if(hp&&hp.cig.visible)poseSmoking(P,hp.cig,t);}
     // дым: у скелета — от сигареты, у игрока — от кончика сигареты и выдох изо рта
-    const fy = f.g.rotation.y; if (smoke && Math.random() < dt * 3) puff(p.x + Math.sin(fy) * 0.25, p.y + 1.6, p.z + Math.cos(fy) * 0.25, { color: 0xd8d0e4, size: 0.08, grow: 0.9, vy: 0.5, life: 1.4, opacity: 0.5 });
-    if (hp && smoke && hp.cig.visible) { const w = hp.cig.getWorldPosition(new V3()); if (Math.random() < dt * 6) puff(w.x, w.y + 0.03, w.z, { color: 0xd8d0e4, size: 0.05, grow: 0.7, vy: 0.45, life: 1.2, opacity: 0.45 });
-      if (Math.random() < dt * 0.9) { const r = P.root.rotation.y; puff(P.pos.x + Math.sin(r) * 0.45, P.pos.y + P.ch.d.top - 0.4, P.pos.z + Math.cos(r) * 0.45, { color: 0xe8e0f0, size: 0.12, grow: 1.4, vx: Math.sin(r) * 0.6, vy: 0.3, vz: Math.cos(r) * 0.6, life: 1.6, opacity: 0.5 }); } }
+    const fy = f.g.rotation.y;if(smoke&&Math.random()<dt*3){const tip=f.prop.localToWorld(new V3(0,0,.14));puff(tip.x,tip.y,tip.z,{color:0xd8d0e4,size:.06,grow:.8,vy:.4,life:1.2,opacity:.45});}
+    if (hp && smoke && hp.cig.visible) { const w = hp.cig.localToWorld(new V3(0,.02,.18)); if (Math.random() < dt * 6) puff(w.x, w.y, w.z, { color: 0xd8d0e4, size: 0.05, grow: 0.7, vy: 0.45, life: 1.2, opacity: 0.45 });
+      if (Math.random() < dt * 0.9) { const r=P.root.rotation.y,m=P.ch.speechMouth.getWorldPosition(new V3());puff(m.x,m.y,m.z,{color:0xe8e0f0,size:.12,grow:1.4,vx:Math.sin(r)*.6,vy:.3,vz:Math.cos(r)*.6,life:1.6,opacity:.5}); } }
     // финал: окурок/банка летит в сторону и тлеет/гремит
     if (hp && f.busy < 0.45 && !f.flicked) { f.flicked = true; const it = smoke ? hp.cig : hp.can, w = it.getWorldPosition(new V3()), r = P.root.rotation.y + 0.8; it.visible = false;
       chunk(w.x, w.y, w.z, [Math.sin(r) * 3, 2.5, Math.cos(r) * 3], { mat: col(smoke ? 0xf1e8ff : 0x9a9da8), size: smoke ? 0.04 : 0.08, sy: smoke ? 0.4 : 0.6, life: 6 }); if (smoke) burst(w.x, w.y, w.z, 4, { color: 0xff8a1f, size: 0.04, speed: 2, up: 2 }); else sfx('can', { at: w }); }
@@ -352,7 +354,7 @@ function updSkel(f, dt, t) {
   f.ph += dt * v * 5; const sw = Math.sin(f.ph) * 0.5 * Math.min(1, v); f.legs[0].rotation.x = sw; f.legs[1].rotation.x = -sw; f.arms[0].rotation.x = -sw * 0.6;
   // курит/пьёт на ходу
   const up = Math.max(0, Math.sin(t * 0.9)); f.arms[1].rotation.x = -2.0 * up * up; p.y = f.gy + Math.abs(Math.sin(f.ph)) * 0.03;
-  if (f.act === 'smoke' && Math.random() < dt * 2) puff(p.x + Math.sin(f.g.rotation.y) * 0.2, p.y + 1.55, p.z + Math.cos(f.g.rotation.y) * 0.2, { color: 0xd8d0e4, size: 0.08, grow: 0.7, vy: 0.4, life: 1.2, opacity: 0.45 });
+  if(f.act==='smoke'){poseSkeletonSmoke(f,t);if(Math.random()<dt*2){const tip=f.prop.localToWorld(new V3(0,0,.14));puff(tip.x,tip.y,tip.z,{color:0xd8d0e4,size:.06,grow:.7,vy:.4,life:1.2,opacity:.45});}}
 }
 /* ---------- ворона-воришка (v0.18, умеренно) ----------
    Раз в ~минуту прилетает за маленьким блестящим предметом (банка, лампочка, жетон, свисток) и утаскивает на крышу.
@@ -442,3 +444,4 @@ export function updateTown(dt, t, P, bigActive) {
   if (TOWN.incT <= 0 && !bigActive && globalThis.__forceInc) { TOWN.incT = 30 + Math.random() * 10; const keys = Object.keys(INC).filter(k => k !== TOWN.last), k = globalThis.__forceInc || keys[(Math.random() * keys.length) | 0]; TOWN.last = k; TOWN.inc = INC[k](P); }
 }
 void dropHeld; void puff; void smokeRing;
+import {poseSmoking,poseSkeletonSmoke} from './smoking.js';

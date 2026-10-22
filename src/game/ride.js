@@ -14,14 +14,14 @@ import { sfx } from '../core/sfx.js';
 export function nearestRideable(p, r = 1.6, coast = false) {
   let best = null, bd = r;
   for (const b of W.pushables) {
-    if (b.raceOwner&&b.raceOwner!==p || !b.ride || b.rider || b.grabbed || !!b.ride.coast !== coast) continue;
+    if (b.noRide || b.raceOwner&&b.raceOwner!==p || !b.ride || b.rider || b.grabbed || !!b.ride.coast !== coast) continue;
     const d = Math.hypot(b.x - p.pos.x, b.z - p.pos.z);
     if (d < bd && Math.abs(b.y - p.pos.y) < 1) { bd = d; best = b; }
   }
   return best;
 }
 export function mount(p, b) {
-  if (p.held||b.raceOwner&&b.raceOwner!==p) return false;
+  if (p.held||b.noRide||b.raceOwner&&b.raceOwner!==p) return false;
   p.ride = b; b.rider = p; b.heading = b.mesh.rotation.y;
   b.vx += p.vel.x * 0.6; b.vz += p.vel.z * 0.6;
   b.outline && b.outline.set(false);
@@ -46,7 +46,7 @@ export function updateGrab(p, dt) {
 }
 // E на ходу: запрыгнуть в тележку, она получает скорость разбега
 export function hopIn(p) {
-  const b = p.grab; if (!b) return false;
+  const b = p.grab; if (!b||b.noRide) return false;
   p.grab = null; b.grabbed = null;
   b.vx = p.vel.x * 1.12; b.vz = p.vel.z * 1.12;
   p.ride = b; b.rider = p; b.stopT = 0;

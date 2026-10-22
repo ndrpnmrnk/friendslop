@@ -1,5 +1,6 @@
 import { updateOcclusion } from './game/occlusion.js';
 import {updateBongEffects} from './game/bong.js';
+import {updateSmoking} from './game/smoking.js';
 import { eliminate, updateDrones, resetDrones, droneAction, DRONE_NET_COOLDOWN } from './game/drone.js';
 import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies.js';
 import { routeTo } from './missions/location.js';
@@ -237,6 +238,7 @@ function tutEnd(done) {
 const tutSeen = () => { try { return localStorage.getItem('friendslop.tut') === '1'; } catch (_) { return true; } };
 /* ---------- раунд ---------- */
 function prepareRound(tut = false) {
+  resetRadios();
   if(S.mg)closeMission(null);if(S.wm)closeWorld(null);
   for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
   if (tut) globalThis.__forceDistricts = ['yard', 'plaza', 'park'];
@@ -248,6 +250,7 @@ function prepareRound(tut = false) {
   buildMinimap(DISTRICTS); CURTAIN = findMat('curtain');
   resetEvents(); resetSupplies(); resetDrones();
   resetMissions();
+  W.onBuildingDestroyed=u=>{for(const m of M.list.slice()){const p=m.obj.pos();if(m.key!=='demolition'&&p.x>=u.box[0]&&p.x<=u.box[2]&&p.z>=u.box[1]&&p.z<=u.box[3]){m.onExpire?.();if(M.list.includes(m))removeMission(m);}}};
   if (P) scene.remove(P.root);
   P = createPlayer(menu.skin()); scene.add(P.root); P.ch.onCroak = () => sfx('croak');
   P.ch.onCroak = null; // в игре «ква» звучит через голос (voice), мешок сам по себе не квакает
@@ -295,6 +298,7 @@ function goRound() {
   setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
 }
 function endRound() {
+  resetRadios();
   S.state='results';
   resetDrones();
   stopEvent(); eventChip(null); stopWeather(scene); closeCageUI();
@@ -534,6 +538,7 @@ on('down', btn => {
   if (btn === 0 && P.charging) { P.charging = false; P.chargeManual = false; $('dot').classList.remove('charge'); sfx('click'); throwTip(true); return; }
   // в руках инструмент: ЛКМ — применить
   if (btn === 0 && P.held) { if (!P.held.def.hold) { const snd = useTool(P, P.held, aimPoint()); if (snd) sfx(snd); } return; }
+  if(btn===0&&!P.held){const r=nearRadio(P,aim(camera));if(r){toggleRadio(r);return;}}
   if (P.holding) { if (btn === 0 || btn === 2) letGo(P); return; }
   if (!P.held && !P.ride && !P.holding && (btn === 0 || btn === 2)) {
     const c = nearestRideable(P, 1.7, true), d = btn === 0 ? nearDoor() : null;
@@ -544,7 +549,7 @@ on('down', btn => {
   if (btn === 2 && (P.held || carryK()) && P.stun <= 0) { P.charging = true; P.charge = 0; P.chargeManual = false; P.aimYaw = P.root.rotation.y; $('dot').classList.add('charge'); throwTip(); }
 });
 // колёсико во время замаха — точнее сила броска (вверх — сильнее, вниз — слабее)
-on('wheel', d => { if (S.state !== 'play' || !P || !P.charging) return; P.chargeManual = true; P.charge = Math.max(0.05, Math.min(1, P.charge - d * 0.1)); sfx('tick'); });
+on('wheel', d => { if(S.state!=='play'||!P||S.mg||S.crane)return;if(!P.charging){const r=P.held?.type==='boombox'?P.held:!P.held?nearRadio(P,aim(camera)):null;if(r)tuneRadio(r,d);return;}P.chargeManual=true;P.charge=Math.max(.05,Math.min(1,P.charge-d*.1));sfx('tick');});
 // короткая подсказка у прицела — первые несколько замахов (потом не надоедает)
 let tipN = 0; try { tipN = +localStorage.getItem('friendslop.throwTip') || 0; } catch (_) {}
 function throwTip(done) { const e = $('throwTip'); if (!e) return; if (done || tipN >= 4) { e.classList.add('hidden'); return; } e.classList.remove('hidden'); }
@@ -598,7 +603,9 @@ function focusTarget() {
 let lastFocus = null;
 /* Контур вблизи (≈ дистанция E): лежащие предметы — цвет по редкости, мусорки/шкафы — светлый, пока не обысканы */
 let glowOn = new Set();
+let glowTick=0,glowWorld=null;
 function updateGlow() {
+  const now=performance.now();if(now<glowTick&&glowWorld===W.group&&S.state==='play')return;glowTick=now+100;glowWorld=W.group;
   const want = new Set();
   if (P && S.state === 'play' && !P.drone && !S.mg && !S.crane) {
     for (const it of W.items) if ((it.state==='rest'||it.cartSpill&&it.state==='fly') && it.g.visible && !(it.boxed && !it.boxed.open) && Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z) < (it.cartSpill?18:2.2) && Math.abs(it.pos.y-P.pos.y-.4)<(it.cartSpill?6:1.6)) want.add(it.outline);
@@ -676,6 +683,7 @@ function frame() {
   clock.update(); let dt = Math.min(0.05, clock.getDelta());
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
   t += dt;
+  updateRadios(dt,P?.pos,S.state==='play');
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
   else if (S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {
@@ -787,7 +795,7 @@ function frame() {
     sky.update(camera, t, dt, P, hemi, scene.fog);
     updateLife(dt, t, S.state === 'play' ? P : null, camera);
     updateWorldFx(dt, t, S.state === 'play' ? P : null);
-    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); updateGrabs(dt, t); updateTraps(dt, t); updateTown(dt, t, P, !!EV.big); updateFun(dt, t); updatePolice(dt, t); updateBongEffects(dt,t);S.wm?.game.pose?.();for(const b of W.bots||[])b.work?.game.pose?.(); }
+    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); updateGrabs(dt, t); updateTraps(dt, t); updateTown(dt, t, P, !!EV.big); updateFun(dt, t); updatePolice(dt, t); updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.state === 'play' || S.state === 'results' ? 1 - Math.max(0, S.time) / CONFIG.roundTime : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
       if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
@@ -823,3 +831,5 @@ canvas.addEventListener('webglcontextrestored', () => toast('Графика во
 window.__fs = { eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 showMenu();
 loop();
+import {updateRadios,resetRadios,nearRadio,toggleRadio,tuneRadio} from './game/radio.js';
+import {updateSnacks} from './game/snacks.js';

@@ -1,4 +1,7 @@
 import {buildPerfume,perfumeGame} from './perfume.js';
+import {buildShakir,shakirGame} from './shakir.js';
+import {buildFat,fatGame} from './fat.js';
+import {buildDemolition,demolitionGame} from './demolition.js';
 import {vanPlaces,buildVan,vanGame} from './van.js';
 import {buildCosmo,cosmoGame} from './cosmo.js';
 import { buildMammoth,mammothWorld,mammothDress } from './mammoth.js';
@@ -100,6 +103,8 @@ function findPlace(def, from, others) {
 }
 
 function canSpawn(key, def) {
+  if(key==='fat'&&(!W.factorySite||!W.salonSite||!W.mayor||W.fatDone))return false;
+  if(key==='demolition'&&(!W.university||W.university.destroyed))return false;
   if(key==='van'&&!vanPlaces().length)return false;
   if ((M.cooldown[key] || 0) > 0) return false;
   const n = M.list.filter(m => m.key === key).length;
@@ -128,7 +133,7 @@ export function waveSize(phase) {
 // новая волна: N общих миссий, разнесённых по карте
 export function spawnWave(player, phase = 'calm') {
   const n = waveSize(phase); let k = 0;
-  for(let i=0;i<n;i++){const opts={final:phase==='final'};let m=null;if(phase==='calm'){const fresh=['van','cosmo'].find(q=>!M.introShown[q]);if(fresh)m=spawnMission(player,fresh,opts);if(!m&&!M.mammothShown)m=spawnMission(player,'mammoth',opts);}if(!m)m=spawnMission(player,null,opts);if(m)k++;}
+  for(let i=0;i<n;i++){const opts={final:phase==='final'};let m=null;if(phase==='calm'){const fresh=['shakir','fat','demolition','van','cosmo'].find(q=>!M.introShown[q]&&canSpawn(q,CONFIG.missions[q]));if(fresh)m=spawnMission(player,fresh,opts);if(!m&&!M.mammothShown)m=spawnMission(player,'mammoth',opts);}if(!m)m=spawnMission(player,null,opts);if(m)k++;}
   M.waveT = 0; M.wave++; M.burnt = 0;
   if (k && M.onWave) M.onWave(k, M.wave);
   return k;
@@ -151,6 +156,8 @@ export function spawnMission(player, only = null, opts = {}) {
       const list=entrances(); const g=list[(Math.random()*list.length)|0]; if(!g)continue; const p=g.intercom;
       obj=buildIntercom(p.x,p.y,p.z,p.f); obj.entrance=g; where=g.name+' · у входа';
     } else if(key==='van'){const places=vanPlaces();if(!places.length)continue;const q=places[Math.random()*places.length|0];obj=buildVan(q);where='Город · дорога';
+    } else if(key==='fat'){obj=buildFat();where='Жировой завод → Мэрия';
+    } else if(key==='demolition'){obj=buildDemolition();where='Университет Хнуре';
     } else if (def.spot) {
       // место подальше от других миссий волны
       const list = freeSpots(def.spot).sort((a, b) => minDist(b, others) - minDist(a, others) + (Math.random() - 0.5) * 8);
@@ -161,13 +168,13 @@ export function spawnMission(player, only = null, opts = {}) {
       const pl = findPlace(def, player.pos, others);
       if (!pl) continue;
       const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox, leaves: buildLeafPile, graffiti: buildGraffitiWall, intercom: buildIntercom, lockpick: buildChest, pipes: buildValve,
-        perfume:buildPerfume,mammoth:buildMammoth,doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
+        shakir:buildShakir,perfume:buildPerfume,mammoth:buildMammoth,doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
       obj = key==='cosmo'?buildCosmo(pl.x,pl.y,pl.z,pl.f):key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
       where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
     }
     const p = obj.pos(); where = locationLabel(p) || where; const life = lifeFor(p, opts.final), mult = opts.mult || 1;
     const m = { id: ++M.id, key, def, obj, where, life, maxLife: life, busy: false, owner: opts.owner || null, outsider: mult > 1, mult, pts: Math.round(def.points * mult), marker: marker(def, key) };
-    drawPlate(m, 1); M.list.push(m);if(key==='mammoth')M.mammothShown=true;if(key==='van'||key==='cosmo')M.introShown[key]=true;
+    drawPlate(m, 1); M.list.push(m);if(key==='mammoth')M.mammothShown=true;if(['shakir','fat','demolition','van','cosmo'].includes(key))M.introShown[key]=true;
     return m;
   }
   return null;
@@ -249,6 +256,6 @@ export function nearMission(player) {
   }
   return best;
 }
-export const ALL_GAMES = { perfume:perfumeGame,mammothDress, ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4, ...PANEL5 };
-const WORLD_ALL = { van:vanGame,cosmo:cosmoGame,mammoth:mammothWorld, ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
+export const ALL_GAMES = { shakir:shakirGame,perfume:perfumeGame,mammothDress, ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4, ...PANEL5 };
+const WORLD_ALL = { fat:fatGame,demolition:demolitionGame,van:vanGame,cosmo:cosmoGame,mammoth:mammothWorld, ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
 export { GAMES, WORLD_ALL as WORLD_GAMES };

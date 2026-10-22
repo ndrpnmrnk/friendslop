@@ -30,7 +30,7 @@ export const CONFIG = {
   canopy: {spring:65,damping:8,bounce:6.8,compression:.13},
   fishing: {timeout:100,minReel:12,perRadian:.036,botTurn:4.3},
   detector: {range:9,farPulse:1.6,nearPulse:.38,digTime:1.5,holeRadius:.65},
-  melee: {duration:.56,impactLeft:.29,cooldown:.68},
+  melee: {duration:.78,impactLeft:.29,cooldown:.86},
   botStepDown: {maxDrop:2.15,timeout:1.8},
   mothStun:1.5,
 
@@ -49,6 +49,9 @@ export const CONFIG = {
   cats: 2,
   // zones: где миссия может появиться; foot: размер объекта; clear: свободное место перед ним
   missions: {
+    shakir:{name:'Найти Шакира',points:220,diff:'mid',life:70,workLimit:60,max:1,game:'shakir',zones:['floor'],foot:[3.4,3.0],clear:1.2,home:'market'},
+    fat:{name:'300 литров жира',points:600,diff:'hard',life:80,workLimit:180,max:1,game:'fat',world:true},
+    demolition:{name:'Хнуре: большой бабах',points:350,diff:'hard',life:75,workLimit:110,max:1,game:'demolition',world:true},
     van:{name:'Пассажиры для ТЦК',icon:'',points:300,diff:'hard',life:75,workLimit:120,max:1,game:'van',world:true},
     cosmo:{name:'Космический перекур',icon:'',points:350,diff:'hard',life:75,workLimit:120,max:1,game:'cosmo',world:true,zones:['floor'],foot:[1.2,.8],clear:3},
     perfume:{name:'Смешай парфюм',icon:'',points:260,diff:'mid',life:65,workLimit:90,max:1,game:'perfume',zones:['inside'],foot:[2.4,.9],clear:2.2},
@@ -101,6 +104,12 @@ export const CONFIG = {
   missionCooldown: 6,
   // предметы для броска
   items: {
+    bao:{name:'Паровые булочки',tool:true,r:.24,mass:.3,drag:.2,bounce:.15,respawn:0},
+    taco:{name:'Тако',tool:true,r:.22,mass:.2,drag:.2,bounce:.15,respawn:0},
+    noodles:{name:'Лапша в стакане',tool:true,r:.21,mass:.35,drag:.2,bounce:.15,respawn:0},
+    burger:{name:'Бургер',tool:true,r:.22,mass:.3,drag:.2,bounce:.15,respawn:0},
+    boombox:{name:'Бумбокс',tool:true,heavy:true,r:.35,halfHeight:.21,mass:1.8,drag:.06,bounce:.12,respawn:0},
+    fatcan:{name:'Бидон жира · 50 л',heavy:true,r:.30,halfHeight:.36,mass:2.5,drag:.1,bounce:.08,respawn:0},
     mammothpants:{name:'Трусики мамонта',heavy:false,r:.38,mass:.5,drag:.3,bounce:.2,respawn:0},
     // mass — масса: тяжёлые летят ближе, их почти не сдвинуть; лёгкие летят дальше и разлетаются от пинка
     // drag — сопротивление воздуха, bounce — упругость
@@ -162,7 +171,7 @@ export const CONFIG = {
     mask:    { name: 'Маска-призрак', tool: true, heavy: false, r: 0.14, respawn: 0, mass: 0.2, drag: 0.3, bounce: 0.2 },
   },
   // инструменты, которые выпадают из ящиков (золотые ящики — только «редкие»)
-  toolPool: ['bow', 'net', 'badge', 'slipper', 'umbrella', 'extinguisher', 'banana', 'pillow', 'duck', 'bubbles', 'whistle', 'magnet', 'paint', 'energy', 'water', 'firework', 'popper', 'sling', 'web', 'mask'],
+  toolPool: ['boombox','bao','taco','noodles','burger','bow', 'net', 'badge', 'slipper', 'umbrella', 'extinguisher', 'banana', 'pillow', 'duck', 'bubbles', 'whistle', 'magnet', 'paint', 'energy', 'water', 'firework', 'popper', 'sling', 'web', 'mask'],
   toolRare: ['bow', 'badge', 'net', 'extinguisher', 'magnet', 'firework', 'mask', 'bubbles', 'paint'],
   throw: { minRange: 3, maxRange: 17, chargeTime: 0.9 },
 };
@@ -181,7 +190,9 @@ export const HINTS = {
   targets: 'Бери помидоры и мячи из ящика (E) и бросай (ПКМ) в мишени.',
   cleanup: 'Подбирай мусор (E) и бросай в урну или клади рядом с ней.',
   delivery: 'Неси заказ к зелёному лучу. Его можно бросить и снова поднять, но время идёт.',
-  demolition: 'Ты в кране: W/S — тележка по стреле, A/D — поворот, мышь — камера. Снеси 3/4 красной стены.',
+  shakir:'Води лупой по настольному рынку. Найди бородатого муравья с боксёрскими перчатками и задержи на нём лупу.',
+  fat:'Собери 6 бидонов по 50 л. E у тележки - погрузить. Довези груз к салону, открой его, пригласи мэра и держи давление в зелёной зоне.',
+  demolition:'E у каждой из четырёх меток - установить игровой заряд. После последнего заряда есть 10 секунд, чтобы отбежать. Взрыв сбивает с ног игроков поблизости.',
   doorbell: 'E у настоящей входной двери - звонок. На экране 3-2-1: спрячься за стеной, крупным предметом или в укрытии. Жилец видит на 24 м, стены и предметы перекрывают обзор.',
   steal: 'Скелет курит на лавке, рядом его банка. Хватай (E), когда красный сектор взгляда смотрит в сторону, и уноси за 12 м. Два раза заметит — провал.',
   grill: 'Котлеты жарятся снизу (нижний край темнеет). Клик — перевернуть. Когда и вторая сторона готова — клик ещё раз: в булку. Сырую или горелую не подавай. Нужно 3 бургера.',

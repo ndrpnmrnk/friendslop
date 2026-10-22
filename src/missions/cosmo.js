@@ -12,6 +12,7 @@ import {puff,burst,smokeRing} from '../world/particles.js';
 import {sfx} from '../core/sfx.js';
 import {littleNPC,ufoModel} from './encounter-models.js';
 import {flat,visible,freeSpot,npcBody,walkNPC} from './encounter-motion.js';
+import {alienTactics} from './alien-tactics.js';
 
 export function buildCosmo(x,y,z,f){
  const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=Math.atan2(f[0],f[1]);g.name='cosmo-mission';W.group.add(g);
@@ -41,7 +42,6 @@ export function cosmoGame(o,api,ctx){
  function spawnAliens(){for(let i=0;i<5;i++){
   let p=null;for(let n=0;n<20&&!p;n++){const q=freeSpot(beamSite,2,4);if(q&&!aliens.some(a=>flat(a.landing,q)<.75))p=q;}if(!p){api.finish({success:false});return false;}
   const m=littleNPC(i,true),a=npcBody(m);a.landing=p;a.pos.copy(beamSite).y+=5.8;a.probe.copy(p);a.hp=2;a.cd=1.4+i*.3;a.wind=0;a.holding=null;a.stun=0;a.id=i;a.deployed=false;aliens.push(a);W.group.add(a.root);
-  a.pips=[];for(const x of [-.10,.10])a.pips.push(mesh(G.box,col(0xa6d975),x,1.42,0,.12,.045,.07,a.root));
  }return true;}
  function shoot(ray){
   if(phase!=='combat'||cd>0||P.heldBy||P.daze>0||P.stun>0||shots.length>=12)return;
@@ -95,16 +95,17 @@ export function cosmoGame(o,api,ctx){
      if(flat(P.pos,beamSite)<1.15){phase='lift';stageT=0;api.msg('НЛО забирает тебя! Дрон на 30 секунд','bad');}continue;
     }
     if(P.hidden)continue;
+    if(alienTactics(a,P,shots,clock,dt))continue;
     if(stunned&&flat(a.pos,P.pos)<1.25&&!P.heldBy&&immune<=0){a.holding=P;P.heldBy=a;P.struggle=0;a.gripT=0;api.msg('Тебя тащат к лучу! WASD / Пробел - вырваться','bad');continue;}
-    if(a.wind>0){a.wind-=dt;a.model.hands[1].rotation.x=-Math.sin((.65-a.wind)/.65*Math.PI)*1.8;
+    if(a.wind>0){a.wind-=dt;a.model.hands[1].rotation.x=-Math.sin((.45-a.wind)/.45*Math.PI)*1.8;
      if(a.wind<=0&&immune<=0&&flat(a.pos,P.pos)<1.65&&Math.abs(a.pos.y-P.pos.y)<1&&visible(a.pos.clone().add(new V3(0,.85,0)),P.pos.clone().add(new V3(0,.9,0)))){daze(P,2.5);immune=.7;P.push.x+=Math.sin(a.root.rotation.y)*.5;P.push.z+=Math.cos(a.root.rotation.y)*.5;sfx('cosmoBaton',{at:P.pos,range:12});}continue;
     }
-    if(flat(a.pos,P.pos)>1.15){const d=flat(a.pos,P.pos),goal=P.pos.clone(),flank=d>3.5?1.2:0,ang=a.id*Math.PI*2/5+Math.sin(clock+a.id)*.15;goal.x+=Math.sin(ang)*flank;goal.z+=Math.cos(ang)*flank;for(const b of aliens)if(b!==a&&b.hp>0){const dx=a.pos.x-b.pos.x,dz=a.pos.z-b.pos.z,l=Math.hypot(dx,dz);if(l<.8&&l>.01){goal.x+=dx/l*(.8-l);goal.z+=dz/l*(.8-l);}}walkNPC(a,goal,(clock+a.id*.4)%2.7<.65?4.7:3.0,dt);}else{a.root.rotation.y=Math.atan2(P.pos.x-a.pos.x,P.pos.z-a.pos.z);if(a.cd<=0&&immune<=0&&!stunned){a.cd=3.8;a.wind=.65;sfx('beep',{at:a.pos,range:9,v:.35});}}
+    if(flat(a.pos,P.pos)>1.15){const d=flat(a.pos,P.pos),goal=P.pos.clone(),flank=d>2.2?1.5:0,ang=a.id*Math.PI*2/5+Math.sin(clock*.8+a.id)*.7;goal.x+=Math.sin(ang)*flank;goal.z+=Math.cos(ang)*flank;for(const b of aliens)if(b!==a&&b.hp>0){const dx=a.pos.x-b.pos.x,dz=a.pos.z-b.pos.z,l=Math.hypot(dx,dz);if(l<.8&&l>.01){goal.x+=dx/l*(.8-l);goal.z+=dz/l*(.8-l);}}walkNPC(a,goal,(clock+a.id*.4)%2.7<.65?5.1:3.6,dt);}else{a.root.rotation.y=Math.atan2(P.pos.x-a.pos.x,P.pos.z-a.pos.z);if(a.cd<=0&&immune<=0&&!stunned){a.cd=3.2;a.wind=.45;sfx('beep',{at:a.pos,range:9,v:.35});}}
    }
    for(let i=shots.length-1;i>=0;i--){const s=shots[i],old=s.p.clone(),step=s.v.clone().multiplyScalar(dt),len=step.length(),dir=step.clone().normalize(),wall=raySolids(old,dir,len);let hit=null,hitD=Math.min(len,wall);
     for(const a of aliens)if(a.hp>0){const center=a.pos.clone().add(new V3(0,.7,0)),q=center.clone().sub(old),along=q.dot(dir);if(along<-.5||along>hitD+.5)continue;const near=old.clone().addScaledVector(dir,Math.max(0,Math.min(hitD,along)));if(near.distanceTo(center)<.48){const entry=Math.max(0,along-Math.sqrt(Math.max(0,.48*.48-center.distanceToSquared(old.clone().addScaledVector(dir,along)))));if(entry<=hitD){hit=a;hitD=entry;}}}
     s.p.copy(old).addScaledVector(dir,hitD);s.g.position.copy(s.p);s.life-=dt;
-    if(hit){hit.hp--;hit.cd=Math.max(hit.cd,1.2);hit.pips[hit.hp].visible=false;releaseGrip();burst(s.p.x,s.p.y,s.p.z,7,{color:0xb5d97c,size:.08,speed:1.8,life:.35});sfx('cosmoHit',{at:hit.pos,range:16});if(!hit.hp){hit.root.visible=false;smokeRing(hit.pos.x,hit.pos.y+.3,hit.pos.z,7,{color:0xb5b4ca,size:.15,speed:1.6,life:.5});}api.progress(.4+(10-aliens.reduce((n,a)=>n+a.hp,0))*.06);}
+    if(hit){hit.hp--;hit.cd=Math.max(hit.cd,1.2);hit.recoil=.25;hit.rush=hit.evade=null;releaseGrip();burst(s.p.x,s.p.y,s.p.z,7,{color:0xb5d97c,size:.08,speed:1.8,life:.35});sfx('cosmoHit',{at:hit.pos,range:16});if(!hit.hp){hit.root.visible=false;smokeRing(hit.pos.x,hit.pos.y+.3,hit.pos.z,7,{color:0xb5b4ca,size:.15,speed:1.6,life:.5});}api.progress(.4+(10-aliens.reduce((n,a)=>n+a.hp,0))*.06);}
     if(hit||wall<len||s.life<=0){s.g.removeFromParent();shots.splice(i,1);}
    }
    if(aliens.length===5&&aliens.every(a=>a.hp<=0)){releaseGrip();phase='fold';stageT=0;api.msg('Чисто! Бластер складывается обратно в бонг','good');}

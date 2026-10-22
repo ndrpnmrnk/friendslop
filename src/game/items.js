@@ -2,6 +2,7 @@ import {sweepActors,npcList,npcPosition,hitNPC,heavyHit} from './impacts.js';
 import {bowModel} from './bow.js';
 import {bongModel} from './bong.js';
 import { pantsModel } from '../characters/mammoth.js';
+import {fatCanModel} from '../missions/fat-models.js';
 import { THREE, G, V3, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
 import { addOutline, OUTLINE } from './outline.js';
 import { chairModel, coneModel, trashModel, litterModel } from '../world/props.js';
@@ -21,6 +22,9 @@ const MAG_ARC = new THREE.TorusGeometry(0.115, 0.047, 6, 12, Math.PI);
 /* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
 const GRAV = 22;
 function build(type) {
+  if(type==='fatcan')return fatCanModel();
+  if(SNACKS[type])return snackModel(type);
+  if(type==='boombox')return radioModel();
   if(type==='bong')return bongModel();
   if(type==='bow')return bowModel();
   if(type==='perfume'){const g=new THREE.Group();mesh(G.box,lam({color:0xb18cff,transparent:true,opacity:.65}),0,0,0,.22,.3,.14,g);mesh(G.cyl6,tmat(T.metal()),0,.19,0,.045,.08,.045,g);mesh(G.box,col(0xf5c542),.03,.23,.02,.12,.05,.07,g);mesh(G.box,tmat(T.sign('PARFUM','#e6d0a4','#31243c')),0,0,.075,.19,.13,.01,g);return g;}
@@ -267,7 +271,10 @@ export function updateItems(dt, pl) {
       it.floatY = undefined;
     }
     // лежит: мяч и упавшие предметы живут по физике
-    const moving = it.vel.lengthSq() > 0.01 || it.pos.y - (it.def.halfHeight??it.def.r) > groundAt(it.pos.x, it.pos.z, it.def.r * 0.5, it.pos.y) + 0.05;
+    const foot=it.pos.y-(it.def.halfHeight??it.def.r),stable=Math.abs(foot-CONFIG.base)<.12&&it.vel.lengthSq()<.01;
+    it.floorProbe=(it.floorProbe||0)-dt;
+    if(!stable||it.floorProbe<=0||it.floorY==null){it.floorY=groundAt(it.pos.x,it.pos.z,it.def.r*.5,it.pos.y);it.floorProbe=.18;}
+    const moving = it.vel.lengthSq() > 0.01 || foot > it.floorY + 0.05;
     if (moving) simulate(it, dt, false);
     if (pl && pl.held !== it) {
       const dx = it.pos.x - pl.pos.x, dz = it.pos.z - pl.pos.z, d = Math.hypot(dx, dz), m = it.def.r + pl.r;
@@ -322,3 +329,5 @@ export function predict(from,vel,out,n,def,end){
 
 // цвет письма задаёт миссия «Почтальон» перед addItem
 let _lc = 0xd8243a; export const setLetterColor = c => { _lc = c; }; const it_letterC = () => _lc;
+import {SNACKS,snackModel} from './snacks.js';
+import {radioModel} from './radio.js';

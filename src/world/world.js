@@ -19,7 +19,7 @@ const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dir
 /* Карта: сетка grid x grid районов, выбранных случайно из всех без повторов.
    Между районами дороги с разметкой. Ни один район не выделяется. */
 export function generateMap(scene, s) {
-  if (W.group) scene.remove(W.group);
+  if (W.group) {W.group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});scene.remove(W.group);}
   const group = new THREE.Group(); scene.add(group);
   resetWorld(group); resetParticles(); resetBreakables(); setParent(group);
   seed(s);
@@ -41,6 +41,9 @@ export function generateMap(scene, s) {
   // отладка: window.__forceDistricts = ['yard', ...] ставит эти районы первыми
   const force = globalThis.__forceDistricts; if (force) picks = [...force.map(id => picks.find(d => d.id === id)).filter(Boolean), ...picks.filter(d => !force.includes(d.id))];
   picks = shuffle(picks.slice(0, grid * grid));
+  // Производственная цепочка требует оба района; пара остаётся случайной, размер карты прежний.
+  const factory=picks.some(d=>d.id==='factory'),hall=picks.some(d=>d.id==='townhall');
+  if(factory!==hall){const missing=byId(factory?'townhall':'factory'),can=picks.map((d,i)=>({d,i})).filter(({d})=>!['factory','townhall'].includes(d.id)&&!force?.includes(d.id)),extra=can.find(({d})=>GROUPS.some(g=>g.includes(d.id)&&picks.filter(q=>g.includes(q.id)).length>1))||can.at(-1);if(extra)picks[extra.i]=missing;}
   if (force) picks = [...picks.filter(d => force.includes(d.id)), ...picks.filter(d => !force.includes(d.id))];
   // порт — только у реки: ставим его в нижний ряд (южный край карты), а южный край делаем набережной
   W.riverSide = null;

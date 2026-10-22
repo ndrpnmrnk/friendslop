@@ -104,6 +104,8 @@ const front = (a,r,dot=.4,fn)=>{const f=a.root.rotation.y,fx=Math.sin(f),fz=Math
 const swing=(a,it,hit)=>{if(a.melee)return null;it.cd=CONFIG.melee.cooldown;a.swatT=CONFIG.melee.duration;a.melee={it,left:CONFIG.melee.duration,hit:false,apply:hit};return null;};
 export function useTool(a, it, aim, dt = 0) {
   if (!it || a.stun > 0) return null;
+  if(SNACKS[it.type]){eatSnack(a,it);return null;}
+  if(it.type==='boombox'){toggleRadio(it);return null;}
   const k = it.type, d = it.def, hp = a.ch ? a.ch.holdPoint : new V3(a.pos.x, a.pos.y + 1.2, a.pos.z);
   const from = hp.clone(), dir = _d.copy(aim).sub(from); const dist = dir.length(); dir.normalize();
   if (d.ammo && it.ammo <= 0) return null;
@@ -158,9 +160,8 @@ export function useTool(a, it, aim, dt = 0) {
     // жетон: вызвать наряд (ПКМ — бросить жетон в соперника)
     case 'badge': return null; // жетон работает броском (ПКМ): наряд выбегает из точки падения
     // перчатка-пружина: удар на 3 м вперёд, отбрасывает далеко
-    case 'glove': { it.cd = 0.7; const [fx, fz] = front(a, 3.2, 0.7, (b, dx, dz) => { const l = Math.hypot(dx, dz) || 1; knockDown(b, dx / l * 11, dz / l * 11, 1.2); b.vel.y = 5; hitFreeze(0.08); W.onHit && W.onHit(a, b, 'melee'); });
-      it.punchT = 0.25; a.swatT = 0.25; impulsePushables(a.pos.x + fx * 2, a.pos.z + fz * 2, 1.2, 8); worldHit(new V3(a.pos.x + fx * 2.6, a.pos.y + 1, a.pos.z + fz * 2.6), 3, new V3(fx * 12, 2, fz * 12));
-      puff(a.pos.x + fx * 2.4, a.pos.y + 1.1, a.pos.z + fz * 2.4, { size: 0.5, life: 0.25, color: 0xff5a6e }); spend(); return 'pillow'; }
+    case 'glove': return swing(a,it,()=>{const [fx,fz]=front(a,3.2,.7,(b,dx,dz)=>{const l=Math.hypot(dx,dz)||1;knockDown(b,dx/l*11,dz/l*11,1.2);b.vel.y=5;hitFreeze(.08);W.onHit?.(a,b,'melee');});
+      it.punchT=.25;impulsePushables(a.pos.x+fx*2,a.pos.z+fz*2,1.2,8);worldHit(new V3(a.pos.x+fx*2.6,a.pos.y+1,a.pos.z+fz*2.6),3,new V3(fx*12,2,fz*12));puff(a.pos.x+fx*2.4,a.pos.y+1.1,a.pos.z+fz*2.4,{size:.5,life:.25,color:0xff5a6e});spend();sfx('pillow',{at:a.pos});});
     // пылесос: держи ЛКМ — втягивает предметы (и выдёргивает из рук), отпустил — выстреливает очередью
     case 'vacuum': {
       it.ammo -= dt; it.bag = it.bag || [];
@@ -392,5 +393,7 @@ export function updateTools(dt, t) {
   void _f; void addZone;
 }
 // иконка-подсказка для HUD: есть ли у инструмента действие на ЛКМ
-export const toolVerb = it => ({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: 'выстрел сеткой', badge: 'брось (ПКМ) — вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
+export const toolVerb = it => SNACKS[it?.type]?'съесть · восстановить выносливость':it?.type==='boombox'?`${it.radio?.on?'выключить':'включить'} · колесо - волна ${STATIONS[it.radio?.station||0].freq}`:({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: 'выстрел сеткой', badge: 'брось (ПКМ) — вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
   bong:'воспользоваться',perfume:'распылить облако',bow:'держи ЛКМ - тяни, отпусти - выстрел',water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', mask: 'надеть', rake:'ЛКМ - удар, ПКМ - бросить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';
+import {SNACKS,eatSnack} from './snacks.js';
+import {toggleRadio,STATIONS} from './radio.js';

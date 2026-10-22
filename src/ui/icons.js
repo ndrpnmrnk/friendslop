@@ -3,6 +3,14 @@
 const PAL = { k: '#17111f', o: '#ff8a1f', O: '#c85a0a', y: '#f5c542', g: '#9be36b', G: '#4f8a3a', r: '#ff5a6e', R: '#a8243a', b: '#4ab0f0', B: '#1e6aa8',
   w: '#f1e8ff', p: '#b18cff', P: '#6a4aa8', n: '#a8744a', N: '#6a4428', s: '#a8a8b8', d: '#4a4058', c: '#d8f0ff', m: '#eee8ff' };
 const ART = {
+  shakir:['....kkkk....','..kkcccckk..','.kcccccccck.','kcccNNNcccck','kccNrrrNccck','kcccNNNcccck','.kcccccccck.','..kkcccckk..','....kkkkkk..','........kkk.','.........kkk','..........kk'],
+  fat:['....ssss....','...ssssss...','..kswwwwsk..','..kswwwwsk..','..ksnnnnsk..','..ksnnnnsk..','..kswwwwsk..','..kswwwwsk..','..kswwwwsk..','..kssssssk..','...kkkkkk...','............'],
+  demolition:['............','...rrrrrr...','..knnnnnnk..','..knknnknk..','..knknnknk..','..knnnnnnk..','..knkkkknk..','..knkwyknk..','..knkkkknk..','..knnnnnnk..','...kkkkkk...','............'],
+  boombox:['...kkkkkk...','..k......k..','..kkkkkkkk..','.kssssssssk.','.kskkkkkksk.','.kskwwkwksk.','.kskwkkwksk.','.kskwwkwksk.','.kskkkkkksk.','.kssssssssk.','..kkkkkkkk..','............'],
+  bao:['............','...wwwwww...','..wwwwwwww..','.kwwwwwwwwk.','.knnnnnnnnk.','.knNNNNNNnk.','.knnnnnnnnk.','.knNNNNNNnk.','.knnnnnnnnk.','..kkkkkkkk..','............','............'],
+  taco:['............','.....nn.....','....ngrn....','...nggrrn...','..nyggrrrn..','.nyyggrrrrn.','.nyyygggrrn.','.nyyyygggrn.','..nyyyyyyn..','...nnnnnn...','............','............'],
+  noodles:['......n.n...','.....n.n....','....n.n.....','..kkkkkkkk..','.knyyyyyynk.','..kwwwwwwk..','..kwrrrrwk..','..kwwwwwwk..','...kwrrwk...','...kwwwwk...','....kkkk....','............'],
+  burger:['............','...nnnnnn...','..nyynnyyn..','.nnnnnnnnnn.','.kggggggggk.','.krrryrrrrk.','.knnnnnnnnk.','.kNNNNNNNNk.','.knnnnnnnnk.','..kkkkkkkk..','............','............'],
   van:['............','..kkkkkkkk..','.kGGGGGGGGk.','.kcckcckcck.','.kcckcckcck.','.kGGGGGGGGk.','.kGwGwGwGGk.','.kGGGGGGGGk.','.kyGGGGGGyk.','.kkkkkkkkkk.','..kk....kk..','............'],
   cosmo:['............','....pppp....','..ssssssss..','.sgsgsgsgss.','...gggggg...','....gggg....','.....gg.....','.....gg.....','....kwwk....','...kGGGGk...','...kkkkkk...','............'],
   bong:['.....ss.....','.....cc.....','.....cc.....','.....cc.....','.....cc..n..','....kccknn..','...kcccck...','...kcGGck...','...kcGGck...','....kssk....','...ssssss...','............'],
@@ -54,7 +62,6 @@ const ART = {
   fuse: ['............', '......kkk...', '.....kyyk...', '....kyyk....', '...kyyk.....', '..kyyyyyk...', '.kkkkyyk....', '....kyk.....', '...kyk......', '..kyk.......', '..kk........', '............'],
   delivery: ['............', '..kkkkkkkk..', '.knnnnrnnnk.', 'knnnnnrnnnnk', 'kkkkkkrkkkkk', 'knnnnnrnnnnk', 'knnnnnrnnnnk', 'knnnnnrnnnnk', 'knnnnnrnnnnk', 'kNNNNNNNNNNk', '.kkkkkkkkkk.', '............'],
   safe: ['kkkkkkkkkkkk', 'kssssssssssk', 'ksddddddddsk', 'ksdkkkkkkdsk', 'ksdkyyyykdsk', 'ksdkyyky kdsk'.replace(' ', ''), 'ksdkykyykdsk', 'ksdkyyyykdsk', 'ksdkkkkkkdsk', 'ksddddddddsk', 'kssssssssssk', 'kkkkkkkkkkkk'],
-  demolition: ['kkkkkkkkkk..', 'kyykyykyyk..', 'kkkkkkkkkk..', '........k...', '........k...', '........k...', '.......kkk..', '......kdddk.', '.....kdddddk', '.....kdsdddk', '.....kdddddk', '......kkkkk.'],
   // предметы
   balloon: ['....kkkk....', '...kbbbbk...', '..kbcbbbbk..', '..kbcbbbbk..', '..kbbbbbbk..', '..kbbbbbbk..', '...kbbbbk...', '....kBBk....', '.....kk.....', '......k.....', '.....k......', '......k.....'],
   tomato: ['............', '.....kgk....', '....kgggk...', '..kkrrrrkk..', '.krrrrrrrrk.', 'krwrrrrrrrrk', 'krwrrrrrrrrk', 'krrrrrrrrrrk', 'krrrrrrrrrRk', '.krrrrrrRRk.', '..kkkkkkkk..', '............'],

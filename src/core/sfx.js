@@ -9,6 +9,7 @@ export function initAudio() {
   noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
 export function toggleMute() { muted = !muted; try { localStorage.setItem('friendslop.mute', muted ? '1' : '0'); } catch (_) {} if (master) master.gain.value = muted ? 0 : 0.5; return muted; }
+export function audioBus(){return ac&&master?{ac,master}:null;}
 
 function tone(f0, f1, dur, type = 'square', vol = 0.2, at = 0, pan = 0) {
   if (!ac) return; const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
@@ -24,8 +25,9 @@ function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
 const SND = {
+  radioStatic:s=>noise(.14,.13*(s.v??1),1600,.65,0,'bandpass'),
   vanDrive:s=>{tone(80,170,.9,'sawtooth',.055*(s.v??1));noise(.5,.04*(s.v??1),250,.8);},
-  kidYelp:s=>{const v=s.v??1;for(let i=0;i<3;i++)tone(520+i*75,850-i*80,.15,'triangle',.1*v,i*.1);},
+  kidYelp:s=>{const v=s.v??1,p=s.p??1;for(let i=0;i<3;i++){tone((620+i*93)*p,(1050-i*105)*p,.18,'sawtooth',.065*v,i*.13);tone((860+i*70)*p,(1190-i*100)*p,.17,'triangle',.04*v,i*.13);}},
   bongBubble:s=>{const v=s.v??1;noise(.16,.06*v,450,.7);tone(180,90,.16,'sine',.05*v);},
   bongExhale:s=>noise(.15,.055*(s.v??1),800,.7,0,'lowpass'),
   cosmoShot:s=>tone(1100,140,.14,'sawtooth',.06*(s.v??1)),
