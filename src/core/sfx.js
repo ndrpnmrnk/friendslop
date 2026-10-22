@@ -24,6 +24,13 @@ function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
 const SND = {
+  kidYelp:s=>{const v=s.v??1;for(let i=0;i<3;i++)tone(520+i*75,850-i*80,.15,'triangle',.1*v,i*.1);},
+  bongBubble:s=>{const v=s.v??1;noise(.16,.06*v,450,.7);tone(180,90,.16,'sine',.05*v);},
+  bongExhale:s=>noise(.15,.055*(s.v??1),800,.7,0,'lowpass'),
+  cosmoShot:s=>tone(1100,140,.14,'sawtooth',.06*(s.v??1)),
+  cosmoHit:s=>{tone(420,130,.15,'square',.05*(s.v??1));noise(.07,.07*(s.v??1),1200);},
+  cosmoBaton:s=>{tone(300,80,.12,'sawtooth',.07*(s.v??1));noise(.08,.08*(s.v??1),900);},
+  ufoArrive:s=>{for(let i=0;i<4;i++)tone(180+i*45,400-i*35,.6,'sine',.035*(s.v??1),i*.15);},
   // v0.23: колокол заданной высоты (колокола склепа)
   bellN: s => { const f = [392, 494, 587, 698, 784][s.n || 0]; tone(f, f * 0.98, 0.9, 'triangle', 0.12); tone(f * 2.01, f * 2, 0.5, 'sine', 0.04); },
   shutter: () => { noise(0.05, 0.2, 3000, 2); tone(1800, 900, 0.06, 'square', 0.05, 0.05); },

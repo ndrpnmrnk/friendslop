@@ -3,6 +3,9 @@
 const PAL = { k: '#17111f', o: '#ff8a1f', O: '#c85a0a', y: '#f5c542', g: '#9be36b', G: '#4f8a3a', r: '#ff5a6e', R: '#a8243a', b: '#4ab0f0', B: '#1e6aa8',
   w: '#f1e8ff', p: '#b18cff', P: '#6a4aa8', n: '#a8744a', N: '#6a4428', s: '#a8a8b8', d: '#4a4058', c: '#d8f0ff', m: '#eee8ff' };
 const ART = {
+  van:['............','..kkkkkkkk..','.kGGGGGGGGk.','.kcckcckcck.','.kcckcckcck.','.kGGGGGGGGk.','.kGwGwGwGGk.','.kGGGGGGGGk.','.kyGGGGGGyk.','.kkkkkkkkkk.','..kk....kk..','............'],
+  cosmo:['............','....pppp....','..ssssssss..','.sgsgsgsgss.','...gggggg...','....gggg....','.....gg.....','.....gg.....','....kwwk....','...kGGGGk...','...kkkkkk...','............'],
+  bong:['.....ss.....','.....cc.....','.....cc.....','.....cc.....','.....cc..n..','....kccknn..','...kcccck...','...kcGGck...','...kcGGck...','....kssk....','...ssssss...','............'],
   race:['.kkkkkkkkkk.','.kwkwkwkwkwk.','.kkwkwkwkwkk.','.kwkwkwkwkwk.','.kkwkwkwkwkk.','.kkkkkkkkkk.','.k..........','.k..........','.k..........','.k..........','.k..........','............'],
   bow:['.....n......','....nn.w....','...n.n.w....','..n..n.w....','.n...n.w....','nwwwwwwwwwww','.n...n.w....','..n..n.w....','...n.n.w....','....nn.w....','.....n......','............'],
   perfume:['....yyy.....','....yyy.....','...kkkkk....','..kpppppk...','..kpwwwpk...','..kpwwwpk...','..kpppppk...','..kpppppk...','..kpppppk...','..kkkkkkk...','............','............'],

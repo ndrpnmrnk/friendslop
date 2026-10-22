@@ -25,6 +25,7 @@ export const CONFIG = {
   chunk: 32, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара
   pixelScale: 2,
   smoky: {smokeCount:6,smokeInterval:.38,smokeLife:2.2,smokeRise:.25},
+  encounters:{vanTime:120,cosmoTime:120,bongEffect:6},
   // v0.32: настройки взаимодействий без изменения геометрии моделей.
   canopy: {spring:65,damping:8,bounce:6.8,compression:.13},
   fishing: {timeout:100,minReel:12,perRadian:.036,botTurn:4.3},
@@ -48,6 +49,8 @@ export const CONFIG = {
   cats: 2,
   // zones: где миссия может появиться; foot: размер объекта; clear: свободное место перед ним
   missions: {
+    van:{name:'Пассажиры для ТЦК',icon:'',points:300,diff:'hard',life:75,workLimit:120,max:1,game:'van',world:true},
+    cosmo:{name:'Космический перекур',icon:'',points:350,diff:'hard',life:75,workLimit:120,max:1,game:'cosmo',world:true,zones:['floor'],foot:[1.2,.8],clear:3},
     perfume:{name:'Смешай парфюм',icon:'',points:260,diff:'mid',life:65,workLimit:90,max:1,game:'perfume',zones:['inside'],foot:[2.4,.9],clear:2.2},
     mammoth:{name:'Трусики для мамонта',home:'park',icon:'',points:300,diff:'hard',life:80,max:1,game:'mammoth',world:true,zones:['floor'],foot:[3.2,4.6],clear:3},
     cat:    { name: 'Погладить кота', icon: '🐈', points: 100, diff: 'easy', life: 40, max: 2, game: 'cat' },
@@ -141,6 +144,7 @@ export const CONFIG = {
     whistle: { name: 'Свисток', tool: true, heavy: false, r: 0.08, respawn: 0, mass: 0.1, drag: 0.1, bounce: 0.3, ammo: 3 },
     net:     { name: 'Сетемёт', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.8, drag: 0.05, bounce: 0.2, cdMax: 10 },
     perfume:{name:'Парфюм',tool:true,heavy:false,r:.12,mass:.3,respawn:0,drag:.1,bounce:.2,ammo:3},
+    bong:{name:'Космический бонг',tool:true,heavy:false,r:.24,mass:.65,respawn:0,drag:.12,bounce:.15},
     bow:{name:'Лук',tool:true,heavy:false,r:.25,mass:.7,respawn:0,drag:.1,bounce:.25,ammo:8,hold:true},
     badge:   { name: 'Полицейский жетон', tool: true, heavy: false, r: 0.1, respawn: 0, mass: 0.25, drag: 0.02, bounce: 0.3 },
     glove:   { name: 'Перчатка-пружина', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.3, ammo: 6 },
@@ -164,6 +168,8 @@ export const CONFIG = {
 };
 
 export const HINTS = {
+  van:'ЛКМ - поймать. Неси к открытым дверям: E посадить, ПКМ бросить. Собери 5 пассажиров за 120 секунд.',
+  cosmo:'Держи ЛКМ для вдоха, затем кликай для выдоха. Бластером попади по два раза в каждого пришельца. В захвате - WASD / Пробел.',
   mammoth:'Возьми трусики, подойди к мамонту сзади и нажми E. ЛКМ по ткани - постепенно подтягивай слева и справа. Затем повтори с другого ракурса.',
   graffiti:'Распыляй ЛКМ внутри контура. В баллончике виден остаток краски. Аккуратный рисунок даёт все очки, сильный выход за контур - ноль.',
   cat: 'Зажми кнопку мыши и гладь кота, водя рукой туда-сюда. От головы к хвосту приятнее всего. Резкие движения его злят.',

@@ -1,4 +1,5 @@
 import {sweepActors,npcList,npcPosition,hitNPC} from './impacts.js';
+import {useBong} from './bong.js';
 import {arrowModel,poseBow,bowVelocity,ARROW_GRAVITY} from './bow.js';
 import {raySolids} from '../world/physics.js';
 import { THREE, G, V3, col, lam, mesh, compose } from '../core/gfx.js';
@@ -109,6 +110,7 @@ export function useTool(a, it, aim, dt = 0) {
   const spend = (n = 1) => { if (d.ammo) { it.ammo -= n; if (it.ammo <= 0 && !d.hold) consume(a, it); } else consume(a, it); };
   if (it.cd > 0 && !d.hold) return null;
   switch (k) {
+    case 'bong':useBong(a,it);return null;
     // тапок: быстрый шлепок — короткий «ой» (стан стоя), предмет из рук не выбивает
     // банка газировки: открыть — выпить (выносливость); если трясли на бегу — взрывается фонтаном
     case 'bow':{if(it.cd>0)return null;it.draw=Math.min(1,(it.draw||0)+(dt|| (a.bot?0.2:0))/1.0);it.drawAim=aim.clone();return null;}
@@ -391,4 +393,4 @@ export function updateTools(dt, t) {
 }
 // иконка-подсказка для HUD: есть ли у инструмента действие на ЛКМ
 export const toolVerb = it => ({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: 'выстрел сеткой', badge: 'брось (ПКМ) — вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
-  perfume:'распылить облако',bow:'держи ЛКМ - тяни, отпусти - выстрел',water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', mask: 'надеть', rake:'ЛКМ - удар, ПКМ - бросить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';
+  bong:'воспользоваться',perfume:'распылить облако',bow:'держи ЛКМ - тяни, отпусти - выстрел',water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', mask: 'надеть', rake:'ЛКМ - удар, ПКМ - бросить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';

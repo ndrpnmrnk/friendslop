@@ -1,5 +1,6 @@
 import {sweepActors,npcList,npcPosition,hitNPC,heavyHit} from './impacts.js';
 import {bowModel} from './bow.js';
+import {bongModel} from './bong.js';
 import { pantsModel } from '../characters/mammoth.js';
 import { THREE, G, V3, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
 import { addOutline, OUTLINE } from './outline.js';
@@ -20,6 +21,7 @@ const MAG_ARC = new THREE.TorusGeometry(0.115, 0.047, 6, 12, Math.PI);
 /* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
 const GRAV = 22;
 function build(type) {
+  if(type==='bong')return bongModel();
   if(type==='bow')return bowModel();
   if(type==='perfume'){const g=new THREE.Group();mesh(G.box,lam({color:0xb18cff,transparent:true,opacity:.65}),0,0,0,.22,.3,.14,g);mesh(G.cyl6,tmat(T.metal()),0,.19,0,.045,.08,.045,g);mesh(G.box,col(0xf5c542),.03,.23,.02,.12,.05,.07,g);mesh(G.box,tmat(T.sign('PARFUM','#e6d0a4','#31243c')),0,0,.075,.19,.13,.01,g);return g;}
   if(type==='mammothpants')return pantsModel();

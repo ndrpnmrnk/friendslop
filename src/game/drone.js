@@ -53,6 +53,7 @@ const setHatch = (d, k) => { d.hatch = k; d.flaps.forEach((f, i) => (f.rotation.
 function removeHeli(d) { W.group.remove(d.g); W.keep = W.keep.filter(q => q !== d.g); d.screen.dispose(); d.tex.dispose(); }
 export function eliminate(a, seconds) {
   if (!a || a.drone || a.returning) return;
+  a.hazeT=0;a.bongUse=null;
   W.onEliminate && W.onEliminate(a);
   // выбывание сбрасывает все «залипающие» состояния: перекур, собака на руках, скамейка, стан (v0.21)
   a.chill = null; a.charging = false; if (a.dogHeld) { a.dogHeld.heldBy = null; a.dogHeld = null; } if (a.bench && W.leaveBench) W.leaveBench(a); a.stun = 0; a.getT = 0; a.daze = 0; a.netT = 0; a.floatT = 0;
