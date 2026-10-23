@@ -1,15 +1,10 @@
 import {THREE,G,mesh,col,tmat,lam,compose,frontBack} from '../core/gfx.js';
-import {T,photo} from '../core/textures.js';
+import {T,pix} from '../core/textures.js';
 
 const SKIN=['#d8ad87','#b88868','#e5bf9c','#c99d79','#e3b693'];
 const CLOTH=['#6683a1','#b5798b','#b79c63','#719783','#a8859e'];
-const face=(id,alien=false,blink=false)=>photo(`npc35-face-${alien?'alien':'child'}-${id}-${blink}`,32,32,(c,w,h)=>{
- c.fillStyle=alien?'#9da778':SKIN[id%5];c.fillRect(0,0,w,h);c.fillStyle=alien?'#b9c498':'#e4b996';c.fillRect(5,5,21,10);
- c.fillStyle=alien?'#6b785c':'#ae7b61';c.fillRect(2,21,4,9);c.fillRect(27,21,3,9);c.fillStyle='#292531';
- if(alien){for(const x of [8,23]){c.beginPath();c.ellipse(x,14,4.5,blink?1:6,x<16?-.2:.2,0,Math.PI*2);c.fill();if(!blink){c.fillStyle='#dbe7b3';c.fillRect(x-1,10,2,2);c.fillStyle='#292531';}}c.fillRect(14,21,1,2);c.fillRect(18,21,1,2);c.fillRect(13,26,7,1);}
- else{for(const x of [6,22]){c.fillStyle='#5b3e32';c.fillRect(x-1,9,7,2);c.fillStyle='#ece7d6';c.fillRect(x,13,6,blink?2:6);c.fillStyle='#302c33';c.fillRect(x+2,13,3,blink?2:5);if(!blink){c.fillStyle='#f2eadd';c.fillRect(x+2,13,1,2);}}c.fillStyle='#a9765b';c.fillRect(15,19,3,3);c.fillStyle='#845047';c.fillRect(12,26,9,1);c.fillStyle='#d9988a';c.fillRect(10,22,3,2);c.fillRect(22,22,3,2);}
-});
-const cloth=(id,alien)=>photo('npc35-cloth-'+alien+'-'+id,32,32,g=>{g.fillStyle=alien?'#77788d':CLOTH[id%5];g.fillRect(0,0,32,32);for(let i=0;i<24;i++){g.fillStyle=alien?'#8e91a1':i%2?'#b4aea0':'#667283';g.fillRect(i*19%32,i*11%32,2,1);}g.fillStyle=alien?'#465557':'#424654';g.fillRect(15,0,2,32);g.fillRect(0,27,32,3);g.fillStyle=alien?'#b9b195':'#d1bda1';g.fillRect(5,14,7,2);g.fillRect(21,14,7,2);});
+const face=(id,alien=false,blink=false)=>pix('npc37-face-'+alien+'-'+id+'-'+blink,32,32,(c,w,h)=>{c.fillStyle=alien?'#9da778':SKIN[id%5];c.fillRect(0,0,w,h);c.fillStyle=alien?'#aab68b':'#dfb293';c.fillRect(5,4,21,7);c.fillStyle=alien?'#7c8b67':'#bf9176';for(const x of[2,27])c.fillRect(x,18,3,10);if(!alien){c.fillStyle='#c38b7b';c.fillRect(5,21,5,3);c.fillRect(23,21,5,3);}else{c.fillStyle='#8b9b73';for(let i=0;i<8;i++)c.fillRect(i*13%32,i*7%32,1,2);}});
+const cloth=(id,alien)=>pix('npc35-cloth-'+alien+'-'+id,32,32,g=>{g.fillStyle=alien?'#77788d':CLOTH[id%5];g.fillRect(0,0,32,32);for(let i=0;i<24;i++){g.fillStyle=alien?'#8e91a1':i%2?'#b4aea0':'#667283';g.fillRect(i*19%32,i*11%32,2,1);}g.fillStyle=alien?'#465557':'#424654';g.fillRect(15,0,2,32);g.fillRect(0,27,32,3);g.fillStyle=alien?'#b9b195':'#d1bda1';g.fillRect(5,14,7,2);g.fillRect(21,14,7,2);});
 let headGeo;
 export function littleNPC(id,alien=false){
  headGeo??=frontBack(new THREE.SphereGeometry(1,8,6),.20);

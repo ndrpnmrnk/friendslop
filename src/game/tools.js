@@ -310,7 +310,7 @@ export function updateTools(dt, t) {
       if (a.onGround && Math.hypot(a.vel.x, a.vel.z) > 1.5 && a.paintStep <= 0) { a.paintStep = 0.28; a.paintS = -(a.paintS || 1); const f = a.root.rotation.y, sx = Math.cos(f) * 0.14 * a.paintS, sz = -Math.sin(f) * 0.14 * a.paintS;
         const d = decal(T.footW(), a.pos.x + sx, a.pos.y, a.pos.z + sz, 0.34, 10, a.paintC); d.rotation.z = f; } }
     // фейерверк в руках догорел — бах прямо в руках
-    const h=a.held;if(a.bowHeld&&a.bowHeld!==h){a.bowHeld.draw=0;a.bowHeld.quiver?.removeFromParent();a.bowHeld.equipT=0;a.bowHeld=null;}if(h?.type==='bow'){a.bowHeld=h;poseBow(a,h,dt);if(a.bot){if((h.draw||0)>.7)releaseBow(a,h,h.drawAim||a.pos.clone().add(new V3(0,1,10)));}}
+    const h=a.held;if(a.bowHeld&&a.bowHeld!==h){a.bowHeld.draw=0;a.bowHeld.quiver?.removeFromParent();a.bowHeld.equipT=0;a.bowHeld=null;}if(h?.type==='bow'){a.bowHeld=h;poseBow(a,h,dt);}
     if (h && h.lit !== undefined) { h.lit -= dt; if (Math.random() < dt * 30) puff(h.pos.x, h.pos.y + 0.2, h.pos.z, { size: 0.1, life: 0.3, vy: 1, color: 0xffd25c }); if (h.lit <= 0) { a.held = null; h.state = 'gone'; h.g.visible = false; explode(h.pos.clone(), null); } }
     // банку трясут на бегу
     if (h && h.type === 'can') { const sp = Math.hypot(a.vel.x, a.vel.z); if (sp > 5 || !a.onGround) h.shake = Math.min(1, (h.shake || 0) + dt * 0.35); else h.shake = Math.max(0, (h.shake || 0) - dt * 0.05); if (h.shake > 0.5 && Math.random() < dt * 6) puff(h.pos.x, h.pos.y + 0.15, h.pos.z, { color: 0xf1e8ff, size: 0.06, vy: 1, life: 0.3 }); }

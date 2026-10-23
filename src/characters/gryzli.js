@@ -1,27 +1,25 @@
-import {THREE,G,mesh,col,tmat,lam,compose,frontBack} from '../core/gfx.js';
-import {photo} from '../core/textures.js';
-const skin=()=>photo('gryzli36-skin',64,64,(g,w,h)=>{g.fillStyle='#d6a58b';g.fillRect(0,0,w,h);for(let i=0;i<450;i++){g.fillStyle=i%3?'#c7937f':'#e3b7a0';g.fillRect(i*23%64,i*47%64,1+i%2,1);}for(const x of [9,49]){g.fillStyle='#c8897a';g.fillRect(x,30,7,9);}g.fillStyle='#e8bea5';g.fillRect(21,5,22,5);});
-const vest=()=>photo('gryzli36-vest',32,32,g=>{g.fillStyle='#d2c9a7';g.fillRect(0,0,32,32);for(let i=0;i<100;i++){g.fillStyle=i%2?'#bfb597':'#e2d9b6';g.fillRect(i*17%32,i*13%32,2,1);}g.fillStyle='#99916c';g.fillRect(0,5,6,17);g.fillRect(26,5,6,17);g.fillStyle='#aaa27e';g.fillRect(12,20,9,9);g.fillStyle='#eee4bd';g.fillRect(6,1,2,24);g.fillRect(24,1,2,24);});
-let skullGeo,tongueGeo;
-export const GRYZLI_SKIN={
- name:'Грызли',rigidBody:true,
+import {THREE,G,mesh,col,lam,compose,V3} from '../core/gfx.js';
+import {pix} from '../core/textures.js';
+import {gryzliHead,gryzliTongue,flexTongue} from './gryzli-geometry.js';
+const skin=()=>pix('gryzli37-skin',64,64,g=>{g.fillStyle='#d8ac93';g.fillRect(0,0,64,64);for(let i=0;i<340;i++){g.fillStyle=i%3?'#c99b87':'#e3bba1';g.fillRect(i*23%64,i*47%64,1,1);}for(const x of[11,47]){g.fillStyle='#c88d7d';g.fillRect(x,35,7,5);g.fillStyle='#d19a87';g.fillRect(x-2,32,8,3);}g.fillStyle='#ae826f';for(let i=0;i<5;i++){g.fillRect(16+i,22+Math.floor(i/3),1,1);g.fillRect(12+i*2,15-i%2,2,1);}g.fillStyle='#f0cab0';g.fillRect(22,7,17,2);g.fillRect(9,20,1,3);g.fillRect(52,29,1,3);for(let i=0;i<28;i++){g.fillStyle='#ba907a';g.fillRect(19+i*13%27,53+i%6,1,1);}});
+const vest=()=>pix('gryzli37-vest',32,32,g=>{g.fillStyle='#d8d2b7';g.fillRect(0,0,32,32);for(let i=0;i<160;i++){g.fillStyle=i%2?'#c7c2a8':'#e3ddc3';g.fillRect(i*17%32,i*13%32,1,1);}for(const[x,y,w,h]of [[0,4,7,17],[25,4,7,17],[11,22,11,8],[4,25,5,4]]){g.fillStyle='#b8a24d';g.fillRect(x,y,w,h);g.fillStyle='#c9b65f';g.fillRect(x+1,y+2,w-2,h-4);}g.fillStyle='#eee6c7';g.fillRect(7,0,2,22);g.fillRect(23,0,2,22);g.fillStyle='#ada681';g.fillRect(1,30,30,1);});
+const tongueTex=()=>pix('gryzli37-tongue',32,32,g=>{g.fillStyle='#ba737c';g.fillRect(0,0,32,32);for(let i=0;i<80;i++){g.fillStyle=i%3?'#cb8690':'#a55f70';g.fillRect(i*19%32,i*13%32,1,1);}g.fillStyle='#a46171';g.fillRect(14,4,2,23);g.fillStyle='#da9296';g.fillRect(4,6,3,20);});
+export const GRYZLI_SKIN={name:'Грызли',rigidBody:true,
  build({root,head,torso,handL,handR,footL,footR}){
-  skullGeo??=new THREE.SphereGeometry(1,12,9);tongueGeo??=new THREE.SphereGeometry(1,8,6);
-  const flesh=lam({map:skin(),color:0xf1c9b1},'gryzli36-flesh'),cloth=lam({map:vest(),emissive:0x3d382c,emissiveIntensity:.25},'gryzli36-cloth'),pink=col(0xbd6e76),dark=col(0x34232e);
-  mesh(skullGeo,flesh,0,1.13,0,.59,.59,.48,head);
-  head.add(compose('gryzli36-face',a=>{for(const s of [-1,1]){a(G.sphL,flesh,s*.58,1.12,-.015,.075,.12,.07);a(G.sphL,col(0xb67c70),s*.605,1.12,.035,.025,.064,.025);}a(G.sphL,flesh,0,1.14,.44,.10,.105,.10);a(G.sphL,col(0xc48678),0,1.105,.508,.057,.03,.03);
-   a(G.sph10,dark,0,.91,.415,.32,.22,.085);a(G.sph10,pink,0,.91,.446,.30,.205,.058);a(G.sph10,col(0x231d25),0,.93,.469,.268,.17,.04);for(const x of [-.12,-.04,.04,.12])a(G.box,col(0xe8d6b9),x,1.064,.49,.07,.05,.025);
-   a(G.box,col(0x5b3c32),-.265,1.43,.344,.23,.045,.035,0,0,-.15);a(G.box,col(0x5b3c32),.25,1.46,.33,.25,.05,.04,0,0,.22);
-   for(let i=0;i<4;i++)a(G.box,col(0x815947),-.37+i*.06,1.23+Math.sin(i/3*Math.PI)*.035,.405,.075,.017,.018,0,0,(i-1.5)*.16);
-   for(const x of [-.37,.37])a(G.sphL,col(0xe3b7a0),x,1.00,.385,.12,.10,.045);
+  const flesh=lam({map:skin(),emissive:0x35261f,emissiveIntensity:.10},'gryzli37-flesh'),cloth=lam({map:vest(),emissive:0x736941,emissiveIntensity:.16},'gryzli37-cloth'),geos=gryzliHead();
+  mesh(geos.skin,flesh,0,0,0,1,1,1,head);mesh(geos.cavity,lam({color:0x39252f,side:THREE.DoubleSide},'gryzli37-mouth'),0,0,0,1,1,1,head);mesh(geos.lip,col(0xc48982),0,0,0,1,1,1,head);
+  head.add(compose('gryzli37-face',a=>{for(const s of[-1,1]){a(G.sphL,flesh,s*.575,1.12,-.02,.073,.112,.065);a(G.sphL,col(0xba8578),s*.614,1.12,.018,.014,.055,.025);a(G.sphL,col(0xddad95),s*.35,1.02,.362,.105,.075,.026);}a(G.sphL,flesh,0,1.14,.451,.08,.08,.055);a(G.sphL,col(0xc18c7b),0,1.113,.497,.044,.027,.012);
+   for(const x of[-.15,-.075,0,.075,.15])a(G.box,col(0xe4d3af),x,1.066,.425,.064,.034,.035,0,0,x*.25);
+   for(let i=0;i<6;i++){const x=-.38+i*.044,y=1.27-Math.sin(i/5*Math.PI)*.027,z=.48*Math.sqrt(Math.max(0,1-(x/.59)**2-((y-1.13)/.59)**2));a(G.box,col(0x805d4f),x,y,z+.005,.056,.014,.012,0,0,(i-2.5)*.10);}
+   for(const s of[-1,1])a(G.box,col(0x765142),s*.255,1.465,.337,.22,.028,.018,0,0,s*.15);
   }));
-  const eye=new THREE.Group();eye.position.set(.245,1.31,.385);head.add(eye);mesh(G.sph10,col(0xf1ebd5),0,0,0,.20,.21,.12,eye);const pupil=mesh(G.sphL,col(0x8b6536),.015,-.012,.115,.09,.105,.035,eye);mesh(G.sphL,col(0x251f27),.018,-.012,.144,.047,.065,.013,eye);mesh(G.box,col(0xfff4da),-.017,.034,.155,.037,.038,.009,eye);
-  const tongue=new THREE.Group();tongue.position.set(0,.91,.47);head.add(tongue);mesh(tongueGeo,pink,0,-.11,.075,.13,.19,.065,tongue);mesh(G.box,col(0x99555f),0,-.13,.141,.009,.16,.005,tongue);
-  torso.add(compose('gryzli36-body',a=>{a(G.cyl8,cloth,0,.41,0,.29,.47,.24);a(G.sphL,flesh,0,.61,.02,.22,.14,.16);for(const s of [-1,1]){a(G.box,cloth,s*.19,.62,0,.085,.24,.34,0,0,-s*.12);a(G.box,col(0xa79b7a),s*.13,.20,.14,.09,.018,.015);}a(G.cyl8,col(0x777062),0,.18,0,.24,.12,.20);}));
-  for(const[h,s]of [[handL,-1],[handR,1]])h.add(compose('gryzli36-hand-'+s,a=>{a(G.sphL,flesh,0,0,0,.105,.10,.085);a(G.sphL,flesh,-s*.08,-.015,.04,.04,.06,.04);for(const x of [-.045,0,.045])a(G.box,col(0xa97466),x,-.04,.078,.008,.025,.009);}));
-  for(const f of [footL,footR])f.add(compose('gryzli36-foot',a=>{a(G.sphL,flesh,0,.065,.05,.15,.095,.23);for(const x of [-.08,-.025,.03,.08])a(G.sphL,flesh,x,.06,.23,.035,.04,.05);a(G.box,col(0xa97766),0,.035,.25,.20,.015,.014);}));
-  head.userData.gryzli={tongue,eye,pupil,v:0,sway:0};return{top:1.74,handX:.62,handY:.63,handZ:.04,footX:.21,footY:0,holdX:.30,holdY:.86,holdZ:.58,shadow:.52};
+  const eye=new THREE.Group();eye.position.set(.25,1.315,.395);head.add(eye);mesh(G.sph10,col(0xeee5ce),0,0,0,.175,.198,.085,eye);const pupil=mesh(G.sphL,col(0x89683d),.008,-.006,.082,.078,.092,.020,eye);mesh(G.sphL,col(0x2b2528),.01,-.007,.101,.039,.057,.008,eye);mesh(G.box,col(0xf8ebce),-.012,.03,.111,.025,.027,.006,eye);
+  const tongue=mesh(gryzliTongue(),lam({map:tongueTex(),side:THREE.DoubleSide},'gryzli37-tongue'),0,.91,.29,1,1,1,head);tongue.name='gryzli-tongue';tongue.geometry.computeBoundingSphere();tongue.geometry.boundingSphere.radius+=.15;let disposed=false;root.addEventListener('removed',()=>{if(!disposed){disposed=true;tongue.geometry.dispose();}});
+  torso.add(compose('gryzli37-body',a=>{a(G.cyl8,cloth,0,.40,0,.30,.45,.245);a(G.sphL,flesh,0,.615,.02,.23,.12,.16);for(const s of[-1,1]){a(G.box,cloth,s*.185,.61,-.025,.075,.22,.30,0,0,-s*.13);a(G.box,col(0xb5a565),s*.13,.21,.225,.10,.016,.015);}a(G.cyl8,col(0x85816c),0,.18,0,.25,.10,.20);}));
+  for(const[h,s]of[[handL,-1],[handR,1]])h.add(compose('gryzli37-hand-'+s,a=>{a(G.sphL,flesh,0,0,0,.105,.1,.085);a(G.sphL,flesh,-s*.08,-.015,.04,.04,.06,.04);for(const x of[-.045,0,.045])a(G.box,col(0xad7c69),x,-.04,.078,.008,.025,.009);}));
+  for(const f of[footL,footR])f.add(compose('gryzli37-foot',a=>{a(G.sphL,flesh,0,.065,.05,.15,.095,.23);for(const x of[-.08,-.025,.03,.08])a(G.sphL,flesh,x,.06,.23,.035,.04,.05);}));
+  head.userData.gryzli={tongue,eye,pupil,last:new V3(),vel:new V3(),bend:0,side:0,v:0,sv:0,ready:false};return{top:1.74,handX:.62,handY:.63,handZ:.04,footX:.21,footY:0,holdX:.30,holdY:.86,holdZ:.58,shadow:.52};
  },
- face(c,e){const u=c.head.userData.gryzli;u.eye.scale.y=e==='blink'?.15:e==='dizzy'?.65:1;u.pupil.rotation.z=e==='dizzy'?.3:0;},
- animate(c,dt,s){const u=c.head.userData.gryzli,k=Math.min(1,s.speed||0),want=Math.sin((s.t||0)*9)*k*.12+(s.air?-.15:0);u.v+=((want-u.sway)*40-u.v*7)*Math.min(dt,.05);u.sway=THREE.MathUtils.clamp(u.sway+u.v*Math.min(dt,.05),-.3,.3);u.tongue.rotation.x=u.sway;u.tongue.rotation.z=Math.sin((s.t||0)*6)*k*.05;u.pupil.position.x=.015+THREE.MathUtils.clamp(s.look||0,-1,1)*.025;}
+ face(c,e){const u=c.head.userData.gryzli;u.eye.scale.y=e==='blink'?.12:e==='dizzy'?.65:1;},
+ animate(c,dt,s){const u=c.head.userData.gryzli,h=Math.min(.05,Math.max(0,dt)),k=Math.min(1,s.speed||0),p=c.root.getWorldPosition(new V3()),d=p.clone().sub(u.last);if(!u.ready||d.length()>3){u.ready=true;u.vel.set(0,0,0);d.set(0,0,0);}const v=d.multiplyScalar(1/Math.max(.001,h)),acc=v.clone().sub(u.vel).multiplyScalar(1/Math.max(.001,h)),right=new V3(Math.cos(c.root.rotation.y),0,-Math.sin(c.root.rotation.y));u.last.copy(p);u.vel.lerp(v,.5);const want=THREE.MathUtils.clamp(-acc.y*.0015+(s.air?-.025:Math.sin(s.t*8)*k*.025),-.09,.09),side=THREE.MathUtils.clamp(-acc.dot(right)*.0012,-.07,.07);for(let i=0;i<3;i++){const d=h/3;u.v+=((want-u.bend)*75-u.v*11)*d;u.bend=THREE.MathUtils.clamp(u.bend+u.v*d,-.1,.1);u.sv+=((side-u.side)*75-u.sv*11)*d;u.side=THREE.MathUtils.clamp(u.side+u.sv*d,-.08,.08);}flexTongue(u.tongue.geometry,u.bend,u.side,s.t,k);u.pupil.position.x=.008+THREE.MathUtils.clamp(s.look||0,-1,1)*.02;}
 };

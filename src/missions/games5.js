@@ -505,7 +505,7 @@ export const PANEL5 = {
     const next = () => { round++; seq = []; for (let i = 0; i < round + 2; i++) seq.push((Math.random() * 4) | 0); shown = 0; showT = 1.0; mode = 'show'; inp = 0; api.msg(`Раунд ${round}: смотри и слушай`); };
     next();
     return {
-      botStep(dt, brain) { if(mode==='input'&&brain.ready(0.7))this.down(brain.hit(o.bells[seq[inp]].b)); },
+      botStep(dt, brain) { if(mode==='input'&&endT<0&&inp<seq.length&&brain.ready(0.7))this.down(brain.hit(o.bells[seq[inp]].b)); },
       down(ray) { if (mode !== 'input' || endT > 0) return; const h = ray.intersectObjects(o.bells.map(b => b.b), false)[0]; if (!h) return; const i = h.object.userData.i, w = new V3(); h.object.getWorldPosition(w);
         const from = ray.ray.origin.clone().add(new V3(0, -0.5, 0)); const m = mesh(G.sph, col(0x8a8d98), from.x, from.y, from.z, 0.05, 0.05, 0.05, W.group); pebbles.push({ m, from, to: w, t: 0, i }); },
       update(dt) {

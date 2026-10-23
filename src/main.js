@@ -1,5 +1,6 @@
 import { updateOcclusion } from './game/occlusion.js';
 import {updateBongEffects} from './game/bong.js';
+import {recordFault,lastFaults} from './core/diagnostics.js';
 import {updateSmoking} from './game/smoking.js';
 import { eliminate, updateDrones, resetDrones, droneAction, DRONE_NET_COOLDOWN } from './game/drone.js';
 import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies.js';
@@ -676,11 +677,12 @@ function promptText() {
 }
 
 /* ---------- цикл ---------- */
-const clock = new THREE.Timer(); let t = 0;
+const clock = new THREE.Timer(); let t = 0,graphicsLost=false;
 let CURTAIN = null; // материал занавесок в окнах (ярче к ночи)
 const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
   clock.update(); let dt = Math.min(0.05, clock.getDelta());
+  if(graphicsLost){endFrame();return;}
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
   t += dt;
   updateRadios(dt,P?.pos,S.state==='play');
@@ -819,16 +821,17 @@ function frame() {
   endFrame();
 }
 /* v0.21: ошибка в одном кадре больше не «роняет» игру молча — кадр пропускается, цикл продолжается */
-let errN = 0;
+let errN = 0,lastError='',lastErrorAt=0;
 function loop() {
   requestAnimationFrame(loop);
-  try { frame(); } catch (e) { errN++; console.error('[friendslop] кадр', e); try { endFrame(); } catch (_) {} if (errN === 1) toast('Сбой кадра — игра продолжается', 'bad'); }
+  try { frame(); } catch (e) { errN++;const message=String(e?.message||e),now=performance.now();if(message!==lastError||now-lastErrorAt>1000){console.error('[friendslop] кадр',e);lastError=message;lastErrorAt=now;recordFault(e,{state:S.state,mission:S.mg?.m.key||S.wm?.m.key||null,timeLeft:Math.ceil(S.time||0)});}try { endFrame(); } catch (_) {} if (errN === 1) toast('Сбой кадра — игра продолжается', 'bad'); }
 }
 // потеря графики (WebGL) — не падаем: ждём восстановления
-canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('Графика перезапускается…', 'bad'); });
-canvas.addEventListener('webglcontextrestored', () => toast('Графика восстановлена'));
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();graphicsLost=true;updateRadios(0,P?.pos,false);recordFault('WebGL context lost',{state:S.state,timeLeft:Math.ceil(S.time||0)});toast('Графика перезапускается. Игра на паузе…','bad');});
+canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;clock.reset();toast('Графика восстановлена');});
 // отладочный доступ из консоли браузера
 window.__fs = { eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
+window.__fs.lastFaults=lastFaults;
 showMenu();
 loop();
 import {updateRadios,resetRadios,nearRadio,toggleRadio,tuneRadio} from './game/radio.js';

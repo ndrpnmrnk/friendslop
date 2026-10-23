@@ -9,6 +9,7 @@ import { WX } from './weather.js';
 let R = [], MATS = {};
 const mat = c => MATS[c] || (MATS[c] = alphaMat(T.refl(), { blending: THREE.AdditiveBlending, color: c, opacity: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
 export function buildReflections() {
+  for(const m of Object.values(MATS))m.dispose();
   R = []; MATS = {};
   const add = (lx, ly, lz, gy, area, color, wet = false, k = 1) => { const m = mesh(G.plane, mat(color), 0, 0, 0, 1, 1, 1, W.group); m.rotation.x = -Math.PI / 2; m.visible = false; m.renderOrder = 3; W.keep.push(m); R.push({ lx, ly, lz, gy, area, m, wet, k }); };
   // лужи: фонари в 9 м и пара «окон»

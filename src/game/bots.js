@@ -1,4 +1,6 @@
 import {bounceAt} from './worldfx.js';
+import {tryBotTool,cancelBotAim} from './bot-tools.js';
+import {poseBow} from './bow.js';
 import { beginBotWork, tickBotWork, interruptBotWork, poseBotWork } from '../missions/bot-work.js';
 import { cargoPosition,poseMeleeItem } from './handheld.js';
 import { detour } from './navigation.js';
@@ -169,6 +171,7 @@ export function updateBots(dt, t, P) {
   for (const b of W.bots || []) {
     if (b.drone || b.returning) { if(b.work&&!b.work.world)interruptBotWork(b);continue; }
     tickStun(b, dt);
+    b.toolAiming=false;if(b.heldBy||b.stun>0||b.daze>0||b.getT>0||b.netT>0||b.climbing||b.work)cancelBotAim(b);
     const exiting=b.escapeLadder||b.ladder;if(b.climbing&&exiting&&b.pos.y>=exiting.y1-.06){const l=exiting,cx=(l.x0+l.x1)/2,cz=(l.z0+l.z1)/2;b.pos.y=Math.max(b.pos.y,l.y1+.06);b.ladderExit={x:cx-l.nx*.95,z:cz-l.nz*.95,left:1};b.climbing=false;b.escapeLadder=b.ladder=null;b.vel.y=0;b.nav=null;b.think=1;}
     if (b.pos.y < CONFIG.base - 1.5 || b.escapeLadder) {
       b.ugT=(b.ugT||0)+dt;
@@ -257,7 +260,7 @@ export function updateBots(dt, t, P) {
     if (!b.onGround) b.airPeak = Math.max(b.airPeak, b.pos.y); else b.airPeak = b.pos.y;
     if (b.pos.y < -30) { const s = W.spawns[0]; b.pos.set(s.x, s.y + 1, s.z); b.vel.set(0, 0, 0); }
     const spd = Math.hypot(b.vel.x, b.vel.z);
-    if (b.holding) b.facing = b.facing; else if (spd > 0.6 && !b.climbing) b.facing = Math.atan2(b.vel.x, b.vel.z);
+    if(b.toolAiming&&b.aimAt)b.facing=Math.atan2(b.aimAt.x-b.pos.x,b.aimAt.z-b.pos.z);else if (b.holding) b.facing = b.facing; else if (spd > 0.6 && !b.climbing) b.facing = Math.atan2(b.vel.x, b.vel.z);
     else if (b.aimAt) b.facing = Math.atan2(b.aimAt.x - b.pos.x, b.aimAt.z - b.pos.z);
     let dy = b.facing - b.root.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); b.root.rotation.y += dy * Math.min(1, dt * 12);
     if (b.onGround && spd > 7 && Math.random() < dt * 10) smoke(b.pos.x - b.vel.x / spd * 0.4, b.pos.y + 0.12, b.pos.z - b.vel.z / spd * 0.4, { size: 0.12, grow: 0.5, life: 0.5, vy: 0.4 });
@@ -266,7 +269,7 @@ export function updateBots(dt, t, P) {
     b.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !b.onGround && !b.climbing, vy: b.vel.y, stun: b.stun > 0, rag: ragK(b), daze: b.daze > 0, dive: b.diveT > 0 ? 'air' : null, grabbed: b.netT > 0 && !(b.stun > 0), climb: !!b.climbing, payload:b.carryCrate?0.5:b.carryKitten?0.42:b.held?.def.r||0,missionTool:!!b.missionTool,hold: (!!b.hotPotato || !!b.work && !b.work.world || !!b.held || b.carryKitten || b.carryCrate || b.carryNet) && !b.holding, charge: 0, landed: false, throwT: b.throwT || 0, accel: 0, sprint: 1, crouch: false,
       emote: b.emote, emoteT: b.emoteT, held2: !!b.holding, restrained: !!b.heldBy, swat: b.swatT > 0 ? b.swatT : 0, zombie: !!b.zombie });
     poseBotWork(b);
-    if (b.held) { cargoPosition(b,b.held.pos,b.held.def.r); b.held.g.rotation.y = b.root.rotation.y;poseMeleeItem(b,b.held); }
+    if (b.held) { cargoPosition(b,b.held.pos,b.held.def.r); b.held.g.rotation.y = b.root.rotation.y;poseMeleeItem(b,b.held);if(b.held.type==='bow')poseBow(b,b.held,0); }
     b.root.visible = true; blob(b); progBar(b);
   }
 }
@@ -324,6 +327,7 @@ function act(b, P, dt) {
   if (b.holding) { b.holdT=(b.holdT||0)+dt;if(b.holdT>1.8){b.holdT=0;letGo(b);b.actCD=2;}return; }
   const g = b.goal; b.aimAt = null;
   const it = b.held;
+  if(tryBotTool(b,g?.who||null,dt))return;
   // инструменты, которые лучше применить сразу
   if (it && it.def.tool && ['energy', 'mask'].includes(it.type)) { useTool(b, it, b.pos.clone()); return; }
   if (it && it.type === 'duck' && Math.random() < dt * 0.3) useTool(b, it, b.pos.clone());

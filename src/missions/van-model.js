@@ -1,6 +1,6 @@
 import {THREE,G,mesh,col,tmat,lam,compose} from '../core/gfx.js';
-import {T,photo} from '../core/textures.js';
-const paint=()=>photo('tck36-body',64,64,g=>{g.fillStyle='#4b6046';g.fillRect(0,0,64,64);for(let i=0;i<200;i++){g.fillStyle=i%3?'#45583f':'#566a4d';g.fillRect(i*31%64,i*17%64,2,1);}g.fillStyle='#637557';g.fillRect(0,1,64,1);g.fillStyle='#354633';g.fillRect(0,62,64,2);});
+import {T,pix} from '../core/textures.js';
+const paint=()=>pix('tck36-body',64,64,g=>{g.fillStyle='#4b6046';g.fillRect(0,0,64,64);for(let i=0;i<200;i++){g.fillStyle=i%3?'#45583f':'#566a4d';g.fillRect(i*31%64,i*17%64,2,1);}g.fillStyle='#637557';g.fillRect(0,1,64,1);g.fillStyle='#354633';g.fillRect(0,62,64,2);});
 let roofGeo;
 function roof(){if(roofGeo)return roofGeo;const s=new THREE.Shape();s.moveTo(-1.16,0);s.lineTo(-1.13,.10);s.lineTo(-.96,.17);s.lineTo(.96,.17);s.lineTo(1.13,.10);s.lineTo(1.16,0);s.closePath();roofGeo=new THREE.ExtrudeGeometry(s,{depth:4.65,bevelEnabled:false});roofGeo.translate(0,0,-2.38);return roofGeo;}
 export function vanModel(){

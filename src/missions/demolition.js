@@ -2,7 +2,7 @@ import {THREE,G,V3,mesh,col,tmat,compose} from '../core/gfx.js';
 import {T} from '../core/textures.js';
 import {W} from '../world/state.js';
 import {addSolid} from '../world/physics.js';
-import {destroySection} from '../world/sections.js';
+import {destroySection,disableSection} from '../world/sections.js';
 import {actors,knockDown} from '../game/actors.js';
 import {npcList,npcPosition,hitNPC} from '../game/impacts.js';
 import {burst,smokeRing,chunk} from '../world/particles.js';
@@ -16,7 +16,7 @@ export function demolitionGame(o,api,ctx){
  const cleanup=()=>{if(cleaned)return;cleaned=true;charges.forEach(c=>c.g.removeFromParent());W.animated=W.animated.filter(f=>f!==tick);};
  function explode(){exploded=true;u.destroyed=true;safeAtBlast=distanceToBuilding(P.pos,u)>=7;for(const a of actors()){const distance=distanceToBuilding(a.pos,u);if(distance>9||a.drone||a.returning)continue;const dx=a.pos.x-u.center.x,dz=a.pos.z-u.center.z,d=Math.hypot(dx,dz)||1;knockDown(a,dx/d*9,dz/d*9,1.8);a.vel.y=Math.max(a.vel.y,4);}
   for(const n of npcList()){const p=npcPosition(n);if(p&&distanceToBuilding(p,u)<9)hitNPC(n,true,(p.x-u.center.x)*.7,(p.z-u.center.z)*.7);}
-  for(const s of u.solids)s.on=false;W.onBuildingDestroyed?.(u);sfx('boom',{at:u.center,range:65});W.flash?.(u.center,0xffb458,2);
+  disableSection(u);W.onBuildingDestroyed?.(u);sfx('boom',{at:u.center,range:65});W.flash?.(u.center,0xffb458,2);
   for(let i=0;i<4;i++){const p=u.charges[i];burst(p.x,p.y+1,p.z,8,{color:0xffad51,size:.75,speed:5,up:4,life:.7,grow:1.6});smokeRing(p.x,p.y+1,p.z,7,{color:0x85746c,size:.65,speed:3,up:1.5,life:2,grow:1.5});}
   for(let i=0;i<20;i++)chunk(u.center.x+(Math.random()-.5)*18,u.center.y+2+Math.random()*4,u.center.z+(Math.random()-.5)*12,[(Math.random()-.5)*8,3+Math.random()*4,(Math.random()-.5)*8],{mat:col(i%2?0x968676:0x605e62),size:.3,life:1.8});
  }

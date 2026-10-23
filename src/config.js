@@ -49,7 +49,7 @@ export const CONFIG = {
   cats: 2,
   // zones: где миссия может появиться; foot: размер объекта; clear: свободное место перед ним
   missions: {
-    shakir:{name:'Найти Шакира',points:220,diff:'mid',life:70,workLimit:60,max:1,game:'shakir',zones:['floor'],foot:[3.4,3.0],clear:1.2,home:'market'},
+    shakir:{name:'Найти Шакира',points:220,diff:'hard',life:75,workLimit:85,max:1,game:'shakir',zones:['floor'],foot:[3.4,3.0],clear:1.2,home:'market'},
     fat:{name:'300 литров жира',points:600,diff:'hard',life:80,workLimit:180,max:1,game:'fat',world:true},
     demolition:{name:'Хнуре: большой бабах',points:350,diff:'hard',life:75,workLimit:110,max:1,game:'demolition',world:true},
     van:{name:'Пассажиры для ТЦК',icon:'',points:300,diff:'hard',life:75,workLimit:120,max:1,game:'van',world:true},

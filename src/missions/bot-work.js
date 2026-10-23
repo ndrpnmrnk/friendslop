@@ -23,12 +23,12 @@ export function beginBotWork(b, m) {
   const brain = job.brain = { actor: b, time: 0, next: 0, workPoint: null,
     ready(period) { if (this.time < this.next) return false; this.next = this.time + period; return true; },
     rayTo(p) { this.workPoint = p.clone(); ray.set(eye, new V3().subVectors(p, eye).normalize()); return ray; },
-    hit(object) { this.workPoint = object.getWorldPosition(new V3()); return { intersectObjects: () => [{object}], intersectObject: () => [{object}] }; },
+    hit(object) { const point=object.getWorldPosition(new V3()),cast=this.rayTo(point),hit={object,point,distance:eye.distanceTo(point)};return{ray:cast.ray.clone(),intersectObjects:()=>[hit],intersectObject:()=>[hit]}; },
     throwTo(p) { const it=b.held;if(!it)return;const from=it.pos.clone();b.held=null;it.owner=b;launch(it,from,throwVelocity(from,p,0.65,it.def));b.throwT=0.3; },
     use(p,dt) { if(b.held)useTool(b,b.held,p,dt); }
   };
   b.work=job;b.stationaryWork=!job.world;if(b.stationaryWork){b.vel.x=b.vel.z=0;b.push.x=b.push.z=0;}
-  const api = { feedback(){job.worldFeedback=true;}, pose(p,l) { eye.copy(p);job.look=l.clone(); }, progress(v) { m.progress=v; }, msg() {}, where(t) {m.where=t;}, timer(t){m.workTime=t;},
+  const api = { feedback(){job.worldFeedback=true;}, pose(p,l) { if(p&&l){eye.copy(p);job.look=l.clone();}else job.look=null; }, progress(v) { m.progress=v; }, msg() {}, where(t) {m.where=t;}, timer(t){m.workTime=t;},
     finish(result) { if(!job.dead&&!job.result)job.result=result; } };
   const ctx={bot:true,player:b,character:b.ch,cursor(){},mission:m,camera:new THREE.PerspectiveCamera(),jump:CONFIG.player.jump,
     give(it){if(b.held)dropHeld(b);pickUp(it);it.owner=b;it.wasHeld=true;it.mission=m;b.held=it;},
