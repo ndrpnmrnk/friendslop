@@ -18,7 +18,7 @@ export function spawnSupply(){
  g.add(compose('witchParcel30'+variant,a=>{const m=tmat(T.cloth([0x875d46,0x685286,0x567a62][variant]));a(G.sph10,m,0,.32,0,.42,.35,.35);a(G.cyl6,col(0xe2c68b),0,.66,0,.09,.10,.09);a(G.box,tmat(T.sign(['ПОСЫЛКА','ПОДАРОК','СЮРПРИЗ'][variant],'#d5bc84','#322539')),0,.33,.34,.42,.22,.02);}));
  const angle=Math.random()*6.28,dir=new V3(Math.sin(angle),0,Math.cos(angle)),witch=witchModel(variant);W.group.add(witch);const bm=new THREE.MeshBasicMaterial({color:0xb18cff,transparent:true,opacity:.14,depthWrite:false}),beam=mesh(G.beam,bm,p.x,p.y+4,p.z,.35,8,.35,W.group);beam.visible=false;
  const c={p,g,beam,witch,dir,k:-30,height:9+variant*1.5,vy:0,dropped:false,landed:false,opened:false,life:75,smoke:0,variant};
- c.interact={x:p.x,y:p.y,z:p.z,r:1.8,dy:1.5,label:'Развязать подарок ведьмы',enabled:a=>c.landed&&!c.opened&&!a.held,act(){if(!c.landed||c.opened)return;c.opened=true;spawnTool(p.x,p.y+.5,p.z,true);sfx('open',{at:p});smokeRing(p.x,p.y+.1,p.z,6,{speed:1.4,color:0xb18cff});}};
+ c.interact={x:p.x,y:p.y,z:p.z,r:1.8,dy:1.5,label:'Развязать подарок ведьмы',enabled:a=>c.landed&&!c.opened&&!a.held,act(){if(!c.landed||c.opened)return;c.opened=true;W.coinLoot?.(p,c);spawnTool(p.x,p.y+.5,p.z,true);sfx('open',{at:p});smokeRing(p.x,p.y+.1,p.z,6,{speed:1.4,color:0xb18cff});}};
  W.keep.push(g,witch,beam);W.interacts.push(c.interact);SUP.crates.push(c);return c;
 }
 export function updateSupplies(dt){SUP.next-=dt;SUP.lootCD-=dt;if(SUP.next<=0){SUP.next=40+Math.random()*20;if(SUP.crates.length<2)spawnSupply();}

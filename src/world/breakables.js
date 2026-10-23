@@ -4,6 +4,7 @@ import { W } from './state.js';
 import { addSolid } from './physics.js';
 import { chunk, burst } from './particles.js';
 import { sfx } from '../core/sfx.js';
+import {crateCoins} from '../game/coins.js';
 
 /* Разрушаемые объекты. Каждая часть — меш + коллизия + «прочность».
    Удар (кран, тяжёлый предмет) передаёт энергию = скорость × масса.
@@ -58,6 +59,7 @@ export function breakPiece(p, vel = [0, 0, 0]) {
   const pos = m.position, sc = m.scale;
   sfx(p.kind === 'glass' || p.kind === 'bottle' || p.kind === 'bulb' ? 'glass' : 'wood', { at: pos });
   if (p.kind === 'crate') {
+    crateCoins(p);
     // ящик разлетается на доски и щепки
     const [w, h, d] = p.size, n = 7 + ((Math.random() * 4) | 0);
     for (let i = 0; i < n; i++) {

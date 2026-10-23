@@ -6,10 +6,13 @@ import { SKINS, SKIN_IDS } from '../characters/skins.js';
 import { PFACE } from '../world/builder.js';
 import {menuBackdrop} from './menu-backdrop.js';
 import { sfx } from '../core/sfx.js';
+import {initCollection,collection,collectionOrder,owns,selectCharacter} from '../game/collection.js';
+import {createClaw} from './claw-machine.js';
 
 /* Живой двор: витрины, ветер в ткани, листья и пар. Камера и взгляд персонажа
    спокойно следуют мыши. Выбор персонажа - прямо в сцене. */
 export function createMenu() {
+  initCollection(SKIN_IDS);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x120d1c);
   scene.fog = new THREE.Fog(0x120d1c, 8, 24);
@@ -75,31 +78,38 @@ export function createMenu() {
   camera.position.set(0,1.85,8.8);camera.lookAt(0,1,0);
 
   const st = { scene, camera, idx: 0, ch: null, t: 0, rot: 0, drag: false, lastX: 0, actT: 4, act: null, actK: 0, epT: 3, ep: null, active: true, puffT: 0 };
-  try { const s = localStorage.getItem('friendslop.skin'); if (SKIN_IDS.includes(s)) st.idx = SKIN_IDS.indexOf(s); } catch (_) {}
+  st.idx=collectionOrder().indexOf(collection().selected);
   const picker=document.getElementById('characterPick'),menuEl=document.getElementById('menu'),ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),labelPoint=new THREE.Vector3();
   st.choosing=false;st.hover=false;st.hoverLocked=false;
-  const choose=()=>{if(!st.active)return;st.choosing=!st.choosing;st.hover=false;st.hoverLocked=true;menuEl.classList.toggle('choosing',st.choosing);picker.classList.remove('hover');if(st.choosing)document.getElementById('skinNext').focus();else document.getElementById('playBtn').focus();sfx('click');};
+  const choose=()=>{if(!st.active||st.claw?.active)return;st.choosing=!st.choosing;st.hover=false;st.hoverLocked=true;menuEl.classList.toggle('choosing',st.choosing);picker.classList.remove('hover');if(st.choosing)document.getElementById('skinNext').focus();else{st.idx=collectionOrder().indexOf(collection().selected);show();document.getElementById('playBtn').focus();}sfx('click');};
   picker.addEventListener('click',choose);
   document.getElementById('skinDone').addEventListener('click',()=>{if(st.choosing)choose();});
   function show() {
     if (st.ch) scene.remove(st.ch.root);
-    st.ch = makeCharacter(SKIN_IDS[st.idx]); st.ch.onCroak = () => sfx('croak'); st.ch.root.position.set(0, 0.14, 0); scene.add(st.ch.root); st.ch.root.rotation.y = st.rot;st.hover=false;
-    document.getElementById('skinName').textContent = SKINS[SKIN_IDS[st.idx]].name;
-    try { localStorage.setItem('friendslop.skin', SKIN_IDS[st.idx]); } catch (_) {}
+    const id=collectionOrder()[st.idx]||collection().selected,open=owns(id);
+    st.ch = makeCharacter(id); st.ch.onCroak = () => sfx('croak'); st.ch.root.position.set(0, 0.14, 0); scene.add(st.ch.root); st.ch.root.rotation.y = st.rot;st.hover=false;
+    if(!open){st.ch.skin={...st.ch.skin,face:null};st.ch.root.traverse(o=>{if(o.isMesh&&o!==st.ch.blob)o.material=col(0x191522);});}
+    document.getElementById('skinName').textContent = (open?'':'🔒 ')+SKINS[id].name;
+    document.getElementById('skinLock').classList.toggle('hidden',open||!st.choosing);
+    document.getElementById('skinDone').disabled=!open;
+    if(open)selectCharacter(id);
   }
   st.next = d => { st.idx = (st.idx + d + SKIN_IDS.length) % SKIN_IDS.length; show(); if (st.ch.skinId === 'frog') { st.ch.croakNow(); sfx('frog_happy'); } st.ch.vy = 5; st.air = 0.01; spot.intensity = 60; st.puffT = 0.25; };
-  st.skin = () => SKIN_IDS[st.idx];
+  st.skin = () => collection().selected;
+  st.claw=createClaw(scene,id=>{st.idx=collectionOrder().indexOf(id);show();});
+  document.getElementById('clawOpen').onclick=()=>{st.hover=false;st.drag=false;st.claw.open();};
+  const wallet=()=>{document.getElementById('menuCoins').textContent=collection().coins;};addEventListener('collectionchange',wallet);wallet();
   // Наведение выбирает персонажа, протягивание мышью поворачивает модель.
   let travel=0;
   const over=e=>{pointer.set(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2);camera.updateMatrixWorld();scene.updateMatrixWorld();ray.setFromCamera(pointer,camera);return ray.intersectObject(st.ch.root,true).some(h=>{if(!h.object.isMesh||h.object===st.ch.blob||h.object.userData.noOutline)return false;for(let p=h.object;p;p=p.parent)if(!p.visible)return false;return true;});};
-  addEventListener('pointerdown',e=>{if(!st.active||e.button!==0||e.target.closest?.('button')||!over(e))return;st.drag=true;st.lastX=e.clientX;travel=0;});
-  addEventListener('pointermove',e=>{if(!st.active)return;const hover=over(e);if(!hover)st.hoverLocked=false;st.hover=hover&&!st.choosing&&!st.drag&&!st.hoverLocked;picker.classList.toggle('hover',st.hover||e.target===picker&&!st.choosing&&!st.hoverLocked);if(st.drag){const dx=e.clientX-st.lastX;travel+=Math.abs(dx);st.rot+=dx*.012;st.lastX=e.clientX;}});
+  addEventListener('pointerdown',e=>{if(!st.active||st.claw.active||e.button!==0||e.target.closest?.('button')||!over(e))return;st.drag=true;st.lastX=e.clientX;travel=0;});
+  addEventListener('pointermove',e=>{if(!st.active)return;if(st.claw.active){st.claw.pointerMove(e,camera);return;}const hover=over(e);if(!hover)st.hoverLocked=false;st.hover=hover&&!st.choosing&&!st.drag&&!st.hoverLocked;picker.classList.toggle('hover',st.hover||e.target===picker&&!st.choosing&&!st.hoverLocked);if(st.drag){const dx=e.clientX-st.lastX;travel+=Math.abs(dx);st.rot+=dx*.012;st.lastX=e.clientX;}});
   addEventListener('pointerup',()=>{if(st.drag&&travel<5)choose();st.drag=false;});
   const backdrop=menuBackdrop(scene),mouse={x:0,y:0},smooth={x:0,y:0};
   addEventListener('pointermove',e=>{if(st.active){mouse.x=e.clientX/innerWidth*2-1;mouse.y=e.clientY/innerHeight*2-1;}});
   st.update = dt => {
-    dt=Math.min(.05,dt);smooth.x+=(mouse.x-smooth.x)*(1-Math.exp(-dt*3));smooth.y+=(mouse.y-smooth.y)*(1-Math.exp(-dt*3));camera.position.set(smooth.x*.18,1.85-smooth.y*.08,8.8);camera.lookAt(smooth.x*.045,1-smooth.y*.025,0);backdrop.update(dt,mouse);st.t += dt; const t = st.t, c = st.ch;
-    labelPoint.set(0,2.05,0).project(camera);picker.style.left=`${(labelPoint.x*.5+.5)*innerWidth}px`;picker.style.top=`${(-labelPoint.y*.5+.5)*innerHeight}px`;if(!st.active){st.hover=false;picker.classList.remove('hover');}
+    dt=Math.min(.05,dt);smooth.x+=(mouse.x-smooth.x)*(1-Math.exp(-dt*3));smooth.y+=(mouse.y-smooth.y)*(1-Math.exp(-dt*3));const ck=st.claw.active?1:0;st.clawBlend=(st.clawBlend||0)+(ck-(st.clawBlend||0))*(1-Math.exp(-dt*5));const cb=st.clawBlend;camera.position.set(smooth.x*.18*(1-cb)+5.4*cb,1.85-smooth.y*.08+1.25*cb,8.8-.9*cb);camera.lookAt(smooth.x*.045*(1-cb)+5.1*cb,1+.7*cb,.1*cb);st.claw.update(dt);backdrop.update(dt,mouse);st.t += dt; const t = st.t, c = st.ch;
+    labelPoint.set(0,2.05,0).project(camera);picker.style.left=`${(labelPoint.x*.5+.5)*innerWidth}px`;picker.style.top=`${(-labelPoint.y*.5+.5)*innerHeight}px`;if(!st.active||st.claw.active){st.hover=false;picker.classList.remove('hover');}
     // разворот к камере: не «платформа», а шаги и доворот корпуса с головой
     let speed=0,look=smooth.x*.18;
     st.rot = Math.atan2(Math.sin(st.rot), Math.cos(st.rot));

@@ -402,6 +402,25 @@ body.ui-cursor-on,body.ui-cursor-on *{cursor:none!important}
 #mode{align-items:center;justify-content:center;padding:0}
 @media(max-width:760px){#menu #logo{font-size:7vw}.plabel{min-width:160px;font-size:12px}#menu #playBtn{min-width:240px}#menu .skinrow{bottom:25vh}}
 
+.coinIcon{display:inline-block;width:17px;height:20px;background:#d9ad54;border:3px solid #f4d77c;box-shadow:2px 2px 0 #84632d;clip-path:polygon(20% 0,80% 0,100% 20%,100% 80%,80% 100%,20% 100%,0 80%,0 20%);vertical-align:middle}
+#wallet,#coinHud{position:absolute;right:22px;top:22px;display:flex;align-items:center;gap:10px;font:14px var(--px);color:#efd58e;text-shadow:2px 2px #241d2e}
+#clawOpen{position:absolute;right:22px;bottom:9vh;width:auto;padding:16px;font:11px var(--px);color:#dfcf98;background:#263844;border:3px solid #6e8a8b;box-shadow:4px 4px #171423}
+#clawOpen small{display:block;margin-top:10px;font-size:9px;color:#b7bab0}
+#skinLock{position:absolute;bottom:16.5vh;font:9px var(--px);color:#ceba8d}
+#menu.clawing #logo,#menu.clawing #characterPick,#menu.clawing .skinrow,#menu.clawing #playBtn,#menu.clawing #tutBtn,#menu.clawing #setBtn,#menu.clawing #clawOpen,#menu.clawing #skinLock{visibility:hidden;pointer-events:none}
+#clawUI{position:fixed;inset:0;z-index:30;pointer-events:none;color:#e4d5aa;font-family:var(--px);text-align:center}
+.clawTop{display:flex;justify-content:space-between;align-items:center;padding:24px;font-size:13px;background:linear-gradient(#171522bf,transparent)}
+.clawTop span{display:flex;align-items:center;gap:12px}
+#clawMessage{position:absolute;left:15%;right:15%;top:64px;font:14px Rubik,sans-serif;text-shadow:2px 2px #171522;background:#191724c9;padding:10px;border-bottom:2px solid #a89973}
+.clawControls{position:absolute;bottom:3vh;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:24px}
+.clawControls button{pointer-events:auto;touch-action:none}
+.clawArrows .parr{width:38px;height:36px;font-size:14px}.clawArrows>div{display:flex;gap:3px;margin-top:3px}
+#clawDrop{font-size:11px;min-width:245px;padding:17px 14px}#clawBack{position:static;font-size:10px;margin:0}
+#coinHud{right:auto;left:21px;top:auto;bottom:24px;font-size:11px}#coinGain{opacity:0;color:#fff0a4}#coinGain.pop{animation:coinGain .8s ease-out}
+@keyframes coinGain{0%{opacity:1;transform:translateY(5px)}80%{opacity:1}100%{opacity:0;transform:translateY(-22px)}}
+button:disabled{opacity:.45;cursor:default}
+@media(max-width:760px){#clawOpen{right:12px;bottom:34vh;font-size:9px;padding:10px}.clawControls{gap:12px;flex-wrap:wrap}#clawDrop{min-width:190px;font-size:9px}.clawTop{font-size:10px;padding:16px}#clawMessage{left:6%;right:6%;font-size:12px}#skinLock{bottom:20vh;font-size:8px}}
+
 #results.five .aw{min-width:140px;max-width:180px}
 
 /* v0.32: событие должно читаться во время движения. */

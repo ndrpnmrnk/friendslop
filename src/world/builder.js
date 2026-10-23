@@ -374,6 +374,9 @@ export class Builder {
       for (const e of [0.04, w - 0.04, w / 2]) B(e, h / 2, e, 0.08, h, 0.1, fr);
       for (const sd of [-1, 1]) B(px, 1.05, pz + 0, w * 0.7, 0.05, 0.05, ch).position[axis === 'x' ? 'z' : 'x'] = sd * 0.08;
       B(px, 1.5, pz, 0.6, 0.18, 0.035, tmat(T.sign('ВХОД', '#2a1f3d', '#b18cff')));
+    } else if(style==='metal'){
+      const iron=tmat(T.corrugated(0x6d8179)),frame=col(0x455553);mesh(G.box,iron,px,h/2,pz,axis==='x'?w:.10,h,axis==='x'?.10:w,pivot);
+      for(const y of[.12,h-.12])mesh(G.box,frame,px,y,pz,axis==='x'?w+.04:.14,.12,axis==='x'?.14:w+.04,pivot);
     } else
     mesh(G.box, [dk, dk, dk, dk, wood, wood], px, h / 2, pz, axis === 'x' ? w : 0.08, h, axis === 'x' ? 0.08 : w, pivot);
     if (style !== 'glass') { mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : 0.07, 1.05, axis === 'x' ? 0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);

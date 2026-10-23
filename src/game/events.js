@@ -1,4 +1,5 @@
 import {pantsTexture} from '../characters/mammoth.js';
+import {spawnCoin} from './coins.js';
 import {raceEvent} from './race.js';
 import {footballEvent} from './football.js';
 import { eliminate } from './drone.js';
@@ -287,7 +288,7 @@ function hitMoth(s, p, dmg, owner) {
   if (s.dead || s.hitCD > 0) return; s.hitCD = 0.12; s.hp -= dmg; drawBar(s); hitFreeze(0.05); sfx('bonk', { at: p });
   burst(p.x, p.y, p.z, 8, { color: 0xb8a890, size: 0.2, speed: 2.5, up: 1.5 });
   if (owner) award(owner, dmg >= 1 ? 25 : 12, p);
-  if (s.hp <= 0) { s.dead = true; if (owner) award(owner, 150, p); sfx('goal'); }
+  if (s.hp <= 0) { s.dead = true; if (owner) award(owner, 150, p);for(let i=0;i<2+(Math.random()*3|0);i++)spawnCoin(p.x+(Math.random()-.5)*.8,p.y,p.z+(Math.random()-.5)*.8,true);sfx('goal'); }
 }
 // временное поле, если стадиона на карте нет: площадка-пол побольше и двое ворот-рамок
 function makePitch(s) {

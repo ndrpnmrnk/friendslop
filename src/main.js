@@ -47,6 +47,8 @@ import { img } from './ui/icons.js';
 import { initAudio, sfx, ambience, setListener, toggleMute } from './core/sfx.js';
 import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
+import {resetCoins,updateCoins,coinState} from './game/coins.js';
+import {collection} from './game/collection.js';
 import { createPodium, assignAwards, AWARDS, skinName } from './ui/podium.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
 import { throwPotato, initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget, PHASE, phaseOf } from './game/events.js';
@@ -124,6 +126,7 @@ function showMenu() {
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
 function showMode() {
+  if(menu.claw.active)return;
   S.state = 'mode'; menu.active = false; screen('mode'); drawCard($('modeArt'), 'mode'); $('modeCard').classList.remove('pressed'); $('modeCard').focus(); sfx('click');
 }
 for (const b of document.querySelectorAll('button')) { b.addEventListener('mouseenter', () => sfx('hover')); b.addEventListener('click', () => initAudio()); }
@@ -258,6 +261,7 @@ function prepareRound(tut = false) {
   const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
   W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), tut ? 0 : 4); M.manual = tut; S.tut = null;
+  resetCoins(!tut);
   resetScore((a, pts, at) => award(a, pts, at));
   M.onWave = (n, k) => { if (k > 1) { toast(n > 1 ? TEXT.wave(n) : TEXT.waveOne, 'wave'); sfx('wave'); flashScreen(); } };
   M.onPersonal = (m, outsider) => { toast(outsider ? TEXT.outsider : TEXT.personal, 'gold'); sfx('crown'); };
@@ -572,7 +576,7 @@ on('up', btn => {
 on('key', code => {
   if (code === 'KeyM') { toggleMute(); return; }
   if (code === 'Escape' && (S.state === 'mode' || S.state === 'settings')) { showMenu(); return; }
-  if (S.state === 'menu') { if (code === 'KeyA' || code === 'ArrowLeft') menu.next(-1); if (code === 'KeyD' || code === 'ArrowRight') menu.next(1); if (code === 'Enter') showMode(); return; }
+  if (S.state === 'menu') { if(menu.claw.key(code))return;if (code === 'KeyA' || code === 'ArrowLeft') menu.next(-1); if (code === 'KeyD' || code === 'ArrowRight') menu.next(1); if (code === 'Enter') showMode(); return; }
   if (S.state === 'mode' && code === 'Enter') { $('modeCard').click(); return; }
   if (S.state !== 'play') return;
   if (code === 'KeyZ' && (S.mg||S.wm)) { cancelMission();return; }
@@ -762,6 +766,7 @@ function frame() {
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
     if (dotHtml !== S.dotHtml) { $('dot').innerHTML = dotHtml; S.dotHtml = dotHtml; }
     updateItems(dt, P);
+    updateCoins(dt,S.state==='play'?P:null);
     updatePushables(dt, S.state === 'play' && !S.crane && !S.mg ? P : null);
     for (const c of W.cats) updateCat(c, dt, t, S.state === 'play' ? P : null);
     updateBirds(dt, t, S.state === 'play' ? P : null);
@@ -832,6 +837,7 @@ canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;clock.res
 // отладочный доступ из консоли браузера
 window.__fs = { eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 window.__fs.lastFaults=lastFaults;
+Object.assign(window.__fs,{menu,collection,coinState});
 showMenu();
 loop();
 import {updateRadios,resetRadios,nearRadio,toggleRadio,tuneRadio} from './game/radio.js';
