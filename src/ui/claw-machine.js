@@ -1,6 +1,7 @@
 import {THREE,G,V3,mesh,col,tmat,lam,glow,compose} from '../core/gfx.js';
 import {T} from '../core/textures.js';
 import {doll,batchDolls} from './claw-toys.js';
+import {LAMP_CONE_M} from '../world/props.js';
 import {toyPhysics} from './claw-physics.js';
 import {SKINS,SKIN_IDS} from '../characters/skins.js';
 import {collection,owns,beginClaw,reserveClaw,finishClaw,refundClaw} from '../game/collection.js';
@@ -10,9 +11,9 @@ const ease=k=>{k=clamp(k,0,1);return k*k*(3-2*k);};
 
 export function createClaw(scene,onReward){
  const root=new THREE.Group();root.position.set(5.1,.15,.1);scene.add(root);root.visible=true;
- const insideLight=new THREE.PointLight(0xd7c9a8,.85,3.7);insideLight.position.set(0,2.65,.7);root.add(insideLight);const frontLight=new THREE.PointLight(0xaebbc7,.35,3.8);frontLight.position.set(0,1.8,3);root.add(frontLight);
+ const insideLight=new THREE.PointLight(0xffdfad,5.2,4.2,1.5);insideLight.position.set(0,2.65,.7);root.add(insideLight);const frontLight=new THREE.PointLight(0xaebbc7,.35,3.8);frontLight.position.set(0,1.8,3);root.add(frontLight);
  const paint=tmat(T.paintMetal(0x394d51)),trim=tmat(T.paintMetal(0x667071)),dark=col(0x252c3b),cream=col(0xcfc4aa),pink=col(0xb87587);
- root.add(compose('claw40-cabinet',a=>{a(G.box,paint,0,.09,0,3.3,.18,2.4);a(G.box,paint,0,.51,-1.13,3.3,.90,.14);for(const x of[-1.57,1.57])a(G.box,paint,x,.51,0,.16,.9,2.2);a(G.box,paint,.54,.51,1.14,2.08,.86,.12);a(G.box,paint,-.97,.84,1.14,.94,.20,.12);a(G.box,dark,.55,1,0,1.95,.10,2.2);a(G.box,dark,-.99,1,-.35,1.04,.10,1.4);a(G.box,trim,-.99,.65,.88,.88,.05,.78,.7);a(G.box,paint,0,3.1,0,3.34,.43,2.42);a(G.box,tmat(T.sign('ДРУЗЬЯ','#323d51','#f2d587')),0,3.13,1.225,2.95,.30,.025);
+ root.add(compose('claw41-cabinet',a=>{a(G.box,paint,0,.09,0,3.3,.18,2.4);a(G.box,paint,0,.51,-1.13,3.3,.90,.14);for(const x of[-1.57,1.57])a(G.box,paint,x,.51,0,.16,.9,2.2);a(G.box,paint,.54,.51,1.14,2.08,.86,.12);a(G.box,paint,-.97,.84,1.14,.94,.20,.12);a(G.box,dark,.55,1,0,1.95,.10,2.2);a(G.box,dark,-.99,1,-.35,1.04,.10,1.4);a(G.box,trim,-.99,.65,.88,.88,.05,.78,.7);a(G.box,paint,0,3.1,0,3.34,.43,2.42);a(G.box,tmat(T.sign('ДРУЗЬЯ','#323d51','#f2d587')),0,3.13,1.225,2.95,.30,.025);
   for(const x of[-1.57,1.57])for(const z of[-1.12,1.12]){a(G.box,trim,x,2.04,z,.10,2.10,.10);a(G.box,dark,x,.10,z,.14,.20,.14);}a(G.box,paint,0,2.03,-1.13,3.08,2.05,.05);for(let i=0;i<7;i++)a(G.box,col(i%2?0x344547:0x3a4c4d),-1.2+i*.4,1.95,-1.09,.025,1.55,.02);
   for(const z of[-.95,.95])a(G.box,trim,0,2.86,z,2.95,.06,.06);for(const x of[-1.35,1.35])a(G.box,trim,x,2.86,0,.05,.05,2.0);
   a(G.box,paint,0,.93,1.35,3.3,.22,.52,.18);a(G.box,dark,.9,.93,1.64,.07,.16,.03);a(G.box,trim,.9,.93,1.665,.015,.11,.015);
@@ -29,6 +30,8 @@ export function createClaw(scene,onReward){
   for(const x of[-.48,.45])a(G.cyl12,trim,x,1.055,1.43,.18,.022,.18);
  }));
 
+ // Тёплая лампа под крышей и два коротких луча между задними стойками.
+ for(const x of[-.78,.78]){mesh(G.box,glow(0xffdfad),x,2.88,0,.62,.035,.16,root);const cone=mesh(new THREE.CylinderGeometry(.08,.48,1.65,8,1,true),LAMP_CONE_M().clone(),x,2.05,-.4,1,1,1,root);cone.material.uniforms.k.value=.2;cone.userData.noOcc=true;}
  const joystick=new THREE.Group();joystick.position.set(-.48,1.10,1.43);root.add(joystick);mesh(G.cyl8,dark,0,0,0,.055,.16,.055,joystick);mesh(G.sphL,col(0x9a5b67),0,.11,0,.105,.105,.105,joystick);
  const redButton=new THREE.Group();redButton.position.set(.45,1.07,1.43);root.add(redButton);mesh(G.cyl12,dark,0,0,0,.18,.05,.18,redButton);const cap=mesh(G.cyl12,col(0xcd4e49),0,.045,0,.142,.065,.142,redButton);
  const touchMat=new THREE.MeshBasicMaterial({visible:false}),stickHit=mesh(G.sph,touchMat,0,.08,0,.24,.25,.24,joystick),buttonHit=mesh(G.sph,touchMat,0,.04,0,.23,.16,.23,redButton);stickHit.userData.control='stick';buttonHit.userData.control='drop';

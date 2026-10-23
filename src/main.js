@@ -1,3 +1,4 @@
+import {worldTarget,worldAimPoint} from './game/object-actions.js';
 import { updateOcclusion } from './game/occlusion.js';
 import {updateBongEffects} from './game/bong.js';
 import {recordFault,lastFaults} from './core/diagnostics.js';
@@ -591,15 +592,7 @@ on('key', code => {
 const _aimHit = new V3();
 const KITTEN = { mass: 0.9, drag: 0, r: 0.25 }; // бросок котёнка в коробку
 const carryK = () => !!(S.wm && S.wm.game.carrying && S.wm.game.carrying());
-function aimPoint() {
-  const r = aim(camera);
-  // луч по твёрдым объектам (быстро и совпадает с тем, обо что предмет ударится)
-  const t = raySolids(r.ray.origin, r.ray.direction, 80);
-  if (t < 80) return _aimHit.copy(r.ray.origin).addScaledVector(r.ray.direction, t);
-  const plane = new THREE.Plane(new V3(0, 1, 0), -P.pos.y);
-  // смотришь в небо — целимся в точку далеко по лучу (бросок «навесом» на максимум)
-  return r.ray.intersectPlane(plane, _aimHit) || _aimHit.copy(r.ray.origin).addScaledVector(r.ray.direction, 40);
-}
+function aimPoint() { return worldAimPoint(P,camera,_aimHit); }
 
 // ближайший объект, с которым можно взаимодействовать: его контур подсвечивается
 function focusTarget() {
@@ -653,18 +646,7 @@ function interact() {
 }
 /* E (v0.21): из всего, что рядом (предметы, шкафы/багажники/скамейки…, двери, транспорт), выбирается БЛИЖАЙШЕЕ,
    с поправкой на направление взгляда (то, что перед тобой, — важнее). Подсказка показывает ровно это. */
-function eTarget() {
-  const f = P.root.rotation.y, fx = Math.sin(f), fz = Math.cos(f), c = [];
-  const sc = (x, z, d) => { const dx = x - P.pos.x, dz = z - P.pos.z, l = Math.hypot(dx, dz) || 1; return Math.max(0.05, d) * (1.35 - 0.35 * (dx * fx + dz * fz) / l); };
-  for (const q of W.interacts) { if(P.held&&!q.allowHeld)continue; if (q.enabled && !q.enabled(P)) continue; const d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z);
-    if (d < q.r && Math.abs(q.y - P.pos.y) < (q.dy ?? 0.9) && (!q.aim||q.aim(aim(camera)))) c.push({ s: sc(q.x, q.z, d), label:q.label,allowHeld:q.allowHeld,act:()=>q.act(P) }); }
-  for (const d of W.doors) { const dist = Math.hypot(d.x - P.pos.x, d.z - P.pos.z); if (dist < 2.2 && Math.abs(d.y - P.pos.y) < 1)
-    c.push({ s: sc(d.x, d.z, dist) * 1.1, label: d.open ? TEXT.door.close : TEXT.door.open, act: () => { d.open = !d.open; d.dirS = null; d.av = 0; sfx('door', { at: d, v: 0.6 }); } }); }
-  if (!P.held) { for (const it of W.items) { if (it.noPickup||(it.state !== 'rest' && it.state !== 'placed') || (it.boxed && !it.boxed.open)) continue; const d = Math.hypot(it.pos.x - P.pos.x, it.pos.z - P.pos.z); if (d > 1.5 || it.pos.y < P.pos.y - 0.6 || it.pos.y > P.pos.y + 1.8) continue;
-      c.push({ s: sc(it.pos.x, it.pos.z, d) * 0.85, label: `${TEXT.take} ${it.def.name.toLowerCase()}`, act: () => { if (it.steal && it.mine !== P) { stealItem(it); return; } pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; sfx('pickup'); } }); }
-    const rb = nearestRideable(P); if (rb) c.push({ s: sc(rb.x, rb.z, Math.hypot(rb.x - P.pos.x, rb.z - P.pos.z)) * 1.1, label: RIDE_NAME[rb.kind] ? (rb.ride && rb.ride.pose === 'stand' ? 'Встать на ' : 'Сесть в ') + RIDE_NAME[rb.kind] : TEXT.ride, act: () => mount(P, rb) }); }
-  c.sort((a, b) => a.s - b.s); return c[0] || null;
-}
+function eTarget() { return worldTarget(P,camera,{stealItem}); }
 // подобрал чужой предмет миссии (заказ, пиццу, лампочку) — миссия засчитывается тебе
 function stealItem(it) {
   const pts = Math.round(it.steal.pts * (W.scoreMul || 1)); it.state = 'gone'; it.g.visible = false; it.steal = null;
@@ -695,7 +677,7 @@ function frame() {
   if(graphicsLost){endFrame();return;}
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
   t += dt;
-  updateRadios(dt,P?.pos,S.state==='play');
+  if(!['starting','hub','menu','mode','roulette','settings'].includes(S.state))updateRadios(dt,P?.pos,S.state==='play');
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
   else if (S.state === 'starting' || S.state === 'hub' || S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {

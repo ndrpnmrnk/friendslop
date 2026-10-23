@@ -21,7 +21,8 @@ import { callPolice, hasPolice } from './police.js';
 /* Инструменты из ящиков — обычные физические предметы (items.js), но у них есть действие на ЛКМ.
    Ящик: 30% — выпадает инструмент, золотой ящик — всегда и «редкий».
    Логика не зависит от рендера и ввода (актёр + точка прицела) — потом её можно перенести на сервер. */
-export const GS = { shots: [], traps: [], clouds: [], gold: [], bubbles: new Map(), nets: new Map() };
+const worlds = new WeakMap();
+export function toolState(){let state=worlds.get(W.group||W);if(!state){state={shots:[],traps:[],clouds:[],gold:[],bubbles:new Map(),nets:new Map()};worlds.set(W.group||W,state);}return state;}
 const PAINT = [0x4ab0f0, 0xff5a9e, 0x9be36b, 0xf5c542, 0xb18cff];
 // железные предметы: магнит тянет их сильнее и вырывает из рук
 const METAL = new Set(['can', 'extinguisher', 'whistle', 'badge', 'bulb', 'firework', 'water', 'rake', 'glove', 'vacuum', 'paint']);
@@ -29,12 +30,12 @@ const METAL = new Set(['can', 'extinguisher', 'whistle', 'badge', 'bulb', 'firew
 function feathers(x, y, z, n) { for (let i = 0; i < n; i++) puff(x + (Math.random() - 0.5) * 0.6, y + (Math.random() - 0.5) * 0.5, z + (Math.random() - 0.5) * 0.6, { color: Math.random() < 0.8 ? 0xffffff : 0xe8e0f0, size: 0.07 + Math.random() * 0.05, grow: 0, vx: (Math.random() - 0.5) * 3, vy: 0.6 + Math.random() * 1.5, vz: (Math.random() - 0.5) * 3, g: 0.6, life: 1.6 + Math.random() }); sfx('feather', { at: { x, y, z } }); }
 
 export function resetTools() {
-  for (const q of GS.gold) W.group.remove(q.g);
-  for (const s of GS.shots) W.group.remove(s.m);
-  for (const t of GS.traps) if (t.m) W.group.remove(t.m);
-  for (const b of GS.bubbles.values()) W.group.remove(b); for (const m of GS.nets.values()) W.group.remove(m); GS.nets = new Map();
-  GS.shots = []; GS.traps = []; GS.clouds = []; GS.gold = []; GS.bubbles = new Map();
-  if (GS.flyer) W.group.remove(GS.flyer.g); GS.flyer = null; GS.flyT = 35 + Math.random() * 10;
+  for (const q of toolState().gold) W.group.remove(q.g);
+  for (const s of toolState().shots) W.group.remove(s.m);
+  for (const t of toolState().traps) if (t.m) W.group.remove(t.m);
+  for (const b of toolState().bubbles.values()) W.group.remove(b); for (const m of toolState().nets.values()) W.group.remove(m); toolState().nets = new Map();
+  toolState().shots = []; toolState().traps = []; toolState().clouds = []; toolState().gold = []; toolState().bubbles = new Map();
+  if (toolState().flyer) W.group.remove(toolState().flyer.g); toolState().flyer = null; toolState().flyT = 35 + Math.random() * 10;
   W.crateHook = (pos, piece) => { if (Math.random() < (piece.golden ? 1 : 0.3)) spawnTool(pos.x, pos.y, pos.z, piece.golden); };
   W.fires = W.fires || [];
   // золотые ящики: на крышах и в нычках
@@ -48,7 +49,7 @@ function scatterTools() {
   const spots = [];
   for (const b of W.benches || []) spots.push({ x: b.x, y: b.y + 0.48, z: b.z });
   for (const z of W.missionZones) if (z.type !== 'tunnel') for (let k = 0; k < (z.type === 'floor' ? 2 : 1); k++) spots.push({ x: z.x0 + 0.5 + Math.random() * Math.max(0, z.x1 - z.x0 - 1), y: z.y, z: z.z0 + 0.5 + Math.random() * Math.max(0, z.z1 - z.z0 - 1) });
-  spots.sort(() => Math.random() - 0.5); GS.spots = spots;
+  spots.sort(() => Math.random() - 0.5); toolState().spots = spots;
   const want = 10 + ((Math.random() * 5) | 0), got = [];
   for (const s of spots) { if (got.length >= want) break; if (got.some(q => Math.hypot(q.x - s.x, q.z - s.z) < 6)) continue;
     const gy = groundAt(s.x, s.z, 0.2, s.y + 0.6); if (Math.abs(gy - s.y) > 0.6) continue;
@@ -65,24 +66,24 @@ function flyerModel() {
   g.userData.wings = wings; return g;
 }
 function updateFlyer(dt, t) {
-  if (!GS.spots || !GS.spots.length) return;
-  if (!GS.flyer) { GS.flyT -= dt; if (GS.flyT > 0) return; GS.flyT = 35 + Math.random() * 12;
-    let s = null; for (let k = 0; k < 8 && !s; k++) { const q = GS.spots[(Math.random() * GS.spots.length) | 0], gy = groundAt(q.x, q.z, 0.2, q.y + 0.6); if (Math.abs(gy - q.y) < 0.6) s = { x: q.x, y: gy, z: q.z }; }
+  if (!toolState().spots || !toolState().spots.length) return;
+  if (!toolState().flyer) { toolState().flyT -= dt; if (toolState().flyT > 0) return; toolState().flyT = 35 + Math.random() * 12;
+    let s = null; for (let k = 0; k < 8 && !s; k++) { const q = toolState().spots[(Math.random() * toolState().spots.length) | 0], gy = groundAt(q.x, q.z, 0.2, q.y + 0.6); if (Math.abs(gy - q.y) < 0.6) s = { x: q.x, y: gy, z: q.z }; }
     if (!s) return;
     const a = Math.random() * 6.28, dx = Math.cos(a), dz = Math.sin(a), g = flyerModel(); W.group.add(g);
-    GS.flyer = { g, s, dx, dz, k: -40, dropped: false, h: s.y + 14 }; return; }
-  const f = GS.flyer; f.k += dt * 11;
+    toolState().flyer = { g, s, dx, dz, k: -40, dropped: false, h: s.y + 14 }; return; }
+  const f = toolState().flyer; f.k += dt * 11;
   f.g.position.set(f.s.x + f.dx * f.k, f.h + Math.sin(t * 2) * 0.4, f.s.z + f.dz * f.k); f.g.rotation.y = Math.atan2(f.dx, f.dz);
   for (const [i, w] of f.g.userData.wings.entries()) w.rotation.z = (i ? -1 : 1) * Math.sin(t * 16) * 0.7;
   if (!f.dropped && f.k >= 0) { f.dropped = true; const pool = Math.random() < 0.2 ? CONFIG.toolRare : CONFIG.toolPool, it = addItem(pool[(Math.random() * pool.length) | 0], f.s.x, f.s.y, f.s.z, Math.random() * 6);
     launch(it, new V3(f.s.x, f.h - 0.4, f.s.z), new V3(0, -2, 0)); sfx('crow', { at: f.g.position }); }
-  if (f.k > 40) { W.group.remove(f.g); GS.flyer = null; }
+  if (f.k > 40) { W.group.remove(f.g); toolState().flyer = null; }
 }
 function goldenCrate(x, y, z) {
   const g = compose('goldCrate', a => { const gm = lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.6 }, 'goldCrate'), dk = col(0x6a4a1a);
     a(G.box, gm, 0, 0.35, 0, 0.7, 0.7, 0.7); for (const sx of [-1, 1]) for (const sz of [-1, 1]) a(G.box, dk, sx * 0.33, 0.35, sz * 0.33, 0.06, 0.72, 0.06); a(G.box, dk, 0, 0.69, 0, 0.72, 0.04, 0.12); });
   g.position.set(x, y, z); W.group.add(g); W.keep.push(g);
-  GS.gold.push({ g, x, y, z, used: false });
+  toolState().gold.push({ g, x, y, z, used: false });
 }
 // инструмент выпрыгивает из ящика и падает рядом
 export function spawnTool(x, y, z, rare = false, type = null) {
@@ -131,7 +132,7 @@ export function useTool(a, it, aim, dt = 0) {
     case 'water': { it.cd = 0.22; for (let i = 0; i < 4; i++) shoot('water', from, dir, 22 + i, i * 0.03, a); spend(); return 'water'; }
     case 'sling': { it.cd = 0.4; shoot('candy', from, dir, 42, 0, a); spend(); return 'candy'; }
     // хлопушка: облако конфетти + оглушение стоя всех в облаке
-    case 'popper': { const f = a.root.rotation.y, px = a.pos.x + Math.sin(f) * 2.2, pz = a.pos.z + Math.cos(f) * 2.2; GS.clouds.push({ x: px, y: a.pos.y, z: pz, t: 2.4, owner: a, hit: new Set() }); const cs = [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff];
+    case 'popper': { const f = a.root.rotation.y, px = a.pos.x + Math.sin(f) * 2.2, pz = a.pos.z + Math.cos(f) * 2.2; toolState().clouds.push({ x: px, y: a.pos.y, z: pz, t: 2.4, owner: a, hit: new Set() }); const cs = [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff];
       for (const c of cs) burst(px, a.pos.y + 1, pz, 14, { color: c, size: 0.12, speed: 4, up: 3.5, g: 2, life: 2.2, grow: 0 }); smokeRing(px, a.pos.y + 0.8, pz, 10, { speed: 3, size: 0.25, grow: 1, life: 0.6 }); scareBirds(px, pz, 6); spend(); sfx('confetti', { at: a.pos }); return 'pop'; }
     case 'web': { lob('web', from, aim, a); spend(); return 'throw'; }
     case 'firework': { if (it.lit === undefined) { it.lit = 2.4; return 'fuse'; } return null; }
@@ -210,14 +211,14 @@ export function placeBanana(it, x, y, z, owner = it.owner) {
   const gy = groundAt(x, z, 0.1, y + 0.6);
   const m = compose('peel', a => { const yl = col(0xf5d442); for (let i = 0; i < 4; i++) a(G.box, yl, Math.cos(i * 1.57) * 0.09, 0.02, Math.sin(i * 1.57) * 0.09, 0.07, 0.025, 0.16, 0, i * 1.57); a(G.sph, col(0xe8d0a0), 0, 0.04, 0, 0.05, 0.04, 0.05); });
   m.position.set(x, gy, z); m.rotation.y = Math.random() * 6; W.group.add(m);
-  GS.traps.push({ kind: 'banana', x, y: gy, z, r: 0.55, t: 40, m, arm: 0.4, owner });
+  toolState().traps.push({ kind: 'banana', x, y: gy, z, r: 0.55, t: 40, m, arm: 0.4, owner });
 }
 // лужа краски: краска брызгами-пикселями красит всё вокруг; кто наступил — оставляет цветные следы
 export function paintPuddle(x, y, z, r, owner = null) {
   const gy = groundAt(x, z, 0.1, y + 0.6), c = PAINT[(Math.random() * PAINT.length) | 0];
   splatter(new V3(x, gy + 0.3, z), null, c, 46, 0.55 * r, { flat: true, owner });
   burst(x, gy + 0.3, z, 8, { color: c, size: 0.18, speed: 2.5, up: 2 });
-  GS.traps.push({ kind: 'paint', x, y: gy, z, r, t: 22, c, owner, hit: new Set() });
+  toolState().traps.push({ kind: 'paint', x, y: gy, z, r, t: 22, c, owner, hit: new Set() });
 }
 /* паутина-ловушка (v0.18): банка разбивается, паучок выбегает и за ~1 с плетёт сеть, потом сидит в центре */
 function spiderModel() { const g = new THREE.Group(), b = col(0x17111f); mesh(G.sph10, b, 0, 0.08, -0.05, 0.09, 0.07, 0.11, g); mesh(G.sph10, b, 0, 0.07, 0.07, 0.06, 0.05, 0.06, g);
@@ -228,13 +229,13 @@ function webTrap(x, y, z, owner = null) {
   const m = decal(T.web(), x, y, z, 3, 16, 0xffffff); m.scale.setScalar(0.01);
   const sp = spiderModel(), a0 = Math.random() * 6.28; sp.position.set(x + Math.cos(a0) * 0.9, y + 0.02, z + Math.sin(a0) * 0.9); W.group.add(sp);
   burst(x + Math.cos(a0) * 0.9, y + 0.15, z + Math.sin(a0) * 0.9, 8, { color: 0xd8f0f0, size: 0.08, speed: 2, up: 1.5 }); sfx('glass', { at: { x, y, z }, v: 0.5 });
-  GS.traps.push({ kind: 'web', x, y, z, r: 1.4, t: 16, m, sp, a0, weave: 0, owner, hit: new Set() }); }
+  toolState().traps.push({ kind: 'web', x, y, z, r: 1.4, t: 16, m, sp, a0, weave: 0, owner, hit: new Set() }); }
 
 /* сетка накрыла: 2.5 с еле ползёшь, первые 1.2 с — оглушение; сверху видна сетка */
 const NETM = () => lam({ color: 0xe8e0c8, wireframe: true }, 'netWire');
 export function netActor(a, owner) {
   if (a.hidden || a.caged) return; if (a.ride && W.dismount) W.dismount(a); if(a.holding)W.letGo?.(a);a.vel.x*=0.12;a.vel.z*=0.12; a.netT = 2.2; a.webT = Math.max(a.webT || 0, 3); dropHeld(a);
-  if (!GS.nets.has(a)) { const m = mesh(G.sph10, NETM(), 0, 0, 0, 0.75, 1.0, 0.75, W.group); GS.nets.set(a, m); }
+  if (!toolState().nets.has(a)) { const m = mesh(G.sph10, NETM(), 0, 0, 0, 0.75, 1.0, 0.75, W.group); toolState().nets.set(a, m); }
   sfx('grab', { at: a.pos }); burst(a.pos.x, a.pos.y + 1.2, a.pos.z, 8, { color: 0xe8e0c8, size: 0.12, speed: 1.8 }); W.onHit && W.onHit(owner, a, 'heavy');
 }
 /* выстрелы: вода, конфета из рогатки, пузырь, паутина/фейерверк навесом */
@@ -243,13 +244,13 @@ function shotMesh(kind) { const c = { water: 0x7ac8f0, candy: 0xff5a9e, web: 0xe
   return mesh(SHOT_GEO, lam({ color: c, emissive: c, emissiveIntensity: 0.4, transparent: kind === 'bubble', opacity: kind === 'bubble' ? 0.55 : 1 }, 'shot' + kind), 0, 0, 0, 1, 1, 1, W.group); }
 export function shoot(kind, from, dir, speed, delay, owner) {
   const m = kind==='arrow'?arrowModel():kind === 'net' ? mesh(G.sph10, NETM(), 0, 0, 0, 1, 1, 1, W.group) : shotMesh(kind); if(kind==='arrow'){W.group.add(m);m.scale.setScalar(1);}else if (kind === 'net') m.scale.set(0.3, 0.1, 0.3); else m.scale.setScalar(kind === 'water' ? 0.09 : kind === 'bubble' ? 0.28 : 0.08); m.visible = false;
-  const shot={ kind, m, p: from.clone().addScaledVector(dir, 0.6), v: dir.clone().multiplyScalar(speed).add(new V3(0, kind === 'water' ? 1.5 : kind === 'bubble' ? 0.6 : kind === 'net' ? 2 : 0.6, 0)), g: kind === 'water' ? 14 : kind === 'bubble' ? -0.4 : kind === 'net' ? 6 : 4, life: kind === 'bubble' ? 2.6 : 1.6, delay, owner };GS.shots.push(shot);return shot;
+  const shot={ kind, m, p: from.clone().addScaledVector(dir, 0.6), v: dir.clone().multiplyScalar(speed).add(new V3(0, kind === 'water' ? 1.5 : kind === 'bubble' ? 0.6 : kind === 'net' ? 2 : 0.6, 0)), g: kind === 'water' ? 14 : kind === 'bubble' ? -0.4 : kind === 'net' ? 6 : 4, life: kind === 'bubble' ? 2.6 : 1.6, delay, owner };toolState().shots.push(shot);return shot;
 }
 function lob(kind, from, aim, owner) {
   const d = new V3(aim.x - from.x, 0, aim.z - from.z), dist = Math.min(16, d.length()); d.normalize();
   const t = 0.35 + dist / 18, vx = d.x * dist / t, vz = d.z * dist / t, vy = (aim.y - from.y + 0.5 * 22 * t * t) / t;
   const m = shotMesh(kind); m.scale.setScalar(0.14);
-  GS.shots.push({kind,m,p:from.clone(),v:new V3(vx,vy,vz),g:22,life:4,delay:0,owner});
+  toolState().shots.push({kind,m,p:from.clone(),v:new V3(vx,vy,vz),g:22,life:4,delay:0,owner});
 }
 function hitActorsAt(p, r, owner) { for (const a of actors()) { if (a === owner || a.hidden) continue; const q = a.pos; if (Math.hypot(q.x - p.x, q.z - p.z) < r && p.y > q.y - 0.3 && p.y < q.y + a.h + 0.3) return a; } return null; }
 export function explode(p, owner) {
@@ -291,13 +292,13 @@ export function updateTools(dt, t) {
     if (a.startle > 0) a.startle -= dt;
     if(a.melee){const m=a.melee;if(a.held!==m.it||a.stun>0||a.heldBy||a.getT>0){a.melee=null;a.swatT=0;}else{m.left-=dt;a.swatT=Math.max(0,m.left);if(!m.hit&&m.left<=CONFIG.melee.impactLeft){m.hit=true;m.apply();}if(m.left<=0)a.melee=null;}}
     else if (a.swatT > 0) a.swatT -= dt;
-    { const nm = GS.nets.get(a); if (a.netT > 0) { a.netT -= dt;a.vel.x*=Math.exp(-dt*10);a.vel.z*=Math.exp(-dt*10); if (nm) { nm.visible = true; nm.position.set(a.pos.x, a.pos.y + 0.85, a.pos.z); nm.rotation.y += dt; } } else if (nm) { W.group.remove(nm); GS.nets.delete(a); } }
+    { const nm = toolState().nets.get(a); if (a.netT > 0) { a.netT -= dt;a.vel.x*=Math.exp(-dt*10);a.vel.z*=Math.exp(-dt*10); if (nm) { nm.visible = true; nm.position.set(a.pos.x, a.pos.y + 0.85, a.pos.z); nm.rotation.y += dt; } } else if (nm) { W.group.remove(nm); toolState().nets.delete(a); } }
     // пузырь: висит в воздухе и медленно поднимается
-    let bub = GS.bubbles.get(a);
+    let bub = toolState().bubbles.get(a);
     /* пузырь (v0.18): объёмный, полупрозрачный, с бликом; персонаж внутри виден и подлетает ~1 с.
        Лопается сам, от касания стены/потолка или от попадания предметом (a.popBubble). */
     if (a.floatT > 0) { a.floatT -= dt; a.vel.set(a.vel.x * 0.95, 1.6, a.vel.z * 0.95); a.onGround = false; a.airPeak = a.pos.y;
-      if (!bub) { bub = new THREE.Group(); W.group.add(bub); GS.bubbles.set(a, bub);
+      if (!bub) { bub = new THREE.Group(); W.group.add(bub); toolState().bubbles.set(a, bub);
         mesh(G.sph10, lam({ color: 0xc8f0ff, emissive: 0x2a5a70, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }, 'bubbleBig'), 0, 0, 0, 1.1, 1.2, 1.1, bub);
         mesh(G.sph10, lam({ color: 0xffffff, emissive: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false }, 'bubbleGlint'), -0.42, 0.5, 0.55, 0.16, 0.1, 0.06, bub).rotation.z = 0.6;
         mesh(G.sph10, lam({ color: 0xffffff, emissive: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false }, 'bubbleGlint2'), 0.48, -0.42, 0.5, 0.07, 0.05, 0.03, bub); }
@@ -321,13 +322,13 @@ export function updateTools(dt, t) {
   for (const q of W.items) if (q.cd > 0) q.cd -= dt;
   // лежащие инструменты больше не исчезают: предметов на раунд ограниченное число
   // золотые ящики
-  for (const q of GS.gold) {
+  for (const q of toolState().gold) {
     if (q.used) continue;
     for (const a of actors()) if (Math.hypot(a.pos.x - q.x, a.pos.z - q.z) < 0.9 && Math.abs(a.pos.y - q.y) < 1.2) { q.g.visible = false; q.used = true; burst(q.x, q.y + 0.5, q.z, 14, { color: 0xf5c542, size: 0.2, speed: 3, up: 3 }); spawnTool(q.x, q.y + 0.3, q.z, true); if (a === P) sfx('pickup'); break; }
   }
   // выстрелы
-  for (let i = GS.shots.length - 1; i >= 0; i--) {
-    const s = GS.shots[i];
+  for (let i = toolState().shots.length - 1; i >= 0; i--) {
+    const s = toolState().shots[i];
     if (s.delay > 0) { s.delay -= dt; continue; }
     s.m.visible = true; s.life -= dt;
     const old=s.p.clone(),beforeV=s.v.clone();s.v.y-=s.g*dt;
@@ -356,16 +357,16 @@ export function updateTools(dt, t) {
       else if (s.kind === 'web') webTrap(pt.x, gy, pt.z, s.owner);
       else if (s.kind === 'net') { if (hitA) { netActor(hitA, s.owner); } else { burst(pt.x, pt.y, pt.z, 6, { color: 0xe8e0c8, size: 0.1, speed: 1.5 });
         // промах: сетка ложится на землю и через несколько секунд исчезает
-        const gy2 = groundAt(pt.x, pt.z, 0.2, pt.y + 0.5), nm = mesh(G.sph10, NETM(), pt.x, gy2 + 0.04, pt.z, 0.85, 0.05, 0.85, W.group); nm.rotation.y = Math.random() * 6; GS.traps.push({ kind: 'netlie', x: pt.x, y: gy2, z: pt.z, r: 0, t: 6, m: nm }); } }
+        const gy2 = groundAt(pt.x, pt.z, 0.2, pt.y + 0.5), nm = mesh(G.sph10, NETM(), pt.x, gy2 + 0.04, pt.z, 0.85, 0.05, 0.85, W.group); nm.rotation.y = Math.random() * 6; toolState().traps.push({ kind: 'netlie', x: pt.x, y: gy2, z: pt.z, r: 0, t: 6, m: nm }); } }
     }
-    if(gone&&s.kind==='perfume'){GS.clouds.push({x:s.p.x,y:s.p.y-.6,z:s.p.z,t:4,effect:s.effect,tick:0,owner:s.owner,grace:.8,hit:new Set()});smokeRing(s.p.x,s.p.y,s.p.z,7,{color:0xb9a0df,speed:1.4,size:.1,life:.6});}
-    if (gone) { W.group.remove(s.m); GS.shots.splice(i, 1); }
+    if(gone&&s.kind==='perfume'){toolState().clouds.push({x:s.p.x,y:s.p.y-.6,z:s.p.z,t:4,effect:s.effect,tick:0,owner:s.owner,grace:.8,hit:new Set()});smokeRing(s.p.x,s.p.y,s.p.z,7,{color:0xb9a0df,speed:1.4,size:.1,life:.6});}
+    if (gone) { W.group.remove(s.m); toolState().shots.splice(i, 1); }
   }
   // ловушки
-  for (let i = GS.traps.length - 1; i >= 0; i--) {
-    const q = GS.traps[i]; q.t -= dt; if (q.arm > 0) q.arm -= dt;
-    if (q.kind === 'netlie') { if (q.t < 1) q.m.scale.y = 0.05 * q.t; if (q.t <= 0) { W.group.remove(q.m); GS.traps.splice(i, 1); } continue; }
-    if (q.t <= 0) { if (q.m && q.kind === 'banana') W.group.remove(q.m); if (q.sp) W.group.remove(q.sp); GS.traps.splice(i, 1); continue; }
+  for (let i = toolState().traps.length - 1; i >= 0; i--) {
+    const q = toolState().traps[i]; q.t -= dt; if (q.arm > 0) q.arm -= dt;
+    if (q.kind === 'netlie') { if (q.t < 1) q.m.scale.y = 0.05 * q.t; if (q.t <= 0) { W.group.remove(q.m); toolState().traps.splice(i, 1); } continue; }
+    if (q.t <= 0) { if (q.m && q.kind === 'banana') W.group.remove(q.m); if (q.sp) W.group.remove(q.sp); toolState().traps.splice(i, 1); continue; }
     if (q.kind === 'web' && q.sp) { const sp = q.sp, L = sp.userData.legs;
       if (q.weave < 1) { q.weave = Math.min(1, q.weave + dt); const k = q.weave, ang = q.a0 + k * 9, r = 0.9 * (1 - k); q.m.scale.setScalar(Math.max(0.01, k));
         sp.position.set(q.x + Math.cos(ang) * r, q.y + 0.03, q.z + Math.sin(ang) * r); sp.rotation.y = -ang; L.forEach((l, j) => (l.rotation.x = Math.sin(t * 40 + j) * 0.5)); }
@@ -380,11 +381,11 @@ export function updateTools(dt, t) {
       else if (q.kind === 'banana' && !(q.arm > 0) && a.onGround && Math.hypot(a.vel.x, a.vel.z) > 1.5) {
         // поскользнулся: ноги вперёд, падение
         knockDown(a, a.vel.x * 0.8, a.vel.z * 0.8, 1.3); a.vel.y = 6; a.slipFall = 0.8; sfx('slip', { at: a.pos });
-        W.group.remove(q.m); GS.traps.splice(i, 1); W.onFunny && W.onFunny(a, 'slip', q.owner); break;
+        W.group.remove(q.m); toolState().traps.splice(i, 1); W.onFunny && W.onFunny(a, 'slip', q.owner); break;
       }
     }
   }
-  for (let i = GS.clouds.length - 1; i >= 0; i--) { const c=GS.clouds[i];c.t-=dt;c.grace=Math.max(0,(c.grace||0)-dt); if (c.t <= 0) { GS.clouds.splice(i, 1); continue; }
+  for (let i = toolState().clouds.length - 1; i >= 0; i--) { const c=toolState().clouds[i];c.t-=dt;c.grace=Math.max(0,(c.grace||0)-dt); if (c.t <= 0) { toolState().clouds.splice(i, 1); continue; }
     if(c.effect){c.tick-=dt;if(c.tick<=0){c.tick=.12;smoke(c.x+(Math.random()-.5)*3,c.y+.8,c.z+(Math.random()-.5)*3,{color:c.effect==='haste'?0x9be36b:0xb18cff,size:.3,grow:.8,vy:.25,life:.7,opacity:.45});}for(const a of actors())if(!(a===c.owner&&c.grace>0)&&Math.hypot(a.pos.x-c.x,a.pos.z-c.z)<1.55&&Math.abs(a.pos.y-c.y)<1.8&&raySolids(new V3(c.x,c.y+.8,c.z),new V3(a.pos.x-c.x,a.pos.y-c.y,a.pos.z-c.z).normalize(),Math.hypot(a.pos.x-c.x,a.pos.y-c.y,a.pos.z-c.z))>=Math.hypot(a.pos.x-c.x,a.pos.y-c.y,a.pos.z-c.z)-.2){if(c.effect==='haste'){a.energy=Math.max(a.energy||0,1.4);}else{a.webT=Math.max(a.webT||0,.4);if(!c.hit.has(a)){c.hit.add(a);daze(a,1.1);}}}continue;}
     if (Math.random() < dt * 20) puff(c.x + (Math.random() - 0.5) * 3, c.y + Math.random() * 2, c.z + (Math.random() - 0.5) * 3, { size: 0.15, grow: 0, life: 0.8, vy: -0.4, color: [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff][(Math.random() * 5) | 0] });
     for (const a of actors()) if (Math.hypot(a.pos.x - c.x, a.pos.z - c.z) < 2.6 && Math.abs(a.pos.y - c.y) < 2.5) { a.blind = Math.max(a.blind || 0, 0.4); if (c.hit && a !== c.owner && !c.hit.has(a)) { c.hit.add(a); daze(a, 1.6); dropHeld(a); W.onHit && W.onHit(c.owner, a, 'light'); } } }

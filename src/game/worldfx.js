@@ -5,7 +5,6 @@ import { addZone, groundAt, solidsNear, isFree } from '../world/physics.js';
 import { burst, puff, smokeRing, splash, chunk } from '../world/particles.js';
 import { scareBirds } from '../world/birds.js';
 import { addItem, launch } from './items.js';
-import { cam } from './camera.js';
 import { purr } from './cats.js';
 import { addOutline, OUTLINE } from './outline.js';
 import { sfx } from '../core/sfx.js';
@@ -57,8 +56,10 @@ export function worldHit(p, power, vel) {
 }
 
 // ---------- обновление ----------
-const _alarmPool = []; let _ring = null;
+const effects=new WeakMap();
+function worldEffects(){let state=effects.get(W.group||W);if(!state){state={alarm:[],ring:null};effects.set(W.group||W,state);}return state;}
 export function updateWorldFx(dt, t, P) {
+  const _alarmPool=worldEffects().alarm;
   // гидранты
   for (const h of W.hydrants) {
     if (!h.on) continue; h.on = Math.max(0, h.on - dt); h.t -= dt;
@@ -82,9 +83,9 @@ export function updateWorldFx(dt, t, P) {
   // колокол: раскачивается, расходится кольцо
   for (const b of W.bells) {
     if (b.ring > 0) { b.ring -= dt; if (b.mesh) b.mesh.rotation.z = Math.sin(t * 10) * 0.4 * Math.min(1, b.ring);
-      if (!_ring || !_ring.parent) { _ring = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xffd28a, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false })); W.group.add(_ring); }
-      const k = (3 - b.ring) % 0.75 / 0.75; _ring.visible = true; _ring.position.set(b.x, b.y, b.z); _ring.scale.setScalar(0.5 + k * 6); _ring.material.opacity = 0.8 * (1 - k); _ring.lookAt(P ? P.pos.x : b.x, b.y, P ? P.pos.z : b.z + 1);
-    } else if (_ring && _ring.position.distanceTo(new V3(b.x, b.y, b.z)) < 0.1) _ring.visible = false;
+      if (!worldEffects().ring || !worldEffects().ring.parent) { worldEffects().ring = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xffd28a, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false })); W.group.add(worldEffects().ring); }
+      const k = (3 - b.ring) % 0.75 / 0.75; worldEffects().ring.visible = true; worldEffects().ring.position.set(b.x, b.y, b.z); worldEffects().ring.scale.setScalar(0.5 + k * 6); worldEffects().ring.material.opacity = 0.8 * (1 - k); worldEffects().ring.lookAt(P ? P.pos.x : b.x, b.y, P ? P.pos.z : b.z + 1);
+    } else if (worldEffects().ring && worldEffects().ring.position.distanceTo(new V3(b.x, b.y, b.z)) < 0.1) worldEffects().ring.visible = false;
   }
   // красные лестницы
   for (const l of W.dropLadders) {

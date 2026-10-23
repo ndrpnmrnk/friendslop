@@ -1,20 +1,36 @@
-import {THREE,V3,makeCamera} from '../core/gfx.js';
+import {THREE,V3,G,sprite,makeCamera} from '../core/gfx.js';
 import {makeCharacter} from '../characters/rig.js';
 import {SKINS,SKIN_IDS} from '../characters/skins.js';
-import {takeLook,locked,requestLock,unlock} from '../core/input.js';
+import {takeLook,locked,requestLock,unlock,on,mouse,tapped,aim} from '../core/input.js';
 import {initCollection,collection,collectionOrder,owns,selectCharacter} from '../game/collection.js';
 import {sfx,setListener} from '../core/sfx.js';
 import {buildHub} from './hub-world.js';
 import {createClaw} from './claw-machine.js';
-import {CONFIG} from '../config.js';
+import {T} from '../core/textures.js';
+import {CONFIG,SEASON} from '../config.js';
 import {createPlayer,updatePlayer} from '../game/player.js';
 import {createCameraRig} from '../game/camera.js';
 import {withWorld} from '../world/state.js';
 import {addSolid,updatePushables} from '../world/physics.js';
 import {updateParticles} from '../world/particles.js';
-import {updateItems} from '../game/items.js';
+import {updateItems,drop,throwVelocity,launch,predict} from '../game/items.js';
+import {worldAimPoint,interactObject,leaveObject} from '../game/object-actions.js';
+import {cargoPosition,poseMeleeItem} from '../game/handheld.js';
+import {updateTools,useTool,toolImpact,sodaBlast,releaseBow,vacuumFire} from '../game/tools.js';
+import {nearestRideable,grab,release,dismount} from '../game/ride.js';
+import {updateGrabs,grabTarget,grabActor,letGo} from '../game/grab.js';
+import {knockDown} from '../game/actors.js';
+import {voice} from '../game/voice.js';
+import {updateRadios,nearRadio,toggleRadio,tuneRadio} from '../game/radio.js';
+import {predictBow} from '../game/bow.js';
+import {updateSnacks} from '../game/snacks.js';
+import {updateSwingers} from '../world/swingers.js';
+import {updateSplat} from '../world/splat.js';
+import {updateTraps} from '../game/traps.js';
+import {pulseOutline} from '../game/outline.js';
+import {seatPath,pathLength,samplePath} from './hub-path.js';
 import {updateBreakables} from '../world/breakables.js';
-import {FX,updateWorldFx,nearInteract,leaveBench,leaveHide} from '../game/worldfx.js';
+import {FX,updateWorldFx,leaveBench,leaveHide,leaveSwing} from '../game/worldfx.js';
 import {createSky} from '../world/sky.js';
 const $=id=>document.getElementById(id),clamp=THREE.MathUtils.clamp;
 const ease=x=>{x=clamp(x,0,1);return x*x*x*(x*(x*6-15)+10);};
@@ -23,18 +39,19 @@ const turn=(a,b,k)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*k;
 export function createMenu(){
   initCollection(SKIN_IDS);
   const scene=new THREE.Scene(),camera=makeCamera(CONFIG.camera.fov),rig=createCameraRig();
-  scene.background=new THREE.Color(0x171522);scene.fog=new THREE.Fog(0x171522,25,65);
-  const hemi=new THREE.HemisphereLight(0x929ab8,0x1b1923,.28*Math.PI);scene.add(hemi);
-  const moon=new THREE.DirectionalLight(0xb8c5de,.62*Math.PI);moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);moon.shadow.bias=-.0008;moon.shadow.normalBias=.05;Object.assign(moon.shadow.camera,{left:-20,right:20,top:20,bottom:-20,near:1,far:90});scene.add(moon,moon.target);
-  const world=buildHub(scene),sky=createSky(scene),look=new V3(0,1.1,7.8);sky.setNight(.35);moon.position.copy(sky.moonDir()).multiplyScalar(45);
-  camera.position.set(0,4.1,17);camera.lookAt(look);
-  const st={scene,camera,world,ch:null,player:null,rig,active:true,mode:'splash',idx:0,t:0,choosing:false,hover:false,drag:false,pause:false,transition:null,velocity:new V3(),sit:0,ballHeld:false,ballFlight:null,scoreT:0};
-  let screenTimer=0,lastPrompt='';const characters=new Map(),hubFX={shake:0,freeze:0};
+  scene.background=new THREE.Color(SEASON.bg);scene.fog=new THREE.Fog(SEASON.fog[0],40,120);
+  const hemi=new THREE.HemisphereLight(SEASON.hemi[0],SEASON.hemi[1],SEASON.hemi[2]*.94*Math.PI);scene.add(hemi);
+  const moon=new THREE.DirectionalLight(SEASON.sun[0],SEASON.sun[1]*.93*Math.PI);moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);moon.shadow.bias=-.0008;moon.shadow.normalBias=.05;Object.assign(moon.shadow.camera,{left:-20,right:20,top:20,bottom:-20,near:1,far:160});scene.add(moon,moon.target);
+  const world=buildHub(scene),sky=createSky(scene,{moonDirection:new V3(-.22,.29,-.91)}),look=new V3(0,3,-6);sky.setNight(.12);const direction=sky.moonDir();moon.position.copy(direction).multiplyScalar(70);
+  const bounce=new THREE.DirectionalLight(0x8a7ac8,.35*Math.PI);bounce.position.set(-direction.x*45,30,-direction.z*45);scene.add(bounce);
+  camera.position.set(0,3.8,17);camera.lookAt(look);
+  const st={scene,camera,world,ch:null,player:null,rig,active:true,mode:'splash',idx:0,t:0,choosing:false,hover:false,drag:false,pause:false,transition:null,velocity:new V3(),sit:0};
+  let screenTimer=0,lastPrompt='',screenFade=1;const glowing=new Set();const characters=new Map(),hubFX={shake:0,freeze:0};
   function scope(fn){return withWorld(world.state,()=>{const shake=FX.shake,freeze=FX.freeze;Object.assign(FX,hubFX);try{return fn();}finally{Object.assign(hubFX,FX);FX.shake=shake;FX.freeze=freeze;}});}
   const viewPose=(position,yaw)=>({p:position.clone().add(new V3(Math.sin(yaw)*5.75+Math.cos(yaw)*1.05,4.5,Math.cos(yaw)*5.75-Math.sin(yaw)*1.05)),l:position.clone().add(new V3(0,1.4,0))});
   function character(id,muted=false){
     const pos=st.ch?.root.position.clone()||new V3(0,0,9.5),rot=st.ch?.root.rotation.y??Math.PI;
-    if(st.player?.bench)scope(()=>leaveBench(st.player));st.ch?.root.removeFromParent();let entry=characters.get(id);
+    if(st.player)scope(()=>{if(st.player.grab)release(st.player,0);leaveObject(st.player);if(st.player.held){drop(st.player.held,st.player.pos.x,st.player.pos.y,st.player.pos.z);st.player.held=null;}});st.ch?.root.removeFromParent();let entry=characters.get(id);
     if(!entry){const ch=makeCharacter(id);entry={ch,skin:ch.skin,muted:false,base:new Map(),materials:[]};characters.set(id,entry);}
     st.ch=entry.ch;st.player=createPlayer(id,st.ch);st.velocity=st.player.vel;world.state.player=st.player;st.ch.root.visible=true;st.ch.root.position.copy(pos);st.ch.root.rotation.y=rot;st.player.facing=rot;scene.add(st.ch.root);
     if(entry.muted!==muted){
@@ -42,7 +59,7 @@ export function createMenu(){
       }else{for(const[o,m]of entry.base)o.material=m;for(const m of entry.materials)m.dispose();entry.materials=[];entry.base.clear();st.ch.skin=entry.skin;}entry.muted=muted;
     }
   }
-  function mode(name){st.mode=name;st.choosing=name==='wardrobe';$('menu').classList.toggle('in-hub',name!=='splash');$('menu').classList.toggle('choosing',st.choosing);$('hubUI').classList.toggle('hidden',!['roam','transition'].includes(name));$('skinLock').classList.add('hidden');if(name!=='roam'){st.velocity.set(0,0,0);takeLook();}if(name!=='roam'&&name!=='transition')unlock();}
+  function mode(name){st.mode=name;clearThrow();st.choosing=name==='wardrobe';$('menu').classList.toggle('in-hub',name!=='splash');$('menu').classList.toggle('choosing',st.choosing);$('hubUI').classList.toggle('hidden',!['roam','transition'].includes(name));$('skinLock').classList.add('hidden');if(name!=='roam'){st.velocity.set(0,0,0);takeLook();}if(name!=='roam'&&name!=='transition')unlock();}
   function refreshSkin(){const id=collectionOrder()[st.idx]||collection().selected;character(id,!owns(id));st.ch.root.position.copy(world.wardrobe.preview);st.ch.root.rotation.y=world.wardrobe.outYaw;st.player.facing=world.wardrobe.outYaw;$('skinName').textContent=SKINS[id].name;$('skinDone').disabled=!owns(id);$('skinLock').classList.toggle('hidden',owns(id));}
   function travel(name,pos,camPos,target,duration,done,opts={}){
     mode('transition');unlock();st.pause=false;$('setBtn').classList.remove('hub-settings');$('hubPause').classList.remove('open');
@@ -52,7 +69,7 @@ export function createMenu(){
   st.enterHub=()=>{st.pausedForSettings=false;character(collection().selected);st.ch.root.position.set(0,0,9.5);st.ch.root.rotation.y=st.player.facing=Math.PI;rig.reset(0);rig.state.pose=rig.state.free=rig.state.orbit=null;
     const cp=camera.position.clone(),cl=look.clone();scope(()=>rig.update(camera,st.player,0,true));const p=camera.position.clone(),l=camera.position.clone().addScaledVector(camera.getWorldDirection(new V3()),20);camera.position.copy(cp);look.copy(cl);travel('arrive',st.player.pos,p,l,1.35,roam);
   };
-  st.splash=()=>{st.pausedForSettings=false;$('setBtn').classList.remove('hub-settings');st.claw?.close();st.pause=false;st.transition=null;st.sit=0;st.ballHeld=false;st.ballFlight=null;world.ball.position.set(6.1,.24,5.7);mode('splash');character(collection().selected);st.ch.root.position.set(0,0,9.5);st.ch.root.rotation.y=0;$('hubPause').classList.remove('open');$('mode').classList.remove('tv-mode');$('mode').removeAttribute('style');world.curtain(0);};
+  st.splash=()=>{st.pausedForSettings=false;$('setBtn').classList.remove('hub-settings');st.claw?.close();st.pause=false;st.transition=null;st.sit=0;mode('splash');character(collection().selected);st.ch.root.position.set(0,0,9.5);st.ch.root.rotation.y=0;$('hubPause').classList.remove('open');$('mode').classList.remove('tv-mode');$('mode').removeAttribute('style');world.curtain(0);};
   st.skin=()=>collection().selected;
   st.next=d=>{if(!st.choosing)return;st.idx=(st.idx+d+SKIN_IDS.length)%SKIN_IDS.length;refreshSkin();sfx('click');};
   function wardrobeTransition(out){
@@ -63,59 +80,91 @@ export function createMenu(){
     Object.assign(st.transition,{wardrobe:{out,gate,approach,cross,wait,close}});sfx('door');
   }
   st.finishWardrobe=confirm=>{if(!st.choosing)return;const id=collectionOrder()[st.idx];if(confirm&&(!owns(id)||!selectCharacter(id)))return;character(collection().selected);st.player.pos.copy(world.wardrobe.preview);st.ch.root.rotation.y=world.wardrobe.outYaw;wardrobeTransition(true);};
-  st.closeTV=()=>{if(st.mode!=='tv')return;$('mode').classList.remove('tv-mode');st.onHub?.();rig.state.yaw=0;const pos=new V3(0,0,-1.8),pose=viewPose(pos,0);travel('sofa-out',pos,pose.p,pose.l,1.35,roam,{yaw:0,sit:0,arc:1.6});};
-  st.togglePause=()=>{if(st.mode!=='roam')return;st.pause=!st.pause;$('hubPause').classList.toggle('open',st.pause);$('setBtn').classList.toggle('hub-settings',st.pause);st.velocity.set(0,0,0);if(st.pause){unlock();$('hubResume').focus();}else requestLock();};
+  st.closeTV=()=>{if(st.mode!=='tv')return;$('mode').classList.remove('tv-mode');st.onHub?.();rig.state.yaw=0;const pos=new V3(0,0,-5.05),pose=viewPose(pos,0);travel('sofa-out',pos,pose.p,pose.l,1.15,roam,{yaw:Math.PI,sit:0});};
+  st.togglePause=()=>{if(st.mode!=='roam')return;clearThrow();st.pause=!st.pause;$('hubPause').classList.toggle('open',st.pause);$('setBtn').classList.toggle('hub-settings',st.pause);st.velocity.set(0,0,0);if(st.pause){unlock();$('hubResume').focus();}else requestLock();};
   st.resume=()=>{if(st.pause)st.togglePause();};st.suspend=()=>{st.pausedForSettings=true;unlock();};st.resumeSettings=()=>{st.pausedForSettings=false;};
   Object.defineProperty(st,'wantsLock',{get:()=>st.active&&st.mode==='roam'&&!st.pause&&!st.pausedForSettings});
   st.claw=createClaw(scene,id=>{character(id);st.ch.root.position.set(8,0,-2.5);st.ch.root.rotation.y=Math.PI;st.ch.root.visible=false;});
   st.claw.root.position.set(8,0,-5);st.claw.root.scale.setScalar(.72);scope(()=>addSolid(6.8,-5.9,9.2,-3.75,0,2.5));
   st.claw.onClose=()=>{if(st.mode!=='claw')return;rig.state.yaw=0;const pos=new V3(8,0,-2.5),pose=viewPose(pos,0);travel('arcade-out',pos,pose.p,pose.l,1.15,roam);};
+  scope(()=>{Object.assign(world.state,{toolImpact,sodaBlast,knockDown,letGo,dismount:a=>dismount(a,false),leaveBench,leaveHide,leaveSwing,releaseCart:a=>release(a,.3),onDrink:()=>sfx('drink')});});
+  const arc=Array.from({length:22},()=>{const m=sprite(T.dot(),.2,{color:0xffb45a,depthTest:false,opacity:.95});m.renderOrder=10;m.visible=false;scene.add(m);return m;});
+  const land=new THREE.Mesh(G.ring,new THREE.MeshBasicMaterial({color:0xff8a1f,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}));land.rotation.x=-Math.PI/2;land.scale.setScalar(.5);land.visible=false;scene.add(land);
+  const aimPoint=()=>worldAimPoint(st.player,camera);
+  function clearThrow(){if(st.player)st.player.charging=false;for(const m of arc)m.visible=false;land.visible=false;}
+  const stationAt=p=>world.stations.find(q=>Math.abs(p.y)<.6&&(q.contains?q.contains(p):Math.hypot(p.x-q.p.x,p.z-q.p.z)<q.r));
   st.interact=()=>scope(()=>{
-    if(st.mode!=='roam'||st.pause||st.transition||st.player.dive||st.player.slideT>0||!st.player.onGround)return;const p=st.ch.root.position;if(st.player.bench){leaveBench(st.player);return;}if(st.player.hidden){leaveHide(st.player);return;}
-    if(st.ballHeld){st.throwBall();return;}if(p.distanceTo(world.ball.position)<1.65&&!st.ballFlight){st.ballHeld=true;sfx('pickup');return;}
-    const station=world.stations.find(q=>Math.hypot(p.x-q.p.x,p.z-q.p.z)<q.r);if(!station){nearInteract(st.player)?.act(st.player);return;}
-    if(station.id==='wardrobe'){
-      st.idx=collectionOrder().indexOf(collection().selected);wardrobeTransition(false);
-    }else if(station.id==='tv'){
-      travel('sofa-in',new V3(0,.58,-3.58),new V3(-.20,1.73,-4.65),new V3(-.20,1.73,-7.61),2.05,()=>{mode('tv');$('mode').classList.add('tv-mode');st.onMode?.();},{yaw:Math.PI,sit:1,arc:2.1});sfx('click');
+    const P=st.player;if(st.mode!=='roam'||st.pause||st.transition||P.stun>0||P.getT>0||P.heldBy)return;
+    if(P.ride||P.grab||P.bench||P.swing||P.hidden||P.holding){leaveObject(P);return;}
+    const station=stationAt(P.pos);if(!station||P.held){interactObject(P,camera);return;}if(P.dive||P.slideT>0||!P.onGround)return;
+    if(station.id==='wardrobe'){st.idx=collectionOrder().indexOf(collection().selected);wardrobeTransition(false);}
+    else if(station.id==='tv'){
+      const path=seatPath(P.pos,new V3(0,0,-5.05),P.r,P.h);if(!path)return;
+      const length=pathLength(path),walk=Math.max(.2,length/2.8),sit=.95;
+      travel('sofa-in',new V3(0,.58,-3.58),new V3(-.20,1.73,-4.65),new V3(-.20,1.73,-7.61),walk+sit,()=>{mode('tv');$('mode').classList.add('tv-mode');st.onMode?.();},{yaw:Math.PI,sit:1});
+      Object.assign(st.transition,{seat:{path,length,walk,sit}});sfx('click');
     }else{
       const cp=st.claw.root.localToWorld(new V3(.15,2.65,5.7)),lt=st.claw.root.localToWorld(new V3(0,1.85,.1));travel('arcade-in',new V3(8,0,-2.5),cp,lt,1.25,()=>{mode('claw');st.ch.root.visible=false;st.claw.open();},{yaw:Math.PI});
     }
   });
-  st.throwBall=()=>{if(!st.ballHeld||st.mode!=='roam'||st.pause)return;st.ballHeld=false;const p=world.ball.position.clone(),target=world.hoop,flight=1.05;st.ballFlight={v:new V3((target.x-p.x)/flight,(target.y+.45-p.y+7*flight*flight)/flight,(target.z-p.z)/flight),t:0,scored:false};sfx('throw');};
-  st.key=code=>{if(st.mode==='claw'){st.claw.key(code);return;}if(code==='Escape'){if(st.choosing)st.finishWardrobe(false);else if(st.mode==='tv')st.closeTV();else st.togglePause();return;}if(st.choosing){if(['KeyA','ArrowLeft'].includes(code))st.next(-1);if(['KeyD','ArrowRight'].includes(code))st.next(1);if(code==='Enter')st.finishWardrobe(true);}else if(code==='KeyE')st.interact();};
+  on('down',btn=>{if(!st.wantsLock||!locked())return;scope(()=>{const P=st.player;if(P.stun>0||P.heldBy)return;
+    if(P.grab&&(btn===0||btn===2)){release(P,1.1);return;}
+    if(btn===0&&P.charging){clearThrow();P.chargeManual=false;sfx('click');return;}
+    if(btn===0&&P.held){if(!P.held.def.hold){const snd=useTool(P,P.held,aimPoint());if(snd)sfx(snd);}return;}
+    if(btn===0&&!P.held){const radio=nearRadio(P,aim(camera));if(radio){toggleRadio(radio);return;}}
+    if(P.holding){if(btn===0||btn===2)letGo(P);return;}
+    if(!P.held&&!P.ride&&(btn===0||btn===2)){const c=nearestRideable(P,1.7,true);if(c){grab(P,c);return;}}
+    if(btn===0&&!P.held&&!P.ride){const v=grabTarget(P);if(v){grabActor(P,v);return;}}
+    if(btn===2&&P.held){P.charging=true;P.charge=0;P.chargeManual=false;P.aimYaw=P.root.rotation.y;}
+  });});
+  on('wheel',d=>{if(!st.wantsLock)return;if(!st.player.charging){scope(()=>{const radio=st.player.held?.type==='boombox'?st.player.held:!st.player.held?nearRadio(st.player,aim(camera)):null;if(radio)tuneRadio(radio,d);});return;}if(st.player.charging){st.player.chargeManual=true;st.player.charge=clamp(st.player.charge-d*.1,.05,1);sfx('tick');}});
+  on('up',btn=>{if(!st.wantsLock)return;scope(()=>{const P=st.player;if(btn===0&&P.held?.type==='bow')releaseBow(P,P.held,aimPoint());if(btn===0&&P.held?.type==='vacuum')vacuumFire(P,P.held,aimPoint());
+    if(btn===2&&P.charging){P.charging=false;const it=P.held;if(it){launch(it,it.pos.clone(),throwVelocity(it.pos,aimPoint(),P.charge,it.def));it.owner=P;P.held=null;P.throwT=.3;sfx('throw');voice(P.ch,'throw');}}
+  });});
+  st.key=code=>{if(st.mode==='claw'){st.claw.key(code);return;}if(code==='Escape'){if(st.choosing)st.finishWardrobe(false);else if(st.mode==='tv')st.closeTV();else st.togglePause();return;}if(st.choosing){if(['KeyA','ArrowLeft'].includes(code))st.next(-1);if(['KeyD','ArrowRight'].includes(code))st.next(1);if(code==='Enter')st.finishWardrobe(true);}else if(code==='KeyE'&&tapped('KeyE'))st.interact();};
   $('skinDone').onclick=()=>st.finishWardrobe(true);$('hubAction').onclick=st.interact;$('hubResume').onclick=st.resume;
   const wallet=()=>{$('menuCoins').textContent=collection().coins;};addEventListener('collectionchange',wallet);wallet();
   addEventListener('pointermove',e=>{if(st.claw.active)st.claw.pointerMove(e,camera);});
-  addEventListener('pointerdown',e=>{if(e.button===0&&st.wantsLock&&st.ballHeld&&!e.target.closest?.('button'))st.throwBall();});addEventListener('blur',()=>{if(st.mode==='roam'&&!st.pause)st.togglePause();});
-  const ballPrev=new V3(),previousActor=new V3();
+  addEventListener('blur',()=>{if(st.mode==='roam'&&!st.pause)st.togglePause();});
+  const previousActor=new V3();
   function walk(dt){
-    const delta=takeLook();updatePlayer(st.player,dt,st.t,true,rig.state.yaw);updatePushables(dt,st.player);updateItems(dt,st.player);updateBreakables(dt,st.player);updateWorldFx(dt,st.t,st.player);
-    for(const fn of world.state.animated)fn(dt,st.t);updateParticles(dt);rig.state.shake=FX.shake;rig.update(camera,st.player,dt,false,locked()?delta:null,false);st.ch.root.visible=!st.player.hidden;look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),20);
+    const P=st.player,delta=takeLook();world.state.time=st.t;
+    if(P.charging&&!P.chargeManual)P.charge=Math.min(1,P.charge+dt/CONFIG.throw.chargeTime);
+    if(mouse.left&&P.held?.def.hold&&P.stun<=0&&locked()){useTool(P,P.held,aimPoint(),dt);P.sprayT=P.held.type==='bow'?0:.1;}
+    updatePlayer(P,dt,st.t,true,rig.state.yaw);
+    if(P.held){cargoPosition(P,P.held.pos,P.held.def.r);P.held.g.rotation.y=P.root.rotation.y;poseMeleeItem(P,P.held);}
+    if(P.charging&&(!P.held||P.stun>0))clearThrow();
+    let shown=0;if(P.charging&&P.held){const tgt=aimPoint();P.aimYaw=Math.atan2(tgt.x-P.pos.x,tgt.z-P.pos.z);shown=predict(P.held.pos,throwVelocity(P.held.pos,tgt,P.charge,P.held.def),arc,arc.length,P.held.def,land);}if(P.held?.type==='bow'&&(P.held.draw||0)>.05){shown=predictBow(P,aimPoint(),arc,land);for(const m of arc){m.scale.setScalar(.085);m.material.depthTest=true;m.material.color.setHex(0xe8dfb9);}}else for(const m of arc){m.scale.setScalar(.2);m.material.depthTest=false;m.material.color.setHex(0xffb45a);}arc.forEach((m,i)=>m.visible=i<shown);if(!shown)land.visible=false;
+    updateItems(dt,P);updatePushables(dt,P);for(const fn of world.state.animated)fn(dt,st.t);updateSwingers(dt,st.t,P);updateWorldFx(dt,st.t,P);updateTools(dt,st.t);updateGrabs(dt,st.t);updateTraps(dt,st.t);updateSnacks(P,dt);updateBreakables(dt,P);updateParticles(dt);updateSplat(dt);
+    const want=new Set();if(!P.held)for(const it of world.state.items)if(['rest','placed'].includes(it.state)&&!it.noPickup&&(!it.boxed||it.boxed.open)&&it.pos.distanceTo(P.pos)<2.2)want.add(it.outline);
+    for(const q of world.state.interacts)if(q.outline&&(!q.glow||q.glow())&&(!q.enabled||q.enabled(P))&&Math.hypot(q.x-P.pos.x,q.z-P.pos.z)<q.r+.7&&Math.abs(q.y-P.pos.y)<(q.dy??.9)+.3)want.add(q.outline);
+    const ride=nearestRideable(P)||nearestRideable(P,1.7,true);if(ride&&!P.held)want.add(ride.outline);for(const o of glowing)if(!want.has(o))o?.set(false);for(const o of want)o?.set(true);glowing.clear();for(const o of want)glowing.add(o);pulseOutline(dt);
+    rig.state.shake=FX.shake;rig.state.fovAdd=P.boost*6;rig.update(camera,P,dt,false,locked()?delta:null,P.charging);st.ch.root.visible=!P.hidden&&camera.position.distanceTo(P.pos.clone().add(new V3(0,1,0)))>.95;look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),20);
   }
   st.update=dt=>scope(()=>{
-    dt=Math.min(.05,dt);st.t+=dt;if(!st.active&&st.mode!=='tv'){st.claw.update(dt);return;}
-    if(st.mode==='splash'){camera.position.lerp(new V3(Math.sin(st.t*.12)*.22,4.1,17),1-Math.exp(-dt*3));look.lerp(new V3(0,1.1,7.8),1-Math.exp(-dt*3));st.ch.animate(dt,{t:st.t,speed:0});}
+    dt=Math.min(.05,dt);if(FX.freeze>0){FX.freeze=Math.max(0,FX.freeze-dt);dt*=.05;}st.t+=dt;updateRadios(dt,st.player.pos,st.active&&st.mode==='roam'&&!st.pause&&!st.pausedForSettings);if(!st.active&&st.mode!=='tv'){st.claw.update(dt);return;}
+    if(st.mode==='splash'){camera.position.lerp(new V3(Math.sin(st.t*.12)*.22,3.8,17),1-Math.exp(-dt*3));look.lerp(new V3(0,3,-6),1-Math.exp(-dt*3));st.ch.animate(dt,{t:st.t,speed:0});}
     else if(st.transition){
-      const q=st.transition;q.t+=dt;const k=ease(q.t/q.duration);previousActor.copy(st.player.pos);st.ch.root.position.lerpVectors(q.from,q.to,k);st.ch.root.rotation.y=turn(q.fromYaw,q.toYaw,k);
+      const q=st.transition;q.t+=dt;const k=ease(q.t/q.duration);previousActor.copy(st.player.pos);st.ch.root.position.lerpVectors(q.from,q.to,k);if(!q.seat)st.ch.root.rotation.y=turn(q.fromYaw,q.toYaw,k);
       if(q.wardrobe){const w=q.wardrobe,crossAt=w.approach+w.wait,endCross=crossAt+w.cross,part=clamp(q.t/w.approach,0,1);
         if(q.t<w.approach)st.player.pos.lerpVectors(q.from,w.gate,ease(part));else st.player.pos.lerpVectors(w.gate,q.to,ease(clamp((q.t-crossAt)/w.cross,0,1)));
         const openStart=w.out ? .12 : Math.max(0,w.approach-.25),open=clamp((q.t-openStart)/.5,0,1),close=clamp((q.t-endCross)/w.close,0,1);world.curtain(ease(open)*(1-ease(close)));
         const face=w.out?world.wardrobe.outYaw:world.wardrobe.inYaw;st.ch.root.rotation.y=turn(q.fromYaw,face,ease(clamp(q.t/.35,0,1)));if(!w.out&&q.t>endCross)st.ch.root.rotation.y=turn(face,world.wardrobe.outYaw,ease(close));
       }
-      const seatK=q.name==='sofa-in'?ease(clamp((k-.55)/.45,0,1)):k;st.sit=q.sitFrom+(q.sit-q.sitFrom)*seatK;camera.position.lerpVectors(q.cp,q.ct,k);camera.position.x+=Math.sin(k*Math.PI)*q.arc;look.lerpVectors(q.lp,q.lt,k);
+      let seatK=k;
+      if(q.seat){const a=q.seat;if(q.t<a.walk){samplePath(a.path,a.length*ease(q.t/a.walk),st.player.pos);const v=st.player.pos.clone().sub(previousActor);if(v.lengthSq()>.000001)st.ch.root.rotation.y=turn(st.ch.root.rotation.y,Math.atan2(v.x,v.z),1-Math.exp(-dt*14));seatK=0;}
+        else{const z=clamp((q.t-a.walk)/a.sit,0,1);seatK=ease(clamp((z-.25)/.75,0,1));st.player.pos.lerpVectors(a.path.at(-1),q.to,seatK);st.ch.root.rotation.y=turn(st.ch.root.rotation.y,Math.PI,1-Math.exp(-dt*15));}}
+      st.sit=q.sitFrom+(q.sit-q.sitFrom)*seatK;camera.position.lerpVectors(q.cp,q.ct,k);camera.position.x+=Math.sin(k*Math.PI)*q.arc;look.lerpVectors(q.lp,q.lt,k);
       const speed=st.player.pos.distanceTo(previousActor)/Math.max(dt,.001);st.ch.animate(dt,{t:st.t,speed:speed/CONFIG.player.sprint*1.4,ride:st.sit>.05?'sit':null,dangle:true});
       if(q.t>=q.duration){st.player.pos.copy(q.to);st.player.facing=st.ch.root.rotation.y;st.transition=null;q.done();}
     }
     else if(st.mode==='roam'&&!st.pause&&!st.pausedForSettings)walk(dt);else st.ch.animate(dt,{t:st.t,speed:0,ride:st.sit>.05?'sit':null,dangle:true});
-    if(st.sit>0){st.ch.body.position.y=-.38*st.sit;for(const[h,x]of[[st.ch.handL,-.19],[st.ch.handR,.19]])h.position.lerp(new V3(x,.46,.42),st.sit);world.controller.position.set(.45,.56,-3.58).lerp(st.ch.root.localToWorld(new V3(0,.46,.44)),clamp(st.sit*2,0,1));world.controller.rotation.set(0,st.ch.root.rotation.y,0);}else{world.controller.position.set(.45,.56,-3.58);world.controller.rotation.set(0,.25,0);}
+    if(st.sit>0){st.ch.body.position.y=-.25*st.sit;for(const[h,x]of[[st.ch.handL,-.19],[st.ch.handR,.19]])h.position.lerp(new V3(x,.46,.42),st.sit);world.controller.position.set(.45,.56,-3.58).lerp(st.ch.root.localToWorld(new V3(0,.46,.44)),clamp(st.sit*2,0,1));world.controller.rotation.set(0,st.ch.root.rotation.y,0);}else{world.controller.position.set(.45,.56,-3.58);world.controller.rotation.set(0,.25,0);}
     if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);sky.update(camera,st.t,dt);setListener(camera.position.x,camera.position.y,camera.position.z);
-    if(st.ballHeld)world.ball.position.copy(st.ch.root.localToWorld(new V3(0,.85,.55)));
-    if(st.ballFlight&&!st.pause){const f=st.ballFlight;ballPrev.copy(world.ball.position);f.t+=dt;f.v.y-=14*dt;world.ball.position.addScaledVector(f.v,dt);world.ball.rotation.x+=dt*5;
-      if(!f.scored&&f.v.y<0&&ballPrev.y>world.hoop.y&&world.ball.position.y<=world.hoop.y&&Math.hypot(world.ball.position.x-world.hoop.x,world.ball.position.z-world.hoop.z)<.43){f.scored=true;st.scoreT=1.8;sfx('win');world.fx.forEach(m=>{m.visible=true;m.position.copy(world.hoop);});}
-      if(world.ball.position.y<.24){world.ball.position.y=.24;f.v.y=Math.abs(f.v.y)*.58;f.v.x*=.64;f.v.z*=.64;}if(f.t>5){st.ballFlight=null;world.ball.position.set(6.1,.24,5.7);}}
-    if(st.scoreT>0){st.scoreT-=dt;const t=1.8-st.scoreT;world.fx.forEach((m,i)=>{const a=i*2.4;m.position.set(world.hoop.x+Math.cos(a)*t*1.5,world.hoop.y+Math.sin(i*17)*t*1.7-t*t*2,world.hoop.z+Math.sin(a)*t*1.5);m.visible=st.scoreT>0;});}
-    screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const p=st.ch.root.position,q=world.stations.find(q=>Math.hypot(p.x-q.p.x,p.z-q.p.z)<q.r),extra=nearInteract(st.player),text=st.player.bench?'Встать со скамейки':st.player.hidden?'Выйти из листьев':st.scoreT>0?'ПОПАДАНИЕ!':st.ballHeld?'ЛКМ - бросить в кольцо':!st.ballFlight&&p.distanceTo(world.ball.position)<1.65?'Взять баскетбольный мяч':q?q.name+' · '+q.hint:extra?extra.label:'';$('hubAction').classList.toggle('hidden',!text||st.mode!=='roam'||st.pause);if(text!==lastPrompt){lastPrompt=text;$('hubActionText').textContent=text;}$('hubHint').classList.toggle('hidden',st.pause);}
+    const wantedScreen=st.mode==='tv'||st.transition?.name==='sofa-in'?0:1;screenFade+=(wantedScreen-screenFade)*(1-Math.exp(-dt*5));world.tvScreen.material.color.setScalar(screenFade);
+    for(const{lamp,light}of world.lampLights){const on=lamp.pool.visible&&!lamp.pool.userData.broken;light.intensity=on?9:0;lamp.cone.visible=on;}
+    screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const q=stationAt(st.player.pos),text=q&&!st.player.held?q.hint:'';$('hubAction').classList.toggle('hidden',!text||st.mode!=='roam'||st.pause||st.player.bench||st.player.hidden||st.player.ride);if(text!==lastPrompt){lastPrompt=text;$('hubActionText').textContent=text;}}
+
   });
   character(collection().selected);world.curtain(0);return st;
 }

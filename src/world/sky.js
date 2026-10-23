@@ -9,7 +9,7 @@ import { W } from './state.js';
 const R = Math.random;
 function canvasTex(key, w, h, draw) { return pix(key, w, h, draw); }
 
-export function createSky(scene) {
+export function createSky(scene, {moonDirection} = {}) {
   const g = new THREE.Group(); g.renderOrder = -10; scene.add(g);
   const mat = o => new THREE.MeshBasicMaterial({ fog: false, depthWrite: false, ...o });
   // купол
@@ -33,7 +33,7 @@ export function createSky(scene) {
   const moonT = canvasTex('moon', 32, 32, (x, w, h) => { x.fillStyle = '#f4eedc'; x.beginPath(); x.arc(w / 2, h / 2, w / 2 - 2, 0, 7); x.fill(); x.fillStyle = 'rgba(160,150,170,.55)';
     for (const [a, b, r] of [[11, 12, 4], [20, 18, 3], [14, 22, 2], [22, 10, 2]]) { x.beginPath(); x.arc(a, b, r, 0, 7); x.fill(); } });
   const haloT = canvasTex('halo', 64, 64, (x, w, h) => { const gr = x.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(255,230,200,.55)'); gr.addColorStop(0.35, 'rgba(220,180,255,.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, w, h); });
-  const md = new THREE.Vector3(-0.45, 0.42, -0.79).normalize().multiplyScalar(170);
+  const md = (moonDirection ? moonDirection.clone() : new THREE.Vector3(-0.45, 0.42, -0.79)).normalize().multiplyScalar(170);
   const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: moonT, fog: false, depthWrite: false })); moon.scale.setScalar(14); moon.position.copy(md); moon.renderOrder = -8; g.add(moon);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloT, fog: false, depthWrite: false, blending: THREE.AdditiveBlending })); halo.scale.setScalar(60); halo.position.copy(md).multiplyScalar(1.01); halo.renderOrder = -9; g.add(halo);
   // облака

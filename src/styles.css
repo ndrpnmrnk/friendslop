@@ -436,9 +436,7 @@ button:disabled{opacity:.45;cursor:default}
 #menu.choosing .skinrow{visibility:visible;opacity:1}
 #skinLock{bottom:3vh!important;font:10px var(--px);color:#c8c4d1;text-shadow:2px 2px #211b30}
 #hubUI{position:absolute;inset:0;pointer-events:none}
-#hubAction{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:13px;background:#24202eea;border:1px solid #877a71;color:#eddec1;padding:13px 18px;font:16px Rubik,sans-serif;white-space:nowrap;pointer-events:auto;box-shadow:4px 4px #15141d}
-#hubHint{position:absolute;bottom:23px;left:0;right:0;text-align:center;color:#e0d4bf;font:12px Rubik,sans-serif;text-shadow:2px 2px #191623;letter-spacing:1px}
-#hubHint span{margin:0 22px;color:#b2a6b9}
+#hubAction{position:absolute;top:86px;right:24px;display:flex;align-items:center;gap:13px;background:#24202eea;border:1px solid #877a71;color:#eddec1;padding:13px 18px;font:14px Rubik,sans-serif;white-space:nowrap;pointer-events:auto;box-shadow:4px 4px #15141d}
 #hubPause{position:absolute;left:5vw;top:32%;display:flex;flex-direction:column;align-items:flex-start;gap:18px;opacity:0;visibility:hidden;transform:translateX(-45px);transition:transform .3s,opacity .3s,visibility .3s;padding:26px;background:#211b30ed;border-left:3px solid #d3a26c}
 #hubPause.open{opacity:1;visibility:visible;transform:translateX(0)}
 #hubPause small{font:10px var(--px);color:#b8a7b5;margin-bottom:6px}
@@ -446,16 +444,15 @@ button:disabled{opacity:.45;cursor:default}
 #hubPause .pback{position:static;font:15px Rubik,sans-serif;margin-top:0;padding:8px 0}
 .clawTop{font-size:11px;padding:14px 24px 28px}#clawMessage{left:24px;right:24px;font-size:13px;top:32px;margin:0;padding:0;background:none;border:0;line-height:1.3}
 .clawArrows{display:none}.clawControls{bottom:3vh;gap:22px}#clawDrop{font-size:10px;padding:15px}#clawBack{font-size:9px}
-@media(max-width:760px){#hubHint{font-size:10px;padding:0 20px}#hubHint span{margin:0 8px}#hubAction{font-size:12px;max-width:90vw;white-space:normal;width:max-content}#menu .skinrow{gap:5px}.plabel{min-width:100px;font-size:10px;padding:12px 6px}#skinDone{font-size:10px;width:85px}#hubPause{left:3vw;padding:20px}#clawMessage{left:16px;right:16px;top:33px;font-size:11px}}
+@media(max-width:760px){#hubAction{font-size:12px;max-width:90vw;white-space:normal;width:max-content}#menu .skinrow{gap:5px}.plabel{min-width:100px;font-size:10px;padding:12px 6px}#skinDone{font-size:10px;width:85px}#hubPause{left:3vw;padding:20px}#clawMessage{left:16px;right:16px;top:33px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){#hubPause,#menu #logo,#menu #playBtn,#menu #tutBtn,#menu #setBtn{transition:none}}
 
 /* v0.40: выбор режима - одна компактная карточка поверх кадра телевизора. */
 #mode.tv-mode{inset:0;left:0;top:0;width:100%;height:100%;padding:0;overflow:visible;background:none;box-shadow:none;pointer-events:none;justify-content:center;gap:24px}
 #mode.tv-mode .sctitle{position:absolute;top:12vh;margin:0;font-size:clamp(14px,2vw,23px);color:#d6ccb9;letter-spacing:2px;pointer-events:none;text-shadow:3px 3px #15121d}
-#mode.tv-mode .pcard{width:min(320px,76vw);max-height:none;height:auto;flex:0 0 auto;min-height:0;padding:16px;gap:12px;background:#211c2beF;border:2px solid #746777;box-shadow:5px 5px #0d0c13;pointer-events:auto}
+#mode.tv-mode .pcard{width:min(380px,76vw);max-height:none;height:auto;flex:0 0 auto;min-height:0;padding:16px;gap:12px;background:#211c2beF;border:2px solid #746777;box-shadow:5px 5px #0d0c13;pointer-events:auto}
 #mode.tv-mode .pcard canvas{height:auto;width:100%;max-width:100%;aspect-ratio:5/3;object-fit:contain}
 #mode.tv-mode .pcard b{font-size:16px;margin:0;color:#d8c397}
 #mode.tv-mode .pcard small{font-size:13px;color:#bcb0be}
 #mode.tv-mode .pback{position:absolute;left:26px;bottom:25px;top:auto;margin:0;padding:10px;font-size:11px;pointer-events:auto}
-#menu #hubHint{letter-spacing:.4px}
 @media(max-height:580px){#mode.tv-mode .sctitle{top:5vh;font-size:14px}#mode.tv-mode .pcard{width:260px;padding:12px;gap:8px}#mode.tv-mode .pcard canvas{max-height:145px}}
