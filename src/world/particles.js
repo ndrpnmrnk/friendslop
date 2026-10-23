@@ -4,10 +4,12 @@ import { W } from './state.js';
 import { groundAt } from './physics.js';
 
 /* Пиксельные частицы: дым, пыль, брызги. Спрайты переиспользуются. */
-let pool = [], smokes = [], ripples = [];
-export const resetParticles = () => { pool = []; smokes = []; ripples = []; };
+const pools=new WeakMap();
+function particles(){let state=pools.get(W.group);if(!state){state={pool:[],smokes:[],ripples:[]};pools.set(W.group,state);}return state;}
+export const resetParticles = () => { if(W.group)pools.delete(W.group); };
 // круги на воде
 export function ripple(x, y, z, size = 1, life = 0.9) {
+  const {ripples}=particles();
   let p = ripples.find(q => !q.alive);
   if(!p&&ripples.length>=48)return;
   if (!p) { const m = new THREE.Mesh(G.plane, alphaMat(T.ripple(), { opacity: 0.8 })); m.rotation.x = -Math.PI / 2; W.group.add(m); p = { m }; ripples.push(p); }
@@ -25,6 +27,7 @@ export function splash(x, y, z, power = 1) {
    Мелкая пыль — крошечные кубики, которые подпрыгивают и падают. */
 const SMOKE_GEO = new THREE.IcosahedronGeometry(1, 0), DUST_GEO = new THREE.BoxGeometry(1, 1, 1);
 export function smoke(x, y, z, o = {}) {
+  const {smokes}=particles();
   const dust = !!o.dust, geo = dust ? DUST_GEO : SMOKE_GEO;
   let p = smokes.find(q => !q.alive && q.dust === dust);
   if(!p&&smokes.length>=180)return;
@@ -44,6 +47,7 @@ export function smokeRing(x, y, z, n, o = {}) {
     smoke(x + Math.cos(a) * 0.2, y, z + Math.sin(a) * 0.2, { vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: o.up ?? 0.4, size: o.size ?? 0.18, grow: o.grow ?? 0.5, life: o.life ?? 0.6, g: -0.2, color: o.color }); }
 }
 export function puff(x, y, z, o = {}) {
+  const {pool}=particles();
   let p = pool.find(q => !q.alive);
   if(!p&&pool.length>=320)return;
   if (!p) {
@@ -80,6 +84,7 @@ export function decal(tex, x, y, z, size, life, color) {
 }
 
 export function updateParticles(dt) {
+  const {pool,smokes,ripples}=particles();
   for (const p of pool) {
     if (!p.alive) continue;
     p.t += dt; const k = p.t / p.life;

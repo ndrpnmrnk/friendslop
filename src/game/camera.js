@@ -5,19 +5,6 @@ import { solidsNear, groundAt } from '../world/physics.js';
 import { clamp, damp } from '../core/rng.js';
 import { CONFIG } from '../config.js';
 
-/* Камера из-за плеча. Стены и потолки не пускают её внутрь себя, по полу она скользит.
-   Поза мини-игры фиксирована, обычная камера следует за игроком без автоповорота. */
-export const cam = { pose: null, yaw: 0, pitch: 0.45, curDist: 6, sens: 0.0024, aimK: 0, idle: 0,
-  normal: { dist: 6.4, shoulder: 1.15, height: 2.05 }, aim: { dist: 3.5, shoulder: 1.15, height: 2.1 } };
-const pos = new V3(), look = new V3(), tgt = new V3(), want = new V3(), dir = new V3(), hit = new V3(), piv = new V3(), sh = new V3(), eye = new V3(), pv = new V3(), delta = new V3();
-const ray = new THREE.Ray();
-let following = false, orbitPitch = 0.45, orbitYaw = 0;
-
-export function resetCamera(yaw) { cam.yaw = orbitYaw = yaw; cam.pitch = orbitPitch = 0.45; cam.curDist = cam.normal.dist; cam.aimK = 0; cam.blend = 1; following = false; }
-export function camForward() { return [-Math.sin(cam.yaw), -Math.cos(cam.yaw)]; }
-
-// Луч по расширенным AABB = движение камеры с запасом по всем трём осям.
-// floorY: твёрдое, чей верх ниже этой высоты, не мешает (по полу и низким предметам камера скользит сверху)
 export function castCamera(o, d, maxT, radius, ignore = null, floorY = -Infinity) {
   let best = maxT;
   const ex = o.x + d.x * maxT, ez = o.z + d.z * maxT;
@@ -35,6 +22,22 @@ export function castCamera(o, d, maxT, radius, ignore = null, floorY = -Infinity
   }
   return best;
 }
+
+export function createCameraRig(){
+/* Камера из-за плеча. Стены и потолки не пускают её внутрь себя, по полу она скользит.
+   Поза мини-игры фиксирована, обычная камера следует за игроком без автоповорота. */
+const cam = { pose: null, yaw: 0, pitch: 0.45, curDist: 6, sens: 0.0024, aimK: 0, idle: 0,
+  normal: { dist: 6.4, shoulder: 1.15, height: 2.05 }, aim: { dist: 3.5, shoulder: 1.15, height: 2.1 } };
+const pos = new V3(), look = new V3(), tgt = new V3(), want = new V3(), dir = new V3(), hit = new V3(), piv = new V3(), sh = new V3(), eye = new V3(), pv = new V3(), delta = new V3();
+const ray = new THREE.Ray();
+let following = false, orbitPitch = 0.45, orbitYaw = 0;
+
+function resetCamera(yaw) { cam.yaw = orbitYaw = yaw; cam.pitch = orbitPitch = 0.45; cam.curDist = cam.normal.dist; cam.aimK = 0; cam.blend = 1; following = false; }
+
+
+// Луч по расширенным AABB = движение камеры с запасом по всем трём осям.
+// floorY: твёрдое, чей верх ниже этой высоты, не мешает (по полу и низким предметам камера скользит сверху)
+
 function constrain(from, to, radius, ignore, floorY) {
   delta.subVectors(to, from); const len = delta.length();
   if (len > 1e-6) to.copy(from).addScaledVector(delta.multiplyScalar(1 / len), castCamera(from, delta, len, radius, ignore, floorY));
@@ -49,7 +52,7 @@ function aboveGround(v, maxY, clear = 0.35) {
 
 /* Камера свободно наклоняется мышью: от взгляда снизу вверх (камера у самой земли) до вида
    почти сверху. Стены и потолки её останавливают, а по полу и низким объектам она скользит. */
-export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
+function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   if (!cam.pose) updateOcclusion(camera, null);
   if (cam.free) { camera.position.copy(cam.free.p); camera.lookAt(cam.free.l); return; } // отладка: свободная камера
   const clearanceFov = cam.pose ? 105 : camera.fov;
@@ -150,3 +153,13 @@ export function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
     for (const m of o.mats) { m.opacity = o.op; if (m.transparent !== tr) { m.transparent = tr; m.depthWrite = !tr; m.needsUpdate = true; } }
   }
 }
+
+return {state:cam,reset:resetCamera,update:updateCamera,
+  resume(camera){pos.copy(camera.position);look.copy(camera.position).addScaledVector(camera.getWorldDirection(dir),20);following=false;cam.blend=0;}
+};
+}
+const mainRig=createCameraRig();
+export const cam=mainRig.state;
+export const resetCamera=mainRig.reset;
+export const updateCamera=mainRig.update;
+export const camForward=()=>[-Math.sin(cam.yaw),-Math.cos(cam.yaw)];

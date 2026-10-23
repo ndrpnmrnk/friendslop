@@ -18,8 +18,7 @@ import { actors, shove, tickStun, ragK, knockDown } from './actors.js';
 import { updateZip } from './zipline.js';
 
 const PC = CONFIG.player;
-export function createPlayer(skin) {
-  const ch = makeCharacter(skin);
+export function createPlayer(skin, ch = makeCharacter(skin)) {
   return {
     ch, root: ch.root, pos: ch.root.position, vel: new V3(), push: new V3(),
     r: PC.radius, h: PC.height, step: PC.step, onGround: true, landed: false,

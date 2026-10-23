@@ -11,12 +11,11 @@ import {crateCoins} from '../game/coins.js';
    Если энергия больше прочности — часть разлетается на куски.
    У кирпичных стен и сараев есть опора: без неё верхние части падают. */
 export const STRENGTH = { glass: 3.5, wood: 8, brick: 18, crate: 6, pot: 2.5, bottle: 1.2, bulb: 2 };
-let breakables = [];
-export const resetBreakables = () => { breakables = []; W.breakables = breakables; };
+export const resetBreakables = () => { W.breakables = []; };
 
 export function addPiece(mesh_, solid, kind, extra = {}) {
   const p = { mesh: mesh_, solid, kind, alive: true, fall: -1, above: [], ...extra };
-  breakables.push(p); return p;
+  W.breakables.push(p); return p;
 }
 
 // Стена из блоков. axis 'x' — стена вдоль X. Координаты мировые.
@@ -98,7 +97,7 @@ export function breakPiece(p, vel = [0, 0, 0]) {
 export function hitBreakables(pos, r, vel, mass, kinds = null) {
   const speed = Math.hypot(vel[0], vel[1], vel[2]), energy = speed * mass;
   let hit = false;
-  for (const p of breakables) {
+  for (const p of W.breakables) {
     if (!p.alive || !p.solid || (kinds && !kinds.includes(p.kind))) continue;
     const s = p.solid;
     const cx = Math.max(s.x0, Math.min(pos.x, s.x1)), cy = Math.max(s.y0, Math.min(pos.y, s.y1)), cz = Math.max(s.z0, Math.min(pos.z, s.z1));
@@ -110,7 +109,7 @@ export function hitBreakables(pos, r, vel, mass, kinds = null) {
 }
 
 export function updateBreakables(dt, player) {
-  for (const p of breakables) {
+  for (const p of W.breakables) {
     if (p.alive && p.fall > 0) { p.fall -= dt; if (p.fall <= 0) breakPiece(p, [(Math.random() - 0.5), 0, (Math.random() - 0.5)]); }
     // ящики появляются снова на своём месте (если там никто не стоит)
     if (!p.alive && p.respawnT > 0) { p.respawnT -= dt; if (p.respawnT <= 0) {
@@ -126,7 +125,7 @@ const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 export function bakeBreakables(group) {
   const by = new Map();
   group.updateMatrixWorld(true);
-  for (const p of breakables) {
+  for (const p of W.breakables) {
     if (!p.alive || !p.mesh.parent) continue;
     const list = []; p.mesh.traverse(o => { if (o.isMesh) list.push(o); });
     if (!list.length || list.some(o => Array.isArray(o.material))) continue;

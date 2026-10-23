@@ -1,5 +1,5 @@
 // Общее состояние мира текущего раунда. Очищается при генерации новой карты.
-export const W = {
+export let W = {
   group: null,
   solids: [], zones: [], doors: [], ladders: [], pushables: [], items: [],
   occluders: [], birds: [], cats: [], catHomes: [], missionZones: [], spawns: [],
@@ -14,3 +14,8 @@ export function resetWorld(group) {
   for (const k of ['solids', 'canopies', 'zones', 'doors', 'ladders', 'pushables', 'items', 'occluders', 'birds', 'cats', 'npcs', 'catHomes', 'missionZones', 'spawns', 'debris', 'decals', 'animated', 'districts', 'breakables', 'holes', 'tunnelOpenings', 'keep', 'swingers', 'swingSeats', 'cars', 'vendings', 'flick', 'manholes', 'chimneys', 'interacts', 'elevators', 'bouncers', 'hydrants', 'bells', 'dropLadders', 'carousels', 'hides', 'benches', 'flowers']) W[k] = [];
   W.buildings = []; W.obbs = []; W.slides = []; W.rails = []; W.pitch = null; W.flickRooms = []; W.flowerbeds = []; W.traps2 = []; W.ziplines = []; W.fires = []; W.lure = null; W.moth = null; W.dead = []; W.lamps = []; W.puddles = []; W.kitchens = []; W.phones = []; W.goals = []; W.hills = []; W.crane = null; W.grid = new Map(); W.hitHooks = []; W.floodRects = []; W.spots = { fish: [], fuse: [], safe: [], pickup: [], deliver: [], demo: [], crane: [], kitchen: [], phone: [], fire: [], bulb: [], pizza: [], pen: [], grill: [], car: [] };
 }
+
+// Хаб использует те же игровые системы, но хранит свой мир отдельно от матча.
+// Все импортирующие модули получают актуальное W через живую ES-привязку.
+export function withWorld(world, fn) { const previous=W;W=world;try{return fn();}finally{W=previous;} }
+export function createWorld(group) { const world={bounds:50};withWorld(world,()=>resetWorld(group));return world; }
