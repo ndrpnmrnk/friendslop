@@ -18,7 +18,7 @@
 <!-- Главное меню: поверх 3D-сцены только логотип, имя скина и кнопка -->
 <div id="menu" class="screen hidden">
   <div id="logo" aria-label="Friendslop"></div>
-  <button id="characterPick" aria-label="Выбрать персонажа">ВЫБРАТЬ ПЕРСОНАЖА</button>
+
   <div class="skinrow" aria-label="Выбор персонажа">
     <button class="parr" id="skinPrev" aria-label="Предыдущий персонаж">◀</button>
     <div class="plabel" id="skinName">Котик</div>
@@ -29,8 +29,10 @@
   <button class="parr" id="setBtn" aria-label="Настройки"></button>
   <button class="pback" id="tutBtn">ОБУЧЕНИЕ</button>
   <div id="wallet"><i class="coinIcon"></i><b id="menuCoins">0</b></div>
-  <button class="parr" id="clawOpen">ВЫЛОВИТЬ ДРУГА <small>50 МОНЕТ</small></button>
+
   <div id="skinLock" class="hidden">ЗАКРЫТ · ВЫЛОВИ В АВТОМАТЕ</div>
+  <div id="hubUI" class="hidden"><button id="hubAction" class="hidden"><span class="key">E</span><span id="hubActionText"></span></button><div id="hubHint">WASD · идти <span>МЫШЬ · камера</span> E · действие <span>Esc · меню</span></div></div>
+  <nav id="hubPause" aria-label="Меню хаба"><small>ДВОР FRIENDSLOP</small><button id="hubResume" class="pbtn">ПРОДОЛЖИТЬ</button><button id="hubExit" class="pbtn alt">ВЫХОД ИЗ ИГРЫ</button><button id="hubTutorial" class="pback">Обучение</button></nav>
 </div>
 <div id="clawUI" class="hidden"><div class="clawTop"><b>ВЫЛОВИ ДРУГА</b><span><i class="coinIcon"></i><b id="clawBalance">0</b></span></div><p id="clawMessage" aria-live="polite"></p><div class="clawControls"><div class="clawArrows"><button class="parr" data-claw="KeyW" aria-label="Клешня назад">▲</button><div><button class="parr" data-claw="KeyA" aria-label="Клешня влево">◀</button><button class="parr" data-claw="KeyS" aria-label="Клешня вперёд">▼</button><button class="parr" data-claw="KeyD" aria-label="Клешня вправо">▶</button></div></div><button class="pbtn" id="clawDrop">ИГРАТЬ · 50 МОНЕТ</button><button class="pback" id="clawBack">ВЕРНУТЬСЯ</button></div></div>
 
@@ -53,7 +55,7 @@
 
 <!-- Выбор режима -->
 <div id="mode" class="screen hidden">
-  <div class="sctitle">РЕЖИМ</div>
+  <div class="sctitle">ВЫБЕРИ КАНАЛ</div>
   <button class="pcard" id="modeCard"><canvas id="modeArt" width="160" height="96"></canvas><b>ОБЫЧНЫЙ</b><small>5 минут · миссии · хаос</small></button>
   <button class="pback" id="modeBack">◀ <span class="key">Esc</span></button>
 </div>

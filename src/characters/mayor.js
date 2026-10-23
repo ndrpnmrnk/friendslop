@@ -19,11 +19,11 @@ export function mayorModel(){
  const lard=new THREE.Group();root.add(lard);lard.visible=false;
  const fat=tmat(pix('mayor38-fat',64,64,g=>{g.fillStyle='#e9d6ad';g.fillRect(0,0,64,64);for(let y=0;y<64;y++)for(let x=0;x<64;x++){const band=(y+Math.sin(x*.12)*2+Math.sin(x*.39)*1.2+64)%19;if(band<7){g.fillStyle=band<2?'#bd8b7a':band<5?'#d3a38c':'#f1e0bd';g.fillRect(x,y,1,1);}}g.fillStyle='#b58765';g.fillRect(0,0,64,5);for(let i=0;i<120;i++){g.fillStyle=i%2?'#f2e2bd':'#dcc6a4';g.fillRect(i*31%64,6+i*17%58,1,1);}}));mesh(lardGeo(),fat,0,.99,0,1,1,1,lard).rotation.z=.11;
  lard.add(compose('mayor38-lard-face',a=>{for(const s of[-1,1]){a(G.sphL,col(0xebe0bc),s*.28,1.33+s*.05,.51,.13,.13,.025);a(G.sphL,col(0x39323d),s*.28,1.32+s*.05,.534,.055,.07,.01);}a(G.box,col(0x725b51),.04,1.08,.52,.31,.035,.02,0,0,-.18);a(G.sphL,col(0xc98f80),.11,1.02,.54,.11,.055,.025);a(G.cyl12,col(0xdad1a8),-.10,1.72,0,.29,.035,.25,0,0,-.16);a(G.cyl8,col(0xdad1a8),-.12,1.86,0,.18,.25,.17,0,0,-.16);a(G.cyl8,col(0x528083),-.10,1.75,0,.19,.05,.18,0,0,-.16);}));
- let drinking=0,look=0,converted=false;
+ let drinking=0,look=0,converted=false,lastT=null,gait=0,stride=0;
  return{root,body,lard,handR:hands[1],drinkHand:hands[0],arms,feet,
   face(e){for(const eye of eyes)eye.scale.y=e==='closed'?.15:1;},
   drink(k){drinking=k;book.visible=k<=0;cane.visible=k<=0;},
-  animate(t,speed=0,mood='idle'){const p=Math.sin(t*6.0),bounce=Math.abs(p)*speed*.028;body.position.y=bounce;body.rotation.z=p*speed*.025;body.rotation.x=Math.sin(t*1.3)*.009;look+=((mood==='look'?.18:0)-look)*.04;body.rotation.y=look;lard.position.y=bounce;lard.rotation.z=Math.sin(t*2)*.025;
+  animate(t,speed=0,mood='idle'){const dt=lastT===null?1/60:Math.max(0,Math.min(.05,t-lastT));lastT=t;gait+=(speed-gait)*(1-Math.exp(-dt*9));stride+=dt*(2.5+gait*6);speed=gait;const p=Math.sin(stride),bounce=Math.abs(p)*speed*.028;body.position.y=bounce;body.rotation.z=p*speed*.025;body.rotation.x=Math.sin(t*1.3)*.009;look+=((mood==='look'?.18:0)-look)*(1-Math.exp(-dt*3.5));body.rotation.y=look;lard.position.y=bounce;lard.rotation.z=Math.sin(t*2)*.025;
    for(let i=0;i<2;i++){const s=i?1:-1;feet[i].position.y=.10+Math.max(0,p*-s)*speed*.11;feet[i].position.z=p*-s*speed*.11;hands[i].position.set(s*.93,.90+Math.sin(t*2+i)*.025,.12+p*s*speed*.07);}
    if(drinking>0){const reach=new V3(-1.5,1.47,.11);if(drinking<.3)hands[0].position.lerp(reach,drinking/.3);else hands[0].position.copy(reach).lerp(new V3(-.12,1.58,.79),Math.min(1,(drinking-.3)/.7));}
    for(let i=0;i<2;i++)link(arms[i],new V3(i?.82:-.82,1.42,.02),hands[i].position);if(mood==='read'&&!drinking){hands[1].position.set(.43,1.19,.61);book.rotation.x=-.35;link(arms[1],new V3(.82,1.42,.02),hands[1].position);}else book.rotation.x=0;

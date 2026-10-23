@@ -104,8 +104,8 @@ const camera = makeCamera(CONFIG.camera.fov);
 const menu = createMenu();
 const podium = createPodium();
 // мышь захватывается для камеры во время игры (кроме мини-игр)
-lock.want = () => ['starting','roulette','intro','play'].includes(S.state) && !S.mg;
-document.addEventListener('pointerlockchange', () => { if(locked()&&!lock.want())unlock(); setCursor(S.cursor);  $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
+lock.want = () => (['starting','roulette','intro','play'].includes(S.state) && !S.mg) || (S.state==='hub'&&menu.wantsLock);
+document.addEventListener('pointerlockchange', () => { if(locked()&&!lock.want())unlock();if(!locked()&&S.state==='hub'&&menu.wantsLock)menu.togglePause(); setCursor(S.cursor);  $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
 
 const S = { state: 'menu', intro: null, time: 0, score: 0, done: 0, mg: null, wm: null, crane: false, hudT: 0, cursor: true };
 let P = null;
@@ -115,32 +115,35 @@ const arc = []; for (let i = 0; i < 22; i++) { const m = sprite(T.dot(), 0.2, { 
 const land = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xff8a1f, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
 land.rotation.x = -Math.PI / 2; land.scale.setScalar(0.5); land.material.depthTest = false; land.renderOrder = 10; land.visible = false; scene.add(land);
 
-/* ---------- экраны: меню → режим → рулетка → пролёт → игра → итоги ---------- */
+/* ---------- экраны: титул → двор → телевизор → рулетка → пролёт → игра → итоги ---------- */
 const SCREENS = ['menu', 'mode', 'roulette', 'results', 'settings'];
 function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k !== id); }
 function buildLogo() { const l = $('logo'); if (l.childElementCount) return; for (const ch of TEXT.title) { const s = document.createElement('span'); s.textContent = ch; l.appendChild(s); } }
 let logoT = 0;
 function showMenu() {
   canvas.style.filter='';
-  S.state = 'menu'; setCursor(true); document.body.classList.remove('playing'); menu.active = true; buildLogo();
+  S.state = 'menu'; setCursor(true); document.body.classList.remove('playing'); menu.active = true; menu.splash(); buildLogo();
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
+function showHub(){S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
+menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen('menu');};
+$('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
   if(menu.claw.active)return;
-  S.state = 'mode'; menu.active = false; screen('mode'); drawCard($('modeArt'), 'mode'); $('modeCard').classList.remove('pressed'); $('modeCard').focus(); sfx('click');
+  S.state = 'mode'; menu.active = true; screen('mode'); drawCard($('modeArt'), 'mode'); $('modeCard').classList.remove('pressed'); $('modeCard').focus(); sfx('click');
 }
 for (const b of document.querySelectorAll('button')) { b.addEventListener('mouseenter', () => sfx('hover')); b.addEventListener('click', () => initAudio()); }
 addEventListener('pointerdown', () => { initAudio(); ambience(true); }, { once: true });
 $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
-$('playBtn').onclick = () => showMode();
+$('playBtn').onclick = showHub;
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
-$('modeCard').onclick = () => { S.state='starting';requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(tutSeen() ? startRoulette : startTutorial, 220); };
+$('modeCard').onclick = () => { S.state='starting';requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(startRoulette, 220); };
 $('tutBtn').onclick = () => { S.state='starting';requestLock(); sfx('click'); startTutorial(); };
-$('modeBack').onclick = () => { sfx('click'); showMenu(); };
+$('modeBack').onclick = () => { sfx('click'); menu.closeTV(); };
 /* настройки: микрофон */
 $('setBtn').innerHTML = img('gear', 28); $('micIco').innerHTML = img('mic', 20);
-function showSettings() { S.state = 'settings'; menu.active = false; screen('settings'); sfx('click'); syncSettings(); fillMics(); }
+function showSettings() { S.settingsFrom=S.state;menu.suspend();S.state = 'settings'; menu.active = false; screen('settings'); sfx('click'); syncSettings(); fillMics(); }
 function syncSettings() { $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micSens').value = MIC.sens; $('micLoudS').value = MIC.loudSens; }
 async function fillMics() { const list = await listMics(), sel = $('micDev'); sel.innerHTML = '<option value="">По умолчанию</option>' + list.map((d, i) => `<option value="${d.deviceId}">${d.label || 'Микрофон ' + (i + 1)}</option>`).join(''); sel.value = MIC.device || ''; }
 $('setBtn').onclick = showSettings;
@@ -148,7 +151,8 @@ $('setBtn').onclick = showSettings;
 const syncLight = () => { $('lightQ').textContent = LQ.hi ? 'ВЫСОКОЕ' : 'НИЗКОЕ'; $('lightQ').classList.toggle('on', LQ.hi); };
 $('lightQ').onclick = () => { LQ.hi = !LQ.hi; try { localStorage.setItem('friendslop.light', LQ.hi ? 'hi' : 'lo'); } catch (_) {} const n = LQ.hi ? 2048 : 1024; sun.shadow.mapSize.set(n, n); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } syncLight(); sfx('click'); };
 syncLight();
-$('setBack').onclick = () => { sfx('click'); showMenu(); };
+function backSettings(){sfx('click');menu.resumeSettings();if(S.settingsFrom==='hub'){S.state='hub';menu.active=true;screen('menu');}else showMenu();}
+$('setBack').onclick = backSettings;
 $('micOn').onclick = async () => { MIC.on = !MIC.on; saveMic(); syncSettings(); if (MIC.on) { await startMic(); fillMics(); } else stopMic(); };
 $('micMode').onclick = () => { MIC.mode = MIC.mode === 'always' ? 'ptt' : 'always'; saveMic(); syncSettings(); sfx('click'); };
 $('micSens').oninput = e => { MIC.sens = +e.target.value; saveMic(); };
@@ -161,7 +165,7 @@ function drawMicMeter() {
   const st = !MIC.on ? 'выключен' : MIC.err ? MIC.err : !MIC.ok ? 'включаю…' : MIC.cal > 0 ? 'тишина… калибрую' : m.shout > 0.2 ? 'КРИК!' : m.talk > 0.1 ? 'говоришь' : 'тишина'; if ($('micState').textContent !== st) $('micState').textContent = st;
 }
 $('againBtn').onclick = () => { S.state='starting';requestLock(); startRoulette(); };
-$('menuBtn').onclick = () => { sfx('click'); showMenu(); };
+$('menuBtn').onclick = () => { sfx('click'); showHub(); };
 $('mgexit').onclick = cancelMission;
 
 /* Рулетка тематики: лента карточек крутится с замедлением, щёлкает на каждой, всегда останавливается на «ГОРОДЕ» */
@@ -214,6 +218,7 @@ const TUT = [
 ];
 function tutItem(type, r) { const a = Math.random() * 6.28, x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r, gy = groundAt(x, z, 0.2, P.pos.y + 1); if (CONFIG.items[type].tool) spawnTool(x, gy, z, false, type); else { const it = addItem(type, x, gy, z); it.def = { ...it.def, respawn: 0 }; } }
 function startTutorial() {
+  menu.active=false;
   S.state = 'roulette'; screen(null); $('fade').classList.add('on');
   setTimeout(() => { prepareRound(true); $('fade').classList.remove('on'); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); S.tut = { i: -1, s: null }; tutNext(); }, 420);
 }
@@ -239,7 +244,6 @@ function tutEnd(done) {
   try { localStorage.setItem('friendslop.tut', '1'); } catch (_) {}
   $('tut').classList.add('hidden'); S.tut = null; M.manual = false; S.state = 'menu'; showMenu();
 }
-const tutSeen = () => { try { return localStorage.getItem('friendslop.tut') === '1'; } catch (_) { return true; } };
 /* ---------- раунд ---------- */
 function prepareRound(tut = false) {
   resetRadios();
@@ -575,8 +579,10 @@ on('up', btn => {
 });
 on('key', code => {
   if (code === 'KeyM') { toggleMute(); return; }
-  if (code === 'Escape' && (S.state === 'mode' || S.state === 'settings')) { showMenu(); return; }
-  if (S.state === 'menu') { if(menu.claw.key(code))return;if (code === 'KeyA' || code === 'ArrowLeft') menu.next(-1); if (code === 'KeyD' || code === 'ArrowRight') menu.next(1); if (code === 'Enter') showMode(); return; }
+  if(code==='Escape'&&S.state==='settings'){backSettings();return;}
+  if(code==='Escape'&&S.state==='mode'){menu.closeTV();return;}
+  if(S.state==='hub'){menu.key(code);return;}
+  if(S.state==='menu'){if(code==='Enter')showHub();return;}
   if (S.state === 'mode' && code === 'Enter') { $('modeCard').click(); return; }
   if (S.state !== 'play') return;
   if (code === 'KeyZ' && (S.mg||S.wm)) { cancelMission();return; }
@@ -692,7 +698,7 @@ function frame() {
   updateRadios(dt,P?.pos,S.state==='play');
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
-  else if (S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {
+  else if (S.state === 'starting' || S.state === 'hub' || S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {
     menu.update(dt); present(menu.scene, menu.camera,menu.active&&menu.hover&&!menu.choosing&&!menu.drag?menu.ch.root:null);
     if (S.state === 'settings') drawMicMeter();
     // логотип: буквы по очереди подпрыгивают раз в несколько секунд
@@ -837,7 +843,7 @@ canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;clock.res
 // отладочный доступ из консоли браузера
 window.__fs = { eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 window.__fs.lastFaults=lastFaults;
-Object.assign(window.__fs,{menu,collection,coinState});
+Object.assign(window.__fs,{menu,collection,coinState,showHub,showMenu});
 showMenu();
 loop();
 import {updateRadios,resetRadios,nearRadio,toggleRadio,tuneRadio} from './game/radio.js';

@@ -694,7 +694,7 @@ let facN = 0;
    текстура на один этаж по высоте. Ткань/кожа для диванов и кроватей, фанера для ящиков. */
 T.wallIn = (c = 0xc8b8d8, k = 'wallpaper_g') => phOk(k) ? photo('wallIn' + c + k, 64, 64, (g, W, H) => { phDraw(g, W, H * 0.86, k, shade(c, 10), 2, 2);
   g.fillStyle = shade(c, 40); g.fillRect(0, 0, W, H * 0.04); g.fillStyle = '#2a2030'; g.fillRect(0, H * 0.86, W, H * 0.14); g.fillStyle = 'rgba(255,255,255,.15)'; g.fillRect(0, H * 0.86, W, H * 0.015); }, 1) : T.plaster();
-T.cloth = (c = 0x6a3a5a, k = 'velvet_g') => phOk(k) ? photo('cloth' + c + k, 32, 32, (g, W, H) => phDraw(g, W, H, k, shade(c, 25)), 1) : null;
+T.cloth = (c = 0x6a3a5a, k = 'velvet_g') => phOk(k) ? photo('cloth' + c + k, 32, 32, (g, W, H) => phDraw(g, W, H, k, shade(c, 25)), 1) : pix('clothFallback'+c,32,32,(g,W,H)=>{fill(g,W,H,shade(c,0));for(let i=0;i<32;i+=2){g.fillStyle=shade(c,i%4?-8:8);g.fillRect(i,0,1,H);g.fillRect(0,i,W,1);}grain(g,W,H,8);});
 T.crateP = () => phOk('plywood') ? photo('crateP', 64, 64, (g, W, H) => { phDraw(g, W, H, 'plywood'); g.fillStyle = 'rgba(40,24,12,.85)'; const b = W * 0.12;
   g.fillRect(0, 0, W, b); g.fillRect(0, H - b, W, b); g.fillRect(0, 0, b, H); g.fillRect(W - b, 0, b, H); g.save(); g.translate(W / 2, H / 2); g.rotate(Math.PI / 4); g.fillRect(-W * 0.7, -b / 2, W * 1.4, b); g.restore();
   g.fillStyle = '#17111f'; for (const [x, y] of [[b / 2, b / 2], [W - b / 2, b / 2], [b / 2, H - b / 2], [W - b / 2, H - b / 2]]) g.fillRect(x - 1, y - 1, 2, 2); }, 1) : null;

@@ -12,5 +12,5 @@ export function walkNPC(b,target,speed,dt){
  if(b.stuck>.45&&b.navCD<=0){b.nav=detour(b,target.x,target.z);b.navCD=1.4;b.stuck=0;}
  while(b.nav?.length&&flat(b.pos,b.nav[0])<.5)b.nav.shift();
  const q=b.nav?.length?b.nav[0]:target,dx=q.x-b.pos.x,dz=q.z-b.pos.z,d=Math.hypot(dx,dz)||1;
- b.vel.x=dx/d*speed;b.vel.z=dz/d*speed;moveBody(b,dt);b.root.rotation.y=Math.atan2(dx,dz);
+ b.vel.x=dx/d*speed;b.vel.z=dz/d*speed;moveBody(b,dt);const yaw=Math.atan2(dx,dz);if(b.kind==='mayor'){const d=Math.atan2(Math.sin(yaw-b.root.rotation.y),Math.cos(yaw-b.root.rotation.y));b.root.rotation.y+=d*(1-Math.exp(-dt*5.5));}else b.root.rotation.y=yaw;
 }
