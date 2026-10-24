@@ -501,7 +501,7 @@ export const PANEL5 = {
     const c = o.pos(), yaw = o.g.rotation.y, F = new V3(Math.sin(yaw), 0, Math.cos(yaw));
     api.pose(c.clone().addScaledVector(F, 3.6).add(new V3(0, 1.6, 0)), c.clone().add(new V3(0, 2.0, 0)));
     const gs = mkGhost(); gs.position.copy(c).add(new V3(0, 3.1, 0.3)); let round = 0, seq = [], shown = 0, showT = 1.2, mode = 'show', inp = 0, errs = 0, endT = -1, pebbles = [];
-    const ring2 = i => { const b = o.bells[i]; b.sw = 1; sfx('bellN', { n: i }); const w = new V3(); b.b.getWorldPosition(w); burst(w.x, w.y - 0.2, w.z, 5, { color: 0xf5c542, size: 0.06, speed: 1 }); };
+    const ring2 = i => { const b = o.bells[i]; b.sw = 1; const w = new V3(); b.b.getWorldPosition(w);sfx('bellN',{n:i,at:w,range:17,v:.65}); burst(w.x, w.y - 0.2, w.z, 5, { color: 0xf5c542, size: 0.06, speed: 1 }); };
     const next = () => { round++; seq = []; for (let i = 0; i < round + 2; i++) seq.push((Math.random() * 4) | 0); shown = 0; showT = 1.0; mode = 'show'; inp = 0; api.msg(`Раунд ${round}: смотри и слушай`); };
     next();
     return {

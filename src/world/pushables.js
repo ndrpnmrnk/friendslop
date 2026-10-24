@@ -25,6 +25,7 @@ export const RIDE = {
   // больничная каталка: как тележка — разогнать руками и запрыгнуть
   gurney: { seat: 0.82, pose: 'sit', max: 13, acc: 0, turn: 1.4, fric: 0.38, coast: true },
 };
+let sackGeometry;
 export function addPushable(b, kind, x, z, y = 0) {
   const g = new THREE.Group(); W.group.add(g);
   let roller = null, r;
@@ -33,11 +34,9 @@ export function addPushable(b, kind, x, z, y = 0) {
   else if (kind === 'cart') { g.add(cartModel()); r = 0.6; }
   else if (kind === 'barrow') { g.add(barrowModel()); r = 0.55; }
   else if (kind === 'sack') {
-    // мешок с зерном: пухлое тело из мешковины, завязанная горловина, бирка — можно толкнуть, он сползает
-    g.add(compose('sack', a => { const bl = lam({ map: T.burlap() }, 'burlap'), tie = col(0x6a4a2a);
-      a(G.sph10, bl, 0, 0.3, 0, 0.3, 0.28, 0.24); a(G.sph10, bl, 0, 0.16, 0, 0.34, 0.16, 0.27); a(G.cyl8, bl, 0, 0.55, 0, 0.12, 0.1, 0.1); a(G.cyl8, tie, 0, 0.58, 0, 0.1, 0.035, 0.09);
-      a(G.sph, bl, -0.06, 0.64, 0, 0.09, 0.05, 0.07, 0, 0, 0.5); a(G.sph, bl, 0.06, 0.64, 0, 0.09, 0.05, 0.07, 0, 0, -0.5);
-      a(G.box, lam({ map: T.sign('ЗЕРНО', '#e8d8b0', '#6a3a1a') }, 'sackTag'), 0, 0.28, 0.255, 0.3, 0.12, 0.01); }));
+    const shape=sackGeometry||(sackGeometry=new THREE.LatheGeometry([[0,0],[.22,.025],[.34,.12],[.35,.28],[.29,.46],[.12,.57],[.10,.65],[.16,.72],[0,.70]].map(([r,y])=>new THREE.Vector2(r,y)),12));
+    const pos=shape.attributes.position;if(!shape.userData.folded){shape.userData.folded=true;for(let i=0;i<pos.count;i++){const y=pos.getY(i),a=Math.atan2(pos.getZ(i),pos.getX(i)),k=1+Math.sin(a*6+y*9)*.035;pos.setX(i,pos.getX(i)*k);pos.setZ(i,pos.getZ(i)*k);}shape.computeVertexNormals();}
+    g.add(compose('sack43',a=>{const cloth=tmat(T.burlap());a(shape,cloth,0,0,0,1,1,1);a(new THREE.TorusGeometry(.105,.014,4,12),col(0x5f4f38),0,.63,0,1,1,1,Math.PI/2);a(G.box,tmat(T.sign('ЗЕРНО','#b59b70','#514735')),0,.29,.359,.22,.12,.012);for(let i=0;i<5;i++)a(G.box,col(0xc6af80),-.22,.16+i*.055,.255,.025,.012,.015);}));
     g.rotation.y = Math.random() * 6; r = 0.32;
   }
   // стол из квартиры/кафе/офиса (v0.19): можно толкать, на него можно запрыгнуть

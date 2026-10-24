@@ -36,7 +36,7 @@ export const GETUP = 0.7;
 export function knockDown(a, dx = 0, dz = 0, t = 1.1) {
   if (a.hidden || a.drone || a.returning) return;
   if (a.ride && W.dismount) W.dismount(a);
-  a.climb = null; a.zip = null; a.mantle = null; a.hang = null;
+  a.roofSeat=null;a.climb = null; a.zip = null; a.mantle = null; a.hang = null;
   if (a.swing && W.leaveSwing) W.leaveSwing(a, false); if (a.bench) W.leaveBench && W.leaveBench(a);
   a.stun = Math.max(a.stun || 0, Math.max(1.6, t + 0.6)); a.daze = 0; a.vel.set(dx, 4, dz); a.onGround = false;
   dropHeld(a, dx * 2.2, dz * 2.2);

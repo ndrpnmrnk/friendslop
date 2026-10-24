@@ -781,3 +781,8 @@ T.dogCoat = (c, d, l, vert = 0) => photo('dogCoat2' + c + '_' + d + '_' + vert, 
   g.globalAlpha = 1; }, 4);
 T.dogFringe = (c, d, l) => photo('dogFringe' + c, 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H);
   for (let x = 0; x < W; x += W / 32) { const len = H * (0.55 + ((x * 7) % 13) / 13 * 0.45); g.fillStyle = Math.floor(x) % 3 ? shade(l, 0) : shade(c, 0); g.fillRect(x, 0, W / 32 + 0.5, len); g.fillStyle = shade(d, 0); g.globalAlpha = 0.4; g.fillRect(x, len * 0.7, W / 64, len * 0.3); g.globalAlpha = 1; } }, 4);
+
+// v0.43: узнаваемые доски, без фотографии металла/вентилятора.
+T.crate=()=>pix('crate43-boards',32,32,g=>{g.fillStyle='#886344';g.fillRect(0,0,32,32);for(let y=0;y<32;y+=8){g.fillStyle=y%16?'#987550':'#a17d56';g.fillRect(0,y+1,32,6);g.fillStyle='#513d2e';g.fillRect(0,y,32,1);for(let x=2;x<32;x+=5){g.fillStyle='#725338';g.fillRect(x,y+3,(x*7+y)%7+2,1);}}g.fillStyle='#c5a277';g.fillRect(0,1,32,1);g.fillStyle='#44382f';for(const x of[3,28])for(const y of[3,28])g.fillRect(x,y,2,2);});
+T.lockerDoor=c=>pix('locker43-'+c,32,64,g=>{g.fillStyle=shade(c,0);g.fillRect(0,0,32,64);g.strokeStyle=shade(c,-28);g.strokeRect(1,1,29,61);g.fillStyle=shade(c,18);g.fillRect(3,3,1,57);g.fillStyle='#302e37';for(const y of[8,11,14,51,54])g.fillRect(8,y,16,1);g.fillStyle='#bcb7a6';g.fillRect(8,22,15,5);g.fillStyle='#4d5259';g.fillRect(10,24,10,1);g.fillStyle=shade(c,-15);for(let i=0;i<30;i++)g.fillRect(i*17%30+1,i*23%62+1,1,1);});
+T.burlap=()=>pix('sack43-weave',32,32,g=>{g.fillStyle='#a88b5c';g.fillRect(0,0,32,32);for(let y=0;y<32;y+=2)for(let x=0;x<32;x+=2){g.fillStyle=(x+y)%4?'#bba176':'#89734f';g.fillRect(x,y,2,1);}g.fillStyle='#66543d';g.fillRect(3,0,1,32);g.fillStyle='#d1ba8e';for(let y=1;y<32;y+=4)g.fillRect(2,y,3,1);});

@@ -3,7 +3,7 @@ import {aim} from '../core/input.js';
 import {W} from '../world/state.js';
 import {raySolids} from '../world/physics.js';
 import {pickUp,drop} from './items.js';
-import {nearestRideable,mount,dismount,hopIn} from './ride.js';
+import {nearestRideable,mount,dismount,hopIn,release} from './ride.js';
 import {leaveSwing,leaveBench,leaveHide} from './worldfx.js';
 import {letGo} from './grab.js';
 import {sfx} from '../core/sfx.js';
@@ -27,7 +27,7 @@ export function worldTarget(P,camera,{stealItem}={}){
  c.sort((a,b)=>a.s-b.s);return c[0]||null;
 }
 export function leaveObject(P){
- if(P.ride){dismount(P,false);return true;}if(P.swing){leaveSwing(P,false);return true;}if(P.bench){leaveBench(P);return true;}if(P.hidden){leaveHide(P);return true;}if(P.grab){hopIn(P);return true;}if(P.holding){letGo(P);return true;}return false;
+ if(P.roofSeat){P.roofSeat=null;return true;}if(P.ride){dismount(P,false);return true;}if(P.swing){leaveSwing(P,false);return true;}if(P.bench){leaveBench(P);return true;}if(P.hidden){leaveHide(P);return true;}if(P.grab){if(P.grab.noRide)release(P,0);else hopIn(P);return true;}if(P.holding){letGo(P);return true;}return false;
 }
 export function interactObject(P,camera){
  if(P.heldBy||P.stun>0||P.getT>0)return false;if(leaveObject(P))return true;

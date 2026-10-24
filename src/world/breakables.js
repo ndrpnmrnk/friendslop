@@ -52,7 +52,7 @@ let _plank;
 const PLANK = () => _plank || (_plank = tmat(T.wood()));
 export function breakPiece(p, vel = [0, 0, 0]) {
   if (!p.alive) return;
-  p.alive = false; if (p.solid) p.solid.on = false;
+  p.alive = false;if(p.motion){const b=p.motion;b.dead=true;if(b.grabbed){b.grabbed.grab=null;b.grabbed=null;}W.pushables=W.pushables.filter(q=>q!==b);} if (p.solid) p.solid.on = false;
   const m = p.mesh; m.parent && m.parent.remove(m);
   if (p.inst) for (const q of p.inst) { q.im.setMatrixAt(q.i, ZERO); q.im.instanceMatrix.needsUpdate = true; }
   const pos = m.position, sc = m.scale;
@@ -132,14 +132,14 @@ export function bakeBreakables(group) {
     p.inst = [];
     for (const o of list) {
       const k = o.geometry.uuid + o.material.uuid; let b = by.get(k); if (!b) by.set(k, b = { geo: o.geometry, mat: o.material, items: [] });
-      b.items.push({ p, mx: o.matrixWorld.clone() });
+      b.items.push({ p, mx: o.matrixWorld.clone(),local:o.matrixWorld.clone().premultiply(p.mesh.matrixWorld.clone().invert()) });
     }
     p.mesh.parent.remove(p.mesh);
   }
   for (const b of by.values()) {
     const im = new THREE.InstancedMesh(b.geo, b.mat, b.items.length); im.castShadow = !b.mat.transparent; im.receiveShadow = !b.mat.transparent;
-    b.items.forEach((it, i) => { im.setMatrixAt(i, it.mx); it.p.inst.push({ im, i, mx: it.mx }); });
-    im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); group.add(im);
+    b.items.forEach((it, i) => { im.setMatrixAt(i, it.mx); it.p.inst.push({ im, i, mx: it.mx,local:it.local }); });
+    im.instanceMatrix.needsUpdate = true;im.frustumCulled=!b.items.some(it=>it.p.motion); im.computeBoundingSphere(); group.add(im);
   }
 }
 let _g;

@@ -1,13 +1,14 @@
 import {THREE,G,V3,col} from '../core/gfx.js';
 import {W} from '../world/state.js';
-import {groundAt,isFree,moveBody,raySolids} from '../world/physics.js';
+import {groundAt,isFree,moveBody,raySolids,pushOut} from '../world/physics.js';
 import {addCoins,collection} from './collection.js';
+import {actors} from './actors.js';
 import {sfx} from '../core/sfx.js';
 import {fistModel} from './fist-model.js';
 const CAP=96,zero=new THREE.Matrix4().makeScale(0,0,0),tmp=new THREE.Object3D(),ray=new V3(),states=new WeakMap();
 const current=()=>{let s=states.get(W.group);if(!s){s={coins:[],batches:[],outlines:[],age:0,uiT:0,probe:0,spark:null};states.set(W.group,s);}return s;};
 export function resetCoins(enabled=true){const s={coins:[],batches:[],outlines:[],age:0,uiT:0,probe:0,spark:null};states.set(W.group,s);W.coinLoot=null;if(!enabled)return;
- const gold=new THREE.MeshBasicMaterial({color:0xffd84f,side:THREE.BackSide,transparent:true,opacity:.8,depthWrite:false});W.mapResources?.add(gold);
+ const gold=new THREE.MeshBasicMaterial({color:0xffd84f,side:THREE.BackSide,depthWrite:false,fog:false});W.mapResources?.add(gold);
  for(const m of fistModel().children){for(const outline of[false,true]){const im=new THREE.InstancedMesh(m.geometry,outline?gold:m.material,CAP);im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);im.frustumCulled=false;im.count=CAP;for(let i=0;i<CAP;i++)im.setMatrixAt(i,zero);W.group.add(im);W.keep.push(im);(outline?s.outlines:s.batches).push(im);}}
  s.spark=new THREE.InstancedMesh(G.box,col(0xffeb9c),CAP);s.spark.frustumCulled=false;for(let i=0;i<CAP;i++)s.spark.setMatrixAt(i,zero);W.group.add(s.spark);W.keep.push(s.spark);
  const surfaces=W.solids.filter(q=>q.on!==false&&q.y1>=-5&&q.y1<40&&q.x1-q.x0>.8&&q.z1-q.z0>.8),wanted=9+(Math.random()*14|0);
@@ -15,7 +16,7 @@ export function resetCoins(enabled=true){const s={coins:[],batches:[],outlines:[
  for(const p of W.breakables)if(p.kind==='crate')p.coinCount=Math.random()<.24?1+(Math.random()<.18?1:0):0;
  W.coinLoot=(p,source)=>{if(source?.coinLooted)return;if(source)source.coinLooted=true;if(Math.random()<.30)spawnCoin(p.x,p.y+.2,p.z,true);};
 }
-export function spawnCoin(x,y,z,fly=true){const s=current();if(!s.batches.length)return;let i=s.coins.findIndex(c=>c.gone);if(i<0){if(s.coins.length>=CAP)return;i=s.coins.length;}s.coins[i]={pos:new V3(x,y,z),vel:new V3(fly?(Math.random()-.5)*1.6:0,fly?2.4:0,fly?(Math.random()-.5)*1.6:0),r:.25,h:.6,step:.12,onGround:!fly,fly,phase:Math.random()*6.28,yaw:Math.random()*6.28,gone:false,take:null};}
+export function spawnCoin(x,y,z,fly=true){const s=current();if(!s.batches.length)return;let i=s.coins.findIndex(c=>c.gone);if(i<0){if(s.coins.length>=CAP)return;i=s.coins.length;}s.coins[i]={pos:new V3(x,y,z),vel:new V3(fly?(Math.random()-.5)*1.6:0,fly?2.4:0,fly?(Math.random()-.5)*1.6:0),r:.25,h:.64,step:.015,mass:.35,onGround:!fly,fly,phase:Math.random()*6.28,yaw:Math.random()*6.28,gone:false,take:null};}
 export function crateCoins(p){for(let n=0;n<(p.coinCount||0);n++)spawnCoin(p.mesh.position.x,p.solid.y0+.25,p.mesh.position.z,true);p.coinCount=0;}
 export function nearFist(P){if(!P||P.drone||P.returning||P.hidden||P.stun>0||P.getT>0)return null;let best=null,bd=1.8;for(const c of current().coins){if(c.gone||c.take)continue;const d=Math.hypot(P.pos.x-c.pos.x,P.pos.z-c.pos.z);if(d>=bd||c.pos.y<P.pos.y-.3||c.pos.y>P.pos.y+1.7)continue;const eye=P.pos.clone().add(new V3(0,.7,0));ray.copy(c.pos).y+=.2;ray.sub(eye);const len=ray.length();if(len>.05&&raySolids(eye,ray.multiplyScalar(1/len),len)<len-.12)continue;best=c;bd=d;}return best;}
 // Списание в мире и баланс фиксируются один раз, до анимации к кисти.
@@ -23,7 +24,11 @@ export function grabFist(P){const c=nearFist(P);if(!c||!addCoins(1))return false
 export function updateCoins(dt,P){const s=current();s.age+=dt;s.probe-=dt;const check=s.probe<=0;if(check)s.probe=.4;
  for(let i=0;i<s.coins.length;i++){const c=s.coins[i];if(c.gone)continue;let scale=1;
   if(c.take){c.take.t+=dt;const k=Math.min(1,c.take.t/.32),a=c.take.actor;a.root.updateMatrixWorld(true);if(c.take.t<.13){const reach=a.root.worldToLocal(c.take.from.clone().add(new V3(0,.3,0)));a.ch.handR.position.lerp(reach,1-Math.exp(-dt*24));a.root.updateMatrixWorld(true);}const hand=a.ch.handR.getWorldPosition(new V3());c.pos.lerpVectors(c.take.from,hand,k*k*(3-2*k));scale=1-k*.9;if(k>=1){c.gone=true;for(const b of[...s.batches,...s.outlines,s.spark])b.setMatrixAt(i,zero);continue;}}
-  else{if(check&&!c.fly&&groundAt(c.pos.x,c.pos.z,.15,c.pos.y+.05)<c.pos.y-.1){c.fly=true;c.onGround=false;}if(c.fly){moveBody(c,dt);c.vel.x*=Math.exp(-dt*5);c.vel.z*=Math.exp(-dt*5);c.yaw+=dt*c.vel.length()*.4;if(c.onGround)c.fly=false;}}
+  else{const old=c.pos.clone();if(pushOut(c.pos,c.r,c.pos.y+.01,c.pos.y+c.h)){c.fly=true;c.vel.x+=THREE.MathUtils.clamp((c.pos.x-old.x)/Math.max(dt,.001),-6,6);c.vel.z+=THREE.MathUtils.clamp((c.pos.z-old.z)/Math.max(dt,.001),-6,6);}
+   for(const a of actors()){if(a.drone||a.returning||a.hidden||a.pos.y>c.pos.y+.6||a.pos.y+a.h<c.pos.y)continue;const dx=c.pos.x-a.pos.x,dz=c.pos.z-a.pos.z,d=Math.hypot(dx,dz),over=c.r+a.r-d;if(over>0&&d>.001){const nx=dx/d,nz=dz/d;c.pos.x+=nx*over;c.pos.z+=nz*over;const speed=Math.max(.5,a.vel.x*nx+a.vel.z*nz);c.vel.x+=nx*speed*.7;c.vel.z+=nz*speed*.7;c.fly=true;}}
+   for(const it of W.items){if(!['rest','fly'].includes(it.state)||Math.abs(it.pos.y-c.pos.y-.25)>.5)continue;const dx=c.pos.x-it.pos.x,dz=c.pos.z-it.pos.z,d=Math.hypot(dx,dz),over=c.r+it.def.r-d;if(over>0&&d>.001){c.pos.x+=dx/d*over;c.pos.z+=dz/d*over;c.vel.x+=it.vel.x*.5;c.vel.z+=it.vel.z*.5;c.fly=true;}}
+   for(let j=0;j<i;j++){const b=s.coins[j];if(b.gone||b.take||Math.abs(b.pos.y-c.pos.y)>.5)continue;const dx=c.pos.x-b.pos.x,dz=c.pos.z-b.pos.z,d=Math.hypot(dx,dz);if(d>.001&&d<.5){const k=(.5-d)/2/d;c.pos.x+=dx*k;c.pos.z+=dz*k;b.pos.x-=dx*k;b.pos.z-=dz*k;c.fly=b.fly=true;}}
+   if(check&&!c.fly&&groundAt(c.pos.x,c.pos.z,.15,c.pos.y+.05)<c.pos.y-.1){c.fly=true;c.onGround=false;}if(c.fly){moveBody(c,dt);c.vel.x*=Math.exp(-dt*5);c.vel.z*=Math.exp(-dt*5);c.yaw+=dt*c.vel.length()*.4;if(c.onGround)c.fly=false;}}
   tmp.position.copy(c.pos);tmp.position.y+=.055*scale;tmp.rotation.set(0,c.yaw,0);tmp.scale.setScalar(scale);tmp.updateMatrix();for(const b of s.batches)b.setMatrixAt(i,tmp.matrix);
   const near=P&&!P.drone&&!P.returning&&!c.take&&c.pos.distanceTo(P.pos)<2.6;tmp.scale.setScalar(scale*1.10);tmp.updateMatrix();for(const b of s.outlines)b.setMatrixAt(i,near?tmp.matrix:zero);
   const shine=Math.max(0,Math.sin(s.age*2.1+c.phase))**16;tmp.position.copy(c.pos).add(new V3(.20,.41,.16));tmp.rotation.set(0,0,s.age);tmp.scale.set(.03*shine,.12*shine,.03*shine);tmp.updateMatrix();s.spark.setMatrixAt(i,c.take?zero:tmp.matrix);

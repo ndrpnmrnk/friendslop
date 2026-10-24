@@ -93,23 +93,34 @@ function blockedAt(b, dx, dz, dist = 1.1) {
 function waypoint(b, g) {
   if (b.stairRoute) {
     const r = b.stairRoute, p = r.points[r.i];
-    if (Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < .52 && Math.abs(p.y-b.pos.y)<.65) r.i++;
+    if (Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < .52 && (Math.abs(p.y-b.pos.y)<.65||r.down&&b.pos.y>=p.y&&b.pos.y-p.y<1.0)) r.i++;
     if (r.i < r.points.length) return r.points[r.i];
     b.stairRoute = null; b.nav = null;
   }
   const gb = buildingAt(b.pos), gt = buildingAt(g);
-  if (gb && gb.stairPath) { const here = floorAt(gb, b.pos.y), want = gb === gt ? floorAt(gt, g.y) : 0; if (here !== want) return stairStep(b, gb, here, want > here); }
+  if (gb && (gb.stairPath||gb.splitStair)) { const here = floorAt(gb, b.pos.y), want = gb === gt ? floorAt(gt, g.y) : 0; if (here !== want) return stairStep(b, gb, here, want > here,g); }
   if (gb && gb !== gt) { const here = floorAt(gb, b.pos.y);
     if (here > 0 && gb.stair) return { x: gb.stair[0], y: gb.y0 + here * gb.fh, z: gb.stair[1] };
     if (gb.door) { const d = gb.door, near = Math.hypot(b.pos.x - d[2], b.pos.z - d[3]) < 1.2; return near ? { x: d[0], y: gb.y0, z: d[1] } : { x: d[2], y: gb.y0, z: d[3] }; } }
   if (gt) return routeTo(b.pos, g);
   return g;
 }
-function stairStep(b, g, floor, up) {
+function stairStep(b,g,floor,up,target){
+  if(g.splitStair){
+    const s=g.splitStair,level=s.levels[up?floor:floor-1];if(!level)return target;
+    const side=(up?target.x:b.pos.x)<s.cx?'left':'right',path=level[side].map(p=>({...p}));if(!up)path.reverse();
+    // Между маршами идём по коридору вокруг проёма, а не срезаем по ступеням другого этажа.
+    const y=path[0].y,z=s.frontZ,sideX=up?(b.pos.x<s.cx?s.cx-6.2:s.cx+6.2):path[0].x;
+    if(up&&floor>0)path.unshift({x:sideX,y,z},{x:s.cx,y,z});
+    else if(!up&&Math.abs(b.pos.x-s.cx)<4.9&&b.pos.z>path[0].z+2)path.unshift({x:b.pos.x,y,z},{x:sideX,y,z});
+    for(let i=1;i<path.length;i++)path[i].ramp=Math.abs(path[i].y-path[i-1].y)>.04;
+    b.stairRoute={points:path,i:0,down:!up};b.nav=null;return path[0];
+  }
   const s = g.stairPath, y = g.y0 + floor * g.fh, half = g.fh / 2, ex = s.entryX, mx = s.midX;
   const points = up ? [{x:ex,y,z:s.zb},{x:ex,y,z:s.za},{x:mx,y:y+half,z:s.za},{x:mx,y:y+half,z:s.zb},{x:ex,y:y+g.fh,z:s.zb}]
     : [{x:ex,y,z:s.zb},{x:mx,y:y-half,z:s.zb},{x:mx,y:y-half,z:s.za},{x:ex,y:y-g.fh,z:s.za},{x:ex,y:y-g.fh,z:s.zb}];
-  b.stairRoute = { points, i:0 }; b.nav = null; return points[0];
+  for(let i=1;i<points.length;i++)points[i].ramp=Math.abs(points[i].y-points[i-1].y)>.04;
+  b.stairRoute = { points, i:0,down:!up }; b.nav = null; return points[0];
 }
 // лестница вниз: ближайшая, у которой верх на нашей высоте
 function ladderDown(b, goal) {
@@ -216,7 +227,7 @@ export function updateBots(dt, t, P) {
         const g0 = b.goal.who ? b.goal.who.pos : b.goal, d0 = Math.hypot(g0.x - b.pos.x, g0.z - b.pos.z), g = b.goal.who || (d0 < 1.6 && Math.abs(g0.y - b.pos.y) < 1.5) || !['mission', 'fetch', 'event', 'work'].includes(b.goal.kind) ? g0 : waypoint(b, g0);
         const dx = g.x - b.pos.x, dz = g.z - b.pos.z, d = Math.hypot(dx, dz), dy = g.y - b.pos.y;
         // ниже (с крыши) — к лестнице вниз и слезть
-        if(b.stairRoute){ix=dx/(d||1);iz=dz/(d||1);run=.65;b.climbing=false;}else if (dy < -1.8 && !b.goal.who && (b.ladderDn || (b.ladderDn = ladderDown(b, g)))) { const l = b.ladderDn, cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2;
+        if(b.stairRoute){if(g.ramp){ix=dx/(d||1);iz=dz/(d||1);}else [ix,iz]=steer(b,g.x,g.z,dt);run=.55;b.climbing=false;}else if (dy < -1.8 && !b.goal.who && (b.ladderDn || (b.ladderDn = ladderDown(b, g)))) { const l = b.ladderDn, cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2;
           if (b.pos.x > l.x0 - 0.1 && b.pos.x < l.x1 + 0.1 && b.pos.z > l.z0 - 0.1 && b.pos.z < l.z1 + 0.1 && b.pos.y > l.y0 + 0.05) { ix = (cx - b.pos.x) * 3; iz = (cz - b.pos.z) * 3; b.vel.y = -PC.climb * 1.4; b.climbing = true; b.airPeak = b.pos.y; }
           else { b.climbing = false; [ix, iz] = steer(b, cx - l.nx * 0.3, cz - l.nz * 0.3, dt); if (b.pos.y < l.y0 + 0.3) b.ladderDn = null; } }
         // высоко — к лестнице
@@ -239,7 +250,7 @@ export function updateBots(dt, t, P) {
     } else b.progress=null;
     // застрял — шаг в сторону
     b.stuck = Math.hypot(b.pos.x - b.last.x, b.pos.z - b.last.z) < dt * 0.8 && Math.abs(b.pos.y - b.last.y) < dt * 0.6 && (ix || iz) ? b.stuck + dt : 0; b.last.copy(b.pos);
-    if (b.stuck > 0.7 && b.onGround && !b.heldBy && !b.stepDown) { b.vel.y = PC.jump; b.onGround = false; if (b.stuck > 1.4) { const a = Math.random() * 6.28; b.dodge = { x: Math.cos(a), z: Math.sin(a), t: 0.9 }; b.stuck = 0; b.nav=null;b.navCD=0;b.failures=(b.failures||0)+1;if(b.failures>=3){if(b.goal?.m)b.avoid={m:b.goal.m,left:12};b.goal=null;b.think=0;b.stairRoute=null;b.failures=0;} b.ladder = null; b.ladderDn = null; } }
+    if (b.stuck > 0.7 && !b.stairRoute && b.onGround && !b.heldBy && !b.stepDown) { b.vel.y = PC.jump; b.onGround = false; if (b.stuck > 1.4) { const a = Math.random() * 6.28; b.dodge = { x: Math.cos(a), z: Math.sin(a), t: 0.9 }; b.stuck = 0; b.nav=null;b.navCD=0;b.failures=(b.failures||0)+1;if(b.failures>=3){if(b.goal?.m)b.avoid={m:b.goal.m,left:12};b.goal=null;b.think=0;b.stairRoute=null;b.failures=0;} b.ladder = null; b.ladderDn = null; } }
     // движение
     if(b.work?.game.botSpeed)run*=b.work.game.botSpeed;
     const wading=zoneAt(b.pos.x,b.pos.z,b.pos.y,'wading');

@@ -7,7 +7,9 @@ const read=key=>{try{return JSON.parse(localStorage.getItem(key));}catch{return 
 function commit(next){try{localStorage.setItem(KEY,JSON.stringify(next));try{if(data)localStorage.setItem(BACKUP,JSON.stringify(data));}catch{}data=next;dispatchEvent(new CustomEvent('collectionchange'));return true;}catch{return false;}}
 export function initCollection(all){if(data)return;ids=all.slice();let saved=read(KEY);if(!clean(saved))saved=read(BACKUP);
  const old=(()=>{try{return localStorage.getItem('friendslop.skin');}catch{return null;}})();
- data=clean(saved)?saved:{version:1,coins:0,unlocked:['cat','frog',...(ids.includes(old)?[old]:[])],selected:old||'cat',pending:null};
+ data=clean(saved)?saved:{version:1,coins:0,unlocked:['cat',...(ids.includes(old)&&old!=='frog'?[old]:[])],selected:old||'cat',pending:null};
+ // frog был бесплатным в старом профиле; теперь его открывают автоматом.
+ if(!data.starter43){data={...data,starter43:true,unlocked:data.unlocked.filter(id=>id!=='frog'),selected:data.selected==='frog'?'cat':data.selected};commit(data);}
  data.unlocked=[...new Set(data.unlocked.filter(id=>ids.includes(id)))];if(!data.unlocked.length)data.unlocked=[ids[0]];
  if(!data.unlocked.includes(data.selected))data.selected=data.unlocked[0];
  if(data.pending){const next=structuredClone(data);if(ids.includes(next.pending.reward)){if(!next.unlocked.includes(next.pending.reward))next.unlocked.push(next.pending.reward);}else next.coins+=50;next.pending=null;commit(next);}

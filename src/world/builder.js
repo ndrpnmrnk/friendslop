@@ -186,7 +186,8 @@ export class Builder {
     this.solid(x, z, 9, 2.6, 0, 2.9); return g;
   }
   // Сохраняем прежние размеры/коллизии, добавляя назначение каждому «блоку».
-  aircon(x, z, y) {
+  aircon(x, z, y=0) {
+    y=Math.max(1.9,y);
     const mt = tmat(T.metal()), front = tmat(T.vent());
     this.box(x, z, 1.2, 0.8, 0.8, [mt, mt, mt, mt, front, mt], { y });
     for (const xx of [-0.42, 0.42]) this.m(G.box, col(0x35303e), x + xx, y + 0.04, z, 0.1, 0.08, 0.95);
@@ -226,7 +227,7 @@ export class Builder {
     this.solid(x, z, r * 2, r * 2, y, h);
   }
   // ящик — разрушаемый (кидаешь тяжёлое — разлетается на доски)
-  crate(x, z, s = 1, y = 0) { return breakModel(this.X(x), this.Y + y, this.Z(z), s, s, s, 'crate', crateModel()); }
+  crate(x, z, s = 1, y = 0) { const piece=breakModel(this.X(x),this.Y+y,this.Z(z),s,s,s,'crate',crateModel());const p={kind:'crate',mesh:piece.mesh,solid:piece.solid,piece,x:this.X(x),z:this.Z(z),y:this.Y+y,vx:0,vz:0,vy:0,r:s*.57,h:s,mass:2.6*s*s*s,heading:0,dragOnly:true,noRide:true,meshOffsetY:s/2};piece.motion=p;W.pushables.push(p);return piece; }
   ride(kind, x, z, ry = 0, y = 0) { const p = addPushable(this, kind, x, z, y); p.mesh.rotation.y = ry; return p; }
   // кирпичная стена из блоков, axis 'x' — вдоль X
   brickWall(x, z, len, h, axis, y = 0, o = {}) { return brickWall(this.X(x), this.Z(z), this.Y + y, len, h, axis, o); }
@@ -323,13 +324,13 @@ export class Builder {
     this.g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x17111f })));
   }
   sign(x, y, z, ry, text, bg, fg, w = 3, h = 0.75) { const m = this.m(G.plane, tmat(T.sign(text, bg, fg)), x, y, z, w, h, 1); m.rotation.y = ry; return m; }
-  table(x, z, s = 1, y = 0) {
+  table(x, z, s = 1, y = 0) {if(['Фудкорт','Торговая улица','foodcourt','shops'].includes(this.d?.id||this.d))W.foodSpots.push({x:this.X(x),y:this.Y+y+.8,z:this.Z(z)});
     const w = tmat(T.wood()); this.m(G.box, w, x, y + 0.78, z, 1.4 * s, 0.08, 0.9 * s);
     for (const [a, b] of [[-0.6, -0.35], [0.6, -0.35], [-0.6, 0.35], [0.6, 0.35]]) this.m(G.box, col(0x2b2533), x + a * s, y + 0.38, z + b * s, 0.07, 0.76, 0.07);
     this.solid(x, z, 1.4 * s, 0.9 * s, y, 0.82);
   }
   // стол в помещении — толкаемый (v0.19); s — масштаб (визуально как обычный стол)
-  ptable(x, z, s = 1) { const p = addPushable(this, 'table', x, z, 0); p.mesh.scale.set(s + 0.2, 1, s + 0.2); return p; }
+  ptable(x, z, s = 1) {if(['Фудкорт','Торговая улица','foodcourt','shops'].includes(this.d?.id||this.d))W.foodSpots.push({x:this.X(x),y:this.Y+.81,z:this.Z(z)}); const p = addPushable(this, 'table', x, z, 0); p.mesh.scale.set(s + 0.2, 1, s + 0.2); return p; }
   chair(x, z, ry = 0, y = 0) { return this.item('chair', x, z, y, ry); }
   cone(x, z) { return this.item('cone', x, z); }
   staticChair(x, z, ry = 0) {

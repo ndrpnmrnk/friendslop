@@ -1,3 +1,4 @@
+import {splitStairs} from '../split-stairs.js';
 import {G,col,tmat,glow,V3} from '../../core/gfx.js';
 import {T} from '../../core/textures.js';
 import {W} from '../state.js';
@@ -6,15 +7,21 @@ import {labBench,displayCase,noticeBoard,archives,detailAction} from '../distric
 import {pitchedRoof,portico} from '../architecture.js';
 export default{id:'university',name:'Университет Хнуре',ground:'pave',build(b){
  const section=beginSection();
- b.tower({x:3,z:2,w:26,d:20,floors:3,fh:4.2,wall:0x9b8b78,winStep:3.1,windowPools:false,doorW:2.8,facadeProps:false,door:{side:'s',at:.5,sign:['ХНУРЕ','#34394c','#dbd2b4']},ladder:{side:'e',at:.65},floor:T.floorTile(),interior(f,k,r){
-  f.partition(11,12,28.5,12,3.7,.50,2.4);
-  if(k===0){for(const x of [13,16.5,20,23.5,27])for(const z of [15,18.4])f.desk(x,z,Math.PI,false);f.whiteboard(20,1.9,21.66,Math.PI,5.5);f.sign(14,2.8,12.15,0,'АУДИТОРИЯ 101','#5a654e','#e0ddbe',2.5,.35);f.cabinet(27.5,8,.7,2.1,1.8,0x64716c,0,-Math.PI/2);for(const x of [12,16,20,24])f.locker(x,3,0,0x626c7d);}
-  else if(k===1){for(const x of [13,17,21,25]){f.desk(x,17,Math.PI,true);f.m(G.box,col(0x686776),x,1.2,16.4,.5,.22,.30);f.m(G.box,glow(0x95bb8c),x,1.22,16.56,.24,.08,.02);}f.shelf(15,8.8,4.0);f.shelf(23,8.8,4.0);f.whiteboard(21,1.9,21.65,Math.PI,4);f.sign(15,2.8,12.15,0,'ЛАБОРАТОРИЯ','#535d73','#ded2b4',2.7,.35);f.plantPot(27,20.5);}
-  else{for(const x of[13,17,21,25])archives(f,x,20.9,Math.PI);for(const x of[14,21]){f.ptable(x,15.5,1.45);for(const z of[14.1,16.9]){f.chair(x,z,z<15.5?0:Math.PI);f.item('books',x,z<15.5?15.2:15.8,.9);}}f.sofa(26,15,Math.PI/2,0x756b66);f.sign(15,2.8,12.15,0,'БИБЛИОТЕКА','#535d73','#ded2b4',2.7,.35);noticeBoard(f,26.8,9.5,-Math.PI/2);}
-  if(k===0){displayCase(f,13.2,8,'science');noticeBoard(f,21.7,8);labBench(f,26,5.4);f.box(26,20.6,1.1,.75,1.15,tmat(T.wood()));f.m(G.box,tmat(T.sign('ЛЕКЦИЯ','#d3c6a5','#4d5145')),26,1.05,21,.75,.3,.025);}
-  else if(k===1){labBench(f,26,5.4);detailAction(f,26,5.4,1.02,'coil');archives(f,12.5,4.1);displayCase(f,18.6,3.5,'science');f.sign(22,2.9,2.27,0,'РАДИОФИЗИКА','#4d5f6a','#d9d1ae',4.2,.48);}
-  else{archives(f,16,3.2);archives(f,19,3.2);displayCase(f,25.3,4.4,'science');f.sign(23,2.9,2.27,0,'ЧИТАЛЬНЫЙ ЗАЛ','#53655f','#ddd5b7',4,.45);}
+ b.tower({x:3,z:2,w:26,d:20,floors:3,fh:4.2,stairs:false,stairHole:[10.7,8.9,21.3,17.6],wall:0x9b8b78,winStep:3.1,windowPools:false,doorW:2.8,facadeProps:false,door:{side:'s',at:.5,sign:['ХНУРЕ','#34394c','#dbd2b4']},ladder:{side:'e',at:.65},floor:T.floorTile(),interior(f,k,r){
+  if(k===0){
+   f.box(6.6,18.7,4.5,1.1,1.05,tmat(T.wood()));f.sign(6.6,1.55,19.3,0,'ПРИЁМНАЯ','#455b5b','#d9d0ae',2.5,.4);f.item('monitor',6.4,18.6,1.1);f.item('books',5.2,18.7,1.1);f.chair(6.6,17.6,0);
+   for(const z of[15.5,18.2])f.bench(26.8,z,-Math.PI/2);f.plantPot(27.6,20.6);noticeBoard(f,27.5,13.5,-Math.PI/2);displayCase(f,5.2,13.0,'science');
+   for(const x of[6,9])for(const z of[5.5,8.3])f.desk(x,z,Math.PI,false);for(const x of[24,27])f.locker(x,4,0,0x626c7d);
+   f.sign(16,2.5,2.31,0,'ХНУРЕ · ПРИЁМНАЯ','#49545b','#ddd1b3',6,.55);
+  }else{
+   for(const x of[9.1,22.9])f.partition(x,3,x,20.4,3.7,.43,2.4);
+   if(k===1){for(const x of[5.5,8.3])for(const z of[5,8,13.5,17])f.desk(x,z,Math.PI,false);f.whiteboard(6.5,1.8,2.35,0,4.5);for(const z of[5.4,14.5])labBench(f,25.6,z);detailAction(f,25.6,14.5,1.02,'coil');displayCase(f,24,19,'science');}
+   else{for(const x of[4.2,27.8])for(const z of[5,8,14,18])archives(f,x,z,x<16?Math.PI/2:-Math.PI/2);for(const x of[6.5,25.5])for(const z of[6.7,15]){f.ptable(x,z,1.3);f.chair(x,z+1.0,Math.PI);f.item('books',x,z,.9);}}
+   f.sign(9.2,2.6,10.4,-Math.PI/2,k===1?'АУДИТОРИЯ 201':'БИБЛИОТЕКА','#4f6158','#ded3b4',2.4,.4);f.sign(22.8,2.6,10.4,Math.PI/2,k===1?'ЛАБОРАТОРИЯ':'ЧИТАЛЬНЫЙ ЗАЛ','#505d70','#ded3b4',2.4,.4);
+  }
+
  }});
+ splitStairs(b,W.buildings.at(-1),4.2,3);
  // Крылья образуют настоящий входной двор; каждый павильон доступен через дверь.
  for(const[x,w,kind]of[[3,7,'МУЗЕЙ НАУКИ'],[22,7,'СТУДЕНЧЕСКИЙ КЛУБ']]){b.tower({x,z:22.25,w,d:4.75,floors:1,fh:5.5,stairs:false,parapet:false,wall:0x8c8171,facadeProps:false,windowPools:false,canopy:false,doorW:2,door:{side:'s',at:.5,sign:[kind,'#535e6a','#ded3ad']},floor:T.floorTile(),interior(f){if(x<16){displayCase(f,6.5,23.2,'science');f.plantPot(8.8,25.8);}else{f.sofa(27.5,24.3,Math.PI/2,0x74677b);f.ptable(24.5,24.2,.8);f.item('books',24.5,24.2,.9);}}});pitchedRoof(b,x+w/2,24.65,w+.3,5.1,5.5,1.0);}
  portico(b,16,24.4,9.3,2.55,6.2);b.sign(16,7.6,22.22,0,'ХНУРЕ · НАУКА НОЧЬЮ','#4d5868','#d9cfaa',9,.75);
@@ -24,5 +31,5 @@ export default{id:'university',name:'Университет Хнуре',ground:'
  pitchedRoof(b,16,22.0,9.6,.65,12.6,1.35);b.sign(16,13.18,22.34,0,'ХНУРЕ','#7e7865','#d4c7a0',2.5,.30);
  b.sign(25.5,1.8,27.14,0,'ДЕНЬ ОТКРЫТЫХ ДВЕРЕЙ','#6a5969','#e1d5bc',3.3,.5);
  const owned=endSection(section),center=new V3(b.X(16),b.Y,b.Z(14.5));W.university={...owned,b,center,box:[b.X(2.5),b.Z(2),b.X(29.5),b.Z(27.2)],start:new V3(b.X(16),b.Y,b.Z(28.7)),charges:[[5.5,27.9],[26,27.9],[2,15],[30,8]].map(([x,z])=>new V3(b.X(x),b.Y,b.Z(z))),destroyed:false};
- b.ground(3,27.3,29,31,T.pave(),3);b.bench(7,29);b.bench(25,29);b.bin(3,29);b.lamp(3,30);b.lamp(29,30);b.spawn(16,30);b.zone('floor',10,27.5,22,31);b.cats(3,28,9,30);b.bikeRack?.(28,30);b.item('boombox',7,29,.65);for(const[type,x]of [['bao',11],['taco',13],['noodles',15],['burger',17]])b.item(type,x,30,.12);
+ b.ground(3,27.3,29,31,T.pave(),3);b.bench(7,29);b.bench(25,29);b.bin(3,29);b.lamp(3,30);b.lamp(29,30);b.spawn(16,30);b.zone('floor',10,27.5,22,31);b.cats(3,28,9,30);b.bikeRack?.(28,30);b.item('boombox',7,29,.65);
 }};

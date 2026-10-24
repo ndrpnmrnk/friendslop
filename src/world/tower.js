@@ -196,7 +196,7 @@ export const TowerMethods = {
     const HOLE = [f0, sz0, sx1, sz1];
     for (let k = 1; k <= n; k++) {
       const y = k * fh;
-      slab(y, hasStairs ? HOLE : null, k < n ? floorTex : T.roof(), k === n);
+      slab(y, o.stairHole||(hasStairs ? HOLE : null), k < n ? floorTex : T.roof(), k === n);
       if (!hasStairs) continue;
       railM((f0 + sx1) / 2, sz1 + 0.03, sx1 - f0, 0.06, y);
       railM(sx1 - 0.03, (sz0 + sz1) / 2, 0.06, sz1 - sz0, y);

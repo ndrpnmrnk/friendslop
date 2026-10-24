@@ -41,7 +41,7 @@ export function resetTools() {
   // золотые ящики: на крышах и в нычках
   const spots = W.missionZones.filter(z => z.type === 'roof' || z.type === 'nook').sort(() => Math.random() - 0.5);
   let n = 0; for (const z of spots) { if (n >= 3) break; goldenCrate((z.x0 + z.x1) / 2, z.y, (z.z0 + z.z1) / 2); n++; }
-  scatterTools();
+  scatterTools();for(const p of W.foodSpots)if(Math.random()<.7){const types=Object.keys(SNACKS);addItem(types[Math.random()*types.length|0],p.x,p.y,p.z);}
 }
 /* При создании карты инструменты разложены случайно, но «по-жизненному»: на лавочке, у подъезда, на крыше, в нычке.
    10–14 штук на карту, не ближе 6 м друг к другу. Больше они сами не появляются (только посылки, птицы, ящики, шкафы). */
@@ -53,7 +53,7 @@ function scatterTools() {
   const want = 10 + ((Math.random() * 5) | 0), got = [];
   for (const s of spots) { if (got.length >= want) break; if (got.some(q => Math.hypot(q.x - s.x, q.z - s.z) < 6)) continue;
     const gy = groundAt(s.x, s.z, 0.2, s.y + 0.6); if (Math.abs(gy - s.y) > 0.6) continue;
-    const pool = Math.random() < 0.2 ? CONFIG.toolRare : CONFIG.toolPool, type = pool[(Math.random() * pool.length) | 0];
+    const pool = (Math.random() < 0.2 ? CONFIG.toolRare : CONFIG.toolPool).filter(t=>!SNACKS[t]), type = pool[(Math.random() * pool.length) | 0];
     addItem(type, s.x, gy, s.z, Math.random() * 6); got.push(s); }
 }
 /* Раз в ~40 с над городом пролетает ворона (на Хэллоуин — летучая мышь) и роняет предмет в случайном открытом месте */
@@ -75,7 +75,7 @@ function updateFlyer(dt, t) {
   const f = toolState().flyer; f.k += dt * 11;
   f.g.position.set(f.s.x + f.dx * f.k, f.h + Math.sin(t * 2) * 0.4, f.s.z + f.dz * f.k); f.g.rotation.y = Math.atan2(f.dx, f.dz);
   for (const [i, w] of f.g.userData.wings.entries()) w.rotation.z = (i ? -1 : 1) * Math.sin(t * 16) * 0.7;
-  if (!f.dropped && f.k >= 0) { f.dropped = true; const pool = Math.random() < 0.2 ? CONFIG.toolRare : CONFIG.toolPool, it = addItem(pool[(Math.random() * pool.length) | 0], f.s.x, f.s.y, f.s.z, Math.random() * 6);
+  if (!f.dropped && f.k >= 0) { f.dropped = true; const pool = (Math.random() < 0.2 ? CONFIG.toolRare : CONFIG.toolPool).filter(t=>!SNACKS[t]), it = addItem(pool[(Math.random() * pool.length) | 0], f.s.x, f.s.y, f.s.z, Math.random() * 6);
     launch(it, new V3(f.s.x, f.h - 0.4, f.s.z), new V3(0, -2, 0)); sfx('crow', { at: f.g.position }); }
   if (f.k > 40) { W.group.remove(f.g); toolState().flyer = null; }
 }
@@ -87,7 +87,7 @@ function goldenCrate(x, y, z) {
 }
 // инструмент выпрыгивает из ящика и падает рядом
 export function spawnTool(x, y, z, rare = false, type = null) {
-  const pool = rare ? CONFIG.toolRare : CONFIG.toolPool;
+  const pool = (rare ? CONFIG.toolRare : CONFIG.toolPool).filter(t=>!SNACKS[t]);
   type = type || pool[(Math.random() * pool.length) | 0];
   const gy = groundAt(x, z, 0.2, y + 0.5), it = addItem(type, x, gy, z, Math.random() * 6);
   launch(it, new V3(x, gy + 0.6, z), new V3((Math.random() - 0.5) * 3, 5, (Math.random() - 0.5) * 3));

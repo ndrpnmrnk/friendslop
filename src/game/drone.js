@@ -54,7 +54,7 @@ const setHatch = (d, k) => { d.hatch = k; d.flaps.forEach((f, i) => (f.rotation.
 function removeHeli(d){if(!d||d.disposed)return;d.disposed=true;d.g.removeFromParent();W.keep=W.keep.filter(q=>q!==d.g);d.screen.dispose();d.tex.dispose();d.blur.material.dispose();}
 export function eliminate(a, seconds) {
   if (!a || a.drone || a.returning) return;
-  a.hazeT=0;a.bongUse=null;a.frozen=false;a.noRun=false;a.stationaryWork=false;a.bus=null;a.dive=null;a.slideT=0;a.rollT=0;a.climbing=false;
+  a.hazeT=0;a.bongUse=null;a.frozen=false;a.noRun=false;a.stationaryWork=false;a.bus=null;a.roofSeat=null;a.dive=null;a.slideT=0;a.rollT=0;a.climbing=false;
   a.droneCauseSnapshot={at:Date.now(),pos:a.pos.toArray(),work:a.work?.m?.key||null};
   W.onEliminate && W.onEliminate(a);
   // выбывание сбрасывает все «залипающие» состояния: перекур, собака на руках, скамейка, стан (v0.21)

@@ -101,14 +101,14 @@ function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   else {
     // приближение к плечу при замахе — слабое и очень плавное (v0.19)
     cam.aimK += ((aiming ? 1 : 0) - cam.aimK) * damp(2.5, dt);
-    const k = cam.aimK * 0.5, N = cam.normal, A = cam.aim;
+    const k = cam.aimK * 0.5, N = p.bus?{dist:11.5,shoulder:.25,height:3.5}:cam.normal, A = cam.aim,anchor=p.bus?.g.position||p.pos;
     if (snap) { orbitPitch = cam.pitch; orbitYaw = cam.yaw; }
     else { orbitPitch += (cam.pitch - orbitPitch) * damp(30, dt); orbitYaw += (cam.yaw - orbitYaw) * damp(30, dt); }
     const dist = N.dist + (A.dist - N.dist) * k, shoulder = (N.shoulder + (A.shoulder - N.shoulder) * k) * Math.cos(Math.max(0, orbitPitch) * 0.8);
-    const height = Math.min(N.height + (A.height - N.height) * k, p.h + 0.3);
-    eye.set(p.pos.x, p.pos.y + Math.min(1.35, p.h * 0.72), p.pos.z);
+    const height = p.bus?3.5:Math.min(N.height + (A.height - N.height) * k, p.h + 0.3);
+    eye.set(anchor.x,anchor.y+(p.bus?2.4:Math.min(1.35,p.h*.72)),anchor.z);
     const floorY = p.pos.y + 0.45; // всё ниже колен — «пол»: камера над ним скользит, а не упирается
-    tgt.set(p.pos.x, p.pos.y + height, p.pos.z); constrain(eye, tgt, radius, null, floorY);
+    tgt.set(anchor.x,anchor.y+height,anchor.z); constrain(eye, tgt, radius, null, floorY);
     if (snap || !following) { piv.copy(tgt); following = true; } else piv.lerp(tgt, damp(18, dt));
     constrain(eye, piv, radius, null, floorY);
     dir.set(Math.sin(orbitYaw) * Math.cos(orbitPitch), Math.sin(orbitPitch), Math.cos(orbitYaw) * Math.cos(orbitPitch));
@@ -155,11 +155,12 @@ function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
 }
 
 return {state:cam,reset:resetCamera,update:updateCamera,
-  resume(camera){pos.copy(camera.position);look.copy(camera.position).addScaledVector(camera.getWorldDirection(dir),20);following=false;cam.blend=0;}
+  resume(camera){pos.copy(camera.position);look.copy(camera.position).addScaledVector(camera.getWorldDirection(dir),20);following=false;cam.curDist=cam.normal.dist;orbitPitch=cam.pitch;orbitYaw=cam.yaw;cam.blend=0;}
 };
 }
 const mainRig=createCameraRig();
 export const cam=mainRig.state;
 export const resetCamera=mainRig.reset;
+export const resumeCamera=mainRig.resume;
 export const updateCamera=mainRig.update;
 export const camForward=()=>[-Math.sin(cam.yaw),-Math.cos(cam.yaw)];

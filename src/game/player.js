@@ -37,6 +37,7 @@ export function groundBlob(p) {
 export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.drone || p.returning) return;
   tickStun(p,dt);
+  if(p.roofSeat){if(p.stun>0||p.heldBy||tapped('Space'))p.roofSeat=null;else{p.pos.copy(p.roofSeat.o.g.localToWorld(p.roofSeat.local.clone()));p.vel.set(0,0,0);p.ch.animate(dt,{t,speed:0,ride:'sit'});groundBlob(p);return;}}
   if(p.bus){p.vel.set(0,0,0);p.ch.animate(dt,{t,speed:0,ride:'sit',dangle:false});groundBlob(p);return;}
   if (p.knockT > 0) p.knockT -= dt;
   if (p.heldBy && canMove && ['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE'].some(k => tapped(k))) struggleTap(p);
@@ -229,7 +230,8 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   // уступ на уровне груди в прыжке — подтянуться
   if (!p.onGround && il > 0 && p.vel.y < 3 && !p.climb && !p.dive && !p.held && !p.grab && !p.ride) {
     const qx = p.pos.x + ix * (p.r + 0.28), qz = p.pos.z + iz * (p.r + 0.28);
-    for (const so of solidsNear(qx - 0.15, qz - 0.15, qx + 0.15, qz + 0.15)) {
+    const ledges=solidsNear(qx-.15,qz-.15,qx+.15,qz+.15).slice();for(const o of W.obbs){if(!o.on)continue;const c=Math.cos(o.yaw),s=Math.sin(o.yaw),x=(qx-o.cx)*c-(qz-o.cz)*s,z=(qx-o.cx)*s+(qz-o.cz)*c;if(x>=o.lx0&&x<=o.lx1&&z>=o.lz0&&z<=o.lz1)ledges.push({on:true,x0:qx-.2,x1:qx+.2,z0:qz-.2,z1:qz+.2,y0:o.y0,y1:o.y1});}
+    for (const so of ledges) {
       if (!so.on || qx < so.x0 || qx > so.x1 || qz < so.z0 || qz > so.z1) continue;
       const rel = so.y1 - p.pos.y; if (rel < 0.9 || rel > 2.3 || so.y1 - so.y0 < 0.25) continue;
       const tx = p.pos.x + ix * (p.r + 0.5), tz = p.pos.z + iz * (p.r + 0.5);

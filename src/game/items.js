@@ -1,3 +1,4 @@
+import {basketCrossing} from '../world/basketball.js';
 import {sweepActors,npcList,npcPosition,hitNPC,heavyHit} from './impacts.js';
 import {bowModel} from './bow.js';
 import {bongModel} from './bong.js';
@@ -21,6 +22,10 @@ const MAG_ARC = new THREE.TorusGeometry(0.115, 0.047, 6, 12, Math.PI);
 
 /* Предметы для броска. Лежат в своих районах, их можно подобрать (E) и кинуть (зажать ПКМ). */
 const GRAV = 22;
+// Один интегратор для полёта и пунктира: точное сопротивление, без зависимости от FPS.
+function integrateProjectile(p,v,dt,drag=0){const k=Math.max(0,drag);if(k<1e-5){p.addScaledVector(v,dt);p.y-=GRAV*dt*dt/2;v.y-=GRAV*dt;}else{const e=Math.exp(-k*dt),f=(1-e)/k;p.x+=v.x*f;p.z+=v.z*f;p.y+=(v.y+GRAV/k)*f-GRAV*dt/k;v.multiplyScalar(e);v.y-=GRAV/k*(1-e);}}
+function boundaryHit(old,p,r){const B=W.bounds-r;let t=1,n=null;for(const a of['x','z'])if(Math.abs(p[a])>B){const edge=Math.sign(p[a])*B,u=(edge-old[a])/(p[a]-old[a]);if(u<t){t=Math.max(0,u);n=a==='x'?[-Math.sign(p.x),0,0]:[0,0,-Math.sign(p.z)];}}if(n)p.lerpVectors(old,p,t);return n;}
+
 function build(type) {
   if(type==='fatcan')return fatCanModel();
   if(SNACKS[type])return snackModel(type);
@@ -231,11 +236,13 @@ function simulate(it, dt, flying) {
   if (flying) trail(it, dt);
   const r = it.def.r, ry=it.def.halfHeight??r, p = it.pos, v = it.vel;
   const steps = Math.min(6, Math.ceil(v.length() * dt / (r * 0.8)) || 1), h = dt / steps;
-  const drag = Math.exp(-it.def.drag * h);
+
   for (let s = 0; s < steps; s++) {
-    const old=p.clone();v.y-=GRAV*h;v.multiplyScalar(drag);const next=old.clone().addScaledVector(v,h),dv=next.clone().sub(old),len=dv.length(),wall=len?raySolids(old,dv.clone().normalize(),len):Infinity;
+    const old=p.clone(),next=old.clone();integrateProjectile(next,v,h,it.def.drag);const edge=boundaryHit(old,next,r),dv=next.clone().sub(old),len=dv.length(),wall=len?raySolids(old,dv.clone().normalize(),len):Infinity;
     if(flying&&!it.football&&!(it.noHitT>0)){const hit=sweepActors(old,next,r,it.owner);if(hit&&hit.t*len<wall){p.lerpVectors(old,next,hit.t);it.hitTarget=hit.actor;impact(it,[0,1,0],v.length());it.hitTarget=null;return;}}
     p.copy(next);if(wall<len){p.copy(old).addScaledVector(dv,Math.max(0,wall-.015)/Math.max(.001,len));if(flying){impact(it,[0,1,0],v.length());return;}}
+    basketCrossing(it,old,p);
+    if(edge){if(flying){impact(it,edge,v.length());return;}const vn=v.x*edge[0]+v.z*edge[2];if(vn<0){v.x-=(1+it.def.bounce)*vn*edge[0];v.z-=(1+it.def.bounce)*vn*edge[2];}}
     const gy = groundAt(p.x, p.z, r * 0.5, p.y + r * 0.5);
     if (p.y - ry < gy) {
       p.y = gy + ry;
@@ -319,12 +326,17 @@ export function throwVelocity(from, target, charge, def) {
   const f = k / (1 - Math.exp(-k * T)), vx = dist * f, vy = (dy + GRAV * T / k) * f - GRAV / k;
   return new V3(dx / dist * vx, vy, dz / dist * vx);
 }
-export function launch(it, from, vel) { it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true; }
+export function launch(it, from, vel) { it.throwFrom=from.clone();it.hoopScored=false;it.throwId=(it.throwId||0)+1; it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true; }
+const predicted=[];
 export function predict(from,vel,out,n,def,end){
- const p=from.clone(),v=vel.clone(),h=.04,drag=Math.exp(-def.drag*h);let k=0;if(end)end.visible=false;
- for(let i=0;i<120&&k<n;i++){const old=p.clone();v.y-=GRAV*h;v.multiplyScalar(drag);const dv=v.clone().multiplyScalar(h),len=dv.length(),wall=len?raySolids(old,dv.clone().normalize(),len):Infinity;p.add(dv);if(wall<len)p.copy(old).addScaledVector(dv,wall/len);
- const gy=groundAt(p.x,p.z,.05,p.y+.2);if(wall<len||p.y<gy||solidHit(p,.05)){if(end){end.position.set(p.x,Math.max(gy,p.y)+.04,p.z);end.visible=true;}break;}if(i%2===0)out[k++].position.copy(p);
- }return k;
+ const p=from.clone(),v=vel.clone(),h=1/60,r=def.r,ry=def.halfHeight??r;let count=0,landed=false;if(end)end.visible=false;
+ for(let i=0;i<600;i++){const old=p.clone();integrateProjectile(p,v,h,def.drag);const edge=boundaryHit(old,p,r),dv=p.clone().sub(old),len=dv.length(),wall=len?raySolids(old,dv.clone().normalize(),len):Infinity;
+  if(wall<len)p.copy(old).addScaledVector(dv,Math.max(0,wall-.015)/len);const gy=groundAt(p.x,p.z,r*.5,p.y+r*.5),hit=solidHit(p,r);
+  if(p.y-ry<gy){p.y=gy+ry;landed=true;}if(edge||wall<len||hit)landed=true;
+  (predicted[count]||(predicted[count]=new V3())).copy(p);count++;
+  if(landed){if(end){end.position.copy(p);end.visible=true;}break;}
+ }
+ const visible=Math.min(n,count);for(let i=0;i<visible;i++)out[i].position.copy(predicted[Math.min(count-1,Math.floor(i*Math.max(1,count-1)/Math.max(1,visible-1)))]);return visible;
 }
 
 // цвет письма задаёт миссия «Почтальон» перед addItem

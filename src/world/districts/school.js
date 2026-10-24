@@ -1,3 +1,4 @@
+import {buildHoop} from '../basketball.js';
 import { THREE, G, tmat, col, lam, paint, glow } from '../../core/gfx.js';
 import { T, rep } from '../../core/textures.js';
 
@@ -34,11 +35,7 @@ export default {
     b.marking(9, 26.3, 4.2, 0.18);
     const circle = b.m(new THREE.RingGeometry(1.45, 1.63, 20), paint(0xe5ddcf), 9, 0.035, 21, 1, 1, 1); circle.rotation.x = -Math.PI / 2;
     b.ground(17, 11, 31, 31, T.grass(), 3);
-    b.box(9, 30.6, 0.25, 0.25, 3.4, col(0x2b2533));
-    b.box(9, 30.3, 1.8, 0.1, 1.1, col(0xf1e8ff), { y: 2.7, solid: false });
-    const ring = b.m(G.torus, col(0xff5a2a), 9, 3.05, 29.9, 0.3, 0.3, 0.3); ring.rotation.x = Math.PI / 2;
-    for (const x of [8.62, 9.38]) b.m(G.box, col(0xc8422d), x, 3.12, 30.235, 0.04, 0.42, 0.02);
-    for (const y of [2.91, 3.33]) b.m(G.box, col(0xc8422d), 9, y, 30.235, 0.8, 0.04, 0.02);
+    buildHoop(b,9,29.8,0);
     b.item('ball', 6, 18); b.item('ball', 11, 15); b.item('ball', 12, 23);
     b.goal(24,29.5,Math.PI,4,2.2);
     for (const x of [19, 21]) b.box(x, 13, 0.12, 0.12, 2.2, col(0x6a6d78));

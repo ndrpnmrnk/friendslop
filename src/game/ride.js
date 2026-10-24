@@ -2,7 +2,7 @@ import { keys, tapped } from '../core/input.js';
 import { damp } from '../core/rng.js';
 import { W } from '../world/state.js';
 import { burst, smoke } from '../world/particles.js';
-import { pushOut, zoneAt, recordImpact } from '../world/physics.js';
+import { pushOut, zoneAt, recordImpact,syncPushable } from '../world/physics.js';
 import { actors, shove } from './actors.js';
 import { sfx } from '../core/sfx.js';
 
@@ -14,7 +14,8 @@ import { sfx } from '../core/sfx.js';
 export function nearestRideable(p, r = 1.6, coast = false) {
   let best = null, bd = r;
   for (const b of W.pushables) {
-    if (b.noRide || b.raceOwner&&b.raceOwner!==p || !b.ride || b.rider || b.grabbed || !!b.ride.coast !== coast) continue;
+    if(b.dead||b.rider||b.grabbed||b.raceOwner&&b.raceOwner!==p)continue;
+    if(b.dragOnly){if(!coast)continue;}else if(b.noRide||!b.ride||!!b.ride.coast!==coast)continue;
     const d = Math.hypot(b.x - p.pos.x, b.z - p.pos.z);
     if (d < bd && Math.abs(b.y - p.pos.y) < 1) { bd = d; best = b; }
   }
@@ -37,10 +38,10 @@ export function release(p, shove = 1) {
 export function updateGrab(p, dt) {
   const b = p.grab; if (!b) return;
   const f = p.root.rotation.y, d = b.r + p.r + 0.12, tx = p.pos.x + Math.sin(f) * d, tz = p.pos.z + Math.cos(f) * d;
-  const q = { x: tx, z: tz };const hit=pushOut(q,b.r,b.y+.2,b.y+1);recordImpact(b,hit,Math.hypot(b.vx,b.vz));
+  const q = { x: tx, z: tz };if(b.solid)b.solid.on=false;const hit=pushOut(q,b.r,b.y+.2,b.y+b.h);if(b.solid)b.solid.on=true;recordImpact(b,hit,Math.hypot(b.vx,b.vz));
   if (Math.hypot(q.x - tx, q.z - tz) > 0.35 || Math.abs(p.pos.y - b.y) > 0.6) { release(p, 0.3); return; }
   b.x = q.x; b.z = q.z; b.vx = p.vel.x; b.vz = p.vel.z; b.heading = f;
-  b.mesh.position.set(b.x, b.y, b.z); b.mesh.rotation.y = f;
+  b.mesh.rotation.y=f;syncPushable(b);
   const sp = Math.hypot(p.vel.x, p.vel.z);
   if (sp > 4 && Math.random() < dt * 6) smoke(b.x, b.y + 0.06, b.z, { dust: true });
 }

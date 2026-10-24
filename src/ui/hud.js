@@ -132,6 +132,7 @@ export function eventChip(key, sec, info = '') { const c = $('evchip'); if (!key
 export function renderHeld(P,missionTool=null,host=$('held'),state=H){
   let held = '';
   if(P.grab?.holdOnly)held='';
+  else if(P.grab?.dragOnly)held='Ящик <span class="key">ЛКМ</span>Отпустить';
   else if (P.grab) held = `${img('cart', 22)}${TEXT.grab[P.grab.kind] || ''} <span class="key">E</span>${TEXT.keys.hop}`;
   else if (P.holding) held = `${img('mouse', 22)}${P.holding.bot ? P.holding.name : TEXT.you} <span class="key">WASD</span>Оттяни <span class="key">E / ЛКМ / ПКМ</span>Отпустить`;
   else if (P.carryCrate) held = `${img('parcel', 22)}Ящик в руках <span class="key">E</span>Поставить на метку`;

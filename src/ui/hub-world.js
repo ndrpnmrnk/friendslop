@@ -1,3 +1,4 @@
+import {buildHoop} from '../world/basketball.js';
 import {THREE,G,V3,mesh,col,tmat,glow,compose} from '../core/gfx.js';
 import {T,facade,pix} from '../core/textures.js';
 import {Builder} from '../world/builder.js';
@@ -51,7 +52,7 @@ export function buildHub(scene){
   for(const[type,x,z]of[['duck',-10,6],['slipper',10,-10],['water',9,7],['banana',-11,11],['ball',6.1,5.7]])b.item(type,x,z);
   for(const[x,z]of[[-6.8,-.7],[-7.1,-5.5],[7,-6.1],[10.6,1.4],[-8,10.7],[2.7,-8.6],[10.8,10.7]])b.item('pumpkin',x,z);
   b.stringLights(-12.5,-13,12.5,-13,4.6,[0xc18c56,0x827392,0x9d956a]);
-  b.bollard(-2.7,16.3);b.bollard(2.7,16.3);b.bikeRack(11.4,12,2,Math.PI/2);b.utilityBox(-12.3,-11.5,Math.PI/2);b.aircon(-13.2,1,3);b.puddle(11,-9,.55);
+  b.bollard(-2.7,16.3);b.bollard(2.7,16.3);b.bikeRack(11.4,12,2,Math.PI/2);b.at(1.25).utilityBox(-13.15,-10.5,Math.PI/2);b.aircon(-13.2,1,3);b.puddle(11,-9,.55);
   b.sofa(0,-3.5,Math.PI,0x514752);
   group.add(compose('hub40-tv-hoop',a=>{
     a(G.box,wood,0,.29,-8.45,3.7,.58,1.55);a(G.box,dark,0,.57,-8.45,3.9,.08,1.65);
@@ -61,36 +62,34 @@ export function buildHub(scene){
     for(const y of[2.22,1.86])a(G.cyl8,cream,1.57,y,-7.58,.105,.08,.105,Math.PI/2);
     a(G.box,glow(0x9be36b),1.55,.84,-7.60,.06,.04,.02);
     for(const s of[-1,1])a(G.cyl6,metal,s*.48,3.11,-8.5,.015,1.05,.015,0,0,s*.67);
-    // Баскетбол сбоку, вне пути к трём основным станциям.
-    a(G.cyl8,metal,7.7,1.9,4.05,.07,3.8,.07);a(G.box,wood,7.7,3.24,3.91,2.2,1.42,.12);
-    a(G.box,cream,7.7,3.25,3.83,2.08,1.30,.04);
-    a(G.box,col(0xb06a48),7.7,3.13,3.79,.65,.45,.02);
-    a(G.box,cream,7.7,3.13,3.77,.55,.35,.02);
-    a(G.torus,col(0xc66f3f),7.7,2.91,3.35,.45,.45,.45,Math.PI/2);
-    for(let i=0;i<10;i++){const an=i/10*Math.PI*2;a(G.cyl5,cream,7.7+Math.cos(an)*.34,2.65,3.35+Math.sin(an)*.34,.009,.52,.009,Math.sin(an)*.17,0,-Math.cos(an)*.17);}
-    for(let i=0;i<8;i++){const an=i/8*Math.PI; a(G.box,cream,7.7+Math.cos(an)*2.7,.018,3.35+Math.sin(an)*2.7,.32,.018,.06,0,-an,0);}
 
-  }));b.solid(0,-8.45,3.9,1.65,0,2.8);b.solid(7.7,4.05,.22,.22,0,3.8);
+  }));b.solid(0,-8.45,3.9,1.65,0,2.8);buildHoop(b,7.7,3.35,0);
   // Гардеробная стоит отдельно от фасада, лицом к центру двора.
   const room=new THREE.Group();room.position.set(-9.7,0,-3);room.rotation.y=Math.PI/2;group.add(room);state.keep.push(room);
-  const cloth=tmat(T.cloth(0x584051));
+  const cloth=tmat(T.cloth(0x584051)),wallpaper=pix('wardrobe43-wall',32,32,g=>{g.fillStyle='#5c555b';g.fillRect(0,0,32,32);g.fillStyle='#70616a';for(let x=0;x<32;x+=8){g.fillRect(x,0,1,32);for(let y=3;y<32;y+=8){g.fillRect(x+3,y,3,1);g.fillRect(x+4,y-1,1,3);}}}),rug=pix('wardrobe43-rug',32,32,g=>{g.fillStyle='#4b3542';g.fillRect(0,0,32,32);g.strokeStyle='#b4996c';g.strokeRect(2,2,27,27);g.strokeRect(5,5,21,21);for(let i=8;i<25;i+=8){g.fillStyle='#806375';g.fillRect(i,10,3,12);}});
   room.add(compose('hub41-wardrobe',a=>{
-   a(G.box,wood,0,.04,0,3.7,.08,5.8);a(G.box,tmat(T.wallIn(0x655b66)),0,1.65,-2.77,3.7,3.3,.12);
-   for(const x of[-1.79,1.79])a(G.box,wood,x,1.65,0,.12,3.3,5.8);
+   a(G.box,wood,0,.04,0,3.7,.08,5.8);a(G.box,tmat(wallpaper),0,1.65,-2.77,3.7,3.3,.12);
+   for(const x of[-1.79,1.79]){a(G.box,tmat(wallpaper),x,1.65,0,.12,3.3,5.8);a(G.box,wood,x,.45,0,.14,.9,5.8);a(G.box,cream,x,.94,0,.16,.07,5.8);}
    a(G.box,tmat(T.roof()),0,3.38,0,3.94,.16,6.1);a(G.box,wood,0,2.98,3.0,3.72,.65,.16);
    a(G.box,tmat(T.sign('ГАРДЕРОБ','#352c37','#c4b69c')),0,3.0,3.095,3.24,.34,.025);
-   a(G.box,metal,0,2.61,2.96,3.48,.055,.055);a(G.box,tmat(T.cloth(0x6b4c61)),0,.09,-.6,2.25,.03,2.5);
+   a(G.box,metal,0,2.61,2.96,3.48,.055,.055);a(G.box,tmat(rug),0,.09,-.6,2.25,.03,2.5);
    a(G.box,metal,0,1.52,-2.68,1.28,2.05,.035);a(G.box,col(0x6b6b7c),0,1.52,-2.652,1.14,1.91,.018);
-   for(const x of[-1.25,1.25]){a(G.cyl6,metal,x,1.02,-1.2,.022,2,.022);a(G.box,wood,x,2.06,-1.2,.62,.04,.08);a(G.box,tmat(T.cloth(x<0?0x6e6251:0x425c58)),x,1.55,-1.2,.44,.70,.16);}
+   for(const x of[-1.35,1.35]){a(G.cyl6,metal,x,1.02,-1.4,.022,2,.022);a(G.box,wood,x,2.06,-1.4,.65,.04,.08);for(let i=0;i<3;i++){const z=-1.7+i*.3,c=tmat(T.cloth([0x556a62,0x8a6559,0x4d566c][i]));a(G.box,c,x,1.48,z,.40,.85,.16);for(const sign of[-1,1])a(G.box,c,x+sign*.27,1.68,z,.17,.48,.14,0,0,sign*.3);a(G.box,cream,x,1.83,z,.035,.18,.025);}}
+   a(G.box,wood,1.28,.50,.25,.75,.10,1.15);for(const z of[-.18,.68])for(const x of[1.03,1.52])a(G.box,wood,x,.26,z,.055,.5,.055);
+   for(let i=0;i<3;i++){a(G.box,tmat(T.cardboard()),-1.35,.17+i*.20,-2.12,.52,.19,.5);a(G.box,cream,-1.35,.26+i*.20,-2.12,.54,.03,.52);}
+   for(const x of[-.66,.66])for(const y of[.85,1.35,1.85,2.35])a(G.sph,glow(0xbfae91),x,y,-2.61,.045,.045,.035);
+   a(G.box,wood,0,.73,-2.36,1.4,.08,.38);for(const x of[-.56,.56])a(G.box,wood,x,.38,-2.36,.06,.7,.06);
+   a(G.cyl8,col(0x658b7e),-.4,.89,-2.35,.07,.22,.07);a(G.box,metal,-.4,1.02,-2.35,.08,.035,.08);a(G.box,tmat(T.sign('FRIEND SLOP','#c4b79c','#554757')),.38,1.1,-2.53,.42,.54,.025);
    a(G.cyl8,dark,0,3.12,-1,.22,.12,.22);a(G.disc,glow(0xc0ac88),0,3.04,-1,.19,.19,.19,Math.PI/2);
   }));
   const at=(x,y,z)=>room.localToWorld(new V3(x,y,z));room.updateMatrixWorld(true);
   const roomSolid=(x,z,w,d,h,y=0)=>{const center=at(x,y,z);return addSolid(center.x-d/2,center.z-w/2,center.x+d/2,center.z+w/2,center.y,center.y+h);};
-  roomSolid(0,0,3.7,5.8,.08);roomSolid(-1.79,0,.12,5.8,3.3);roomSolid(1.79,0,.12,5.8,3.3);roomSolid(0,-2.77,3.7,.12,3.3);roomSolid(0,0,3.9,6,.16,3.3);
-  const curtains=[];for(const sign of[-1,1]){const p=new THREE.Group();room.add(p);mesh(G.box,cloth,0,0,0,1.76,2.57,.055,p);for(let i=0;i<7;i++)mesh(G.box,tmat(T.cloth(0x624559)),(i-3)*.24,0,.038,.05,2.52,.025,p);curtains.push(p);}
-  const lamp=new THREE.SpotLight(0xffe0b0,18,5,.85,.7,1.3);lamp.position.copy(at(0,3,-1));lamp.target.position.copy(at(0,.7,-1));group.add(lamp,lamp.target);
-  const fill=new THREE.PointLight(0xc9d5e4,2.8,4,1.5);fill.position.copy(at(0,1.8,1.5));group.add(fill);
-  const beam=mesh(new THREE.CylinderGeometry(.14,1.15,2.8,8,1,true),LAMP_CONE_M().clone(),0,1.65,-1,1,1,1,room);beam.material.uniforms.k.value=.22;beam.userData.noOcc=true;
+  roomSolid(0,0,3.7,5.8,.08);roomSolid(-1.79,0,.12,5.8,3.3);roomSolid(1.79,0,.12,5.8,3.3);roomSolid(0,-2.77,3.7,.12,3.3);roomSolid(0,0,3.9,6,.16,3.3);const entrySolid=roomSolid(0,2.96,3.48,.13,2.62);
+  b.crate(-12.1,-5.7,.95);b.box(-12.25,-4.95,1.4,.4,.12,metal,{y:1.9});
+  const curtains=[];for(const sign of[-1,1]){const p=new THREE.Group();room.add(p);mesh(G.box,cloth,0,0,0,1.82,2.57,.055,p);for(let i=0;i<7;i++)mesh(G.box,tmat(T.cloth(0x624559)),(i-3)*.24,0,.038,.05,2.52,.025,p);curtains.push(p);}
+  const lamp=new THREE.SpotLight(0xffe0b0,8.5,5,.85,.7,1.3);lamp.position.copy(at(0,3,.2));lamp.target.position.copy(at(0,.7,-1));group.add(lamp,lamp.target);
+  const fill=new THREE.PointLight(0xc9d5e4,1.8,4,1.5);fill.position.copy(at(0,1.8,1.5));group.add(fill);
+  const beam=mesh(new THREE.CylinderGeometry(.14,1.15,2.8,8,1,true),LAMP_CONE_M().clone(),0,1.65,-1,1,1,1,room);beam.material.uniforms.k.value=.10;beam.userData.noOcc=true;
   const screenTexture=pix('hub40-tv',128,96,g=>{g.fillStyle='#101c24';g.fillRect(0,0,128,96);g.fillStyle='#19303a';for(let y=0;y<96;y+=3)g.fillRect(0,y,128,1);g.fillStyle='#91a18f';g.font='8px monospace';g.textAlign='center';g.fillText('PLAY / 01',64,49);});
   const tvScreen=mesh(G.plane,new THREE.MeshBasicMaterial({map:screenTexture}),-.2,1.73,-7.604,2.72,1.65,1,group);
   const controller=new THREE.Group();controller.position.set(.45,.56,-3.58);controller.rotation.y=.25;group.add(controller);
@@ -98,10 +97,10 @@ export function buildHub(scene){
 
   state.keep.push(tvScreen,controller);resetTools();resetSplat();registerInteracts();bakeStatic(group);
   let curtainOpen=0;
-  const result={state,group,tvScreen,controller,curtains,lampLights,
+  const result={state,group,tvScreen,controller,curtains,lampLights,entrySolid,
    wardrobe:{root:room,at,preview:at(0,.08,-1.1),gate:at(0,0,4),exit:at(0,0,4.7),camera:at(0,1.35,2.65),look:at(0,1.35,-1.1),inYaw:-Math.PI/2,outYaw:Math.PI/2},
-   stations:[{id:'wardrobe',name:'Гардеробная',hint:'Сменить персонажа',p:at(0,0,4.2),r:1.8},{id:'tv',name:'Диван и телевизор',hint:'Сесть и выбрать режим',p:new V3(0,0,-5.1),r:4.2,contains:p=>Math.abs(p.x)<3.5&&p.z>-7.4&&p.z<-.9},{id:'claw',name:'Автомат с друзьями',hint:'Выловить нового друга',p:new V3(8,0,-2.5),r:1.8}],
-   curtain(open){curtainOpen=THREE.MathUtils.clamp(open,0,1);curtains.forEach((p,i)=>{p.position.set((i?1:-1)*(.88+curtainOpen*.71),1.33,2.97);p.scale.x=1-.86*curtainOpen;});},
+   stations:[{id:'wardrobe',name:'Гардеробная',hint:'Сменить персонажа',p:at(0,0,4.2),r:1.8},{id:'tv',name:'Диван и телевизор',hint:'Сесть и выбрать режим',p:new V3(0,0,-5.1),r:4.2,contains:p=>Math.abs(p.x)<3.5&&p.z>-7.4&&p.z<-.9},{id:'claw',name:'Автомат с друзьями',hint:'Выловить нового друга',p:new V3(6.65,0,-3),r:1.9}],
+   curtain(open){curtainOpen=THREE.MathUtils.clamp(open,0,1);entrySolid.on=curtainOpen<.92;curtains.forEach((p,i)=>{p.position.set((i?1:-1)*(.88+curtainOpen*.71),1.33,2.97);p.scale.x=1-.86*curtainOpen;});},
    get curtainOpen(){return curtainOpen;}
   };result.curtain(0);return result;
  });

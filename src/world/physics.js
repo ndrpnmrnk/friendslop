@@ -16,6 +16,9 @@ function gridInsert(s) {
     const k = ck(i, j); let a = g.get(k); if (!a) g.set(k, a = []); a.push(s);
   }
 }
+// Движущиеся твёрдые ящики обновляют только занятые ячейки сетки.
+export function moveSolid(s,x0,z0,x1,z1,y0,y1){const old=[Math.floor(s.x0/CELL),Math.floor(s.x1/CELL),Math.floor(s.z0/CELL),Math.floor(s.z1/CELL)],next=[Math.floor(x0/CELL),Math.floor(x1/CELL),Math.floor(z0/CELL),Math.floor(z1/CELL)],changed=old.some((v,i)=>v!==next[i]);if(changed)for(let x=old[0];x<=old[1];x++)for(let z=old[2];z<=old[3];z++){const k=ck(x,z),a=W.grid?.get(k);if(a){const i=a.indexOf(s);if(i>=0)a.splice(i,1);if(!a.length)W.grid.delete(k);}}Object.assign(s,{x0,z0,x1,z1,y0,y1});if(changed)gridInsert(s);}
+export function syncPushable(b){b.mesh.position.set(b.x,b.y+(b.meshOffsetY||0),b.z);if(b.solid){const r=b.h/2;moveSolid(b.solid,b.x-r,b.z-r,b.x+r,b.z+r,b.y,b.y+b.h);b.mesh.updateMatrixWorld(true);for(const q of b.piece?.inst||[]){q.mx.multiplyMatrices(b.mesh.matrixWorld,q.local);q.im.setMatrixAt(q.i,q.mx);q.im.instanceMatrix.needsUpdate=true;}}}
 let stamp = 0; const _q = [];
 // твёрдые объекты, пересекающие прямоугольник (без повторов). Результат переиспользуется — не хранить.
 export function solidsNear(x0, z0, x1, z1, out = _q) {
@@ -137,7 +140,9 @@ export function solidHit(p, r) {
 export function recordImpact(b,hit,speed){if(hit&&!b.impactContact&&speed>1.8){b.impactSeq=(b.impactSeq||0)+1;b.impactSpeed=speed;}b.impactContact=hit;}
 export function updatePushables(dt, player) {
   for (const b of W.pushables) {
-    if (b.grabbed) { b.hitSpeed = 0; continue; } // её ведёт игрок
+    if(b.dead)continue;
+    if(b.solid)b.solid.on=false;
+    if (b.grabbed) { b.hitSpeed = 0;if(b.solid)b.solid.on=true;syncPushable(b);continue; } // её ведёт игрок
     const op = { x: b.x, z: b.z };
     b.x += b.vx * dt; b.z += b.vz * dt;
     const p = { x: b.x, z: b.z };
@@ -172,14 +177,16 @@ export function updatePushables(dt, player) {
         b.y = gy; b.air = false;
       }
     }
-    b.mesh.position.set(b.x, b.y + (b.kind === 'ring' ? Math.sin(performance.now() * 0.003 + b.x) * 0.04 : 0), b.z);
+    if(b.kind==='crate'){_selfP=b;const gy=groundAt(b.x,b.z,b.r*.7,b.y+.04);_selfP=null;b.vy-=22*dt;b.y=Math.max(gy,b.y+b.vy*dt);if(b.y<=gy)b.vy=0;}
+    if(b.solid){b.solid.on=true;syncPushable(b);}
+    b.mesh.position.set(b.x, b.y+(b.meshOffsetY||0) + (b.kind === 'ring' ? Math.sin(performance.now() * 0.003 + b.x) * 0.04 : 0), b.z);
     // движение по форме: стоячий бак скользит не поворачиваясь; бочка, шина и колёсное едут вдоль «колёс»,
     // боковое скольжение гасится, направление плавно доворачивается к толчку
     const sp = Math.hypot(b.vx, b.vz);
     if (b.rider) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.set(-(b.pitch || 0), b.heading + (b.shuv || 0), b.flip || 0); }
     else if ((b.kind === 'skate' || b.kind === 'scooter') && (b.pitch || b.flip)) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.x = -(b.pitch || 0); b.mesh.rotation.z = 0; b.flip = 0; b.shuv = 0; }
     else if (b.kind === 'chair') b.mesh.rotation.y += Math.hypot(b.x - op.x, b.z - op.z) * 2;
-    else if (b.kind !== 'bin' && sp > 0.02) {
+    else if (b.kind !== 'bin' && b.kind!=='crate' && sp > 0.02) {
       let h = b.mesh.rotation.y; const fx = Math.sin(h), fz = Math.cos(h);
       let vf = b.vx * fx + b.vz * fz, vs = b.vx * fz - b.vz * fx;
       vs *= Math.exp(-dt * (b.roller ? 5 : 7));
@@ -195,7 +202,7 @@ export function updatePushables(dt, player) {
     const a = W.pushables[i], b = W.pushables[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), m = a.r + b.r;
     if (d < m && d > 1e-4 && a.y<b.y+b.h && b.y<a.y+a.h) { const closing=((a.vx-b.vx)*dx+(a.vz-b.vz)*dz)/d;if(closing>1.8){recordImpact(a,true,closing);recordImpact(b,true,closing);if(a.kind==='kart'&&b.kind==='kart'&&closing>8){for(const c of [a,b]){if(c.rider)c.rider.daze=Math.max(c.rider.daze||0,1.0);c.heading+=(c===a?1:-1)*.6;c.skid=1;c.spin=(c===a?1:-1)*2;}}const impulse=closing*.6;a.vx-=dx/d*impulse;a.vz-=dz/d*impulse;b.vx+=dx/d*impulse;b.vz+=dz/d*impulse;} const k = (m - d) / 2 / d; a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
   }
-  if (player) bumpPushables(player);
+  if (player) bumpPushables(player);for(const b of W.pushables)if(b.solid)syncPushable(b);
 }
 // Игрок толкает предметы, предметы мешают игроку
 export function bumpPushables(pl) {
@@ -249,6 +256,8 @@ export function raySolids(o, d, maxT, skip) {
     }
     if (ok && t0 > 0 && t0 < best) best = t0;
   }
+  for(const q of W.obbs){if(!q.on||q===skip)continue;const c=Math.cos(q.yaw),s=Math.sin(q.yaw),dx=o.x-q.cx,dz=o.z-q.cz,oo=[dx*c-dz*s,o.y,dx*s+dz*c],dd=[d.x*c-d.z*s,d.y,d.x*s+d.z*c],mn=[q.lx0,q.y0,q.lz0],mx=[q.lx1,q.y1,q.lz1];let t0=0,t1=best,ok=true;for(let i=0;i<3;i++){if(Math.abs(dd[i])<1e-9){if(oo[i]<mn[i]||oo[i]>mx[i]){ok=false;break;}}else{let a=(mn[i]-oo[i])/dd[i],b=(mx[i]-oo[i])/dd[i];if(a>b)[a,b]=[b,a];t0=Math.max(t0,a);t1=Math.min(t1,b);if(t0>t1){ok=false;break;}}}if(ok&&t0>0&&t0<best)best=t0;}
+
   return best;
 }
 

@@ -36,7 +36,7 @@ import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHi
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict, addItem } from './game/items.js';
-import { updateCamera, cam, resetCamera } from './game/camera.js';
+import { updateCamera, cam, resetCamera,resumeCamera } from './game/camera.js';
 import { M, resetMissions, spawnWave, spawnMission, removeMission, updateMissions, nearMission, missionDone, startMissionClock, visibleTo, ALL_GAMES, WORLD_GAMES } from './missions/missions.js';
 import { resetScore, bonus, statsOf, PTS } from './game/score.js';
 import { isFree, solidsNear } from './world/physics.js';
@@ -50,7 +50,7 @@ import { initAudio, sfx, ambience, setListener, toggleMute } from './core/sfx.js
 import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
 import {resetCoins,updateCoins,coinState,grabFist,nearFist} from './game/coins.js';
-import {collection} from './game/collection.js';
+import {collection,addCoins} from './game/collection.js';
 import { createPodium, assignAwards, AWARDS, skinName } from './ui/podium.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
 import { throwPotato, initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget, PHASE, phaseOf } from './game/events.js';
@@ -292,7 +292,7 @@ function updateIntro(dt) {
 
     return;
   }
-  if (!I.drop) { I.drop = true; cam.free = null; P.root.visible = true; P.frozen = false; P.noRun = true; P.pos.y += 9; P.vel.set(0, -2, 0); P.airPeak = P.pos.y - 9; updateCamera(camera, P, 0, true); }
+  if (!I.drop) { I.drop = true; cam.free = null; P.root.visible = true; P.frozen = false; P.noRun = true; P.pos.y += 9; P.vel.set(0, -2, 0); P.airPeak = P.pos.y - 9; resumeCamera(camera);updateCamera(camera,P,1/60,false); }
   if (!I.landed && P.onGround && t > 4.2) { I.landed = true; sparks(innerWidth / 2, innerHeight * 0.6, ['#ff8a1f', '#f5c542'], 14); sfx('land', { v: 1.4 }); shakeCam(0.35); }
   if (t > 5.2) {
     const left = Math.ceil(8.2 - t), c = $('count');
@@ -410,7 +410,7 @@ function openMission(m) {
   let worldFeedback=false;
   const api = {
     feedback: () => {worldFeedback=true;$('mgbar').classList.add('hidden');},
-    pose: (p, l) => { cam.pose = { p, l, ignore: m.obj.solid }; updateCamera(camera, P, 0, true); },
+    pose: (p, l) => { cam.pose = { p, l, ignore: m.obj.solid }; resumeCamera(camera);updateCamera(camera,P,1/60,false); },
     progress: v => { m.progress=v; const bar = $('mgbar'); if (v === null || worldFeedback) bar.classList.add('hidden'); else { bar.classList.remove('hidden'); bar.firstChild.style.width = (v * 100) + '%'; } },
     msg: (text, cls = '') => callout(text, cls),
     finish: res => { if (S.mg && S.mg.m === m) closeMission(res); },
@@ -624,6 +624,7 @@ function updateGlow() {
   glowOn = want;
 }
 function interact() {
+  if(P?.roofSeat){P.roofSeat=null;return;}
   if(P?.hotPotato)return;
   if(P.heldBy||P.stun>0||P.getT>0)return;
   if (P.drone || P.returning) return;
@@ -635,7 +636,7 @@ function interact() {
   if (P.swing) { leaveSwing(P, false); return; }
   if (P.bench) { leaveBench(P); return; }
   if (P.hidden) { leaveHide(P); return; }
-  if (P.grab) { hopIn(P); return; }
+  if (P.grab) {if(P.grab.noRide)release(P,0);else hopIn(P);return; }
   if (P.holding) { letGo(P); return; }
   if (P.heldBy) return;
   if (P.caged) { openCageUI(); return; }
@@ -659,6 +660,7 @@ function stealItem(it) {
 }
 const RIDE_NAME = { cart: 'тележку', skate: 'скейт', scooter: 'самокат', chair: 'кресло', barrow: 'тачку', kidcar: 'машинку', gurney: 'каталку', tire: 'шину', ring: 'круг' };
 function promptText() {
+  if(P.roofSeat)return '<b>E</b>Встать с крыши';
   if (P.drone) return '';
   if(nearFist(P))return '<b>ЛКМ</b>Схватить фист';
   if (P.returning) return 'Возвращение в игру';
@@ -830,7 +832,8 @@ canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;clock.res
 // отладочный доступ из консоли браузера
 window.__fs = { lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 window.__fs.lastFaults=lastFaults;
-Object.assign(window.__fs,{menu,collection,coinState,showHub,showMenu});
+Object.assign(window.__fs,{menu,collection,coinState,showHub,showMenu,addFists:(n=500)=>addCoins(n)});
+if(new URLSearchParams(globalThis.location?.search||'').get('dev')==='1'){const b=document.createElement('button');b.id='devFists';b.textContent='+500';b.title='Тест автомата: добавить 500 фистов';b.onclick=()=>addCoins(500);$('wallet').appendChild(b);}
 showMenu();
 loop();
 import {updateRadios,resetRadios,nearRadio,toggleRadio,tuneRadio} from './game/radio.js';

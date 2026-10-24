@@ -10,9 +10,9 @@ import { addOutline, OUTLINE } from '../game/outline.js';
 /* То, что открывается на E: холодильник, шкафчик, кухонный шкаф. Дверца на петле плавно распахивается,
    корпус полый: внутри полки, примерно в половине лежит предмет (еда, банка или инструмент) — открыл и бери. */
 const LOOT = {
-  fridge: ['tomato', 'cucumber', 'can', 'energy', 'can', 'tomato', 'pizza'],
+  fridge: ['bao','taco','noodles','burger','tomato', 'cucumber', 'can', 'energy', 'can', 'tomato', 'pizza'],
   locker: ['slipper', 'umbrella', 'whistle', 'duck', 'water', 'ball', 'banana', 'magnet'],
-  cupboard: ['can', 'paint', 'bubbles', 'pillow', 'duck', 'popper'],
+  cupboard: ['bao','noodles','can', 'paint', 'bubbles', 'pillow', 'duck', 'popper'],
 };
 // полый корпус (v0.22): стенки, крыша, дно — без совпадающих граней (не рябит), внутри тёмная задняя стенка и полки
 function shell(a, outer, inner, shelfM, w, h, d, shelves, t = 0.04) {
@@ -60,7 +60,7 @@ export const OpenMethods = {
   locker(x, z, ry = 0, c = 0x4a6a8a) {
     const g = this.prop(x, z, ry), w = 0.55, h = 1.85, d = 0.5, sh = [1.3];
     g.add(compose('locker2' + c, a => shell(a, col(c), col(0x17111f), col(0x6a6d78), w, h, d, sh)));
-    this.openable(g, 'locker', w, h, d, 0, lam({ map: T.vent(c) }, 'lockerDoor' + c), 0.5, sh);
+    this.openable(g, 'locker', w, h, d, 0, lam({ map: T.lockerDoor(c) }, 'lockerDoor43' + c), 0.5, sh);
   },
   // невысокий шкаф-тумба
   cupboard(x, z, ry = 0) {
