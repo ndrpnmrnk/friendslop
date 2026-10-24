@@ -24,7 +24,12 @@ export function photoCard(model,{title='ОБРАЗЕЦ',width=96,height=120,back
  return{root,target,scene,camera,model,checks,
   update(viewCamera,dt,{intro=2.4,checked=null,hidden=false}={}){if(disposed)return;age+=dt;if(!ready)ready=renderPhoto(scene,camera,target);root.visible=!hidden;if(!root.visible||!viewCamera)return;viewCamera.updateMatrixWorld(true);const k=THREE.MathUtils.smoothstep(age,intro,intro+.7),depth=2.0,half=Math.tan(viewCamera.fov*Math.PI/360)*depth,aspect=viewCamera.aspect||1;
    // Фото сначала перед глазами, затем уходит в угол и не закрывает центр взаимодействия.
-   const scale=half*THREE.MathUtils.lerp(.95,.43,k);root.scale.setScalar(scale);root.position.copy(viewCamera.localToWorld(new V3(THREE.MathUtils.lerp(0,-half*aspect+scale*.40+.08,k),THREE.MathUtils.lerp(0,half-scale*.50-.08,k),-depth)));root.quaternion.copy(viewCamera.quaternion);root.rotateZ(THREE.MathUtils.lerp(-.03,.025,k));if(checked)checks.forEach((m,i)=>m.material=checked[i]?on:off);else checks.forEach(m=>m.visible=false);},
+   const unit=half*2/(innerHeight||800),list=document.getElementById('missions')?.getBoundingClientRect?.(),listRight=list?.right||((innerWidth||1280)>760?262:212),preferred=Math.min(190,Math.max(112,(innerWidth||1280)*.13)),maxWidth=innerWidth<460?Math.min(preferred,Math.max(60,innerWidth-listRight-32)):preferred,scale=THREE.MathUtils.lerp(half*.95,maxWidth/.70*unit,k);
+   // Реальные области DOM, без наложения на список миссий/центральный таймер.
+   const cardW=.70*scale/unit,cardH=.96*scale/unit,space=(innerWidth||1280)/2-85-listRight;
+   const left=space>cardW+24?listRight+18:Math.max(12,(innerWidth||1280)-cardW-18),top=space>cardW+24?32:Math.min((innerHeight||800)-cardH-110,210);
+   const dockX=-half*aspect+(left+cardW/2)*unit,dockY=half-(Math.max(18,top)+cardH/2)*unit;
+   root.scale.setScalar(scale);root.position.copy(viewCamera.localToWorld(new V3(THREE.MathUtils.lerp(0,dockX,k),THREE.MathUtils.lerp(0,dockY,k),-depth)));root.quaternion.copy(viewCamera.quaternion);root.rotateZ(THREE.MathUtils.lerp(-.03,.025,k));if(checked)checks.forEach((m,i)=>m.material=checked[i]?on:off);else checks.forEach(m=>m.visible=false);},
   dispose(){if(disposed)return;disposed=true;root.removeFromParent();model.removeFromParent();target.dispose();mats.forEach(m=>m.dispose());}
  };
 }

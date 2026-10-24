@@ -4,7 +4,7 @@ import { nearbyItemPoint } from './location.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
-import { addSolid, groundAt, pushOut, isFree } from '../world/physics.js';
+import { addSolid, groundAt, pushOut, isFree,raySolids } from '../world/physics.js';
 import { burst, puff, smokeRing, splash } from '../world/particles.js';
 import { addItem, launch } from '../game/items.js';
 import { buildCat, COATS } from '../game/cats.js';
@@ -233,14 +233,18 @@ export const WORLD3 = {
     const toBox = k => { k.st = 'box'; got++; sfx('candy'); burst(c.x, c.y + 0.8, c.z, 10, { color: 0xc8a070, size: 0.14, speed: 1.5, up: 2 }); api.msg(got < 2 ? 'Один в коробке!' : 'Оба котёнка дома!', 'good'); };
     const release = (k, vx, vy, vz) => { k.st = 'fly'; k.vx = vx; k.vy = vy; k.vz = vz; if (held === k) held = null; };
     const near = () => o.kittens.filter(k => k.st === 'run').sort((a, b) => a.root.position.distanceTo(P.pos) - b.root.position.distanceTo(P.pos))[0];
+    const catchable=k=>{if(!k||P.held||Math.abs(k.root.position.y-P.pos.y)>.8||k.root.position.distanceTo(P.pos)>=1.3)return false;const eye=P.pos.clone().add(new V3(0,.8,0)),to=k.root.position.clone().add(new V3(0,.35,0)).sub(eye),len=to.length();return raySolids(eye,to.normalize(),len)>=len-.1;};
     return {
       target() { if (held) return c; const k = near(); return k ? k.root.position : c; },
-      prompt() { if (held) return Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.6 ? '<b>E</b>Посадить в коробку' : '<b>ПКМ</b>Кинуть в коробку'; const k = near(); return k && k.root.position.distanceTo(P.pos) < 1.3 && !P.held ? '<b>E</b>Схватить котёнка' : ''; },
-      interact() {
+      prompt() { if (held) return Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.6 ? '<b>E</b>Посадить в коробку' : '<b>ПКМ</b>Кинуть в коробку'; const k = near(); return catchable(k) ? '<b>ЛКМ</b>Схватить котёнка' : ''; },
+      interact() {if(!held)return false;
         if (held) { if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.6) { const k = held; held = null; toBox(k); } else { const f = P.root.rotation.y; release(held, Math.sin(f) * 2, 2, Math.cos(f) * 2); } return true; }
-        const k = near(); if (k && !P.held && k.root.position.distanceTo(P.pos) < 1.3) { k.st = 'held'; k.holdT = 2.2 + Math.random() * 1.2; held = k; sfx('meow', { at: k.root.position }); k.cat.face('angry'); return true; }
         return false;
       },
+      down(){if(held||P.stun>0||P.getT>0||P.heldBy)return false;const k = near(); if (catchable(k)) { k.st = 'held'; k.holdT = 2.2 + Math.random() * 1.2; held = k; sfx('meow', { at: k.root.position }); k.cat.face('angry'); return true; }
+        return false;
+      },
+      botStep(dt,brain){if(!held&&brain.ready(.20))this.down();},
       // для броска ПКМ: что держим и как бросить
       carrying: () => !!held,
       throwCarry(v) { if (!held) return; const k = held; k.root.position.copy(P.ch.holdPoint); release(k, v.x, v.y, v.z); sfx('meow', { at: k.root.position }); },

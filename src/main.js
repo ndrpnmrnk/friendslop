@@ -113,7 +113,7 @@ const S = { state: 'menu', intro: null, time: 0, score: 0, done: 0, mg: null, wm
 let P = null;
 
 // точки траектории броска
-const arc = []; for (let i = 0; i < 22; i++) { const m = sprite(T.dot(), 0.2, { color: 0xffb45a, depthTest: false, opacity: 0.95 }); m.renderOrder = 10; m.visible = false; scene.add(m); arc.push(m); }
+const arc = []; for (let i = 0; i < 11; i++) { const m = sprite(T.dot(), 0.13, { color: 0xffb45a, depthTest: false, opacity: 0.95 }); m.renderOrder = 10; m.visible = false; scene.add(m); arc.push(m); }
 const land = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0xff8a1f, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
 land.rotation.x = -Math.PI / 2; land.scale.setScalar(0.5); land.material.depthTest = false; land.renderOrder = 10; land.visible = false; scene.add(land);
 
@@ -340,7 +340,7 @@ function endRound() {
 function findMat(key) { let m = null; W.group.traverse(o => { if (!m && o.isMesh && o.material && o.material.emissive && o.material.color && o.material.emissive.getHex() === 0xff9a4a) m = o.material; }); return m; }
 /* ---------- курсор-точка ---------- */
 function setCursor(v) { S.cursor=v; const ui=S.state!=='play';$('dot').classList.toggle('hidden',!v&&!ui);$('dot').classList.toggle('ui-cursor',ui);if(ui){$('dot').classList.remove('charge','focus');$('dot').style.transform=`translate(${mouse.x}px,${mouse.y}px)`;}document.body.classList.toggle('ui-cursor-on',ui); }
-on('move', () => { const d = $('dot'); d.style.transform = `translate(${mouse.x}px,${mouse.y}px)`; if (S.mg && S.mg.game.move) S.mg.game.move(aim(camera)); });
+on('move', e => { const d = $('dot'); d.style.transform = `translate(${mouse.x}px,${mouse.y}px)`; if (S.mg && S.mg.game.move) S.mg.game.move(aim(camera),e);if(S.wm?.game.move)S.wm.game.move(aim(camera),e); });
 
 /* ---------- миссии ---------- */
 /* Уличная миссия: игрок бегает как обычно, справа внизу панель с таймером и прогрессом */
@@ -543,7 +543,7 @@ on('down', btn => {
   if (S.mg) { if (btn === 0 && S.mg.game.down) S.mg.game.down(aim(camera)); return; }
   if (S.crane) return;
   if(P.heldBy){if(btn===0)S.wm?.game.struggle?.();return;}
-  if(btn===0&&S.wm?.game.down&&S.wm.game.equipped!==false&&!P.charging){S.wm.game.down(aim(camera));return;}
+  if(btn===0&&S.wm?.game.down&&S.wm.game.equipped!==false&&!P.charging){if(S.wm.game.down(aim(camera))!==false)return;}
   // тележку/тачку хватаешь любой кнопкой мыши, ей же отпускаешь (с толчком)
   if (P.grab?.holdOnly)return;
   if (P.grab && (btn === 0 || btn === 2)) { release(P, 1.1); return; }
@@ -751,7 +751,7 @@ function frame() {
       }
       $('dot').style.setProperty('--c', (P.charge * 100) + '%');
     }
-    if(S.state==='play'&&P.held?.type==='bow'&&(P.held.draw||0)>.05&&!S.mg){shown=predictBow(P,aimPoint(),arc,land);for(const q of arc){q.scale.setScalar(.085);q.material.depthTest=true;q.material.color.setHex(0xe8dfb9);}}else for(const q of arc){q.scale.setScalar(.2);q.material.depthTest=false;}
+    if(S.state==='play'&&P.held?.type==='bow'&&(P.held.draw||0)>.05&&!S.mg){shown=predictBow(P,aimPoint(),arc,land);for(const q of arc){q.scale.setScalar(.085);q.material.depthTest=true;q.material.color.setHex(0xe8dfb9);}}else for(const q of arc){q.scale.setScalar(.13);q.material.depthTest=true;}
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
     const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt); updateGlow(); setGlow(S.mg ? 0.15 : 1); updateDust(t, P); { const dt2 = $('droneT'), on = !!(P && (P.drone || P.returning)); dt2.classList.toggle('hidden', !on); if (on) { const v = P.drone ? Math.max(0, Math.ceil(P.drone.left)) : 0, h = P.drone ? String(v) : 'СЕЙЧАС'; if (dt2.lastChild.textContent !== h) dt2.lastChild.textContent = h; } } { const h = $('droneHud'), on = !!(P && P.drone && !(P.drone.intro > 0)); h.classList.toggle('hidden', !on);
       if (on) { if (!h.dataset.ok) { h.dataset.ok = 1; for (const [id, n] of [['dhNet', 'net'], ['dhCandy', 'candy'], ['dhUp', 'updown']]) { $(id).firstChild.innerHTML = img(n, 28); $(id).insertAdjacentHTML('beforeend', '<b></b>'); } }

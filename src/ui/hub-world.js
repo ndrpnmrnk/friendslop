@@ -98,7 +98,7 @@ export function buildHub(scene){
   state.keep.push(tvScreen,controller);resetTools();resetSplat();registerInteracts();bakeStatic(group);
   let curtainOpen=0;
   const result={state,group,tvScreen,controller,curtains,lampLights,entrySolid,
-   wardrobe:{root:room,at,preview:at(0,.08,-1.1),gate:at(0,0,4),exit:at(0,0,4.7),camera:at(0,1.35,2.65),look:at(0,1.35,-1.1),inYaw:-Math.PI/2,outYaw:Math.PI/2},
+   wardrobe:{root:room,at,preview:at(0,.08,-1.1),gate:at(0,0,4),exit:at(0,0,4.7),camera:at(0,1.03,3.0),look:at(0,1.03,-1.1),inYaw:-Math.PI/2,outYaw:Math.PI/2},
    stations:[{id:'wardrobe',name:'Гардеробная',hint:'Сменить персонажа',p:at(0,0,4.2),r:1.8},{id:'tv',name:'Диван и телевизор',hint:'Сесть и выбрать режим',p:new V3(0,0,-5.1),r:4.2,contains:p=>Math.abs(p.x)<3.5&&p.z>-7.4&&p.z<-.9},{id:'claw',name:'Автомат с друзьями',hint:'Выловить нового друга',p:new V3(6.65,0,-3),r:1.9}],
    curtain(open){curtainOpen=THREE.MathUtils.clamp(open,0,1);entrySolid.on=curtainOpen<.92;curtains.forEach((p,i)=>{p.position.set((i?1:-1)*(.88+curtainOpen*.71),1.33,2.97);p.scale.x=1-.86*curtainOpen;});},
    get curtainOpen(){return curtainOpen;}

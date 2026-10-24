@@ -24,7 +24,7 @@ export function doll(id,x,y,z){
   const box=new THREE.Box3().setFromObject(body),support=[];for(const x of[box.min.x,box.max.x])for(const y of[box.min.y,box.max.y])for(const z of[box.min.z,box.max.z])support.push(new V3(x,y,z));
   const colliders=[];for(const part of body.children){const bounds=new THREE.Box3().setFromObject(part),half=bounds.getSize(new V3()).multiplyScalar(.5),center=bounds.getCenter(new V3());half.max(new V3(.025,.025,.025));colliders.push({half,center});}
   g.position.set(x,y,z);g.rotation.set((Math.random()<.5?-1:1)*(1.15+Math.random()*.3),Math.random()*6.28,(Math.random()-.5)*.7);
-  const c={...parts,root:body,blob:{visible:false},animate(dt,s){parts.body.rotation.z=Math.sin(s.t*4)*.045;if(s.wave)parts.handR.rotation.z=-1.8+Math.sin(s.t*8)*.2;}};
+  const c={...parts,root:body,blob:{visible:false},animate(dt,s){parts.body.rotation.z=Math.sin(s.t*4)*.045;const rest=joints[1].rest;parts.handR.position.copy(rest);parts.handR.rotation.z=s.wave?-1.5+Math.sin(s.t*8)*.2:0;if(s.wave)parts.handR.position.y+=.20+Math.sin(s.t*7)*.025;}};
   return{id,c,g,joints,support,colliders,v:new V3(),previousV:new V3(),av:new V3((Math.random()-.5)*2,(Math.random()-.5)*2,(Math.random()-.5)*2),r:.235,held:false,dispose(){g.removeFromParent();}};
 }
 export function batchDolls(root,dolls){

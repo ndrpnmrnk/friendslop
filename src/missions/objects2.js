@@ -1,4 +1,4 @@
-import { THREE, G, V3, mesh, col, tmat, lam, glow } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, smat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
 import { addSolid } from '../world/physics.js';
@@ -27,11 +27,12 @@ export function buildShells(x, y, z, f) {
   return { type: 'shells', g, cups, ball, solid: s, pos: () => g.position, front: () => new V3(x + f[0] * 0.8, y, z + f[1] * 0.8), world: (a, b, c) => wl(g, a, b, c), dispose() { W.group.remove(g); s.on = false; } };
 }
 
+const FISHING_ROD_GEO=new THREE.CylinderGeometry(.013,.031,2.04,8);
 // Рыбалка: складной стульчик, ведро, удочка на рогатине у воды. spot: {x,y,z,f,wx,wz,wy} — где вода
 export function buildFishing(spot) {
   const { x, y, z, f } = spot, g = frame(x, y, z, f), dk = col(0x2b2533);
   const rod = new THREE.Group(); rod.position.set(0.35, 0.55, 0.2); rod.rotation.x = 0.9; g.add(rod);
-  mesh(G.cyl6,tmat(T.wood()),0,1,0,.018,2,.018,rod);mesh(G.cyl6,dk,0,.16,0,.035,.32,.035,rod);
+  const stem=mesh(FISHING_ROD_GEO,smat(T.wood()),0,1.02,0,1,1,1,rod);stem.name='fishing-rod-stem';stem.userData.noOcc=true;mesh(G.cyl6,dk,0,.16,0,.035,.32,.035,rod);
   for(const h of [.45,.9,1.4,1.85]){const eye=mesh(G.torus,col(0xa9a7ae),0,h,.03,.028,.028,.028,rod);eye.rotation.y=Math.PI/2;}
   mesh(G.cyl8,col(0xa6a5ad),.07,.28,.04,.075,.10,.075,rod).rotation.z=Math.PI/2;
   const reel=new THREE.Group();reel.position.set(.13,.28,.04);rod.add(reel);

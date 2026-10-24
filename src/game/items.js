@@ -1,3 +1,4 @@
+import {placeArcDots} from './trajectory.js';
 import {basketCrossing} from '../world/basketball.js';
 import {sweepActors,npcList,npcPosition,hitNPC,heavyHit} from './impacts.js';
 import {bowModel} from './bow.js';
@@ -76,7 +77,7 @@ function build(type) {
   const sc = TOOL_SCALE[type]; if (sc) g.children.forEach(c => c.scale.multiplyScalar(sc));
   return g;
 }
-const TOOL_SCALE = { whistle: 1.6, badge: 1.4, energy: 1.3, duck: 1.3, banana: 1.3, popper: 1.35, firework: 1.3, sling: 1.35, web: 1.25, cushion: 1.25, mask: 1.3, bubbles: 1.35, bulb: 1.2, net: 1.2, slipper: 1.1 };
+const TOOL_SCALE = { whistle: 1.6, badge: 1.4, energy: 1.3, duck: 1.3, banana: 1.3, popper: 1.35, firework: 1.3, sling: 1.35, web: 1.25, cushion: 1.25, bubbles: 1.35, bulb: 1.2, net: 1.2, slipper: 1.1 };
 export const rarityOf = type => { const d = CONFIG.items[type]; return !d || !d.tool ? 'item' : CONFIG.toolRare.includes(type) ? 'rare' : 'tool'; };
 /* Модели инструментов и предметов миссий: по 5–20 деталей, собираются один раз (compose) */
 const C = c => col(c);
@@ -110,7 +111,6 @@ function toolModel(type, g) {
       // паутина: банка с паучком внутри (крышка, паутинка на стекле)
       case 'web': { a(G.cyl12, lam({ color: 0xd8f0f0, transparent: true, opacity: 0.45, depthWrite: false }, 'jarGlass'), 0, 0, 0, 0.11, 0.22, 0.11); a(G.cyl12, C(0xb02a2a), 0, 0.12, 0, 0.115, 0.04, 0.115);
         a(G.sph, C(0x17111f), 0, -0.04, 0, 0.05, 0.04, 0.06); for (let i = 0; i < 3; i++) a(G.box, C(0xeee8f8), 0, 0.02, 0, 0.2, 0.006, 0.006, 0, i * 1.05, 0.2); break; }
-      case 'mask': { const w = lam({ color: 0xeee8ff, emissive: 0x4a4460 }, 'maskW'); a(G.sph10, w, 0, 0, 0, 0.16, 0.18, 0.08); for (const sx of [-1, 1]) a(G.box, C(0x17111f), sx * 0.055, 0.03, 0.075, 0.045, 0.06, 0.01); a(G.box, C(0x17111f), 0, -0.07, 0.075, 0.06, 0.03, 0.01); break; }
       case 'cucumber': { const gr = lam({ map: T.cucumber() }, 'cuc2'); a(G.cyl8, gr, 0, 0, 0, 0.06, 0.26, 0.06, Math.PI / 2); for (const sz of [-0.13, 0.13]) a(G.sph, gr, 0, 0, sz, 0.06, 0.06, 0.06); a(G.box, C(0x6aa84f), 0, 0.05, 0, 0.02, 0.01, 0.2); break; }
       case 'bulb': { a(G.sph10, lam({ color: 0xfff6d0, emissive: 0x6a5a30 }, 'bulbItem'), 0, 0.04, 0, 0.08, 0.09, 0.08); a(G.cyl8, C(0xc8c8d8), 0, -0.06, 0, 0.04, 0.06, 0.04); a(G.cyl8, C(0x2b2533), 0, -0.1, 0, 0.025, 0.02, 0.025); break; }
       case 'pizza': { const bx = C(0xd8b888); a(G.box, bx, 0, 0, 0, 0.46, 0.07, 0.46); a(G.cyl12, tmat(T.pizzaTop()), 0, 0.04, 0, 0.21, 0.012, 0.21); a(G.box, tmat(T.sign('ПИЦЦА', '#d8243a', '#f1e8ff')), 0, 0.0, 0.232, 0.3, 0.05, 0.004); a(G.box, C(0x8a6a4a), 0, -0.036, 0, 0.47, 0.004, 0.47); break; }
@@ -336,7 +336,7 @@ export function predict(from,vel,out,n,def,end){
   (predicted[count]||(predicted[count]=new V3())).copy(p);count++;
   if(landed){if(end){end.position.copy(p);end.visible=true;}break;}
  }
- const visible=Math.min(n,count);for(let i=0;i<visible;i++)out[i].position.copy(predicted[Math.min(count-1,Math.floor(i*Math.max(1,count-1)/Math.max(1,visible-1)))]);return visible;
+ return placeArcDots(from,predicted,count,out,n);
 }
 
 // цвет письма задаёт миссия «Почтальон» перед addItem

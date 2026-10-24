@@ -1,3 +1,5 @@
+import {W} from '../world/state.js';
+import {placeArcDots} from './trajectory.js';
 import {THREE,G,V3,mesh,col,tmat} from '../core/gfx.js';
 import {raySolids,groundAt} from '../world/physics.js';
 import {sweepActors} from './impacts.js';
@@ -24,4 +26,5 @@ export function poseBow(a,it,dt){
 
 export const ARROW_GRAVITY=16;
 export function bowVelocity(from,aim,draw){return aim.clone().sub(from).normalize().multiplyScalar(7+37*Math.max(0,Math.min(1,draw))**.85);}
-export function predictBow(a,aim,out,end){const it=a.held,p=it.pos.clone(),v=bowVelocity(p,aim,it.draw||0),step=.075;let n=0;end.visible=false;for(let i=0;i<out.length;i++){const old=p.clone(),dv=v.clone().multiplyScalar(step);dv.y-=.5*ARROW_GRAVITY*step*step;const len=dv.length(),wall=raySolids(old,dv.clone().normalize(),len);p.add(dv);v.y-=ARROW_GRAVITY*step;const hit=sweepActors(old,p,.08,a);if(hit&&hit.t*len<wall)p.lerpVectors(old,p,hit.t);else if(wall<len)p.copy(old).addScaledVector(dv,wall/len);const gy=groundAt(p.x,p.z,.04,p.y+.15);out[i].position.copy(p);n++;if(hit||wall<len||p.y<=gy){end.position.copy(p);end.position.y=Math.max(gy+.025,p.y);end.visible=true;break;}}return n;}
+const bowPoints=[];
+export function predictBow(a,aim,out,end){const it=a.held,from=it.pos,p=from.clone(),v=bowVelocity(p,aim,it.draw||0),step=1/30;let n=0;end.visible=false;for(let i=0;i<180;i++){const old=p.clone(),dv=v.clone().multiplyScalar(step);dv.y-=.5*ARROW_GRAVITY*step*step;const len=dv.length(),wall=raySolids(old,dv.clone().normalize(),len);p.add(dv);v.y-=ARROW_GRAVITY*step;const hit=sweepActors(old,p,.08,a);if(hit&&hit.t*len<wall)p.lerpVectors(old,p,hit.t);else if(wall<len)p.copy(old).addScaledVector(dv,wall/len);const gy=groundAt(p.x,p.z,.04,p.y+.15),edge=Math.abs(p.x)>W.bounds-.1||Math.abs(p.z)>W.bounds-.1;if(edge){p.x=THREE.MathUtils.clamp(p.x,-W.bounds+.1,W.bounds-.1);p.z=THREE.MathUtils.clamp(p.z,-W.bounds+.1,W.bounds-.1);}if(p.y<=gy)p.y=gy+.025;(bowPoints[n]||(bowPoints[n]=new V3())).copy(p);n++;if(hit||wall<len||p.y<=gy+.025||edge){end.position.copy(p);end.visible=true;break;}}return placeArcDots(from,bowPoints,n,out);}

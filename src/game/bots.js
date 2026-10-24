@@ -341,7 +341,7 @@ function act(b, P, dt) {
   const it = b.held;
   if(tryBotTool(b,g?.who||null,dt))return;
   // инструменты, которые лучше применить сразу
-  if (it && it.def.tool && ['energy', 'mask'].includes(it.type)) { useTool(b, it, b.pos.clone()); return; }
+  if (it && it.def.tool && it.type==='energy') { useTool(b, it, b.pos.clone()); return; }
   if (it && it.type === 'duck' && Math.random() < dt * 0.3) useTool(b, it, b.pos.clone());
   // ловушки — у миссий и на пути соперников
   if (it && ['banana', 'rake', 'cushion', 'paint'].includes(it.type) && b.actCD <= 0) { const nearM = M.list.some(m => { const p = m.obj.pos(); return Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 4; });

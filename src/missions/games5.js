@@ -112,14 +112,14 @@ export function buildCartStart(x, y, z, f) {
 }
 export function buildGraveCam(x,y,z,f){const o=place(x,y,z,f,g=>g.add(tripodModel()),[.85,.85],1.45);o.type='tripod';return o;}
 export function buildAntenna(x, y, z, f) {
-  const o = place(x, y, z, f, g => { g.add(compose('m5ant', a => { const dk = col(0x2b2533); a(G.box, dk, 0, 0.6, 0, 0.08, 1.2, 0.08); a(G.box, tmat(T.crate()), 0.9, 0.3, 0.1, 0.6, 0.6, 0.6);
+  const o = place(x, y, z, f, g => { g.add(compose('m45ant', a => { const dk = col(0x2b2533); a(G.box, dk, 0, 0.6, 0, 0.08, 1.2, 0.08); a(G.box,tmat(T.cabinet(0x62646a)),.9,.30,.1,.68,.60,.60);a(G.box,tmat(T.metal()),.9,.625,.1,.76,.05,.67);for(const x of[-.18,.18]){a(G.cyl8,tmat(T.metal()),x,.05,0,.025,.10,.025);a(G.box,dk,x,.02,0,.12,.035,.25);}a(G.box,dk,.9,.49,.413,.49,.035,.012);for(const x of[.69,.79,.89])a(G.cyl8,col(0x999b91),x,.18,.414,.026,.018,.026,Math.PI/2);a(G.box,tmat(T.hazard()),0,.3,0,.10,.14,.10);
     a(G.box, col(0x3a3440), 0.9, 0.82, 0.1, 0.52, 0.42, 0.36); }));
     const head = new THREE.Group(); head.position.set(0, 1.25, 0); g.add(head); head.add(compose('m5dish', a => { a(DISH, lam({ map: T.paintMetal(0xd8d8e0), side: THREE.DoubleSide }, 'm5dish'), 0, 0, 0.1, 0.5, 0.5, 0.2); a(G.box, col(0x2b2533), 0, 0, 0.42, 0.03, 0.03, 0.5); a(G.box, col(0x2b2533), 0, 0, 0.68, 0.07, 0.07, 0.07); }));
     const leds = []; for (let i = 0; i < 5; i++) leds.push(mesh(G.box, lam({ color: 0x2a2232, emissive: 0x000000 }), -0.12 + i * 0.06, -0.18, -0.02, 0.04, 0.03 + i * 0.012, 0.02, head));
     const tvc = document.createElement('canvas'); tvc.width = 32; tvc.height = 24; const tvt = new THREE.CanvasTexture(tvc); tvt.magFilter = tvt.minFilter = THREE.NearestFilter; tvt.generateMipmaps = false;
     const tv = mesh(G.plane, new THREE.MeshBasicMaterial({ map: tvt }), 0.9, 0.84, 0.29, 0.42, 0.32, 1, g); void tv;
     g.userData.ant = { head, leds, tvc, tvt }; }, [1.6, 0.8], 0.6);
-  o.type = 'antenna'; o.ant = o.g.userData.ant; return o;
+  o.type = 'antenna'; o.ant = o.g.userData.ant;const dispose=o.dispose;o.dispose=()=>{o.ant.tvt.dispose();o.ant.leds.forEach(l=>l.material.dispose());dispose();};return o;
 }
 const DISH = new THREE.SphereGeometry(1, 12, 4, 0, Math.PI * 2, 0, Math.PI / 3.2); DISH.rotateX(Math.PI / 2);
 export function buildDovecote(x, y, z, f) {
@@ -574,7 +574,7 @@ export const PANEL5 = {
       botStep(dt, brain) { hy+=(ty-hy)*Math.min(1,dt*0.65);hp+=(tp-hp)*Math.min(1,dt*0.65); },
       down(ray) { drag = true; last = { x: ray.ray.direction.x, y: ray.ray.direction.y, z: ray.ray.direction.z }; }, up() { drag = false; },
       move(ray) { if (!drag || endT > 0) return; const d = ray.ray.direction, dx = (d.x - last.x) * R.x + (d.z - last.z) * R.z, dy = d.y - last.y; last = { x: d.x, y: d.y, z: d.z };
-        hy = Math.max(-1.6, Math.min(1.6, hy - dx * 4)); hp = Math.max(-0.2, Math.min(1.1, hp + dy * 4)); if (Math.random() < 0.3) sfx('tick'); },
+        hy = Math.max(-1.6, Math.min(1.6, hy + dx * 4)); hp = Math.max(-0.2, Math.min(1.1, hp + dy * 4)); if (Math.random() < 0.3) sfx('tick'); },
       update(dt) {
         A.head.rotation.set(-hp, hy, 0); const s = signal(); A.leds.forEach((l, i) => l.material.emissive.setHex(s > (i + 0.5) / 5.5 ? (i < 2 ? 0xd8243a : i < 4 ? 0xf5c542 : 0x9be36b) : 0x000000));
         nt -= dt; if (nt <= 0) { nt = 0.08; const id = g.createImageData(32, 24); for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() * 255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; } g.putImageData(id, 0, 0);

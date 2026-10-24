@@ -195,7 +195,7 @@ export const PropMethods = {
     for (const [yy, zz] of [[0.66, -0.27], [0.8, -0.3], [0.94, -0.33]]) add(G.box, w, 0, yy, zz, 1.9, 0.1, 0.04, -0.22);
     for (const o of [-0.85, 0.85]) {
       const s = (geo, px, py, pz, sx, sy, sz, rx) => { const q = new THREE.Mesh(geo, dk); q.position.set(o + px, py, pz); q.scale.set(sx, sy, sz); q.rotation.x = rx || 0; g.add(q); };
-      s(G.box, 0, 0.22, 0.2, 0.06, 0.46, 0.06, -0.15); s(G.box, 0, 0.5, -0.26, 0.06, 1.0, 0.06, -0.22);
+      s(G.box, 0, 0.22, 0.2, 0.06, 0.46, 0.06, -0.15); s(G.box, 0, 0.24, -0.31, 0.06, 0.48, 0.06, 0.18);s(G.box,0,.735,-.30,.06,.55,.06,-.22);
       s(G.box, 0, 0.44, -0.02, 0.06, 0.05, 0.5); s(G.box, 0, 0.66, 0.0, 0.06, 0.05, 0.46); s(G.box, 0, 0.56, 0.22, 0.05, 0.2, 0.05);
       s(G.cyl8, 0, 0.66, 0.24, 0.045, 0.06, 0.045, Math.PI / 2); s(G.box, 0, 0.02, 0.24, 0.12, 0.04, 0.12); s(G.box, 0, 0.02, -0.38, 0.12, 0.04, 0.12);
     }
@@ -562,8 +562,7 @@ export const PropMethods = {
     const g = this.prop(x, z, ry), dk = col(0x2b2533), wd = tmat(T.wood());
     const add = (geo, m, px, py, pz, sx, sy, sz, rx = 0, ryy = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.set(rx, ryy, 0); g.add(o); return o; };
     for (const [a, b2] of [[-1.3, -1], [1.3, -1], [-1.3, 1], [1.3, 1]]) add(G.box, dk, a, 1.2, b2, 0.07, 2.4, 0.07);
-    add(G.cone4, tmat(T.awning(c1, c2)), 0, 2.85, 0, 2.05, 0.9, 1.6, 0, Math.PI / 4);
-    for (const s2 of [-1, 1]) add(G.box, tmat(T.awning(c1, c2)), 0, 2.3, s2 * 1.02, 2.7, 0.3, 0.03);
+    addCanopy(this,x,z,{w:2.9,d:2.35,edge:2.4,rise:.65,round:false,yaw:ry,colors:[c1,c2]});
     add(G.box, wd, 0, 0.5, 0.75, 2.5, 1.0, 0.5); add(G.box, tmat(T.produce(goods)), 0, 1.03, 0.75, 2.4, 0.06, 0.45);
     if (sign) add(G.box, tmat(T.sign(sign, c1, '#f1e8ff')), 0, 2.15, 1.05, 1.8, 0.32, 0.02);
     add(G.box, glow(0xffd28a), 0, 2.2, 0, 0.18, 0.12, 0.18);

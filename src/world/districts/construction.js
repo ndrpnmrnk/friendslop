@@ -50,10 +50,10 @@ export default {
     for (const xx of [-0.6, 0.6]) { const wh = new THREE.Mesh(G.cyl8, frame); wh.position.set(xx, 0.2, -0.2); wh.scale.set(0.2, 0.12, 0.2); wh.rotation.z = Math.PI / 2; mixer.add(wh); }
     const tilt = new THREE.Group(); tilt.position.y = 1.15; tilt.rotation.x = 0.8; mixer.add(tilt);
     const drum = new THREE.Group(); tilt.add(drum);
-    const geo = new THREE.CylinderGeometry(0.34, 0.58, 0.9, 8), shell = new THREE.Mesh(geo, tmat(T.corrugated(0xd04a2a))); drum.add(shell);
+    const geo = new THREE.CylinderGeometry(0.34, 0.58, 0.9, 8), shell = new THREE.Mesh(geo, tmat(T.corrugated(0xd04a2a)));W.mapResources.add(geo);drum.add(shell);
     const mouth = new THREE.Mesh(G.disc, frame); mouth.position.y = 0.458; mouth.rotation.x = -Math.PI / 2; mouth.scale.setScalar(0.3); drum.add(mouth);
     const wheel = new THREE.Mesh(G.torus, frame); wheel.position.set(0.66, 0.8, 0); wheel.rotation.y = Math.PI / 2; wheel.scale.setScalar(0.24); mixer.add(wheel);
-    W.keep.push(mixer); W.animated.push(dt => { drum.rotation.y += dt * 1.5; }); b.solid(7.5, 24, 1.4, 1.3, 0, 1.8);
+    W.keep.push(drum);let mixerClock=0;W.animated.push(dt=>{mixerClock+=dt;if(mixerClock<.05)return;if(!W.player||W.player.pos.distanceToSquared(mixer.position)<2500)drum.rotation.y+=mixerClock*1.5;mixerClock=0;}); b.solid(7.5, 24, 1.4, 1.3, 0, 1.8);
     // Закреплённый рабочий фонарь вместо висящего куба.
     b.box(1.5,13.6,.08,.08,2.4,mt);b.m(G.box,col(0x2b2533),1.5,2.44,13.6,.4,.3,.22);b.m(G.box,glow(0xffc070),1.5,2.44,13.73,.30,.19,.02);
     // биотуалет, мешки цемента, шины, конусы

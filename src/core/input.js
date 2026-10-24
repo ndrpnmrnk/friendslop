@@ -49,7 +49,7 @@ addEventListener('pointermove', e => { if (locked()) { look.dx += e.movementX ||
   if ((mouse.left || mouse.right) && (e.target === canvas || locked())) { const L = (e.buttons & 1) !== 0, Rb = (e.buttons & 2) !== 0;
     if (L !== mouse.left) { mouse.left = L; handlers[L ? 'down' : 'up'].forEach(f => f(0)); }
     if (Rb !== mouse.right) { mouse.right = Rb; handlers[Rb ? 'down' : 'up'].forEach(f => f(2)); } }
-  handlers.move.forEach(f => f()); });
+  handlers.move.forEach(f => f(e)); });
 export const takeLook = () => { const d = { dx: look.dx, dy: look.dy }; look.dx = look.dy = 0; return d; };
 addEventListener('pointerup', e => {
   setPos(e);

@@ -118,7 +118,7 @@ export function tickBotWork(b,dt) {
       }
       if(!recovering){if(target){b.goal={x:target.x,y:target.y-(items.some(it=>it.pos===target)?0.2:0),z:target.z,kind:'work',m,near:game.botNear||0.8};}
       else b.goal=null;
-      if(game.interact&&game.prompt?.()&&(!target||Math.hypot(target.x-b.pos.x,target.z-b.pos.z)<1.7)&&brain.ready(0.4))game.interact();}
+      if(game.interact&&game.prompt?.()?.startsWith('<b>E</b>')&&(!target||Math.hypot(target.x-b.pos.x,target.z-b.pos.z)<1.7)&&brain.ready(0.4))game.interact();}
       if(b.held&&items.includes(b.held))job.lastHeld=b.held;
     } else { b.goal=null; const p=m.obj.pos();b.aimAt=p; }
     if(!job.recover&&!job.grip)game.botStep?.(dt,brain);

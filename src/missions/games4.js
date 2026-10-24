@@ -28,14 +28,14 @@ const LEAF = [0xc9662a, 0xa8452a, 0xe89a3a, 0xb8782a, 0x8a5a2a];
 export function buildLeafPile(x,y,z,f){const o=place(x,y,z,f,g=>{g.add(leafHeap(560,1.1,.55).g);g.add(compose('leafPileSign32',a=>{a(G.box,tmat(T.sign('ИЩИ!','#c9662a','#17111f')),0,.68,1.05,.5,.18,.025);a(G.box,tmat(T.wood()),0,.34,1.05,.045,.68,.045);}));},[2.2,2.2],.22,2.2);o.type='leaves';return o;}
 export function graffitiPlaces(){
  const out=[];
- for(const s of W.solids){if(!s.on||s.obb||s.y1-s.y0<1.65)continue;const wx=s.x1-s.x0,wz=s.z1-s.z0;
- for(const [axis,length]of [['x',wx],['z',wz]]){if(length<2.8)continue;for(const sign of [-1,1])for(const k of [.25,.5,.75]){
+ for(const s of W.solids){if(!s.on||s.obb||s.y1-s.y0<2.55)continue;const wx=s.x1-s.x0,wz=s.z1-s.z0;
+ for(const [axis,length]of [['x',wx],['z',wz]]){if(length<3.6)continue;for(const sign of [-1,1])for(const k of [.25,.5,.75]){
   const x=axis==='x'?s.x0+wx*k:sign>0?s.x1:s.x0,z=axis==='z'?s.z0+wz*k:sign>0?s.z1:s.z0,f=axis==='x'?[0,sign]:[sign,0];
   const px=x+f[0]*1.5,pz=z+f[1]*1.5,y=groundAt(px,pz,.25,s.y0+.35);
-  if(Math.abs(y-s.y0)>.3||s.y1<y+1.8||!isFree(px-.45,pz-.45,px+.45,pz+.45,y+.05,y+2.0))continue;
+  if(Math.abs(y-s.y0)>.3||s.y1<y+2.55||!isFree(px-.45,pz-.45,px+.45,pz+.45,y+.05,y+2.0))continue;
   if((W.paintSites||[]).some(p=>Math.hypot(p.x-x,p.z-z)<2.7))continue;
   // Весь прямоугольник должен попадать в одну физическую грань.
-  const at=axis==='x'?x:z,min=axis==='x'?s.x0:s.z0,max=axis==='x'?s.x1:s.z1;if(at-1.12<min||at+1.12>max)continue;
+  const at=axis==='x'?x:z,min=axis==='x'?s.x0:s.z0,max=axis==='x'?s.x1:s.z1;if(at-1.72<min||at+1.72>max)continue;
   out.push({x:x+f[0]*.025,y,z:z+f[1]*.025,f,solid:s});
  }}}
  return out;
