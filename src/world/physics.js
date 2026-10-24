@@ -19,7 +19,7 @@ function gridInsert(s) {
 let stamp = 0; const _q = [];
 // твёрдые объекты, пересекающие прямоугольник (без повторов). Результат переиспользуется — не хранить.
 export function solidsNear(x0, z0, x1, z1, out = _q) {
-  out.length = 0; stamp++;
+  out.length = 0; stamp++;if(![x0,z0,x1,z1].every(Number.isFinite))return out;
   const g = W.grid; if (!g) return out;
   const i0 = Math.floor(x0 / CELL), i1 = Math.floor(x1 / CELL), j0 = Math.floor(z0 / CELL), j1 = Math.floor(z1 / CELL);
   if ((i1 - i0 + 1) * (j1 - j0 + 1) > 400) { for (const s of W.solids) out.push(s); return out; }

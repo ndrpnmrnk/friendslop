@@ -1,3 +1,4 @@
+import {busPlaces,buildBus,busGame} from './bus.js';
 import {buildPerfume,perfumeGame} from './perfume.js';
 import {buildShakir,shakirGame} from './shakir.js';
 import {buildFat,fatGame} from './fat.js';
@@ -20,14 +21,8 @@ import { PANEL3, WORLD3, buildPhone, buildFire, buildDeadLamp, buildCatBox } fro
 import { PANEL4, WORLD4, buildLeafPile, buildGraffitiWall, graffitiPlaces, buildIntercom, buildChest, buildValve } from './games4.js';
 import { PANEL5, WORLD5, buildDoor, buildSkelBench, buildGenerator, buildBells, buildTree, buildDetectorSign, buildCartStart, buildGraveCam, buildAntenna, buildDovecote, buildMailBag } from './games5.js';
 
-/* Миссии приходят ВОЛНАМИ.
-   В волне «игроки − 1» общих миссий (боты считаются игроками, не меньше 2): кому-то не хватит — надо успеть
-   или отбить. Во время общего события — по одной миссии. У каждой миссии свой таймер 25–50 с (чем дальше от
-   игроков — тем дольше), «вечных» миссий нет. Волна кончилась (всё выполнено или сгорело) — через 3 с новая;
-   сгорела целиком — следующая приходит быстрее.
-   Между волнами кому-то может выпасть ЛИЧНАЯ миссия (видит и может сделать только он), а с середины раунда
-   отстающему — миссия АУТСАЙДЕРА с очками ×1.5.
-   Миссии частично «местные»: у некоторых есть родной район (home) — там они появляются чаще, но не всегда. */
+/* Общий случайный пул. Завершение одного задания освобождает один слот;
+   остальные задания не ждут его и не образуют упорядоченную волну. */
 export const M = { list: [], cooldown: {}, id: 0, waveT: 0, wave: 0, burnt: 0, done: 0, onWave: null, manual:false,mammothShown:false,introShown:{} };
 const ZONE_RU = { floor: '', inside: 'внутри', roof: 'на крыше', nook: 'в нычке', tunnel: '' };
 const WV = () => CONFIG.wave;
@@ -103,6 +98,7 @@ function findPlace(def, from, others) {
 }
 
 function canSpawn(key, def) {
+  if(key==='bus'&&!busPlaces().length)return false;
   if(key==='fat'&&(!W.factorySite||!W.salonSite||!W.mayor||W.fatDone))return false;
   if(key==='demolition'&&(!W.university||W.university.destroyed))return false;
   if(key==='van'&&!vanPlaces().length)return false;
@@ -133,7 +129,7 @@ export function waveSize(phase) {
 // новая волна: N общих миссий, разнесённых по карте
 export function spawnWave(player, phase = 'calm') {
   const n = waveSize(phase); let k = 0;
-  for(let i=0;i<n;i++){const opts={final:phase==='final'};let m=null;if(phase==='calm'){const fresh=['shakir','fat','demolition','van','cosmo'].find(q=>!M.introShown[q]&&canSpawn(q,CONFIG.missions[q]));if(fresh)m=spawnMission(player,fresh,opts);if(!m&&!M.mammothShown)m=spawnMission(player,'mammoth',opts);}if(!m)m=spawnMission(player,null,opts);if(m)k++;}
+  for(let i=0;i<n;i++)if(spawnMission(player,null,{final:phase==='final'}))k++;
   M.waveT = 0; M.wave++; M.burnt = 0;
   if (k && M.onWave) M.onWave(k, M.wave);
   return k;
@@ -141,7 +137,7 @@ export function spawnWave(player, phase = 'calm') {
 /* создать миссию; opts: owner — личная (видит только он), mult — множитель очков (аутсайдер), final — короче таймер */
 export function spawnMission(player, only = null, opts = {}) {
   const keys = Object.keys(CONFIG.missions).filter(k => (!only || k === only) && canSpawn(k, CONFIG.missions[k]));
-  keys.sort(() => Math.random() - 0.5);
+  for(let i=keys.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[keys[i],keys[j]]=[keys[j],keys[i]];}
   const others = M.list.map(m => m.obj.pos());
   for (const key of keys) {
     const def = CONFIG.missions[key];
@@ -155,6 +151,7 @@ export function spawnMission(player, only = null, opts = {}) {
     } else if (key === 'intercom') {
       const list=entrances(); const g=list[(Math.random()*list.length)|0]; if(!g)continue; const p=g.intercom;
       obj=buildIntercom(p.x,p.y,p.z,p.f); obj.entrance=g; where=g.name+' · у входа';
+    } else if(key==='bus'){const places=busPlaces();if(!places.length)continue;obj=buildBus(places[Math.random()*places.length|0]);where='Маршрут 63';
     } else if(key==='van'){const places=vanPlaces();if(!places.length)continue;const q=places[Math.random()*places.length|0];obj=buildVan(q);where='Город · дорога';
     } else if(key==='fat'){obj=buildFat();where='Жировой завод → Мэрия';
     } else if(key==='demolition'){obj=buildDemolition();where='Университет Хнуре';
@@ -214,11 +211,11 @@ export function updateMissions(dt, t, player, opts = {}) {
     mk.wave.visible = b < 1.2; if (mk.wave.visible) { mk.wave.scale.setScalar(1 + b * 9); mk.wm.opacity = Math.max(0, 1 - b / 1.2); }
     mk.bm.opacity = k < 0.25 ? (Math.sin(t * 12) > 0 ? 0.45 : 0.1) : mk.bm.opacity;
   }
-  // волны: общие миссии кончились — пауза и новая волна (личные не держат волну)
-  if (shared().length === 0 && !M.manual) {
-    if (M.waveT <= 0) M.waveT = M.burnt > 0 && M.done === 0 ? WV().gapBurnt : (phase === 'final' ? WV().gapBurnt : WV().gap);
-    else { M.waveT -= dt; if (M.waveT <= 0) { M.done = 0; spawnWave(player, phase); extras(player, opts); } }
+  if(!M.manual&&shared().length<waveSize(phase)){
+    if(M.waveT<=0)M.waveT=1.5+Math.random()*2;
+    M.waveT-=dt;if(M.waveT<=0){spawnMission(player,null,{final:phase==='final'});M.waveT=1.5+Math.random()*2;extras(player,opts);}
   }
+
 }
 // между волнами: личная миссия кому-то из игроков, аутсайдеру — миссия ×1.5
 function extras(player, opts) {
@@ -250,12 +247,12 @@ export function nearMission(player) {
   let best = null, bd = 1e9;
   for (const m of M.list) {
     if (m.busy || m.doer || (m.claimedBy && m.claimedBy !== player) || !visibleTo(m, player)) continue;
-    const p = m.obj.pos(), c = m.obj.front ? m.obj.front() : p, d = Math.hypot(c.x - player.pos.x, c.z - player.pos.z);
+    const p = m.obj.pos(), c = m.obj.approach?m.obj.approach(player.pos):m.obj.front ? m.obj.front() : p, d = Math.hypot(c.x - player.pos.x, c.z - player.pos.z);
     const reach = m.key === 'cat' ? 1.6 : (m.obj.reach || 1.8);
     if (d < bd && canReach(player, c, m.obj.solid, reach)) { bd = d; best = m; }
   }
   return best;
 }
 export const ALL_GAMES = { shakir:shakirGame,perfume:perfumeGame,mammothDress, ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4, ...PANEL5 };
-const WORLD_ALL = { fat:fatGame,demolition:demolitionGame,van:vanGame,cosmo:cosmoGame,mammoth:mammothWorld, ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
+const WORLD_ALL = { bus:busGame,fat:fatGame,demolition:demolitionGame,van:vanGame,cosmo:cosmoGame,mammoth:mammothWorld, ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
 export { GAMES, WORLD_ALL as WORLD_GAMES };

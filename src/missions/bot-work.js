@@ -151,3 +151,5 @@ export function poseBotWork(b) {
   const local=b.root.worldToLocal(p.clone());
   if(local.length()<2.3)b.ch.handR.position.lerp(local,0.45);
 }
+
+export function cancelBotOnEliminate(b){const job=b.work;if(!job)return;const m=job.m;stopBotWork(b);if(M.list.includes(m))removeMission(m);}

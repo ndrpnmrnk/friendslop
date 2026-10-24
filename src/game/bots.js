@@ -194,6 +194,7 @@ export function updateBots(dt, t, P) {
     if (b.hidden) { b.hideT -= dt; if (b.hideT <= 0) { const h = b.hidden; b.hidden = null; b.root.visible = true; b.vel.set((Math.random() - 0.5) * 6, 6, (Math.random() - 0.5) * 6); b.onGround = false; burst(h.x, h.y + 0.6, h.z, 12, { color: h.kind === 'leaves' ? 0xe0902e : 0xd8d0e4, size: 0.22, speed: 3, up: 3 }); } else { b.root.visible = false; continue; } }
     if(W.race&&b.ride?.kind==='kart'){W.race.drive(b,dt,t);progBar(b);continue;}
     tickBotWork(b,dt);
+    if(b.bus){b.ch.animate(dt,{t,speed:0,ride:'sit'});continue;}
     const ctrl = !b.heldBy && b.stun <= 0 && !(b.getT > 0) && !(b.knockT > 0) && !(b.floatT > 0) && !(b.netT > 0);
     let ix = 0, iz = 0, run = 1;
     const ev = W.eventBot ? W.eventBot(b) : null;

@@ -133,12 +133,12 @@ body.locked #dot i{left:-2px;top:-2px;width:4px;height:4px;background:rgba(241,2
 #stamwrap.empty #stamnum{color:var(--blood)}
 .chip{position:absolute;width:4px;height:4px;background:var(--candy);animation:chip .5s steps(6) forwards}
 @keyframes chip{to{transform:translate(var(--dx),var(--dy));opacity:0}}
-#held{align-self:center;display:flex;align-items:center;gap:8px;padding:7px 10px 6px;font-size:13px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);white-space:nowrap}
+:is(#held,#hubHeld){align-self:center;display:flex;align-items:center;gap:8px;padding:7px 10px 6px;font-size:13px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);white-space:nowrap}
 #gslot{align-self:center;display:flex;align-items:center;gap:10px;padding:6px 10px 5px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);font-family:var(--px);font-size:10px;color:var(--text)}
 #gslot img{margin-right:-6px}
-#held .n{font-family:var(--px);font-size:10px;color:var(--gold);margin-left:-2px}
-#held.new{animation:bump .35s steps(4)}
-#prompt{position:absolute;top:calc(50% + 34px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px 10px 5px;font-size:15px;font-weight:700;background:var(--panel);clip-path:var(--notch);white-space:nowrap}
+:is(#held,#hubHeld) .n{font-family:var(--px);font-size:10px;color:var(--gold);margin-left:-2px}
+:is(#held,#hubHeld).new{animation:bump .35s steps(4)}
+:is(#prompt,#hubPrompt){position:absolute;top:calc(50% + 34px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px 10px 5px;font-size:15px;font-weight:700;background:var(--panel);clip-path:var(--notch);white-space:nowrap}
 #lockhint{position:absolute;top:50%;left:50%;width:48px;height:48px;transform:translate(-50%,-50%);background-size:contain;image-rendering:pixelated;animation:lh 1s steps(2) infinite}
 @keyframes lh{50%{transform:translate(-50%,-50%) scale(1.15)}}
 #blind{position:absolute;inset:0;background:radial-gradient(circle,transparent 20%,rgba(23,17,31,.6) 70%);}
@@ -284,19 +284,19 @@ body:not(.playing) #speedl{display:none}
 #micIco img,#setBtn img{width:22px!important;height:22px!important;image-rendering:pixelated}
 
 /* v0.16: карточка «в руках» — слева внизу, крупно */
-#held{position:fixed;left:16px;bottom:16px;align-self:auto;display:flex;align-items:center;gap:12px;padding:10px 14px 10px 10px;font-size:14px;white-space:nowrap;max-width:calc(100vw - 32px)}
-#held .hci{width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--plum);box-shadow:inset 0 0 0 2px var(--edge)}
-#held .hci img{width:40px;height:40px;image-rendering:pixelated}
-#held .hct b{font-size:16px}
-#held .hck{display:flex;gap:10px;margin-top:6px;font-size:12px;color:var(--muted)}
-#held .hck span{display:flex;align-items:center;gap:4px}
-#held .n{font-family:var(--px);font-size:10px;color:var(--gold);margin-left:6px}
-#held.new{animation:heldin .45s steps(6)}
-#held .hci{position:relative;overflow:hidden}
-#held .hci.cd img{filter:grayscale(1) brightness(.6)}
-#held .hci .cdf{position:absolute;left:0;right:0;bottom:0;background:rgba(241,232,255,.28);box-shadow:inset 0 2px 0 rgba(241,232,255,.6)}
-#held .bar{display:inline-block;width:64px;height:8px;margin-left:8px;vertical-align:middle;background:var(--plum);box-shadow:inset 0 0 0 2px var(--edge)}
-#held .bar i{display:block;height:100%;background:var(--gold)}
+:is(#held,#hubHeld){position:fixed;left:16px;bottom:16px;align-self:auto;display:flex;align-items:center;gap:12px;padding:10px 14px 10px 10px;font-size:14px;white-space:nowrap;max-width:calc(100vw - 32px)}
+:is(#held,#hubHeld) .hci{width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--plum);box-shadow:inset 0 0 0 2px var(--edge)}
+:is(#held,#hubHeld) .hci img{width:40px;height:40px;image-rendering:pixelated}
+:is(#held,#hubHeld) .hct b{font-size:16px}
+:is(#held,#hubHeld) .hck{display:flex;gap:10px;margin-top:6px;font-size:12px;color:var(--muted)}
+:is(#held,#hubHeld) .hck span{display:flex;align-items:center;gap:4px}
+:is(#held,#hubHeld) .n{font-family:var(--px);font-size:10px;color:var(--gold);margin-left:6px}
+:is(#held,#hubHeld).new{animation:heldin .45s steps(6)}
+:is(#held,#hubHeld) .hci{position:relative;overflow:hidden}
+:is(#held,#hubHeld) .hci.cd img{filter:grayscale(1) brightness(.6)}
+:is(#held,#hubHeld) .hci .cdf{position:absolute;left:0;right:0;bottom:0;background:rgba(241,232,255,.28);box-shadow:inset 0 2px 0 rgba(241,232,255,.6)}
+:is(#held,#hubHeld) .bar{display:inline-block;width:64px;height:8px;margin-left:8px;vertical-align:middle;background:var(--plum);box-shadow:inset 0 0 0 2px var(--edge)}
+:is(#held,#hubHeld) .bar i{display:block;height:100%;background:var(--gold)}
 @keyframes heldin{0%{transform:translateX(-120%);filter:brightness(2.5)}60%{transform:translateX(8px)}100%{transform:none}}
 
 /* v0.16: навигатор — одна метка главной цели (над целью или у края экрана со стрелкой) */
@@ -363,8 +363,8 @@ body:not(.playing) #speedl{display:none}
 #mgcall.pop{animation:callin .3s steps(5)}#mgcall.fade{opacity:0}
 @keyframes callin{0%{transform:translateX(-50%) scale(1.6);opacity:0}60%{transform:translateX(-50%) scale(.92);opacity:1}100%{transform:translateX(-50%) scale(1)}}
 /* v0.19: карточка «в руках» — что делает предмет и эффект */
-#held .hcd{font-size:12px;color:var(--text);opacity:.85;margin-top:3px;white-space:normal;max-width:260px}
-#held .fx{font-style:normal;font-family:var(--px);font-size:8px;color:#17111f;background:var(--fx);padding:2px 5px 1px;margin-left:8px;vertical-align:middle}
+:is(#held,#hubHeld) .hcd{font-size:12px;color:var(--text);opacity:.85;margin-top:3px;white-space:normal;max-width:260px}
+:is(#held,#hubHeld) .fx{font-style:normal;font-family:var(--px);font-size:8px;color:#17111f;background:var(--fx);padding:2px 5px 1px;margin-left:8px;vertical-align:middle}
 
 #droneHud{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);display:flex;gap:10px;pointer-events:none;z-index:15}
 #droneHud .dh{position:relative;width:58px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);overflow:hidden}
@@ -456,3 +456,13 @@ button:disabled{opacity:.45;cursor:default}
 #mode.tv-mode .pcard small{font-size:13px;color:#bcb0be}
 #mode.tv-mode .pback{position:absolute;left:26px;bottom:25px;top:auto;margin:0;padding:10px;font-size:11px;pointer-events:auto}
 @media(max-height:580px){#mode.tv-mode .sctitle{top:5vh;font-size:14px}#mode.tv-mode .pcard{width:260px;padding:12px;gap:8px}#mode.tv-mode .pcard canvas{max-height:145px}}
+
+/* Общие игровые подписи в дворе, один баланс фистов. */
+.coinIcon{width:25px;height:25px;background:var(--fist-icon) center/contain no-repeat;border:0;box-shadow:none;clip-path:none;image-rendering:pixelated}
+.clawTop:empty{display:none}
+#clawMessage:empty{display:none}
+#hubHeld{pointer-events:none}
+#clawReveal{position:absolute;left:50%;top:12%;transform:translateX(-50%);text-align:center;font:16px var(--px);color:#f3d28a;text-shadow:3px 3px #231a30;animation:reveal42 .6s ease-out}
+@keyframes reveal42{from{opacity:0;transform:translate(-50%,20px) scale(.8)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+
+#mghint:empty{display:none}

@@ -3,6 +3,8 @@
 const PAL = { k: '#17111f', o: '#ff8a1f', O: '#c85a0a', y: '#f5c542', g: '#9be36b', G: '#4f8a3a', r: '#ff5a6e', R: '#a8243a', b: '#4ab0f0', B: '#1e6aa8',
   w: '#f1e8ff', p: '#b18cff', P: '#6a4aa8', n: '#a8744a', N: '#6a4428', s: '#a8a8b8', d: '#4a4058', c: '#d8f0ff', m: '#eee8ff' };
 const ART = {
+  fist:['......N.....','.....NN.....','..RRRRRRRR..','.RRRRRRRRRR.','RRRnnnnnnRRR','.nwwwwwwwwn.','.nwwwwwwwwn.','.nwwwwwwwwn.','.nnnnnnnnnn.','..RRRRRRRR..','...RRRRRR...','............'],
+  bus:['.kkkkkkkkkk.','.kRRRRRRRRk.','.kcccccccck.','.kckckckcck.','.kcccccccck.','.kRRRRRRRRk.','.kRwRwRwRRk.','.kRRRRRRRRk.','.kyRRRRRRyk.','.kkkkkkkkkk.','..kk....kk..','............'],
   shakir:['....kkkk....','..kkcccckk..','.kcccccccck.','kcccNNNcccck','kccNrrrNccck','kcccNNNcccck','.kcccccccck.','..kkcccckk..','....kkkkkk..','........kkk.','.........kkk','..........kk'],
   fat:['....ssss....','...ssssss...','..kswwwwsk..','..kswwwwsk..','..ksnnnnsk..','..ksnnnnsk..','..kswwwwsk..','..kswwwwsk..','..kswwwwsk..','..kssssssk..','...kkkkkk...','............'],
   demolition:['............','...rrrrrr...','..knnnnnnk..','..knknnknk..','..knknnknk..','..knnnnnnk..','..knkkkknk..','..knkwyknk..','..knkkkknk..','..knnnnnnk..','...kkkkkk...','............'],

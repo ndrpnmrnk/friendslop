@@ -36,6 +36,8 @@ export function groundBlob(p) {
 }
 export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.drone || p.returning) return;
+  tickStun(p,dt);
+  if(p.bus){p.vel.set(0,0,0);p.ch.animate(dt,{t,speed:0,ride:'sit',dangle:false});groundBlob(p);return;}
   if (p.knockT > 0) p.knockT -= dt;
   if (p.heldBy && canMove && ['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyE'].some(k => tapped(k))) struggleTap(p);
   if (p.noMountT > 0) p.noMountT -= dt;
@@ -254,7 +256,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     p.landedNow = true;
   } else p.landedNow = false;
   if (p.onGround) p.airPeak = p.pos.y;
-  if (p.stun > 0 || p.getT > 0) { p.vel.x *= 0.85; p.vel.z *= 0.85; } tickStun(p, dt);
+  if (p.stun > 0 || p.getT > 0) { p.vel.x *= 0.85; p.vel.z *= 0.85; }
   // поворот и анимация
   const spd = Math.hypot(p.vel.x, p.vel.z); p.speed = spd;
   if (p.charging && Number.isFinite(p.aimYaw)) p.facing = p.aimYaw;

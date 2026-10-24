@@ -229,7 +229,7 @@ const BIG = {
       s.tex.offset.x = t * 0.04; s.tex.offset.y = Math.sin(t * 0.7) * 0.05; s.mat.color.setHSL(0.03, 1, 0.55 + Math.sin(t * 4) * 0.05);
       const P = ctx.player(), top = s.base + s.level;
       s.lavaT -= dt; if (s.lavaT <= 0 && s.level > 0 && P) { s.lavaT = 0.08; const a = Math.random() * 6.28, d = 2 + Math.random() * 12; burst(P.pos.x + Math.cos(a) * d, top + 0.02, P.pos.z + Math.sin(a) * d, 2, { color: 0xffd25c, size: 0.12, speed: 1, up: 3, g: 6, life: 0.6 }); }
-      for(const a of actors())if(a.pos.y<=top+.02&&a.pos.y>UG.floor-2){s.fallen.add(a);const at=a.pos.clone();eliminate(a,15);burst(at.x,Math.max(at.y,top)+.2,at.z,10,{color:0xff8a1f,size:.2,speed:2,up:3});sfx('hit',{at});}
+      for(const a of actors())if(a.pos.y<=top+.02&&a.pos.y>UG.floor-2&&(a.burnCD||0)<=(W.time||0)){s.fallen.add(a);const at=a.pos.clone();eliminate(a,15);burst(at.x,Math.max(at.y,top)+.2,at.z,10,{color:0xff8a1f,size:.2,speed:2,up:3});sfx('hit',{at});}
       return null;
     },
     // бот: если стоит ниже будущего уровня — бежит на ближайшую крышу/возвышение
@@ -264,6 +264,7 @@ function infect(s, a, by) {
 }
 // горячая картошка: новый держатель, свежий фитиль
 function give(s, a, fresh = false) {
+  if(!a||a.drone||a.returning)return;
   if (s.h) s.h.hotPotato = false; s.h = a; s.flight = null; a.hotPotato=true;dropHeld(a);s.cd=1.35;
   a.daze = Math.max(a.daze || 0, 1); a.vel.x = a.vel.z = 0;
   if (fresh) { s.T = s.left = 10 + Math.random() * 5; s.tick = 0; }

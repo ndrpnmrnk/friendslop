@@ -32,19 +32,10 @@ export function generateMap(scene, s) {
     const c = -half + road / 2 + i * (chunk + road);
     for (let k = -half; k < half; k += 3) { mark(c, k + 0.9, 0.28, 1.8, i === 0 || i === grid ? line : yl); mark(k + 0.9, c, 1.8, 0.28, i === 0 || i === grid ? line : yl); }
   }
-  /* Выбор районов: по одному из каждой группы (зелёные, торговые, высокие, спорт, особые) — карта всегда разная,
-     но в ней всегда есть всего понемногу; остальные места — случайные. */
-  const GROUPS = [['park', 'cemetery', 'yard'], ['plaza', 'market', 'shops', 'foodcourt'], ['office', 'hospital', 'construction'], ['skatepark', 'school'], ['port', 'sewer', 'gas']];
-  const byId = id => DISTRICTS.find(d => d.id === id);
-  let picks = GROUPS.map(g => byId(shuffle(g.slice())[0])).filter(Boolean);
-  picks = [...picks, ...shuffle(DISTRICTS.filter(d => !picks.includes(d)))];
-  // отладка: window.__forceDistricts = ['yard', ...] ставит эти районы первыми
-  const force = globalThis.__forceDistricts; if (force) picks = [...force.map(id => picks.find(d => d.id === id)).filter(Boolean), ...picks.filter(d => !force.includes(d.id))];
-  picks = shuffle(picks.slice(0, grid * grid));
-  // Производственная цепочка требует оба района; пара остаётся случайной, размер карты прежний.
-  const factory=picks.some(d=>d.id==='factory'),hall=picks.some(d=>d.id==='townhall');
-  if(factory!==hall){const missing=byId(factory?'townhall':'factory'),can=picks.map((d,i)=>({d,i})).filter(({d})=>!['factory','townhall'].includes(d.id)&&!force?.includes(d.id)),extra=can.find(({d})=>GROUPS.some(g=>g.includes(d.id)&&picks.filter(q=>g.includes(q.id)).length>1))||can.at(-1);if(extra)picks[extra.i]=missing;}
-  if (force) picks = [...picks.filter(d => force.includes(d.id)), ...picks.filter(d => !force.includes(d.id))];
+  // Равновероятная перестановка без подстановки районов ради миссии.
+  let picks=shuffle(DISTRICTS.slice());const force=globalThis.__forceDistricts;
+  if(force)picks=[...force.map(id=>DISTRICTS.find(d=>d.id===id)).filter(Boolean),...picks.filter(d=>!force.includes(d.id))];
+  picks=picks.slice(0,grid*grid);
   // порт — только у реки: ставим его в нижний ряд (южный край карты), а южный край делаем набережной
   W.riverSide = null;
   const pi = picks.findIndex(d => d.id === 'port');

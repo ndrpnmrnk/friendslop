@@ -1,7 +1,7 @@
 import { THREE, V3, G, mesh, col, lam, tmat } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { keys } from '../core/input.js';
-import { groundAt, isFree, raySolids } from '../world/physics.js';
+import { groundAt, isFree, raySolids, pushOut } from '../world/physics.js';
 import { actors, dropHeld } from './actors.js';
 import { dismount, release } from './ride.js';
 import { puff, burst, smokeRing } from '../world/particles.js';
@@ -10,6 +10,7 @@ import { shoot } from './tools.js';
 import { T } from '../core/textures.js';
 import { CANDY_TYPES, candyModel, applyCandy } from './candy.js';
 import { cam } from './camera.js';
+import {recordFault} from '../core/diagnostics.js';
 
 export const DRONE_NET_COOLDOWN=10;
 const candies = [], flyOff = [];
@@ -50,15 +51,16 @@ export function helicopter(a) {
   W.group.add(g); W.keep.push(g); return { g, body, rotor, blur, readyMesh, muzzle, screen, tex, flaps, rope, hatch: 0, v: new V3(), spin: 0 };
 }
 const setHatch = (d, k) => { d.hatch = k; d.flaps.forEach((f, i) => (f.rotation.z = (i ? -1 : 1) * k * 1.4)); };
-function removeHeli(d) { W.group.remove(d.g); W.keep = W.keep.filter(q => q !== d.g); d.screen.dispose(); d.tex.dispose(); }
+function removeHeli(d){if(!d||d.disposed)return;d.disposed=true;d.g.removeFromParent();W.keep=W.keep.filter(q=>q!==d.g);d.screen.dispose();d.tex.dispose();d.blur.material.dispose();}
 export function eliminate(a, seconds) {
   if (!a || a.drone || a.returning) return;
-  a.hazeT=0;a.bongUse=null;
+  a.hazeT=0;a.bongUse=null;a.frozen=false;a.noRun=false;a.stationaryWork=false;a.bus=null;a.dive=null;a.slideT=0;a.rollT=0;a.climbing=false;
+  a.droneCauseSnapshot={at:Date.now(),pos:a.pos.toArray(),work:a.work?.m?.key||null};
   W.onEliminate && W.onEliminate(a);
   // выбывание сбрасывает все «залипающие» состояния: перекур, собака на руках, скамейка, стан (v0.21)
   a.chill = null; a.charging = false; if (a.dogHeld) { a.dogHeld.heldBy = null; a.dogHeld = null; } if (a.bench && W.leaveBench) W.leaveBench(a); a.stun = 0; a.getT = 0; a.daze = 0; a.netT = 0; a.floatT = 0;
   dropHeld(a); if (a.ride) dismount(a, false); if (a.grab) release(a, 0); if (a.holding && W.letGo) W.letGo(a); if (a.heldBy && W.letGo) W.letGo(a.heldBy);
-  if (a.swing) { a.swing.rider = null; a.swing = null; } a.hidden = null; a.zip = null; a.climb = null; a.mantle = null; a.hang = null; a.caged = null; a.goal = null;
+  if (a.swing) { a.swing.rider = null; a.swing = null; } a.hidden = null; a.zip = null; a.climb = null; a.mantle = null; a.hang = null; a.caged = null; a.goal = null;a.nav=null;a.stairRoute=null;a.ladderExit=null;a.escapeLadder=null;
   a.drone = { ...helicopter(a), left: seconds, cd: 0, candy: true, home: a.pos.clone(), intro: 1.2, tumble: 0 };
   a.pos.y = Math.max(groundAt(a.pos.x, a.pos.z, 0.2, 100) + 4, a.pos.y + 4);
   // вертушка прилетает сбоку к месту выбывания
@@ -74,17 +76,19 @@ export function droneAction(a, button, direction) {
 function dropCandy(a){
   const d=a.drone;if(!d||!d.candy)return;d.candy=false;d.hatchT=0.8;
   const def=CANDY_TYPES[(Math.random()*CANDY_TYPES.length)|0],m=candyModel(def);m.position.copy(a.pos).add(new V3(0,-0.5,0));W.group.add(m);
-  candies.push({m,def,owner:a,v:0,life:18,landed:false});sfx('drop',{at:a.pos});
+  if(candies.length>=12)candies.shift().m.removeFromParent();candies.push({m,def,owner:a,v:0,life:18,landed:false});sfx('drop',{at:a.pos});
 }
 function returnStart(a) {
   const d = a.drone, candidates = W.spawns.filter(p => isFree(p.x - 0.5, p.z - 0.5, p.x + 0.5, p.z + 0.5, p.y + 0.1, p.y + 10));
   candidates.sort((p, q) => Math.hypot(p.x - d.home.x, p.z - d.home.z) - Math.hypot(q.x - d.home.x, q.z - d.home.z));
-  const p = candidates[0] || W.spawns[0] || d.home;
+  const p=candidates[0]||W.spawns.find(q=>Number.isFinite(q.x)&&Number.isFinite(q.z))||d.home;
   a.drone = null; a.returning = { ...d, t: 0, p: new V3(p.x, groundAt(p.x, p.z, 0.3, p.y + 0.5), p.z) }; a.stun = 0; a.root.visible = false;
 }
-export function updateDrones(dt, t) {
+export function updateDrones(dt,t){
+  if(!Number.isFinite(dt)||dt<=0)return;dt=Math.min(.05,dt);
   for (const a of [W.player, ...(W.bots || [])].filter(Boolean)) {
     const d = a.drone;
+    if(d&&(![a.pos.x,a.pos.y,a.pos.z,d.v.x,d.v.y,d.v.z].every(Number.isFinite))){recordFault('Non-finite drone state',{actor:a===W.player?'player':'bot'});a.pos.copy(d.home);a.pos.y=Math.max(4,a.pos.y);d.v.set(0,0,0);}
     if (d) {
       d.left -= dt; d.cd=Math.max(0,d.cd-dt); if (d.hatchT > 0) { d.hatchT -= dt; } setHatch(d, d.hatchT > 0 ? Math.min(1, d.hatch + dt * 6) : Math.max(0, d.hatch - dt * 4));
       // пропеллер: плавно раскручивается, при быстром вращении виден «смаз»
@@ -102,7 +106,8 @@ export function updateDrones(dt, t) {
       // полёт с инерцией: разгон/торможение, крен и тангаж по скорости (в осях вертушки), покачивание
       const len = Math.max(1, Math.hypot(dx, dz)), k = Math.min(1, dt * 3.5); d.v.x += (dx / len * 10 - d.v.x) * k; d.v.z += (dz / len * 10 - d.v.z) * k; d.v.y += (dy * 7 - d.v.y) * Math.min(1, dt * 5);
       a.pos.x = Math.max(-W.bounds + 2, Math.min(W.bounds - 2, a.pos.x + d.v.x * dt)); a.pos.z = Math.max(-W.bounds + 2, Math.min(W.bounds - 2, a.pos.z + d.v.z * dt));
-      const floor = groundAt(a.pos.x, a.pos.z, 0.4, 100); a.pos.y = Math.max(floor + 3, Math.min(48, a.pos.y + d.v.y * dt));
+      pushOut(a.pos,.35,a.pos.y-.25,a.pos.y+.55);
+      const floor = groundAt(a.pos.x, a.pos.z, 0.4, Math.max(0,a.pos.y-1.7)); a.pos.y = Math.max(floor + 3, Math.min(48, a.pos.y + d.v.y * dt));
       const yaw = a === W.player ? cam.yaw + Math.PI : (Math.hypot(d.v.x, d.v.z) > 0.5 ? Math.atan2(d.v.x, d.v.z) : d.g.rotation.y);
       d.g.position.copy(a.pos); d.g.position.y += Math.sin(t * 2.6) * 0.07; d.g.rotation.y = yaw;
       const fwd = d.v.x * Math.sin(yaw) + d.v.z * Math.cos(yaw), side = d.v.x * Math.cos(yaw) - d.v.z * Math.sin(yaw);
@@ -125,7 +130,7 @@ export function updateDrones(dt, t) {
       r.rope.visible = r.t >= T2 && r.t < T3 + 0.1; const rl = Math.max(0.05, r.g.position.y - 0.45 - (a.pos.y + 1.25)); r.rope.scale.y = rl; r.rope.position.y = -0.45 - rl / 2;
       a.ch.animate(dt, { t, speed: 0, zip: true, air: false, vy: 0 });
       if (a === W.player) cam.ret = { l: a.pos.clone().add(new V3(0, 1.2, 0)), heli: r.g.position.clone() };
-      if (r.t > T3 && !r.landed) { r.landed = true; a.pos.copy(r.p); a.vel.set(0, 0, 0); a.onGround = true; a.airPeak = a.pos.y; a.noMountT = 2; a.burnCD = (W.time || 0) + 3; a.root.visible = true; smokeRing(a.pos.x, a.pos.y + 0.05, a.pos.z, 12, { speed: 3 }); sfx('land', { at: a.pos }); if (a === W.player) { cam.ret = null; cam.blend = 0; } a.returning = null; r.rope.visible = false;
+      if (r.t > T3 && !r.landed) { r.landed = true; a.pos.copy(r.p); a.vel.set(0, 0, 0); a.onGround = true; a.airPeak = a.pos.y; a.noMountT = 2; a.burnCD = (W.time || 0) + 3;a.frozen=false;a.noRun=false;a.stationaryWork=false; a.root.visible = true; smokeRing(a.pos.x, a.pos.y + 0.05, a.pos.z, 12, { speed: 3 }); sfx('land', { at: a.pos }); if (a === W.player) { cam.ret = null; cam.blend = 0; } a.returning = null; r.rope.visible = false;
         // вертушка улетает сама и исчезает
         const g = r; flyOff.push({ g, t: 0 }); }
     }
@@ -149,6 +154,7 @@ export function updateDrones(dt, t) {
   }
 }
 
+export const droneState=()=>({candies:candies.length,departing:flyOff.length,active:[W.player,...W.bots||[]].filter(a=>a?.drone||a?.returning).length});
 export function resetDrones() {
   for (const a of [W.player, ...(W.bots || [])].filter(Boolean)) { const d = a.drone || a.returning; if (d) removeHeli(d); a.drone = a.returning = null; a.marked = 0; }
   cam.ret = null;

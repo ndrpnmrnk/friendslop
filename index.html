@@ -28,13 +28,13 @@
   <button class="pbtn" id="playBtn">ИГРАТЬ</button>
   <button class="parr" id="setBtn" aria-label="Настройки"></button>
   <button class="pback" id="tutBtn">ОБУЧЕНИЕ</button>
-  <div id="wallet"><i class="coinIcon"></i><b id="menuCoins">0</b></div>
+  <div id="wallet"><i class="coinIcon" aria-label="Фисты"></i><b id="menuCoins">0</b></div>
 
   <div id="skinLock" class="hidden">ЗАКРЫТ · ВЫЛОВИ В АВТОМАТЕ</div>
-  <div id="hubUI" class="hidden"><button id="hubAction" class="hidden"><span class="key">E</span><span id="hubActionText"></span></button></div>
+  <div id="hubUI" class="hidden"><div id="hubPrompt" class="hidden"></div><div id="hubHeld" class="hidden"></div></div>
   <nav id="hubPause" aria-label="Меню хаба"><small>ДВОР FRIENDSLOP</small><button id="hubResume" class="pbtn">ПРОДОЛЖИТЬ</button><button id="hubExit" class="pbtn alt">ВЫХОД ИЗ ИГРЫ</button><button id="hubTutorial" class="pback">Обучение</button></nav>
 </div>
-<div id="clawUI" class="hidden"><div class="clawTop"><b>ВЫЛОВИ ДРУГА</b><span><i class="coinIcon"></i><b id="clawBalance">0</b></span></div><p id="clawMessage" aria-live="polite"></p><div class="clawControls"><div class="clawArrows"><button class="parr" data-claw="KeyW" aria-label="Клешня назад">▲</button><div><button class="parr" data-claw="KeyA" aria-label="Клешня влево">◀</button><button class="parr" data-claw="KeyS" aria-label="Клешня вперёд">▼</button><button class="parr" data-claw="KeyD" aria-label="Клешня вправо">▶</button></div></div><button class="pbtn" id="clawDrop">ИГРАТЬ · 50 МОНЕТ</button><button class="pback" id="clawBack">ВЕРНУТЬСЯ</button></div></div>
+<div id="clawUI" class="hidden"><div class="clawTop"></div><p id="clawMessage" aria-live="polite"></p><div class="clawControls"><div class="clawArrows"><button class="parr" data-claw="KeyW" aria-label="Клешня назад">▲</button><div><button class="parr" data-claw="KeyA" aria-label="Клешня влево">◀</button><button class="parr" data-claw="KeyS" aria-label="Клешня вперёд">▼</button><button class="parr" data-claw="KeyD" aria-label="Клешня вправо">▶</button></div></div><button class="pbtn" id="clawDrop">ИГРАТЬ · 50 ФИСТОВ</button><button class="pback" id="clawBack">ВЕРНУТЬСЯ</button></div></div>
 
 <!-- Настройки: микрофон -->
 <div id="settings" class="screen hidden">
@@ -71,7 +71,7 @@
 
 <!-- HUD -->
 <div id="hud" class="hidden">
-  <div id="coinHud"><i class="coinIcon"></i><b id="coinTotal">0</b><span id="coinGain"></span></div>
+  <div id="coinHud"><i class="coinIcon" aria-label="Фисты"></i><b id="coinTotal">0</b><span id="coinGain"></span></div>
   <div id="topbox" class="pframe"><div id="timer">5:00</div><div id="phase"></div><div id="score">0</div></div>
   <div id="nav" class="hidden"><div class="na"><i></i></div><div class="nb"><div class="ni"></div><div class="nt"><b class="nl"></b><span class="nd"></span></div></div></div>
   <div id="evchip" class="hidden"></div>

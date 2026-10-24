@@ -91,9 +91,12 @@ export function renderHud(S, P, prompt, dt) {
     el.classList.toggle('active', !!m.busy); el.classList.toggle('main', m === nearest && !m.busy); el.classList.toggle('dim', m !== nearest);
   }
   for (const [id, el] of H.cards) if (!live.has(id)) { H.cards.delete(id); el.classList.add(H.won.has(id) ? 'won' : 'gone'); setTimeout(() => el.remove(), 520); }
-  // подсказка «[E] действие»
+  renderPrompt(prompt);
+}
+
+export function renderPrompt(prompt,element=$('prompt'),state=H){
   const pr = prompt ? prompt.replace(/<b>(.+?)<\/b>/, '<span class="key">$1</span>') : '';
-  if (pr !== H.prompt) { H.prompt = pr; const e = $('prompt'); e.innerHTML = pr; e.classList.toggle('hidden', !pr); }
+  if (pr !== state.prompt) { state.prompt = pr; const e = element; e.innerHTML = pr; e.classList.toggle('hidden', !pr); }
 }
 
 // стамина: пиксельное кольцо из сегментов у персонажа, цифра в центре
@@ -113,8 +116,23 @@ export function renderStamina(P, dt, missionTool=null) {
     ch.style.cssText = `left:${40 + Math.cos(a) * 30}px;top:${40 + Math.sin(a) * 30}px;background:${col};--dx:${Math.cos(a) * 18}px;--dy:${Math.sin(a) * 18 + 10}px`; wrap.appendChild(ch); setTimeout(() => ch.remove(), 520); }
   H.stamPrev = v;
   // предмет в руках: инструмент — «ЛКМ действие · ПКМ бросок», заряды
+  renderHeld(P,missionTool);
+  // эффекты на персонаже: ботинки, маска, энергетик — маленькие значки с отсчётом
+  const fx = [P.webT>0?`${img('web',16)}${Math.ceil(P.webT)}`:'', P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : '', P.stBoost > 0 ? `${img('energy', 16)}${Math.ceil(P.stBoost)}` : ''].filter(Boolean).join('');
+  if (fx !== H.gslot) { H.gslot = fx; const e3 = $('gslot'); e3.innerHTML = fx; e3.classList.toggle('hidden', !fx); }
+  // конфетти перед глазами
+  const bl = $('blind'), blind = P.blind > 0;
+  if (blind !== !bl.classList.contains('hidden')) { bl.classList.toggle('hidden', !blind); if (blind) { bl.innerHTML = ''; for (let i = 0; i < 70; i++) { const q = document.createElement('i'); q.style.cssText = `left:${Math.random() * 100}%;top:${Math.random() * 100}%;background:${['#ff5a6e', '#f5c542', '#9be36b', '#4ab0f0', '#b18cff'][i % 5]};transform:rotate(${Math.random() * 90}deg)`; bl.appendChild(q); } } }
+}
+
+// события раунда: баннер на 1,5 с, потом значок с отсчётом у таймера
+export function eventBanner(key, big) { const b = $('evbanner'); b.innerHTML = `${img(TEXT.eventIcon[key], 48)}<span>${TEXT.events[key]}${big && TEXT.eventSub[key] ? `<small>${TEXT.eventSub[key]}</small>` : ''}</span>`; b.classList.remove('hidden'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; clearTimeout(H.evT); b.classList.toggle('big', !!big); H.evT = setTimeout(() => b.classList.add('hidden'), big ? 4400 : 2800); }
+export function eventChip(key, sec, info = '') { const c = $('evchip'); if (!key) { c.classList.add('hidden'); return; } const h = `${img(TEXT.eventIcon[key], 18)}${sec}${info ? `<b>${info}</b>` : ''}`; if (c.innerHTML !== h) c.innerHTML = h; c.classList.remove('hidden'); }
+
+export function renderHeld(P,missionTool=null,host=$('held'),state=H){
   let held = '';
-  if (P.grab) held = `${img('cart', 22)}${TEXT.grab[P.grab.kind] || ''} <span class="key">E</span>${TEXT.keys.hop}`;
+  if(P.grab?.holdOnly)held='';
+  else if (P.grab) held = `${img('cart', 22)}${TEXT.grab[P.grab.kind] || ''} <span class="key">E</span>${TEXT.keys.hop}`;
   else if (P.holding) held = `${img('mouse', 22)}${P.holding.bot ? P.holding.name : TEXT.you} <span class="key">WASD</span>Оттяни <span class="key">E / ЛКМ / ПКМ</span>Отпустить`;
   else if (P.carryCrate) held = `${img('parcel', 22)}Ящик в руках <span class="key">E</span>Поставить на метку`;
   else if (P.heldBy) held = `<span class="key">WASD / ПРОБЕЛ</span>${TEXT.keys.struggle}`;
@@ -128,17 +146,8 @@ export function renderStamina(P, dt, missionTool=null) {
     const info = TOOL_INFO[it.type], fx = info && FX_LABEL[info[1]];
     held = `<div class="hci${cd >= 0 ? ' cd' : ''}">${img(it.type, 40)}${cd >= 0 ? `<i class="cdf" style="height:${cd}%"></i>` : ''}</div><div class="hct"><b>${d.name}${am}${fx ? `<em class="fx" style="--fx:${fx[1]}">${fx[0]}</em>` : ''}</b>${info ? `<div class="hcd">${info[0]}</div>` : ''}<div class="hck">${acts}</div></div>`; }
   if(!held&&missionTool?.toolName&&missionTool.equipped!==false){const tool=missionTool;held=`<div class="hci">${img(tool.toolIcon,40)}</div><div class="hct"><b>${tool.toolName}</b><div class="hck"><span class="key">ЛКМ</span>${tool.toolAction}</div></div>`;}
-  if (held !== H.held) { const was = H.heldType, now = P.held ? P.held.type : P.grab ? 'grab' : P.holding ? 'hold' : P.heldBy ? 'held' : '';
-    H.held = held; H.heldType = now; const e2 = $('held'); e2.innerHTML = held; e2.classList.toggle('hidden', !held);
+  if (held !== state.held) { const was = state.heldType, now = P.held ? P.held.type : P.grab ? 'grab' : P.holding ? 'hold' : P.heldBy ? 'held' : '';
+    state.held = held; state.heldType = now; const e2 = host; e2.innerHTML = held; e2.classList.toggle('hidden', !held);
     if (held && now !== was) { e2.classList.remove('new'); void e2.offsetWidth; e2.classList.add('new'); } }
-  // эффекты на персонаже: ботинки, маска, энергетик — маленькие значки с отсчётом
-  const fx = [P.webT>0?`${img('web',16)}${Math.ceil(P.webT)}`:'', P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : '', P.stBoost > 0 ? `${img('energy', 16)}${Math.ceil(P.stBoost)}` : ''].filter(Boolean).join('');
-  if (fx !== H.gslot) { H.gslot = fx; const e3 = $('gslot'); e3.innerHTML = fx; e3.classList.toggle('hidden', !fx); }
-  // конфетти перед глазами
-  const bl = $('blind'), blind = P.blind > 0;
-  if (blind !== !bl.classList.contains('hidden')) { bl.classList.toggle('hidden', !blind); if (blind) { bl.innerHTML = ''; for (let i = 0; i < 70; i++) { const q = document.createElement('i'); q.style.cssText = `left:${Math.random() * 100}%;top:${Math.random() * 100}%;background:${['#ff5a6e', '#f5c542', '#9be36b', '#4ab0f0', '#b18cff'][i % 5]};transform:rotate(${Math.random() * 90}deg)`; bl.appendChild(q); } } }
-}
 
-// события раунда: баннер на 1,5 с, потом значок с отсчётом у таймера
-export function eventBanner(key, big) { const b = $('evbanner'); b.innerHTML = `${img(TEXT.eventIcon[key], 48)}<span>${TEXT.events[key]}${big && TEXT.eventSub[key] ? `<small>${TEXT.eventSub[key]}</small>` : ''}</span>`; b.classList.remove('hidden'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; clearTimeout(H.evT); b.classList.toggle('big', !!big); H.evT = setTimeout(() => b.classList.add('hidden'), big ? 4400 : 2800); }
-export function eventChip(key, sec, info = '') { const c = $('evchip'); if (!key) { c.classList.add('hidden'); return; } const h = `${img(TEXT.eventIcon[key], 18)}${sec}${info ? `<b>${info}</b>` : ''}`; if (c.innerHTML !== h) c.innerHTML = h; c.classList.remove('hidden'); }
+}

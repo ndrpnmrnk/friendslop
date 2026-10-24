@@ -1,7 +1,8 @@
+import {cancelBotOnEliminate} from './missions/bot-work.js';
 import {worldTarget,worldAimPoint} from './game/object-actions.js';
 import { updateOcclusion } from './game/occlusion.js';
 import {updateBongEffects} from './game/bong.js';
-import {recordFault,lastFaults} from './core/diagnostics.js';
+import {recordFault,lastFaults,runtimeCheckpoint,lastRuntime} from './core/diagnostics.js';
 import {updateSmoking} from './game/smoking.js';
 import { eliminate, updateDrones, resetDrones, droneAction, DRONE_NET_COOLDOWN } from './game/drone.js';
 import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies.js';
@@ -48,7 +49,7 @@ import { img } from './ui/icons.js';
 import { initAudio, sfx, ambience, setListener, toggleMute } from './core/sfx.js';
 import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
-import {resetCoins,updateCoins,coinState} from './game/coins.js';
+import {resetCoins,updateCoins,coinState,grabFist,nearFist} from './game/coins.js';
 import {collection} from './game/collection.js';
 import { createPodium, assignAwards, AWARDS, skinName } from './ui/podium.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
@@ -268,7 +269,7 @@ function prepareRound(tut = false) {
   W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), tut ? 0 : 4); M.manual = tut; S.tut = null;
   resetCoins(!tut);
   resetScore((a, pts, at) => award(a, pts, at));
-  M.onWave = (n, k) => { if (k > 1) { toast(n > 1 ? TEXT.wave(n) : TEXT.waveOne, 'wave'); sfx('wave'); flashScreen(); } };
+  M.onWave = null;
   M.onPersonal = (m, outsider) => { toast(outsider ? TEXT.outsider : TEXT.personal, 'gold'); sfx('crown'); };
   Object.assign(S, { time: CONFIG.roundTime, score: 0, done: 0, mg: null, wm: null, crane: false, phase: 'calm' }); W.scoreMul = 1;
   cam.pose = null; resetCamera(Math.random() * Math.PI * 2);
@@ -288,7 +289,7 @@ function updateIntro(dt) {
     // пролёт по дуге над городом
     const a = t / 4 * 1.6 + 0.4, r = 46, cx = 0, cz = 0;
     cam.free = { p: new V3(cx + Math.cos(a) * r, 34 - t * 3, cz + Math.sin(a) * r), l: new V3(cx + Math.cos(a + 1.2) * 12, 0, cz + Math.sin(a + 1.2) * 12) };
-    const ni = Math.floor(t / 1.33); if (ni !== I.ni && ni < I.names.length) { I.ni = ni; const d = $('dname'); d.textContent = I.names[ni].name.toUpperCase(); d.classList.remove('show'); void d.offsetWidth; d.classList.add('show'); }
+
     return;
   }
   if (!I.drop) { I.drop = true; cam.free = null; P.root.visible = true; P.frozen = false; P.noRun = true; P.pos.y += 9; P.vel.set(0, -2, 0); P.airPeak = P.pos.y - 9; updateCamera(camera, P, 0, true); }
@@ -355,7 +356,7 @@ function openWorld(m) {
   startMissionClock(m);m.onExpire=()=>closeWorld({success:false});
   m.claimedBy=P; m.busy = true; S.wm = { m, game: null };
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
-  $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; callout('');
+  $('mghint').textContent = m.key==='fat'?'':(TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden'); $('mgbar').classList.remove('hidden'); $('mgbar').firstChild.style.width = '0%';
   let worldFeedback=false;
   const api = {
@@ -404,7 +405,7 @@ function openMission(m) {
   startMissionClock(m);m.onExpire=()=>{closeMission({success:false});};
   m.doer=P; m.busy = true;P.stationaryWork=true;P.vel.x=P.vel.z=0;P.push.x=P.push.z=0; P.root.visible = false; P.charging = false;
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
-  $('mghint').textContent = (TEXT.missions[m.key] || ['', ''])[1]; callout('');
+  $('mghint').textContent = m.key==='fat'?'':(TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden');
   let worldFeedback=false;
   const api = {
@@ -467,7 +468,7 @@ function award(a, pts, at) {
 // события «весёлых» действий: попадания, ловушки, перила — для комбо и короны
 function hookFun() {
   W.onCandy=(a,def)=>{if(a===P)toast(def.label+' · '+def.effect, ['stun','slow','pop'].includes(def.id)?'bad':'good');};
-  W.onEliminate = a => { if (a === P) { if (S.mg) closeMission(null); if (S.wm) closeWorld(null); if (S.crane) exitCrane(); } else interruptBot(a); };
+  W.onEliminate = a => { if (a === P) { if (S.mg) closeMission(null); if (S.wm) closeWorld(null); if (S.crane) exitCrane(); } else cancelBotOnEliminate(a); };
 
   // удар/попадание: мелкий бонус (по лидеру — чуть больше); ударил того, кто делает миссию, — СОРВАЛ
   W.onHit = (att, vic, kind) => {
@@ -537,12 +538,14 @@ on('down', btn => {
   if (S.state !== 'play') return;
   if (P.drone) { droneAction(P, btn, aim(camera).ray.direction); return; }
   if (P.returning) return;
+  if(btn===0&&!S.mg&&!S.crane&&grabFist(P))return;
   if(P.hotPotato){if(btn===0)throwPotato(P,aim(camera).ray.direction,true);return;}
   if (S.mg) { if (btn === 0 && S.mg.game.down) S.mg.game.down(aim(camera)); return; }
   if (S.crane) return;
   if(P.heldBy){if(btn===0)S.wm?.game.struggle?.();return;}
   if(btn===0&&S.wm?.game.down&&S.wm.game.equipped!==false&&!P.charging){S.wm.game.down(aim(camera));return;}
   // тележку/тачку хватаешь любой кнопкой мыши, ей же отпускаешь (с толчком)
+  if (P.grab?.holdOnly)return;
   if (P.grab && (btn === 0 || btn === 2)) { release(P, 1.1); return; }
   // замах (ПКМ зажата): ЛКМ — передумал, опустить руку (бросок отменён)
   if (btn === 0 && P.charging) { P.charging = false; P.chargeManual = false; $('dot').classList.remove('charge'); sfx('click'); throwTip(true); return; }
@@ -552,6 +555,7 @@ on('down', btn => {
   if (P.holding) { if (btn === 0 || btn === 2) letGo(P); return; }
   if (!P.held && !P.ride && !P.holding && (btn === 0 || btn === 2)) {
     const c = nearestRideable(P, 1.7, true), d = btn === 0 ? nearDoor() : null;
+    if (c?.holdOnly)return;
     if (c && (!d || Math.hypot(c.x - P.pos.x, c.z - P.pos.z) < Math.hypot(d.x - P.pos.x, d.z - P.pos.z))) { grab(P, c); return; }
   }
   // пустые руки: ЛКМ вплотную к персонажу — схватить; к собаке — взять на руки
@@ -656,6 +660,7 @@ function stealItem(it) {
 const RIDE_NAME = { cart: 'тележку', skate: 'скейт', scooter: 'самокат', chair: 'кресло', barrow: 'тачку', kidcar: 'машинку', gurney: 'каталку', tire: 'шину', ring: 'круг' };
 function promptText() {
   if (P.drone) return '';
+  if(nearFist(P))return '<b>ЛКМ</b>Схватить фист';
   if (P.returning) return 'Возвращение в игру';
   if (S.mg) return '';
   if (S.crane) return '<b>E</b>выйти из крана';
@@ -674,9 +679,9 @@ let CURTAIN = null; // материал занавесок в окнах (ярч
 const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
   clock.update(); let dt = Math.min(0.05, clock.getDelta());
-  if(graphicsLost){endFrame();return;}
+  if(graphicsLost||document.hidden){endFrame();return;}
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
-  t += dt;
+  t += dt;runtimeCheckpoint(dt,{state:S.state,drone:!!P?.drone,returning:!!P?.returning,botsFlying:(W.bots||[]).filter(a=>a.drone||a.returning).length,mission:S.wm?.m.key||S.mg?.m.key||null,items:W.items.length,geometry:renderer.info?.memory?.geometries,textures:renderer.info?.memory?.textures});
   if(!['starting','hub','menu','mode','roulette','settings'].includes(S.state))updateRadios(dt,P?.pos,S.state==='play');
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
@@ -823,7 +828,7 @@ function loop() {
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();graphicsLost=true;updateRadios(0,P?.pos,false);recordFault('WebGL context lost',{state:S.state,timeLeft:Math.ceil(S.time||0)});toast('Графика перезапускается. Игра на паузе…','bad');});
 canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;clock.reset();toast('Графика восстановлена');});
 // отладочный доступ из консоли браузера
-window.__fs = { eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
+window.__fs = { lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 window.__fs.lastFaults=lastFaults;
 Object.assign(window.__fs,{menu,collection,coinState,showHub,showMenu});
 showMenu();

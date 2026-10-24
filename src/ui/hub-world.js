@@ -29,7 +29,10 @@ export function buildHub(scene){
   for(const [x,z,w,d,h,c]of[[-16,-2,5,29,8,0x514858],[16,-2,5,29,7,0x454b59],[0,-17,27,5,6,0x514959]]){
    b.box(x,z,w,d,h,tmat(facade(c,w,h,{lit:.3})));b.box(x,z,w+.25,d+.25,.20,tmat(T.roof()),{y:h});
   }
-  for(const x of[-13.4,13.4])b.fence(x,12,x,18,1.3,'iron');b.fence(-13.4,18,-2.5,18,1.3,'iron');b.fence(2.5,18,13.4,18,1.3,'iron');
+  for(const x of[-12,12]){b.m(G.cyl8,metal,x,3,-14.3,.055,5.9,.055);b.box(x,-14.36,.8,.12,.5,tmat(T.metal()),{y:.22});}for(const x of[-8,0,8]){b.box(x,-14.4,1.3,.12,2.5,tmat(T.wood()));b.box(x,-14.2,1.6,.5,.1,metal,{y:2.7});}b.aircon(7.2,-14.1,3.3);
+  for(const x of[-13.4,13.4])b.fence(x,12,x,18,3.6,'iron');b.fence(-13.4,18,13.4,18,3.6,'iron');
+  for(const[x0,z0,x1,z1]of[[-13.7,12,-13.2,18.2],[13.2,12,13.7,18.2],[-13.7,17.8,13.7,18.2]])addSolid(x0,z0,x1,z1,0,14,'hub-boundary');
+  b.box(0,18,.16,.16,3.6,metal);b.box(0,18,4.8,.12,.14,metal,{y:3.5});
   // Направления к станциям читаются по мощению; середина двора остаётся свободной.
   for(const[x,z,w,d]of[[0,4,3.4,18],[-4,-3,8,2.5],[4,-3,8,2.5]])b.ground(x-w/2,z-d/2,x+w/2,z+d/2,T.pave(),1.4,.018);
   for(const[x,z,ry]of[[-5,3,Math.PI/2],[5,0,-Math.PI/2],[-11,-10,Math.PI/2],[11,11,-Math.PI/2]])b.lamp(x,z,ry);
@@ -38,7 +41,7 @@ export function buildHub(scene){
   for(const lamp of state.lamps){group.add(lamp.cone);lamp.cone.visible=true;const light=new THREE.PointLight(0xffc481,9,8,1.5);light.position.set(lamp.lx,2.92,lamp.lz);group.add(light);lampLights.push({lamp,light});}
 
   b.tree(-11,9.5,.85,0,'maple');b.deadTree(11.8,-10.5);b.tree(11.5,13.1,.8,0,'oak');
-  b.bench(-10,6.7,Math.PI/2);b.bench(10.8,-11,-Math.PI/2);b.drinkFountain(-11,3.3,Math.PI/2);
+  b.bench(-10,6.7,Math.PI/2);b.bench(10.8,-11,-Math.PI/2);
   b.planter(-11,12,2.2,1.3,.42,'shrub');b.planter(11.7,-.8,1.3,2.6,.42,'shrub');
   b.bouncyPumpkin(-8.6,12.5,1.1);b.leafPile(-11,10.8,.55);
   b.barrel(11.5,-7.5);b.pallet(-11,-12,1.8,1.2);b.newsBox(11.6,8,-Math.PI/2);b.postBox(-12.2,-7.5,Math.PI/2);
@@ -47,7 +50,8 @@ export function buildHub(scene){
   b.swingSet(-4,13,3.5,0);
   for(const[type,x,z]of[['duck',-10,6],['slipper',10,-10],['water',9,7],['banana',-11,11],['ball',6.1,5.7]])b.item(type,x,z);
   for(const[x,z]of[[-6.8,-.7],[-7.1,-5.5],[7,-6.1],[10.6,1.4],[-8,10.7],[2.7,-8.6],[10.8,10.7]])b.item('pumpkin',x,z);
-  b.web(-12.8,3.2,-9.5,Math.PI/2,1.6);b.web(10.6,3,-14.4,0,1.6);b.stringLights(-12.5,-13,12.5,-13,4.6,[0xc18c56,0x827392,0x9d956a]);
+  b.stringLights(-12.5,-13,12.5,-13,4.6,[0xc18c56,0x827392,0x9d956a]);
+  b.bollard(-2.7,16.3);b.bollard(2.7,16.3);b.bikeRack(11.4,12,2,Math.PI/2);b.utilityBox(-12.3,-11.5,Math.PI/2);b.aircon(-13.2,1,3);b.puddle(11,-9,.55);
   b.sofa(0,-3.5,Math.PI,0x514752);
   group.add(compose('hub40-tv-hoop',a=>{
     a(G.box,wood,0,.29,-8.45,3.7,.58,1.55);a(G.box,dark,0,.57,-8.45,3.9,.08,1.65);

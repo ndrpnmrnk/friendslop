@@ -409,7 +409,7 @@ export const PropMethods = {
     add(G.box, body, -2.35, 1.15, 0, 1.6, 1.5, 2.2); add(G.box, gl, -3.16, 1.5, 0, 0.04, 0.6, 1.9); add(G.box, gl, -2.4, 1.5, 1.11, 1.2, 0.55, 0.02); add(G.box, gl, -2.4, 1.5, -1.11, 1.2, 0.55, 0.02);
     add(G.box, dk, -3.2, 0.55, 0, 0.14, 0.3, 2.2); for (const zz of [-0.8, 0.8]) add(G.box, glow(0xfff1c0), -3.17, 0.85, zz, 0.04, 0.16, 0.3);
     // окно выдачи: проём, ставень-козырёк, прилавок, меню, свет
-    add(G.box, col(0x2a2232), 0.6, 1.75, 1.162, 3.0, 1.1, 0.02); add(G.box, glow(0xffd28a), 0.6, 1.75, 1.18, 2.8, 0.9, 0.01); add(G.box, tmat(T.goods()), 0.6, 1.75, 1.19, 2.6, 0.7, 0.004);
+    add(G.box, col(0x2a2232), 0.6, 1.75, 1.162, 3.0, 1.1, 0.02); add(G.box, glow(0xffd28a), 0.6, 1.75, 1.18, 2.8, 0.9, 0.01); for(const x of[-.3,.5,1.3]){add(G.cyl8,col(0xb48855),x,1.6,1.28,.13,.35,.13);add(G.box,col(0xdac99f),x,1.66,1.421,.13,.14,.016);}
     const fl = add(G.box, tmat(T.awning('#f1e8ff', signC)), 0.6, 2.55, 1.6, 3.2, 0.06, 1.0); fl.rotation.x = -0.35;
     add(G.box, tmat(T.wood()), 0.6, 1.2, 1.3, 3.0, 0.06, 0.4); for (const xx of [-0.7, 0.6, 1.9]) add(G.box, dk, xx, 1.0, 1.42, 0.04, 0.4, 0.04);
     add(G.box, tmat(T.sign(sign, signC, '#f5c542')), 0.6, 2.95, 1.16, 3.6, 0.5, 0.03); add(G.box, tmat(T.chalkboard()), 2.5, 1.7, 1.17, 0.6, 0.8, 0.02);

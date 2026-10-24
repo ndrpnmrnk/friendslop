@@ -338,12 +338,13 @@ export class Builder {
     for (const [a, b] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) mesh(G.box, col(0x2b2533), a, 0.22, b, 0.05, 0.45, 0.05, g);
     this.solid(x, z, 0.5, 0.5, 0, 0.5);
   }
-  shelf(x, z, w, ry = 0) {
-    const goods = tmat(T.goods()), wd = col(0x4a3a2e);
-    const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
-    mesh(G.box, [wd, wd, wd, wd, goods, wd], 0, 0.95, 0, w, 1.9, 0.5, g);
-    for (const yy of [0.08, 0.65, 1.25, 1.91]) mesh(G.box, tmat(T.wood()), 0, yy, 0.04, w + 0.08, 0.06, 0.56, g);
-    const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.5 : w, q ? w : 0.5, 0, 1.9);
+  shelf(x,z,w,ry=0,stock=false){
+    const g=this.prop(x,z,ry),wood=tmat(T.wood());
+    for(const xx of[-w/2,w/2])mesh(G.box,wood,xx,.95,0,.065,1.9,.5,g);
+    mesh(G.box,col(0x4a3a2e),0,.95,-.235,w,1.9,.035,g);
+    for(const y of[.08,.65,1.25,1.91])mesh(G.box,wood,0,y,0,w+.08,.06,.56,g);
+    g.updateMatrixWorld(true);if(stock)for(const y of[.12,.69,1.29])for(let i=0;i<Math.max(2,Math.floor(w/.65));i++){const q=g.localToWorld(new THREE.Vector3(-w/2+.35+i*.61,y,.06)),type=['can','mug','books','duck'][(i+Math.round(y*10))%4];addItem(type,q.x,q.y,q.z,ry);}
+    const q=Math.abs(Math.sin(ry))>.5;this.solid(x,z,q?.5:w,q?w:.5,0,1.9);
   }
 
   /* ---------- лестница ---------- */

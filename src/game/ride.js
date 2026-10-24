@@ -100,7 +100,7 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   b.vx = fx * nf - fz * ns; b.vz = fz * nf + fx * ns;
   if (b.kind === 'chair') b.heading += side * dt * 0.8;
   const sp = Math.hypot(b.vx, b.vz);
-  const vehicle=b.mesh.children.find(q=>q.userData.vehicle)?.userData.vehicle;if(vehicle){b.pedalPhase=(b.pedalPhase||0)+sp*dt/0.25;for(const w of vehicle.wheels)w.rotation.x+=sp*dt/.32;if(vehicle.pedals)vehicle.pedals.rotation.x=b.pedalPhase;p.cyclePhase=b.pedalPhase;}
+  const vehicle=b.mesh.children.find(q=>q.userData.vehicle)?.userData.vehicle;if(vehicle){b.pedalPhase=(b.pedalPhase||0)+fwd*dt/.32;for(const w of vehicle.wheels)w.rotation.x+=sp*dt/.32;if(vehicle.pedals)vehicle.pedals.rotation.x=b.pedalPhase;p.cyclePhase=b.pedalPhase;p.cycleRig=vehicle;}
   if(drifting&&Math.random()<dt*18)smoke(b.x-fx*.6,b.y+.1,b.z-fz*.6,{color:0xc5bacd,size:.18,grow:.65,life:.8});
   if (sp > 3 && Math.random() < dt * 10) smoke(b.x - fx * 0.4, b.y + 0.1, b.z - fz * 0.4, { size: 0.1, grow: 0.35, life: 0.45, vy: 0.3, vx: -fx, vz: -fz });
   // тележка остановилась — сам спрыгиваешь

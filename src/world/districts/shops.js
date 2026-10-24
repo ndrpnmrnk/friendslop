@@ -23,7 +23,7 @@ export default {
             if (s.kind === 'bakery') { W.spots.pickup.push({ x: f.X(r.x0 + 2.2), z: f.Z(r.z0 + 1.9), y: f.Y, f: [0, -1], district: 'Торговая улица', label: 'пекарня' }); f.box(r.x0 + 2.2, r.z0 + 0.8, 3, 0.8, 1.0, tmat(T.wood())); f.m(G.box, tmat(T.produce('pumpkin')), r.x0 + 2.2, 1.03, r.z0 + 0.8, 2.8, 0.06, 0.6); f.shelf(r.x1 - 0.3, r.z0 + 2, 2.6, -Math.PI / 2); }
             if (s.kind === 'cafe') { f.ptable(r.x0 + 1.6, r.z1 - 1.3, 0.8); f.chair(r.x0 + 1.6, r.z1 - 0.5, Math.PI); f.ptable(r.x1 - 1.6, r.z1 - 1.3, 0.8);
               f.box(cx, r.z0 + 0.45, 4, 0.8, 1.05, tmat(T.wood())); f.box(cx + 1.2, r.z0 + 0.45, 0.5, 0.5, 0.6, col(0x3a3a40), { y: 1.05 }); f.ride('chair', r.x1 - 1.6, r.z1 - 0.5, Math.PI); }
-            if (s.kind === 'mart') { f.shelf(r.x0 + 2, r.z0 + 1.5, 2.6, Math.PI / 2); f.shelf(r.x0 + 4.2, r.z0 + 1.5, 2.6, Math.PI / 2); f.cabinet(r.x1 - 0.5, r.z0 + 1.2, 0.6, 1.8, 2, 0xd8d8e0, 0, -Math.PI / 2); }
+            if (s.kind === 'mart') { f.shelf(r.x0 + 2, r.z0 + 1.5, 2.6, Math.PI / 2,true); f.shelf(r.x0 + 4.2, r.z0 + 1.5, 2.6, Math.PI / 2,true); f.cabinet(r.x1 - 0.5, r.z0 + 1.2, 0.6, 1.8, 2, 0xd8d8e0, 0, -Math.PI / 2); }
           } else {
             if (s.kind === 'bakery') { f.bed(r.x1 - 1.0, r.z1 - 1.3, Math.PI, 0xd8a040); f.wardrobe(r.x0 + 0.5, r.z1 - 0.5, 0); f.rug(cx, r.z0 + 1.5, 2.4, 1.4); }
             if (s.kind === 'cafe') { for (const [x, z, s2] of [[r.x0 + 0.7, r.z1 - 0.6, 1], [r.x0 + 1.8, r.z1 - 0.6, 0.9], [r.x0 + 0.7, r.z1 - 0.6, 0.8, 1]]) f.crate(x, z, s2); f.shelf(r.x1 - 0.3, r.z0 + 1.6, 2.4, -Math.PI / 2); }
@@ -33,9 +33,7 @@ export default {
     }
     b.dropLadder(1, 6.25, 'w', 7.6);
     b.plank(10, 5.2, 11.5, 5.2, 7.6, 1.1); b.plank(20.5, 5.2, 22, 5.2, 7.6, 1.1);
-    // рекламный щит на крыше и кондиционеры
-    for (const x of [24, 30]) b.box(x, 2, 0.15, 0.15, 2.5, col(0x2b2533), { y: 7.6 });
-    b.m(G.box, tmat(T.sign('ТЫКВЕННЫЙ ЛАТТЕ', '#ff8a1f', '#2a1f3d')), 27, 10.6, 2, 6.4, 1.6, 0.12);
+    // кондиционеры на крыше
     for (const x of [4, 15]) b.aircon(x, 6.2, 7.6);
     b.ride('cart', 8, 14); b.ride('cart', 24, 15, 0.6);
     b.atm(10.75, 10.25, 0);
