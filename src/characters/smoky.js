@@ -102,16 +102,16 @@ export const SMOKY_SKIN={
     }));
     const filterBody=mesh(G.cyl8,filter,0,.49,0,.153,.32,.153,torso);filterBody.receiveShadow=false;filterBody.name='smoky-filter';
     const capeGeometry=capeGeo.clone(),capeBase=capeGeometry.attributes.position.array.slice();
-    const cape=mesh(capeGeometry,cloth,0,1.005,-.005,1,1,1,torso);cape.name='smoky-cape';cape.castShadow=true;cape.frustumCulled=false;
+    const cape=mesh(capeGeometry,cloth,0,1.005,-.005,1,1,1,torso);cape.name='smoky-cape';cape.userData.outfitSlot='top';cape.castShadow=true;cape.frustumCulled=false;
     const lapels=[];
     for(const s of [-1,1]){
-      const p=new THREE.Group();p.position.set(s*.145,1.005,.148);p.rotation.y=s*.17;torso.add(p);
+      const p=new THREE.Group();p.position.set(s*.145,1.005,.148);p.userData.outfitSlot='top';p.rotation.y=s*.17;torso.add(p);
       const fold=mesh(foldGeo,cloth,0,0,0,s,1,1,p);fold.name='smoky-cape-fold';
       p.add(compose('smoky331-edge-'+s,a=>{
         a(G.box,col(0x9a8e78),-s*.043,-.27,.017,.006,.52,.006,.08,0,s*.04);
         a(G.box,cloth,-s*.012,-.045,.015,.105,.10,.025,-.34,s*.13,-s*.35);
       }));lapels.push({g:p,s,v:0});
-      torso.add(compose('smoky34-shoulder-'+s,a=>{a(G.cyl6,cloth,s*.205,.96,-.015,.073,.125,.10,0,0,s*.60);}));
+      const shoulder=compose('smoky34-shoulder-'+s,a=>{a(G.cyl6,cloth,s*.205,.96,-.015,.073,.125,.10,0,0,s*.60);});shoulder.userData.outfitSlot='top';torso.add(shoulder);
     }
     for(const [hand,s]of [[handL,-1],[handR,1]])hand.add(compose('smoky34-hand-'+s,a=>{
       a(G.cyl6,cloth,0,.078,-.025,.075,.08,.075);a(G.sph10,white,0,-.01,.014,.073,.085,.068);a(G.sphL,white,-s*.065,-.01,.052,.029,.051,.032,0,0,-s*.4);

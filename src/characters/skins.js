@@ -51,7 +51,8 @@ export const SKINS = {
       mesh(G.cyl8, col(0x8a8ea8), 0.36, 0.42, 0.42, 0.045, 0.04, 0.045, head).rotation.x = Math.PI / 2;
       mesh(G.cyl8, col(0x8a8ea8), 0.47, 0.42, 0.42, 0.045, 0.04, 0.045, head).rotation.x = Math.PI / 2;
       mesh(G.box, glow(0x9be36b), -0.42, 0.42, 0.43, 0.04, 0.03, 0.01, head);
-      for (const s of [-1, 1]) { const a = mesh(G.cyl5, dk, s * 0.18, 1.42, -0.2, 0.025, 0.42, 0.025, head); a.rotation.z = -s * 0.5; mesh(G.sph, col(0xff5a6e), s * 0.29, 1.62, -0.2, 0.05, 0.05, 0.05, head); }
+      const antenna=new THREE.Group();antenna.userData.outfitSlot='hat';head.add(antenna);
+      for (const s of [-1, 1]) { const a = mesh(G.cyl5, dk, s * 0.18, 1.42, -0.2, 0.025, 0.42, 0.025, antenna); a.rotation.z = -s * 0.5; mesh(G.sph, col(0xff5a6e), s * 0.29, 1.62, -0.2, 0.05, 0.05, 0.05, antenna); }
       const glove = tmat(T.glove());
       for (const hd of [handL, handR]) { mesh(G.box, glove, 0, 0, 0, 0.22, 0.22, 0.24, hd); mesh(G.box, glove, 0, 0.04, -0.17, 0.18, 0.16, 0.12, hd); }
       const sn = tmat(T.sneaker());
@@ -67,13 +68,15 @@ export const SKINS = {
       sharkGeo = sharkGeo || frontBack(new THREE.SphereGeometry(1, 10, 7), 0.25);
       const b = new THREE.Mesh(sharkGeo, [face, skin]); b.scale.set(0.62, 0.66, 0.58); b.position.y = 0.8; head.add(b);
       const fin = mesh(G.cone4, skin, 0, 1.52, -0.22, 0.12, 0.42, 0.3, head); fin.rotation.x = -0.45;
+      fin.userData.outfitSlot='hat';
       // жабры
       for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) { const gl = mesh(G.box, col(0x3a4a70), sx * 0.555, 0.78 - i * 0.02, 0.12 - i * 0.1, 0.01, 0.22, 0.02, head); gl.rotation.y = sx * 0.5; }
       const tail = mesh(G.cone4, skin, 0, 0.72, -0.72, 0.1, 0.42, 0.3, head); tail.rotation.x = -1.6;
       // наушники
       const hp = tmat(T.headphone());
       const band = mesh(G.halfTorus, hp, 0, 1.0, -0.02, 0.66, 0.6, 0.8, head);
-      for (const s of [-1, 1]) { const cup = mesh(G.cyl12, hp, s * 0.64, 1.0, 0, 0.16, 0.14, 0.16, head); cup.rotation.z = Math.PI / 2; mesh(G.cyl12, col(0x22c0a0), s * 0.72, 1.0, 0, 0.1, 0.02, 0.1, head).rotation.z = Math.PI / 2; }
+      band.userData.outfitSlot='hat';
+      for (const s of [-1, 1]) { const cup = mesh(G.cyl12, hp, s * 0.64, 1.0, 0, 0.16, 0.14, 0.16, head); cup.rotation.z = Math.PI / 2;cup.userData.outfitSlot='hat';const pad=mesh(G.cyl12, col(0x22c0a0), s * 0.72, 1.0, 0, 0.1, 0.02, 0.1, head);pad.rotation.z = Math.PI / 2;pad.userData.outfitSlot='hat'; }
       // грудные плавники: изогнутые «серпом», отведены назад; ступни — ласты с тремя выступами
       FIN_GEO = FIN_GEO || (() => { const sh = new THREE.Shape(); sh.moveTo(0, 0.07); sh.quadraticCurveTo(0.2, 0.06, 0.36, -0.26); sh.quadraticCurveTo(0.3, -0.36, 0.2, -0.3); sh.quadraticCurveTo(0.08, -0.2, 0, -0.08); sh.lineTo(0, 0.07);
         const g = new THREE.ExtrudeGeometry(sh, { depth: 0.05, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 1, curveSegments: 4 }); g.translate(-0.04, 0.02, -0.025); return g; })();
@@ -101,9 +104,10 @@ export const SKINS = {
       // тулья и поля стыкуются без щели: низ тульи = верх полей, стык закрыт лентой
       HAT_CROWN = HAT_CROWN || new THREE.CylinderGeometry(0.36, 0.44, 0.26, 14, 1, true);
       HAT_BRIM = HAT_BRIM || new THREE.CylinderGeometry(0.44, 0.66, 0.14, 14, 1, true);
-      mesh(HAT_CROWN, hat, 0, 1.62, -0.02, 1, 1, 1, head); mesh(G.cyl12, plain, 0, 1.75, -0.02, 0.37, 0.02, 0.37, head);
-      mesh(HAT_BRIM, brim, 0, 1.42, -0.02, 1, 1, 1, head);
-      mesh(G.cyl12, col(0x6a5a38), 0, 1.5, -0.02, 0.45, 0.05, 0.45, head);
+      const nativeHat=new THREE.Group();nativeHat.userData.outfitSlot='hat';head.add(nativeHat);
+      mesh(HAT_CROWN, hat, 0, 1.62, -0.02, 1, 1, 1, nativeHat); mesh(G.cyl12, plain, 0, 1.75, -0.02, 0.37, 0.02, 0.37, nativeHat);
+      mesh(HAT_BRIM, brim, 0, 1.42, -0.02, 1, 1, 1, nativeHat);
+      mesh(G.cyl12, col(0x6a5a38), 0, 1.5, -0.02, 0.45, 0.05, 0.45, nativeHat);
       // язык (показывается в idle-«фишке»)
       const tongue = mesh(G.box, col(0xd85a7a), 0, 1.04, 0.44, 0.1, 0.03, 0.3, head); tongue.visible = false;
       // горловой мешок: светлый, время от времени надувается
@@ -130,17 +134,17 @@ export const SKINS = {
       // Полоски висят снаружи хомута и отклоняются только наружу — в тело и голову не заходят.
       const rag = lam({ map: T.rag(), alphaTest: 0.5, side: THREE.DoubleSide }, 'ragCloth'), flaps = [], R0 = 0.37;
       SHAWL = SHAWL || new THREE.CylinderGeometry(0.36, 0.4, 0.12, 14, 1, true);
-      const band = mesh(SHAWL, rag, 0, 0.75, 0, 1, 1, 0.86, torso); band.rotation.z = 0.12;
+      const band = mesh(SHAWL, rag, 0, 0.75, 0, 1, 1, 0.86, torso); band.rotation.z = 0.12;band.userData.outfitSlot='top';
       for (let i = 0; i < 3; i++) {
         const a = -Math.PI * (0.3 + 0.2 * i), pv = new THREE.Group();
         pv.position.set(Math.sin(a) * R0, 0.72 + (i === 1 ? -0.02 : 0), Math.cos(a) * R0 * 0.86); pv.rotation.order = 'YXZ'; pv.rotation.y = a; torso.add(pv);
         const hgt = i === 1 ? 0.32 : 0.26, pl = mesh(G.plane, rag, 0, -hgt / 2, 0, 0.2, hgt, 1, pv);
         pl.geometry = G.plane.clone(); { const uv = pl.geometry.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setX(k, uv.getX(k) * 0.3 + i * 0.3); }
-        pv.userData = { base: -0.18, back: -Math.cos(a) };
+        pv.userData = { outfitSlot:'top',base: -0.18, back: -Math.cos(a) };
         flaps.push(pv);
       }
       torso.userData.flaps = flaps;
-      for (const hd of [handL, handR]) { mesh(G.box, shirt, 0, 0.07, -0.04, 0.17, 0.1, 0.17, hd); mesh(G.box, skin, 0, -0.03, 0.02, 0.15, 0.12, 0.16, hd); for (const o of [-0.05, 0, 0.05]) mesh(G.box, skin, o, -0.06, 0.12, 0.04, 0.05, 0.06, hd); }
+      for (const hd of [handL, handR]) { mesh(G.box, shirt, 0, 0.07, -0.04, 0.17, 0.1, 0.17, hd).userData.outfitSlot='top'; mesh(G.box, skin, 0, -0.03, 0.02, 0.15, 0.12, 0.16, hd); for (const o of [-0.05, 0, 0.05]) mesh(G.box, skin, o, -0.06, 0.12, 0.04, 0.05, 0.06, hd); }
       const boot = tmat(T.boot());
       for (const ft of [footL, footR]) { mesh(G.box, boot, 0, 0.08, 0.05, 0.19, 0.16, 0.28, ft); mesh(G.box, col(0x3a2414), 0, 0.17, 0.0, 0.18, 0.03, 0.2, ft); mesh(G.box, glow(0xffa030), 0.1, 0.11, 0.06, 0.02, 0.05, 0.06, ft); }
       return { top: 1.78, handX: 0.5, handY: 0.6, handZ: 0.08, footX: 0.17, footY: 0, holdX: 0.28, holdY: 0.98, holdZ: 0.48, shadow: 0.52 };

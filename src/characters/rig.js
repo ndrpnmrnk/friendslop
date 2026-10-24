@@ -4,6 +4,7 @@ import {makeSpeechMouth,animateSpeech} from './speech.js';
 import { T } from '../core/textures.js';
 import { clamp, damp } from '../core/rng.js';
 import { SKINS } from './skins.js';
+import {prepareOutfits,updateOutfit} from './outfits.js';
 
 /* Общая структура персонажа для всех скинов:
    root
@@ -28,8 +29,9 @@ export function makeCharacter(skinId) {
   const stars = new THREE.Group(); stars.position.y = d.top + 0.15; root.add(stars); stars.visible = false;
   for (let i = 0; i < 4; i++) { const s = sprite(T.star(), 0.22); s.position.set(Math.cos(i * 1.57) * 0.4, 0, Math.sin(i * 1.57) * 0.4); stars.add(s); }
   const ch = { ...parts, skinId, skin, d, stars, blob: sh, blobS: d.shadow ?? 0.55, ph: 0, squash: 0, blinkT: 2, expr: 'idle', holdPoint: new THREE.Vector3() };
+  prepareOutfits(ch);
   ch.speechMouth=makeSpeechMouth(head,skinId);
-  ch.animate = (dt, st) => {if(ch.hazeTilt){body.rotation.z-=ch.hazeTilt;ch.hazeTilt=0;}bindBody();animate(ch, dt, st);bindBody();if(rigidBase&&(ch.shout||0)>.02){body.rotation.z+=Math.sin(st.t*25)*.025*ch.shout;}skin.animate?.(ch, dt, st);animateSpeech(ch,dt); if (st.daze && !(st.rag > 0.001)) { ch.stars.visible = true; ch.stars.rotation.y += dt * 5; } };
+  ch.animate = (dt, st) => {if(ch.hazeTilt){body.rotation.z-=ch.hazeTilt;ch.hazeTilt=0;}bindBody();animate(ch, dt, st);bindBody();if(rigidBase&&(ch.shout||0)>.02){body.rotation.z+=Math.sin(st.t*25)*.025*ch.shout;}skin.animate?.(ch, dt, st);animateSpeech(ch,dt);updateOutfit(ch,dt,st); if (st.daze && !(st.rag > 0.001)) { ch.stars.visible = true; ch.stars.rotation.y += dt * 5; } };
   // голос: мешок надувается сразу (звук включает тот, кто вызвал)
   ch.croakNow = () => { if (ch.head.userData.sac) ch.sacT = -0.0001; };
   return ch;

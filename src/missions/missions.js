@@ -1,3 +1,4 @@
+import {buildOutfit,outfitGame} from './outfit.js';
 import {busPlaces,buildBus,busGame} from './bus.js';
 import {buildPerfume,perfumeGame} from './perfume.js';
 import {buildShakir,shakirGame} from './shakir.js';
@@ -86,6 +87,7 @@ function findPlace(def, from, others) {
       if (tr < 80 && Math.hypot(x - from.x, z - from.z) < 9) continue;
       if (others.some(o => Math.hypot(o.x - x, o.z - z) < (tr < 100 ? spread : 4))) continue;
       if (!isFree(x - w / 2 - 0.15, z - d / 2 - 0.15, x + w / 2 + 0.15, z + d / 2 + 0.15, y + 0.05, y + 2.6)) continue;
+      if(def.game==='outfit'&&[-2.4,0,2.4].some(dx=>[-1.6,0,1.6].some(dz=>Math.abs(groundAt(x+dx,z+dz,.25,y+.2)-y)>.12)))continue;
       // свободная площадка перед объектом, на той же высоте
       const c = def.clear, fx = x + f[0] * (d / 2 + c / 2), fz = z + f[1] * (d / 2 + c / 2);
       const hw = along ? w / 2 : c / 2, hd = along ? c / 2 : w / 2;
@@ -165,7 +167,7 @@ export function spawnMission(player, only = null, opts = {}) {
       const pl = findPlace(def, player.pos, others);
       if (!pl) continue;
       const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox, leaves: buildLeafPile, graffiti: buildGraffitiWall, intercom: buildIntercom, lockpick: buildChest, pipes: buildValve,
-        shakir:buildShakir,perfume:buildPerfume,mammoth:buildMammoth,doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
+        outfit:buildOutfit,shakir:buildShakir,perfume:buildPerfume,mammoth:buildMammoth,doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
       obj = key==='cosmo'?buildCosmo(pl.x,pl.y,pl.z,pl.f):key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
       where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
     }
@@ -254,5 +256,5 @@ export function nearMission(player) {
   return best;
 }
 export const ALL_GAMES = { shakir:shakirGame,perfume:perfumeGame,mammothDress, ...GAMES, ...PANEL_GAMES, ...PANEL3, ...PANEL4, ...PANEL5 };
-const WORLD_ALL = { bus:busGame,fat:fatGame,demolition:demolitionGame,van:vanGame,cosmo:cosmoGame,mammoth:mammothWorld, ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
+const WORLD_ALL = { outfit:outfitGame,bus:busGame,fat:fatGame,demolition:demolitionGame,van:vanGame,cosmo:cosmoGame,mammoth:mammothWorld, ...WORLD_GAMES, ...WORLD3, ...WORLD4, ...WORLD5 };
 export { GAMES, WORLD_ALL as WORLD_GAMES };

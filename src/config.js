@@ -50,6 +50,7 @@ export const CONFIG = {
   // zones: где миссия может появиться; foot: размер объекта; clear: свободное место перед ним
   missions: {
     bus:{name:'Автобус 63',points:350,diff:'hard',life:80,workLimit:210,max:1,game:'bus',world:true},
+    outfit:{name:'Собери образ',points:280,diff:'mid',life:75,workLimit:110,max:1,game:'outfit',world:true,zones:['inside'],foot:[5.6,4.2],clear:1.2},
     shakir:{name:'Найти Шакира',points:220,diff:'hard',life:75,workLimit:85,max:1,game:'shakir',zones:['floor'],foot:[3.4,3.0],clear:1.2,home:'market'},
     fat:{name:'300 литров жира',points:600,diff:'hard',life:80,workLimit:180,max:1,game:'fat',world:true},
     demolition:{name:'Хнуре: большой бабах',points:350,diff:'hard',life:75,workLimit:110,max:1,game:'demolition',world:true},
@@ -192,6 +193,7 @@ export const HINTS = {
   targets: 'Бери помидоры и мячи из ящика (E) и бросай (ПКМ) в мишени.',
   cleanup: 'Подбирай мусор (E) и бросай в урну или клади рядом с ней.',
   delivery: 'Неси заказ к зелёному лучу. Его можно бросить и снова поднять, но время идёт.',
+  outfit:'Запомни образ на фото. Бегай между вешалками: E у вещи - примерить. Найди головной убор, верх, низ и обувь. Собранная одежда остаётся до конца матча.',
   shakir:'Води лупой по настольному рынку. Найди бородатого муравья с боксёрскими перчатками и задержи на нём лупу.',
   fat:'Собери 6 бидонов по 50 л. E у тележки - погрузить. Довези груз к салону, открой его, пригласи мэра и держи давление в зелёной зоне.',
   demolition:'E у каждой из четырёх меток - установить игровой заряд. После последнего заряда есть 10 секунд, чтобы отбежать. Взрыв сбивает с ног игроков поблизости.',

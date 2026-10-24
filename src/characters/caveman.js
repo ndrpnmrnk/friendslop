@@ -117,19 +117,21 @@ export const CAVEMAN_SKIN = {
       a(hipGeo,skin,0,.345,0,1,1,.82);
       for(const s of [-1,1])a(limbGeo,skin,s*.088,.335,-.142,.112,.095,.072);
       a(G.cyl6,skin,0,.97,0,.115,.14,.10);
+    }));
+    const nativePelt=compose('cave44-pelt',a=>{
       a(capeGeo,pelt,0,.91,0,1,1,.85);
       for(const side of [-1,1])a(limbGeo,pelt,side*.29,.885,0,.19,.09,.25);
       a(limbGeo,pelt,0,.875,-.16,.31,.08,.18);
-    }));
+    });nativePelt.userData.outfitSlot='top';torso.add(nativePelt);
     const flaps=[];
     for(let i=0;i<9;i++){
       const angle=i*Math.PI*2/9,pv=new THREE.Group();pv.position.set(Math.sin(angle)*.425,.832,Math.cos(angle)*.425*.85);pv.rotation.order='YXZ';pv.rotation.y=angle;torso.add(pv);
       mesh(ragGeo,pelt,0,0,0,1,i%3===0?1.10:.85,1,pv);
-      pv.userData={rest:-.10,back:-Math.cos(angle),phase:i*1.37,velocity:0};pv.rotation.x=-.10;flaps.push(pv);
+      pv.userData={outfitSlot:'top',rest:-.10,back:-Math.cos(angle),phase:i*1.37,velocity:0};pv.rotation.x=-.10;flaps.push(pv);
     }
-    const leaf=new THREE.Group();leaf.position.set(0,.49,.238);leaf.name='caveman-leaf';torso.add(leaf);
+    const leaf=new THREE.Group();leaf.position.set(0,.49,.238);leaf.name='caveman-leaf';leaf.userData.outfitSlot='bottom';torso.add(leaf);
     mesh(leafGeo,lam({map:leafTexture(),side:THREE.DoubleSide},'caveLeaf28'),0,0,0,1,1,1,leaf);
-    torso.add(compose('caveVine28',a=>{a(vineGeo,tmat(leafTexture()),0,.475,0,.25,.20,.25,Math.PI/2);a(G.box,tmat(leafTexture()),0,.487,.24,.035,.06,.025);}));
+    const vine=compose('caveVine28',a=>{a(vineGeo,tmat(leafTexture()),0,.475,0,.25,.20,.25,Math.PI/2);a(G.box,tmat(leafTexture()),0,.487,.24,.035,.06,.025);});vine.userData.outfitSlot='bottom';torso.add(vine);
     torso.userData.cave={flaps,leaf};
     for(const [hand,side] of [[handL,-1],[handR,1]])hand.add(compose('caveHand28-'+side,a=>{
       a(G.box,skin,0,0,0,.15,.15,.17);a(G.box,skin,-side*.075,-.01,.04,.055,.07,.09);

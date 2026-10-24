@@ -810,6 +810,7 @@ function frame() {
     updateParticles(dt); updateSplat(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
     {const k=S.state==='play'&&!P?.drone&&!P?.returning?Math.min(1,(P?.hazeT||0)/2):0;camera.rotation.z+=Math.sin(t*1.8)*.035*k;canvas.style.filter=k>0?`blur(${(.45*k).toFixed(2)}px) saturate(1.12)`:'';}
+    S.mg?.game?.afterCamera?.();S.wm?.game?.afterCamera?.();
     { aimMoon(sky.moonDir()); const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz);
       // лунные лучи: где луна на экране (за кадром — гаснут); конусы света фонарей — вместе с фонарём
 
