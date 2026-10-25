@@ -20,6 +20,7 @@
 
 export const CONFIG = {
   roundTime: 300,
+  music: {intro:.64,play:.34,crossfade:.8}, // через общий master .5: 32% / 17% исходной громкости
   season: 'halloween',            // 'halloween' | 'none'
   grid: 3,                        // 3x3 районов на карте
   chunk: 32, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара

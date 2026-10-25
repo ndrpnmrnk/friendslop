@@ -1,3 +1,6 @@
 node_modules
 dist
 .DS_Store
+
+# Reassembled from the original audio source chunks before dev/build.
+/public/audio/dinner-femtanyl.mp3

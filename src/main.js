@@ -1,4 +1,5 @@
 import {introFlight} from './ui/intro-flight.js';
+import {roundMusic} from './core/round-music.js';
 import {cancelBotOnEliminate} from './missions/bot-work.js';
 import {worldTarget,worldAimPoint} from './game/object-actions.js';
 import { updateOcclusion } from './game/occlusion.js';
@@ -124,11 +125,12 @@ function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k
 function buildLogo() { const l = $('logo'); if (l.childElementCount) return; for (const ch of TEXT.title) { const s = document.createElement('span'); s.textContent = ch; l.appendChild(s); } }
 let logoT = 0;
 function showMenu() {
+  roundMusic.stop();
   canvas.style.filter='';
   S.state = 'menu'; setCursor(true); document.body.classList.remove('playing'); menu.active = true; menu.splash(); buildLogo();
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
-function showHub(){S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
+function showHub(){roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
 menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen('menu');};
 $('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
@@ -173,6 +175,7 @@ $('mgexit').onclick = cancelMission;
 
 /* Рулетка тематики: лента карточек крутится с замедлением, щёлкает на каждой, всегда останавливается на «ГОРОДЕ» */
 function startRoulette() {
+  const musicReady=roundMusic.preload();
   S.state = 'roulette';menu.prepareTV(); menu.active = false; screen('roulette'); $('roulette').classList.remove('done');
   const strip = $('rstrip'); strip.innerHTML = '';
   const N=28+(Math.random()*9|0),WIN=N-5,CW=134,half=60,dur=3.6+Math.random()*.7;
@@ -188,7 +191,7 @@ function startRoulette() {
     strip.style.transform=`translateX(${x}px)`;
     const idx=Math.round((-x-half)/CW);if(idx!==last){last=idx;sfx('tick');cards.forEach((c,i)=>c.classList.toggle('flash',i===idx));}
     if(k<1)requestAnimationFrame(step);
-    else{$('roulette').classList.add('done');sfx('win');setTimeout(()=>{$('fade').classList.add('on');setTimeout(()=>{prepareRound();$('fade').classList.remove('on');startIntro();},420);},1100);}
+    else{$('roulette').classList.add('done');sfx('win');setTimeout(()=>{$('fade').classList.add('on');setTimeout(async()=>{await musicReady;if(S.state!=='roulette')return;prepareRound();$('fade').classList.remove('on');startIntro();},420);},1100);}
   };
   requestAnimationFrame(step);
 }
@@ -249,6 +252,7 @@ function tutEnd(done) {
 }
 /* ---------- раунд ---------- */
 function prepareRound(tut = false) {
+  roundMusic.stop();
   resetRadios();
   if(S.mg)closeMission(null);if(S.wm)closeWorld(null);
   for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
@@ -278,6 +282,7 @@ function prepareRound(tut = false) {
 }
 /* Непрерывный пролёт по кварталам к игроку, затем отсчёт 5-4-3-2-1. */
 function startIntro() {
+  void roundMusic.intro();
   S.state = 'intro'; $('hud').classList.add('hidden'); $('intro').classList.remove('hidden'); $('count').textContent = ''; $('dname').textContent = '';
   S.intro = {t:0,flight:introFlight(P),drop:false,landed:false,cd:6};takeLook();
   P.root.visible = false; P.frozen = true;
@@ -296,6 +301,7 @@ function updateIntro(dt) {
   }
 }
 function goRound() {
+  if(!M.manual)roundMusic.gameplay();
   S.state = 'play'; P.noRun = false; S.time = CONFIG.roundTime;
   if (!M.manual) spawnWave(P, 'calm');
   const h = $('hud'); h.classList.remove('hidden'); h.classList.remove('enter'); void h.offsetWidth; h.classList.add('enter');
@@ -303,6 +309,7 @@ function goRound() {
   setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
 }
 function endRound() {
+  roundMusic.stop();
   resetRadios();
   S.state='results';
   resetDrones();
@@ -823,12 +830,13 @@ function loop() {
   try { frame(); } catch (e) { errN++;const message=String(e?.message||e),now=performance.now();if(message!==lastError||now-lastErrorAt>1000){console.error('[friendslop] кадр',e);lastError=message;lastErrorAt=now;recordFault(e,{state:S.state,mission:S.mg?.m.key||S.wm?.m.key||null,timeLeft:Math.ceil(S.time||0)});}try { endFrame(); } catch (_) {} if (errN === 1) toast('Сбой кадра — игра продолжается', 'bad'); }
 }
 // потеря графики (WebGL) — не падаем: ждём восстановления
-canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();graphicsLost=true;updateRadios(0,P?.pos,false);recordFault('WebGL context lost',{state:S.state,timeLeft:Math.ceil(S.time||0)});toast('Графика перезапускается. Игра на паузе…','bad');});
-canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;clock.reset();toast('Графика восстановлена');});
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();graphicsLost=true;roundMusic.pause();updateRadios(0,P?.pos,false);recordFault('WebGL context lost',{state:S.state,timeLeft:Math.ceil(S.time||0)});toast('Графика перезапускается. Игра на паузе…','bad');});
+canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;if(!document.hidden)roundMusic.resume();clock.reset();toast('Графика восстановлена');});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)roundMusic.pause();else if(!graphicsLost)roundMusic.resume();});
 // отладочный доступ из консоли браузера
 window.__fs = { lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 window.__fs.lastFaults=lastFaults;
-Object.assign(window.__fs,{menu,collection,coinState,showHub,showMenu,addFists:(n=500)=>addCoins(n)});
+Object.assign(window.__fs,{menu,collection,coinState,showHub,showMenu,roundMusic,addFists:(n=500)=>addCoins(n)});
 if(new URLSearchParams(globalThis.location?.search||'').get('dev')==='1'){const b=document.createElement('button');b.id='devFists';b.textContent='+500';b.title='Тест автомата: добавить 500 фистов';b.onclick=()=>addCoins(500);$('wallet').appendChild(b);}
 showMenu();
 loop();
