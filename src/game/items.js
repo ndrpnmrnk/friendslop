@@ -164,6 +164,8 @@ function impact(it, n, speed) {
     if (glass) burst(p.x, p.y + 0.2, p.z, 8, { color: 0xc8e8ff, size: 0.08, speed: 3, up: 2 }); if (t === 'pot') burst(p.x, p.y, p.z, 8, { color: 0x6a4a2a, size: 0.12, speed: 2, up: 1.5 });
     sfx(glass ? 'glass' : 'wood', { at: p }); for (const h of W.hitHooks.slice()) h(it, p); hitActors(it,p,heavyHit(it,speed)); vanish(it); return; }
   for (const h of W.hitHooks.slice()) h(it, p);
+  // Миссия могла принять реальный предмет. Дальше нельзя возвращать его в rest.
+  if(it.state==='gone')return;
   hitBreakables(p, it.def.r + 0.12, [it.vel.x, it.vel.y, it.vel.z], it.def.mass);
   if (!it.football&&!(it.noHitT > 0)) hitActors(it, p, heavyHit(it,speed));
   if (it.def.tool && W.toolImpact && W.toolImpact(it, p, gy)) { sfx('imp', { at: p, v: 0.5, m: materialAt(p.x, p.y, p.z) }); return; }
@@ -305,8 +307,8 @@ export function nearestItem(p, r) {
   }
   return best;
 }
-export function pickUp(it) { if(it.noPickup)return false; it.onPickup?.(); it.floatY = undefined; it.trail = 0; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
-export function drop(it, x, y, z) { it.state = 'rest'; it.pos.set(x, y + (it.def.halfHeight??it.def.r) + 0.05, z); it.vel.set(0, 0, 0); }
+export function pickUp(it) { if(it.noPickup||it.taken||it.state==='gone')return false; it.onPickup?.(); it.floatY = undefined; it.trail = 0; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
+export function drop(it, x, y, z) { if(it.taken)return;it.state = 'rest'; it.pos.set(x, y + (it.def.halfHeight??it.def.r) + 0.05, z); it.vel.set(0, 0, 0); }
 
 /* Расчёт броска по дуге к точке прицела */
 export function throwVelocity(from, target, charge, def) {
@@ -326,7 +328,7 @@ export function throwVelocity(from, target, charge, def) {
   const f = k / (1 - Math.exp(-k * T)), vx = dist * f, vy = (dy + GRAV * T / k) * f - GRAV / k;
   return new V3(dx / dist * vx, vy, dz / dist * vx);
 }
-export function launch(it, from, vel) { it.throwFrom=from.clone();it.hoopScored=false;it.throwId=(it.throwId||0)+1; it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true; }
+export function launch(it, from, vel) { if(it.taken)return;it.throwFrom=from.clone();it.hoopScored=false;it.throwId=(it.throwId||0)+1; it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true; }
 const predicted=[];
 export function predict(from,vel,out,n,def,end){
  const p=from.clone(),v=vel.clone(),h=1/60,r=def.r,ry=def.halfHeight??r;let count=0,landed=false;if(end)end.visible=false;

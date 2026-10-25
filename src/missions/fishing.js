@@ -29,13 +29,13 @@ export function fishingGame(o,api,ctx){
  const plane=new THREE.Plane(),point=new V3(),bob=o.bob.position,from=new V3(),cast=new V3(),reelCenter=new V3();
  let phase='aim',elapsed=0,t=0,aim=water.clone(),wait=0,bite=0,held=false,lastAngle=null,pull=false,pullT=1.6,tension=0,progress=0,reelTime=0,endT=0,result=null,angle=0;
  const castStart=()=>{phase='cast';t=0;from.copy(o.tip());cast.copy(aim);held=false;api.msg('Заброс...');};
- const end=(ok,msg)=>{phase='end';endT=ok?2.6:1.5;result={success:ok,mult:selected.sp.rare?1.6:1};api.msg(msg,ok?'good':'bad');hint.visible=tensionRing.visible=turnHint.visible=false;held=false;if(ok){fish.visible=true;fish.position.copy(bob);sfx('done');splash(bob.x,wy,bob.z,1);}};
- const turn=delta=>{if(phase!=='reel'||!held)return;const d=Math.max(0,Math.min(.45,delta));angle+=d;o.reel.rotation.x=angle;if(pull)tension+=d*.16;else{progress=Math.min(1,reelTime/tune.minReel+.15,progress+d*tune.perRadian);tension=Math.max(0,tension-d*.025);}};
+ const end=(ok,msg)=>{phase='end';endT=ok?2.6:1.5;result={success:ok,mult:selected.sp.rare?1.6:1};api.msg(msg,ok?'good':'bad');hint.visible=tensionRing.visible=turnHint.visible=false;held=false;fish.visible=ok;if(ok){fish.visible=true;fish.position.copy(bob);sfx('done');splash(bob.x,wy,bob.z,1);}};
+ const turn=delta=>{if(phase!=='reel'||!held)return;const d=Math.max(0,Math.min(.45,delta));angle+=d;o.reel.rotation.x=angle;if(pull)tension=Math.min(1,tension+d*.07);else{progress=Math.min(1,reelTime/tune.minReel+.15,progress+d*tune.perRadian);tension=Math.max(0,tension-d*.025);}};
  const cursorAngle=ray=>{o.rod.updateWorldMatrix(true,true);o.reel.getWorldPosition(reelCenter);const normal=new V3().subVectors(ctx?.camera?.position||overview,reelCenter).normalize();plane.setFromNormalAndCoplanarPoint(normal,reelCenter);if(!ray.ray.intersectPlane(plane,point))return null;const right=new V3().crossVectors(new V3(0,1,0),normal).normalize(),up=new V3().crossVectors(normal,right).normalize(),v=point.sub(reelCenter);return Math.atan2(v.dot(up),v.dot(right));};
  api.progress(null);api.msg('ЛКМ по воде - забросить удочку');
  return {
   hint:'ЛКМ - заброс и подсечка. После поклёвки: зажми ЛКМ и крути мышью по часовой стрелке. При рывке рыбы отпусти.',
-  get phase(){return phase;},get pulling(){return pull;},get caught(){return progress;},get reelCenter(){return o.reel.getWorldPosition(new V3());},
+  get phase(){return phase;},get pulling(){return pull;},get caught(){return progress;},get tension(){return tension;},get reelCenter(){return o.reel.getWorldPosition(new V3());},
   botStep(dt,brain){if(phase==='aim'){aim.copy(water);if(brain.ready(.8))castStart();}else if(phase==='bite'){this.down(brain.rayTo(bob));}else if(phase==='reel'){held=!pull;turn(dt*tune.botTurn);}},
   down(ray){if(phase==='aim'){this.move(ray);if(!aim||!inWater(aim))return api.msg('Наведи на воду','bad');castStart();}else if(phase==='bite'){phase='reel';t=0;held=false;hint.visible=false;tensionRing.visible=true;api.msg('Подсёк! Зажми ЛКМ и крути катушку по часовой стрелке','good');splash(bob.x,wy,bob.z,.6);}else if(phase==='reel'){held=true;lastAngle=cursorAngle(ray);}},
   move(ray){if(phase==='aim'){plane.setFromNormalAndCoplanarPoint(new V3(0,1,0),water);if(ray.ray.intersectPlane(plane,point)&&point.distanceTo(shore)<10&&inWater(point))aim=point.clone();}else if(phase==='reel'&&held){const a=cursorAngle(ray);if(a!==null&&lastAngle!==null){const d=Math.atan2(Math.sin(lastAngle-a),Math.cos(lastAngle-a));turn(d);}lastAngle=a;}},
@@ -50,7 +50,7 @@ export function fishingGame(o,api,ctx){
    if(phase==='bite'){bob.y=wy+.025+Math.sin(elapsed*28)*.05;hint.position.copy(bob).y+=.5;bite-=dt;if(bite<=0){phase='wait';t=0;wait=2.2+Math.random()*2;hint.visible=false;api.msg('Не успел. Жди следующую поклёвку');}}
    if(phase==='reel'){
     reelTime+=dt;pullT-=dt;if(pullT<=0){pull=!pull;pullT=pull?1.1+Math.random()*.9:2.0+Math.random()*1.4;api.msg(pull?'РЫВОК! Отпусти катушку':'Рыба поддаётся - крути по часовой стрелке',pull?'bad':'good');}
-    tension=Math.max(0,tension+dt*(pull&&held?.5:-.32));if(pull)progress=Math.max(0,progress-dt*.015);
+    tension=Math.max(0,tension+dt*(pull&&held?.20:-.28));if(pull)progress=Math.max(0,progress-dt*.015);
     const near=shore.clone().addScaledVector(F,1.05).setY(wy+.08);bob.lerpVectors(cast,near,progress);bob.y=wy+.06+(shore.y+.7-wy)*Math.pow(progress,3)+Math.sin(elapsed*(pull?26:4))*(pull?.09:.025);fish.visible=true;fish.position.copy(bob);fish.rotation.y=Math.atan2(F.x,F.z)+Math.PI/2;fish.rotation.z=Math.sin(elapsed*(pull?20:6))*.12;fish.userData.animate?.(elapsed);
     o.rod.rotation.x=.65+(pull?Math.sin(elapsed*17)*.07:.03);
     // Ракурс сбоку на катушку и воду: ничего от стула перед объективом.
@@ -59,9 +59,9 @@ export function fishingGame(o,api,ctx){
     const blend=Math.min(1,t/1.1);api.pose(overview.clone().lerp(closeP,blend),overviewLook.clone().lerp(closeL,blend));
     tensionRing.position.set(bob.x,wy+.045,bob.z);tensionRing.scale.setScalar(.34+tension*.2);tensionMat.color.setHex(pull?0xff5a6e:0xf5c542);tensionMat.opacity=pull?.5+Math.sin(elapsed*12)*.25:.7;
     if(Math.random()<dt*(pull?7:2))ripple(bob.x,wy,bob.z,.4,.5);
-    api.progress(progress);if(tension>1)end(false,'Леска лопнула. При рывке нужно отпускать');else if(progress>=.995&&reelTime>=tune.minReel)end(true,`${selected.sp.name} · ${selected.kg} кг`);
+    api.progress(progress);if(tension>=1){progress=Math.max(0,progress-.12);tension=.62;held=false;lastAngle=null;pull=true;pullT=Math.max(1.4,pullT);splash(bob.x,wy,bob.z,.35);api.msg('Рыба тянет обратно! Отпусти катушку и продолжай','bad');}else if(progress>=.995&&reelTime>=tune.minReel)end(true,`${selected.sp.name} · ${selected.kg} кг`);
    }
-   if(phase==='end'){if(fish.visible){const show=shore.clone().addScaledVector(F,.5).add(new V3(0,1.2,0));fish.position.lerp(show,Math.min(1,dt*5));fish.rotation.y+=dt*.7;fish.rotation.z=Math.sin(elapsed*8)*.1;fish.userData.animate?.(elapsed);}endT-=dt;if(endT<=0)api.finish(result);}
+   if(phase==='end'){if(result?.success&&fish.visible){const show=shore.clone().addScaledVector(F,.5).add(new V3(0,1.2,0));fish.position.lerp(show,Math.min(1,dt*5));fish.rotation.y+=dt*.7;fish.rotation.z=Math.sin(elapsed*8)*.1;fish.userData.animate?.(elapsed);}endT-=dt;if(endT<=0)api.finish(result);}
    o.upd();
   },
   stop(){o.seat.visible=seatWas;o.rod.remove(handRoot);o.reel.remove(crankHand);o.rod.rotation.x=.9;o.reel.rotation.x=0;for(const m of [aimRing,tensionRing,hint,turnHint,fish,...shadows.map(f=>f.m)])m.removeFromParent();ringMat.dispose();tensionMat.dispose();hint.material.dispose();turnHint.material.dispose();bob.set(s.wx,wy+.12,s.wz);o.upd();}

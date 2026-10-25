@@ -138,6 +138,16 @@ export function solidHit(p, r) {
 
 /* Толкаемые предметы: тележки и бочки */
 export function recordImpact(b,hit,speed){if(hit&&!b.impactContact&&speed>1.8){b.impactSeq=(b.impactSeq||0)+1;b.impactSpeed=speed;}b.impactContact=hit;}
+// Круг остаётся на воде и при езде, и при толкании/столкновении с другим предметом.
+export function constrainWaterRide(b,previous={x:b.x,z:b.z}){
+  if(!b.ride?.water)return true;
+  const margin=b.r*.72,wet=(x,z)=>{for(let i=0;i<9;i++){const a=i*Math.PI/4,r=i===8?0:margin;if(!zoneAt(x+Math.cos(a)*r,z+Math.sin(a)*r,b.y,'water'))return false;}return true;};
+  if(wet(b.x,b.z)){b.waterHome={x:b.x,z:b.z};return true;}
+  const from=wet(previous.x,previous.z)?previous:b.waterHome;
+  if(from){let lo=0,hi=1;for(let i=0;i<10;i++){const k=(lo+hi)/2;if(wet(from.x+(b.x-from.x)*k,from.z+(b.z-from.z)*k))lo=k;else hi=k;}b.x=from.x+(b.x-from.x)*lo;b.z=from.z+(b.z-from.z)*lo;}
+  else{const q=zoneAt(previous.x,previous.z,b.y,'water');if(q?.c){const dx=b.x-q.c[0],dz=b.z-q.c[1],l=Math.hypot(dx,dz)||1,k=Math.min(l,Math.max(0,q.c[2]-margin-.02))/l;b.x=q.c[0]+dx*k;b.z=q.c[1]+dz*k;}else if(q?.r){b.x=clamp(b.x,q.r[0]+margin+.02,q.r[2]-margin-.02);b.z=clamp(b.z,q.r[1]+margin+.02,q.r[3]-margin-.02);}else{b.x=previous.x;b.z=previous.z;}}
+  b.vx=b.vz=0;if(wet(b.x,b.z))b.waterHome={x:b.x,z:b.z};return false;
+}
 export function updatePushables(dt, player) {
   for (const b of W.pushables) {
     if(b.dead)continue;
@@ -149,7 +159,7 @@ export function updatePushables(dt, player) {
     b.hitSpeed = 0;
     const hit=pushOut(p,b.r,b.y+(b.ride&&b.kind!=='ring'?.5:.2),b.y+1);recordImpact(b,hit,Math.hypot(b.vx,b.vz));
     if (hit) { b.hitSpeed = Math.hypot(b.vx, b.vz); b.vx *= -0.3; b.vz *= -0.3; }
-    b.x = p.x; b.z = p.z;
+    b.x = p.x; b.z = p.z;constrainWaterRide(b,op);
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
     // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
@@ -202,7 +212,7 @@ export function updatePushables(dt, player) {
     const a = W.pushables[i], b = W.pushables[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), m = a.r + b.r;
     if (d < m && d > 1e-4 && a.y<b.y+b.h && b.y<a.y+a.h) { const closing=((a.vx-b.vx)*dx+(a.vz-b.vz)*dz)/d;if(closing>1.8){recordImpact(a,true,closing);recordImpact(b,true,closing);if(a.kind==='kart'&&b.kind==='kart'&&closing>8){for(const c of [a,b]){if(c.rider)c.rider.daze=Math.max(c.rider.daze||0,1.0);c.heading+=(c===a?1:-1)*.6;c.skid=1;c.spin=(c===a?1:-1)*2;}}const impulse=closing*.6;a.vx-=dx/d*impulse;a.vz-=dz/d*impulse;b.vx+=dx/d*impulse;b.vz+=dz/d*impulse;} const k = (m - d) / 2 / d; a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
   }
-  if (player) bumpPushables(player);for(const b of W.pushables)if(b.solid)syncPushable(b);
+  if (player) bumpPushables(player);for(const b of W.pushables){if(b.ride?.water){constrainWaterRide(b);b.mesh.position.x=b.x;b.mesh.position.z=b.z;if(b.rider){b.rider.pos.x=b.x;b.rider.pos.z=b.z;}}if(b.solid)syncPushable(b);}
 }
 // Игрок толкает предметы, предметы мешают игроку
 export function bumpPushables(pl) {

@@ -16,6 +16,7 @@ export function worldAimPoint(player,camera,out=new V3()){
 }
 // Одинаковый приоритет E: расстояние, взгляд, высота, состояние предмета.
 export function worldTarget(P,camera,{stealItem}={}){
+ if(P.ride)return null;
  const f=P.root.rotation.y,fx=Math.sin(f),fz=Math.cos(f),c=[];
  const sc=(x,z,d)=>{const dx=x-P.pos.x,dz=z-P.pos.z,l=Math.hypot(dx,dz)||1;return Math.max(.05,d)*(1.35-.35*(dx*fx+dz*fz)/l);};
  for(const q of W.interacts){if(P.held&&!q.allowHeld||q.enabled&&!q.enabled(P))continue;const d=Math.hypot(q.x-P.pos.x,q.z-P.pos.z);

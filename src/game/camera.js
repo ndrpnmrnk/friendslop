@@ -30,9 +30,9 @@ const cam = { pose: null, yaw: 0, pitch: 0.45, curDist: 6, sens: 0.0024, aimK: 0
   normal: { dist: 6.4, shoulder: 1.15, height: 2.05 }, aim: { dist: 3.5, shoulder: 1.15, height: 2.1 } };
 const pos = new V3(), look = new V3(), tgt = new V3(), want = new V3(), dir = new V3(), hit = new V3(), piv = new V3(), sh = new V3(), eye = new V3(), pv = new V3(), delta = new V3();
 const ray = new THREE.Ray();
-let following = false, orbitPitch = 0.45, orbitYaw = 0;
+let following = false, orbitPitch = 0.45, orbitYaw = 0, handoff=null;
 
-function resetCamera(yaw) { cam.yaw = orbitYaw = yaw; cam.pitch = orbitPitch = 0.45; cam.curDist = cam.normal.dist; cam.aimK = 0; cam.blend = 1; following = false; }
+function resetCamera(yaw) { cam.yaw = orbitYaw = yaw; cam.pitch = orbitPitch = 0.45; cam.curDist = cam.normal.dist; cam.aimK = 0; cam.blend = 1; following = false;handoff=null; }
 
 
 // Луч по расширенным AABB = движение камеры с запасом по всем трём осям.
@@ -131,7 +131,10 @@ function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   if (cam.pose) cam.blend = 0; else cam.blend = Math.min(1, (cam.blend ?? 1) + dt * 1.5);
   if (snap || cam.pose || cam.blend >= 1) { pos.copy(P); look.copy(L); }
   else { const f = damp(6, dt); pos.lerp(P, f); look.lerp(L, f); constrain(eye, pos, radius, null, p.pos.y + 0.45); }
-  camera.position.copy(pos); camera.lookAt(look); updateOcclusion(camera, cam.pose && cam.pose.l);
+  camera.position.copy(pos); camera.lookAt(look);
+  if(snap||cam.pose)handoff=null;
+  else if(handoff){handoff.t=Math.min(1,handoff.t+dt/1.2);const k=handoff.t*handoff.t*handoff.t*(handoff.t*(handoff.t*6-15)+10),q=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(P,L,camera.up));camera.position.lerpVectors(handoff.p,P,k);camera.quaternion.slerpQuaternions(handoff.q,q,k);pos.copy(camera.position);look.copy(pos).addScaledVector(camera.getWorldDirection(dir),20);if(handoff.t===1)handoff=null;}
+  updateOcclusion(camera, cam.pose && cam.pose.l);
   // тряска: короткие пиксельные рывки, затухают сами
   if (cam.shake > 0.001 && !cam.pose) { const k = cam.shake * 0.35; camera.position.x += (Math.random() - 0.5) * k; camera.position.y += (Math.random() - 0.5) * k; camera.rotation.z += (Math.random() - 0.5) * k * 0.15; }
 
@@ -155,7 +158,7 @@ function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
 }
 
 return {state:cam,reset:resetCamera,update:updateCamera,
-  resume(camera){pos.copy(camera.position);look.copy(camera.position).addScaledVector(camera.getWorldDirection(dir),20);following=false;cam.curDist=cam.normal.dist;orbitPitch=cam.pitch;orbitYaw=cam.yaw;cam.blend=0;}
+  resume(camera,{settled=false,distance=cam.normal.dist}={}){pos.copy(camera.position);look.copy(camera.position).addScaledVector(camera.getWorldDirection(dir),20);following=false;cam.curDist=distance;orbitPitch=cam.pitch;orbitYaw=cam.yaw;cam.blend=1;handoff=settled?null:{p:pos.clone(),q:camera.quaternion.clone(),t:0};if(settled){cam.aimK=0;cam.fovAdd=0;}}
 };
 }
 const mainRig=createCameraRig();

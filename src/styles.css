@@ -480,3 +480,32 @@ button:disabled{opacity:.45;cursor:default}
 #coinGain.pop{position:fixed;left:50%;right:auto;top:auto;bottom:15vh;transform:translateX(-50%);font:700 clamp(18px,2.5vw,28px) var(--px);color:#ffda7c;white-space:nowrap;text-shadow:0 2px #5c382b,0 0 10px #e6ac4955;animation:fist-gain45 1.1s ease both}
 #coinGain span{display:inline-block;animation:prize-letter 1.1s ease,prize-gold 1.1s linear;animation-delay:calc(var(--i)*.035s)}
 @keyframes fist-gain45{0%{opacity:0;transform:translate(-50%,12px) scale(.85)}18%,65%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-10px) scale(1.02)}}
+
+/* v0.46: кошелёк под мини-картой, отдельно от описания предмета слева. */
+#coinHud{left:auto;right:14px;top:194px;bottom:auto;gap:7px;padding:7px 9px;background:#211a2ad9;border:1px solid #51405e;max-width:168px}
+@media(max-width:760px){#coinHud{top:154px;max-width:132px;font-size:10px}#evchip{top:196px}}
+
+/* Виртуальный холст 640×388 вписывается в настоящее стекло телевизора. */
+#crtUI{position:fixed;z-index:18;overflow:hidden;isolation:isolate;pointer-events:none;background:#12101c;border-radius:3%}
+.crtStage{position:absolute;left:50%;top:50%;width:640px;height:388px;transform:translate(-50%,-50%) scale(var(--crt-scale,1));transform-origin:center;overflow:hidden}
+#crtUI .screen,#crtUI #mode.tv-mode{position:absolute;inset:0;width:640px;height:388px;min-height:0;padding:0;overflow:hidden;gap:0;background:radial-gradient(ellipse at 50% 45%,#302640,#15131f 75%);pointer-events:none}
+#crtUI .sctitle,#crtUI #mode.tv-mode .sctitle{position:absolute;top:22px;left:0;width:100%;text-align:center;margin:0;font-size:16px;letter-spacing:2px;color:#c8bbd0;text-shadow:2px 2px #0b0910}
+#crtUI #mode.tv-mode .pcard{position:absolute;left:175px;top:65px;width:290px;height:252px;padding:13px;gap:9px;min-height:0;border:2px solid #857292;background:#211b2d;box-shadow:4px 4px #0e0b16;pointer-events:auto}
+#crtUI #mode.tv-mode .pcard canvas{width:258px;height:155px;max-height:155px;aspect-ratio:auto}
+#crtUI #mode.tv-mode .pcard b{font-size:18px;margin:0}
+#crtUI #mode.tv-mode .pcard small{font-size:14px}
+#crtUI #mode.tv-mode .pback{left:22px;bottom:20px;font-size:12px;padding:8px;pointer-events:auto}
+#crtUI #rwin{position:absolute;left:18px;top:90px;width:604px;height:200px;mask:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent);-webkit-mask:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent)}
+#crtUI #rstrip{gap:14px;top:19px}
+#crtUI .rcard{width:120px;height:156px;border-radius:4px}
+#crtUI .rcard .plate{font-size:12px;left:5px;right:5px;bottom:8px;padding:7px 0 5px}
+#crtUI .rframe{width:130px;height:168px;top:13px;box-shadow:inset 0 0 0 3px #f5d579,0 0 12px #b9774533}
+#crtUI .rframe:after{content:'';position:absolute;left:59px;top:-9px;border:6px solid transparent;border-top-color:#f5d579}
+#crtUI #roulette.done .rcard.win{animation:crtWin .55s ease-out both}
+#crtUI #rsparks{position:absolute;inset:0}
+@keyframes crtWin{0%{filter:brightness(1.8)}100%{transform:scale(1.035);filter:brightness(1.14)}}
+.crtVhs{position:absolute;inset:0;pointer-events:none;z-index:5;background:repeating-linear-gradient(0deg,#05030c24 0 1px,transparent 1px 4px);box-shadow:inset 0 0 48px #070510a0}
+.crtVhs:before{content:'';position:absolute;left:0;right:0;height:56px;top:-100px;background:linear-gradient(transparent,#b0b7c31c 42%,#e3d8e754 47%,#0b0b19aa 51%,transparent);animation:vhsRoll 7.3s linear infinite}
+.crtVhs:after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(95deg,transparent 0 31px,#d5bdff12 32px 33px);opacity:0;animation:vhsNoise 7.3s steps(1) infinite}
+@keyframes vhsRoll{0%,88%{transform:translateY(-80px);opacity:0}89%{opacity:1}100%{transform:translateY(580px);opacity:0}}
+@keyframes vhsNoise{0%,88%,94%,100%{opacity:0}89%,92%{opacity:.8}90%,93%{opacity:.2}}

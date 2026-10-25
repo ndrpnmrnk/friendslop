@@ -225,7 +225,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   moveBody(p, dt, PC.gravity);
   bumpPushables(p);
   // батут: приземлился на маркизу / крышу машины / матрас — подбросило
-  if (p.landed) { const bo = bounceAt(p.pos.x, p.pos.z, p.pos.y); if (bo) { p.vel.y = bo.power; p.onGround = false; p.airPeak = p.pos.y; p.bounced = 0.3; p.dive = null;
+  if (p.landed) { const bo = bounceAt(p.pos.x, p.pos.z, p.pos.y,Math.max(0,p.airPeak-p.pos.y)); if (bo) { p.vel.y = bo.power; p.onGround = false; p.airPeak = p.pos.y; p.bounced = 0.3; p.dive = null;
     sfx('bounce'); voice(p.ch, 'happy'); smokeRing(p.pos.x, p.pos.y + 0.05, p.pos.z, 6, { speed: 2, size: 0.14, grow: 0.4, life: 0.4 }); worldHit({ x: p.pos.x, y: p.pos.y - 0.4, z: p.pos.z }, 1.2, p.vel); shake(0.08); } }
   // уступ на уровне груди в прыжке — подтянуться
   if (!p.onGround && il > 0 && p.vel.y < 3 && !p.climb && !p.dive && !p.held && !p.grab && !p.ride) {
@@ -233,12 +233,13 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     const ledges=solidsNear(qx-.15,qz-.15,qx+.15,qz+.15).slice();for(const o of W.obbs){if(!o.on)continue;const c=Math.cos(o.yaw),s=Math.sin(o.yaw),x=(qx-o.cx)*c-(qz-o.cz)*s,z=(qx-o.cx)*s+(qz-o.cz)*c;if(x>=o.lx0&&x<=o.lx1&&z>=o.lz0&&z<=o.lz1)ledges.push({on:true,x0:qx-.2,x1:qx+.2,z0:qz-.2,z1:qz+.2,y0:o.y0,y1:o.y1});}
     for (const so of ledges) {
       if (!so.on || qx < so.x0 || qx > so.x1 || qz < so.z0 || qz > so.z1) continue;
-      const rel = so.y1 - p.pos.y; if (rel < 0.9 || rel > 2.3 || so.y1 - so.y0 < 0.25) continue;
       const tx = p.pos.x + ix * (p.r + 0.5), tz = p.pos.z + iz * (p.r + 0.5);
-      if (!isFree(tx - 0.28, tz - 0.28, tx + 0.28, tz + 0.28, so.y1 + 0.05, so.y1 + PC.crouchH) || groundAt(tx, tz, 0.2, so.y1 + 0.05) < so.y1 - 0.05) continue;
+      const ty=so.roof?Math.max(so.y1,groundAt(tx,tz,.28,so.y1+PC.step+.12)):so.y1;
+      const rel = ty - p.pos.y; if (rel < 0.9 || rel > 2.3 || so.y1 - so.y0 < 0.25&&!so.roof) continue;
+      if (!isFree(tx - 0.28, tz - 0.28, tx + 0.28, tz + 0.28, ty + 0.05, ty + PC.crouchH) || groundAt(tx, tz, 0.2, ty + 0.05) < ty - 0.05) continue;
       // высоко (выше груди) — сначала повиснуть на краю, низко — сразу подтянуться
-      if (rel > 1.7) { sfx('grab'); p.hang = { x: p.pos.x, y: so.y1 - 1.75, z: p.pos.z, tx, ty: so.y1, tz, nx: ix, nz: iz, t: 0 }; p.vel.set(0, 0, 0); break; }
-      sfx('mantle'); p.mantleN = (p.mantleN || 0) + 1; p.mantle = { t: 0, fx: p.pos.x, fy: p.pos.y, fz: p.pos.z, tx, ty: so.y1, tz, dur: 0.42 }; p.vel.set(0, 0, 0); break;
+      if (rel > 1.7) { sfx('grab'); p.hang = { x: p.pos.x, y: ty - 1.75, z: p.pos.z, tx, ty, tz, nx: ix, nz: iz, t: 0 }; p.vel.set(0, 0, 0); break; }
+      sfx('mantle'); p.mantleN = (p.mantleN || 0) + 1; p.mantle = { t: 0, fx: p.pos.x, fy: p.pos.y, fz: p.pos.z, tx, ty, tz, dur: 0.42 }; p.vel.set(0, 0, 0); break;
     }
   }
   if (p.grab && (p.stun > 0 || p.climb || p.dive || !p.onGround && p.vel.y > 1)) release(p, 0.5);

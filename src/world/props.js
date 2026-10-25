@@ -1,3 +1,4 @@
+import {buildClockTower} from './plaza-landmarks.js';
 import { THREE, G, mesh, compose, col, tmat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { HW } from '../config.js';
@@ -573,27 +574,7 @@ export const PropMethods = {
     return g;
   },
   // Часовая башня: на балкон с часами — по лестнице
-  clockTower(x, z) {
-    const st = tmat(T.stone()), dk = col(0x2b2533);
-    this.box(x, z, 2.4, 2.4, 6.5, st);
-    this.box(x, z, 2.4, 2.4, 0.2, st, { y: 6.5 });
-    for (const [dx, dz, w, d] of [[0, -1.15, 2.4, 0.1], [-0.85, 1.15, 0.7, 0.1], [0.85, 1.15, 0.7, 0.1], [-1.15, 0, 0.1, 2.4], [1.15, 0, 0.1, 2.4]]) this.box(x + dx, z + dz, w, d, 0.9, dk, { y: 6.7 });
-    this.box(x, z - 0.2, 1.6, 1.2, 2.2, st, { y: 6.7 });
-    const roof = this.m(G.cone4, tmat(T.roof()), x, 10.55, z - 0.2, 1.4, 1.2, 1.4); roof.rotation.y = Math.PI / 4;
-    for (const [px, pz] of [[-0.7, -0.5], [0.7, -0.5], [-0.7, 0.5], [0.7, 0.5]]) this.m(G.box, st, x + px, 9.45, z - 0.2 + pz, 0.16, 1.1, 0.16);
-    this.m(G.box, st, x, 10.0, z - 0.2, 1.7, 0.12, 1.3);
-    for (const [nx, nz, off] of [[0, 1, 0.61], [0, -1, 0.61], [1, 0, 0.81], [-1, 0, 0.81]]) {
-      const fx = x + nx * off, fz = z - 0.2 + nz * off;
-      const f = this.m(G.cyl12, col(0xf1e8d0), fx + nx * 0.02, 7.9, fz + nz * 0.02, 0.5, 0.04, 0.5); f.rotation.set(nz ? Math.PI / 2 : 0, 0, nx ? Math.PI / 2 : 0);
-      this.m(G.box, dk, fx + nx * 0.05, 8.04, fz + nz * 0.05, nx ? 0.02 : 0.05, 0.3, nz ? 0.02 : 0.05);
-      this.m(G.box, dk, fx + nx * 0.05 + nz * 0.1, 7.9, fz + nz * 0.05 + nx * 0.1, nx ? 0.02 : 0.22, 0.05, nz ? 0.02 : 0.22);
-    }
-    this.ladder(x, z + 1.2, 's', 6.7);
-    // колокол под крышей: попади — зазвонит
-    const bell = this.m(new THREE.CylinderGeometry(0.22, 0.42, 0.55, 10, 1, true), lam({ color: 0xc8a040, side: THREE.DoubleSide }, 'bell'), x, 9.3, z - 0.2, 1, 1, 1); W.keep.push(bell);
-    this.m(G.box, dk, x, 9.85, z - 0.2, 1.5, 0.06, 0.06);
-    W.bells.push({ x: this.X(x), y: this.Y + 9.3, z: this.Z(z - 0.2), mesh: bell, ring: 0 });
-  },
+  clockTower(x,z){return buildClockTower(this,x,z);},
   // Куча листьев: пробежишь — листья разлетаются
   leafPile(x, z, r = 1) {
     // большой холм листвы (в него можно спрятаться целиком) + разлетевшиеся по земле листья

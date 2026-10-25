@@ -9,6 +9,7 @@ import { clamp } from '../core/rng.js';
 import { burst, splash, ripple, smokeRing, puff } from '../world/particles.js';
 import { addItem } from '../game/items.js';
 import { brickWall, breakPiece } from '../world/breakables.js';
+import {groundAt} from '../world/physics.js';
 import { spawnLitter } from './objects2.js';
 
 /* Новые мини-игры.
@@ -131,31 +132,44 @@ export const WORLD_GAMES = {
   // Уборка: вокруг урны раскиданы 5 бумажек и банок — закинь или донеси все в урну
   cleanup(o, api, ctx) {
     api.feedback?.();
-    const c = o.pos(), N = 5; let time = 68, got = 0;
-    const pile=new THREE.Group();pile.name='cleanup-collected';o.g.add(pile);
-    for (let i = 0; i < N; i++) { const { x, y, z } = nearbyItemPoint(c);
-      const it = spawnLitter(x, y, z); o.litter.push(it); it.outline.set(true);
-      const rg = mesh(G.ring, new THREE.MeshBasicMaterial({ color: 0x9be36b, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }), 0, 0, 0, 0.35, 0.35, 1, W.group); rg.rotation.x = -Math.PI / 2; it.ring = rg; }
-    api.msg('Мусор — в урну');
-    const take = it => { if (it.taken) return; it.taken = true;it.outline.set(false);const packed=it.g.clone(true);packed.position.set(Math.sin(got*2.4)*0.14,0.94+got*0.025,Math.cos(got*2.4)*0.13);packed.scale.setScalar(0.65);packed.rotation.set(0.2,got*2.4,0.3);packed.visible=true;pile.add(packed);sfx('imp',{at:c,m:'metal',v:0.3});it.state = 'gone'; it.g.visible = false; it.outline.set(false); if (it.ring) { W.group.remove(it.ring); it.ring.material.dispose(); it.ring = null; } got++; smokeRing(c.x, c.y + 0.9, c.z, 5, { speed: 1, size: 0.1 }); api.msg(got < N ? `В урне ${got} из ${N}` : 'Чисто!', 'good'); };
-    const hook = (it, p) => { if (it.state !== 'held' && o.litter.includes(it) && Math.hypot(p.x - c.x, p.z - c.z) < 0.9 && Math.abs(p.y - c.y) < 1.5) take(it); };
-    W.hitHooks.push(hook);
+    const c=o.pos(),N=5,pile=new THREE.Group();let time=68,got=0;
+    pile.name='cleanup-collected';o.g.add(pile);
+    for(let i=0;i<N;i++){
+      const {x,y,z}=nearbyItemPoint(c),it=spawnLitter(x,y,z);o.litter.push(it);it.outline.set(true);
+      const rg=mesh(G.ring,new THREE.MeshBasicMaterial({color:0x9be36b,transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}),0,0,0,.35,.35,1,W.group);
+      rg.name='cleanup-location';rg.rotation.x=-Math.PI/2;it.ring=rg;
+    }
+    const removeRing=it=>{if(!it.ring)return;it.ring.removeFromParent();it.ring.material.dispose();it.ring=null;};
+    const remaining=()=>o.litter.filter(it=>!it.taken&&it.state!=='gone');
+    const target=()=>{
+      if(ctx.player.held&&o.litter.includes(ctx.player.held))return o.front?.()||c;
+      const free=remaining().filter(it=>it.state!=='held'),near=(free.length?free:remaining()).sort((a,b)=>a.pos.distanceToSquared(ctx.player.pos)-b.pos.distanceToSquared(ctx.player.pos))[0];
+      return near?.pos||c;
+    };
+    const syncMarkers=()=>{for(const it of o.litter){if(!it.ring)continue;const show=!it.taken&&it.state!=='gone'&&it.state!=='held';it.ring.visible=show;if(show){it.ring.position.copy(it.pos);it.ring.position.y-=it.def.r-.035;it.ring.scale.setScalar(1+Math.sin(time*5)*.12);}it.outline.set(show);}};
+    const take=it=>{
+      if(it.taken)return;it.taken=true;it.noPickup=true;it.vel.set(0,0,0);it.floatY=undefined;
+      const packed=it.g.clone(true);packed.position.set(Math.sin(got*2.4)*.14,.94+got*.025,Math.cos(got*2.4)*.13);packed.scale.setScalar(.65);packed.rotation.set(.2,got*2.4,.3);packed.visible=true;pile.add(packed);
+      it.state='gone';it.g.visible=false;it.outline.set(false);removeRing(it);got++;
+      sfx('imp',{at:c,m:'metal',v:.3});smokeRing(c.x,c.y+.9,c.z,5,{speed:1,size:.1});api.msg(got<N?`В урне ${got} из ${N}`:'Чисто!','good');
+    };
+    const hook=(it,p)=>{if(!it.taken&&it.state!=='held'&&o.litter.includes(it)&&Math.hypot(p.x-c.x,p.z-c.z)<.9&&Math.abs(p.y-c.y)<1.5)take(it);};
+    W.hitHooks.push(hook);syncMarkers();api.msg('Мусор - в урну');
     return {
-      target: () => ctx.player.held && o.litter.includes(ctx.player.held) ? o.front?.() || c : (o.litter.find(it => it.state !== 'gone' && it.state !== 'held') || o.litter.find(it => it.state !== 'gone'))?.pos || c,
-      botItems: () => o.litter.filter(it=>!it.taken),
-      botDeposit: () => c,
-      botDrop: true,
-      update(dt) {
-        time -= dt; api.timer(time);
-        for (const it of o.litter) if (it.state === 'rest' && Math.hypot(it.pos.x - c.x, it.pos.z - c.z) < 1.0 && Math.abs(it.pos.y - c.y) < 1.5) take(it);
-        const pul = 0.3 + Math.abs(Math.sin(performance.now() * 0.005)) * 0.12;
-        for (const it of o.litter) if (it.ring) { it.ring.visible = it.state !== 'gone' && it.state !== 'held'; it.ring.position.set(it.pos.x, it.pos.y - it.def.r + 0.04, it.pos.z); it.ring.scale.setScalar(pul); it.outline.set(it.state !== 'gone'); }
-        o.ring.material.opacity = 0.35 + Math.sin(performance.now() * 0.006) * 0.25;
-        api.progress(got / N);
-        if (got >= N) return api.finish({ success: true, mult: 1 });
-        if (time <= 0) return api.finish({ success: false });
+      target,afterPhysics:syncMarkers,
+      botItems:remaining,botDeposit:()=>c,botDrop:true,
+      update(dt){
+        time-=dt;api.timer(time);
+        for(const it of o.litter){
+          if(it.taken)continue;
+          if(it.state==='rest'&&Math.hypot(it.pos.x-c.x,it.pos.z-c.z)<1&&Math.abs(it.pos.y-c.y)<1.5)take(it);
+          // Потерянный в провале несобранный мусор возвращаем в доступную область.
+          else if(it.state==='gone'||it.pos.y<c.y-6){const p=nearbyItemPoint(c);it.pos.set(p.x,groundAt(p.x,p.z,.12,p.y+.25)+it.def.r,p.z);it.vel.set(0,0,0);it.state='rest';it.g.visible=true;it.floatY=undefined;}
+        }
+        syncMarkers();o.ring.material.opacity=.45+Math.sin(time*5)*.15;api.progress(got/N);
+        if(got>=N)return api.finish({success:true,mult:1});if(time<=0)return api.finish({success:false});
       },
-      stop() { pile.removeFromParent();W.hitHooks.splice(W.hitHooks.indexOf(hook), 1); for (const it of o.litter) { if (it.ring) W.group.remove(it.ring); it.outline.set(false); } },
+      stop(){pile.removeFromParent();const i=W.hitHooks.indexOf(hook);if(i>=0)W.hitHooks.splice(i,1);for(const it of o.litter){removeRing(it);it.outline.set(false);}}
     };
   },
 

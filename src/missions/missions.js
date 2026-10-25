@@ -197,7 +197,7 @@ export function updateMissions(dt, t, player, opts = {}) {
   const phase = opts.phase || 'calm'; if (phase === 'event') dt = 0;
   for (const k in M.cooldown) M.cooldown[k] -= dt;
   for (const m of M.list.slice()) {
-    const p = m.obj.pos(), mk = m.marker; mk.g.position.set(p.x, p.y, p.z);
+    const p = (m.key==='cleanup'&&m.busy&&m.track?.())||m.obj.pos(), mk = m.marker; mk.g.position.set(p.x, p.y, p.z);
     mk.g.visible = !m.busy && !m.doer && visibleTo(m, player);
     if(m.activeLeft!=null){m.activeLeft-=dt;if(m.activeLeft<=0){m.onExpire?.();if(M.list.includes(m))removeMission(m);continue;}}
     if (!m.busy && !m.doer && m.activeLeft==null) {

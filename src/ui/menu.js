@@ -35,6 +35,7 @@ import {seatPath,pathLength,samplePath} from './hub-path.js';
 import {updateBreakables} from '../world/breakables.js';
 import {FX,updateWorldFx,leaveBench,leaveHide,leaveSwing} from '../game/worldfx.js';
 import {createSky} from '../world/sky.js';
+import {createTVScreen} from './tv-screen.js';
 const $=id=>document.getElementById(id),clamp=THREE.MathUtils.clamp;
 const ease=x=>{x=clamp(x,0,1);return x*x*x*(x*(x*6-15)+10);};
 const turn=(a,b,k)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*k;
@@ -49,10 +50,10 @@ export function createMenu(){
   const bounce=new THREE.DirectionalLight(0x8a7ac8,.35*Math.PI);bounce.position.set(-direction.x*45,30,-direction.z*45);scene.add(bounce);
   camera.position.set(1.7,2.2,14.6);camera.lookAt(look);
   const st={scene,camera,world,ch:null,player:null,rig,active:true,mode:'splash',idx:0,t:0,choosing:false,hover:false,drag:false,pause:false,transition:null,velocity:new V3(),sit:0};
-  let screenTimer=0,screenFade=1;const hubHud={prompt:'',held:'',heldType:''};const glowing=new Set();const characters=new Map(),hubFX={shake:0,freeze:0};
+  const tvUI=createTVScreen(world.tvScreen);let screenTimer=0,screenFade=1;const hubHud={prompt:'',held:'',heldType:''};const glowing=new Set();const characters=new Map(),hubFX={shake:0,freeze:0};
   function scope(fn){return withWorld(world.state,()=>{const shake=FX.shake,freeze=FX.freeze;Object.assign(FX,hubFX);try{return fn();}finally{Object.assign(hubFX,FX);FX.shake=shake;FX.freeze=freeze;}});}
   const previewRig=createCameraRig(),previewCamera=makeCamera(CONFIG.camera.fov),clawStand=new V3(7.15,0,-1.5);
-  const viewPose=(position,yaw)=>scope(()=>{previewRig.reset(yaw);previewRig.state.pitch=rig.state.pitch;previewRig.update(previewCamera,{pos:position,h:st.player.h},0,true);return{p:previewCamera.position.clone(),l:previewCamera.position.clone().addScaledVector(previewCamera.getWorldDirection(new V3()),20)};});
+  const viewPose=(position,yaw)=>scope(()=>{previewRig.reset(yaw);previewRig.state.pitch=rig.state.pitch;previewRig.update(previewCamera,{pos:position,h:st.player.h},0,true);st.followDistance=previewRig.state.curDist;return{p:previewCamera.position.clone(),l:previewCamera.position.clone().addScaledVector(previewCamera.getWorldDirection(new V3()),20)};});
   function character(id,muted=false){
     const pos=st.ch?.root.position.clone()||new V3(0,0,9.5),rot=st.ch?.root.rotation.y??Math.PI;
     if(st.player)scope(()=>{if(st.player.grab)release(st.player,0);leaveObject(st.player);if(st.player.held){drop(st.player.held,st.player.pos.x,st.player.pos.y,st.player.pos.z);st.player.held=null;}});st.ch?.root.removeFromParent();let entry=characters.get(id);
@@ -68,14 +69,15 @@ export function createMenu(){
   function travel(name,pos,camPos,target,duration,done,opts={}){
     mode('transition');unlock();st.pause=false;$('setBtn').classList.remove('hub-settings');$('hubPause').classList.remove('open');
     const toRotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(camPos,target,new V3(0,1,0)));
-    st.transition={fromRotation:camera.quaternion.clone(),toRotation,lookDistance:camera.position.distanceTo(look),endDistance:camPos.distanceTo(target),name,t:0,duration,from:st.ch.root.position.clone(),to:pos.clone(),cp:camera.position.clone(),ct:camPos.clone(),lp:look.clone(),lt:target.clone(),fromYaw:st.ch.root.rotation.y,toYaw:opts.yaw??st.ch.root.rotation.y,done,arc:opts.arc||0,sit:opts.sit??0,sitFrom:st.sit};
+    st.transition={fromRotation:camera.quaternion.clone(),toRotation,fromFov:camera.fov,lookDistance:camera.position.distanceTo(look),endDistance:camPos.distanceTo(target),name,t:0,duration,from:st.ch.root.position.clone(),to:pos.clone(),cp:camera.position.clone(),ct:camPos.clone(),lp:look.clone(),lt:target.clone(),fromYaw:st.ch.root.rotation.y,toYaw:opts.yaw??st.ch.root.rotation.y,done,arc:opts.arc||0,sit:opts.sit??0,sitFrom:st.sit};
   }
-  function roam(){mode('roam');st.sit=0;st.ch.root.visible=true;st.ch.blob.visible=true;st.player.facing=st.ch.root.rotation.y;rig.resume(camera);requestLock();}
+  function roam(){mode('roam');st.sit=0;st.ch.root.visible=true;st.ch.blob.visible=true;st.player.facing=st.ch.root.rotation.y;rig.resume(camera,{settled:true,distance:st.followDistance});takeLook();requestLock();}
   st.enterHub=()=>{st.pausedForSettings=false;character(collection().selected);st.ch.root.position.set(0,0,9.5);st.ch.root.rotation.y=st.player.facing=Math.PI;rig.reset(0);rig.state.pose=rig.state.free=rig.state.orbit=null;
-    const cp=camera.position.clone(),cl=look.clone();scope(()=>rig.update(camera,st.player,0,true));const p=camera.position.clone(),l=camera.position.clone().addScaledVector(camera.getWorldDirection(new V3()),20);camera.position.copy(cp);look.copy(cl);travel('arrive',st.player.pos,p,l,1.35,roam);
+    const cp=camera.position.clone(),cl=look.clone(),rotation=camera.quaternion.clone();scope(()=>rig.update(camera,st.player,0,true));st.followDistance=rig.state.curDist;const p=camera.position.clone(),l=camera.position.clone().addScaledVector(camera.getWorldDirection(new V3()),20);camera.position.copy(cp);camera.quaternion.copy(rotation);look.copy(cl);travel('arrive',st.player.pos,p,l,1.35,roam);
   };
   st.splash=()=>{st.pausedForSettings=false;$('setBtn').classList.remove('hub-settings');st.claw?.close();st.pause=false;st.transition=null;st.sit=0;mode('splash');character(collection().selected);st.ch.root.position.set(0,0,9.5);st.ch.root.rotation.y=0;$('hubPause').classList.remove('open');$('mode').classList.remove('tv-mode');$('mode').removeAttribute('style');world.curtain(0);};
   st.skin=()=>collection().selected;
+  st.prepareTV=()=>{if(st.mode==='tv')return;st.transition=null;mode('tv');st.player.pos.set(0,.58,-3.58);st.sit=1;camera.position.set(-.2,1.73,-4.65);look.set(-.2,1.73,-7.61);camera.lookAt(look);};
   st.next=d=>{if(!st.choosing)return;st.idx=(st.idx+d+SKIN_IDS.length)%SKIN_IDS.length;refreshSkin();sfx('click');};
   function wardrobeTransition(out){
     const w=world.wardrobe,from=st.player.pos.clone(),gate=out?w.at(0,.08,.9):w.gate,to=out?w.exit:w.preview;
@@ -91,7 +93,7 @@ export function createMenu(){
   Object.defineProperty(st,'wantsLock',{get:()=>st.active&&st.mode==='roam'&&!st.pause&&!st.pausedForSettings});
   st.claw=createClaw(scene,id=>{character(id);st.ch.root.position.copy(clawStand);st.ch.root.rotation.y=Math.PI/2;st.ch.root.visible=false;});
   st.claw.root.position.set(9.4,.15,-3);st.claw.root.rotation.y=-Math.PI/2;st.claw.root.scale.setScalar(.72);scope(()=>addSolid(8.55,-4.25,10.3,-1.75,0,2.5));
-  st.claw.onClose=()=>{if(st.mode!=='claw')return;rig.state.yaw=st.clawRoam?.yaw??0;rig.state.pitch=st.clawRoam?.pitch??.45;st.ch.root.visible=true;const pos=clawStand.clone(),pose=viewPose(pos,rig.state.yaw);travel('arcade-out',pos,pose.p,pose.l,1.45,roam);const via=st.claw.root.localToWorld(new V3(2.1,3.1,3.9));st.transition.cameraPath=new THREE.CatmullRomCurve3([st.transition.cp.clone(),via,pose.p.clone()],false,'centripetal');};
+  st.claw.onClose=()=>{if(st.mode!=='claw')return;rig.state.yaw=st.clawRoam?.yaw??0;rig.state.pitch=st.clawRoam?.pitch??.45;st.ch.root.visible=true;const pos=clawStand.clone(),pose=viewPose(pos,rig.state.yaw);travel('arcade-out',pos,pose.p,pose.l,1.45,roam);};
   scope(()=>{Object.assign(world.state,{toolImpact,sodaBlast,knockDown,letGo,dismount:a=>dismount(a,false),leaveBench,leaveHide,leaveSwing,releaseCart:a=>release(a,.3),onDrink:()=>sfx('drink')});});
   const arc=Array.from({length:11},()=>{const m=sprite(T.dot(),.13,{color:0xffb45a,depthTest:false,opacity:.95});m.renderOrder=10;m.visible=false;scene.add(m);return m;});
   const land=new THREE.Mesh(G.ring,new THREE.MeshBasicMaterial({color:0xff8a1f,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}));land.rotation.x=-Math.PI/2;land.scale.setScalar(.5);land.visible=false;scene.add(land);
@@ -111,7 +113,7 @@ export function createMenu(){
       travel('sofa-in',new V3(0,.58,-3.58),new V3(-.20,1.73,-4.65),new V3(-.20,1.73,-7.61),walk+sit,()=>{mode('tv');$('mode').classList.add('tv-mode');st.onMode?.();},{yaw:Math.PI,sit:1});
       Object.assign(st.transition,{seat:{path,length,walk,sit}});sfx('click');
     }else{
-      st.clawRoam={yaw:rig.state.yaw,pitch:rig.state.pitch};const shot=st.claw.cameraPose(camera,true),cp=shot.p,lt=shot.l;travel('arcade-in',clawStand,cp,lt,1.6,()=>{mode('claw');st.ch.root.visible=false;st.claw.open();},{yaw:Math.PI/2});const startLocal=st.claw.root.worldToLocal(st.transition.cp.clone()),side=startLocal.x<0?-1:1,via=st.claw.root.localToWorld(new V3(side*2.1,3.1,3.9));st.transition.cameraPath=new THREE.CatmullRomCurve3([st.transition.cp.clone(),via,cp.clone()],false,'centripetal');
+      st.clawRoam={yaw:rig.state.yaw,pitch:rig.state.pitch};const shot=st.claw.cameraPose(camera,true);travel('arcade-in',clawStand,shot.p,shot.l,1.6,()=>{mode('claw');st.ch.root.visible=false;st.claw.open();},{yaw:Math.PI/2});
     }
   });
   on('down',btn=>{if(!st.wantsLock||!locked())return;scope(()=>{const P=st.player;if(P.stun>0||P.heldBy)return;if(btn===0&&grabFist(P))return;
@@ -161,16 +163,16 @@ export function createMenu(){
       let seatK=k;
       if(q.seat){const a=q.seat;if(q.t<a.walk){samplePath(a.path,a.length*ease(q.t/a.walk),st.player.pos);const v=st.player.pos.clone().sub(previousActor);if(v.lengthSq()>.000001)st.ch.root.rotation.y=turn(st.ch.root.rotation.y,Math.atan2(v.x,v.z),1-Math.exp(-dt*14));seatK=0;}
         else{const z=clamp((q.t-a.walk)/a.sit,0,1);seatK=ease(clamp((z-.25)/.75,0,1));st.player.pos.lerpVectors(a.path.at(-1),q.to,seatK);st.ch.root.rotation.y=turn(st.ch.root.rotation.y,Math.PI,1-Math.exp(-dt*15));}}
-      st.sit=q.sitFrom+(q.sit-q.sitFrom)*seatK;if(q.cameraPath)camera.position.copy(q.cameraPath.getPoint(k));else camera.position.lerpVectors(q.cp,q.ct,k);camera.position.x+=Math.sin(k*Math.PI)*q.arc;camera.quaternion.slerpQuaternions(q.fromRotation,q.toRotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(q.lookDistance,q.endDistance,k));
+      st.sit=q.sitFrom+(q.sit-q.sitFrom)*seatK;camera.position.lerpVectors(q.cp,q.ct,k);camera.quaternion.slerpQuaternions(q.fromRotation,q.toRotation,k);camera.fov=THREE.MathUtils.lerp(q.fromFov,CONFIG.camera.fov,k);camera.updateProjectionMatrix();look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(q.lookDistance,q.endDistance,k));
       const speed=st.player.pos.distanceTo(previousActor)/Math.max(dt,.001);st.ch.animate(dt,{t:st.t,speed:speed/CONFIG.player.sprint*1.4,ride:st.sit>.05?'sit':null,dangle:true});
       if(q.t>=q.duration){st.player.pos.copy(q.to);st.player.facing=st.ch.root.rotation.y;st.transition=null;q.done();}
     }
     else if(st.mode==='roam'&&!st.pause&&!st.pausedForSettings)walk(dt);else st.ch.animate(dt,{t:st.t,speed:0,ride:st.sit>.05?'sit':null,dangle:true});
     if(st.sit>0){st.ch.body.position.y=-.25*st.sit;for(const[h,x]of[[st.ch.handL,-.19],[st.ch.handR,.19]])h.position.lerp(new V3(x,.46,.42),st.sit);world.controller.position.set(.45,.56,-3.58).lerp(st.ch.root.localToWorld(new V3(0,.46,.44)),clamp(st.sit*2,0,1));world.controller.rotation.set(0,st.ch.root.rotation.y,0);}else{world.controller.position.set(.45,.56,-3.58);world.controller.rotation.set(0,.25,0);}
     if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}sky.update(camera,st.t,dt);setListener(camera.position.x,camera.position.y,camera.position.z);
-    const wantedScreen=st.mode==='tv'||st.transition?.name==='sofa-in'?0:1;screenFade+=(wantedScreen-screenFade)*(1-Math.exp(-dt*5));world.tvScreen.material.color.setScalar(screenFade);
+    tvUI.update(camera,st.mode==='tv'&&!st.pausedForSettings);const wantedScreen=st.mode==='tv'||st.transition?.name==='sofa-in'?0:1;screenFade+=(wantedScreen-screenFade)*(1-Math.exp(-dt*5));const noise=st.t%7.3>7.04?.82+Math.sin(st.t*83)*.12:1;world.tvScreen.material.color.setScalar(screenFade*noise);
     for(const{lamp,light}of world.lampLights){const on=lamp.pool.visible&&!lamp.pool.userData.broken;light.intensity=on?9:0;lamp.cone.visible=on;}
-    screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(P.ride)text='<b>E</b>Слезть';else{const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
+    screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(!P.ride){const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
 
 
   });

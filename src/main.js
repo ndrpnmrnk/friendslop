@@ -1,3 +1,4 @@
+import {introFlight} from './ui/intro-flight.js';
 import {cancelBotOnEliminate} from './missions/bot-work.js';
 import {worldTarget,worldAimPoint} from './game/object-actions.js';
 import { updateOcclusion } from './game/occlusion.js';
@@ -119,7 +120,7 @@ land.rotation.x = -Math.PI / 2; land.scale.setScalar(0.5); land.material.depthTe
 
 /* ---------- экраны: титул → двор → телевизор → рулетка → пролёт → игра → итоги ---------- */
 const SCREENS = ['menu', 'mode', 'roulette', 'results', 'settings'];
-function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k !== id); }
+function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k !== id);if(!['mode','roulette'].includes(id))$('crtUI')?.classList.add('hidden'); }
 function buildLogo() { const l = $('logo'); if (l.childElementCount) return; for (const ch of TEXT.title) { const s = document.createElement('span'); s.textContent = ch; l.appendChild(s); } }
 let logoT = 0;
 function showMenu() {
@@ -172,22 +173,22 @@ $('mgexit').onclick = cancelMission;
 
 /* Рулетка тематики: лента карточек крутится с замедлением, щёлкает на каждой, всегда останавливается на «ГОРОДЕ» */
 function startRoulette() {
-  S.state = 'roulette'; menu.active = false; screen('roulette'); $('roulette').classList.remove('done');
+  S.state = 'roulette';menu.prepareTV(); menu.active = false; screen('roulette'); $('roulette').classList.remove('done');
   const strip = $('rstrip'); strip.innerHTML = '';
-  const N = 15, WIN = 12, CW = 170 + 18;
-  for (let i = 0; i < N; i++) { const city = i % 4 === 0 || i === WIN, c = document.createElement('div'); c.className = 'rcard' + (city ? '' : ' q') + (i === WIN ? ' win' : '');
-    const cv = document.createElement('canvas'); cv.width = 68; cv.height = 84; drawCard(cv, city ? 'city' : 'unknown', i); c.appendChild(cv);
-    const pl = document.createElement('div'); pl.className = 'plate'; pl.textContent = city ? TEXT.city : '?'; c.appendChild(pl); strip.appendChild(c); }
-  const cards = [...strip.children], end = -(WIN * CW + 85), dur = 3.2, t0 = performance.now(); let last = -1;
-  strip.style.transform = 'translateX(-85px)';
-  const step = () => {
-    if (S.state !== 'roulette') return;
-    const k = Math.min(1, (performance.now() - t0) / 1000 / dur), e = 1 - Math.pow(1 - k, 3.4), x = -85 + (end + 85) * e;
-    strip.style.transform = `translateX(${x}px)`;
-    const idx = Math.round((-x - 85) / CW); if (idx !== last) { last = idx; sfx('tick'); cards.forEach((c, i) => c.classList.toggle('flash', i === idx)); }
-    if (k < 1) requestAnimationFrame(step);
-    else { $('roulette').classList.add('done'); sfx('win'); const r = cards[WIN].getBoundingClientRect(); sparks(r.left + r.width / 2, r.top + r.height / 2, ['#ff8a1f', '#f5c542', '#9be36b', '#b18cff'], 22, $('rsparks'));
-      setTimeout(() => { $('fade').classList.add('on'); setTimeout(() => { prepareRound(); $('fade').classList.remove('on'); startIntro(); }, 420); }, 1100); }
+  const N=28+(Math.random()*9|0),WIN=N-5,CW=134,half=60,dur=3.6+Math.random()*.7;
+  const sequence=Array.from({length:N},(_,i)=>i===WIN||Math.random()<.24);sequence[WIN]=true;S.roulette={sequence,win:WIN,duration:dur};
+  for(let i=0;i<N;i++){const city=sequence[i],c=document.createElement('div');c.className='rcard'+(city?'':' q')+(i===WIN?' win':'');
+    const cv=document.createElement('canvas');cv.width=68;cv.height=84;drawCard(cv,city?'city':'unknown',Math.random()*64|0);c.appendChild(cv);
+    const pl=document.createElement('div');pl.className='plate';pl.textContent=city?TEXT.city:'?';c.appendChild(pl);strip.appendChild(c);}
+  const cards=[...strip.children],end=-(WIN*CW+half),t0=performance.now();let last=-1;
+  strip.style.transform=`translateX(-${half}px)`;
+  const step=()=>{
+    if(S.state!=='roulette')return;
+    const k=Math.min(1,(performance.now()-t0)/1000/dur),e=1-Math.pow(1-k,4),x=-half+(end+half)*e;
+    strip.style.transform=`translateX(${x}px)`;
+    const idx=Math.round((-x-half)/CW);if(idx!==last){last=idx;sfx('tick');cards.forEach((c,i)=>c.classList.toggle('flash',i===idx));}
+    if(k<1)requestAnimationFrame(step);
+    else{$('roulette').classList.add('done');sfx('win');setTimeout(()=>{$('fade').classList.add('on');setTimeout(()=>{prepareRound();$('fade').classList.remove('on');startIntro();},420);},1100);}
   };
   requestAnimationFrame(step);
 }
@@ -275,27 +276,20 @@ function prepareRound(tut = false) {
   cam.pose = null; resetCamera(Math.random() * Math.PI * 2);
   screen(null); $('mgpanel').classList.add('hidden'); resetHud();
 }
-/* 10 секунд до старта: пролёт над картой с названиями районов, персонаж падает с неба, отсчёт 3-2-1 */
+/* Непрерывный пролёт по кварталам к игроку, затем отсчёт 5-4-3-2-1. */
 function startIntro() {
   S.state = 'intro'; $('hud').classList.add('hidden'); $('intro').classList.remove('hidden'); $('count').textContent = ''; $('dname').textContent = '';
-  const names = W.districts.slice().sort(() => Math.random() - 0.5).slice(0, 3);
-  S.intro = { t: 0, names, ni: -1, drop: false, landed: false, cd: 4 };
+  S.intro = {t:0,flight:introFlight(P),drop:false,landed:false,cd:6};takeLook();
   P.root.visible = false; P.frozen = true;
   document.body.classList.add('playing');
 }
 function updateIntro(dt) {
   const I = S.intro; I.t += dt; const t = I.t;
-  if (t < 4) {
-    // пролёт по дуге над городом
-    const a = t / 4 * 1.6 + 0.4, r = 46, cx = 0, cz = 0;
-    cam.free = { p: new V3(cx + Math.cos(a) * r, 34 - t * 3, cz + Math.sin(a) * r), l: new V3(cx + Math.cos(a + 1.2) * 12, 0, cz + Math.sin(a + 1.2) * 12) };
-
-    return;
-  }
+  if(t<I.flight.duration){cam.free=I.flight.sample(t/I.flight.duration);return;}
   if (!I.drop) { I.drop = true; cam.free = null; P.root.visible = true; P.frozen = false; P.noRun = true; P.pos.y += 9; P.vel.set(0, -2, 0); P.airPeak = P.pos.y - 9; resumeCamera(camera);updateCamera(camera,P,1/60,false); }
-  if (!I.landed && P.onGround && t > 4.2) { I.landed = true; sparks(innerWidth / 2, innerHeight * 0.6, ['#ff8a1f', '#f5c542'], 14); sfx('land', { v: 1.4 }); shakeCam(0.35); }
-  if (t > 5.2) {
-    const left = Math.ceil(8.2 - t), c = $('count');
+  if (!I.landed && P.onGround && t > I.flight.duration+.2) { I.landed = true; sparks(innerWidth / 2, innerHeight * 0.6, ['#ff8a1f', '#f5c542'], 14); sfx('land', { v: 1.4 }); shakeCam(0.35); }
+  if (t > I.flight.duration+1.2) {
+    const left = Math.max(0,Math.ceil(I.flight.duration+6.2-t)), c = $('count');
     if (left !== I.cd) { I.cd = left; c.classList.remove('tick', 'go'); void c.offsetWidth;
       if (left > 0) { c.textContent = left; sfx('count'); } else { c.textContent = TEXT.go; c.classList.add('go'); sfx('go'); goRound(); }
       c.classList.add('tick'); }
@@ -660,6 +654,7 @@ function stealItem(it) {
 }
 const RIDE_NAME = { cart: 'тележку', skate: 'скейт', scooter: 'самокат', chair: 'кресло', barrow: 'тачку', kidcar: 'машинку', gurney: 'каталку', tire: 'шину', ring: 'круг' };
 function promptText() {
+  if(P.ride)return '';
   if(P.roofSeat)return '<b>E</b>Встать с крыши';
   if (P.drone) return '';
   if(nearFist(P))return '<b>ЛКМ</b>Схватить фист';
@@ -760,7 +755,7 @@ function frame() {
     if (P) P.root.visible = !P.drone && (!P.returning || P.returning.t >= 1.25) && !S.mg && !S.crane && !P.hidden && !(S.state === 'intro' && !S.intro.drop);
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
     if (dotHtml !== S.dotHtml) { $('dot').innerHTML = dotHtml; S.dotHtml = dotHtml; }
-    updateItems(dt, P);
+    updateItems(dt, P);S.wm?.game.afterPhysics?.();
     updateCoins(dt,S.state==='play'?P:null);
     updatePushables(dt, S.state === 'play' && !S.crane && !S.mg ? P : null);
     for (const c of W.cats) updateCat(c, dt, t, S.state === 'play' ? P : null);

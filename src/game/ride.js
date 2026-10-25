@@ -2,7 +2,7 @@ import { keys, tapped } from '../core/input.js';
 import { damp } from '../core/rng.js';
 import { W } from '../world/state.js';
 import { burst, smoke } from '../world/particles.js';
-import { pushOut, zoneAt, recordImpact,syncPushable } from '../world/physics.js';
+import { pushOut, zoneAt, recordImpact,syncPushable,constrainWaterRide } from '../world/physics.js';
 import { actors, shove } from './actors.js';
 import { sfx } from '../core/sfx.js';
 
@@ -40,7 +40,8 @@ export function updateGrab(p, dt) {
   const f = p.root.rotation.y, d = b.r + p.r + 0.12, tx = p.pos.x + Math.sin(f) * d, tz = p.pos.z + Math.cos(f) * d;
   const q = { x: tx, z: tz };if(b.solid)b.solid.on=false;const hit=pushOut(q,b.r,b.y+.2,b.y+b.h);if(b.solid)b.solid.on=true;recordImpact(b,hit,Math.hypot(b.vx,b.vz));
   if (Math.hypot(q.x - tx, q.z - tz) > 0.35 || Math.abs(p.pos.y - b.y) > 0.6) { release(p, 0.3); return; }
-  b.x = q.x; b.z = q.z; b.vx = p.vel.x; b.vz = p.vel.z; b.heading = f;
+  const previous={x:b.x,z:b.z};b.x = q.x; b.z = q.z; b.vx = p.vel.x; b.vz = p.vel.z; b.heading = f;
+  if(!constrainWaterRide(b,previous)){release(p,0);syncPushable(b);return;}
   b.mesh.rotation.y=f;syncPushable(b);
   const sp = Math.hypot(p.vel.x, p.vel.z);
   if (sp > 4 && Math.random() < dt * 6) smoke(b.x, b.y + 0.06, b.z, { dust: true });

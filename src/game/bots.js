@@ -265,7 +265,7 @@ export function updateBots(dt, t, P) {
     const was = b.onGround; b.noGrav=ctrl&&(b.climbing||!!b.ladderExit);if(!ctrl){b.climbing=false;b.ladderExit=null;}
     applyGripMotion(b,dt);
     moveBody(b, dt, PC.gravity);
-    if(b.landed){const bo=bounceAt(b.pos.x,b.pos.z,b.pos.y);if(bo){b.vel.y=bo.power;b.onGround=false;b.airPeak=b.pos.y;}}
+    if(b.landed){const bo=bounceAt(b.pos.x,b.pos.z,b.pos.y,Math.max(0,b.airPeak-b.pos.y));if(bo){b.vel.y=bo.power;b.onGround=false;b.airPeak=b.pos.y;}}
     if (b.onGround && !was) { const drop = b.airPeak - b.pos.y; if (drop > 0.6) smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1.6, size: 0.14 });
       if (b.thrown) { b.thrown = false; if (drop > 0.3) b.stun = Math.max(b.stun, 0.6); }
       if (drop > PC.fallStun) { b.stun = PC.stunTime; voice(b.ch, 'hurt', b.pos); statsOf(b).falls++; } }

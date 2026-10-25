@@ -1,5 +1,5 @@
 import {buildCarwash} from '../carwash.js';
-import { THREE, G, tmat, col, glow, lam } from '../../core/gfx.js';
+import { THREE, G, tmat, col, glow, lam,compose } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
 import { addZone } from '../physics.js';
@@ -12,25 +12,26 @@ export default {
   build(b) {
     b.ground(3, 5, 19, 17, T.concrete(), 3);
     for (const [x, z] of [[4.5, 6], [17.5, 6], [4.5, 16], [17.5, 16]]) b.box(x, z, 0.45, 0.45, 4, col(0xd8d8e0));
-    b.box(11, 11, 14.5, 11.5, 0.45, col(0xd8243a), { y: 4, fade: true });
-    // крыша навеса не пустая: светлые полосы, вентиляция, табло «АЗС» и огоньки по кромке
-    for (const z of [7, 15]) b.m(G.box, col(0xf1e8ff), 11, 4.46, z, 14, 0.02, 0.5);
-    for (const [x, z] of [[6.5, 9.5], [15.5, 12.5]]) { b.box(x, z, 1.2, 1.2, 0.5, tmat(T.metal()), { y: 4.45 }); b.m(G.box, col(0x2b2533), x, 4.97, z, 0.9, 0.04, 0.9); }
-    b.box(11, 5.6, 4.2, 0.3, 1.1, tmat(T.sign('АЗС 24', '#d8243a', '#f1e8ff')), { y: 4.45 });
-    { const lights = []; for (let i = 0; i < 12; i++) lights.push(b.m(G.box, glow(i % 2 ? 0xf5c542 : 0xf1e8ff), 4 + i * 1.27, 4.33, 5.13, 0.12, 0.08, 0.04)); W.keep.push(...lights);
-      W.animated.push((dt, t) => { const k = Math.floor(t * 4) % 2; lights.forEach((l, i) => (l.visible = (i + k) % 2 === 0)); }); }
-    // навес объёмный: белый фриз с красной полосой по периметру, светлый потолок
-    for (const [x, z, w, d] of [[11, 5.2, 14.7, 0.1], [11, 16.8, 14.7, 0.1], [3.7, 11, 0.1, 11.7], [18.3, 11, 0.1, 11.7]]) { b.box(x, z, w, d, 0.75, col(0xf1e8ff), { y: 3.85, fade: true, solid: false }); b.box(x, z, w + (d < 1 ? 0.02 : 0), d + (w < 1 ? 0.02 : 0), 0.16, col(0xd8243a), { y: 4.15, fade: true, solid: false }); }
+    // Общий навес: фриз собран непересекающимися полосами, без ряби на красной вставке.
+    const roof=b.prop(11,11),roofModel=compose('gas46-canopy',a=>{
+      const red=lam({color:0xd8243a},'gas46-red',true),white=lam({color:0xf1e8ff},'gas46-white',true);a(G.box,red,0,4.225,0,14.5,.45,11.5);
+      for(const[x,z,w,d]of[[0,-5.8,14.7,.14],[0,5.8,14.7,.14],[-7.3,0,.14,11.46],[7.3,0,.14,11.46]]){a(G.box,white,x,3.99,z,w,.28,d);a(G.box,red,x,4.21,z,w,.16,d);a(G.box,white,x,4.445,z,w,.31,d);}
+      for(const z of[-3.5,3.5])a(G.box,white,0,4.50,z,14,.025,.5);
+    });roof.add(roofModel);const roofMats=new Map();roofModel.traverse(o=>{if(!o.isMesh)return;const old=o.material;if(!roofMats.has(old)){const m=old.clone();m.onBeforeCompile=old.onBeforeCompile;m.customProgramCacheKey=old.customProgramCacheKey;roofMats.set(old,m);W.mapResources.add(m);}o.material=roofMats.get(old);});W.keep.push(roof);W.occluders.push({mats:[...roofMats.values()],boxes:[b.aabb(11,11,14.7,11.74,3.85,.75)],op:1,inside:null});
+    b.solid(11,11,14.5,11.5,4,.45);
+    for(const[x,z]of[[6.5,9.5],[15.5,12.5]]){b.box(x,z,1.2,1.2,.5,tmat(T.metal()),{y:4.45});b.m(G.box,col(0x2b2533),x,4.97,z,.9,.04,.9);}
+    b.box(11,5.6,4.2,.3,1.1,tmat(T.sign('АЗС 24','#d8243a','#f1e8ff')),{y:4.45});
+    const lightMat=new THREE.MeshBasicMaterial({color:0xffffff}),lights=new THREE.InstancedMesh(G.box,lightMat,12),matrix=new THREE.Object3D();lights.name='gas-edge-lights';lights.position.set(b.X(4),b.Y+4.33,b.Z(5.13));for(let i=0;i<12;i++)lights.setColorAt(i,new THREE.Color(i%2?0xf5c542:0xf1e8ff));b.g.add(lights);W.keep.push(lights);W.mapResources.add(lightMat);W.mapResources.add(lights);let lastLight=-1;W.animated.push((dt,t)=>{const phase=Math.floor(t*4)%2;if(phase===lastLight)return;lastLight=phase;for(let i=0;i<12;i++){matrix.position.set(i*1.27,0,0);matrix.scale.set(.12,(i+phase)%2===0?.08:0,.04);matrix.updateMatrix();lights.setMatrixAt(i,matrix.matrix);}lights.instanceMatrix.needsUpdate=true;});
     b.box(18.3, 16, 0.1, 0.7, 4, col(0x6a6d78)); b.ladder(18.35, 16, 'e', 4.45);
     b.zone('roof', 4.6, 6, 17.4, 16, 4.45);
-    for (const z of [7.5, 14.5]) b.m(G.box, glow(0xfff1d0), 11, 3.98, z, 8, 0.04, 0.4);
+    for (const z of [7.5, 14.5]) b.m(G.box, glow(0xfff1d0), 11, 3.94, z, 8, 0.035, 0.4);
     b.light(11, 11, 6);
     for (const z of [8.5, 13.5]) {
       b.box(11, z, 5, 1, 0.18, tmat(T.concrete()));
       for (const x of [9.4, 12.6]) {
         const mt = col(0xd8d8e0); b.box(x, z, 0.8, 0.55, 1.5, [mt, mt, mt, mt, tmat(T.fuelPump()), mt], { y: 0.18 }); b.m(G.box, col(0xd8243a), x, 1.75, z, 0.82, 0.12, 0.57);
         const curve = new THREE.CatmullRomCurve3([[0, 1.4, 0], [0.35, 0.9, 0], [0.32, 0.35, 0.03], [0.05, 0.38, 0.1], [0.05, 1.05, 0.2]].map(a => new THREE.Vector3(...a)));
-        const hose = new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.035, 4, false), col(0x1b1721)); hose.position.set(b.X(x + 0.43), b.Y, b.Z(z)); b.g.add(hose);
+        const hose = new THREE.Mesh(new THREE.TubeGeometry(curve, 8, 0.035, 4, false), col(0x1b1721)); hose.position.set(b.X(x + 0.43), b.Y, b.Z(z)); b.g.add(hose);W.mapResources.add(hose.geometry);
         const nozzle = b.m(G.box, col(0x24212b), x + 0.48, 1.12, z + 0.2, 0.08, 0.25, 0.1); nozzle.rotation.z = -0.3;
       }
     }
