@@ -1,4 +1,5 @@
 import {introFlight} from './ui/intro-flight.js';
+import {roundMusic} from './core/round-music.js';
 import {cancelBotOnEliminate} from './missions/bot-work.js';
 import {worldTarget,worldAimPoint} from './game/object-actions.js';
 import { updateOcclusion } from './game/occlusion.js';
@@ -124,11 +125,12 @@ function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k
 function buildLogo() { const l = $('logo'); if (l.childElementCount) return; for (const ch of TEXT.title) { const s = document.createElement('span'); s.textContent = ch; l.appendChild(s); } }
 let logoT = 0;
 function showMenu() {
+  roundMusic.stop();
   canvas.style.filter='';
   S.state = 'menu'; setCursor(true); document.body.classList.remove('playing'); menu.active = true; menu.splash(); buildLogo();
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
-function showHub(){S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
+function showHub(){roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
 menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen('menu');};
 $('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
@@ -141,7 +143,7 @@ $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 $('playBtn').onclick = showHub;
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
-$('modeCard').onclick = () => { S.state='starting';requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(startRoulette, 220); };
+$('modeCard').onclick = () => { roundMusic.prepare();S.state='starting';requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(startRoulette, 220); };
 $('tutBtn').onclick = () => { S.state='starting';requestLock(); sfx('click'); startTutorial(); };
 $('modeBack').onclick = () => { sfx('click'); menu.closeTV(); };
 /* настройки: микрофон */
@@ -167,7 +169,7 @@ function drawMicMeter() {
   $('micThr').style.left = Math.round((m.thr || 0.1) * 100) + '%'; $('micLoud').style.left = Math.min(98, Math.round((m.loud || 0.5) * 100)) + '%';
   const st = !MIC.on ? 'выключен' : MIC.err ? MIC.err : !MIC.ok ? 'включаю…' : MIC.cal > 0 ? 'тишина… калибрую' : m.shout > 0.2 ? 'КРИК!' : m.talk > 0.1 ? 'говоришь' : 'тишина'; if ($('micState').textContent !== st) $('micState').textContent = st;
 }
-$('againBtn').onclick = () => { S.state='starting';requestLock(); startRoulette(); };
+$('againBtn').onclick = () => { roundMusic.prepare();S.state='starting';requestLock(); startRoulette(); };
 $('menuBtn').onclick = () => { sfx('click'); showHub(); };
 $('mgexit').onclick = cancelMission;
 
@@ -249,6 +251,7 @@ function tutEnd(done) {
 }
 /* ---------- раунд ---------- */
 function prepareRound(tut = false) {
+  roundMusic.stop();
   resetRadios();
   if(S.mg)closeMission(null);if(S.wm)closeWorld(null);
   for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
@@ -278,6 +281,7 @@ function prepareRound(tut = false) {
 }
 /* Непрерывный пролёт по кварталам к игроку, затем отсчёт 5-4-3-2-1. */
 function startIntro() {
+  roundMusic.start();
   S.state = 'intro'; $('hud').classList.add('hidden'); $('intro').classList.remove('hidden'); $('count').textContent = ''; $('dname').textContent = '';
   S.intro = {t:0,flight:introFlight(P),drop:false,landed:false,cd:6};takeLook();
   P.root.visible = false; P.frozen = true;
@@ -296,6 +300,7 @@ function updateIntro(dt) {
   }
 }
 function goRound() {
+  roundMusic.background();
   S.state = 'play'; P.noRun = false; S.time = CONFIG.roundTime;
   if (!M.manual) spawnWave(P, 'calm');
   const h = $('hud'); h.classList.remove('hidden'); h.classList.remove('enter'); void h.offsetWidth; h.classList.add('enter');
@@ -303,6 +308,7 @@ function goRound() {
   setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
 }
 function endRound() {
+  roundMusic.stop();
   resetRadios();
   S.state='results';
   resetDrones();
@@ -676,6 +682,7 @@ let CURTAIN = null; // материал занавесок в окнах (ярч
 const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
   clock.update(); let dt = Math.min(0.05, clock.getDelta());
+  roundMusic.suspend(graphicsLost||document.hidden);roundMusic.update(dt);
   if(graphicsLost||document.hidden){endFrame();return;}
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
   t += dt;runtimeCheckpoint(dt,{state:S.state,drone:!!P?.drone,returning:!!P?.returning,botsFlying:(W.bots||[]).filter(a=>a.drone||a.returning).length,mission:S.wm?.m.key||S.mg?.m.key||null,items:W.items.length,geometry:renderer.info?.memory?.geometries,textures:renderer.info?.memory?.textures});
@@ -823,8 +830,10 @@ function loop() {
   try { frame(); } catch (e) { errN++;const message=String(e?.message||e),now=performance.now();if(message!==lastError||now-lastErrorAt>1000){console.error('[friendslop] кадр',e);lastError=message;lastErrorAt=now;recordFault(e,{state:S.state,mission:S.mg?.m.key||S.wm?.m.key||null,timeLeft:Math.ceil(S.time||0)});}try { endFrame(); } catch (_) {} if (errN === 1) toast('Сбой кадра — игра продолжается', 'bad'); }
 }
 // потеря графики (WebGL) — не падаем: ждём восстановления
-canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();graphicsLost=true;updateRadios(0,P?.pos,false);recordFault('WebGL context lost',{state:S.state,timeLeft:Math.ceil(S.time||0)});toast('Графика перезапускается. Игра на паузе…','bad');});
-canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;clock.reset();toast('Графика восстановлена');});
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();graphicsLost=true;roundMusic.suspend(true);updateRadios(0,P?.pos,false);recordFault('WebGL context lost',{state:S.state,timeLeft:Math.ceil(S.time||0)});toast('Графика перезапускается. Игра на паузе…','bad');});
+canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;roundMusic.suspend(document.hidden);clock.reset();toast('Графика восстановлена');});
+document.addEventListener('visibilitychange',()=>roundMusic.suspend(graphicsLost||document.hidden));
+addEventListener('pointerdown',()=>roundMusic.unlock());addEventListener('keydown',()=>roundMusic.unlock());
 // отладочный доступ из консоли браузера
 window.__fs = { lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 window.__fs.lastFaults=lastFaults;

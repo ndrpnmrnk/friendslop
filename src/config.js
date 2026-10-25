@@ -20,6 +20,8 @@
 
 export const CONFIG = {
   roundTime: 300,
+  // Оригинальный аудиофайл ещё не предоставлен. Путь включается вместе с самим файлом.
+  roundMusic:{file:'',introVolume:.40,playVolume:.14,fadeIn:.65,duckDuration:2.4,loop:true},
   season: 'halloween',            // 'halloween' | 'none'
   grid: 3,                        // 3x3 районов на карте
   chunk: 32, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара

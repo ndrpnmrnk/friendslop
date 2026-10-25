@@ -801,6 +801,16 @@
 
 План последнего обновления - `docs/UPDATE-v0.46.md`.
 
+Подготовлено отдельно от публикации: `docs/AUDIO-DINNER.md`, `core/round-music.js`.
+CONFIG.roundMusic.file пуст, потому что оригинальный DINNER! Femtanyl не предоставлен.
+Не объявлять трек добавленным: официальный Bandcamp предлагает платное скачивание;
+поток прослушивания не извлекался. После получения оригинального файла из разрешённого
+источника добавить его в public/audio и включить путь одним обновлением. Контроллер:
+prepare на клике режима, start на пролёте, background на goRound (gain.40->.14 за2.4с),
+общий master/M, поток без AudioBuffer, stop на меню/хабе/итогах/подготовке карты,
+пауза по visibility/contextlost, повтор autoplay только по жесту. Проверены сборка,
+контроллер с mock media/audio bus и настоящий main/UI. Аудиофайла/проверки звучания нет.
+
 Отладка в консоли: `window.__forceDistricts = ['office']` перед `__fs.startRound()` (раунд без меню и отсчёта) ставит район первым; `__fs.startFlow()` — рулетка и отсчёт; `window.__noRender = 1` — логика без отрисовки (быстрые тесты в headless);
 `__fs.cam.free = { p, l }` — свободная камера (null — выключить); `__fs.spawn('fish')` — создать миссию; `__fs.EV` — состояние событий раунда.
 `window.__forceWeather = 'rain' | 'wind' | 'fog' | 'clear'`, `window.__forceBig = 'hill' | 'moth' | 'football'` (+ `__fs.EV.bigAt = 0`),
