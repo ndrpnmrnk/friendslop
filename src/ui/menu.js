@@ -79,7 +79,7 @@ export function createMenu(){
     const cp=camera.position.clone(),cl=look.clone(),rotation=camera.quaternion.clone();scope(()=>rig.update(camera,st.player,0,true));st.followDistance=rig.state.curDist;const p=camera.position.clone(),l=camera.position.clone().addScaledVector(camera.getWorldDirection(new V3()),20);camera.position.copy(cp);camera.quaternion.copy(rotation);look.copy(cl);travel('arrive',st.player.pos,p,l,1.35,roam);
   };
   st.splash=()=>{st.pausedForSettings=false;$('setBtn').classList.remove('hub-settings');st.claw?.close();st.pause=false;st.transition=null;st.sit=0;mode('splash');character(collection().selected);st.ch.root.position.set(0,0,9.5);st.ch.root.rotation.y=0;$('hubPause').classList.remove('open');$('mode').classList.remove('tv-mode');$('mode').removeAttribute('style');world.curtain(0);};
-  st.skin=()=>collection().selected;
+  st.skin=()=>collection().selected;st.tvTransition=kind=>tvUI.transition(kind);
   st.prepareTV=()=>{if(st.mode==='tv')return;st.transition=null;mode('tv');st.player.pos.set(0,.58,-3.58);st.sit=1;camera.position.set(-.2,1.73,-4.65);look.set(-.2,1.73,-7.61);camera.lookAt(look);};
   st.next=d=>{if(!st.choosing)return;st.idx=(st.idx+d+SKIN_IDS.length)%SKIN_IDS.length;refreshSkin();sfx('click');};
   function wardrobeTransition(out){
@@ -103,15 +103,16 @@ export function createMenu(){
   const aimPoint=()=>worldAimPoint(st.player,camera);
   function clearThrow(){if(st.player)st.player.charging=false;for(const m of arc)m.visible=false;land.visible=false;}
   const stationAt=p=>world.stations.find(q=>Math.abs(p.y)<.6&&(q.contains?q.contains(p):Math.hypot(p.x-q.p.x,p.z-q.p.z)<q.r));
-  function hubTarget(){const P=st.player,ordinary=worldTarget(P,camera),q=stationAt(P.pos);if(!q||P.held||ordinary&&ordinary.s<.9)return ordinary;
+  function hubTarget(){const P=st.player,ordinary=worldTarget(P,camera),q=stationAt(P.pos);if(!q||P.held||q.id!=='tv'&&ordinary&&ordinary.s<.9)return ordinary;
     return {station:q,label:{wardrobe:'Гардеробная',claw:'Автомат',tv:'Играть'}[q.id],act:()=>{}};}
   st.interact=()=>scope(()=>{
     const P=st.player;if(st.mode!=='roam'||st.pause||st.transition||P.stun>0||P.getT>0||P.heldBy)return;
-    if(P.ride||P.grab||P.bench||P.swing||P.hidden||P.holding){leaveObject(P);return;}
-    const station=hubTarget()?.station;if(!station||P.held){interactObject(P,camera);return;}if(P.dive||P.slideT>0||!P.onGround)return;
+    const near=hubTarget()?.station;if(near?.id==='tv'&&P.bench)leaveObject(P);
+    else if(P.ride||P.grab||P.bench||P.swing||P.hidden||P.holding){leaveObject(P);return;}
+    const station=near;if(!station||P.held){interactObject(P,camera);return;}if(P.dive||P.slideT>0||!P.onGround)return;
     if(station.id==='wardrobe'){st.idx=collectionOrder().indexOf(collection().selected);wardrobeTransition(false);}
     else if(station.id==='tv'){
-      const path=seatPath(P.pos,new V3(0,0,-5.05),P.r,P.h);if(!path)return;
+      const entries=[new V3(0,0,-5.05),new V3(-1.4,0,-5.05),new V3(1.4,0,-5.05)].sort((a,b)=>a.distanceToSquared(P.pos)-b.distanceToSquared(P.pos));let path=null;for(const entry of entries){path=seatPath(P.pos,entry,P.r,P.h);if(path)break;}if(!path){renderPrompt('<b>E</b>Подойди к дивану сбоку',$('hubPrompt'),hubHud);return;}
       const length=pathLength(path),walk=Math.max(.2,length/2.8),sit=.95;
       travel('sofa-in',new V3(0,.58,-3.58),new V3(-.20,1.73,-4.65),new V3(-.20,1.73,-7.61),walk+sit,()=>{mode('tv');$('mode').classList.add('tv-mode');st.onMode?.();},{yaw:Math.PI,sit:1});
       Object.assign(st.transition,{seat:{path,length,walk,sit}});sfx('click');
@@ -175,7 +176,7 @@ export function createMenu(){
     if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}sky.update(camera,st.t,dt);setListener(camera.position.x,camera.position.y,camera.position.z);
     tvUI.update(camera,st.mode==='tv'&&!st.pausedForSettings);const wantedScreen=st.mode==='tv'||st.transition?.name==='sofa-in'?0:1;screenFade+=(wantedScreen-screenFade)*(1-Math.exp(-dt*5));const noise=st.t%7.3>7.04?.82+Math.sin(st.t*83)*.12:1;world.tvScreen.material.color.setScalar(screenFade*noise);
     for(const{light}of world.lampLights)light.removeFromParent();localLighting.update(camera,dt);
-    screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(!P.ride){const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
+    screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){if(!P.held&&stationAt(P.pos)?.id==='tv'&&!P.ride&&!P.grab)text='<b>E</b>Играть';else if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(!P.ride){const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
 
 
   });

@@ -136,6 +136,12 @@ export function addItem(type, x, y, z, ry = 0) {
   it.pos.set(x, y + (def.halfHeight??def.r), z);
   W.items.push(it); return it;
 }
+// Модель опирается на физическое дно предмета; используется только для выкладки.
+export function restOnSurface(it){
+  it.g.updateMatrixWorld(true);const bounds=new THREE.Box3(),inverse=it.g.matrixWorld.clone().invert(),matrix=new THREE.Matrix4();
+  it.g.traverse(o=>{if(!o.isMesh||o.material.side===THREE.BackSide)return;o.geometry.computeBoundingBox();bounds.union(o.geometry.boundingBox.clone().applyMatrix4(matrix.multiplyMatrices(inverse,o.matrixWorld)));});
+  const offset=-(it.def.halfHeight??it.def.r)-bounds.min.y;if(Number.isFinite(offset))for(const child of it.g.children)child.position.y+=offset;return it;
+}
 // разбилось/утонуло — пропало до конца раунда (никакого возрождения на месте)
 function vanish(it) {
   it.g.visible = false; it.state = 'gone'; it.respawnT = 0;

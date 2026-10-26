@@ -6,8 +6,9 @@ export function createTVScreen(screen){
   const stage=document.createElement('div');stage.className='crtStage';root.appendChild(stage);
   for(const id of['mode','roulette'])stage.appendChild(document.getElementById(id));previous?.remove();
   const vhs=document.createElement('div');vhs.className='crtVhs';stage.appendChild(vhs);document.body.appendChild(root);
+  const sweep=document.createElement('div');sweep.className='crtTransition';stage.appendChild(sweep);
   const corners=[new V3(-.5,.5,0),new V3(.5,.5,0),new V3(-.5,-.5,0),new V3(.5,-.5,0)],projected=corners.map(()=>new V3());let last='';
-  return{root,update(camera,on){
+  return{root,transition(kind){root.dataset.phase=kind;root.classList.remove('tuning');void root.offsetWidth;root.classList.add('tuning');},update(camera,on){
     root.classList.toggle('hidden',!on);if(!on)return;
     screen.updateWorldMatrix(true,false);camera.updateMatrixWorld(true);
     projected.forEach((p,i)=>{p.copy(corners[i]).applyMatrix4(screen.matrixWorld).project(camera);p.x=(p.x*.5+.5)*innerWidth;p.y=(.5-p.y*.5)*innerHeight;});

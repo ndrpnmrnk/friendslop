@@ -76,12 +76,12 @@ function animateRide(c, dt, s) {
     /* стоит на доске боком: передняя нога на носу, задняя на хвосте; руки у тела для равновесия.
        Толчок (kick 0..1): задняя нога опускается сбоку на землю и уходит назад. Трюк: присел, ноги поджаты. */
     const tr = s.trick || 0, kick = s.kick, scoot = s.board === 'scooter';
-    c.body.position.y = -0.12 - tr * 0.22 + Math.sin(t * 6) * 0.015 * sp; c.body.rotation.x += (0.1 + sp * 0.1 + tr * 0.25 - c.body.rotation.x) * f;
+    c.body.position.set(0,-0.07+tr*.035+(s.rideAir?0:Math.sin(t*6)*.012*sp),0); c.body.rotation.x += (0.1 + sp * 0.1 + tr * 0.25 - c.body.rotation.x) * f;
     c.body.rotation.z = scoot ? 0 : Math.sin(t * 2.5) * 0.05;
-    setHand(c.footL, scoot ? -0.08 : -0.05, d.footY + tr * 0.22, scoot ? 0.12 : 0.22, f);
-    if (kick != null && !tr) { const ph = Math.max(0, Math.min(1, (kick - 0.15) / 0.5)), dn = Math.sin(ph * Math.PI);
+    setHand(c.footL, scoot ? -0.08 : -0.05, d.footY + tr * 0.035, scoot ? 0.12 : 0.22, f);
+    if (kick != null && !tr && !s.rideAir) { const ph = Math.max(0, Math.min(1, (kick - 0.15) / 0.5)), dn = Math.sin(ph * Math.PI);
       setHand(c.footR, 0.24, d.footY - 0.14 * dn + (1 - dn) * 0.05, 0.15 - ph * 0.55, damp(22, dt)); c.body.position.y -= dn * 0.08; }
-    else setHand(c.footR, scoot ? 0.08 : 0.05, d.footY + tr * 0.22, scoot ? -0.12 : -0.22, f);
+    else setHand(c.footR, scoot ? 0.08 : 0.05, d.footY + tr * 0.035, scoot ? -0.12 : -0.22, f);
     if (scoot) { setHand(c.handL, -0.22, d.handY + 0.35, 0.5, f); setHand(c.handR, 0.22, d.handY + 0.35, 0.5, f); }
     else { const sw = Math.sin(t * 3) * 0.04; setHand(c.handL, -d.handX * 0.95, d.handY + 0.08 + sw + tr * 0.2, 0.12, f); setHand(c.handR, d.handX * 0.95, d.handY + 0.08 - sw + tr * 0.2, -0.08, f); }
   } else {

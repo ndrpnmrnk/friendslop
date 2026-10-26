@@ -66,7 +66,7 @@ export default {
     b.vitrine(28.5, 27.5, 4, 1.9, 'x', 0.3); for (const x of [26.5, 30.5]) b.box(x, 27.6, 0.12, 0.12, 2.4, col(0x3a4a6a));
     b.box(28.5, 28.3, 4.3, 1.6, 0.1, col(0x3a4a6a), { y: 2.4 }); b.bench(28.5, 28.5, 0); b.bin(30.8, 29.6);
     // боковые проходы: велопарковка, мусорка, кондиционеры
-    b.bikeRack(3, 9, 4, Math.PI / 2); b.dumpster(28.5, 4); b.trashBags(28.5, 6.2, 3); b.aircon(28.7, 10, 0); b.aircon(28.7, 11.4, 0);
+    b.bikeRack(3, 9, 4, Math.PI / 2); b.dumpster(28.5, 4); b.trashBags(28.5, 6.2, 3); for(const x of[19,21.5])b.aircon(x,3.2,H);
     b.newsBox(13, 30.6); b.postBox(19, 30.6); b.streetSign(1.3, 30.6, 'ДЕЛОВАЯ', 'ЛУННЫЙ БУЛ.'); b.utilityBox(1.2, 14, Math.PI / 2);
     // стеклянный козырёк над входом на двух опорах
     { const gl = lam({ color: 0x9ac8e8, transparent: true, opacity: 0.45, depthWrite: false }, 'canopyGlass'), dk = col(0x2b2533);

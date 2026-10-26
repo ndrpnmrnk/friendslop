@@ -1,3 +1,4 @@
+import {restOnSurface} from '../../game/items.js';
 import {addCanopy} from '../canopies.js';
 import { addPushable } from '../pushables.js';
 import { THREE, G, tmat, col } from '../../core/gfx.js';
@@ -10,7 +11,7 @@ export default {
     const stall = (x, z, kind, aw) => {
       const wd = tmat(T.wood());
       b.box(x, z, 4.4, 1.2, 1, tmat(T.crate()));
-      b.m(G.box, tmat(T.produce(kind)), x, 1.06, z - 0.15, 4, 0.12, 0.7);
+      b.box(x,z-.15,4,.7,.12,tmat(T.produce(kind)),{y:1});
       for (const [a, c] of [[-2.1, -0.7], [2.1, -0.7], [-2.1, 0.7], [2.1, 0.7]]) { b.m(G.box, col(0x2b2533), x + a, 1.65, z + c - 0.5, 0.08, 3.3, 0.08); b.solid(x + a, z + c - 0.5, 0.16, 0.16, 0, 3.3); }
       addCanopy(b,x,z-.4,{w:4.8,d:2.4,edge:3.25,rise:.48,round:false,colors:aw});
 
@@ -33,7 +34,7 @@ export default {
     for (const x of [13, 14.3]) { b.box(x, 23.4, 1.2, 0.8, 0.5, tmat(T.crate())); b.m(G.box, tmat(T.produce('pumpkin')), x, 0.53, 23.4, 1.1, 0.05, 0.7); }
     b.table(19.6, 23.4, 0.9); b.m(G.box, col(0x6a6d78), 19.6, 0.95, 23.4, 0.5, 0.15, 0.4); b.m(G.cyl8, col(0xd8d8e0), 19.6, 1.06, 23.4, 0.25, 0.04, 0.25);
     b.bin(10, 11); b.bin(22, 24.5);
-    b.item('boombox',19.7,23.4,1.12);b.item('bao',5,20,1.18);b.item('taco',27,20,1.18);
+    b.item('boombox',19.7,23.4,1.12);restOnSurface(b.item('bao',5,18.85,1.125));restOnSurface(b.item('taco',27,18.85,1.125));
     b.lamp(1, 30.5, Math.PI / 2); b.lamp(31, 1.5, -Math.PI / 2); b.lamp(16, 30.5, Math.PI);
     b.zone('floor', 1, 8.5, 31, 16.2); b.zone('floor', 11, 25, 22, 31);
     b.spawn(16, 12); b.spawn(2.5, 30);

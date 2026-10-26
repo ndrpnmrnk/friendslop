@@ -1,3 +1,4 @@
+import {addOutline} from '../game/outline.js';
 import {CONFIG} from '../config.js';
 import {cameraModel,tripodModel} from './camera-model.js';
 import { buildEntranceBell,doorbellGame } from './doorbell.js';
@@ -185,42 +186,44 @@ export const WORLD5 = {
   moths(o, api, ctx) {
     api.feedback?.();
     const P=ctx.player,L=o.spot.lamp,lc=new V3(L.lx,L.y,L.lz),jarP=new V3(o.spot.x,o.spot.y,o.spot.z);
-    let time=70,caught=0,flee=0,elapsed=0,swing=0,cooldown=0,hitSwing=false,deposit=-1;
+    const NEED=5;let time=95,caught=0,flee=0,elapsed=0,swing=0,cooldown=0,hitSwing=false,deposit=-1;
     const jar=new THREE.Group();jar.name='mission-moth-jar';jar.position.copy(jarP);W.group.add(jar);
     jar.add(compose('mothJar26',a=>{a(G.cyl8,col(0x6a5536),0,0.02,0,0.2,0.04,0.2);a(G.cyl8,lam({color:0xbfe8ff,transparent:true,opacity:0.3,depthWrite:false},'mothGlass26'),0,0.25,0,0.19,0.46,0.19);a(G.cyl8,col(0xd8a030),0,0.51,0,0.2,0.05,0.2);}));
     const wingTex=pix('missionMoth26',32,32,g=>{g.clearRect(0,0,32,32);g.fillStyle='#ac9470';g.beginPath();g.moveTo(2,15);g.lineTo(8,2);g.lineTo(27,1);g.lineTo(30,15);g.lineTo(24,30);g.lineTo(6,25);g.closePath();g.fill();g.fillStyle='#69543e';for(let y=3;y<28;y+=5)for(let x=5;x<29;x+=5)g.fillRect(x+(y%3),y,3,2);g.fillStyle='#e8d8a0';g.fillRect(17,7,8,7);g.fillRect(13,22,7,4);g.fillStyle='#423640';g.fillRect(19,9,4,4);g.fillStyle='#b97c50';g.fillRect(8,15,19,3);});
     const wing=lam({map:wingTex,side:THREE.DoubleSide,alphaTest:0.3},'missionMoth26');
-    const moths=Array.from({length:5},(_,i)=>{const g=new THREE.Group();g.name='mission-moth';W.group.add(g);const wings=[-1,1].map(side=>{const pivot=new THREE.Group();pivot.position.x=side*0.025;g.add(pivot);const w=mesh(G.plane,wing,side*0.105,0,0,0.23,0.22,1,pivot);w.rotation.x=-Math.PI/2;return pivot;});
+    const edgeTexture=pix('mothEdge49',32,32,g=>{g.fillStyle='#fff';g.beginPath();for(const[x,y]of[[2,15],[8,2],[27,1],[30,15],[24,30],[6,25]])g.lineTo(x,y);g.closePath();g.fill();});
+    const edgeMaterial=new THREE.MeshBasicMaterial({map:edgeTexture,color:0xffe6a0,side:THREE.DoubleSide,alphaTest:.3,depthWrite:false,fog:false,polygonOffset:true,polygonOffsetFactor:1});W.mapResources.add(edgeMaterial);
+    const moths=Array.from({length:5},(_,i)=>{const g=new THREE.Group();g.name='mission-moth';W.group.add(g);const edges=[];const wings=[-1,1].map(side=>{const pivot=new THREE.Group();pivot.position.x=side*0.025;g.add(pivot);const w=mesh(G.plane,wing,side*0.105,0,0,0.23,0.22,1,pivot);w.rotation.x=-Math.PI/2;const edge=mesh(G.plane,edgeMaterial,side*.105,-.002,0,.27,.26,1,pivot);edge.rotation.x=-Math.PI/2;edge.userData.noOutline=true;edges.push(edge);return pivot;});
       g.add(compose('mothBody26',a=>{a(G.box,col(0x594535),0,0,0,0.045,0.045,0.14);for(const side of [-1,1])a(G.box,col(0xc8b488),side*0.027,0.02,0.095,0.009,0.015,0.075,0,side*0.45);}));
-      return{g,wings,a:i*1.3,h:1.5+(i%3)*0.23,r:0.65+(i%2)*0.45,sp:2.3+i*0.28,got:false,turn:0,jitter:new V3(),want:new V3()};});
+      const outline=addOutline(g,.028,0xffe6a0);outline.set(true);return{g,wings,outline,edges,a:i*1.3,h:1.25+(i%3)*0.19,r:0.85+(i%2)*0.4,sp:3.2+i*0.38,got:false,turn:0,jitter:new V3(),want:new V3()};});
     const net=new THREE.Group();net.name='mission-moth-net';W.group.add(net);net.add(compose('mothNet29',a=>{a(G.cyl6,tmat(T.wood()),0,.14,.24,.025,.56,.025,1.06);a(G.cyl8,col(0x6a4531),0,-.04,-.07,.035,.20,.035,1.06);a(new THREE.TorusGeometry(.35,.018,4,12),col(0xc8c0a8),0,.62,.50);a(new THREE.ConeGeometry(1,1,8,1,true),lam({map:T.chainlink(),alphaTest:.35,side:THREE.DoubleSide},'mothNetting29'),0,.62,.20,.34,.60,.34,-Math.PI/2);}));P.carryNet=true;P.missionTool=true;
     const center=new V3(),previous=new V3(),mothPos=new V3(),segment=new THREE.Line3();
     const head=()=>{net.updateWorldMatrix(true,false);return net.localToWorld(center.set(0,.62,.50));};
     const pose=()=>{const k=swing>0?1-swing/0.36:0;followHand(P,net,-0.35+Math.sin(k*Math.PI)*0.9);net.rotation.y+=swing>0?Math.sin(k*Math.PI*2)*0.4:0;};pose();previous.copy(head());
     const catchOne=()=>{const end=head();segment.set(previous,end);for(const m of moths){if(m.got)continue;segment.closestPointToPoint(m.g.position,true,mothPos);if(mothPos.distanceTo(m.g.position)>0.5||!los(handPosition(P),m.g.position))continue;
-        const at=m.g.position.clone();m.got=true;net.add(m.g);m.g.position.set((caught%2?1:-1)*0.07,.57+caught*.04,.22);m.g.scale.setScalar(0.25);caught++;sfx('pickup',{at});burst(at.x,at.y,at.z,5,{color:0xd8c8b0,size:0.06,speed:1});api.progress(caught/3*0.9);api.msg(caught>=3?'Три пойманы! E у банки':`Поймано ${caught} из 3`,'good');return true;}return false;};
-    api.msg('ЛКМ - взмах сачком. Поймай трёх мотыльков, затем E у банки');
+        const at=m.g.position.clone();m.got=true;m.outline.set(false);m.edges.forEach(e=>e.visible=false);net.add(m.g);m.g.position.set((caught%2?1:-1)*0.07,.57+caught*.04,.22);m.g.scale.setScalar(0.25);caught++;sfx('pickup',{at});burst(at.x,at.y,at.z,5,{color:0xd8c8b0,size:0.06,speed:1});api.progress(caught/NEED*0.9);api.msg(caught>=NEED?'Пять пойманы! E у банки':`Поймано ${caught} из ${NEED}`,'good');return true;}return false;};
+    api.msg('ЛКМ - взмах сачком. Поймай пять мотыльков, затем E у банки');
     return {
       toolName:'Сачок',toolIcon:'moths',toolAction:'Взмах',
       get equipped(){return !P.held&&!P.holding&&!P.grab&&!P.heldBy;},
-      botTarget:()=>caught>=3?jarP:new V3(lc.x+0.65,lc.y,lc.z+0.65),botSpeed:0.45,
-      botStep(dt,brain){const m=moths.filter(m=>!m.got).sort((a,b)=>a.g.position.distanceTo(P.pos)-b.g.position.distanceTo(P.pos))[0];if(m)P.aimAt=m.g.position;if(caught<3&&brain.ready(0.55))this.down();},
-      target:()=>caught>=3?jarP:lc,
-      prompt:()=>caught>=3&&flat(P.pos,jarP)<1.6&&deposit<0?'<b>E</b>Пересадить в банку':'',
-      down(){if(!this.equipped||caught>=3||cooldown>0||deposit>=0||P.heldBy||P.stun>0||P.daze>0)return;cooldown=0.5;swing=0.36;hitSwing=false;previous.copy(head());sfx('swat',{at:P.pos});},
-      interact(){if(caught<3||flat(P.pos,jarP)>1.6||deposit>=0)return false;deposit=0.7;let i=0;for(const m of moths)if(m.got){jar.add(m.g);m.g.position.set((i%2?1:-1)*0.055,0.18+(i++)*0.065,0);m.g.rotation.set(0,i*1.7,0);}api.progress(1);api.msg('Все три в банке!','good');sfx('done');return true;},
+      botTarget:()=>{if(caught>=NEED)return jarP;const m=moths.filter(m=>!m.got).sort((a,b)=>a.g.position.distanceTo(P.pos)-b.g.position.distanceTo(P.pos))[0];return m?new V3(m.g.position.x,lc.y,m.g.position.z):jarP;},botSpeed:.65,
+      botStep(dt,brain){const m=moths.filter(m=>!m.got).sort((a,b)=>a.g.position.distanceTo(P.pos)-b.g.position.distanceTo(P.pos))[0];if(m)P.aimAt=m.g.position;if(caught<NEED&&brain.ready(0.55))this.down();},
+      target:()=>caught>=NEED?jarP:lc,
+      prompt:()=>caught>=NEED&&flat(P.pos,jarP)<1.6&&deposit<0?'<b>E</b>Пересадить в банку':'',
+      down(){if(!this.equipped||caught>=NEED||cooldown>0||deposit>=0||P.heldBy||P.stun>0||P.daze>0)return;cooldown=0.5;swing=0.36;hitSwing=false;previous.copy(head());sfx('swat',{at:P.pos});},
+      interact(){if(caught<NEED||flat(P.pos,jarP)>1.6||deposit>=0)return false;deposit=0.7;let i=0;for(const m of moths)if(m.got){jar.add(m.g);m.g.position.set((i%2?1:-1)*0.055,0.18+(i++)*0.065,0);m.g.rotation.set(0,i*1.7,0);}api.progress(1);api.msg('Все пять в банке!','good');sfx('done');return true;},
       update(dt){
         time-=dt;elapsed+=dt;api.timer(time);if(time<=0)return api.finish({success:false});
         cooldown=Math.max(0,cooldown-dt);if(!this.equipped)swing=0;else if(swing>0)swing=Math.max(0,swing-dt);net.visible=this.equipped;P.missionTool=this.equipped;P.carryNet=this.equipped;pose();
         const running=Math.hypot(P.vel.x,P.vel.z)>5.2&&flat(P.pos,lc)<4;if(running&&flee<=0){flee=1.5;api.msg('Спугнул! Подходи шагом','bad');}flee=Math.max(0,flee-dt);
-        for(const m of moths){m.wings.forEach((w,i)=>w.rotation.z=(i?-1:1)*(0.25+Math.sin(elapsed*38+m.a)*0.8));if(m.got)continue;
-          m.turn-=dt;if(m.turn<=0){m.turn=0.2+Math.random()*0.4;m.want.set((Math.random()-0.5)*0.8,(Math.random()-0.5)*0.5,(Math.random()-0.5)*0.8);}m.jitter.lerp(m.want,Math.min(1,dt*13));m.a+=dt*m.sp*(flee>0?1.6:1);
-          const radius=m.r+(flee>0?1.2:0);m.g.position.set(lc.x+Math.cos(m.a)*radius+m.jitter.x,lc.y+m.h+(flee>0?0.6:0)+m.jitter.y,lc.z+Math.sin(m.a*1.2)*radius+m.jitter.z);m.g.rotation.y=-m.a+Math.sin(elapsed*8+m.a)*0.3;
+        for(const m of moths){m.wings.forEach((w,i)=>w.rotation.z=(i?-1:1)*(0.25+Math.sin(elapsed*48+m.a)*0.9));if(m.got)continue;
+          m.turn-=dt;if(m.turn<=0){m.turn=0.12+Math.random()*0.26;m.want.set((Math.random()-0.5)*1.2,(Math.random()-0.5)*0.7,(Math.random()-0.5)*1.2);}m.jitter.lerp(m.want,Math.min(1,dt*13));m.a+=dt*m.sp*(flee>0?1.6:1);
+          const radius=m.r+(flee>0?1.2:0);m.g.position.set(lc.x+Math.cos(m.a)*radius+m.jitter.x,lc.y+m.h+(flee>0?.42:0)+m.jitter.y+Math.sin(elapsed*3.8+m.a)*.12,lc.z+Math.sin(m.a*1.14)*radius+m.jitter.z);m.g.rotation.y=-m.a+Math.sin(elapsed*8+m.a)*0.3;
         }
         if(swing>0&&swing<0.27&&!hitSwing)hitSwing=catchOne();previous.copy(head());
         if(deposit>=0){deposit-=dt;if(deposit<=0)api.finish({success:true,mult:1});}
       },
-      stop(){P.carryNet=false;P.missionTool=false;for(const m of moths)m.g.removeFromParent();W.group.remove(jar,net);},
+      stop(){P.carryNet=false;P.missionTool=false;for(const m of moths)m.g.removeFromParent();W.group.remove(jar,net);W.mapResources.delete(edgeMaterial);edgeMaterial.dispose();},
     };
   },
   // Общие ящики: соперник может унести даже поставленную ступень.

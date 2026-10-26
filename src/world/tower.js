@@ -108,7 +108,7 @@ export const TowerMethods = {
         }
         // тёплое пятно света на земле под окном первого этажа
         if (litW && h.f === 0 && o.windowPools !== false) this.light(cx + nrm[0] * 1.1, cz + nrm[1] * 1.1, 1.1, 0, true);
-        // снаружи: кондиционер под окном, на южной стороне — редкий балкон (на него можно выпрыгнуть)
+        // снаружи: редкий балкон; оборудование перенесено на крышу (на него можно выпрыгнуть)
         if (h.f >= 1 && o.facadeProps !== false) {
           const r = Math.random();
           if (k === 's' && r < 0.14 && !(o.ladder && o.ladder.side === 's')) {
@@ -117,10 +117,6 @@ export const TowerMethods = {
             for (const [ux, uz, uw, ud] of ax ? [[0, 0.95, WW + 0.5, 0.05], [-(WW + 0.5) / 2, 0.55, 0.05, 0.85], [(WW + 0.5) / 2, 0.55, 0.05, 0.85]] : [[0.95, 0, 0.05, WW + 0.5], [0.55, -(WW + 0.5) / 2, 0.85, 0.05], [0.55, (WW + 0.5) / 2, 0.85, 0.05]]) {
               const px = cx + (ax ? ux : ux * nrm[0]), pz = cz + (ax ? uz * nrm[1] : uz);
               this.m(G.box, bm, px, by + 0.95, pz, uw, 0.05, ud); this.m(G.box, bm, px, by + 0.5, pz, uw > 0.2 ? uw : 0.04, 0.9, ud > 0.2 ? ud : 0.04); this.solid(px, pz, Math.max(uw, 0.1), Math.max(ud, 0.1), by, 1.0); }
-          } else if (r < 0.32) {
-            const mt = tmat(T.metal()), fr = tmat(T.vent());
-            const ac = this.m(G.box, [mt, mt, mt, mt, fr, mt], cx + nrm[0] * 0.3, h.y0 - 0.45, cz + nrm[1] * 0.3, 0.7, 0.45, 0.32); ac.rotation.y = { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[k];
-            this.solid(cx + nrm[0] * 0.3, cz + nrm[1] * 0.3, ax ? 0.7 : 0.32, ax ? 0.32 : 0.7, h.y0 - 0.68, 0.45);
           }
         }
       }
@@ -173,7 +169,7 @@ export const TowerMethods = {
     if (o.facadeProps !== false && n >= 1) for (const px of [x + 0.12, x + w - 0.12]) { this.m(G.cyl6, col(0x5a5d68), px, H / 2, z + d + 0.1, 0.06, H, 0.06); this.m(G.box, col(0x5a5d68), px, 0.08, z + d + 0.25, 0.14, 0.06, 0.3); }
     // крыша: вентиляционная будка и антенна (подальше от лестничной будки и мостков)
     if (o.roof !== false && o.facadeProps !== false && n >= 1) {
-      const mt = tmat(T.metal()); this.box(x + w - 1.3, z + d - 1.3, 0.9, 0.9, 0.7, [mt, mt, mt, mt, tmat(T.vent()), mt], { y: H });
+      this.aircon(x + w - 1.5, z + d - 1.4, H);
       this.m(G.cyl5, col(0x2b2533), x + 1.0, H + 1.2, z + d - 1.0, 0.03, 2.4, 0.03); for (const yy of [1.6, 2.1]) this.m(G.box, col(0x2b2533), x + 1.0, H + yy, z + d - 1.0, 0.7, 0.03, 0.03);
       if (Math.random() < 0.5) { const dsh = this.m(G.sph, col(0xd8d8e0), x + 1.0, H + 0.5, z + d - 1.6, 0.35, 0.35, 0.12); dsh.rotation.x = 0.5; }
     }

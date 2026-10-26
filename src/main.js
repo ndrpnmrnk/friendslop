@@ -139,7 +139,7 @@ menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen
 $('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
   if(menu.claw.active)return;
-  S.state = 'mode'; menu.active = true; screen('mode'); drawCard($('modeArt'), 'mode'); $('modeCard').classList.remove('pressed'); $('modeCard').focus(); sfx('click');
+  S.state = 'mode'; menu.active = true; screen('mode'); drawCard($('modeArt'), 'mode'); $('modeCard').classList.remove('pressed');menu.tvTransition('mode'); $('modeCard').focus(); sfx('click');
 }
 for (const b of document.querySelectorAll('button')) { b.addEventListener('mouseenter', () => sfx('hover')); b.addEventListener('click', () => initAudio()); }
 addEventListener('pointerdown', () => { initAudio(); ambience(true); }, { once: true });
@@ -147,7 +147,7 @@ $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 $('playBtn').onclick = showHub;
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
-$('modeCard').onclick = () => { S.state='starting';requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(startRoulette, 220); };
+$('modeCard').onclick = () => { S.state='starting';requestLock(); $('modeCard').classList.add('pressed');menu.tvTransition('depart');sfx('pickup');setTimeout(startRoulette,480); };
 $('tutBtn').onclick = () => { S.state='starting';requestLock(); sfx('click'); startTutorial(); };
 $('modeBack').onclick = () => { sfx('click'); menu.closeTV(); };
 /* настройки: микрофон */
@@ -181,7 +181,7 @@ $('mgexit').onclick = cancelMission;
 /* Рулетка тематики: лента карточек крутится с замедлением, щёлкает на каждой, всегда останавливается на «ГОРОДЕ» */
 function startRoulette() {
   const musicReady=roundMusic.preload();
-  S.state = 'roulette';menu.prepareTV(); menu.active = false; screen('roulette'); $('roulette').classList.remove('done');
+  S.state = 'roulette';menu.prepareTV(); menu.active = false; screen('roulette'); $('roulette').classList.remove('done');menu.tvTransition('roulette');
   const strip = $('rstrip'); strip.innerHTML = '';
   const N=28+(Math.random()*9|0),WIN=N-5,CW=134,half=60,dur=3.6+Math.random()*.7;
   const sequence=Array.from({length:N},(_,i)=>i===WIN||Math.random()<.24);sequence[WIN]=true;S.roulette={sequence,win:WIN,duration:dur};
@@ -702,7 +702,7 @@ function frame() {
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
   else if (S.state === 'starting' || S.state === 'hub' || S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {
-    menu.update(dt); present(menu.scene, menu.camera,menu.active&&menu.hover&&!menu.choosing&&!menu.drag?menu.ch.root:null);
+    menu.update(dt);const presentation=menu.claw.presentation;present(presentation?.scene||menu.scene,presentation?.camera||menu.camera,presentation?null:menu.active&&menu.hover&&!menu.choosing&&!menu.drag?menu.ch.root:null);
     if (S.state === 'settings') drawMicMeter();
     // логотип: буквы по очереди подпрыгивают раз в несколько секунд
     logoT -= dt; if (logoT <= 0 && S.state === 'menu') { logoT = 4; [...$('logo').children].forEach((sp, i) => setTimeout(() => { sp.classList.remove('hop'); void sp.offsetWidth; sp.classList.add('hop'); }, i * 70)); }

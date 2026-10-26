@@ -4,7 +4,7 @@ import { rand, range, pick } from '../core/rng.js';
 import { HW, SEASON } from '../config.js';
 import { W } from './state.js';
 import { addSolid, addZone } from './physics.js';
-import { addItem } from '../game/items.js';
+import { addItem,restOnSurface } from '../game/items.js';
 import { addBirds } from './birds.js';
 import { addOutline } from '../game/outline.js';
 import { addPushable } from './pushables.js';
@@ -187,10 +187,12 @@ export class Builder {
   }
   // Сохраняем прежние размеры/коллизии, добавляя назначение каждому «блоку».
   aircon(x, z, y=0) {
-    y=Math.max(1.9,y);
+    // Напольный/крышный агрегат стоит на собственной раме, без скрытого подъёма.
+    y=Math.max(0,y);
     const mt = tmat(T.metal()), front = tmat(T.vent());
-    this.box(x, z, 1.2, 0.8, 0.8, [mt, mt, mt, mt, front, mt], { y });
-    for (const xx of [-0.42, 0.42]) this.m(G.box, col(0x35303e), x + xx, y + 0.04, z, 0.1, 0.08, 0.95);
+    this.box(x, z, 1.2, 0.8, 0.8, [mt, mt, mt, mt, front, mt], { y:y+.14 });
+    (W.dressings??=[]).push({kind:'aircon',x:this.X(x),z:this.Z(z),y:this.Y+y});
+    for (const xx of [-0.42, 0.42]) this.m(G.box, col(0x35303e), x + xx, y + 0.07, z, 0.1, 0.14, 0.95);
   }
   cabinet(x, z, w, d, h, c = 0x6a6d78, y = 0, ry = 0) {
     const mt = col(c); return this.box(x, z, w, d, h, [mt, mt, mt, mt, tmat(T.cabinet(c)), mt], { y, ry });
@@ -340,12 +342,14 @@ export class Builder {
     this.solid(x, z, 0.5, 0.5, 0, 0.5);
   }
   shelf(x,z,w,ry=0,stock=false){
-    const g=this.prop(x,z,ry),wood=tmat(T.wood());
-    for(const xx of[-w/2,w/2])mesh(G.box,wood,xx,.95,0,.065,1.9,.5,g);
-    mesh(G.box,col(0x4a3a2e),0,.95,-.235,w,1.9,.035,g);
-    for(const y of[.08,.65,1.25,1.91])mesh(G.box,wood,0,y,0,w+.08,.06,.56,g);
-    g.updateMatrixWorld(true);if(stock)for(const y of[.12,.69,1.29])for(let i=0;i<Math.max(2,Math.floor(w/.65));i++){const q=g.localToWorld(new THREE.Vector3(-w/2+.35+i*.61,y,.06)),type=['can','mug','books','duck'][(i+Math.round(y*10))%4];addItem(type,q.x,q.y,q.z,ry);}
-    const q=Math.abs(Math.sin(ry))>.5;this.solid(x,z,q?.5:w,q?w:.5,0,1.9);
+    const g=this.prop(x,z,ry),wood=tmat(T.wood()),solid=(x0,z0,sw,sd,y,h)=>{const c=Math.cos(ry),n=Math.sin(ry);this.solid(x+x0*c+z0*n,z-x0*n+z0*c,Math.abs(c)*sw+Math.abs(n)*sd,Math.abs(n)*sw+Math.abs(c)*sd,y,h);};
+    for(const xx of[-w/2,w/2]){mesh(G.box,wood,xx,.95,0,.065,1.9,.5,g);solid(xx,0,.065,.5,0,1.9);}
+    mesh(G.box,col(0x4a3a2e),0,.95,-.255,w,1.9,.035,g);solid(0,-.255,w,.035,0,1.9);
+    const levels=[.08,.65,1.25,1.91];for(const y of levels){mesh(G.box,wood,0,y,0,w+.08,.06,.56,g);solid(0,0,w+.08,.56,y-.03,.06);}
+    g.updateMatrixWorld(true);const put=(type,lx,level=1)=>{const q=g.localToWorld(new V3(THREE.MathUtils.clamp(lx,-w/2+.24,w/2-.24),levels[level]+.035,.025)),it=addItem(type,q.x,q.y,q.z,ry);restOnSurface(it);
+      it.shelfHome={x:q.x,y:q.y,z:q.z};(W.dressings??=[]).push({kind:'shelf-item',item:it,surface:q.y});return it;};
+    if(stock)for(let level=0;level<3;level++)for(let i=0,n=Math.max(2,Math.floor(w/.65));i<n;i++)put(['can','mug','books','duck'][(i+level)%4],-w/2+.35+i*.61,level);
+    return{g,put,levels};
   }
 
   /* ---------- лестница ---------- */

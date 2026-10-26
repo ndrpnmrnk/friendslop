@@ -30,7 +30,7 @@ export function buildHub(scene){
   for(const [x,z,w,d,h,c]of[[-16,-2,5,29,8,0x514858],[16,-2,5,29,7,0x454b59],[0,-17,27,5,6,0x514959]]){
    b.box(x,z,w,d,h,tmat(facade(c,w,h,{lit:.3})));b.box(x,z,w+.25,d+.25,.20,tmat(T.roof()),{y:h});
   }
-  for(const x of[-12,12]){b.m(G.cyl8,metal,x,3,-14.3,.055,5.9,.055);b.box(x,-14.36,.8,.12,.5,tmat(T.metal()),{y:.22});}for(const x of[-8,0,8]){b.box(x,-14.4,1.3,.12,2.5,tmat(T.wood()));b.box(x,-14.2,1.6,.5,.1,metal,{y:2.7});}b.aircon(7.2,-14.1,3.3);
+  for(const x of[-12,12]){b.m(G.cyl8,metal,x,3,-14.3,.055,5.9,.055);b.box(x,-14.36,.8,.12,.5,tmat(T.metal()),{y:.22});}for(const x of[-8,0,8]){b.box(x,-14.4,1.3,.12,2.5,tmat(T.wood()));b.box(x,-14.2,1.6,.5,.1,metal,{y:2.7});}b.aircon(7.2,-15.8,6.2);
   for(const x of[-13.4,13.4])b.fence(x,12,x,18,3.6,'iron');b.fence(-13.4,18,13.4,18,3.6,'iron');
   for(const[x0,z0,x1,z1]of[[-13.7,12,-13.2,18.2],[13.2,12,13.7,18.2],[-13.7,17.8,13.7,18.2]])addSolid(x0,z0,x1,z1,0,14,'hub-boundary');
   b.box(0,18,.16,.16,3.6,metal);b.box(0,18,4.8,.12,.14,metal,{y:3.5});
@@ -52,7 +52,7 @@ export function buildHub(scene){
   for(const[type,x,z]of[['duck',-10,6],['slipper',10,-10],['water',9,7],['banana',-11,11],['ball',6.1,5.7]])b.item(type,x,z);
   for(const[x,z]of[[-6.8,-.7],[-7.1,-5.5],[7,-6.1],[10.6,1.4],[-8,10.7],[2.7,-8.6],[10.8,10.7]])b.item('pumpkin',x,z);
   b.stringLights(-12.5,-13,12.5,-13,4.6,[0xc18c56,0x827392,0x9d956a]);
-  b.bollard(-2.7,16.3);b.bollard(2.7,16.3);b.bikeRack(11.4,12,2,Math.PI/2);b.at(1.25).utilityBox(-13.15,-10.5,Math.PI/2);b.aircon(-13.2,1,3);b.puddle(11,-9,.55);
+  b.bollard(-2.7,16.3);b.bollard(2.7,16.3);b.bikeRack(11.4,12,2,Math.PI/2);b.at(1.25).utilityBox(-13.15,-10.5,Math.PI/2);b.aircon(-16,1,8.2);b.puddle(11,-9,.55);
   b.sofa(0,-3.5,Math.PI,0x514752);
   group.add(compose('hub40-tv-hoop',a=>{
     a(G.box,wood,0,.29,-8.45,3.7,.58,1.55);a(G.box,dark,0,.57,-8.45,3.9,.08,1.65);
@@ -99,7 +99,7 @@ export function buildHub(scene){
   let curtainOpen=0;
   const result={state,group,tvScreen,controller,curtains,lampLights,entrySolid,
    wardrobe:{root:room,at,preview:at(0,.08,-1.1),gate:at(0,0,4),exit:at(0,0,4.7),camera:at(0,1.03,3.0),look:at(0,1.03,-1.1),inYaw:-Math.PI/2,outYaw:Math.PI/2},
-   stations:[{id:'wardrobe',name:'Гардеробная',hint:'Сменить персонажа',p:at(0,0,4.2),r:1.8},{id:'tv',name:'Диван и телевизор',hint:'Сесть и выбрать режим',p:new V3(0,0,-5.1),r:4.2,contains:p=>Math.abs(p.x)<3.5&&p.z>-7.4&&p.z<-.9},{id:'claw',name:'Автомат с друзьями',hint:'Выловить нового друга',p:new V3(6.65,0,-3),r:1.9}],
+   stations:[{id:'wardrobe',name:'Гардеробная',hint:'Сменить персонажа',p:at(0,0,4.2),r:1.8},{id:'tv',name:'Диван и телевизор',hint:'Сесть и выбрать режим',p:new V3(0,0,-5.1),r:4.2,contains:p=>Math.abs(p.x)<4.5&&p.z>-7.3&&p.z<.6},{id:'claw',name:'Автомат с друзьями',hint:'Выловить нового друга',p:new V3(6.65,0,-3),r:1.9}],
    curtain(open){curtainOpen=THREE.MathUtils.clamp(open,0,1);entrySolid.on=curtainOpen<.92;curtains.forEach((p,i)=>{p.position.set((i?1:-1)*(.88+curtainOpen*.71),1.33,2.97);p.scale.x=1-.86*curtainOpen;});},
    get curtainOpen(){return curtainOpen;}
   };result.curtain(0);return result;

@@ -1,4 +1,4 @@
-import { V3 } from '../core/gfx.js';
+import { THREE,V3 } from '../core/gfx.js';
 import { CONFIG } from '../config.js';
 import { keys, tapped } from '../core/input.js';
 import { clamp, damp } from '../core/rng.js';
@@ -30,9 +30,14 @@ export function createPlayer(skin, ch = makeCharacter(skin)) {
 }
 
 // Пятно-тень лежит на земле под персонажем и не подпрыгивает вместе с ним: чем выше, тем меньше и бледнее
+const shadowPoint=new V3(),shadowRotation=new THREE.Quaternion(),flatShadow=new THREE.Quaternion().setFromAxisAngle(new V3(1,0,0),-Math.PI/2);
 export function groundBlob(p) {
-  const g = p.onGround ? p.pos.y : groundAt(p.pos.x, p.pos.z, 0.1, p.pos.y + 0.05), h = Math.max(0, p.pos.y - g), k = Math.max(0, 1 - h / 6);
-  const b = p.ch.blob; b.position.y = g - p.pos.y + 0.03; b.scale.setScalar(p.ch.blobS * (0.55 + 0.45 * k)); b.material.opacity = 0.32 * k; b.visible = k > 0.02;
+  const support=p.ride?.solid,wasOn=support?.on;let g;
+  try{if(support)support.on=false;g=groundAt(p.pos.x,p.pos.z,.1,p.pos.y+.05);}finally{if(support)support.on=wasOn;}
+  const h=Math.max(0,p.pos.y-g),k=Math.max(0,1-h/6),b=p.ch.blob;
+  p.root.updateWorldMatrix(true,false);shadowPoint.set(p.pos.x,g+.03,p.pos.z);b.position.copy(p.root.worldToLocal(shadowPoint));
+  p.root.getWorldQuaternion(shadowRotation);b.quaternion.copy(shadowRotation.invert()).multiply(flatShadow);
+  b.scale.setScalar(p.ch.blobS*(.55+.45*k));b.material.opacity=.32*k;b.visible=k>.02;
 }
 export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.drone || p.returning) return;
@@ -99,7 +104,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     updateRide(p, dt, t, ix, iz, ctrl);
     if (p.ride) {
       p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt);
-      p.ch.animate(dt, { t, speed: 0, ride: pose, rideSpeed: p.speed, hold: false, kick: p.rideKick, trick: p.trickK || 0, cyclePhase:p.cyclePhase, board: p.ride.kind });
+      p.ch.animate(dt, { t, speed: 0, ride: pose, rideSpeed: p.speed, hold: false, kick: p.rideKick, trick: p.trickK || 0, cyclePhase:p.cyclePhase, board: p.ride.kind,rideAir:!!p.ride.air });
       groundBlob(p);
       return;
     }

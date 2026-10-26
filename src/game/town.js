@@ -1,3 +1,4 @@
+import {animalGoal,animalMove} from './animal-roam.js';
 import { tickNPCHit } from './impacts.js';
 import { THREE, G, V3, col, lam, tmat, glow, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -263,19 +264,18 @@ function updDog(f, dt, t) {
     if (Math.hypot(wh.x - p.x, wh.z - p.z) < 1.4) { if (f.it) { const it = f.it; f.it = null; it.state = 'rest'; it.landT = 0; it.pos.set(p.x, p.y + it.def.r, p.z); } wh.t = 0; sfx('bark', { at: p }); } }
   if (f.chase) { if (f.chase.state !== 'rest') f.chase = null; else { goal = f.chase.pos; sp = 7.5; if (Math.hypot(goal.x - p.x, goal.z - p.z) < 0.6) { f.it = f.chase; f.chase = null; f.it.state = 'held'; f.runT = 5; const a = Math.random() * 6.28; f.wp.set(p.x + Math.cos(a) * 9, p.y, p.z + Math.sin(a) * 9); } } }
   else if (f.it) { goal = f.wp; sp = 6.5; f.runT -= dt; if (f.runT <= 0 || Math.hypot(goal.x - p.x, goal.z - p.z) < 0.8) { const it = f.it; f.it = null; it.state = 'rest'; it.landT = 0; it.pos.set(p.x, p.y + it.def.r, p.z); sfx('bark', { at: p, v: 0.6 }); } }
-  else { f.wt -= dt; if (f.wt <= 0) { f.wt = 2 + Math.random() * 4; const wx=h.x0-4+Math.random()*(h.x1-h.x0+8),wz=h.z0-4+Math.random()*(h.z1-h.z0+8);if(Math.abs(groundAt(wx,wz,.2,h.y+.3)-h.y)<.4)f.wp.set(wx,h.y,wz); } }
+  else { f.wt -= dt; if (f.wt <= 0) { f.wt = 2 + Math.random() * 4; const q=animalGoal(f,30);f.wp.set(q.x,q.y,q.z);f.wt=15+Math.random()*8;f.idleAct=['sniff','sit','look'][Math.random()*3|0]; } }
   const dx = goal.x - p.x, dz = goal.z - p.z, d = Math.hypot(dx, dz), stop = f.cat?1.1:f.beg?1.2:.4;
-  if (d > stop) { f.vel.x += (dx / d * sp - f.vel.x) * Math.min(1, dt * 6); f.vel.z += (dz / d * sp - f.vel.z) * Math.min(1, dt * 6); } else f.vel.multiplyScalar(0.8);
-  const beforeX=p.x,beforeZ=p.z;p.x += f.vel.x * dt; p.z += f.vel.z * dt; pushOut(p, 0.3, p.y + 0.25, p.y + 0.8); p.y = groundAt(p.x, p.z, 0.2, p.y + 0.4);
-  if(d>1&&Math.hypot(p.x-beforeX,p.z-beforeZ)<sp*dt*.15){f.blocked=(f.blocked||0)+dt;if(f.blocked>.8){f.wt=0;f.cat=null;f.chase=null;f.wp.set(p.x-dz/(d||1)*3,p.y,p.z+dx/(d||1)*3);f.blocked=0;}}else f.blocked=0;
+  const step=animalMove(f,goal,sp,dt,stop);if(step.blocked){f.wt=0;f.cat=null;f.chase=null;}
+
   // твёрдая: персонажи не проходят сквозь неё — расталкиваемся
   for (const a of actors()) { if (a.hidden) continue; const ax = a.pos.x - p.x, az = a.pos.z - p.z, ad = Math.hypot(ax, az), R = 0.42 + (a.r || 0.35); if (ad < R && ad > 0.01 && Math.abs(a.pos.y - p.y) < 0.8) { const k = (R - ad) / ad; a.pos.x += ax * k * 0.7; a.pos.z += az * k * 0.7; p.x -= ax * k * 0.3; p.z -= az * k * 0.3; } }
   // сидит и просит: задние лапы подогнуты, голова вверх, хвост ходуном
-  const sit = f.beg && d <= 1.3; f.body.rotation.x += ((sit ? -0.45 : 0) - f.body.rotation.x) * Math.min(1, dt * 8); f.body.position.y += ((sit ? -0.08 : 0) - f.body.position.y) * Math.min(1, dt * 8);
-  f.head.rotation.x += ((sit ? 0.35 : 0) - f.head.rotation.x) * Math.min(1, dt * 8); if (sit) { f.g.rotation.y = Math.atan2(dx, dz); if (Math.random() < dt * 0.6) sfx('bark', { at: p, v: 0.5 }); }
+  const relaxed=!f.beg&&!f.cat&&!f.chase&&!f.it&&d<=.55,sit=f.beg&&d<=1.3||relaxed&&f.idleAct==='sit'; f.body.rotation.x += ((sit ? -0.45 : 0) - f.body.rotation.x) * Math.min(1, dt * 8); f.body.position.y += ((sit ? -0.08 : 0) - f.body.position.y) * Math.min(1, dt * 8);
+  f.head.rotation.x += ((sit?.35:relaxed&&f.idleAct==='sniff'?-.42:0)-f.head.rotation.x) * Math.min(1, dt * 8); if (sit) { f.g.rotation.y = Math.atan2(dx, dz); if (Math.random() < dt * 0.6) sfx('bark', { at: p, v: 0.5 }); }
   f.ears.forEach((e, i) => (e.rotation.x = Math.sin(t * 9 + i) * (Math.hypot(f.vel.x, f.vel.z) > 3 ? 0.5 : 0.08)));
-  const v = Math.hypot(f.vel.x, f.vel.z); if (v > 0.3) f.g.rotation.y = Math.atan2(f.vel.x, f.vel.z);
-  f.ph += dt * v * 6; const sw = Math.sin(f.ph) * 0.7; f.legs[0].rotation.x = sw; f.legs[3].rotation.x = sw; f.legs[1].rotation.x = -sw; f.legs[2].rotation.x = -sw; f.tail.rotation.z = Math.sin(t * (f.beg ? 26 : 14)) * (f.beg ? 0.8 : 0.5);
+  const v = Math.hypot(f.vel.x, f.vel.z); if(v>.3){const wanted=Math.atan2(f.vel.x,f.vel.z),delta=Math.atan2(Math.sin(wanted-f.g.rotation.y),Math.cos(wanted-f.g.rotation.y));f.g.rotation.y+=delta*(1-Math.exp(-dt*10));}f.head.rotation.y+=(Math.sin(t*.85+f.ph)*(!f.it&&v<.3?.28:.05)-f.head.rotation.y)*(1-Math.exp(-dt*6));
+  f.ph += dt * v * 6; const sw=Math.sin(f.ph)*.7*Math.min(1,v/.8); f.legs[0].rotation.x = sw; f.legs[3].rotation.x = sw; f.legs[1].rotation.x = -sw; f.legs[2].rotation.x = -sw; f.tail.rotation.z=Math.sin(t*(f.beg?16:7))*(f.beg?.7:v>3?.45:.22);f.body.position.y+=((sit?-.08:Math.sin(f.ph*2)*.018*Math.min(1,v/3))-f.body.position.y)*(1-Math.exp(-dt*12));
   if (f.it) { const fy = f.g.rotation.y; f.it.pos.set(p.x + Math.sin(fy) * 0.62, p.y + 0.55, p.z + Math.cos(fy) * 0.62); }
   // лает на тех, кто рядом; выпад — роняет добычу
   f.barkT -= dt; for (const a of actors()) { const dd = Math.hypot(a.pos.x - p.x, a.pos.z - p.z); if (dd < 4 && f.barkT <= 0) { f.barkT = 3 + Math.random() * 4; sfx('bark', { at: p }); }

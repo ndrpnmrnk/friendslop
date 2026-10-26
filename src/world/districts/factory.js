@@ -22,7 +22,7 @@ export default{id:'factory',name:'Жировой завод',ground:'pave',build
   pallet(f,8.8,22.8);f.crate(8.7,22.8,.7,.31);pallet(f,25.8,22.8);detailAction(f,28.5,17,0,'steam',-Math.PI/2);
   for(const z of [10,16]){f.m(G.box,steel,15.8,6.7,z,22.5,.25,.22);for(const x of [5,27]){f.m(G.box,dark,x,3.35,z,.10,6.7,.10);f.solid(x,z,.14,.14,0,6.7);}}
   f.sign(13.2,2.55,19.93,Math.PI,'МЕХАНИЧЕСКИЙ ЦЕХ','#465853','#d1c9a5',3.2,.42);f.sign(29.93,2.4,17,-Math.PI/2,'ПАР','#5e6050','#d5bc78',.85,.35);
-  f.desk(27.7,9.4,Math.PI/2,true);f.shelf(18,2.6,3.3);for(const x of[17.3,18.1,18.9])f.item('books',x,2.9,.80);
+  f.desk(27.7,9.4,Math.PI/2,true);{const shelf=f.shelf(18,2.6,3.3);for(const x of[-.7,.1,.9])shelf.put('books',x,1);}
  }});
  // Низкие пристройки образуют погрузочный двор, высокий цех имеет отдельный силуэт.
  for(const[x,w,sign]of[[1.8,9.5,'СКЛАД ТАРЫ'],[21.0,9.2,'УЧАСТОК РОЗЛИВА']]){b.tower({x,z:20.4,w,d:4.8,floors:1,fh:4.2,stairs:false,parapet:false,wall:0x697c72,facadeProps:false,windowPools:false,canopy:false,doorW:2,door:{side:'s',at:.5,style:'metal',sign:[sign,'#3d5143','#d7cc9a']},floor:T.concrete()});pitchedRoof(b,x+w/2,22.8,w+.25,5.1,4.2,.8);}

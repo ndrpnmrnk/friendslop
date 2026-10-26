@@ -520,3 +520,42 @@ button:disabled{opacity:.45;cursor:default}
 #settings.in-match{inset:12px 12px 12px auto;width:min(450px,calc(100vw - 24px));height:auto;background:rgba(23,17,31,.96);border:2px solid var(--edge);box-shadow:0 12px 50px #0009;justify-content:flex-start;backdrop-filter:none}
 #settings.in-match #setbox{width:100%;box-sizing:border-box;padding:16px}.in-match .liveMatchNotice{display:block!important;color:var(--gold);font-size:13px;margin:-8px 0 16px}
 #settings input:focus-visible,#settings select:focus-visible,#settings summary:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+
+/* v0.49: единая левая панель и отдельные подложки разделов. */
+#settings{align-items:flex-start;background:#100d1870;animation:settings-in .26s ease-out}
+#settings #setbox{display:grid;gap:14px;padding:0;background:none;border:0;box-shadow:none;width:min(450px,calc(100vw - 40px))}
+#settings .settingsGroup{margin:0;padding:18px;background:#282131f5;border:1px solid #5f4c68;border-left:3px solid #c59c6a;box-shadow:0 7px 18px #0003;min-width:0;box-sizing:border-box}
+#settings .settingsGroup h2,#settings .micSettings summary{margin:0 0 16px;font:11px var(--px);letter-spacing:1px;color:#e5c89d}
+#settings .micSettings summary{margin:0;line-height:1.6}#settings .micSettings[open] summary{margin-bottom:6px}
+#settings .audioSettings{gap:15px}#settings .audioSettings h2{grid-column:1/-1;margin-bottom:0}
+#settings.in-match{inset:12px auto 12px 5vw;max-height:calc(100vh - 24px);width:min(480px,calc(100vw - 24px));height:auto;padding:22px;background:#1d1727ed;border:0;border-left:3px solid #d3a26c;box-shadow:0 12px 38px #0007;align-items:stretch}
+#settings.in-match #setbox{padding:0;width:100%}#settings.in-match .pback{position:static;align-self:flex-start;margin:18px 0 0}
+@keyframes settings-in{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:translateX(0)}}
+@media(max-width:760px){#settings.in-match{left:12px;padding:16px}.audioSettings .srow{grid-template-columns:minmax(105px,1fr) minmax(70px,1fr) 30px}}
+@media(prefers-reduced-motion:reduce){#settings{animation:none}}
+/* Награда: читаемая плашка и вся сцена без видимого двора. */
+#clawUI.rewarding .clawArrows,#clawUI.rewarding #clawPractice,#clawUI.rewarding #clawMessage{display:none}
+#clawReveal.prizePlate{position:fixed;left:50%;top:auto;bottom:10vh;transform:translateX(-50%);min-width:min(300px,75vw);max-width:90vw;padding:18px 30px;text-align:center;background:linear-gradient(120deg,#34263ff5,#211c2ff5);border:2px solid #d4ac68;box-shadow:0 0 0 4px #171121,0 10px 28px #0008;animation:prize-plate-in .7s cubic-bezier(.2,.8,.2,1) both;pointer-events:none}
+.prizePlate small{display:block;font:9px var(--px);letter-spacing:2px;color:#c3b0c5;margin-bottom:12px}
+.prizePlate strong{display:block;font:clamp(17px,2.5vw,28px) var(--px);color:#ffe4a1;line-height:1.4;text-shadow:2px 3px #4c3041}
+.prizePlate strong span{display:inline-block;animation:prize-letter 3.5s ease-in-out infinite,prize-gold 4s linear infinite;animation-delay:calc(var(--i)*.06s)}
+#clawPractice{font:11px Rubik,sans-serif;border:1px solid #796182;background:#241d32;color:#dac7db;padding:10px 14px;pointer-events:auto;cursor:pointer;max-width:240px}
+#clawPractice[aria-pressed=true]{border-color:#e1bd75;color:#ffe4a1}#clawPractice:disabled{opacity:.4;cursor:default}
+#clawUI.rewarding .clawControls{animation:reward-controls .5s .7s both}
+@keyframes prize-plate-in{from{opacity:0;transform:translate(-50%,20px) scale(.9)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes reward-controls{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){#clawReveal.prizePlate{bottom:22vh;padding:14px 18px}.prizePlate small{font-size:8px;letter-spacing:1px}#clawPractice{font-size:10px;max-width:160px}}
+@media(prefers-reduced-motion:reduce){.prizePlate span,#clawReveal.prizePlate,#clawUI.rewarding .clawControls{animation:none}}
+/* Переключение режима проходит внутри стекла CRT. */
+.crtTransition{position:absolute;inset:0;z-index:8;pointer-events:none;opacity:0;background:linear-gradient(110deg,transparent 25%,#c5a5e14d 44%,#fff2b0b0 49%,#8ccee85a 54%,transparent 70%)}
+#crtUI.tuning .crtTransition{animation:crt-sweep .72s ease-in-out both}
+#crtUI[data-phase=mode].tuning #mode .pcard{animation:crt-card-in .65s cubic-bezier(.2,.8,.25,1) both}
+#crtUI[data-phase=depart] #mode .pcard{animation:crt-card-out .5s cubic-bezier(.55,0,.7,.5) both}
+#crtUI[data-phase=roulette].tuning #rwin{animation:crt-reel-in .6s cubic-bezier(.15,.8,.2,1) both}
+#crtUI[data-phase=roulette].tuning #roulette .sctitle{animation:crt-title-in .5s .12s both}
+@keyframes crt-sweep{0%{opacity:0;transform:translateX(-100%)}35%{opacity:.8}100%{opacity:0;transform:translateX(100%)}}
+@keyframes crt-card-in{0%{opacity:0;transform:translateY(30px) scale(.82) rotate(-4deg);filter:brightness(1.9)}100%{opacity:1;transform:none;filter:brightness(1)}}
+@keyframes crt-card-out{to{opacity:0;transform:translateX(-200px) scale(.65) rotate(-11deg);filter:brightness(1.8)}}
+@keyframes crt-reel-in{from{opacity:0;transform:translateX(160px) scale(.9);filter:brightness(1.8)}to{opacity:1;transform:none;filter:brightness(1)}}
+@keyframes crt-title-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){#crtUI.tuning .crtTransition,#crtUI.tuning #mode .pcard,#crtUI[data-phase=depart] #mode .pcard,#crtUI.tuning #rwin,#crtUI.tuning .sctitle{animation:none}}
