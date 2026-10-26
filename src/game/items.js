@@ -140,7 +140,7 @@ export function addItem(type, x, y, z, ry = 0) {
 export function restOnSurface(it){
   it.g.updateMatrixWorld(true);const bounds=new THREE.Box3(),inverse=it.g.matrixWorld.clone().invert(),matrix=new THREE.Matrix4();
   it.g.traverse(o=>{if(!o.isMesh||o.material.side===THREE.BackSide)return;o.geometry.computeBoundingBox();bounds.union(o.geometry.boundingBox.clone().applyMatrix4(matrix.multiplyMatrices(inverse,o.matrixWorld)));});
-  const offset=-(it.def.halfHeight??it.def.r)-bounds.min.y;if(Number.isFinite(offset))for(const child of it.g.children)child.position.y+=offset;return it;
+  it.placementFootprint={x:Math.max(Math.abs(bounds.min.x),Math.abs(bounds.max.x)),z:Math.max(Math.abs(bounds.min.z),Math.abs(bounds.max.z))};const offset=-(it.def.halfHeight??it.def.r)-bounds.min.y;if(Number.isFinite(offset))for(const child of it.g.children)child.position.y+=offset;return it;
 }
 // разбилось/утонуло — пропало до конца раунда (никакого возрождения на месте)
 function vanish(it) {

@@ -1,3 +1,4 @@
+import {routeLight} from '../wayfinding.js';
 import { THREE, G, tmat, smat, col, glow } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
@@ -13,7 +14,7 @@ export default {
   id: 'sewer', name: 'Коллектор', ground: 'concrete',
   holes: [[12, 0, 20, 32], [27.4, 23.4, 28.6, 24.6]],
   build(b) {
-    b = b.at(-b.Y);
+    const surfaceY=b.Y;b=b.at(-b.Y);
     const conc = smat(T.concrete()), brick = smat(T.brickWall()), dk = col(0x2b2533);
     const S = (x0, z0, x1, z1, y0, y1, mat) => { b.m(G.box, mat, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0); b.solid((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, y0, y1 - y0); };
     // канал продолжается под дорогами до стен тоннелей (−1.3 и 33.3)
@@ -27,7 +28,7 @@ export default {
     W.tunnelOpenings.push({ axis: 'x', at: b.Z(0) - 1.5 - 0.2, from: b.X(12), to: b.X(20) });
     W.tunnelOpenings.push({ axis: 'x', at: b.Z(32) + 1.5 + 0.2, from: b.X(12), to: b.X(20) });
     // спуски: лестницы и ступени
-    b.ladder(12, 6, 'e', 0.15, LEDGE);
+    b.ladder(12, 6, 'e', 0.15, LEDGE);routeLight(b,12.012,6,LEDGE+.38,Math.PI/2,false,0xb6c9a1);routeLight(b,10.9,6,surfaceY,0,true);
     // Открытая рыбацкая платформа над каналом, камера направлена вдоль воды.
     b.box(16,10,3.8,2.6,.18,tmat(T.wood()),{y:-.03});
     for(const x of [14.3,17.7])b.box(x,10,.12,.12,4,dk,{y:-4});
@@ -36,7 +37,7 @@ export default {
     // Прыжковый выход с нижней полки на берег, шаг высоты 0.75 м.
     for(let i=0;i<4;i++)b.box(12.9,18.6+i*.85,1.3,.9,.22,conc,{y:LEDGE+(i+1)*.75-.22});
     b.plank(11.1,22,13.4,22,.15,1.3);
-    b.ladder(20, 27, 'w', 0.15, LEDGE);
+    b.ladder(20,27,'w',.15,LEDGE);routeLight(b,19.988,27,LEDGE+.38,-Math.PI/2,false,0xb6c9a1);routeLight(b,21.1,27,surfaceY,0,true);
     b.stairs(19.25, 13.2, 'n', LEDGE, 0.15, 1.3, LEDGE);
     // мост через канал
     b.box(16, 16, 8, 3, 0.25, conc, { y: -0.1 });
@@ -64,7 +65,7 @@ export default {
     S(r0[2], r0[1], r0[2] + 0.4, r0[3], LEDGE, RIM, brick);
     S(r0[0] - 0.4, r0[1], r0[0], pz - 0.6, LEDGE, RIM, brick); S(r0[0] - 0.4, pz + 0.6, r0[0], r0[3], LEDGE, RIM, brick); S(r0[0] - 0.4, pz - 0.6, r0[0], pz + 0.6, -1.8, RIM, brick);
     for (const [x0, z0, x1, z1] of [[r0[0], r0[1], r0[2], 23.4], [r0[0], 24.6, r0[2], r0[3]], [r0[0], 23.4, 27.4, 24.6], [28.6, 23.4, r0[2], 24.6]]) S(x0, z0, x1, z1, -0.4, ROOF, conc);
-    b.ladder(28, 24.6, 'n', 0.15, LEDGE);
+    b.ladder(28,24.6,'n',.15,LEDGE);routeLight(b,28,25.3,surfaceY,0,true);routeLight(b,27.1,25.985,LEDGE+.4,Math.PI,false,0xb6c9a1);
     for (const x of [27, 29.6]) b.pump(x, 20.6, 0.5, 1.6, LEDGE);
     b.m(G.box, glow(0x9be36b), 30.6, LEDGE + 1.4, 25.4, 0.05, 0.3, 0.6); b.m(G.box, glow(0xffc070), 28.5, -0.55, 21.5, 0.3, 0.1, 0.3);
     W.missionZones.push({ type: 'nook', x0: b.X(26.4), z0: b.Z(21.6), x1: b.X(30.6), z1: b.Z(25.6), y: b.Y + LEDGE, district: 'Коллектор' });

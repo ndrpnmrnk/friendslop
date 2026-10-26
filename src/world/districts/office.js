@@ -41,7 +41,7 @@ export default {
         f.vitrine(21.5, 9.2, 6.2, 2.2, 'x', 0.2); f.vitrine(18.4, 11.9, 3.2, 2.2, 'z', 0.2);
         f.ptable(21.5, 11.6, 1.1); f.chair(20.4, 11.6, Math.PI / 2); f.chair(22.6, 11.6, -Math.PI / 2); f.whiteboard(24.6, 1.6, 11.6, -Math.PI / 2, 2.4);
         f.waterCooler(24.3, 4); f.cabinet(24.3, 6, 0.6, 1.2, 1.1, 0xd8d8e0, 0, -Math.PI / 2); f.plantPot(8, 13.2); f.plantPot(17, 13.2, 0.9);
-        f.cabinet(16.5, 13.4, 2, 0.5, 1.6, 0x6a6d78, 0, Math.PI);
+        f.cabinet(16.5, 13.4, 2, 0.5, 1.6, 0x6a6d78, 0, Math.PI);f.shelf(12.2,13.3,2.1,Math.PI,'office');
         if (k % 2 === 1) f.safe(7.75, 11.4, Math.PI / 2);
       } });
     const H = N * FH;

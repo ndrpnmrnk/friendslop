@@ -1,6 +1,6 @@
 import {buildHoop} from '../world/basketball.js';
 import {THREE,G,V3,mesh,col,tmat,glow,compose} from '../core/gfx.js';
-import {T,facade,pix} from '../core/textures.js';
+import {T,pix} from '../core/textures.js';
 import {Builder} from '../world/builder.js';
 import {createWorld,withWorld} from '../world/state.js';
 import {addSolid} from '../world/physics.js';
@@ -21,14 +21,14 @@ export function buildHub(scene){
   for(const z of[20,27])b.box(0,z,84,.16,.14,tmat(T.concrete()),{y:-.08});
   for(let x=-39;x<=39;x+=6)b.marking(x,23.5,2.8,.12,0xaaa58d);
   for(const[x,z,w,d,h,c]of[[-29,-6,13,25,10,0x595260],[29,-7,13,27,12,0x4b5361],[-25,38,15,13,10,0x5f515d],[-7,38,16,13,13,0x565969],[12,38,16,13,9,0x655951],[30,38,14,13,12,0x4e5960],[-25,-34,15,14,12,0x4f4a5c],[0,-34,20,14,11,0x535c68],[26,-34,17,14,14,0x635755]]){
-   b.box(x,z,w,d,h,tmat(facade(c,w,h,{lit:.3})));b.box(x,z,w+.25,d+.25,.2,tmat(T.roof()),{y:h});
+   b.facadeBlock(x,z,w,d,h,c,{lit:.3});b.box(x,z,w+.25,d+.25,.2,tmat(T.roof()),{y:h});
   }
   for(const[x,z,sc]of[[-20,12,.9],[22,14,.85],[-34,26,.9],[37,27,.8],[-19,-24,1],[20,-25,1]])b.tree(x,z,sc,0,'maple');
   b.car(-11,24,0,0x4b5962);b.car(13,29,Math.PI,0x67584a);
   b.fence(-40,31,40,31,1.1,'iron');b.bench(-18,29);b.bench(24,29,Math.PI);
   b.ground(-14,-15,14,16,T.cobble(),3);
   for(const [x,z,w,d,h,c]of[[-16,-2,5,29,8,0x514858],[16,-2,5,29,7,0x454b59],[0,-17,27,5,6,0x514959]]){
-   b.box(x,z,w,d,h,tmat(facade(c,w,h,{lit:.3})));b.box(x,z,w+.25,d+.25,.20,tmat(T.roof()),{y:h});
+   b.facadeBlock(x,z,w,d,h,c,{lit:.3});b.box(x,z,w+.25,d+.25,.20,tmat(T.roof()),{y:h});
   }
   for(const x of[-12,12]){b.m(G.cyl8,metal,x,3,-14.3,.055,5.9,.055);b.box(x,-14.36,.8,.12,.5,tmat(T.metal()),{y:.22});}for(const x of[-8,0,8]){b.box(x,-14.4,1.3,.12,2.5,tmat(T.wood()));b.box(x,-14.2,1.6,.5,.1,metal,{y:2.7});}b.aircon(7.2,-15.8,6.2);
   for(const x of[-13.4,13.4])b.fence(x,12,x,18,3.6,'iron');b.fence(-13.4,18,13.4,18,3.6,'iron');

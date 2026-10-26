@@ -1,3 +1,4 @@
+import {storageBay,pipeCradle} from '../storage.js';
 import { THREE, G, tmat, col, glow } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
@@ -37,13 +38,11 @@ export default {
     b.house({ x: 20, z: 23.5, w: 6.5, d: 3.4, h: 2.6, wall: 0x3a6a9a, brick: false, door: { side: 'n', at: 0.3 }, parapet: false, web: false,
       interior(b, r) { b.ptable(r.x0 + 1.2, (r.z0 + r.z1) / 2 + 0.3, 0.8); b.chair(r.x0 + 3.4, r.z1 - 0.5, Math.PI); b.cabinet(r.x1 - 0.4, (r.z0 + r.z1) / 2, 0.5, 1.6, 1.6, 0x58616b, 0, -Math.PI / 2); } });
     // поддон с кирпичами, тачка
-    b.pallet(12, 18);
-    b.item('brick', 11.6, 17.8, 0.18); b.item('brick', 12.4, 17.8, 0.18); b.item('brick', 12, 18.3, 0.18); b.item('brick', 12, 17.6, 0.36);
+    b.pallet(12,18);const bricks=b.surface(12,18,1.6,1.2,.18,0,'pallet');for(const[u,v]of[[-.4,-.2],[.4,-.2],[0,.3],[0,-.4]])bricks.put('brick',u,v);
     b.ride('barrow', 10, 21, 0.4);
     b.crate(16, 19, 1.1); b.crate(17.2, 19, 1.1); b.crate(16.6, 19, 1, 1.1);
     b.m(G.cone8, tmat(T.dirt()), 27, 0.7, 18, 2.2, 1.4, 2.2); b.solid(27, 18, 2.8, 2.8, 0, 1.2);
-    for (const z of [27.6, 28.2, 28.8]) { const p = b.m(G.cyl8, tmat(T.rust()), 16, 0.3, z, 0.28, 3.6, 0.28); p.rotation.z = Math.PI / 2; }
-    b.solid(16, 28.2, 3.6, 1.9, 0, 0.6);
+    pipeCradle(b,16,28.2);storageBay(b,11.8,26.5,3.6,1.8,'construction');storageBay(b,28.8,21.4,3.3,1.7,'construction');
     // Бетономешалка: рама, колёса, наклонённый барабан и открытая горловина.
     const mixer = b.prop(7.5, 24), frame = col(0x2b2533);
     for (const xx of [-0.48, 0.48]) { const leg = new THREE.Mesh(G.box, frame); leg.position.set(xx, 0.42, 0); leg.scale.set(0.09, 0.8, 0.1); leg.rotation.z = -xx * 0.55; mixer.add(leg); }

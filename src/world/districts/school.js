@@ -19,7 +19,7 @@ export default {
           f.ride('chair', 19.2, 2.5, 0); f.ride('chair', 23.5, 6.5, Math.PI);
           f.plantPot(27.6, 8.4); f.cabinet(27.9, 3, 0.6, 1.6, 1.8, 0x6a5a4a, 0, -Math.PI / 2);
         } else if (k === 1) {
-          for (const x of [13.5, 18, 22.5]) f.shelf(x, 5.6, 3.2, 0);
+          for (const x of [13.5, 18, 22.5]) f.shelf(x,5.6,3.2,0,'school');
           f.ptable(15.8, 7.9, 0.8); f.ptable(20.3, 7.9, 0.8); f.chair(15.8, 7.1, 0); f.chair(20.3, 7.1, 0);
           f.rug(26, 6, 2.4, 3, '#2a6a4a', '#f5c542'); f.safe(28.3, 4.4, -Math.PI / 2); f.sofa(26, 8.2, Math.PI, 0x4a5a8a); f.plantPot(11.4, 8.4);
         } else {

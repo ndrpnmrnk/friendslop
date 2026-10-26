@@ -29,7 +29,7 @@ export const OpenMethods = {
   openable(g, kind, w, h, d, y, doorMat, chance = 0.5, shelves = []) {
     const pivot = new THREE.Group(); pivot.position.set(-w / 2, y, d / 2); g.add(pivot); W.keep.push(pivot);
     const door = new THREE.Mesh(G.box, doorMat); door.position.set(w / 2, h / 2, 0.026); door.scale.set(w - 0.01, h - 0.01, 0.05); pivot.add(door);
-    const hd = new THREE.Mesh(G.box, col(0xc8c8d8)); hd.position.set(w - 0.1, h * 0.55, 0.07); hd.scale.set(0.04, Math.min(0.4, h * 0.3), 0.04); pivot.add(hd);
+    const hd = new THREE.Mesh(G.box, col(0xc8c8d8)); hd.position.set(w - 0.1, h * 0.55, 0.07); hd.scale.set(0.04, Math.min(0.4, h * 0.3), 0.04); pivot.add(hd);for(const yy of[.17,h-.17]){const hinge=new THREE.Mesh(G.cyl8,col(0xb4ad9c));hinge.position.set(.012,yy,.025);hinge.scale.set(.025,.11,.025);pivot.add(hinge);}
     const o = { pivot, open: false, k: 0, looted: false, kind };
     g.updateMatrixWorld(true);
     // твёрдое: локальная коробка → мировой AABB (повороты кратны 90°)

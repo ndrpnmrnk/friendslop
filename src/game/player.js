@@ -1,3 +1,4 @@
+import {findMantle,beginMantle,advanceMantle} from '../world/traversal.js';
 import { THREE,V3 } from '../core/gfx.js';
 import { CONFIG } from '../config.js';
 import { keys, tapped } from '../core/input.js';
@@ -81,24 +82,10 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     if (ctrl && tapped('Space')) leaveSwing(p, true);
     else { driveSwing(p, ctrl && (keys.KeyW || keys.KeyS || keys.ArrowUp || keys.ArrowDown), dt); p.ch.animate(dt, { t, speed: 0, ride: 'sit', rideSpeed: 0, hold: true, dangle: true }); groundBlob(p); return; }
   }
-  // вис на краю (v0.18): W/пробел — подтянуться, S/C — отпустить; висим не дольше 4 с
-  if (p.hang) {
-    const h = p.hang; h.t += dt; p.vel.set(0, 0, 0); p.pos.x += (h.x - p.pos.x) * Math.min(1, dt * 14); p.pos.y += (h.y - p.pos.y) * Math.min(1, dt * 14); p.pos.z += (h.z - p.pos.z) * Math.min(1, dt * 14);
-    p.facing = Math.atan2(h.nx, h.nz); p.root.rotation.y = p.facing; p.airPeak = p.pos.y; p.stamina = Math.min(1, p.stamina + dt * 0.1);
-    const fwd = ctrl && ((ix * h.nx + iz * h.nz) > 0.3 || tapped('Space')), back = !ctrl || (ix * h.nx + iz * h.nz) < -0.3 || keys.KeyC || h.t > 4;
-    p.ch.animate(dt, { t, speed: 0, zip: true, air: false, vy: 0, rag: ragK(p) });
-    if (fwd && h.t > 0.12) { p.hang = null; sfx('mantle'); p.mantleN = (p.mantleN || 0) + 1; p.mantle = { t: 0, fx: p.pos.x, fy: p.pos.y, fz: p.pos.z, tx: h.tx, ty: h.ty, tz: h.tz, dur: 0.6 }; }
-    else if (back && h.t > 0.2) { p.hang = null; p.vel.set(-h.nx * 1.5, 0, -h.nz * 1.5); p.onGround = false; }
-    groundBlob(p); return;
-  }
-  // подтягивание на уступ: плавная анимация (сначала вверх, потом вперёд), физика выключена
-  if (p.mantle) {
-    const m = p.mantle; m.t = Math.min(1, m.t + dt / (m.dur || 0.42)); const k = m.t, e = k * k * (3 - 2 * k);
-    p.pos.set(m.fx + (m.tx - m.fx) * Math.max(0, (k - 0.4) / 0.6), m.fy + (m.ty - m.fy) * Math.min(1, e * 1.4), m.fz + (m.tz - m.fz) * Math.max(0, (k - 0.4) / 0.6));
-    p.vel.set(0, 0, 0); p.ch.animate(dt, { t, speed: 0, climb: true, air: false, vy: 2 });
-    if (k >= 1) { p.mantle = null; p.onGround = true; p.airPeak = p.pos.y; smokeRing(p.pos.x, p.pos.y + 0.05, p.pos.z, 4, { speed: 1.2, size: 0.12, grow: 0.3, life: 0.4 }); }
-    groundBlob(p); return;
-  }
+  // Проверенный маршрут подтягивания: от края вверх, затем на опору.
+  if(p.mantle&&(p.stun>0||p.heldBy||p.ride||p.frozen)){p.mantle=null;p.onGround=false;}
+  if(p.mantle){const active=advanceMantle(p,dt);p.ch.animate(dt,{t,speed:0,climb:true,air:false,vy:2});if(active&&!p.mantle)smokeRing(p.pos.x,p.pos.y+.05,p.pos.z,4,{speed:1.2,size:.12,grow:.3,life:.4});groundBlob(p);return;}
+
   if (p.ride) {
     const pose = p.ride.ride.pose;
     updateRide(p, dt, t, ix, iz, ctrl);
@@ -232,21 +219,10 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   // батут: приземлился на маркизу / крышу машины / матрас — подбросило
   if (p.landed) { const bo = bounceAt(p.pos.x, p.pos.z, p.pos.y,Math.max(0,p.airPeak-p.pos.y)); if (bo) { p.vel.y = bo.power; p.onGround = false; p.airPeak = p.pos.y; p.bounced = 0.3; p.dive = null;
     sfx('bounce'); voice(p.ch, 'happy'); smokeRing(p.pos.x, p.pos.y + 0.05, p.pos.z, 6, { speed: 2, size: 0.14, grow: 0.4, life: 0.4 }); worldHit({ x: p.pos.x, y: p.pos.y - 0.4, z: p.pos.z }, 1.2, p.vel); shake(0.08); } }
-  // уступ на уровне груди в прыжке — подтянуться
-  if (!p.onGround && il > 0 && p.vel.y < 3 && !p.climb && !p.dive && !p.held && !p.grab && !p.ride) {
-    const qx = p.pos.x + ix * (p.r + 0.28), qz = p.pos.z + iz * (p.r + 0.28);
-    const ledges=solidsNear(qx-.15,qz-.15,qx+.15,qz+.15).slice();for(const o of W.obbs){if(!o.on)continue;const c=Math.cos(o.yaw),s=Math.sin(o.yaw),x=(qx-o.cx)*c-(qz-o.cz)*s,z=(qx-o.cx)*s+(qz-o.cz)*c;if(x>=o.lx0&&x<=o.lx1&&z>=o.lz0&&z<=o.lz1)ledges.push({on:true,x0:qx-.2,x1:qx+.2,z0:qz-.2,z1:qz+.2,y0:o.y0,y1:o.y1});}
-    for (const so of ledges) {
-      if (!so.on || qx < so.x0 || qx > so.x1 || qz < so.z0 || qz > so.z1) continue;
-      const tx = p.pos.x + ix * (p.r + 0.5), tz = p.pos.z + iz * (p.r + 0.5);
-      const ty=so.roof?Math.max(so.y1,groundAt(tx,tz,.28,so.y1+PC.step+.12)):so.y1;
-      const rel = ty - p.pos.y; if (rel < 0.9 || rel > 2.3 || so.y1 - so.y0 < 0.25&&!so.roof) continue;
-      if (!isFree(tx - 0.28, tz - 0.28, tx + 0.28, tz + 0.28, ty + 0.05, ty + PC.crouchH) || groundAt(tx, tz, 0.2, ty + 0.05) < ty - 0.05) continue;
-      // высоко (выше груди) — сначала повиснуть на краю, низко — сразу подтянуться
-      if (rel > 1.7) { sfx('grab'); p.hang = { x: p.pos.x, y: ty - 1.75, z: p.pos.z, tx, ty, tz, nx: ix, nz: iz, t: 0 }; p.vel.set(0, 0, 0); break; }
-      sfx('mantle'); p.mantleN = (p.mantleN || 0) + 1; p.mantle = { t: 0, fx: p.pos.x, fy: p.pos.y, fz: p.pos.z, tx, ty, tz, dur: 0.42 }; p.vel.set(0, 0, 0); break;
-    }
-  }
+  // Любой плоский уступ: геометрия края, опора стоп и свободная траектория тела.
+  p.mantleProbe=Math.max(0,(p.mantleProbe||0)-dt);
+  if(!p.onGround&&il>.1&&p.vel.y<3&&!p.climb&&!p.dive&&!p.held&&!p.heldBy&&!p.holding&&!p.grab&&!p.ride&&p.mantleProbe<=0){p.mantleProbe=.06;const target=findMantle(p,ix,iz);if(target){beginMantle(p,target);sfx('mantle');}}
+
   if (p.grab && (p.stun > 0 || p.climb || p.dive || !p.onGround && p.vel.y > 1)) release(p, 0.5);
   updateGrab(p, dt);
   autoMount(p);

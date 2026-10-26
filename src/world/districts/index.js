@@ -1,3 +1,4 @@
+import cinema from './cinema.js';
 import yard from './yard.js';
 import park from './park.js';
 import plaza from './plaza.js';
@@ -18,4 +19,4 @@ import townhall from './townhall.js';
 import university from './university.js';
 
 // Все районы города. Новый район — новый файл + строка здесь.
-export const DISTRICTS = [yard, park, plaza, shops, construction, cemetery, gas, market, school, foodcourt, sewer, office, port, skatepark, hospital,factory,townhall,university];
+export const DISTRICTS = [yard, park, plaza, shops, construction, cemetery, gas, market, school, foodcourt, sewer, office, port, skatepark, hospital,factory,townhall,university,cinema];

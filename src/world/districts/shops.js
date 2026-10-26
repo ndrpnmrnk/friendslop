@@ -20,9 +20,9 @@ export default {
         interior(f, k, r) {
           const cx = (r.x0 + r.x1) / 2;
           if (k === 0) {
-            if (s.kind === 'bakery') { W.spots.pickup.push({ x: f.X(r.x0 + 2.2), z: f.Z(r.z0 + 1.9), y: f.Y, f: [0, -1], district: 'Торговая улица', label: 'пекарня' }); f.box(r.x0 + 2.2, r.z0 + 0.8, 3, 0.8, 1.0, tmat(T.wood())); f.m(G.box, tmat(T.produce('pumpkin')), r.x0 + 2.2, 1.03, r.z0 + 0.8, 2.8, 0.06, 0.6); f.shelf(r.x1 - 0.3, r.z0 + 2, 2.6, -Math.PI / 2); }
+            if (s.kind === 'bakery') { W.spots.pickup.push({ x: f.X(r.x0 + 2.2), z: f.Z(r.z0 + 1.9), y: f.Y, f: [0, -1], district: 'Торговая улица', label: 'пекарня' }); f.counter(r.x0 + 2.2, r.z0 + 0.8, 3, 0.8, 1.0, tmat(T.wood())); f.m(G.box, tmat(T.produce('pumpkin')), r.x0 + 2.2, 1.03, r.z0 + 0.8, 2.8, 0.06, 0.6); f.shelf(r.x1 - 0.3, r.z0 + 2, 2.6, -Math.PI / 2); }
             if (s.kind === 'cafe') { f.ptable(r.x0 + 1.6, r.z1 - 1.3, 0.8); f.chair(r.x0 + 1.6, r.z1 - 0.5, Math.PI); f.ptable(r.x1 - 1.6, r.z1 - 1.3, 0.8);
-              f.box(cx, r.z0 + 0.45, 4, 0.8, 1.05, tmat(T.wood())); f.box(cx + 1.2, r.z0 + 0.45, 0.5, 0.5, 0.6, col(0x3a3a40), { y: 1.05 }); f.ride('chair', r.x1 - 1.6, r.z1 - 0.5, Math.PI); }
+              f.counter(cx, r.z0 + 0.45, 4, 0.8, 1.05, tmat(T.wood())); f.box(cx + 1.2, r.z0 + 0.45, 0.5, 0.5, 0.6, col(0x3a3a40), { y: 1.05 }); f.ride('chair', r.x1 - 1.6, r.z1 - 0.5, Math.PI); }
             if (s.kind === 'mart') { f.shelf(r.x0 + 2, r.z0 + 1.5, 2.6, Math.PI / 2,true); f.shelf(r.x0 + 4.2, r.z0 + 1.5, 2.6, Math.PI / 2,true); f.cabinet(r.x1 - 0.5, r.z0 + 1.2, 0.6, 1.8, 2, 0xd8d8e0, 0, -Math.PI / 2); }
           } else {
             if (s.kind === 'bakery') { f.bed(r.x1 - 1.0, r.z1 - 1.3, Math.PI, 0xd8a040); f.wardrobe(r.x0 + 0.5, r.z1 - 0.5, 0); f.rug(cx, r.z0 + 1.5, 2.4, 1.4); }
@@ -57,7 +57,7 @@ export default {
     for (const [x, c1] of [[13.9, '#ff8a1f'], [18.1, '#9be36b']]) { b.parasol(x, 13.4, c1, '#2a1f3d'); b.table(x + 0.75, 12.6, 0.75); b.staticChair(x + 0.75, 11.9, 0); b.staticChair(x + 0.75, 13.3, Math.PI); }
     // у пекарни — доска с меню, у «тыквенного» — ящики с овощами
     b.chalkSign(7.6, 10.6, 0.25);
-    for (const [x, g] of [[23.4, 'pumpkin'], [29.6, 'apple']]) { b.box(x, 10.6, 1.2, 0.7, 0.55, tmat(T.wood())); b.m(G.box, tmat(T.produce(g)), x, 0.58, 10.6, 1.12, 0.05, 0.62); }
+    for (const [x, g] of [[23.4, 'pumpkin'], [29.6, 'apple']]) { b.counter(x,10.6,1.2,.7,.605,tmat(T.wood())); b.m(G.box, tmat(T.produce(g)), x, 0.58, 10.6, 1.12, 0.05, 0.62); }
     b.item('pumpkin', 28.5, 11.2); b.item('tomato', 23.2, 10.6, 0.6); b.item('tomato', 29.4, 10.7, 0.6);
     // клумба-островок с деревом в центре площадки
     b.planter(16, 21.5, 3, 3, 0.5, 'tree'); b.bench(16, 19.4, Math.PI); b.bench(16, 23.6, 0);

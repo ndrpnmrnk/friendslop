@@ -1,3 +1,6 @@
+import {surface,supportAt} from './surfaces.js';
+import {dressShelf} from './shelf-dressing.js';
+import {pix} from '../core/textures.js';
 import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat, paint, compose } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { rand, range, pick } from '../core/rng.js';
@@ -35,6 +38,18 @@ export class Builder {
     if (o.solid !== false) this.solid(x, z, q ? d : w, q ? w : d, y, h);
     return m;
   }
+  // Каждая грань получает фасад своего размера: метр окна одинаков на торце и длинной стене.
+  facadeBlock(x,z,w,d,h,color,opt={}) {
+    const side=tmat(facade(color,d,h,opt)),front=tmat(facade(color,w,h,opt)),roof=tmat(T.roof());
+    const g=this.box(x,z,w,d,h,[side,side,roof,roof,front,front]);
+    for(const y of[.45,h-.3])this.box(x,z,w+.12,d+.12,.12,col(color),{y,solid:false});
+    // Подоконники выступают из стены, совпадая с сеткой окон в facade().
+    for(let fy=opt.rowStart??.9;fy<h-1.3;fy+=opt.rowStep||2.4){
+      for(let fx=.7;fx<w-1;fx+=2)for(const sign of[-1,1])this.box(x+sign*(-w/2+fx+.5),z+sign*(d/2+.055),1.16,.18,.10,col(0x827b7b),{y:fy-.04,solid:false});
+      for(let fx=.7;fx<d-1;fx+=2)for(const sign of[-1,1])this.box(x+sign*(w/2+.055),z+sign*(d/2-fx-.5),.18,1.16,.10,col(0x827b7b),{y:fy-.04,solid:false});
+    }
+    return g;
+  }
   ground(x0, z0, x1, z1, tex, tile = 3, y = 0.01) {
     const w = x1 - x0, d = z1 - z0, m = this.m(G.plane, flat(rep(tex, w / tile, d / tile)), (x0 + x1) / 2, y, (z0 + z1) / 2, w, d, 1);
     m.rotation.x = -Math.PI / 2; return m;
@@ -48,7 +63,9 @@ export class Builder {
   zone(type, x0, z0, x1, z1, y = 0) { W.missionZones.push({ type, x0: this.X(x0), z0: this.Z(z0), x1: this.X(x1), z1: this.Z(z1), y: this.Y + y, district: this.d }); }
   spawn(x, z) { W.spawns.push({ x: this.X(x), z: this.Z(z), y: this.Y }); }
   cats(x0, z0, x1, z1) { W.catHomes.push({ x0: this.X(x0), z0: this.Z(z0), x1: this.X(x1), z1: this.Z(z1), y: this.Y, district: this.d }); }
-  item(type, x, z, y = 0, ry = 0) { return addItem(type, this.X(x), this.Y + y, this.Z(z), ry); }
+  item(type,x,z,y=0,ry=0){const s=y>.1?supportAt(this.X(x),this.Y+y,this.Z(z)):null;return s?s.surface.put(type,s.u,s.v,ry-s.yaw):addItem(type,this.X(x),this.Y+y,this.Z(z),ry);}
+  surface(x,z,w,d,y,ry=0,kind='table',owner=null){return surface(this.X(x),this.Y+y,this.Z(z),w,d,ry,kind,owner);}
+  counter(x,z,w,d,h,mat,y=0,ry=0){const g=this.box(x,z,w,d,h,mat,{y,ry});g.surface=this.surface(x,z,w,d,y+h,ry,'counter');return g;}
   birds(kind, x0, z0, x1, z1, n) { addBirds(kind, { x0: this.X(x0), z0: this.Z(z0), x1: this.X(x1), z1: this.Z(z1), y: this.Y }, n); }
   hw(fn) { if (HW) fn(); }
 
@@ -195,7 +212,7 @@ export class Builder {
     for (const xx of [-0.42, 0.42]) this.m(G.box, col(0x35303e), x + xx, y + 0.07, z, 0.1, 0.14, 0.95);
   }
   cabinet(x, z, w, d, h, c = 0x6a6d78, y = 0, ry = 0) {
-    const mt = col(c); return this.box(x, z, w, d, h, [mt, mt, mt, mt, tmat(T.cabinet(c)), mt], { y, ry });
+    const mt=col(c),front=pix('sealedCabinet50-'+c,64,64,g=>{g.fillStyle='#'+c.toString(16).padStart(6,'0');g.fillRect(0,0,64,64);g.fillStyle='#3b3b43';g.fillRect(3,3,58,2);g.fillRect(3,59,58,2);for(let j=0;j<5;j++)g.fillRect(14,18+j*5,36,2);g.fillStyle='#b0a99a';for(const x of[6,56])for(const y of[6,56])g.fillRect(x,y,2,2);});const g=this.box(x,z,w,d,h,[mt,mt,mt,mt,tmat(front),mt],{y,ry});g.surface=this.surface(x,z,w,d,y+h,ry,'cabinet');return g;
   }
   vending(x, z, ry = 0) {
     const body = col(0x9b293d), q = Math.abs(Math.sin(ry)) > 0.5;
@@ -329,10 +346,10 @@ export class Builder {
   table(x, z, s = 1, y = 0) {if(['Фудкорт','Торговая улица','foodcourt','shops'].includes(this.d?.id||this.d))W.foodSpots.push({x:this.X(x),y:this.Y+y+.8,z:this.Z(z)});
     const w = tmat(T.wood()); this.m(G.box, w, x, y + 0.78, z, 1.4 * s, 0.08, 0.9 * s);
     for (const [a, b] of [[-0.6, -0.35], [0.6, -0.35], [-0.6, 0.35], [0.6, 0.35]]) this.m(G.box, col(0x2b2533), x + a * s, y + 0.38, z + b * s, 0.07, 0.76, 0.07);
-    this.solid(x, z, 1.4 * s, 0.9 * s, y, 0.82);
+    this.solid(x,z,1.4*s,.9*s,y,.82);return{surface:this.surface(x,z,1.4*s,.9*s,y+.82,0,'table')};
   }
   // стол в помещении — толкаемый (v0.19); s — масштаб (визуально как обычный стол)
-  ptable(x, z, s = 1) {if(['Фудкорт','Торговая улица','foodcourt','shops'].includes(this.d?.id||this.d))W.foodSpots.push({x:this.X(x),y:this.Y+.81,z:this.Z(z)}); const p = addPushable(this, 'table', x, z, 0); p.mesh.scale.set(s + 0.2, 1, s + 0.2); return p; }
+  ptable(x, z, s = 1) {if(['Фудкорт','Торговая улица','foodcourt','shops'].includes(this.d?.id||this.d))W.foodSpots.push({x:this.X(x),y:this.Y+.81,z:this.Z(z)}); const p = addPushable(this, 'table', x, z, 0); p.mesh.scale.set(s+.2,1,s+.2);p.surface=this.surface(x,z,1.12*(s+.2),.72*(s+.2),p.h,0,'table',p);return p; }
   chair(x, z, ry = 0, y = 0) { return this.item('chair', x, z, y, ry); }
   cone(x, z) { return this.item('cone', x, z); }
   staticChair(x, z, ry = 0) {
@@ -348,7 +365,8 @@ export class Builder {
     const levels=[.08,.65,1.25,1.91];for(const y of levels){mesh(G.box,wood,0,y,0,w+.08,.06,.56,g);solid(0,0,w+.08,.56,y-.03,.06);}
     g.updateMatrixWorld(true);const put=(type,lx,level=1)=>{const q=g.localToWorld(new V3(THREE.MathUtils.clamp(lx,-w/2+.24,w/2-.24),levels[level]+.035,.025)),it=addItem(type,q.x,q.y,q.z,ry);restOnSurface(it);
       it.shelfHome={x:q.x,y:q.y,z:q.z};(W.dressings??=[]).push({kind:'shelf-item',item:it,surface:q.y});return it;};
-    if(stock)for(let level=0;level<3;level++)for(let i=0,n=Math.max(2,Math.floor(w/.65));i<n;i++)put(['can','mug','books','duck'][(i+level)%4],-w/2+.35+i*.61,level);
+    if(typeof stock==='string')dressShelf(g,w,levels,stock);
+    if(stock===true)for(let level=0;level<3;level++)for(let i=0,n=Math.max(2,Math.floor(w/.65));i<n;i++)put(['can','mug','books','duck'][(i+level)%4],-w/2+.35+i*.61,level);
     return{g,put,levels};
   }
 

@@ -10,8 +10,8 @@ export default {
   build(b) {
     const stall = (x, z, kind, aw) => {
       const wd = tmat(T.wood());
-      b.box(x, z, 4.4, 1.2, 1, tmat(T.crate()));
-      b.box(x,z-.15,4,.7,.12,tmat(T.produce(kind)),{y:1});
+      b.counter(x,z,4.4,1.2,1,tmat(T.crate()));
+      b.counter(x,z-.15,4,.7,.12,tmat(T.produce(kind)),1);
       for (const [a, c] of [[-2.1, -0.7], [2.1, -0.7], [-2.1, 0.7], [2.1, 0.7]]) { b.m(G.box, col(0x2b2533), x + a, 1.65, z + c - 0.5, 0.08, 3.3, 0.08); b.solid(x + a, z + c - 0.5, 0.16, 0.16, 0, 3.3); }
       addCanopy(b,x,z-.4,{w:4.8,d:2.4,edge:3.25,rise:.48,round:false,colors:aw});
 

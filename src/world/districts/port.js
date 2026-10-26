@@ -1,3 +1,4 @@
+import {storageBay} from '../storage.js';
 import { THREE, G, tmat, smat, col, glow } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
@@ -56,6 +57,7 @@ export default {
     for (const [x, z] of [[16.5, 14.5], [23, 9.6]]) addPushable(b, 'barrel', x, z);
     // бочки, поддоны, сети, рыбный ларёк
     for (const [x, z] of [[2, 3], [3, 2.4], [2.6, 4.2]]) b.ride('barrel', x, z);
+    storageBay(b,3.3,7.0,4.1,1.45,'port');storageBay(b,23.8,16.55,3.4,1.4,'port');
     b.barrel(17, 15.5); b.barrel(17.9, 16.2); b.pallet(14.5, 15.8);
     b.nets(1.5, 12, 1.5, 17); b.nets(26, 15.8, 31, 15.8);
     b.tent(4.5, 15.6, Math.PI / 2, '#3a6a9a', '#f1e8ff', 'apple', 'РЫБА');

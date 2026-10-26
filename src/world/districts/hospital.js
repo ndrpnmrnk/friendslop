@@ -1,3 +1,5 @@
+import {routeLight} from '../wayfinding.js';
+import {medicalChart,medicalTray} from '../medical-props.js';
 import { THREE, G, tmat, col, glow, lam } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
@@ -23,15 +25,18 @@ export default {
           const cx = (xa + xb) / 2;
           f.flickerLamp(cx, (r.z0 + north) / 2, FH - 0.2);
           if (k === 0) {
-            if (xa === r.x0) { f.desk(cx, r.z0 + 0.7, 0, true); f.phoneSpot(cx, r.z0 + 0.7, [0, 1]); }
+            if(xa===r.x0){f.bench(7.2,7.6,0);medicalChart(f,9.3,north-.075,1.9,Math.PI);}
             else if (xa === 10.5) { f.xray(cx, r.z0 + 0.5, 0); f.cupboard(xb - 0.65, r.z0 + 0.4); }
             else { f.bed(cx, r.z0 + 1.3, Math.PI, 0x8ab0a8); f.sheetGhost(xb - 1.1, north - 0.9, FH - 0.3); }
           } else {
-            if (xa === r.x0) f.kitchen(cx + 0.5, r.z0 + 0.45, 3, 0);
+            if(xa===r.x0){f.kitchen(7.8,7.75,3,Math.PI);f.shelf(4.2,7.1,1.8,Math.PI/2,'hospital');}
             else if (xa === 10.5) for (let x = xa + 1; x < xb - 1; x += 0.8) f.locker(x, r.z0 + 0.4, 0, 0x4a7a6a);
             else { f.bed(cx, r.z0 + 1.3, Math.PI, 0xd8d0c0); f.xray(xb - 0.6, north - 1, -Math.PI / 2); }
           }
         }
+        // Регистратура в открытом холле перед палатами, вне объёма лестницы.
+        if(k===0){f.desk(16.55,13.65,0,true);f.phoneSpot(16.55,13.65,[0,1]);medicalChart(f,17.92,14.4,1.9,-Math.PI/2);}
+        routeLight(f,r.x0+.012,mid,.22,Math.PI/2);for(const z of[3.0,5.0])routeLight(f,r.x0+.012,z,.30,Math.PI/2);
         // Две большие палаты по сторонам центрального входного холла.
         for (const [xa, xb] of [[r.x0, 12], [18, r.x1]]) {
           const cx = (xa + xb) / 2;
@@ -40,7 +45,7 @@ export default {
           f.box(inner, (south + r.z1) / 2, 0.12, r.z1 - south, h, tmat(T.plaster()));
           const door = f.door(cx - 1, south, 'x', 1, 0, 2, 2.2); door.haunted = true;
           for (const x of [xa + 1.5, xb - 1.5]) f.bed(x, r.z1 - 1.4, Math.PI, k ? 0xd8d0c0 : 0x8ab0a8);
-          f.cupboard(cx, r.z1 - 0.4, Math.PI); f.flickerLamp(cx, (south + r.z1) / 2, FH - 0.2);
+          f.cupboard(cx,r.z1-.4,Math.PI);if(!k)medicalTray(f,cx,r.z1-.4,.942);for(const x of[xa+1.5,xb-1.5])medicalChart(f,x,south+.075,2.0,0);f.flickerLamp(cx,(south+r.z1)/2,FH-.2);
           if (k === 1) f.sheetGhost(xa + 1.5, south + 0.9, FH - 0.3);
         }
         for (let x = r.x0 + 2; x < r.x1 - 1; x += 5) f.flickerLamp(x, mid, FH - 0.2);

@@ -28,7 +28,7 @@ export default {
           f.bed(22.4, back - 0.7, Math.PI, 0x6aa84f); f.wardrobe(16.4, 2, Math.PI / 2); f.desk(19.5, back, Math.PI, true); f.item('ball', 18.5, 4.5);
         } else {
           for (const [x, z, size] of [[5.2, back, 1], [6.4, back, 0.9]]) f.crate(x, z, size);
-          f.shelf(13, r.z1 - 0.3, 2.6, Math.PI); f.item('chair', 9, front);
+          f.shelf(13,r.z1-.3,2.6,Math.PI,'office'); f.item('chair', 9, front);
           f.sofa(20, back, Math.PI, 0x3a5a4a); f.tvStand(20, 4.2, 0); f.plantPot(23.3, 4.3);
         }
       } });

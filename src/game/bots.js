@@ -1,3 +1,4 @@
+import {findMantle,beginMantle,advanceMantle} from '../world/traversal.js';
 import {bounceAt} from './worldfx.js';
 import {tryBotTool,cancelBotAim} from './bot-tools.js';
 import {poseBow} from './bow.js';
@@ -182,6 +183,8 @@ export function updateBots(dt, t, P) {
   for (const b of W.bots || []) {
     if (b.drone || b.returning) { if(b.work&&!b.work.world)interruptBotWork(b);continue; }
     tickStun(b, dt);
+    if(b.mantle&&(b.stun>0||b.heldBy||b.ride)){b.mantle=null;b.onGround=false;}
+    if(b.mantle){advanceMantle(b,dt);b.ch.animate(dt,{t,speed:0,climb:true,air:false,vy:2});blob(b);progBar(b);continue;}
     b.toolAiming=false;if(b.heldBy||b.stun>0||b.daze>0||b.getT>0||b.netT>0||b.climbing||b.work)cancelBotAim(b);
     const exiting=b.escapeLadder||b.ladder;if(b.climbing&&exiting&&b.pos.y>=exiting.y1-.06){const l=exiting,cx=(l.x0+l.x1)/2,cz=(l.z0+l.z1)/2;b.pos.y=Math.max(b.pos.y,l.y1+.06);b.ladderExit={x:cx-l.nx*.95,z:cz-l.nz*.95,left:1};b.climbing=false;b.escapeLadder=b.ladder=null;b.vel.y=0;b.nav=null;b.think=1;}
     if (b.pos.y < CONFIG.base - 1.5 || b.escapeLadder) {
@@ -265,6 +268,8 @@ export function updateBots(dt, t, P) {
     const was = b.onGround; b.noGrav=ctrl&&(b.climbing||!!b.ladderExit);if(!ctrl){b.climbing=false;b.ladderExit=null;}
     applyGripMotion(b,dt);
     moveBody(b, dt, PC.gravity);
+    b.mantleProbe=Math.max(0,(b.mantleProbe||0)-dt);if(ctrl&&!b.onGround&&!b.climbing&&!b.held&&!b.heldBy&&!b.ride&&b.vel.y<3&&b.mantleProbe<=0&&(ix||iz)){b.mantleProbe=.12;const ledge=findMantle(b,ix,iz);if(ledge)beginMantle(b,ledge);}
+
     if(b.landed){const bo=bounceAt(b.pos.x,b.pos.z,b.pos.y,Math.max(0,b.airPeak-b.pos.y));if(bo){b.vel.y=bo.power;b.onGround=false;b.airPeak=b.pos.y;}}
     if (b.onGround && !was) { const drop = b.airPeak - b.pos.y; if (drop > 0.6) smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1.6, size: 0.14 });
       if (b.thrown) { b.thrown = false; if (drop > 0.3) b.stun = Math.max(b.stun, 0.6); }

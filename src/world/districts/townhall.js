@@ -14,7 +14,7 @@ export default{id:'townhall',name:'Мэрия',ground:'pave',build(b){
    for(const x of[17.9,20.1])f.m(G.box,col(0x56655c),x,1.25,8.9,.035,.50,.035);
    f.m(G.box,tmat(T.sign('ТАЛОНЫ · ОКНО 1','#c7bca0','#405752')),22.6,1.00,9.57,1.5,.18,.025);for(let i=0;i<4;i++){f.m(G.box,col(0xc2b79d),15.9+i*.38,1.09,8.9,.3,.06,.42);f.m(G.box,col(0x8f775f),15.9+i*.38,1.13,8.9,.26,.02,.36);}f.sign(21,2.9,2.27,0,'ГОРОДСКОЙ АРХИВ','#52645f','#d6ceb0',4.4,.45);
   }
-  else{f.partition(11,11,28,11,3.5,.55,2.2);f.desk(21,15,Math.PI,true);f.shelf(14,17.8,3.6,Math.PI);f.safe(27.5,14,-Math.PI/2);f.sofa(14,14,Math.PI/2,0x675e70);f.rug(21,14,6,4,'#45686a','#b4ab86');f.plantPot(27,17);f.whiteboard(21,1.8,11.16,0,3);
+  else{f.partition(11,11,28,11,3.5,.55,2.2);f.desk(21,15,Math.PI,true);f.shelf(14,17.8,3.6,Math.PI,'office');f.safe(27.5,14,-Math.PI/2);f.sofa(14,14,Math.PI/2,0x675e70);f.rug(21,14,6,4,'#45686a','#b4ab86');f.plantPot(27,17);f.whiteboard(21,1.8,11.16,0,3);
    archives(f,13.3,4);archives(f,16,4);archives(f,18.7,4);displayCase(f,26.7,15.8,'trophies');f.ptable(23,6.9,1.8);for(const x of [21.5,24.5]){f.chair(x,6.9,x<23?Math.PI/2:-Math.PI/2);f.item('books',x,6.6,.9);}noticeBoard(f,25.8,10.72,Math.PI);f.sign(16.1,2.9,11.14,0,'КАБИНЕТ МЭРА','#4e6066','#d7cba5',3.5,.42);
   }
  }});

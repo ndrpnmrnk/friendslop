@@ -314,8 +314,7 @@ export const TowerMethods = {
     const a = (px, py, pz, sx, sy, sz, mm) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
     a(0, 0.45, 0, len, 0.9, 0.6, wd); a(0, 0.92, 0, len + 0.04, 0.05, 0.64, top); a(len / 2 - 0.4, 0.96, 0, 0.6, 0.02, 0.5, col(0x17141c));
     a(0, 1.75, -0.12, len, 0.6, 0.35, wd);
-    const q = Math.abs(Math.sin(ry)) > 0.5;
-    this.solid(x, z, q ? 0.65 : len, q ? len : 0.65, 0, 0.95);
+    const q=Math.abs(Math.sin(ry))>.5;this.solid(x,z,q?.65:len,q?len:.65,0,.95);g.surface=this.surface(x,z,len+.04,.64,.945,ry,'kitchen');
     // холодильник с открывающейся дверцей рядом со столешницей
     const fx = -len / 2 - 0.4; this.fridge(x + fx * Math.cos(ry), z - fx * Math.sin(ry), ry);
     this.kitchenSpot(x, z, [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))]);
@@ -325,11 +324,11 @@ export const TowerMethods = {
     const a = (px, py, pz, sx, sy, sz, mm) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
     a(0, 0.74, 0, 1.4, 0.05, 0.7, wd); for (const xx of [-0.66, 0.66]) a(xx, 0.37, 0, 0.05, 0.74, 0.66, dk); a(0.45, 0.45, 0, 0.42, 0.5, 0.6, tmat(T.cabinet(0x6a6d78)));
     if (pc && Math.random() < 0.35) this.phoneSpot(x, z, [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))]);
+    const deskSurface=this.surface(x,z,1.4,.7,.765,ry,'desk');g.surface=deskSurface;
     // компьютер, клавиатура и мелочь на столе — настоящие предметы: взять, бросить, разбить (v0.19)
-    if (pc) { g.updateMatrixWorld(true); const put = (type, lx, lz, oy) => { const v = new THREE.Vector3(lx, 0.77, lz); g.localToWorld(v); addItem(type, v.x, v.y + (oy || 0), v.z, ry); };
-      put('monitor', -0.1, -0.15, 0.02); if (Math.random() < 0.5) put('keyboard', -0.1, 0.15); if (Math.random() < 0.5) put('pc', -0.42, 0.08, -0.77);
-      if (Math.random() < 0.45) put(['mug', 'dlamp', 'books', 'pot'][(Math.random() * 4) | 0], -0.55, -0.15); }
-    const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.7 : 1.4, q ? 1.4 : 0.7, 0, 0.78);
+    if(pc){deskSurface.put('monitor',-.1,-.15);if(Math.random()<.5)deskSurface.put('keyboard',-.1,.18);if(Math.random()<.5){const v=g.localToWorld(new THREE.Vector3(-.90,0,.05));addItem('pc',v.x,v.y,v.z,ry);}if(Math.random()<.45)deskSurface.put(['mug','dlamp','books','pot'][Math.random()*4|0],.5,-.12);}
+
+    const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.7 : 1.4, q ? 1.4 : 0.7, 0, 0.765);return g;
   },
   rug(x, z, w, d, c1 = '#7b4bc4', c2 = '#f5c542') { const m = this.m(G.plane, flat(T.awning(c1, c2)), x, 0.02, z, w, d, 1); m.rotation.x = -Math.PI / 2; },
   // цветок в горшке — бьётся от брошенного предмета или выпада
