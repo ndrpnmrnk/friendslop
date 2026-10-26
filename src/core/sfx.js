@@ -1,30 +1,41 @@
 /* Ретро-звуки, синтезированные в коде (без файлов): квадрат/треугольник/шум + огибающая.
    Звук включается после первого клика (требование браузера). M — без звука. */
 let ac = null, master = null, noiseBuf = null, amb = null, muted = false;
+const mix={effects:1,ambient:.65,music:.8,radio:1},buses={};let route='effects',radioFocus=0;
+try{const saved=JSON.parse(localStorage.getItem('friendslop.audio')||'{}');for(const k in mix)if(Number.isFinite(saved[k]))mix[k]=Math.max(0,Math.min(1,saved[k]));}catch{}
+export const audioLevels=()=>({...mix});
+function mixGain(k){return mix[k]*(k==='music'?1-radioFocus*.78:1);}
+export function setAudioLevel(k,value){if(!(k in mix))return;mix[k]=Math.max(0,Math.min(1,Number(value)||0));try{localStorage.setItem('friendslop.audio',JSON.stringify(mix));}catch{}if(buses[k])buses[k].gain.setTargetAtTime(mixGain(k),ac.currentTime,.06);}
+export function setRadioFocus(value){const next=Math.max(0,Math.min(1,value*mix.radio));if(Math.abs(next-radioFocus)<.015)return;radioFocus=next;if(buses.music)buses.music.gain.setTargetAtTime(mixGain('music'),ac.currentTime,next>.1?.16:.65);}
+
 try { muted = localStorage.getItem('friendslop.mute') === '1'; } catch (_) {}
 export function initAudio() {
-  if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+  if (ac) { if (ac.state === 'suspended') ac.resume().catch(()=>{}); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   ac = new AC(); master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(ac.destination);
+  for(const k in mix){const gain=ac.createGain();gain.gain.value=mixGain(k);if(k==='effects'){const compressor=ac.createDynamicsCompressor();compressor.threshold.value=-15;compressor.knee.value=12;compressor.ratio.value=2.5;compressor.attack.value=.004;compressor.release.value=.16;gain.connect(compressor);compressor.connect(master);}else gain.connect(master);buses[k]=gain;}
   noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
 export function toggleMute() { muted = !muted; try { localStorage.setItem('friendslop.mute', muted ? '1' : '0'); } catch (_) {} if (master) master.gain.value = muted ? 0 : 0.5; return muted; }
-export function audioBus(){return ac&&master?{ac,master}:null;}
+export function audioBus(channel){return ac&&master?{ac,master:buses[channel]||master}:null;}
 
 function tone(f0, f1, dur, type = 'square', vol = 0.2, at = 0, pan = 0) {
   if (!ac) return; const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
   o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   let node = g; if (pan && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = pan; g.connect(p); node = p; }
-  o.connect(g); node.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  o.connect(g); node.connect(buses[route]||master); o.start(t); o.stop(t + dur + 0.02);
 }
 function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   if (!ac) return; const t = ac.currentTime + at, s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
   s.buffer = noiseBuf; fl.type = type; fl.frequency.setValueAtTime(f, t); if (f1) fl.frequency.exponentialRampToValueAtTime(f1, t + dur); fl.Q.value = q;
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(fl); fl.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+  s.connect(fl); fl.connect(g); g.connect(buses[route]||master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
 const SND = {
+  fabric:s=>{noise(.13,.04*(s.v??1),1150,.65);tone(480,330,.055,'triangle',.026*(s.v??1),.06);},
+  dash:s=>noise(.16,.035*(s.v??1),1900,.6,0,'bandpass',700),
+  switch:()=>{tone(380,210,.06,'triangle',.045);noise(.04,.025,1800,1);},
   radioStatic:s=>noise(.14,.13*(s.v??1),1600,.65,0,'bandpass'),
   vanDrive:s=>{tone(80,170,.9,'sawtooth',.055*(s.v??1));noise(.5,.04*(s.v??1),250,.8);},
   kidYelp:s=>{const v=s.v??1,p=s.p??1;for(let i=0;i<3;i++){tone((620+i*93)*p,(1050-i*105)*p,.18,'sawtooth',.065*v,i*.13);tone((860+i*70)*p,(1190-i*100)*p,.17,'triangle',.04*v,i*.13);}},
@@ -60,7 +71,7 @@ const SND = {
   land: s => noise(0.09, 0.12 * Math.min(1, s.v ?? 1), 400, 1),
   dive: () => { noise(0.18, 0.1, 2000, 0.8, 0, 'bandpass', 600); tone(300, 160, 0.15, 'triangle', 0.08); },
   throw: () => noise(0.16, 0.1, 2500, 1, 0, 'bandpass', 900),
-  hit: s => { noise(0.1, 0.18 * (s.v ?? 1), 500, 1); tone(140, 70, 0.1, 'square', 0.08); },
+  hit:s=>{const v=s.v??1;noise(.075,.13*v,700,1.2);tone(190,65,.12,'triangle',.10*v);tone(820,460,.035,'square',.025*v);},
   glass: () => { for (let i = 0; i < 6; i++) tone(2400 + Math.random() * 2400, 1800, 0.12, 'triangle', 0.05, i * 0.02); noise(0.2, 0.12, 5000, 1); },
   wood: () => { noise(0.14, 0.2, 700, 2); tone(180, 90, 0.12, 'square', 0.06); },
   splash: () => noise(0.35, 0.16, 1400, 0.8, 0, 'lowpass', 300),
@@ -167,7 +178,7 @@ function frog(parts, v = 1) {
       const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q; bp.frequency.setValueAtTime(fa, t); bp.frequency.exponentialRampToValueAtTime(fb, t + Math.min(0.09, d * 0.5));
       const fg = ac.createGain(); fg.gain.value = g * 2.2; creak.connect(bp); bp.connect(fg); fg.connect(env);
     }
-    env.connect(master); o.start(t); lfo.start(t); o.stop(t + d + 0.03); lfo.stop(t + d + 0.03);
+    env.connect(buses.effects||master); o.start(t); lfo.start(t); o.stop(t + d + 0.03); lfo.stop(t + d + 0.03);
   }
 }
 // мировой звук: громкость по расстоянию до слушателя
@@ -176,20 +187,21 @@ export function setListener(x, y, z) { listener.x = x; listener.y = y; listener.
 export function sfx(name, o = {}) {
   if (!ac || muted || !SND[name]) return;
   if (o.at) { const d = Math.hypot(o.at.x - listener.x, o.at.y - listener.y, o.at.z - listener.z); const range=o.range??30;if (d >= range) return; o.v = (o.v ?? 1) * (o.range?Math.pow(1-d/range,1.5):Math.max(0.15,1-d/range)); }
-  SND[name](o);
+  route=['wind','thunder','crow','gull','purr'].includes(name)?'ambient':'effects';
+  try{SND[name](o);}finally{route='effects';}
 }
 // фон: ветер и далёкий гул города (шум через низкочастотный фильтр, медленно плавает)
 export function ambience(on) {
   if (!ac) return;
   if (on && !amb) { const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380; const g = ac.createGain(); g.gain.value = 0.05;
     const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = 0.08; lg.gain.value = 160; lfo.connect(lg); lg.connect(f.frequency); lfo.start();
-    s.connect(f); f.connect(g); g.connect(master); s.start(); amb = { s, lfo }; }
+    s.connect(f); f.connect(g); g.connect(buses.ambient); s.start(); amb = { s, lfo }; }
   if (!on && amb) { amb.s.stop(); amb.lfo.stop(); amb = null; }
 }
 // шум дождя: тихий шелест (шум через полосовой фильтр), включается погодой
 let rainN = null;
 export function rainLoop(on) {
   if (!ac) return;
-  if (on && !rainN) { const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.4; const g = ac.createGain(); g.gain.value = 0.035; s.connect(f); f.connect(g); g.connect(master); s.start(); rainN = s; }
+  if (on && !rainN) { const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.4; const g = ac.createGain(); g.gain.value = 0.035; s.connect(f); f.connect(g); g.connect(buses.ambient); s.start(); rainN = s; }
   if (!on && rainN) { rainN.stop(); rainN = null; }
 }

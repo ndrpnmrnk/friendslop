@@ -1,3 +1,4 @@
+import {materialAtlas} from './material-atlas.js';
 import { installOcclusion } from '../game/occlusion.js';
 import { THREE, ps1, G } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -47,6 +48,7 @@ export function bakeStatic(group, section=false) {
   const pending = [];
   for (const c of group.children.slice()) visit(c);
   fixCoplanar(boxes);
+  const atlas=materialAtlas(new Set(pending.flatMap(p=>p.mats)),W.mapResources,new Set([T.water(),T.waterHi(),T.foam()].map(t=>t.source.uuid)));
   for (const { o, g, mats, cell } of pending) {
     {
       {
@@ -54,7 +56,7 @@ export function bakeStatic(group, section=false) {
         for (const gr of parts) {
           const mat = mats[gr.materialIndex]; if (!mat) continue;
           const sub = parts.length === 1 && gr.start === 0 && gr.count === g.attributes.position.count ? g : slice(g, gr.start, gr.count);
-          const cm = canon(mat, sub);
+          const cm = atlas.apply(canon(mat, sub), sub);
           const key = cm.uuid + '|' + cell + '|' + (o.renderOrder || 0);
           let bk = buckets.get(key); if (!bk) buckets.set(key, bk = { mat: cm, list: [], ro: o.renderOrder || 0, shadow: o.castShadow !== false });
           bk.list.push(strip(sub));
@@ -75,7 +77,7 @@ export function bakeStatic(group, section=false) {
   // подвижное тоже отбрасывает и принимает тени
   group.traverse(o => { if (o.isMesh && !o.userData.baked && !o.isInstancedMesh) { const m = Array.isArray(o.material) ? o.material[0] : o.material; o.castShadow = !m.transparent && !(m.emissive && m.emissiveIntensity > 0.5); o.receiveShadow = !m.transparent; } });
   installOcclusion(group);
-  return { meshes: removed.length, draws: n };
+  return { meshes: removed.length, draws: n,atlasPages:atlas.pages };
 }
 /* Одинаковые по виду материалы сводим к одному: повтор/сдвиг текстуры переносим в UV,
    тогда все дорожки из плитки, все серые стены и т.п. рисуются одним куском. */
@@ -101,13 +103,13 @@ function canon(mat, g) {
   return c;
 }
 function strip(g) {
-  for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv' && k !== 'aObj' && k !== 'aObjH') g.deleteAttribute(k);
+  for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv' && k !== 'aObj' && k !== 'aObjH' && k !== 'aAtlas' && k !== 'color') g.deleteAttribute(k);
   g.clearGroups(); g.morphAttributes = {};
   return g;
 }
 function slice(g, start, count) {
   const out = new THREE.BufferGeometry();
-  for (const k of ['position', 'normal', 'uv', 'aObj', 'aObjH']) { const a = g.attributes[k]; if (!a) continue; out.setAttribute(k, new THREE.BufferAttribute(a.array.slice(start * a.itemSize, (start + count) * a.itemSize), a.itemSize)); }
+  for (const k of ['position', 'normal', 'uv', 'aObj', 'aObjH','aAtlas','color']) { const a = g.attributes[k]; if (!a) continue; out.setAttribute(k, new THREE.BufferAttribute(a.array.slice(start * a.itemSize, (start + count) * a.itemSize), a.itemSize)); }
   return out;
 }
 function flip(g) {

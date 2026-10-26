@@ -38,9 +38,16 @@
 
 <!-- Настройки: микрофон -->
 <div id="settings" class="screen hidden">
-  <div class="sctitle">НАСТРОЙКИ</div>
+  <div class="sctitle">НАСТРОЙКИ</div><p class="liveMatchNotice">Матч продолжается</p>
   <div id="setbox" class="pframe">
-    <div class="srow"><span class="sl">Качество света</span><button class="stog" id="lightQ">ВЫСОКОЕ</button></div>
+    <div class="srow"><label class="sl" for="graphicsQ">Графика</label><select id="graphicsQ"><option value="low">Низкая</option><option value="medium">Средняя</option><option value="high">Высокая</option></select></div>
+    <div class="audioSettings" aria-label="Громкость">
+      <div class="srow"><label for="volEffects">Предметы и действия</label><input id="volEffects" type="range" min="0" max="100" step="1"><output for="volEffects"></output></div>
+      <div class="srow"><label for="volAmbient">Окружение</label><input id="volAmbient" type="range" min="0" max="100" step="1"><output for="volAmbient"></output></div>
+      <div class="srow"><label for="volMusic">Фоновая музыка</label><input id="volMusic" type="range" min="0" max="100" step="1"><output for="volMusic"></output></div>
+      <div class="srow"><label for="volRadio">Бумбокс</label><input id="volRadio" type="range" min="0" max="100" step="1"><output for="volRadio"></output></div>
+    </div>
+    <details class="micSettings"><summary>Микрофон</summary>
     <div class="srow"><span class="sl"><i id="micIco"></i>Микрофон</span><button class="stog" id="micOn">ВЫКЛ</button></div>
     <div class="srow"><span class="sl">Устройство</span><select id="micDev"></select></div>
     <div class="srow"><span class="sl">Режим</span><button class="stog" id="micMode">ВСЕГДА</button></div>
@@ -48,7 +55,7 @@
     <div class="srow"><span class="sl">Крик</span><input type="range" id="micLoudS" min="0" max="1" step="0.05"></div>
     <div class="srow"><span class="sl">Фоновый шум</span><button class="stog" id="micCal">КАЛИБРОВКА</button></div>
     <div class="srow col"><div id="micMeter"><i></i><b id="micThr"></b><b id="micLoud" class="loud"></b></div><div id="micState"></div></div>
-    <div class="snote">Помолчи 2 секунды и нажми «Калибровка» — игра запомнит шум комнаты. Белая черта — порог речи, красная — порог крика. Говоришь — персонаж «болтает», кричишь — голова трясётся, коты и птицы разбегаются. Голосовой чат появится вместе с игрой по сети.</div>
+    <div class="snote">Помолчи 2 секунды и нажми «Калибровка» — игра запомнит шум комнаты. Белая черта — порог речи, красная — порог крика. Говоришь — персонаж «болтает», кричишь — голова трясётся, коты и птицы разбегаются. Голосовой чат появится вместе с игрой по сети.</div></details>
   </div>
   <button class="pback" id="setBack">◀ <span class="key">Esc</span></button>
 </div>

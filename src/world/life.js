@@ -20,7 +20,7 @@ export function buildLife(scene) {
   // летучие мыши: 3 стаи кружат над случайными районами (все мыши — 3 инстанс-меша: тело и два крыла)
   const nFlocks = HW ? 3 : 1, per = 6, total = nFlocks * per;
   batMesh = [new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4), col(0x17111f), total), new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(-0.5, 0, 0), col(0x241a30), total), new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0, 0), col(0x241a30), total)];
-  for (const m of batMesh) { m.frustumCulled = false; W.group.add(m); W.keep.push(m); }
+  for (const m of batMesh) { m.frustumCulled = false; W.group.add(m); W.keep.push(m); W.mapResources.add(m.geometry); }
   for (let f = 0; f < nFlocks; f++) {
     const d = W.districts[(Math.random() * W.districts.length) | 0]; if (!d) break;
     const c = { x: d.ox + 16, z: d.oz + 16, y: 14 + Math.random() * 8, r: 7 + Math.random() * 6, sp: 0.5 + Math.random() * 0.4, ph: Math.random() * 6, members: [] };

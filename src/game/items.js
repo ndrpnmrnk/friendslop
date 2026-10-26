@@ -1,3 +1,4 @@
+import {actionEffect} from '../world/action-fx.js';
 import {placeArcDots} from './trajectory.js';
 import {basketCrossing} from '../world/basketball.js';
 import {sweepActors,npcList,npcPosition,hitNPC,heavyHit} from './impacts.js';
@@ -173,6 +174,7 @@ function impact(it, n, speed) {
   if (t === 'can' && (it.shake || 0) > 0.5 && W.sodaBlast) { it.state = 'gone'; it.g.visible = false; W.sodaBlast(p.clone(), it.owner); return; }
   const v = Math.min(1.4, speed * it.def.mass * 0.08 + 0.3); if (t === 'can') sfx('can', { at: p, v }); sfx('imp', { at: p, v, m: materialAt(p.x, p.y, p.z) });
   const wall = Math.abs(n[1]) < 0.5;
+  if(speed>6)actionEffect(materialAt(p.x,p.y,p.z)==='metal'?'metal':it.type==='bottle'?'glass':'hit',p,Math.min(1.3,speed*.06));
   // следы ударов: брызги на стене, искры и пыль от тяжёлого
   if (wall && speed > 8 && it.def.heavy) { burst(p.x, p.y, p.z, 5, { color: 0xffd25c, size: 0.08, speed: 4, up: 1.5, g: 14, life: 0.35, grow: 0 }); burst(p.x, p.y, p.z, 3, { color: 0x8a7e90, size: 0.35, speed: 0.8, up: 0.4, g: 1, life: 0.7, grow: 1.4 }); }
   if (it.def.heavy && speed > 10) shake(0.12);

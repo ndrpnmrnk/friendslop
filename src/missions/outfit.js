@@ -49,7 +49,7 @@ export function outfitGame(o,api,ctx){
   for(const q of o.garments){if(q.taken||ctx.bot&&(q.variant!==recipe[q.slot]||P.ch.outfit.values[q.slot]===recipe[q.slot]))continue;const point=q.point(),d=Math.hypot(point.x-P.pos.x,point.z-P.pos.z);if(d>1.35)continue;const dir=point.clone().setY(o.g.position.y+1.10).sub(eye),length=dir.length();if(raySolids(eye,dir.clone().normalize(),length,o.solids.find(s=>point.x>s.x0-.1&&point.x<s.x1+.1&&point.z>s.z0-.1&&point.z<s.z1+.1))<length-.15)continue;const n=point.clone().sub(P.pos).normalize().dot(forward),rank=d*(1.35-.35*n);if(rank<score){score=rank;best=q;}}
   return best;
  }
- const finishEquip=()=>{const q=active.q;if(taken[q.slot]){taken[q.slot].taken=false;taken[q.slot].model.visible=true;}q.taken=true;taken[q.slot]=q;wearOutfit(P.ch,q.slot,q.variant);q.model.visible=false;for(const a of fly.children.slice())a.removeFromParent();active=null;P.missionTool=false;sfx('pickup',{at:P.pos,range:8,v:.55});};
+ const finishEquip=()=>{const q=active.q;if(taken[q.slot]){taken[q.slot].taken=false;taken[q.slot].model.visible=true;}q.taken=true;taken[q.slot]=q;wearOutfit(P.ch,q.slot,q.variant);q.model.visible=false;for(const a of fly.children.slice())a.removeFromParent();active=null;P.missionTool=false;sfx('fabric',{at:P.pos,range:8,v:.7});};
  return{equipped:false,botNear:.22,get recipe(){return recipe;},get active(){return active;},get photo(){return photo;},
   target(){const slot=OUTFIT_SLOTS.find(s=>P.ch.outfit.values[s]!==recipe[s]);return slot?o.garments.find(q=>q.slot===slot&&q.variant===recipe[slot]).front():P.pos;},
   prompt(){const q=choice();return q?'<b>E</b>Надеть '+OUTFIT_NAMES[q.slot][q.variant]:'';},

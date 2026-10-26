@@ -1,4 +1,6 @@
+import {W} from '../world/state.js';
 import { THREE, renderer } from './gfx.js';
+import {trackTexture} from './quality.js';
 const ANISO = Math.min(16, renderer.capabilities.getMaxAnisotropy());
 import { HW, SEASON } from '../config.js';
 
@@ -22,7 +24,7 @@ function finish(c, alpha) {
   t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = ANISO;
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   if (alpha) t.premultiplyAlpha = false;
-  return t;
+  return trackTexture(t);
 }
 const cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 export function pix(key, w, h, draw) {
@@ -35,11 +37,11 @@ export function photo(key, w, h, draw, s = 6) {
   const hi = cv(w * s, h * s), g = hi.getContext('2d'); draw(g, w * s, h * s);
   const lo = cv(w, h), l = lo.getContext('2d'); l.imageSmoothingEnabled = true; l.imageSmoothingQuality = 'high';
   l.drawImage(hi, 0, 0, w, h);
-  const t = finish(lo); if (key) C.set(key, t); return t;
+  const t = finish(lo);if(key)C.set(key,t);else{t.userData.transient=true;t.mapResources=W.mapResources;W.mapResources?.add(t);}return t;
 }
 export function rep(t, rx, ry) {
   const k = t.uuid + rx + 'x' + ry; if (C.has(k)) return C.get(k);
-  const r = t.clone(); r.repeat.set(rx, ry); r.needsUpdate = true; C.set(k, r); return r;
+  const r = trackTexture(t.clone());r.mapResources=t.mapResources;if(r.userData.transient)r.mapResources?.add(r);r.repeat.set(rx, ry); r.needsUpdate = true; if(!r.userData.transient)C.set(k, r); return r;
 }
 
 /* ---------- рисовалки ---------- */

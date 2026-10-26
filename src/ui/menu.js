@@ -1,3 +1,6 @@
+import {createLocalLighting} from '../world/scene-lighting.js';
+import {updateActionEffects} from '../world/action-fx.js';
+import {characterFade} from '../core/model-fade.js';
 import {THREE,V3,G,sprite,makeCamera} from '../core/gfx.js';
 import {makeCharacter} from '../characters/rig.js';
 import {SKINS,SKIN_IDS} from '../characters/skins.js';
@@ -46,7 +49,7 @@ export function createMenu(){
   scene.background=new THREE.Color(SEASON.bg);scene.fog=new THREE.Fog(SEASON.fog[0],40,120);
   const hemi=new THREE.HemisphereLight(SEASON.hemi[0],SEASON.hemi[1],SEASON.hemi[2]*.94*Math.PI);scene.add(hemi);
   const moon=new THREE.DirectionalLight(SEASON.sun[0],SEASON.sun[1]*.93*Math.PI);moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);moon.shadow.bias=-.0008;moon.shadow.normalBias=.05;Object.assign(moon.shadow.camera,{left:-20,right:20,top:20,bottom:-20,near:1,far:160});scene.add(moon,moon.target);
-  const world=buildHub(scene),sky=createSky(scene,{moonDirection:new V3(-.22,.29,-.91)}),look=new V3(0,1,9.5);sky.setNight(.12);const direction=sky.moonDir();moon.position.copy(direction).multiplyScalar(70);
+  const world=buildHub(scene),localLighting=createLocalLighting(scene),sky=createSky(scene,{moonDirection:new V3(-.22,.29,-.91)}),look=new V3(0,1,9.5);sky.setNight(.12);const direction=sky.moonDir();moon.position.copy(direction).multiplyScalar(70);
   const bounce=new THREE.DirectionalLight(0x8a7ac8,.35*Math.PI);bounce.position.set(-direction.x*45,30,-direction.z*45);scene.add(bounce);
   camera.position.set(1.7,2.2,14.6);camera.lookAt(look);
   const st={scene,camera,world,ch:null,player:null,rig,active:true,mode:'splash',idx:0,t:0,choosing:false,hover:false,drag:false,pause:false,transition:null,velocity:new V3(),sit:0};
@@ -71,7 +74,7 @@ export function createMenu(){
     const toRotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(camPos,target,new V3(0,1,0)));
     st.transition={fromRotation:camera.quaternion.clone(),toRotation,fromFov:camera.fov,lookDistance:camera.position.distanceTo(look),endDistance:camPos.distanceTo(target),name,t:0,duration,from:st.ch.root.position.clone(),to:pos.clone(),cp:camera.position.clone(),ct:camPos.clone(),lp:look.clone(),lt:target.clone(),fromYaw:st.ch.root.rotation.y,toYaw:opts.yaw??st.ch.root.rotation.y,done,arc:opts.arc||0,sit:opts.sit??0,sitFrom:st.sit};
   }
-  function roam(){mode('roam');st.sit=0;st.ch.root.visible=true;st.ch.blob.visible=true;st.player.facing=st.ch.root.rotation.y;rig.resume(camera,{settled:true,distance:st.followDistance});takeLook();requestLock();}
+  function roam(){characterFade(st.ch.root,1);mode('roam');st.sit=0;st.ch.root.visible=true;st.ch.blob.visible=true;st.player.facing=st.ch.root.rotation.y;rig.resume(camera,{settled:true,distance:st.followDistance});takeLook();requestLock();}
   st.enterHub=()=>{st.pausedForSettings=false;character(collection().selected);st.ch.root.position.set(0,0,9.5);st.ch.root.rotation.y=st.player.facing=Math.PI;rig.reset(0);rig.state.pose=rig.state.free=rig.state.orbit=null;
     const cp=camera.position.clone(),cl=look.clone(),rotation=camera.quaternion.clone();scope(()=>rig.update(camera,st.player,0,true));st.followDistance=rig.state.curDist;const p=camera.position.clone(),l=camera.position.clone().addScaledVector(camera.getWorldDirection(new V3()),20);camera.position.copy(cp);camera.quaternion.copy(rotation);look.copy(cl);travel('arrive',st.player.pos,p,l,1.35,roam);
   };
@@ -91,9 +94,9 @@ export function createMenu(){
   st.togglePause=()=>{if(st.mode!=='roam')return;clearThrow();st.pause=!st.pause;$('hubPause').classList.toggle('open',st.pause);$('setBtn').classList.toggle('hub-settings',st.pause);st.velocity.set(0,0,0);if(st.pause){unlock();$('hubResume').focus();}else requestLock();};
   st.resume=()=>{if(st.pause)st.togglePause();};st.suspend=()=>{st.pausedForSettings=true;unlock();};st.resumeSettings=()=>{st.pausedForSettings=false;};
   Object.defineProperty(st,'wantsLock',{get:()=>st.active&&st.mode==='roam'&&!st.pause&&!st.pausedForSettings});
-  st.claw=createClaw(scene,id=>{character(id);st.ch.root.position.copy(clawStand);st.ch.root.rotation.y=Math.PI/2;st.ch.root.visible=false;});
+  st.claw=createClaw(scene,id=>{character(id);st.ch.root.position.copy(st.clawRoam?.pos||clawStand);st.ch.root.rotation.y=st.clawRoam?.actorYaw??Math.PI/2;st.ch.root.visible=false;});
   st.claw.root.position.set(9.4,.15,-3);st.claw.root.rotation.y=-Math.PI/2;st.claw.root.scale.setScalar(.72);scope(()=>addSolid(8.55,-4.25,10.3,-1.75,0,2.5));
-  st.claw.onClose=()=>{if(st.mode!=='claw')return;rig.state.yaw=st.clawRoam?.yaw??0;rig.state.pitch=st.clawRoam?.pitch??.45;st.ch.root.visible=true;const pos=clawStand.clone(),pose=viewPose(pos,rig.state.yaw);travel('arcade-out',pos,pose.p,pose.l,1.45,roam);};
+  st.claw.onClose=()=>{if(st.mode!=='claw')return;rig.state.yaw=st.clawRoam?.yaw??0;rig.state.pitch=st.clawRoam?.pitch??.45;st.ch.root.visible=true;const pos=(st.clawRoam?.pos||clawStand).clone(),pose=viewPose(pos,rig.state.yaw);travel('arcade-out',pos,pose.p,pose.l,1.45,roam);};
   scope(()=>{Object.assign(world.state,{toolImpact,sodaBlast,knockDown,letGo,dismount:a=>dismount(a,false),leaveBench,leaveHide,leaveSwing,releaseCart:a=>release(a,.3),onDrink:()=>sfx('drink')});});
   const arc=Array.from({length:11},()=>{const m=sprite(T.dot(),.13,{color:0xffb45a,depthTest:false,opacity:.95});m.renderOrder=10;m.visible=false;scene.add(m);return m;});
   const land=new THREE.Mesh(G.ring,new THREE.MeshBasicMaterial({color:0xff8a1f,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}));land.rotation.x=-Math.PI/2;land.scale.setScalar(.5);land.visible=false;scene.add(land);
@@ -113,7 +116,7 @@ export function createMenu(){
       travel('sofa-in',new V3(0,.58,-3.58),new V3(-.20,1.73,-4.65),new V3(-.20,1.73,-7.61),walk+sit,()=>{mode('tv');$('mode').classList.add('tv-mode');st.onMode?.();},{yaw:Math.PI,sit:1});
       Object.assign(st.transition,{seat:{path,length,walk,sit}});sfx('click');
     }else{
-      st.clawRoam={yaw:rig.state.yaw,pitch:rig.state.pitch};const shot=st.claw.cameraPose(camera,true);travel('arcade-in',clawStand,shot.p,shot.l,1.6,()=>{mode('claw');st.ch.root.visible=false;st.claw.open();},{yaw:Math.PI/2});
+      st.clawRoam={yaw:rig.state.yaw,pitch:rig.state.pitch,pos:P.pos.clone(),actorYaw:P.root.rotation.y};const shot=st.claw.cameraPose(camera,true);travel('arcade-in',P.pos,shot.p,shot.l,1.6,()=>{mode('claw');st.ch.root.visible=false;st.claw.open();},{yaw:Math.PI/2});
     }
   });
   on('down',btn=>{if(!st.wantsLock||!locked())return;scope(()=>{const P=st.player;if(P.stun>0||P.heldBy)return;if(btn===0&&grabFist(P))return;
@@ -144,17 +147,17 @@ export function createMenu(){
     if(P.held){cargoPosition(P,P.held.pos,P.held.def.r);P.held.g.rotation.y=P.root.rotation.y;poseMeleeItem(P,P.held);}
     if(P.charging&&(!P.held||P.stun>0))clearThrow();
     let shown=0;if(P.charging&&P.held){const tgt=aimPoint();P.aimYaw=Math.atan2(tgt.x-P.pos.x,tgt.z-P.pos.z);shown=predict(P.held.pos,throwVelocity(P.held.pos,tgt,P.charge,P.held.def),arc,arc.length,P.held.def,land);}if(P.held?.type==='bow'&&(P.held.draw||0)>.05){shown=predictBow(P,aimPoint(),arc,land);for(const m of arc){m.scale.setScalar(.085);m.material.depthTest=true;m.material.color.setHex(0xe8dfb9);}}else for(const m of arc){m.scale.setScalar(.13);m.material.depthTest=true;m.material.color.setHex(0xffb45a);}arc.forEach((m,i)=>m.visible=i<shown);if(!shown)land.visible=false;
-    updateCoins(dt,P);updateItems(dt,P);updatePushables(dt,P);for(const fn of world.state.animated)fn(dt,st.t);updateSwingers(dt,st.t,P);updateWorldFx(dt,st.t,P);updateTools(dt,st.t);updateGrabs(dt,st.t);updateTraps(dt,st.t);updateSnacks(P,dt);updateBreakables(dt,P);updateParticles(dt);updateSplat(dt);
+    updateCoins(dt,P);updateItems(dt,P);updatePushables(dt,P);for(const fn of world.state.animated)fn(dt,st.t);updateSwingers(dt,st.t,P);updateWorldFx(dt,st.t,P);updateTools(dt,st.t);updateGrabs(dt,st.t);updateTraps(dt,st.t);updateSnacks(P,dt);updateBreakables(dt,P);updateActionEffects(dt,P,camera);updateParticles(dt);updateSplat(dt);
     const want=new Set();if(!P.held)for(const it of world.state.items)if(['rest','placed'].includes(it.state)&&!it.noPickup&&(!it.boxed||it.boxed.open)&&it.pos.distanceTo(P.pos)<2.2)want.add(it.outline);
     for(const q of world.state.interacts)if(q.outline&&(!q.glow||q.glow())&&(!q.enabled||q.enabled(P))&&Math.hypot(q.x-P.pos.x,q.z-P.pos.z)<q.r+.7&&Math.abs(q.y-P.pos.y)<(q.dy??.9)+.3)want.add(q.outline);
     const ride=nearestRideable(P)||nearestRideable(P,1.7,true);if(ride&&!P.held)want.add(ride.outline);for(const o of glowing)if(!want.has(o))o?.set(false);for(const o of want)o?.set(true);glowing.clear();for(const o of want)glowing.add(o);pulseOutline(dt);
-    rig.state.shake=FX.shake;rig.state.fovAdd=P.boost*6;rig.update(camera,P,dt,false,locked()?delta:null,P.charging);st.ch.root.visible=!P.hidden&&camera.position.distanceTo(P.pos.clone().add(new V3(0,1,0)))>.95;look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),20);
+    rig.state.shake=FX.shake;rig.state.fovAdd=P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8);rig.update(camera,P,dt,false,locked()?delta:null,P.charging);st.ch.root.visible=!P.hidden&&camera.position.distanceTo(P.pos.clone().add(new V3(0,1,0)))>.95;look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),20);
   }
   st.update=dt=>scope(()=>{
     dt=Math.min(.05,dt);if(FX.freeze>0){FX.freeze=Math.max(0,FX.freeze-dt);dt*=.05;}st.t+=dt;updateRadios(dt,st.player.pos,st.active&&st.mode==='roam'&&!st.pause&&!st.pausedForSettings);if(!st.active&&st.mode!=='tv'){st.claw.update(dt);return;}
     if(st.mode==='splash'){camera.position.lerp(new V3(1.7+Math.sin(st.t*.12)*.15,2.2,14.6),1-Math.exp(-dt*3));look.lerp(new V3(0,1,9.5),1-Math.exp(-dt*3));st.ch.animate(dt,{t:st.t,speed:0});}
     else if(st.transition){
-      const q=st.transition;q.t+=dt;const k=ease(q.t/q.duration);previousActor.copy(st.player.pos);st.ch.root.position.lerpVectors(q.from,q.to,k);if(!q.seat)st.ch.root.rotation.y=turn(q.fromYaw,q.toYaw,k);
+      const q=st.transition;q.t+=dt;const k=ease(q.t/q.duration);if(q.name==='arcade-in')characterFade(st.ch.root,1-THREE.MathUtils.smoothstep(k,.06,.5));else if(q.name==='arcade-out')characterFade(st.ch.root,THREE.MathUtils.smoothstep(k,.35,.95));previousActor.copy(st.player.pos);st.ch.root.position.lerpVectors(q.from,q.to,k);if(!q.seat)st.ch.root.rotation.y=turn(q.fromYaw,q.toYaw,k);
       if(q.wardrobe){const w=q.wardrobe,crossAt=w.approach+w.wait,endCross=crossAt+w.cross,part=clamp(q.t/w.approach,0,1);
         if(q.t<w.approach)st.player.pos.lerpVectors(q.from,w.gate,ease(part));else st.player.pos.lerpVectors(w.gate,q.to,ease(clamp((q.t-crossAt)/w.cross,0,1)));
         const openStart=w.out ? .12 : Math.max(0,w.approach-.25),open=clamp((q.t-openStart)/.5,0,1),close=clamp((q.t-endCross)/w.close,0,1);world.curtain(ease(open)*(1-ease(close)));
@@ -171,7 +174,7 @@ export function createMenu(){
     if(st.sit>0){st.ch.body.position.y=-.25*st.sit;for(const[h,x]of[[st.ch.handL,-.19],[st.ch.handR,.19]])h.position.lerp(new V3(x,.46,.42),st.sit);world.controller.position.set(.45,.56,-3.58).lerp(st.ch.root.localToWorld(new V3(0,.46,.44)),clamp(st.sit*2,0,1));world.controller.rotation.set(0,st.ch.root.rotation.y,0);}else{world.controller.position.set(.45,.56,-3.58);world.controller.rotation.set(0,.25,0);}
     if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}sky.update(camera,st.t,dt);setListener(camera.position.x,camera.position.y,camera.position.z);
     tvUI.update(camera,st.mode==='tv'&&!st.pausedForSettings);const wantedScreen=st.mode==='tv'||st.transition?.name==='sofa-in'?0:1;screenFade+=(wantedScreen-screenFade)*(1-Math.exp(-dt*5));const noise=st.t%7.3>7.04?.82+Math.sin(st.t*83)*.12:1;world.tvScreen.material.color.setScalar(screenFade*noise);
-    for(const{lamp,light}of world.lampLights){const on=lamp.pool.visible&&!lamp.pool.userData.broken;light.intensity=on?9:0;lamp.cone.visible=on;}
+    for(const{light}of world.lampLights)light.removeFromParent();localLighting.update(camera,dt);
     screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(!P.ride){const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
 
 

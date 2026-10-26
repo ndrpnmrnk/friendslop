@@ -1,70 +1,21 @@
+import {ParticleBatch} from './particle-batch.js';
 import { THREE, G, mesh, alphaMat, ps1 } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
 import { groundAt } from './physics.js';
 
-/* Пиксельные частицы: дым, пыль, брызги. Спрайты переиспользуются. */
+/* Ограниченные общие буферы: более плотные эффекты без сотен отдельных мешей. */
 const pools=new WeakMap();
-function particles(){let state=pools.get(W.group);if(!state){state={pool:[],smokes:[],ripples:[]};pools.set(W.group,state);}return state;}
-export const resetParticles = () => { if(W.group)pools.delete(W.group); };
-// круги на воде
-export function ripple(x, y, z, size = 1, life = 0.9) {
-  const {ripples}=particles();
-  let p = ripples.find(q => !q.alive);
-  if(!p&&ripples.length>=48)return;
-  if (!p) { const m = new THREE.Mesh(G.plane, alphaMat(T.ripple(), { opacity: 0.8 })); m.rotation.x = -Math.PI / 2; W.group.add(m); p = { m }; ripples.push(p); }
-  p.alive = true; p.t = 0; p.life = life; p.size = size; p.m.position.set(x, y + 0.11, z); p.m.visible = true; p.m.scale.setScalar(0.1);
-}
-// всплеск: капли + круг
-export function splash(x, y, z, power = 1) {
-  burst(x, y + 0.1, z, Math.round(6 + 8 * power), { color: 0x9ccbec, size: 0.16 + 0.08 * power, speed: 1.2 + 1.6 * power, up: 2 + 2 * power, g: 12, life: 0.6 });
-  for(let i=0;i<Math.min(10,4+Math.round(power*4));i++){const a=i*2.4;smoke(x,y+.12,z,{dust:true,color:0x9ccbec,size:.045+power*.025,grow:.02,vx:Math.cos(a)*(1+power),vz:Math.sin(a)*(1+power),vy:2+power,g:12,life:.45,opacity:.85});}
-  ripple(x, y, z, 1 + power * 1.2, 0.8 + power * 0.4);
-  if (power > 0.6) ripple(x, y, z, 0.6 + power, 0.6);
-}
-
-/* Объёмный стилизованный дым: угловатые клубы (низкополигональные), растут, крутятся и тают.
-   Мелкая пыль — крошечные кубики, которые подпрыгивают и падают. */
-const SMOKE_GEO = new THREE.IcosahedronGeometry(1, 0), DUST_GEO = new THREE.BoxGeometry(1, 1, 1);
-export function smoke(x, y, z, o = {}) {
-  const {smokes}=particles();
-  const dust = !!o.dust, geo = dust ? DUST_GEO : SMOKE_GEO;
-  let p = smokes.find(q => !q.alive && q.dust === dust);
-  if(!p&&smokes.length>=180)return;
-  if (!p) {
-    const mat = ps1(new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, depthWrite: false, flatShading: true }));
-    const m = new THREE.Mesh(geo, mat); W.group.add(m); p = { m, dust }; smokes.push(p);
-  }
-  p.alive = true; p.t = 0; p.life = o.life ?? (dust ? 0.35 : 0.7); p.s0 = o.size ?? (dust ? 0.05 : 0.22); p.s1 = o.grow ?? (dust ? 0.05 : 0.6);
-  p.v = [o.vx ?? (Math.random() - 0.5) * 0.5, o.vy ?? (dust ? 1.6 + Math.random() : 0.5), o.vz ?? (Math.random() - 0.5) * 0.5]; p.g = o.g ?? (dust ? 9 : -0.4);
-  p.spin = [(Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3]; p.a0 = o.opacity ?? (dust ? 0.9 : 0.8);
-  p.m.material.color.setHex(o.color ?? (dust ? 0x8a7a8e : 0xd6cfe2)); p.m.material.opacity = p.a0;
-  p.m.position.set(x, y, z); p.m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); p.m.scale.setScalar(p.s0); p.m.visible = true;
-}
-// кольцо клубов вокруг точки (прыжок, приземление, подкат)
-export function smokeRing(x, y, z, n, o = {}) {
-  for (let i = 0; i < n; i++) { const a = i / n * 6.28 + Math.random() * 0.5, sp = (o.speed ?? 2) * (0.6 + Math.random() * 0.5);
-    smoke(x + Math.cos(a) * 0.2, y, z + Math.sin(a) * 0.2, { vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: o.up ?? 0.4, size: o.size ?? 0.18, grow: o.grow ?? 0.5, life: o.life ?? 0.6, g: -0.2, color: o.color }); }
-}
-export function puff(x, y, z, o = {}) {
-  const {pool}=particles();
-  let p = pool.find(q => !q.alive);
-  if(!p&&pool.length>=320)return;
-  if (!p) {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.puff(), transparent: true, depthWrite: false }));
-    W.group.add(s); p = { s }; pool.push(p);
-  }
-  p.alive = true; p.t = 0; p.life = o.life ?? 0.7; p.size = o.size ?? 0.6; p.grow = o.grow ?? 1.6;
-  p.v = [o.vx ?? (Math.random() - 0.5) * 0.4, o.vy ?? 0.7, o.vz ?? (Math.random() - 0.5) * 0.4]; p.g = o.g ?? 0;
-  p.s.material.color.setHex(o.color ?? 0xd8d0e4); p.s.material.opacity = o.opacity ?? 0.85; p.a0 = p.s.material.opacity;
-  p.s.position.set(x, y, z); p.s.visible = true; p.s.scale.setScalar(p.size);
-}
-export function burst(x, y, z, n, o = {}) {
-  for (let i = 0; i < n; i++) {
-    const a = Math.random() * 6.28, sp = (o.speed ?? 3) * (0.4 + Math.random() * 0.6);
-    puff(x, y, z, { ...o, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp, vy: (o.up ?? 2) * (0.5 + Math.random()), g: o.g ?? 9, grow: o.grow ?? 0.3, life: o.life ?? 0.6 });
-  }
-}
+function particles(){let state=pools.get(W.group);if(!state){state={};pools.set(W.group,state);}return state;}
+function batch(kind){const state=particles();if(!state[kind])state[kind]=new ParticleBatch(W.group,kind,{puff:320,smoke:128,dust:96,ripple:48}[kind],kind==='puff'?T.puff():kind==='ripple'?T.ripple():null);return state[kind];}
+export const resetParticles=()=>{if(!W.group)return;const state=pools.get(W.group);if(state)for(const b of Object.values(state))b.dispose();pools.delete(W.group);};
+export function particleStats(){const s=particles();return Object.fromEntries(Object.entries(s).map(([k,b])=>[k,{alive:b.records.filter(p=>p.alive).length,capacity:b.capacity,draws:b.mesh.visible?1:0}]));}
+export function ripple(x,y,z,size=1,life=.9,color=0xb3dce8){batch('ripple').spawn({x,y:y+.11,z,size,life,color,scale:.1,alpha:.8,rx:-Math.PI/2});}
+export function smoke(x,y,z,o={}){const dust=!!o.dust;batch(dust?'dust':'smoke').spawn({x,y,z,life:o.life??(dust?.35:.7),size:o.size??(dust?.05:.22),grow:o.grow??(dust?.05:.6),vx:o.vx??(Math.random()-.5)*.5,vy:o.vy??(dust?1.6+Math.random():.5),vz:o.vz??(Math.random()-.5)*.5,g:o.g??(dust?9:-.4),spinX:(Math.random()-.5)*3,spinY:(Math.random()-.5)*3,spinZ:(Math.random()-.5)*3,a0:o.opacity??(dust?.9:.8),color:o.color??(dust?0x8a7a8e:0xd6cfe2),rx:Math.random()*3,ry:Math.random()*3,rz:Math.random()*3,scale:o.size??.2,alpha:o.opacity??.8});}
+export function smokeRing(x,y,z,n,o={}){for(let i=0;i<n;i++){const a=i/n*6.28+Math.random()*.5,sp=(o.speed??2)*(.6+Math.random()*.5);smoke(x+Math.cos(a)*.2,y,z+Math.sin(a)*.2,{vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:o.up??.4,size:o.size??.18,grow:o.grow??.5,life:o.life??.6,g:-.2,color:o.color});}}
+export function puff(x,y,z,o={}){batch('puff').spawn({x,y,z,life:o.life??.7,size:o.size??.6,grow:o.grow??1.6,vx:o.vx??(Math.random()-.5)*.4,vy:o.vy??.7,vz:o.vz??(Math.random()-.5)*.4,g:o.g??0,color:o.color??0xd8d0e4,a0:o.opacity??.85,scale:o.size??.6,alpha:o.opacity??.85});}
+export function burst(x,y,z,n,o={}){for(let i=0;i<n;i++){const a=Math.random()*6.28,sp=(o.speed??3)*(.4+Math.random()*.6);puff(x,y,z,{...o,vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:(o.up??2)*(.5+Math.random()),g:o.g??9,grow:o.grow??.3,life:o.life??.6});}}
+export function splash(x,y,z,power=1){burst(x,y+.1,z,Math.round(6+8*power),{color:0x9ccbec,size:.16+.08*power,speed:1.2+1.6*power,up:2+2*power,g:12,life:.6});for(let i=0;i<Math.min(10,4+Math.round(power*4));i++){const a=i*2.4;smoke(x,y+.12,z,{dust:true,color:0x9ccbec,size:.045+power*.025,grow:.02,vx:Math.cos(a)*(1+power),vz:Math.sin(a)*(1+power),vy:2+power,g:12,life:.45,opacity:.85});}ripple(x,y,z,1+power*1.2,.8+power*.4);if(power>.6)ripple(x,y,z,.6+power,.6);}
 
 /* Обломки: тыквы, кирпичи, стены */
 export function chunk(x, y, z, vel, o = {}) {
@@ -80,35 +31,22 @@ export function chunk(x, y, z, vel, o = {}) {
 export function decal(tex, x, y, z, size, life, color) {
   const m = mesh(G.plane, alphaMat(tex, { color: color ?? 0xffffff, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }), x, y + 0.02, z, size, size, 1, W.group);
   m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6.28;
+  W.mapResources.add(m.material);
   W.decals.push({ m, life, t: 0 }); return m;
 }
 
 export function updateParticles(dt) {
-  const {pool,smokes,ripples}=particles();
-  for (const p of pool) {
-    if (!p.alive) continue;
-    p.t += dt; const k = p.t / p.life;
-    if (k >= 1) { p.alive = false; p.s.visible = false; continue; }
-    p.v[1] -= p.g * dt;
-    p.s.position.x += p.v[0] * dt; p.s.position.y += p.v[1] * dt; p.s.position.z += p.v[2] * dt;
-    p.s.scale.setScalar(p.size * (1 + p.grow * k)); p.s.material.opacity = p.a0 * (1 - k * k);
-  }
-  for (const p of ripples) {
-    if (!p.alive) continue;
-    p.t += dt; const k = p.t / p.life;
-    if (k >= 1) { p.alive = false; p.m.visible = false; continue; }
-    p.m.scale.setScalar(0.2 + p.size * 2 * (1 - (1 - k) * (1 - k))); p.m.material.opacity = 0.8 * (1 - k);
-  }
-  for (const p of smokes) {
-    if (!p.alive) continue;
-    p.t += dt; const k = p.t / p.life;
-    if (k >= 1) { p.alive = false; p.m.visible = false; continue; }
-    p.v[1] -= p.g * dt; const drag = Math.exp(-dt * (p.dust ? 0.5 : 2.5)); p.v[0] *= drag; p.v[2] *= drag;
-    p.m.position.x += p.v[0] * dt; p.m.position.y += p.v[1] * dt; p.m.position.z += p.v[2] * dt;
-    if (p.dust) { const gy = groundAt(p.m.position.x, p.m.position.z, 0, p.m.position.y + 0.3); if (p.m.position.y < gy + 0.02) { p.m.position.y = gy + 0.02; p.v[1] = 0; p.v[0] *= 0.5; p.v[2] *= 0.5; } }
-    p.m.rotation.x += p.spin[0] * dt; p.m.rotation.y += p.spin[1] * dt; p.m.rotation.z += p.spin[2] * dt;
-    const e = 1 - (1 - k) * (1 - k); p.m.scale.setScalar(p.s0 + (p.s1 - p.s0) * e);
-    p.m.material.opacity = p.a0 * (k < 0.4 ? 1 : 1 - (k - 0.4) / 0.6);
+  const state=particles();
+  for(const kind of ['puff','smoke','dust','ripple']){
+    const batch=state[kind];if(!batch)continue;let changed=false;
+    for(const p of batch.records){if(!p.alive)continue;changed=true;p.t+=dt;const k=p.t/p.life;if(k>=1){p.alive=false;continue;}
+      if(kind==='ripple'){p.scale=.2+p.size*2*(1-(1-k)**2);p.alpha=.75*(1-k);continue;}
+      p.vy-=p.g*dt;const drag=kind==='puff'?1:Math.exp(-dt*(kind==='dust'?.5:2.5));p.vx*=drag;p.vz*=drag;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;
+      if(kind==='dust'&&p.vy<0){const floor=groundAt(p.x,p.z,0,p.y+.3);if(p.y<floor+.02){p.y=floor+.02;p.vy=0;p.vx*=.5;p.vz*=.5;}}
+      if(kind==='puff'){p.scale=p.size*(1+p.grow*k);p.alpha=p.a0*(1-k*k);}
+      else{p.rx+=p.spinX*dt;p.ry+=p.spinY*dt;p.rz+=p.spinZ*dt;p.scale=p.size+(p.grow-p.size)*(1-(1-k)**2);p.alpha=p.a0*(k<.4?1:1-(k-.4)/.6);}
+    }
+    if(changed)batch.sync();
   }
   for (let i = W.debris.length - 1; i >= 0; i--) {
     const d = W.debris[i], m = d.m;
@@ -126,6 +64,6 @@ export function updateParticles(dt) {
   for (let i = W.decals.length - 1; i >= 0; i--) {
     const d = W.decals[i]; d.t += dt;
     if (d.t > d.life - 1) d.m.material.opacity = Math.max(0, d.life - d.t) * 0.9;
-    if (d.t >= d.life) { W.group.remove(d.m); d.m.material.dispose(); W.decals.splice(i, 1); }
+    if (d.t >= d.life) { W.group.remove(d.m); W.mapResources.delete(d.m.material); d.m.material.dispose(); W.decals.splice(i, 1); }
   }
 }

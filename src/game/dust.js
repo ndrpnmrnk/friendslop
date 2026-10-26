@@ -1,3 +1,4 @@
+import {graphics} from '../core/quality.js';
 import { THREE } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { CONFIG } from '../config.js';
@@ -13,6 +14,6 @@ export function updateDust(t,P){
   if(!P)return;
   // дымка над землёй: пятна дрейфуют вокруг игрока (на улице, не в подземке)
   const base = CONFIG.base, inside = !!buildingAt(P.pos);
-  for (const q of mist) { const show = P.pos.y > base - 1 && P.pos.y < base + 6 && !inside; q.m.visible = show; if (!show) continue;
+  for (const [i,q] of mist.entries()) { const show = i<graphics.current.mist&& P.pos.y > base - 1 && P.pos.y < base + 6 && !inside; q.m.visible = show; if (!show) continue;
     q.m.position.set(Math.round(P.pos.x / 30) * 30 + q.ox + Math.sin(t * 0.07 + q.ph) * 3, base + 0.25 + Math.sin(t * 0.3 + q.ph) * 0.05, Math.round(P.pos.z / 30) * 30 + q.oz + Math.cos(t * 0.05 + q.ph) * 3); }
 }

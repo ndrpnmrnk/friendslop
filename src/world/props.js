@@ -227,7 +227,7 @@ export const PropMethods = {
     if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: Math.random() * 5, on: true }); }
     W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; pool.userData.broken = true; };
     // объёмный конус света под плафоном (v0.23): аддитивный, мягкий к краям и к земле; гаснет вместе с фонарём
-    const cone = new THREE.Mesh(LAMP_CONE, LAMP_CONE_M()); cone.position.set(this.X(lx), this.Y + 1.52, this.Z(lz)); cone.renderOrder = 4; cone.userData.noOcc = true; cone.visible=false;W.keep.push(cone);
+    const cone = new THREE.Mesh(LAMP_CONE, LAMP_CONE_M()); cone.position.set(this.X(lx), this.Y + 1.52, this.Z(lz)); cone.renderOrder = 4; cone.userData.noOcc = true; cone.visible=false;this.g.add(cone);W.keep.push(cone);
     W.lamps.push({ x: this.X(x), z: this.Z(z), y: this.Y, lx: this.X(lx), lz: this.Z(lz), ry, pool, bm, bulb, cone, district: this.d });
     this.solid(x, z, 0.35, 0.35, 0, 3.4);
   },
@@ -659,4 +659,4 @@ const LAMP_CONE = new THREE.CylinderGeometry(0.13, 1.35, 2.95, 12, 1, true);
 let _lc; export const LAMP_CONE_M = () => _lc || (_lc = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   uniforms: { c: { value: new THREE.Color(0xffe2a8) }, k: { value: 1 } },
   vertexShader: 'varying vec2 vu; varying float vf; void main(){ vu = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vec3 n = normalize(normalMatrix * normal); vf = abs(dot(n, normalize(-mv.xyz))); gl_Position = projectionMatrix * mv; }',
-  fragmentShader: 'uniform vec3 c; uniform float k; varying vec2 vu; varying float vf; void main(){ float a = pow(vu.y, 1.6) * pow(vf, 1.5) * 0.32 * k; gl_FragColor = vec4(c * a, a); }' }));
+  fragmentShader: 'uniform vec3 c; uniform float k; varying vec2 vu; varying float vf; void main(){ float a = pow(vu.y, 1.6) * pow(vf, 1.5) * 0.18 * k; gl_FragColor = vec4(c * a, a); }' }));

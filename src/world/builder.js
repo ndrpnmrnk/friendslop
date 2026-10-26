@@ -54,7 +54,7 @@ export class Builder {
 
   /* ---------- свет и эффекты ---------- */
   light(x, z, r = 3, y = 0, dim = false) {
-    const m = this.m(G.plane, dim ? LIGHTDIM() : LIGHTMAT(), x, y + 0.03, z, r * 2, r * 2, 1); m.rotation.x = -Math.PI / 2; m.renderOrder = 2; return m;
+    const m = this.m(G.plane, dim ? LIGHTDIM() : LIGHTMAT(), x, y + 0.03, z, r * 2, r * 2, 1); m.rotation.x = -Math.PI / 2; m.renderOrder = 2;(W.lightSources??=[]).push({x:this.X(x),y:this.Y+y+(dim?1.85:2.55),z:this.Z(z),color:dim?0xffd8ac:0xffc384,strength:dim?3.5:6,range:dim?6:8,pool:m});return m;
   }
   // вода: тёмная толща + бегущие блики + пена у берега
   water(x, z, r, y = 0, fish = true) {

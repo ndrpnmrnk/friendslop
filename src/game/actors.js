@@ -1,3 +1,4 @@
+import {actionEffect} from '../world/action-fx.js';
 import { V3 } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { burst } from '../world/particles.js';
@@ -24,6 +25,7 @@ export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) {
   if (a.grab && a.grab.kind !== undefined && W.releaseCart) W.releaseCart(a);
   if (drop) dropHeld(a, dx * power, dz * power);
   if (a.holding) W.letGo && W.letGo(a);
+  actionEffect('hit',{x:a.pos.x,y:a.pos.y+1,z:a.pos.z},Math.min(1.3,power/7));
   a.knockT = 0.35; // короткое время без управления (летит), но без звёздочек
   burst(a.pos.x, a.pos.y + 1, a.pos.z, 5, { color: 0xf1e8ff, size: 0.16, speed: 2, up: 1.5 });
 }
@@ -35,6 +37,7 @@ export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) {
 export const GETUP = 0.7;
 export function knockDown(a, dx = 0, dz = 0, t = 1.1) {
   if (a.hidden || a.drone || a.returning) return;
+  actionEffect('hit',{x:a.pos.x,y:a.pos.y+1,z:a.pos.z},1.4);
   if (a.ride && W.dismount) W.dismount(a);
   a.roofSeat=null;a.climb = null; a.zip = null; a.mantle = null; a.hang = null;
   if (a.swing && W.leaveSwing) W.leaveSwing(a, false); if (a.bench) W.leaveBench && W.leaveBench(a);

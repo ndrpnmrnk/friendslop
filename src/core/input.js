@@ -27,6 +27,7 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.left = mouse.right = false; });
+export function clearInput(){for(const k in keys)keys[k]=false;pressed.clear();mouse.left=mouse.right=false;look.dx=look.dy=0;}
 export const tapped = code => pressed.has(code);
 export const endFrame = () => pressed.clear();
 

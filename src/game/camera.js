@@ -136,7 +136,7 @@ function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   else if(handoff){handoff.t=Math.min(1,handoff.t+dt/1.2);const k=handoff.t*handoff.t*handoff.t*(handoff.t*(handoff.t*6-15)+10),q=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(P,L,camera.up));camera.position.lerpVectors(handoff.p,P,k);camera.quaternion.slerpQuaternions(handoff.q,q,k);pos.copy(camera.position);look.copy(pos).addScaledVector(camera.getWorldDirection(dir),20);if(handoff.t===1)handoff=null;}
   updateOcclusion(camera, cam.pose && cam.pose.l);
   // тряска: короткие пиксельные рывки, затухают сами
-  if (cam.shake > 0.001 && !cam.pose) { const k = cam.shake * 0.35; camera.position.x += (Math.random() - 0.5) * k; camera.position.y += (Math.random() - 0.5) * k; camera.rotation.z += (Math.random() - 0.5) * k * 0.15; }
+  if (cam.shake > 0.001 && !cam.pose) { const k = Math.min(.8,cam.shake) * 0.45; camera.position.x += (Math.random() - 0.5) * k; camera.position.y += (Math.random() - 0.5) * k; camera.rotation.z += (Math.random() - 0.5) * k * 0.15; }
 
   // затухание зданий
   const target = cam.pose ? cam.pose.l : hit.set(p.pos.x, p.pos.y + 1.1, p.pos.z).clone();

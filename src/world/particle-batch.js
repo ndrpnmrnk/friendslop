@@ -1,0 +1,19 @@
+import {W} from './state.js';
+import {THREE,G,ps1} from '../core/gfx.js';
+import {graphics} from '../core/quality.js';
+// Один draw call на вид частиц. Геометрия/материал/память переиспользуются.
+export class ParticleBatch{
+ constructor(group,kind,capacity,map=null){this.kind=kind;this.capacity=capacity;this.cursor=0;this.records=Array.from({length:capacity},()=>({alive:false}));
+  const geo=(kind==='smoke'?G.ico:kind==='dust'?G.box:G.plane).clone();const alpha=new THREE.InstancedBufferAttribute(new Float32Array(capacity),1);geo.setAttribute('iAlpha',alpha);this.alpha=alpha;const tile=new THREE.InstancedBufferAttribute(new Float32Array(capacity),1),angle=new THREE.InstancedBufferAttribute(new Float32Array(capacity),1);geo.setAttribute('iTile',tile);geo.setAttribute('iAngle',angle);this.tile=tile;this.angle=angle;
+  const opts={color:0xffffff,transparent:true,depthWrite:false,map};const mat=ps1(kind==='smoke'||kind==='dust'?new THREE.MeshLambertMaterial({...opts,flatShading:true}):new THREE.MeshBasicMaterial(opts));const before=mat.onBeforeCompile,key=mat.customProgramCacheKey();
+  mat.onBeforeCompile=sh=>{before.call(mat,sh);sh.vertexShader='attribute float iAlpha;attribute float iTile;attribute float iAngle;varying float vParticleAlpha;varying float vParticleTile;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvParticleAlpha=iAlpha;vParticleTile=iTile;');sh.fragmentShader='varying float vParticleAlpha;varying float vParticleTile;\n'+sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vParticleAlpha;');
+   if(kind==='action')sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>','diffuseColor*=texture2D(map,vec2((vMapUv.x+vParticleTile)/8.,vMapUv.y));');
+   if(kind==='puff'||kind==='action')sh.vertexShader=sh.vertexShader.replace('#include <project_vertex>',`vec4 mvPosition=modelViewMatrix*instanceMatrix*vec4(0.,0.,0.,1.);
+    vec2 billboard=transformed.xy*vec2(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz));float sn=sin(iAngle),cs=cos(iAngle);mvPosition.xy+=mat2(cs,-sn,sn,cs)*billboard;gl_Position=projectionMatrix*mvPosition;`);
+  };mat.customProgramCacheKey=()=>key+'-particle48-'+kind;
+  const mesh=new THREE.InstancedMesh(geo,mat,capacity);mesh.name='particles-'+kind;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;mesh.visible=false;mesh.userData.noOcc=true;mesh.renderOrder=2;this.mesh=mesh;group.add(mesh);this.resources=W.mapResources;for(const resource of [mesh,geo,mat])this.resources?.add(resource);this.object=new THREE.Object3D();this.color=new THREE.Color();
+ }
+ spawn(data){const limit=Math.max(8,Math.floor(this.capacity*graphics.current.particles));for(let n=0;n<limit;n++){const i=(this.cursor+n)%limit,p=this.records[i];if(p.alive)continue;this.cursor=(i+1)%limit;Object.assign(p,data,{alive:true,t:0,index:i});this.mesh.setColorAt(i,this.color.setHex(data.color??0xffffff));this.mesh.instanceColor.needsUpdate=true;return p;}return null;}
+ sync(){let count=0;const zero=this.object;for(let i=0;i<this.capacity;i++){const p=this.records[i];if(p.alive){count=i+1;zero.position.set(p.x,p.y,p.z);zero.rotation.set(p.rx||0,p.ry||0,p.rz||0);zero.scale.set(p.sx??p.scale,p.sy??p.scale,p.sz??p.scale);this.alpha.setX(i,p.alpha);this.tile.setX(i,p.tile||0);this.angle.setX(i,p.rz||0);}else{zero.position.set(0,0,0);zero.rotation.set(0,0,0);zero.scale.setScalar(0);this.alpha.setX(i,0);}zero.updateMatrix();this.mesh.setMatrixAt(i,zero.matrix);}this.mesh.count=count;this.mesh.visible=count>0;if(count){this.mesh.instanceMatrix.needsUpdate=true;this.alpha.needsUpdate=true;this.tile.needsUpdate=true;this.angle.needsUpdate=true;}}
+ dispose(){for(const resource of[this.mesh,this.mesh.geometry,this.mesh.material])this.resources?.delete(resource);this.mesh.removeFromParent();this.mesh.dispose();this.mesh.geometry.dispose();this.mesh.material.dispose();}
+}

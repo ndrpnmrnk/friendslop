@@ -15,9 +15,9 @@ function edgesAt(surface,y){if(!surface||y<surface.box.min.y||y>surface.box.max.
 function radial(edges,dx,dz){let outer=0;for(const [[ax,az],[bx,bz]]of edges){const sx=bx-ax,sz=bz-az,det=dx*sz-dz*sx;if(Math.abs(det)<1e-8)continue;const t=(ax*sz-az*sx)/det,u=(ax*dz-az*dx)/det;if(t>0&&u>=-.001&&u<=1.001)outer=Math.max(outer,t);}return outer;}
 export function fitGarment(piece,fit,surface){if(!surface)return;const [,x,y,z,sx,sy,rawZ]=fit,sz=rawZ/.85,key=fit.join(',')+'|'+surface.key;
  for(const mesh of piece.children){if(!mesh.isMesh)continue;let by=fitted.get(mesh.geometry);if(!by)fitted.set(mesh.geometry,by=new Map());let geometry=by.get(key);if(!geometry){geometry=mesh.geometry.clone();const pos=geometry.attributes.position,rows=new Map();
-  for(let i=0;i<pos.count;i++){const px=pos.getX(i),py=pos.getY(i),pz=pos.getZ(i);if(Math.abs(px)>.505||py<.02||py>.96)continue;const wy=y+py*sy,rowKey=Math.round(wy*10000);let edges=rows.get(rowKey);if(!edges)rows.set(rowKey,edges=edgesAt(surface,wy));const vx=x+px*sx,vz=z+pz*sz,r=Math.hypot(vx,vz);if(!edges.length||r<.02)continue;const target=radial(edges,vx/r,vz/r);if(!target)continue;
+  for(let i=0;i<pos.count;i++){const px=pos.getX(i),py=pos.getY(i),pz=pos.getZ(i);if(Math.abs(px)>.505||py<.02||py>.96)continue;const wy=y+py*sy,rowKey=Math.round(wy*10000);let edges=rows.get(rowKey);if(!edges)rows.set(rowKey,edges=edgesAt(surface,wy));const vx=x+px*sx,vz=z+pz*sz,r=Math.hypot(vx,vz);if(!edges.length||r<.02)continue;const trim=geometry.attributes.aTrim?.getX(i)>.5,baseRadius=trim?Math.hypot(vx,z+THREE.MathUtils.clamp(pz,-.335,.335)*sz):r;const target=radial(edges,vx/r,vz/r);if(!target)continue;
    // Припуск в сантиметрах, а не общий широкий цилиндр. Рукава и воротник сохраняют свой крой.
-   const ratio=THREE.MathUtils.clamp((target+.018)/r,.78,1.42);pos.setX(i,((vx*ratio)-x)/sx);pos.setZ(i,((vz*ratio)-z)/sz);
+   const ratio=THREE.MathUtils.clamp((target+.018)/Math.max(.02,baseRadius),.78,1.42);pos.setX(i,((vx*ratio)-x)/sx);pos.setZ(i,((vz*ratio)-z)/sz);
   }
   geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();by.set(key,geometry);
  }mesh.geometry=geometry;}

@@ -1,3 +1,5 @@
+import {ParticleBatch} from './particle-batch.js';
+import {graphics} from '../core/quality.js';
 import { THREE, G, V3, mesh, alphaMat } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { SEASON } from '../config.js';
@@ -13,7 +15,7 @@ import { sfx, rainLoop } from '../core/sfx.js';
    Ночь: за раунд сумерки уходят в глубокую ночь — темнее небо и туман, ярче окна и пятна фонарей, луна выше. */
 export const WX = { kind: 'clear', wet: 0, wind: { x: 1, z: 0, k: 0 }, gust: 0, night: 0 };
 const N = 700;
-let rain = null, halos = [], gustT = 6, base = null;
+let rain = null, halos = [],haloBatch=null, gustT = 6, base = null;
 
 export function startWeather(scene, kind) {
   stopWeather(scene);
@@ -28,16 +30,14 @@ export function startWeather(scene, kind) {
     rain.userData.p = Array.from({ length: N }, () => new V3((Math.random() - 0.5) * 44, Math.random() * 22, (Math.random() - 0.5) * 44));
     rainLoop(true);
   }
-  if (WX.kind === 'fog') {
-    // ореолы вокруг фонарей
-    const hm = alphaMat(T.light(), { blending: THREE.AdditiveBlending, opacity: 0.45, color: 0xffd8a0, depthWrite: false });
-    for (const L of W.lamps) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.light(), color: 0xffd8a0, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })); s.position.set(L.lx, L.y + 2.95, L.lz); s.scale.setScalar(3.2); W.group.add(s); halos.push({ s, L }); }
-    void hm;
+  if(WX.kind==='fog'){
+    haloBatch=new ParticleBatch(W.group,'puff',256,T.light());haloBatch.mesh.material.blending=THREE.AdditiveBlending;
+    for(const L of W.lamps){const p=haloBatch.spawn({x:L.lx,y:L.y+2.95,z:L.lz,color:0xffd8a0,life:Infinity,scale:3.2,alpha:.22});if(p)halos.push({p,L});}
   }
 }
 export function stopWeather(scene) {
-  if (rain) { scene.remove(rain); rain.geometry.dispose(); rain = null; }
-  for (const h of halos) W.group && W.group.remove(h.s); halos = [];
+  if (rain) { scene.remove(rain); rain.geometry.dispose();rain.material.dispose();rain = null; }
+  haloBatch?.dispose();haloBatch=null;halos=[];
   rainLoop(false); WX.kind = 'clear'; WX.wet = 0; WX.wind.k = 0;
 }
 
@@ -52,7 +52,8 @@ export function updateWeather(dt, t, camera, P, scene, roundK) {
   // дождь
   if (rain && camera) {
     const p = rain.geometry.attributes.position.array, ps = rain.userData.p, wx = WX.wind.x * 3 * WX.wind.k, wz = WX.wind.z * 3 * WX.wind.k, cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
-    for (let i = 0; i < N; i++) { const q = ps[i]; q.y -= dt * 16; q.x += wx * dt; q.z += wz * dt;
+    const count=Math.round(N*(graphics.key==='high'?1:graphics.key==='low'?.4:.7));rain.geometry.setDrawRange(0,count*2);
+    for (let i = 0; i < count; i++) { const q = ps[i]; q.y -= dt * 16; q.x += wx * dt; q.z += wz * dt;
       if (q.y < -6) { q.y = 14 + Math.random() * 4; q.x = (Math.random() - 0.5) * 44; q.z = (Math.random() - 0.5) * 44; }
       if (q.x > 22) q.x -= 44; if (q.x < -22) q.x += 44; if (q.z > 22) q.z -= 44; if (q.z < -22) q.z += 44;
       const x = cx + q.x, y = cy + q.y - 6, z = cz + q.z, k = i * 6; p[k] = x; p[k + 1] = y; p[k + 2] = z; p[k + 3] = x - wx * 0.04; p[k + 4] = y - 0.55; p[k + 5] = z - wz * 0.04; }
@@ -69,7 +70,7 @@ export function updateWeather(dt, t, camera, P, scene, roundK) {
   WX.windNow = WX.wind.k * (0.35 + (WX.gust > 0 ? 1 : 0));
   // раскачка всего подвешенного
   if (W.swingers && WX.windNow > 0.05) for (const s of W.swingers) { if (s.rider) continue; const ry = s.pivot.rotation.y, f = WX.wind.x * Math.sin(ry) + WX.wind.z * Math.cos(ry); s.vel += f * WX.windNow * dt * (2 + Math.sin(t * 3 + s.ph) * 1.5); }
-  for (const h of halos) h.s.visible = !h.L.dead && !(h.L.pool && h.L.pool.userData.broken);
+  if(haloBatch){for(const h of halos){const d=Math.hypot(h.p.x-camera.position.x,h.p.z-camera.position.z),on=!h.L.dead&&h.L.pool.visible&&!h.L.pool.userData.broken&&d<28;h.p.scale=on?3.2:0;h.p.alpha=.20*Math.max(0,1-d/32);}haloBatch.sync();}
 }
 // порыв: лёгкие предметы катятся и взлетают, персонажей подталкивает, птицы взлетают
 export function gust(dt, P, k = 1) {

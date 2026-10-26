@@ -20,7 +20,7 @@
 
 export const CONFIG = {
   roundTime: 300,
-  music: {intro:.64,play:.34,crossfade:.8}, // через общий master .5: 32% / 17% исходной громкости
+  music: {intro:.14,play:.065,crossfade:.8}, // тихий фон; отдельный канал музыки и приглушение у радио
   season: 'halloween',            // 'halloween' | 'none'
   grid: 3,                        // 3x3 районов на карте
   chunk: 32, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара
@@ -224,5 +224,5 @@ export const DIFF = { easy: 0x9be36b, mid: 0xf5c542, hard: 0xff5a6e };
 export const HW = CONFIG.season === 'halloween';
 export const SEASON = HW
   // v0.19: свет луны — холодный, сильнее, рассеянный ниже: тени от объектов на улице читаются чётче
-  ? { bg: 0x2a1f3d, fog: [0x2a1f3d, 45, 135], hemi: [0xa890e0, 0x231a30, 0.88], sun: [0xc8ccff, 1.15], lit: '#ffa94d', lamp: 0xffb35c }
+  ? { bg: 0x302735, fog: [0x38303b, 50, 145], hemi: [0xb9b1c6, 0x302333, 0.76], sun: [0xd3d8ec, 0.90], lit: '#ffa94d', lamp: 0xffb35c }
   : { bg: 0x9fd3ff, fog: [0x9fd3ff, 60, 150], hemi: [0xffffff, 0x6a7a5a, 1.0], sun: [0xffffff, 0.8], lit: '#fff1b0', lamp: 0xfff1b0 };

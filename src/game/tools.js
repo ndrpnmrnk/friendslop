@@ -1,3 +1,4 @@
+import {actionEffect} from '../world/action-fx.js';
 import {sweepActors,npcList,npcPosition,hitNPC} from './impacts.js';
 import {useBong} from './bong.js';
 import {arrowModel,poseBow,bowVelocity,ARROW_GRAVITY} from './bow.js';
@@ -253,6 +254,7 @@ function lob(kind, from, aim, owner) {
 }
 function hitActorsAt(p, r, owner) { for (const a of actors()) { if (a === owner || a.hidden) continue; const q = a.pos; if (Math.hypot(q.x - p.x, q.z - p.z) < r && p.y > q.y - 0.3 && p.y < q.y + a.h + 0.3) return a; } return null; }
 export function explode(p, owner) {
+  actionEffect('metal',{x:p.x,y:p.y+.5,z:p.z},1.7,0xffac50);
   const cols = [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff];
   for (const c of cols) burst(p.x, p.y + 0.5, p.z, 7, { color: c, size: 0.2, speed: 6, up: 5, g: 6, life: 1.1, grow: 0.2 });
   smokeRing(p.x, p.y + 0.1, p.z, 12, { speed: 4, size: 0.3, grow: 1, life: 0.9 });

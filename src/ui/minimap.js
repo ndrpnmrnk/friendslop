@@ -1,3 +1,4 @@
+import {graphics} from '../core/quality.js';
 import { W } from '../world/state.js';
 import { CONFIG, DIFF } from '../config.js';
 import { cam } from '../game/camera.js';
@@ -7,11 +8,11 @@ import { iconCanvas } from './icons.js';
    каждый кадр поворачиваем её так, чтобы верх был туда, куда смотрит камера. Игрок — в центре,
    миссии — цветные точки (на краю, если далеко), цель уличной миссии — зелёная звезда. */
 const PX = 3; // пикселей плана на метр
-let plan = null, half = 0;
+let plan = null, half = 0,lastDraw=-Infinity;
 const GROUND = { pave: '#4a4258', grass: '#2e4a2c', dirt: '#4a3a2c', concrete: '#47434f', asphalt: '#2b2733', cobble: '#4e4660', flag: '#4a4458' };
 
 export function buildMinimap(districts) {
-  half = W.bounds; const size = Math.ceil(half * 2 * PX);
+  lastDraw=-Infinity;half = W.bounds; const size = Math.ceil(half * 2 * PX);
   plan = document.createElement('canvas'); plan.width = plan.height = size;
   const g = plan.getContext('2d'), X = x => (x + half) * PX;
   g.fillStyle = '#1d1826'; g.fillRect(0, 0, size, size);
@@ -27,6 +28,7 @@ export function buildMinimap(districts) {
 }
 
 export function drawMinimap(P, missions, target, extra, main) {
+  const now=performance.now(),hz=graphics.key==='high'?45:graphics.key==='low'?20:30;if(now-lastDraw<1000/hz)return;lastDraw=now;
   const c = document.getElementById('mapc'); if (!c || !plan) return;
   const g = c.getContext('2d'), S = c.width, R = S / 2;
   g.imageSmoothingEnabled = false;

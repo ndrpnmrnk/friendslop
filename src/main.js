@@ -1,3 +1,6 @@
+import {createLocalLighting} from './world/scene-lighting.js';
+import {actionEffect,updateActionEffects,actionStats} from './world/action-fx.js';
+import {graphics,setGraphics} from './core/quality.js';
 import {introFlight} from './ui/intro-flight.js';
 import {roundMusic} from './core/round-music.js';
 import {cancelBotOnEliminate} from './missions/bot-work.js';
@@ -14,10 +17,10 @@ import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
 import {predictBow} from './game/bow.js';
-import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow } from './core/gfx.js';
+import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow,setActionVisuals } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
-import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock } from './core/input.js';
+import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock,clearInput } from './core/input.js';
 import { W } from './world/state.js';
 import { generateMap } from './world/world.js';
 import { updatePushables, groundAt, raySolids } from './world/physics.js';
@@ -48,7 +51,7 @@ import { updateBreakables } from './world/breakables.js';
 import { $, renderHud, renderStamina, resetHud, markWon, flyScore, sparks, eventBanner, eventChip, toast, renderNav } from './ui/hud.js';
 import { TEXT } from './ui/text.js';
 import { img } from './ui/icons.js';
-import { initAudio, sfx, ambience, setListener, toggleMute } from './core/sfx.js';
+import { initAudio, sfx, ambience, setListener, toggleMute,audioLevels,setAudioLevel } from './core/sfx.js';
 import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
 import {resetCoins,updateCoins,coinState,grabFist,nearFist} from './game/coins.js';
@@ -81,12 +84,12 @@ const hemi = new THREE.HemisphereLight(SEASON.hemi[0], SEASON.hemi[1], SEASON.he
 const sun = new THREE.DirectionalLight(SEASON.sun[0], SEASON.sun[1] * Math.PI); sun.position.set(-30, 50, 25); scene.add(sun, sun.target);
 // жёсткие пиксельные тени (v0.18 — крупнее «пиксель», как на PS1): карта 1024 на квадрат ~64 м вокруг игрока
 // v0.23: «качество света» — высокое: карта теней 2048 на ~70 м, лунные лучи, конусы фонарей, отражённый свет; низкое — как раньше
-const LQ = { hi: (() => { try { return localStorage.getItem('friendslop.light') !== 'lo'; } catch (_) { return true; } })() };
+const LQ={get hi(){return graphics.key!=='low';}};
 sun.castShadow = true; sun.shadow.mapSize.set(LQ.hi ? 2048 : 1024, LQ.hi ? 2048 : 1024); sun.shadow.intensity = 0.9; sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.07;
 Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 160 }); sun.shadow.camera.updateProjectionMatrix();
 const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(), SUN_U = new V3().crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize();
 // свет луны идёт ОТ видимой луны (тени совпадают с небом); отражённый свет — мягкая сиреневая подсветка с другой стороны (объём)
-const bounce = new THREE.DirectionalLight(0x8a7ac8, 0.35 * Math.PI); scene.add(bounce, bounce.target);
+const bounce = new THREE.DirectionalLight(0xa18eac, 0.22 * Math.PI); scene.add(bounce, bounce.target);
 function aimMoon(d) { const k = Math.max(0.55, d.y); SUN_DIR.set(d.x, k, d.z).normalize(); SUN_R.crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(); SUN_U.crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize(); }
 // фонарик персонажа (горит только в событии «Отключили свет»; свет есть всегда, чтобы не пересобирать шейдеры)
 const sky = createSky(scene);
@@ -99,19 +102,19 @@ initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }),p
 const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => eventChip(null) };
 function followSun(x, y, z) {
   // привязка к текселю карты теней, чтобы края теней не дрожали при движении
-  const tx = 80 / 1024, c = new V3(x, y, z), a = Math.round(c.dot(SUN_R) / tx) * tx, b = Math.round(c.dot(SUN_U) / tx) * tx, f = c.dot(SUN_DIR);
+  const tx = 80 / sun.shadow.mapSize.x, c = new V3(x, y, z), a = Math.round(c.dot(SUN_R) / tx) * tx, b = Math.round(c.dot(SUN_U) / tx) * tx, f = c.dot(SUN_DIR);
   const t = SUN_R.clone().multiplyScalar(a).addScaledVector(SUN_U, b).addScaledVector(SUN_DIR, f);
   sun.target.position.copy(t); sun.position.copy(t).addScaledVector(SUN_DIR, 70);
   bounce.target.position.copy(t); bounce.position.set(t.x - SUN_DIR.x * 50, t.y + 30, t.z - SUN_DIR.z * 50); bounce.visible = LQ.hi;
 }
-const camera = makeCamera(CONFIG.camera.fov);
+const camera = makeCamera(CONFIG.camera.fov),localLighting=createLocalLighting(scene);
 const menu = createMenu();
 const podium = createPodium();
 // мышь захватывается для камеры во время игры (кроме мини-игр)
-lock.want = () => (['starting','roulette','intro','play'].includes(S.state) && !S.mg) || (S.state==='hub'&&menu.wantsLock);
+lock.want = () => !S.settingsOpen&&((['starting','roulette','intro','play'].includes(S.state)&&!S.mg)||(S.state==='hub'&&menu.wantsLock));
 document.addEventListener('pointerlockchange', () => { if(locked()&&!lock.want())unlock();if(!locked()&&S.state==='hub'&&menu.wantsLock)menu.togglePause(); setCursor(S.cursor);  $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
 
-const S = { state: 'menu', intro: null, time: 0, score: 0, done: 0, mg: null, wm: null, crane: false, hudT: 0, cursor: true };
+const S = { state: 'menu', settingsOpen:false,intro: null, time: 0, score: 0, done: 0, mg: null, wm: null, crane: false, hudT: 0, cursor: true };
 let P = null;
 
 // точки траектории броска
@@ -125,12 +128,13 @@ function screen(id) { for (const k of SCREENS) $(k).classList.toggle('hidden', k
 function buildLogo() { const l = $('logo'); if (l.childElementCount) return; for (const ch of TEXT.title) { const s = document.createElement('span'); s.textContent = ch; l.appendChild(s); } }
 let logoT = 0;
 function showMenu() {
+  S.settingsOpen=false;$('settings').classList.remove('in-match');
   roundMusic.stop();
   canvas.style.filter='';
   S.state = 'menu'; setCursor(true); document.body.classList.remove('playing'); menu.active = true; menu.splash(); buildLogo();
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
-function showHub(){roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
+function showHub(){S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
 menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen('menu');};
 $('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
@@ -148,15 +152,16 @@ $('tutBtn').onclick = () => { S.state='starting';requestLock(); sfx('click'); st
 $('modeBack').onclick = () => { sfx('click'); menu.closeTV(); };
 /* настройки: микрофон */
 $('setBtn').innerHTML = img('gear', 28); $('micIco').innerHTML = img('mic', 20);
-function showSettings() { S.settingsFrom=S.state;menu.suspend();S.state = 'settings'; menu.active = false; screen('settings'); sfx('click'); syncSettings(); fillMics(); }
-function syncSettings() { $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micSens').value = MIC.sens; $('micLoudS').value = MIC.loudSens; }
+function showSettings() {
+  if(S.state==='play'){S.settingsFrom='play';S.settingsOpen=true;setCursor(true);P.charging=false;if(P.held?.type==='bow')P.held.draw=0;S.mg?.game.up?.();S.wm?.game.up?.();clearInput();takeLook();unlock();$('settings').classList.add('in-match');$('settings').classList.remove('hidden');syncSettings();fillMics();return;}
+  $('settings').classList.remove('in-match');S.settingsFrom=S.state;menu.suspend();S.state = 'settings'; menu.active = false; screen('settings'); sfx('click'); syncSettings(); fillMics(); }
+function syncSettings() { $('graphicsQ').value=graphics.key;const levels=audioLevels();for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio'})){const el=$(id);el.value=Math.round(levels[k]*100);el.nextElementSibling.textContent=el.value+'%';} $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micSens').value = MIC.sens; $('micLoudS').value = MIC.loudSens; }
 async function fillMics() { const list = await listMics(), sel = $('micDev'); sel.innerHTML = '<option value="">По умолчанию</option>' + list.map((d, i) => `<option value="${d.deviceId}">${d.label || 'Микрофон ' + (i + 1)}</option>`).join(''); sel.value = MIC.device || ''; }
 $('setBtn').onclick = showSettings;
 // качество света (v0.23): переключатель в настройках; карта теней меняется сразу, остальное — каждый кадр
-const syncLight = () => { $('lightQ').textContent = LQ.hi ? 'ВЫСОКОЕ' : 'НИЗКОЕ'; $('lightQ').classList.toggle('on', LQ.hi); };
-$('lightQ').onclick = () => { LQ.hi = !LQ.hi; try { localStorage.setItem('friendslop.light', LQ.hi ? 'hi' : 'lo'); } catch (_) {} const n = LQ.hi ? 2048 : 1024; sun.shadow.mapSize.set(n, n); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } syncLight(); sfx('click'); };
-syncLight();
-function backSettings(){sfx('click');menu.resumeSettings();if(S.settingsFrom==='hub'){S.state='hub';menu.active=true;screen('menu');}else showMenu();}
+$('graphicsQ').onchange=e=>{setGraphics(e.target.value);sfx('click');};
+for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio'}))$(id).oninput=e=>{setAudioLevel(k,e.target.value/100);e.target.nextElementSibling.textContent=e.target.value+'%';};
+function backSettings(){sfx('click');if(S.settingsOpen){S.settingsOpen=false;setCursor(true);$('settings').classList.add('hidden');$('settings').classList.remove('in-match');clearInput();takeLook();if(S.state==='play')requestLock();return;}menu.resumeSettings();if(S.settingsFrom==='hub'){S.state='hub';menu.active=true;screen('menu');}else showMenu();}
 $('setBack').onclick = backSettings;
 $('micOn').onclick = async () => { MIC.on = !MIC.on; saveMic(); syncSettings(); if (MIC.on) { await startMic(); fillMics(); } else stopMic(); };
 $('micMode').onclick = () => { MIC.mode = MIC.mode === 'always' ? 'ptt' : 'always'; saveMic(); syncSettings(); sfx('click'); };
@@ -309,6 +314,7 @@ function goRound() {
   setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
 }
 function endRound() {
+  S.settingsOpen=false;$('settings').classList.add('hidden');$('settings').classList.remove('in-match');
   roundMusic.stop();
   resetRadios();
   S.state='results';
@@ -340,8 +346,8 @@ function endRound() {
 
 function findMat(key) { let m = null; W.group.traverse(o => { if (!m && o.isMesh && o.material && o.material.emissive && o.material.color && o.material.emissive.getHex() === 0xff9a4a) m = o.material; }); return m; }
 /* ---------- курсор-точка ---------- */
-function setCursor(v) { S.cursor=v; const ui=S.state!=='play';$('dot').classList.toggle('hidden',!v&&!ui);$('dot').classList.toggle('ui-cursor',ui);if(ui){$('dot').classList.remove('charge','focus');$('dot').style.transform=`translate(${mouse.x}px,${mouse.y}px)`;}document.body.classList.toggle('ui-cursor-on',ui); }
-on('move', e => { const d = $('dot'); d.style.transform = `translate(${mouse.x}px,${mouse.y}px)`; if (S.mg && S.mg.game.move) S.mg.game.move(aim(camera),e);if(S.wm?.game.move)S.wm.game.move(aim(camera),e); });
+function setCursor(v) { S.cursor=v; const ui=S.state!=='play'||S.settingsOpen;$('dot').classList.toggle('hidden',!v&&!ui);$('dot').classList.toggle('ui-cursor',ui);if(ui){$('dot').classList.remove('charge','focus');$('dot').style.transform=`translate(${mouse.x}px,${mouse.y}px)`;}document.body.classList.toggle('ui-cursor-on',ui); }
+on('move', e => { const d = $('dot'); d.style.transform = `translate(${mouse.x}px,${mouse.y}px)`;if(S.settingsOpen)return; if (S.mg && S.mg.game.move) S.mg.game.move(aim(camera),e);if(S.wm?.game.move)S.wm.game.move(aim(camera),e); });
 
 /* ---------- миссии ---------- */
 /* Уличная миссия: игрок бегает как обычно, справа внизу панель с таймером и прогрессом */
@@ -434,7 +440,7 @@ function closeMission(res) {
 
 // очки за миссию: «+N» вылетает из места миссии на экране и летит в счёт
 function scored(m, pts) {
-  markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m);
+  actionEffect('success',P.pos.clone().add(new V3(0,1,0)),1.25);markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m);
   const st = statsOf(P); st.missions++; st.mpts += pts;
   const p = (m.obj.pos && m.obj.pos()) || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   const sx = Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), sy = Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight));
@@ -536,6 +542,7 @@ function nearDoor() {
 
 /* ---------- ввод ---------- */
 on('down', btn => {
+  if(S.settingsOpen)return;
   if (S.state !== 'play') return;
   if (P.drone) { droneAction(P, btn, aim(camera).ray.direction); return; }
   if (P.returning) return;
@@ -564,11 +571,12 @@ on('down', btn => {
   if (btn === 2 && (P.held || carryK()) && P.stun <= 0) { P.charging = true; P.charge = 0; P.chargeManual = false; P.aimYaw = P.root.rotation.y; $('dot').classList.add('charge'); throwTip(); }
 });
 // колёсико во время замаха — точнее сила броска (вверх — сильнее, вниз — слабее)
-on('wheel', d => { if(S.state!=='play'||!P||S.mg||S.crane)return;if(!P.charging){const r=P.held?.type==='boombox'?P.held:!P.held?nearRadio(P,aim(camera)):null;if(r)tuneRadio(r,d);return;}P.chargeManual=true;P.charge=Math.max(.05,Math.min(1,P.charge-d*.1));sfx('tick');});
+on('wheel', d => { if(S.settingsOpen||S.state!=='play'||!P||S.mg||S.crane)return;if(!P.charging){const r=P.held?.type==='boombox'?P.held:!P.held?nearRadio(P,aim(camera)):null;if(r)tuneRadio(r,d);return;}P.chargeManual=true;P.charge=Math.max(.05,Math.min(1,P.charge-d*.1));sfx('tick');});
 // короткая подсказка у прицела — первые несколько замахов (потом не надоедает)
 let tipN = 0; try { tipN = +localStorage.getItem('friendslop.throwTip') || 0; } catch (_) {}
 function throwTip(done) { const e = $('throwTip'); if (!e) return; if (done || tipN >= 4) { e.classList.add('hidden'); return; } e.classList.remove('hidden'); }
 on('up', btn => {
+  if(S.settingsOpen)return;
   if (S.state !== 'play') return;
   if (S.mg) { if (btn === 0 && S.mg.game.up) S.mg.game.up(aim(camera)); return; }
   if(btn===0)S.wm?.game.up?.(aim(camera));
@@ -585,8 +593,10 @@ on('up', btn => {
 });
 on('key', code => {
   if (code === 'KeyM') { toggleMute(); return; }
-  if(code==='Escape'&&S.state==='settings'){backSettings();return;}
+  if(code==='Escape'&&(S.state==='settings'||S.settingsOpen)){backSettings();return;}
   if(code==='Escape'&&S.state==='mode'){menu.closeTV();return;}
+  if(S.settingsOpen)return;
+  if(S.state==='play'&&code==='Escape'){showSettings();return;}
   if(S.state==='hub'){menu.key(code);return;}
   if(S.state==='menu'){if(code==='Enter')showHub();return;}
   if (S.state === 'mode' && code === 'Enter') { $('modeCard').click(); return; }
@@ -684,9 +694,11 @@ const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
   clock.update(); let dt = Math.min(0.05, clock.getDelta());
   if(graphicsLost||document.hidden){endFrame();return;}
+  if(S.settingsOpen)clearInput();
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
   t += dt;runtimeCheckpoint(dt,{state:S.state,drone:!!P?.drone,returning:!!P?.returning,botsFlying:(W.bots||[]).filter(a=>a.drone||a.returning).length,mission:S.wm?.m.key||S.mg?.m.key||null,items:W.items.length,geometry:renderer.info?.memory?.geometries,textures:renderer.info?.memory?.textures});
   if(!['starting','hub','menu','mode','roulette','settings'].includes(S.state))updateRadios(dt,P?.pos,S.state==='play');
+  if(S.settingsOpen)drawMicMeter();
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
   else if (S.state === 'starting' || S.state === 'hub' || S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {
@@ -702,12 +714,12 @@ function frame() {
       S.time -= dt;
       if (S.time > 0 && S.time <= 10) { S.beep = (S.beep || 0) - dt; if (S.beep <= 0) { S.beep = 0.18 + 0.082 * S.time; sfx('deadline', { urgency: 1 - S.time / 10 }); } } else S.beep = 0;
       if (S.tut) updateTutorial(dt);
-      if (tapped('KeyE')) interact();
+      if (!S.settingsOpen&&tapped('KeyE')) interact();
       // инструмент, который действует пока зажата ЛКМ (огнетушитель, магнит)
       if (M_.left && P.held && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT=P.held.type==='bow'?0:.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; if(P.held.type!=='bow')sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
       if (P.charging && !P.chargeManual) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
       if(S.mg&&(P.heldBy||P.stun>0||P.daze>0||P.pos.distanceTo(S.mg.start)>0.65))closeMission(null);
-      updatePlayer(P, dt, t, !S.mg && !S.crane && !P.stationaryWork, cam.yaw);
+      updatePlayer(P, dt, t, !S.settingsOpen && !S.mg && !S.crane && !P.stationaryWork, cam.yaw);
       voiceInput(dt);
       if (P.held) { cargoPosition(P,P.held.pos,P.held.def.r); P.held.g.rotation.y = P.root.rotation.y;poseMeleeItem(P,P.held); }
       if (P.charging && !P.held && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
@@ -770,7 +782,7 @@ function frame() {
     const lk = takeLook();
     if (S.crane) {
       // напрямую: A/D — поворот стрелы, W/S — тележка
-      let ix = 0, iz = 0; if (keys.KeyA || keys.ArrowLeft) ix--; if (keys.KeyD || keys.ArrowRight) ix++; if (keys.KeyW || keys.ArrowUp) iz--; if (keys.KeyS || keys.ArrowDown) iz++;
+      let ix = 0, iz = 0; if (!S.settingsOpen&&(keys.KeyA || keys.ArrowLeft)) ix--; if (!S.settingsOpen&&(keys.KeyD || keys.ArrowRight)) ix++; if (!S.settingsOpen&&(keys.KeyW || keys.ArrowUp)) iz--; if (!S.settingsOpen&&(keys.KeyS || keys.ArrowDown)) iz++;
       craneStick.ix = ix; craneStick.iz = iz;
       cam.orbit.c.lerp(new V3().addVectors(W.crane.ball.position, W.crane.cab).multiplyScalar(0.5).setY(W.crane.ball.position.y + 3), 0.08);
     }
@@ -804,19 +816,20 @@ function frame() {
     { const nk = S.state === 'play' || S.state === 'results' ? 1 - Math.max(0, S.time) / CONFIG.roundTime : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
       if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
-    updateReflections(camera, t);
-    cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play' ? P.boost * 6 : 0;
+    updateReflections(camera, t);localLighting.update(camera,dt);
+    cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play'&&!S.mg ? P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8) : 0;
     // линии скорости: спринт, катание, полёт после броска
     { const sp = P && S.state === 'play' ? Math.hypot(P.vel.x, P.vel.z) : 0, k = Math.max(0, Math.min(1, (sp - 8.5) / 6)), el = $('speedl'); const o = (Math.round(k * 5) / 5).toFixed(1); if (el.style.opacity !== o) el.style.opacity = o; }
     updateBreakables(dt, S.state === 'play' ? P : null);
-    updateParticles(dt); updateSplat(dt);
-    updateCamera(camera, P, dt, false, S.state === 'play' ? lk : null, !!(P && P.charging));
+    updateActionEffects(dt,S.state==='play'&&!S.mg?P:null,camera);updateParticles(dt);updateSplat(dt);setActionVisuals(P&&!S.mg?Math.max(0,(Math.hypot(P.vel.x,P.vel.z)-7)/8):0,FX.shake*.5);
+    updateCamera(camera, P, dt, false, S.state === 'play' && !S.settingsOpen ? lk : null, !!(P && P.charging));
     {const k=S.state==='play'&&!P?.drone&&!P?.returning?Math.min(1,(P?.hazeT||0)/2):0;camera.rotation.z+=Math.sin(t*1.8)*.035*k;canvas.style.filter=k>0?`blur(${(.45*k).toFixed(2)}px) saturate(1.12)`:'';}
     S.mg?.game?.afterCamera?.();S.wm?.game?.afterCamera?.();
     { aimMoon(sky.moonDir()); const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz);
       // лунные лучи: где луна на экране (за кадром — гаснут); конусы света фонарей — вместе с фонарём
 
-      for (const L of W.lamps) if (L.cone) L.cone.visible = LQ.hi && L.pool.visible && !L.pool.userData.broken; }
+      // Ближайшие объёмные источники выбираются localLighting с общим бюджетом.
+    }
     // камера вплотную к персонажу (у стены) — прячем его, чтобы голова не закрывала полэкрана
     if (P && P.root.visible && !S.mg && !S.crane) { const hx = P.pos.x - camera.position.x, hy = P.pos.y + 1.0 - camera.position.y, hz = P.pos.z - camera.position.z; if (hx * hx + hy * hy + hz * hz < 0.95 * 0.95) P.root.visible = false; }
     if (!window.__noRender) present(scene, camera);
@@ -836,7 +849,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)roundMusic.
 // отладочный доступ из консоли браузера
 window.__fs = { lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 window.__fs.lastFaults=lastFaults;
-Object.assign(window.__fs,{menu,collection,coinState,showHub,showMenu,roundMusic,addFists:(n=500)=>addCoins(n)});
+Object.assign(window.__fs,{menu,collection,coinState,showHub,showMenu,roundMusic,graphics,actionStats,addFists:(n=500)=>addCoins(n)});
 if(new URLSearchParams(globalThis.location?.search||'').get('dev')==='1'){const b=document.createElement('button');b.id='devFists';b.textContent='+500';b.title='Тест автомата: добавить 500 фистов';b.onclick=()=>addCoins(500);$('wallet').appendChild(b);}
 showMenu();
 loop();
