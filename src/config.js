@@ -145,7 +145,7 @@ export const CONFIG = {
     cucumber: { name: 'Огурец', heavy: false, r: 0.14, respawn: 0, mass: 0.3, drag: 0.08, bounce: 0.3 },
     bulb:    { name: 'Лампочка', heavy: false, r: 0.12, respawn: 0, mass: 0.2, drag: 0.1, bounce: 0.1 },
     pizza:   { name: 'Горячая пицца', heavy: false, r: 0.26, respawn: 0, mass: 0.6, drag: 0.25, bounce: 0.15 },
-    /* Инструменты: выпадают из ящиков, лежат на земле. E — взять, ЛКМ — применить, ПКМ — бросить.
+    /* Инструменты: выпадают из ящиков, лежат на земле. ЛКМ — взять, ЛКМ в руках — применить, ПКМ — бросить (v0.52).
        ammo — сколько раз (или секунд) можно применить; charge — показывать запас шкалой 0–100; cdMax — перезарядка (с) без расхода */
     slipper: { name: 'Тапок', tool: true, heavy: false, knock: true, r: 0.14, respawn: 0, mass: 0.4, drag: 0.04, bounce: 0.3 },
     umbrella: { name: 'Зонтик', tool: true, heavy: false, r: 0.2, respawn: 0, mass: 0.7, drag: 0.15, bounce: 0.2 },

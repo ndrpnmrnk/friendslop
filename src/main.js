@@ -5,7 +5,7 @@ import {graphics,setGraphics} from './core/quality.js';
 import {introFlight} from './ui/intro-flight.js';
 import {roundMusic} from './core/round-music.js';
 import {cancelBotOnEliminate} from './missions/bot-work.js';
-import {worldTarget,worldAimPoint} from './game/object-actions.js';
+import {worldTarget,worldAimPoint,pickTarget} from './game/object-actions.js';
 import { updateOcclusion } from './game/occlusion.js';
 import {updateBongEffects} from './game/bong.js';
 import {recordFault,lastFaults,runtimeCheckpoint,lastRuntime} from './core/diagnostics.js';
@@ -561,9 +561,11 @@ on('down', btn => {
   // замах (ПКМ зажата): ЛКМ — передумал, опустить руку (бросок отменён)
   if (btn === 0 && P.charging) { P.charging = false; P.chargeManual = false; $('dot').classList.remove('charge'); sfx('click'); throwTip(true); return; }
   // в руках инструмент: ЛКМ — применить
-  if (btn === 0 && P.held) { if (!P.held.def.hold) { const snd = useTool(P, P.held, aimPoint()); if (snd) sfx(snd); } return; }
+  if (btn === 0 && P.held) { if (!P.held.def.hold) { const snd = useTool(P, P.held, aimPoint()); if (snd) sfx(snd); else if (!P.held.def.tool && !P.held.def.use) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; } } return; }
   if(btn===0&&!P.held){const r=nearRadio(P,aim(camera));if(r){toggleRadio(r);return;}}
   if (P.holding) { if (btn === 0 || btn === 2) letGo(P); return; }
+  // v0.52: ЛКМ с пустыми руками — подобрать предмет или поймать летящий
+  if (btn === 0 && !P.held && !P.ride) { const q = lmbTarget(); if (q) { const wasCatch = q.catch; q.act(); if (wasCatch) comboAct(P, 'catches', PTS.catch, P.pos); return; } }
   if (!P.held && !P.ride && !P.holding && (btn === 0 || btn === 2)) {
     const c = nearestRideable(P, 1.7, true), d = btn === 0 ? nearDoor() : null;
     if (c?.holdOnly)return;
@@ -658,14 +660,12 @@ function interact() {
   if (m) { openMission(m); return; }
   { const e = eTarget(); if (e) { e.act(); return; } }
   if (P.held) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; return; }
-  // поймать предмет на лету
-  { let fl = null, fd = 1.7; for (const q of W.items) if (q.state === 'fly' && q.owner !== P && !q.def.heavy) { const d = Math.hypot(q.pos.x - P.pos.x, q.pos.z - P.pos.z); if (d < fd && q.pos.y > P.pos.y && q.pos.y < P.pos.y + 2.4) { fd = d; fl = q; } }
-    if (fl&&!fl.noPickup) { pickUp(fl); P.held = fl; fl.owner = P; fl.wasHeld = true; sfx('pickup'); comboAct(P, 'catches', PTS.catch, P.pos); return; } }
   if (nearCrane()) enterCrane();
 }
 /* E (v0.21): из всего, что рядом (предметы, шкафы/багажники/скамейки…, двери, транспорт), выбирается БЛИЖАЙШЕЕ,
    с поправкой на направление взгляда (то, что перед тобой, — важнее). Подсказка показывает ровно это. */
-function eTarget() { return worldTarget(P,camera,{stealItem}); }
+function eTarget() { return worldTarget(P,camera,{stealItem,items:false}); }
+function lmbTarget() { return pickTarget(P,{stealItem}); }
 // подобрал чужой предмет миссии (заказ, пиццу, лампочку) — миссия засчитывается тебе
 function stealItem(it) {
   const pts = Math.round(it.steal.pts * (W.scoreMul || 1)); it.state = 'gone'; it.g.visible = false; it.steal = null;
@@ -687,6 +687,7 @@ function promptText() {
   if (P.swing || P.bench) return '<b>E</b>Встать';
   if (P.hidden) return '<b>E</b>Выскочить';
   { const e = eTarget(); if (e) return `<b>E</b>${e.label}`; }
+  { const q = !P.held && lmbTarget(); if (q) return `<b>ЛКМ</b>${q.label}`; }
   return '';
 }
 
@@ -862,3 +863,5 @@ import {updateSnacks} from './game/snacks.js';
 // отладка: модели персонажей для проверки внешнего вида
 import { makeCharacter as __mkChar } from './characters/rig.js';
 import { SKIN_IDS as __skinIds } from './characters/skins.js';
+import { busKitten as __busKitten } from './missions/bus-model.js';
+Object.assign(window.__fs, { busKitten: __busKitten });

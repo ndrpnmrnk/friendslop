@@ -309,7 +309,7 @@ export const WORLD3 = {
     return {
       botItems:()=>ext?[ext]:[],botStep(dt,brain){if(armed()&&Math.hypot(P.pos.x-f.x,P.pos.z-f.z)<4.5)brain.use(new V3(f.x,f.y+0.8,f.z),dt);},
       target: () => !armed() && ext && ext.state !== 'gone' ? ext.pos : o.pos(),
-      prompt: () => !armed() && ext && ext.state === 'rest' && Math.hypot(ext.pos.x - P.pos.x, ext.pos.z - P.pos.z) < 1.5 ? '<b>E</b>Взять огнетушитель' : '',
+      prompt: () => !armed() && ext && ext.state === 'rest' && Math.hypot(ext.pos.x - P.pos.x, ext.pos.z - P.pos.z) < 1.5 ? '<b>ЛКМ</b>Взять огнетушитель' : '',
       update(dt) {
         time -= dt; api.timer(time); api.progress(1 - Math.max(0, f.hp));
         const showExt = !armed() && ext && ext.state === 'rest'; rg.visible = showExt; if (ext) ext.outline.set(showExt);
