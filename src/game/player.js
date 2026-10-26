@@ -140,7 +140,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (p.carryCrate) top *= 0.6;
   const cur = Math.hypot(p.vel.x, p.vel.z);
   let acc;
-  if (!p.onGround) acc = 3;
+  if (!p.onGround) acc = 6.5;
   else if (slick || p.slipT > 0) acc = 1.2;
   else if (il) acc = PC.accel;
   else acc = cur > PC.walk + 0.5 ? PC.sprintDecel : PC.decel;
@@ -186,7 +186,11 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     }
   }
   // прыжок
-  if (ctrl && !p.holding && !p.heldBy && tapped('Space') && (p.onGround || p.climb) && !p.dive) {
+  // v0.51: отзывчивый прыжок — буфер нажатия (0.13 с) и «койот» (0.12 с после схода с края)
+  p.coyote = p.onGround ? 0.12 : Math.max(0, (p.coyote || 0) - dt);
+  p.jumpBuf = ctrl && tapped('Space') ? 0.13 : Math.max(0, (p.jumpBuf || 0) - dt);
+  if (ctrl && !p.holding && !p.heldBy && p.jumpBuf > 0 && (p.onGround || p.coyote > 0 || p.climb) && !p.dive) {
+    p.jumpBuf = 0; p.coyote = 0; p.jumpHeld = true;
     if (p.slideT > 0) { p.slideT = 0; }
     p.vel.y = PC.jump * (water ? 0.75 : 1); sfx('jump'); if (Math.random() < 0.35) voice(p.ch, 'jump');
     // с лестницы: назад от стены + вбок по нажатой стрелке
@@ -214,7 +218,11 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   }
   if (p.diveHitT > 0) p.diveHitT -= dt;
   applyGripMotion(p, dt);
-  moveBody(p, dt, PC.gravity);
+  // короткое нажатие — низкий прыжок, удержание — полный; вниз падаем быстрее (меньше «лунной» паузы)
+  if (p.vel.y <= 0 || p.onGround) p.jumpHeld = false;
+  const spaceHeld = ctrl && (keys.Space || keys.space);
+  const gK = p.climb || p.zip ? 1 : p.vel.y < 0 ? 1.3 : (p.jumpHeld && !spaceHeld && !p.bounced) ? 2.1 : 1;
+  moveBody(p, dt, PC.gravity * gK);
   bumpPushables(p);
   // батут: приземлился на маркизу / крышу машины / матрас — подбросило
   if (p.landed) { const bo = bounceAt(p.pos.x, p.pos.z, p.pos.y,Math.max(0,p.airPeak-p.pos.y)); if (bo) { p.vel.y = bo.power; p.onGround = false; p.airPeak = p.pos.y; p.bounced = 0.3; p.dive = null;

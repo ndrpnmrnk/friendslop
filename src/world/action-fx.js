@@ -1,3 +1,4 @@
+import {sparks,impactBurst} from '../game/vfx.js';
 import {sfx} from '../core/sfx.js';
 import {THREE} from '../core/gfx.js';
 import {pix} from '../core/textures.js';
@@ -24,6 +25,8 @@ export function actionEffect(kind,p,power=1,color=null){if(!W.group||!p)return;c
  add(s,p,c,success?4:0,.24,.52*k);add(s,p,c,1,.38,.4*k);if(kind==='hit'||kind==='metal')add(s,p,0xfff0c6,2,.22,.75*k);
  const count=Math.round((success?12:8)*k*graphics.current.particles);for(let i=0;i<count;i++){const a=i/count*Math.PI*2,sp=(1.4+Math.random()*2.8)*k;add(s,p,i%3?c:0xffffff,success?5:kind==='glass'?6:7,.28+Math.random()*.35,(success?.07:.035)+Math.random()*.065,Math.cos(a)*sp,(success?2:1.2)+Math.random()*2,Math.sin(a)*sp,success?1:2.2);}
  if(success||kind==='land')ripple(p.x,p.y-.15,p.z,.45*k,.4,c);
+ // v0.51: материалы отвечают по-своему — металл искрит, стекло и дерево сыплют осколками/щепками
+ if(kind==='metal')sparks(p,Math.round(12*k));else if(kind==='glass')impactBurst(p,0xcfefff,k,[0xcfefff,0x9fd0ef,0xffffff]);else if(kind==='wood')impactBurst(p,0xffd8a0,k,[0x8a5a34,0xb07a48,0x5e3b22]);else if(kind==='hit')impactBurst(p,c,k*.9);
 }
 export function updateActionEffects(dt,player=null,camera=null){if(!W.group)return;let s=states.get(W.group);const speed=player?Math.hypot(player.vel.x,player.vel.z):0;
  if(player&&speed>8&&player.onGround&&!player.stationaryWork){s??=state();s.trail-=dt;if(s.trail<=0){s.trail=.07/graphics.current.particles;const p=player.pos;smoke(p.x,p.y+.08,p.z,{dust:true,size:.045,grow:.08,vx:-player.vel.x*.1,vz:-player.vel.z*.1,vy:.5,g:3,life:.24,color:0xa798ad});add(s,{x:p.x,y:p.y+.30,z:p.z},0xcec5db,7,.16,.035,-player.vel.x*.25,.1,-player.vel.z*.25,3);}}

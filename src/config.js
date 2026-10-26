@@ -36,9 +36,10 @@ export const CONFIG = {
   mothStun:1.5,
 
   player: {
-    walk: 6.5, sprint: 11, radius: 0.45, height: 1.6, step: 0.42,
-    accel: 9, decel: 7, sprintDecel: 3.2, sprintRamp: 0.9, sprintFade: 0.7,
-    jump: 8, gravity: 22, climb: 3.4, mantleExtraReach:.65, mantleTime:.68,
+    // v0.51: резче разгон и торможение, быстрее выход на спринт — темп как в party-играх
+    walk: 7, sprint: 11.5, radius: 0.45, height: 1.6, step: 0.42,
+    accel: 17, decel: 15, sprintDecel: 6, sprintRamp: 0.45, sprintFade: 0.45,
+    jump: 8.7, gravity: 25, climb: 3.4, mantleExtraReach:.65, mantleTime:.68,
     stamina: { drain: 0.32, regen: 0.26, delay: 0.7, restart: 0.15 },
     fallStun: 4.5, stunTime: 1.4,
     crouchH: 1.0, crouchSpeed: 3.2, slideTime: 0.75, slideSpeed: 12, diveSpeed: 10, diveUp: 4.5, rollTime: 0.45, diveCooldown: 0.9, diveCost: 0.25,

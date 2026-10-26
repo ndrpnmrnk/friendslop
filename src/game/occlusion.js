@@ -22,7 +22,11 @@ export function installOcclusion(group) {
           vOccHide = 0.0;
           if (uOccCut > 0.5) {
             bool baked = aObj.w > 50.0;
-            vec3 O = baked ? aObj.xyz : (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+            vec4 O0 = vec4(0.0, 0.0, 0.0, 1.0);
+            #ifdef USE_INSTANCING
+            O0 = instanceMatrix * O0;
+            #endif
+            vec3 O = baked ? aObj.xyz : (modelMatrix * O0).xyz;
             float r = baked ? aObj.w - 100.0 : 0.7, h = baked ? aObjH : 0.8;
             vec3 d = uOccTgt - uOccCam; float len = max(0.01, length(d)); vec3 dir = d / len;
             float along = dot(O - uOccCam, dir); float perp = length((O - uOccCam) - dir * along);

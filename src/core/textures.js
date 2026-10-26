@@ -153,10 +153,10 @@ export const T = {
     fill(g, W, H, '#8a3b33'); blobs(g, W, H, ['#7a3029', '#9a4a40'], 60, 6, 20, 0.3); grain(g, W, H, 26);
   }),
   water: () => photo('water', 64, 64, (g, W, H) => {
-    fill(g, W, H, '#244a68'); blobs(g, W, H, ['#1c405c', '#2e5a7c', '#285474', '#1a3a54'], 120, 10, 40, 0.35);
+    fill(g, W, H, '#142636'); blobs(g, W, H, ['#10202e', '#1c3448', '#18303f', '#0c1824'], 120, 10, 40, 0.4);
     // мелкая рябь: изогнутые блики
     g.lineCap = 'round';
-    for (let i = 0; i < 70; i++) { const x = R() * W, y = R() * H, l = 10 + R() * 26; g.strokeStyle = R() < 0.5 ? 'rgba(120,170,210,.45)' : 'rgba(70,120,160,.5)'; g.lineWidth = 2 + R() * 2;
+    for (let i = 0; i < 70; i++) { const x = R() * W, y = R() * H, l = 10 + R() * 26; g.strokeStyle = R() < 0.5 ? 'rgba(90,130,165,.35)' : 'rgba(40,70,95,.5)'; g.lineWidth = 2 + R() * 2;
       g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + l / 2, y - 4 - R() * 4, x + l, y); g.stroke(); }
     grain(g, W, H, 8);
   }),
@@ -681,20 +681,38 @@ export const T = {
   }),
 };
 
+/* v0.51: «карточка» листвы для крон — кучка листьев с прозрачными просветами (как кроны деревьев на PS1/N64).
+   0 — клён (красно-оранжевый), 1 — дуб (охра и бронза), 2 — берёза/тополь (жёлтый). Низ кучки темнее. */
+T.leafCard = (kind = 0) => pix('leafCard' + kind, 64, 64, (g, W, H) => {
+  const P = [['#7a1f14', '#b8321c', '#e0552a', '#f08a2c', '#ffb24a'], ['#4a3014', '#7a4a1a', '#a8682a', '#c88a3a', '#8a7a2a'], ['#6a5a14', '#a88a1c', '#d8b02a', '#f0d04a', '#c8a830']][kind % 3];
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  for (let i = 0; i < 320; i++) {
+    const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * W * 0.47, x = W / 2 + Math.cos(a) * r, y = H / 2 + Math.sin(a) * r * 0.86;
+    const shadeK = Math.min(4, Math.max(0, Math.floor((1 - y / H) * 4.2 + rnd(-0.8, 0.8)))); // верх светлее
+    g.fillStyle = P[shadeK]; g.save(); g.translate(x, y); g.rotate(rnd(0, 6.28));
+    const l = rnd(2.2, 4.2); g.beginPath(); g.ellipse(0, 0, l, l * 0.55, 0, 0, 7); g.fill();
+    if (kind === 0 && i % 3 === 0) { g.beginPath(); g.moveTo(-l, 0); g.lineTo(0, -l * 1.2); g.lineTo(l, 0); g.fill(); }
+    g.restore();
+  }
+  // тонкие веточки и тени между листьями
+  g.strokeStyle = 'rgba(40,24,14,.8)'; g.lineWidth = 1;
+  for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(W / 2 + rnd(-4, 4), H * 0.95); g.lineTo(W / 2 + rnd(-22, 22), H * rnd(0.3, 0.6)); g.stroke(); }
+});
 /* ---------- фасад с окнами (уникальный под каждую стену) ---------- */
 let facN = 0;
 // фото-версии основных материалов (если картинка загрузилась)
 { const ORIG = { ...T }, over = (name, k, w, h, tint, tile = 1) => { T[name] = (...a) => phOk(k) ? photo('ph_' + name + (a[0] ?? ''), w, h, (g, W, H) => phDraw(g, W, H, k, tint ? tint(...a) : null, tile, tile), 1) : ORIG[name](...a); };
-  over('asphalt', 'asphalt', 64, 64); over('pave', 'pave', 64, 64); over('cobble', 'cobble', 64, 64); over('flag', 'flag', 64, 64);
-  over('grass', 'grass', 64, 64, HW ? () => '#c8a070' : null); over('dirt', 'dirt', 64, 64); over('concrete', 'concrete', 64, 64);
-  over('wood', 'wood', 64, 64); over('floorWood', 'planks', 64, 64); over('oldBrick', 'oldbrick', 64, 64); over('plaster', 'plaster', 32, 32);
-  over('roof', 'roof', 32, 32, () => '#8a7a9a'); over('metal', 'metal', 32, 32); over('rust', 'rust', 32, 32);
-  over('corrugated', 'corrug_g', 32, 32, c => shade(c, 30)); over('bark', 'bark', 16, 32); over('stone', 'stone', 32, 32); over('soil', 'soil', 32, 32);
-  over('carpet', 'carpet_g', 32, 32, c => shade(c ?? 0x3a4458, 40)); over('brickWall', 'brick', 64, 64);
-  over('cardboard', 'cardboard', 32, 32); over('floorTile', 'tiles', 64, 64, () => '#d8c8e8'); }
+  // v0.51: новые фото (Poly Haven, CC0) 96–128 px — вдвое больше деталей при том же PS1-пикселе
+  over('asphalt', 'asphalt', 128, 128); over('pave', 'pave', 128, 128); over('cobble', 'cobble', 128, 128); over('flag', 'flag', 128, 128);
+  over('grass', 'grass', 128, 128, HW ? () => '#b49a78' : null); over('dirt', 'dirt', 128, 128); over('concrete', 'concrete', 128, 128);
+  over('wood', 'wood', 128, 128); over('floorWood', 'planks', 128, 128); over('oldBrick', 'oldbrick', 128, 128); over('plaster', 'plaster', 64, 64);
+  over('roof', 'roof', 64, 64, () => '#9a8aaa'); over('metal', 'metal', 32, 32); over('rust', 'rust', 64, 64);
+  over('corrugated', 'corrug_g', 64, 64, c => shade(c, 30)); over('bark', 'bark', 32, 64); over('stone', 'stone', 64, 64); over('soil', 'soil', 128, 128);
+  over('carpet', 'carpet_g', 64, 64, c => shade(c ?? 0x3a4458, 40)); over('brickWall', 'brick', 128, 128);
+  over('cardboard', 'cardboard', 32, 32); over('floorTile', 'tiles', 128, 128, () => '#e4d8ee'); }
 /* v0.20: стены квартир изнутри — фото обоев (2 раза по ширине), окрашены в цвет квартиры, плинтус и карниз;
    текстура на один этаж по высоте. Ткань/кожа для диванов и кроватей, фанера для ящиков. */
-T.wallIn = (c = 0xc8b8d8, k = 'wallpaper_g') => phOk(k) ? photo('wallIn' + c + k, 64, 64, (g, W, H) => { phDraw(g, W, H * 0.86, k, shade(c, 10), 2, 2);
+T.wallIn = (c = 0xc8b8d8, k = 'wallpaper_g') => phOk(k) ? photo('wallIn' + c + k, 128, 128, (g, W, H) => { phDraw(g, W, H * 0.86, k, shade(c, 10), 2, 2);
   g.fillStyle = shade(c, 40); g.fillRect(0, 0, W, H * 0.04); g.fillStyle = '#2a2030'; g.fillRect(0, H * 0.86, W, H * 0.14); g.fillStyle = 'rgba(255,255,255,.15)'; g.fillRect(0, H * 0.86, W, H * 0.015); }, 1) : T.plaster();
 T.cloth = (c = 0x6a3a5a, k = 'velvet_g') => phOk(k) ? photo('cloth' + c + k, 32, 32, (g, W, H) => phDraw(g, W, H, k, shade(c, 25)), 1) : pix('clothFallback'+c,32,32,(g,W,H)=>{fill(g,W,H,shade(c,0));for(let i=0;i<32;i+=2){g.fillStyle=shade(c,i%4?-8:8);g.fillRect(i,0,1,H);g.fillRect(0,i,W,1);}grain(g,W,H,8);});
 T.crateP = () => phOk('plywood') ? photo('crateP', 64, 64, (g, W, H) => { phDraw(g, W, H, 'plywood'); g.fillStyle = 'rgba(40,24,12,.85)'; const b = W * 0.12;
@@ -711,7 +729,7 @@ T.grannyFace = () => photo('grannyFace', 48, 24, (g, W, H) => { fill(g, W, H, '#
   for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(cx - W * 0.05, H * (0.22 + i * 0.05)); g.lineTo(cx + W * 0.05, H * (0.22 + i * 0.05)); g.stroke(); }
   g.fillStyle = '#c88a70'; g.fillRect(cx - 1.5, H * 0.45, 3, H * 0.15); g.fillStyle = '#7a3a3a'; g.fillRect(cx - W * 0.035, H * 0.74, W * 0.07, 1.5); grain(g, W, H, 14); });
 export function facade(base, wM, hM, opt = {}) {
-  const D = 12, pw = Math.max(8, Math.round(wM * D)), ph = Math.max(8, Math.round(hM * D)); // 12 px на метр (v0.19)
+  const D = 16, pw = Math.max(8, Math.round(wM * D)), ph = Math.max(8, Math.round(hM * D)); // 16 px на метр (v0.51)
   const brick = opt.brick !== false;
   return photo(null, pw, ph, (g, W, H) => {
     const s = W / pw; // пикселей hi-res на 1 px текстуры
@@ -727,6 +745,12 @@ export function facade(base, wM, hM, opt = {}) {
       }
     } else blobs(g, W, H, [shade(base, -20), shade(base, 15)], 60, s * 2, s * 8, 0.3);
     blobs(g, W, H, ['rgba(20,14,26,.6)'], 18, s * 2, s * 10, 0.15);
+    // v0.51: грязь стекает вниз, у земли стена темнее; цоколь и карниз — фасад читается как настоящий дом
+    { const gr = g.createLinearGradient(0, H * 0.55, 0, H); gr.addColorStop(0, 'rgba(15,10,20,0)'); gr.addColorStop(1, 'rgba(15,10,20,.38)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); }
+    g.globalAlpha = 0.16; g.fillStyle = '#100a14'; for (let i = 0; i < W / (D * s) * 1.2; i++) { const x = R() * W, w = (0.08 + R() * 0.2) * D * s, y = R() * H * 0.6; g.fillRect(x, y, w, (0.6 + R() * 2.2) * D * s); } g.globalAlpha = 1;
+    if (opt.plinth !== false) { const ph2 = 0.55 * D * s; g.fillStyle = shade(base, -38); g.fillRect(0, H - ph2, W, ph2); g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(0, H - ph2, W, s);
+      if (phOk('stonewall_g')) { g.globalAlpha = 0.35; g.globalCompositeOperation = 'multiply'; for (let x = 0; x < W; x += ph2 * 2) g.drawImage(PH.stonewall_g, x, H - ph2, ph2 * 2, ph2); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; } }
+    if (opt.cornice !== false && hM > 3) { const ch = 0.32 * D * s; g.fillStyle = shade(base, 26); g.fillRect(0, 0, W, ch); g.fillStyle = 'rgba(10,6,14,.55)'; g.fillRect(0, ch, W, s * 1.5); g.fillStyle = 'rgba(10,6,14,.25)'; for (let x = 0; x < W; x += s * 6) g.fillRect(x, ch, s * 2, s * 3); }
     // окна
     if (opt.windows !== false) {
       const per = D;
@@ -743,6 +767,10 @@ export function facade(base, wM, hM, opt = {}) {
         if (lit && R() < 0.5) { g.fillStyle = 'rgba(120,40,20,.45)'; g.fillRect(x, y, w * 0.3, h); }
         g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(x + w / 2 - s * 0.4, y, s * 0.8, h); g.fillRect(x, y + h * 0.45, w, s * 0.8);
         g.fillStyle = shade(base, 30); g.fillRect(x - s, y + h, w + 2 * s, s * 1.2);
+        g.fillStyle = shade(base, 22); g.fillRect(x - s * 2, y - s * 3, w + 4 * s, s * 2); // перемычка
+        if (lit && R() < 0.35) { g.fillStyle = 'rgba(30,18,24,.55)'; const bx = x + w * (0.25 + R() * 0.4); g.fillRect(bx, y + h * 0.35, w * 0.18, h * 0.65); g.beginPath(); g.arc(bx + w * 0.09, y + h * 0.3, w * 0.09, 0, 7); g.fill(); } // силуэт в окне
+        else if (lit && R() < 0.4) { g.fillStyle = 'rgba(80,40,20,.35)'; for (let k = 0; k < h; k += s * 2) g.fillRect(x, y + k, w, s * 0.8); } // жалюзи
+        if (!lit && R() < 0.12 && fy > 2) { g.fillStyle = '#8a8a94'; g.fillRect(x + w * 0.1, y + h + s * 1.5, w * 0.8, h * 0.4); g.fillStyle = '#3a3a44'; for (let k = 0; k < 3; k++) g.fillRect(x + w * 0.2, y + h + s * (2.5 + k * 1.6), w * 0.6, s * 0.6); } // кондиционер
       }
     }
     grain(g, W, H, 14);

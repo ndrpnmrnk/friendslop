@@ -22,7 +22,9 @@ const headGeo = () => HEAD || (HEAD = frontBack(new THREE.SphereGeometry(1, 7, 5
 /* Кот на карте: настоящие пропорции, «фото» мех и морда, гуляет между доступными дворами и улицами */
 export function buildCat(coat) {
   const root = new THREE.Group(), fur = tmat(T.fur(coat));
-  const body = mesh(G.sphL, fur, 0, 0.36, 0, 0.2, 0.17, 0.36, root);
+  const body = mesh(G.sph10, fur, 0, 0.36, 0, 0.19, 0.165, 0.34, root);
+  // v0.51: силуэт кошки — грудь, бёдра и шея отдельными объёмами, мягкие переходы
+  mesh(G.sph10, fur, 0, 0.06, 0.59, 0.84, 0.97, 0.47, body); mesh(G.sph10, fur, 0, 0.12, -0.59, 0.95, 1.03, 0.5, body); mesh(G.sph10, fur, 0, 0.67, 0.85, 0.53, 0.67, 0.29, body); // дочерние: повторяют позы сна и потягивания
   const head = new THREE.Group(); head.position.set(0, 0.52, 0.34); root.add(head);
   const faces = {}; for (const s of ['open', 'closed', 'angry']) faces[s] = tmat(T.catFace(coat, s));
   const hm = new THREE.Mesh(headGeo(), [faces.open, fur]); hm.scale.set(0.17, 0.14, 0.13); head.add(hm);
@@ -31,16 +33,16 @@ export function buildCat(coat) {
   const light = lam({ color: new THREE.Color(coat.light) }, 'catLight' + coat.name);
   mesh(G.sph10, light, 0, -0.045, 0.1, 0.075, 0.05, 0.05, head); mesh(G.box, lam({ color: 0xe87a8a }, 'catNose'), 0, -0.02, 0.145, 0.025, 0.018, 0.01, head);
   for (const sx of [-1, 1]) for (const dy of [-0.01, 0.012]) { const w = mesh(G.box, lam({ color: 0xf1f1f1 }, 'catWhisk'), sx * 0.11, -0.045 + dy, 0.12, 0.13, 0.004, 0.004, head); w.rotation.z = sx * dy * 8; w.rotation.y = -sx * 0.25; }
-  const legs = [[0.1, 0.22], [-0.1, 0.22], [0.1, -0.22], [-0.1, -0.22]].map(([x, z]) => { const p = new THREE.Group(); p.position.set(x, 0.3, z); root.add(p); mesh(G.box, fur, 0, -0.14, 0, 0.07, 0.28, 0.07, p); mesh(G.box, light, 0, -0.28, 0.015, 0.08, 0.04, 0.1, p); return p; });
+  const legs = [[0.1, 0.22], [-0.1, 0.22], [0.1, -0.22], [-0.1, -0.22]].map(([x, z]) => { const p = new THREE.Group(); p.position.set(x, 0.3, z); root.add(p); const back = z < 0; mesh(G.sph10, fur, 0, back ? -0.02 : -0.01, 0, back ? 0.075 : 0.06, back ? 0.1 : 0.08, back ? 0.08 : 0.065, p); mesh(G.cyl6, fur, 0, -0.15, back ? -0.015 : 0, 0.034, 0.26, 0.034, p); mesh(G.sph10, light, 0, -0.285, 0.02, 0.045, 0.028, 0.06, p); return p; });
   const tail = new THREE.Group(); tail.position.set(0, 0.42, -0.32); root.add(tail);
-  mesh(G.box, fur, 0, 0, -0.15, 0.06, 0.06, 0.3, tail);
-  const tail2 = new THREE.Group(); tail2.position.set(0, 0, -0.3); tail.add(tail2); mesh(G.box, fur, 0, 0, -0.12, 0.055, 0.055, 0.25, tail2); mesh(G.box, coat.stripes ? fur : light, 0, 0, -0.26, 0.06, 0.06, 0.05, tail2);
+  mesh(G.cyl6, fur, 0, 0, -0.15, 0.034, 0.32, 0.034, tail).rotation.x = Math.PI / 2;
+  const tail2 = new THREE.Group(); tail2.position.set(0, 0, -0.3); tail.add(tail2); mesh(G.cyl6, fur, 0, 0, -0.12, 0.03, 0.26, 0.03, tail2).rotation.x = Math.PI / 2; mesh(G.sph10, coat.stripes ? fur : light, 0, 0, -0.26, 0.036, 0.036, 0.05, tail2);
   const sh = new THREE.Mesh(G.disc, new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.03; sh.scale.set(0.25, 0.42, 1); root.add(sh);
   const stars = new THREE.Group(); stars.position.set(0, 0.85, 0.3); root.add(stars); stars.visible = false;
   for (let i = 0; i < 3; i++) { const s = sprite(T.star(), 0.18); s.position.set(Math.cos(i * 2.1) * 0.25, 0, Math.sin(i * 2.1) * 0.25); stars.add(s); }
   if (coat.points) { const pm = lam({ map: T.fur({ name: 'pts' + coat.name, base: coat.points, light: '#6a4a38', dark: '#2a1a14', stripes: false }) }, 'catPts' + coat.name);
-    ears.forEach(e => (e.material = pm)); legs.forEach(l => { const paw = l.children[0]; if (paw) { const sock = new THREE.Mesh(G.box, pm); sock.position.set(0, -0.22, 0); sock.scale.set(0.075, 0.14, 0.075); l.add(sock); } }); tail2.children.forEach(c => (c.material = pm)); }
+    ears.forEach(e => (e.material = pm)); legs.forEach(l => { const paw = l.children[0]; if (paw) { const sock = new THREE.Mesh(G.cyl6, pm); sock.position.set(0, -0.22, 0); sock.scale.set(0.04, 0.14, 0.04); l.add(sock); } }); tail2.children.forEach(c => (c.material = pm)); }
   root.scale.setScalar(1.25);
   let cur = 'open';
   const cat = {

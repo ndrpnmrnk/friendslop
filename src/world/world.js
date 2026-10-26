@@ -13,6 +13,7 @@ import { resetBreakables } from './breakables.js';
 import { buildEdges } from './edges.js';
 import { buildRoadsAndTunnels } from './underground.js';
 import { bakeStatic } from './bake.js';
+import { dressRoofs } from './roofs.js';
 
 const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dirt(), concrete: () => T.concrete(), asphalt: () => T.asphalt(), cobble: () => T.cobble(), flag: () => T.flag() };
 
@@ -75,6 +76,7 @@ export function generateMap(scene, s) {
   buildRoadsAndTunnels(half);
   streetFurniture(half);
   buildEdges(half);
+  dressRoofs();
   // точки появления не должны оказаться внутри объектов: сдвигаем на ближайшее свободное место
   for (const sp of W.spawns) {
     if (isFree(sp.x - 0.4, sp.z - 0.4, sp.x + 0.4, sp.z + 0.4, sp.y + 0.1, sp.y + 1.8)) continue;

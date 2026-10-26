@@ -1,3 +1,4 @@
+import { updateVfx, explosion, fireworks, sparks as vfxSparks, impactBurst } from './game/vfx.js';
 import {createLocalLighting} from './world/scene-lighting.js';
 import {actionEffect,updateActionEffects,actionStats} from './world/action-fx.js';
 import {graphics,setGraphics} from './core/quality.js';
@@ -17,7 +18,7 @@ import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
 import {predictBow} from './game/bow.js';
-import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow,setActionVisuals } from './core/gfx.js';
+import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow,setActionVisuals,warmup } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
 import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock,clearInput } from './core/input.js';
@@ -80,8 +81,9 @@ await phReady;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SEASON.bg);
 scene.fog = new THREE.Fog(...SEASON.fog);
-const hemi = new THREE.HemisphereLight(SEASON.hemi[0], SEASON.hemi[1], SEASON.hemi[2] * Math.PI); scene.add(hemi);
-const sun = new THREE.DirectionalLight(SEASON.sun[0], SEASON.sun[1] * Math.PI); sun.position.set(-30, 50, 25); scene.add(sun, sun.target);
+// v0.51: «небо» тише — объём дают тёплые источники мира (world-light.js), между фонарями честная ночь
+const hemi = new THREE.HemisphereLight(SEASON.hemi[0], SEASON.hemi[1], SEASON.hemi[2] * 0.72 * Math.PI); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xaab8ff, SEASON.sun[1] * 0.8 * Math.PI); sun.position.set(-30, 50, 25); scene.add(sun, sun.target);
 // жёсткие пиксельные тени (v0.18 — крупнее «пиксель», как на PS1): карта 1024 на квадрат ~64 м вокруг игрока
 // v0.23: «качество света» — высокое: карта теней 2048 на ~70 м, лунные лучи, конусы фонарей, отражённый свет; низкое — как раньше
 const LQ={get hi(){return graphics.key!=='low';}};
@@ -95,9 +97,8 @@ function aimMoon(d) { const k = Math.max(0.55, d.y); SUN_DIR.set(d.x, k, d.z).no
 const sky = createSky(scene);
 const flash = new THREE.SpotLight(0xfff0d0, 0, 26, 0.55, 0.5, 1.2); scene.add(flash, flash.target);
 // вспышка взрыва: короткий точечный свет
-const boomL = new THREE.PointLight(0xffb050, 0, 12, 1.5); scene.add(boomL);
 initDust(scene);
-W.flash = (p, c, k = 1) => { boomL.position.set(p.x, p.y + 1, p.z); boomL.color.setHex(c); boomL.intensity = 8 * k; };
+W.flash = (p, c, k = 1, range = 12, decay = 3.5) => localLighting.flash({ x: p.x, y: p.y + 1, z: p.z }, c, k, range, decay);
 initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }),prepareRace:()=>{if(S.mg)closeMission({success:false});if(S.wm)closeWorld({success:false});for(const b of W.bots||[])if(b.work)removeMission(b.work.m);}, award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
 const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => eventChip(null) };
 function followSun(x, y, z) {
@@ -263,6 +264,8 @@ function prepareRound(tut = false) {
   for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
   if (tut) globalThis.__forceDistricts = ['yard', 'plaza', 'park'];
   generateMap(scene, (Math.random() * 1e9) | 0);
+  { const wl = localLighting.rebuild(); console.info('[friendslop] свет мира:', wl.count, 'источников,', wl.ms, 'мс'); }
+  { const t0 = performance.now(); warmup(scene, camera); console.info('[friendslop] шейдеры:', Math.round(performance.now() - t0), 'мс'); }
   if (tut) globalThis.__forceDistricts = null;
   buildLife(scene); resetSplat(); resetPolice();
   registerInteracts();
@@ -770,7 +773,7 @@ function frame() {
     const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt); updateGlow(); setGlow(S.mg ? 0.15 : 1); updateDust(t, P); { const dt2 = $('droneT'), on = !!(P && (P.drone || P.returning)); dt2.classList.toggle('hidden', !on); if (on) { const v = P.drone ? Math.max(0, Math.ceil(P.drone.left)) : 0, h = P.drone ? String(v) : 'СЕЙЧАС'; if (dt2.lastChild.textContent !== h) dt2.lastChild.textContent = h; } } { const h = $('droneHud'), on = !!(P && P.drone && !(P.drone.intro > 0)); h.classList.toggle('hidden', !on);
       if (on) { if (!h.dataset.ok) { h.dataset.ok = 1; for (const [id, n] of [['dhNet', 'net'], ['dhCandy', 'candy'], ['dhUp', 'updown']]) { $(id).firstChild.innerHTML = img(n, 28); $(id).insertAdjacentHTML('beforeend', '<b></b>'); } }
         const cd = Math.max(0, P.drone.cd) / DRONE_NET_COOLDOWN; $('dhNet').dataset.cd=P.drone.cd>0?Math.ceil(P.drone.cd)+'с':''; $('dhNet').lastChild.style.top = (100 - cd * 100) + '%'; $('dhCandy').classList.toggle('off', !P.drone.candy); } }
-    W.wmActive = !!S.wm; if (boomL.intensity > 0) boomL.intensity = Math.max(0, boomL.intensity - dt * 30);
+    W.wmActive = !!S.wm;
     if (P) P.root.visible = !P.drone && (!P.returning || P.returning.t >= 1.25) && !S.mg && !S.crane && !P.hidden && !(S.state === 'intro' && !S.intro.drop);
     const dotHtml = P && P.charging ? '<b></b><i></i>' : '<i></i>';
     if (dotHtml !== S.dotHtml) { $('dot').innerHTML = dotHtml; S.dotHtml = dotHtml; }
@@ -816,12 +819,12 @@ function frame() {
     { const nk = S.state === 'play' || S.state === 'results' ? 1 - Math.max(0, S.time) / CONFIG.roundTime : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
       if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
-    updateReflections(camera, t);localLighting.update(camera,dt);
+    updateReflections(camera, t);localLighting.update(camera,dt,sky.dim||0);
     cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play'&&!S.mg ? P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8) : 0;
     // линии скорости: спринт, катание, полёт после броска
     { const sp = P && S.state === 'play' ? Math.hypot(P.vel.x, P.vel.z) : 0, k = Math.max(0, Math.min(1, (sp - 8.5) / 6)), el = $('speedl'); const o = (Math.round(k * 5) / 5).toFixed(1); if (el.style.opacity !== o) el.style.opacity = o; }
     updateBreakables(dt, S.state === 'play' ? P : null);
-    updateActionEffects(dt,S.state==='play'&&!S.mg?P:null,camera);updateParticles(dt);updateSplat(dt);setActionVisuals(P&&!S.mg?Math.max(0,(Math.hypot(P.vel.x,P.vel.z)-7)/8):0,FX.shake*.5);
+    updateActionEffects(dt,S.state==='play'&&!S.mg?P:null,camera);updateParticles(dt);updateVfx(dt);updateSplat(dt);setActionVisuals(P&&!S.mg?Math.max(0,(Math.hypot(P.vel.x,P.vel.z)-7)/8):0,FX.shake*.5);
     updateCamera(camera, P, dt, false, S.state === 'play' && !S.settingsOpen ? lk : null, !!(P && P.charging));
     {const k=S.state==='play'&&!P?.drone&&!P?.returning?Math.min(1,(P?.hazeT||0)/2):0;camera.rotation.z+=Math.sin(t*1.8)*.035*k;canvas.style.filter=k>0?`blur(${(.45*k).toFixed(2)}px) saturate(1.12)`:'';}
     S.mg?.game?.afterCamera?.();S.wm?.game?.afterCamera?.();
@@ -849,9 +852,13 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)roundMusic.
 // отладочный доступ из консоли браузера
 window.__fs = { lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
 window.__fs.lastFaults=lastFaults;
-Object.assign(window.__fs,{menu,collection,coinState,showHub,showMenu,roundMusic,graphics,actionStats,addFists:(n=500)=>addCoins(n)});
+Object.assign(window.__fs,{scene,makeCharacter:(id)=>__mkChar(id),skinIds:()=>__skinIds,vfx:{explosion,fireworks,sparks:vfxSparks,impactBurst},menu,collection,coinState,showHub,showMenu,roundMusic,graphics,actionStats,addFists:(n=500)=>addCoins(n)});
 if(new URLSearchParams(globalThis.location?.search||'').get('dev')==='1'){const b=document.createElement('button');b.id='devFists';b.textContent='+500';b.title='Тест автомата: добавить 500 фистов';b.onclick=()=>addCoins(500);$('wallet').appendChild(b);}
 showMenu();
 loop();
 import {updateRadios,resetRadios,nearRadio,toggleRadio,tuneRadio} from './game/radio.js';
 import {updateSnacks} from './game/snacks.js';
+
+// отладка: модели персонажей для проверки внешнего вида
+import { makeCharacter as __mkChar } from './characters/rig.js';
+import { SKIN_IDS as __skinIds } from './characters/skins.js';

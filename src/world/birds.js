@@ -22,14 +22,14 @@ export function addBirds(kind, rect, n) {
     const g = new THREE.Group(); W.group.add(g);
     const b = new THREE.Group(); g.add(b);
     // тело — повёрнутый «кубик», слегка сплющенный и перекошенный
-    const body = mesh(G.box, fm, 0, 0.17, -0.02, 0.2, 0.2, 0.26, b); body.rotation.set(0.55, 0, 0.08 * (Math.random() - 0.5));
+    const body = mesh(G.sph10, fm, 0, 0.17, -0.02, 0.11, 0.105, 0.155, b); body.rotation.set(0.45, 0, 0.08 * (Math.random() - 0.5)); mesh(G.sph10, fm, 0, 0.21, 0.07, 0.085, 0.09, 0.08, b); // v0.51: круглое тельце и грудка
     const head = new THREE.Group(); head.position.set(0, 0.32, 0.13); b.add(head);
-    mesh(G.box, fm, 0, 0, 0, 0.12, 0.12, 0.13, head).rotation.set(0.25, 0, 0);
+    mesh(G.sph10, fm, 0, 0, 0, 0.065, 0.065, 0.072, head);
     const beak = mesh(G.cone4, beakC, 0, -0.01, 0.1, 0.025, 0.08, 0.03, head); beak.rotation.x = Math.PI / 2;
     for (const sx of [-1, 1]) { mesh(G.box, col(0xd8243a), sx * 0.062, 0.02, 0.03, 0.015, 0.03, 0.03, head); mesh(G.box, col(0x111111), sx * 0.064, 0.02, 0.035, 0.01, 0.014, 0.014, head); }
-    mesh(G.box, fm, 0, 0.13, -0.24, 0.12, 0.03, 0.16, b).rotation.x = -0.25;
+    { const t = mesh(G.cone4, fm, 0, 0.13, -0.24, 0.07, 0.2, 0.02, b); t.rotation.x = -Math.PI / 2 - 0.25; }
     for (const sx of [-1, 1]) { mesh(G.box, leg, sx * 0.05, 0.05, 0.0, 0.02, 0.1, 0.02, b); for (const a of [-0.5, 0, 0.5]) { const t = mesh(G.box, leg, sx * 0.05 + Math.sin(a) * 0.03, 0.005, 0.03 * Math.cos(a), 0.012, 0.01, 0.06, b); t.rotation.y = a; } }
-    const wings = [-1, 1].map(s => { const p = new THREE.Group(); p.position.set(s * 0.1, 0.2, -0.02); b.add(p); mesh(G.box, fm, s * 0.15, 0, 0, 0.3, 0.025, 0.18, p); return p; });
+    const wings = [-1, 1].map(s => { const p = new THREE.Group(); p.position.set(s * 0.1, 0.2, -0.02); b.add(p); { const w = mesh(G.cone4, fm, s * 0.14, 0, -0.03, 0.09, 0.3, 0.012, p); w.rotation.set(Math.PI / 2, 0, s * Math.PI / 2); } return p; });
     const bird = { g, b, head, wings, rect, kind, state: 'peck', t: Math.random() * 3, vx: 0, vy: 0, vz: 0, hide: 0 };
     place(bird); W.birds.push(bird);
   }

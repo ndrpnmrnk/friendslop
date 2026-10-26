@@ -57,9 +57,11 @@ export function bakeStatic(group, section=false) {
           const mat = mats[gr.materialIndex]; if (!mat) continue;
           const sub = parts.length === 1 && gr.start === 0 && gr.count === g.attributes.position.count ? g : slice(g, gr.start, gr.count);
           const cm = atlas.apply(canon(mat, sub), sub);
-          const key = cm.uuid + '|' + cell + '|' + (o.renderOrder || 0);
+          const st = strip(sub);
+          // v0.51: куски с разным набором атрибутов (цвет вершин, атлас) склеиваются отдельно — иначе склейка падала и объекты пропадали
+          const key = cm.uuid + '|' + cell + '|' + (o.renderOrder || 0) + '|' + Object.keys(st.attributes).sort().join(',');
           let bk = buckets.get(key); if (!bk) buckets.set(key, bk = { mat: cm, list: [], ro: o.renderOrder || 0, shadow: o.castShadow !== false });
-          bk.list.push(strip(sub));
+          bk.list.push(st);
         }
       }
     }

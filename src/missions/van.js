@@ -1,3 +1,4 @@
+import { explosion } from '../game/vfx.js';
 import {THREE,G,V3,mesh,col,tmat} from '../core/gfx.js';
 import {T} from '../core/textures.js';
 import {CONFIG} from '../config.js';
@@ -27,7 +28,7 @@ export function buildVan(place){
  box(-1.14,-2.4,1.14,2.45,.35,.7);box(-1.14,.55,1.14,2.45,.7,2.4);box(-1.17,-2.4,-1.03,.55,.7,2.45);box(1.03,-2.4,1.17,.55,.7,2.45);box(-1.17,-2.4,1.17,.55,2.28,2.45);const back=box(-1.14,-2.44,1.14,-2.33,.7,2.35);
  let open=0,doorTarget=0,dead=false,leaving=false,exitT=0,v=0,trail=0,route=[];
  const sync=()=>{for(const q of solids){q.cx=g.position.x;q.cz=g.position.z;q.yaw=g.rotation.y;}back.on=open<.75;};
- function explode(){if(dead)return;g.userData.exploded=true;const p=g.position;W.flash?.(p,0xffb45a,1.5);sfx('boom',{at:p,range:42});burst(p.x,p.y+1,p.z,22,{color:0xffa13d,size:.7,speed:6,up:5,life:.8,grow:1});smokeRing(p.x,p.y+.7,p.z,14,{color:0x665464,size:.55,speed:4,up:1.2,life:2,grow:1.5});for(let i=0;i<9;i++)chunk(p.x,p.y+1,p.z,[(Math.random()-.5)*10,3+Math.random()*5,(Math.random()-.5)*10],{mat:col(i%3?0x43533e:0x8f999b),size:.22,life:1.2});cleanup();}
+ function explode(){if(dead)return;g.userData.exploded=true;const p=g.position;explosion(p,2,{debris:[0x7c8a5a,0x2a2a2a,0x9aa0a6,0x51462e]});sfx('boom',{at:p,range:42});burst(p.x,p.y+1,p.z,22,{color:0xffa13d,size:.7,speed:6,up:5,life:.8,grow:1});smokeRing(p.x,p.y+.7,p.z,14,{color:0x665464,size:.55,speed:4,up:1.2,life:2,grow:1.5});for(let i=0;i<9;i++)chunk(p.x,p.y+1,p.z,[(Math.random()-.5)*10,3+Math.random()*5,(Math.random()-.5)*10],{mat:col(i%3?0x43533e:0x8f999b),size:.22,life:1.2});cleanup();}
  const tick=dt=>{if(dead)return;open+=(doorTarget-open)*(1-Math.exp(-dt*5));for(const d of doors)d.p.rotation.y=-d.s*open*1.65;for(const w of wheels)w.rotation.x+=v*dt/.41;
   if(leaving){exitT+=dt;v=Math.min(8,v+dt*3);if(route.length&&flat(g.position,route[0])<.7)route.shift();const target=route[0];if(!target){explode();return;}const dx=target.x-g.position.x,dz=target.z-g.position.z,d=Math.hypot(dx,dz)||1,want=Math.atan2(dx,dz),turn=Math.atan2(Math.sin(want-g.rotation.y),Math.cos(want-g.rotation.y));g.rotation.y+=Math.max(-dt*1.9,Math.min(dt*1.9,turn));const speed=v*Math.max(.3,1-Math.abs(turn)*.35),nx=g.position.x+dx/d*speed*dt,nz=g.position.z+dz/d*speed*dt,c=Math.abs(Math.cos(g.rotation.y)),s=Math.abs(Math.sin(g.rotation.y)),rx=c*1.16+s*2.5,rz=s*1.16+c*2.5;
    if(exitT>18||Math.abs(nx)+rx>W.bounds-.2||Math.abs(nz)+rz>W.bounds-.2||!isFree(nx-rx,nz-rz,nx+rx,nz+rz,.75,2.4)){explode();return;}g.position.set(nx,g.position.y,nz);g.rotation.z=Math.sin(exitT*6)*.012*Math.min(1,v/5);sync();trail-=dt;if(trail<=0){trail=.18;const p=g.localToWorld(new V3(.8,.35,-2.55));smoke(p.x,p.y,p.z,{color:0x827b83,size:.12,life:.65,vx:-dx/d*.6,vz:-dz/d*.6,vy:.2});}

@@ -40,8 +40,11 @@ export default {
         b.m(G.cyl12, col(0x2b2533), 16, 4.15, 9.8, 0.36, 0.04, 0.36).rotation.x = Math.PI / 2; b.m(G.cyl12, glow(0x9a6ad8), 16, 4.15, 9.82, 0.28, 0.02, 0.28).rotation.x = Math.PI / 2;
         for (const sx of [-1, 1]) { const e = b.m(G.box, st, 16 + sx * 2.575, 4.4, 9.3, 5.45, 0.12, 0.98); e.rotation.z = -sx * 0.228; } }
       for (let i = 0; i < 14; i++) b.m(G.box, col(0x3a5a2a), 11 + Math.random() * 10, 0.2 + Math.random() * 3, 9.02, 0.3 + Math.random() * 0.4, 0.1, 0.02); void dk; }
-    for (let z = 13; z <= 28; z += 3) for (let x = 3.5; x <= 29; x += 3.4) if (Math.abs(x - 16) > 2 && Math.random() < 0.85) b.grave(x + (Math.random() - 0.5) * 0.5, z);
-    b.deadTree(28, 6); b.deadTree(4, 22);
+    // v0.51: ряды разных могил с небольшим разбросом, фонари вдоль главной дорожки, старые деревья и кучи листьев
+    for (let z = 13; z <= 28; z += 3) for (let x = 3.5; x <= 29; x += 3.4) if (Math.abs(x - 16) > 2.2 && Math.random() < 0.82) b.graveVaried(x + (Math.random() - 0.5) * 0.6, z + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.25);
+    for (const z of [14, 20.5, 27]) { b.graveLantern(14.1, z); b.graveLantern(17.9, z + 1.5); }
+    b.deadTree(28, 6); b.deadTree(4, 22); b.deadTree(29.2, 21); b.tree(3.2, 11.5, 1.15, 0, 'oak');
+    for (const [x, z] of [[6, 12.2], [24.5, 29.5], [9.2, 29.6]]) if (b.leafPile) b.leafPile(x, z, 0.5);
     b.gateArch(16, 31, 3.6, 'ПОКОЙ');
     // ФИШКА: люк в полу склепа → подвал с гробами → тайный ход в тоннель под дорогой
     {

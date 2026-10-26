@@ -1,3 +1,4 @@
+import { fireworks, explosion } from './vfx.js';
 import {actionEffect} from '../world/action-fx.js';
 import {sweepActors,npcList,npcPosition,hitNPC} from './impacts.js';
 import {useBong} from './bong.js';
@@ -253,20 +254,14 @@ function lob(kind, from, aim, owner) {
   toolState().shots.push({kind,m,p:from.clone(),v:new V3(vx,vy,vz),g:22,life:4,delay:0,owner});
 }
 function hitActorsAt(p, r, owner) { for (const a of actors()) { if (a === owner || a.hidden) continue; const q = a.pos; if (Math.hypot(q.x - p.x, q.z - p.z) < r && p.y > q.y - 0.3 && p.y < q.y + a.h + 0.3) return a; } return null; }
-export function explode(p, owner) {
-  actionEffect('metal',{x:p.x,y:p.y+.5,z:p.z},1.7,0xffac50);
-  const cols = [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff];
-  for (const c of cols) burst(p.x, p.y + 0.5, p.z, 7, { color: c, size: 0.2, speed: 6, up: 5, g: 6, life: 1.1, grow: 0.2 });
-  smokeRing(p.x, p.y + 0.1, p.z, 12, { speed: 4, size: 0.3, grow: 1, life: 0.9 });
-  for(let i=0;i<9;i++)smoke(p.x,p.y+.4,p.z,{color:[0xffc65c,0xff8a1f,0x564956][i%3],size:.15,grow:.7+Math.random()*.5,vx:(Math.random()-.5)*4,vy:1+Math.random()*2,vz:(Math.random()-.5)*4,life:.6+Math.random()*.5});
-  // огненный шар и вспышка
-  for (let i = 0; i < 10; i++) puff(p.x + (Math.random() - 0.5) * 1.2, p.y + 0.4 + Math.random() * 0.8, p.z + (Math.random() - 0.5) * 1.2, { color: [0xffd25c, 0xff8a1f, 0xff5a3a][i % 3], size: 0.5, grow: 2.2, life: 0.45, vy: 1.5, opacity: 0.9 });
-  for (let i = 0; i < 6; i++) puff(p.x, p.y + 0.6, p.z, { color: 0x3a3440, size: 0.6, grow: 2.5, life: 1.4, vx: (Math.random() - 0.5) * 2, vy: 1.6, vz: (Math.random() - 0.5) * 2, opacity: 0.6 });
-  if (W.flash) W.flash(p, 0xffb050, 1.2);
+export function explode(p, owner, kind = 'firework') {
+  // v0.51: настоящий фейерверк (ракеты и разноцветные разрывы над улицей) или тяжёлый взрыв (горячая тыква)
+  if (kind === 'firework') fireworks(p, 5); else explosion(p, 1.25, { debris: [0xff8a1f, 0xc4561a, 0x3a2a20, 0x5b8a2a] });
+
   for (const a of actors()) { const dx = a.pos.x - p.x, dz = a.pos.z - p.z, d = Math.hypot(dx, dz); if (d < 3.4 && Math.abs(a.pos.y - p.y) < 2.5) { const l = d || 1, k = 1 - d / 3.4; knockDown(a, (dx || 0.1) / l * (5 + 6 * k), dz / l * (5 + 6 * k), 0.8 + k * 0.6); a.vel.y = 6 + 3 * k; hitFreeze(0.07); } }
   hitBreakables({ x: p.x, y: p.y + 0.8, z: p.z }, 2.5, [0, 8, 0], 3);
   for (const c of W.cats) { const q = c.root.position; if (Math.hypot(q.x - p.x, q.z - p.z) < 6) c.hit && c.hit(false, q.x - p.x, q.z - p.z); }
-  sfx('boom', { at: p }); scareBirds(p.x, p.z, 20); impulsePushables(p.x, p.z, 3, 6); worldHit(p, 5, new V3()); shake(0.45);
+  sfx('boom', { at: p }); scareBirds(p.x, p.z, 20); impulsePushables(p.x, p.z, 3, 6); worldHit(p, 5, new V3());
 }
 // удар брошенного инструмента (из items.impact): банан и краска становятся ловушками, фейерверк ждёт фитиль
 export function toolImpact(it, p, gy) {

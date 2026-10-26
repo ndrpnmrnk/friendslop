@@ -559,3 +559,28 @@ button:disabled{opacity:.45;cursor:default}
 @keyframes crt-reel-in{from{opacity:0;transform:translateX(160px) scale(.9);filter:brightness(1.8)}to{opacity:1;transform:none;filter:brightness(1)}}
 @keyframes crt-title-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){#crtUI.tuning .crtTransition,#crtUI.tuning #mode .pcard,#crtUI[data-phase=depart] #mode .pcard,#crtUI.tuning #rwin,#crtUI.tuning .sctitle{animation:none}}
+
+/* ---------- v0.51: компактный динамичный HUD ----------
+   Главная цель — крупная карточка, остальные — одна строка. Появление с отскоком, тающая полоса таймера мигает. */
+#missions{width:232px;gap:5px}
+.mcard{transition:transform .14s cubic-bezier(.3,1.6,.5,1),opacity .14s,padding .14s}
+.mcard.dim{opacity:.72;transform:none;padding:5px 8px 6px 11px}
+.mcard.dim .where,.mcard.dim .mstatus:empty{display:none}
+.mcard.dim .mn{font-size:12.5px}
+.mcard.dim .ms{margin-top:2px}
+.mcard.dim .bar{margin-top:4px;height:2px}
+.mcard.dim img,.mcard.dim canvas{width:22px!important;height:22px!important}
+.mcard.main,.mcard.active{transform:translateX(4px)}
+.mcard.main .mn{font-size:15px}
+.mcard .mstatus{font-size:11px;color:var(--gold);margin-top:2px}
+.mcard .mstatus:empty{display:none}
+.mcard .bar.warn i{animation:v51blink .4s steps(2) infinite}
+@keyframes v51blink{50%{opacity:.25}}
+.mcard.new{animation:v51in .42s cubic-bezier(.2,1.5,.45,1)}
+@keyframes v51in{0%{transform:translateX(-120%) scale(.9);opacity:0}60%{opacity:1}100%{transform:none}}
+.mcard.won{animation:v51won .5s cubic-bezier(.3,1.4,.5,1) forwards}
+@keyframes v51won{0%{filter:brightness(2.2)}30%{transform:translateX(10px) scale(1.06);filter:brightness(1.6)}100%{transform:translateX(-130%) scale(.8);opacity:0}}
+.mcard.gone{animation:v51gone .35s ease-in forwards}
+@keyframes v51gone{to{transform:translateX(-110%);opacity:0;filter:saturate(0)}}
+#score.bump{animation:v51bump .32s cubic-bezier(.2,2,.4,1)}
+@keyframes v51bump{0%{transform:scale(1)}35%{transform:scale(1.45) rotate(-4deg)}100%{transform:scale(1)}}

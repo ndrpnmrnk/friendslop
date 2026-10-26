@@ -1,3 +1,4 @@
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {surface,supportAt} from './surfaces.js';
 import {dressShelf} from './shelf-dressing.js';
 import {pix} from '../core/textures.js';
@@ -133,10 +134,13 @@ export class Builder {
     this.m(G.cyl6, bk, x, y + 1.0 * s, z, 0.19 * s, 2.0 * s, 0.19 * s);
     this.m(G.cone6, bk, x, y + 0.18 * s, z, 0.36 * s, 0.36 * s, 0.36 * s);
     for (const a of [rand() * 6, rand() * 6, rand() * 6]) { const br = this.m(G.cyl5, bk, x + Math.cos(a) * 0.32 * s, y + 2.1 * s, z + Math.sin(a) * 0.32 * s, 0.06 * s, 0.85 * s, 0.06 * s); br.rotation.z = -Math.cos(a) * 0.75; br.rotation.x = Math.sin(a) * 0.75; } // ветви растут из ствола наружу (v0.19)
-    const n = kind === 'maple' ? 7 : 5;
+    // v0.51: крона = тёмное ядро + «карточки» листвы с просветами: пушистый силуэт вместо гладких шаров
+    const n = kind === 'maple' ? 6 : 5, card = leafCardMat(kind === 'maple' ? 0 : rand() < 0.5 ? 1 : 2), core = coreMat(kind);
     for (let i = 0; i < n; i++) {
-      const a = i / n * 6.28 + rand() * 0.6, d = i === 0 ? 0 : (kind === 'maple' ? 0.75 : 0.55) * (0.7 + rand() * 0.4), r = (kind === 'maple' ? 0.72 : 0.95) * (0.8 + rand() * 0.35);
-      const c = this.m(LEAF_GEO, lm, x + Math.cos(a) * d * s, y + (2.7 + (i === 0 ? 0.55 : rand() * 0.6)) * s, z + Math.sin(a) * d * s, r * s, r * 0.82 * s, r * s); c.rotation.set(rand(), rand() * 3, rand());
+      const a = i / n * 6.28 + rand() * 0.6, d = i === 0 ? 0 : (kind === 'maple' ? 0.8 : 0.62) * (0.7 + rand() * 0.4), r = (kind === 'maple' ? 0.78 : 1.0) * (0.8 + rand() * 0.35);
+      const cx = x + Math.cos(a) * d * s, cy = y + (2.7 + (i === 0 ? 0.6 : rand() * 0.6)) * s, cz = z + Math.sin(a) * d * s;
+      const c = this.m(LEAF_GEO, core, cx, cy, cz, r * 0.5 * s, r * 0.42 * s, r * 0.5 * s); c.rotation.set(rand(), rand() * 3, rand());
+      const k = this.m(LEAF_CARDS, card, cx, cy + 0.05 * s, cz, r * 1.4 * s, r * 1.15 * s, r * 1.4 * s); k.rotation.y = rand() * 3.14; k.castShadow = true;
     }
     // Хэллоуин: на ветке висит «привидение» из простыни и покачивается
     if (HW && rand() < 0.12) { const a = rand() * 6.28, p = new THREE.Group(); p.position.set(this.X(x + Math.cos(a) * 1.0 * s), this.Y + y + 2.2 * s, this.Z(z + Math.sin(a) * 1.0 * s)); p.rotation.y = a; this.g.add(p);
@@ -309,12 +313,46 @@ export class Builder {
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     for (const y of kind === 'iron' ? [0.2, h - 0.15] : [0.4, h - 0.3]) this.m(G.box, mat, cx, y, cz, along ? len : 0.1, 0.09, along ? 0.1 : len);
     if (kind === 'mesh') { const p = this.m(G.plane, lam({ map: rep(T.chainlink(), len / 1.5, h / 1.5), transparent: true, alphaTest: 0.08, side: THREE.DoubleSide }), cx, h / 2, cz, len, h, 1); p.rotation.y = along ? 0 : Math.PI / 2; }
-    this.solid(cx, cz, along ? len : 0.2, along ? 0.2 : len, 0, h);
+    this.solid(cx, cz, along ? len : 0.2, along ? 0.2 : len, 0, h).tag = 'fence'; // сквозной забор: свет и AO проходят
   }
   // Тыквы — не декор, а настоящие предметы: их можно пнуть, взять и бросить. Не больше двух на район.
   pumpkin(x, z, s = 0.45, y = 0) {
     this._pk = (this._pk || 0) + 1; if (this._pk > 2) return;
     this.item('pumpkin', x, z, y);
+  }
+  // v0.51: разные надгробия — крест, обелиск, плита с оградкой; холмик земли перед камнем, свечи и цветы у части могил
+  graveVaried(x, z, ry = 0) {
+    const k = rand(), st = tmat(T.stone()), dk = col(0x2b2533), g = this.prop(x, z, ry), dirt = tmat(T.soil());
+    const mound = mesh(G.sphL, dirt, 0, 0.02, 0.85, 0.5, 0.16, 0.85, g); void mound;
+    if (k < 0.45) return this.grave(x, z, ry), this._graveExtras(g);
+    if (k < 0.65) { // каменный крест
+      const t = new THREE.Group(); t.rotation.z = (rand() - 0.5) * 0.15; g.add(t);
+      mesh(G.box, st, 0, 0.75, 0, 0.16, 1.5, 0.16, t); mesh(G.box, st, 0, 1.1, 0, 0.75, 0.16, 0.16, t); mesh(G.box, st, 0, 0.08, 0, 0.6, 0.16, 0.45, g);
+      this.solid(x, z, 0.6, 0.45, 0, 1.5);
+    } else if (k < 0.82) { // обелиск
+      mesh(G.box, st, 0, 0.15, 0, 0.7, 0.3, 0.7, g); mesh(G.box, st, 0, 0.95, 0, 0.42, 1.3, 0.42, g); mesh(G.cone4, st, 0, 1.75, 0, 0.32, 0.3, 0.32, g).rotation.y = Math.PI / 4;
+      mesh(G.box, tmat(T.grave()), 0, 0.95, 0.215, 0.36, 0.6, 0.01, g);
+      this.solid(x, z, 0.7, 0.7, 0, 1.9);
+    } else { // плита в оградке
+      mesh(G.box, st, 0, 0.1, 0.55, 0.9, 0.2, 1.6, g); mesh(G.box, st, 0, 0.55, -0.2, 0.75, 0.8, 0.14, g);
+      for (const [px, pz, w, d] of [[-0.6, 0.55, 0.05, 1.9], [0.6, 0.55, 0.05, 1.9], [0, 1.5, 1.25, 0.05]]) { mesh(G.box, dk, px, 0.42, pz, w, 0.04, d, g); for (let i = -2; i <= 2; i++) mesh(G.box, dk, px + (w > 0.5 ? i * 0.28 : 0), 0.24, pz + (d > 0.5 ? i * 0.42 : 0), 0.04, 0.48, 0.04, g); }
+      this.solid(x, z, 0.9, 0.3, 0, 0.95);
+    }
+    this._graveExtras(g);
+  }
+  _graveExtras(g) {
+    if (rand() < 0.35) { // лампадка — тёплый огонёк
+      mesh(G.box, col(0x8a1a1a), 0.25, 0.12, 0.32, 0.1, 0.16, 0.1, g); mesh(G.box, glow(0xffb35c), 0.25, 0.22, 0.32, 0.05, 0.06, 0.05, g);
+      g.updateMatrixWorld(true); const p = new THREE.Vector3(0.25, 0.25, 0.32).applyMatrix4(g.matrixWorld);
+      (W.lightSources ??= []).push({ x: p.x, y: p.y + 0.15, z: p.z, color: 0xff9a40, strength: 2.2, range: 3.2 });
+    } else if (rand() < 0.4) { const c = [0xd8243a, 0xf1e8ff, 0xf5c542, 0x9a6ad8][(rand() * 4) | 0]; for (let i = 0; i < 3; i++) mesh(G.sph, col(c), -0.2 + i * 0.12, 0.08, 0.4 + rand() * 0.15, 0.06, 0.05, 0.06, g); mesh(G.box, col(0x2a5a2a), -0.08, 0.05, 0.45, 0.35, 0.04, 0.06, g); }
+  }
+  // старый кладбищенский фонарь на столбе: кованый, тёплый свет
+  graveLantern(x, z) {
+    const dk = col(0x1e1a24); this.m(G.cyl6, dk, x, 1.2, z, 0.05, 2.4, 0.05); this.m(G.box, dk, x, 0.05, z, 0.3, 0.1, 0.3);
+    this.m(G.box, dk, x, 2.45, z, 0.32, 0.06, 0.32); this.m(G.box, glow(0xffc070), x, 2.25, z, 0.22, 0.34, 0.22); this.m(G.cone4, dk, x, 2.6, z, 0.26, 0.2, 0.26).rotation.y = Math.PI / 4;
+    (W.lightSources ??= []).push({ x: this.X(x), y: this.Y + 2.25, z: this.Z(z), color: 0xffb066, strength: 6, range: 8 });
+    this.solid(x, z, 0.25, 0.25, 0, 2.6);
   }
   grave(x, z, ry = 0) {
     // плита и полукруглый верх — одна группа (один наклон), верх тоньше плиты: без совпадающих граней
@@ -425,6 +463,14 @@ Object.assign(Builder.prototype, PropMethods, TowerMethods, OpenMethods, MoreMet
 
 // У кабины машины наклонены стойки, при той же малой геометрии и старом хитбоксе.
 const LEAF_GEO = new THREE.IcosahedronGeometry(1, 1);
+// три вертикальные карточки под 60° + горизонтальная: кучка листвы из 4 плоскостей
+const LEAF_CARDS = (() => { const parts = [];
+  for (let i = 0; i < 3; i++) { const p = new THREE.PlaneGeometry(2, 2); p.rotateY(i * Math.PI / 3); parts.push(p); }
+  const top = new THREE.PlaneGeometry(2, 2); top.rotateX(-Math.PI / 2); top.translate(0, 0.25, 0); parts.push(top);
+  return mergeGeometries(parts, false); })();
+const _lc = new Map(), _core = new Map();
+const leafCardMat = k => _lc.get(k) || (_lc.set(k, lam({ map: T.leafCard(k), alphaTest: 0.5, side: THREE.DoubleSide }, 'leafCard' + k)), _lc.get(k));
+const coreMat = kind => _core.get(kind) || (_core.set(kind, lam({ map: T.leafCard(kind === 'maple' ? 0 : 1), color: 0x8a6a5a }, 'leafCore' + kind)), _core.get(kind));
 const CAR_CABIN = G.box.clone();
 for (let i = 0; i < CAR_CABIN.attributes.position.count; i++) {
   const a = CAR_CABIN.attributes.position;
@@ -433,11 +479,11 @@ for (let i = 0; i < CAR_CABIN.attributes.position.count; i++) {
 CAR_CABIN.computeVertexNormals();
 let _lm, _wm, _pf;
 const _mist = {}; const mistMat = op => _mist[op] || (_mist[op] = alphaMat(T.mist(), { color: SEASON.bg === 0x2a1f3d ? 0xb8a8e0 : 0xffffff, opacity: op, depthWrite: false }));
-export const LIGHTDIM = () => _ld || (_ld = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0x8a7a70 }));
+export const LIGHTDIM = () => _ld || (_ld = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0x8a7a70, visible: false }));
 let _ld;
-export const LIGHTMAT = () => _lm || (_lm = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0xffffff }));
+export const LIGHTMAT = () => _lm || (_lm = alphaMat(T.light(), { blending: THREE.AdditiveBlending, color: 0xffffff, visible: false }));
 export const WATERMAT = () => _wm || (_wm = lam({ map: T.water(), transparent: true, opacity: 0.88 }));
 let _wh, _fo;
-export const WATERHI = () => _wh || (_wh = alphaMat(T.waterHi(), { blending: THREE.AdditiveBlending, opacity: 0.55 }));
+export const WATERHI = () => _wh || (_wh = alphaMat(T.waterHi(), { blending: THREE.AdditiveBlending, opacity: 0.32 }));
 export const FOAM = () => _fo || (_fo = alphaMat(T.foam(), { opacity: 0.75 }));
 export const PFACE = () => _pf || (_pf = new THREE.MeshBasicMaterial({ map: T.pumpkinFace(), transparent: true, alphaTest: 0.5 }));

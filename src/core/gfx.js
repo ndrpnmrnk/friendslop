@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import {graphics,onGraphics} from './quality.js';
+import {batchBegin,batchEnd} from './batch.js';
+import {WL,disableWL} from './wl-uniforms.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 THREE.ColorManagement.enabled = false;
@@ -25,19 +27,72 @@ export const SNAP = { value: new THREE.Vector2(256, 144) };
 // Дрожание вершин в стиле PS1: проекция вершины округляется до сетки экрана
 export function ps1(m, stable = false) {
   m.userData.ps1Stable = stable;
-  m.customProgramCacheKey = () => stable ? 'ps1-stable-v09' : 'ps1-distance-v09';
+  m.customProgramCacheKey = () => stable ? 'ps1-stable-v51' : 'ps1-distance-v51';
   m.onBeforeCompile = sh => {
     sh.uniforms.uSnap = SNAP;
-    sh.vertexShader = 'uniform vec2 uSnap;\n' + sh.vertexShader.replace('#include <project_vertex>',
+    const lit = sh.fragmentShader.includes('#include <lights_fragment_end>');
+    sh.vertexShader = 'uniform vec2 uSnap;\n' + (lit ? 'varying vec3 vWLPos;\n' : '') + sh.vertexShader.replace('#include <project_vertex>',
       `#include <project_vertex>
       vec4 sp = gl_Position;
       // Полы и разметка стабильны; вдали дрожание плавно исчезает и на пропсах.
       float jitter = ${stable ? '0.0' : '(1.0 - smoothstep(8.0, 32.0, -mvPosition.z))'};
       if (sp.w > 0.0) sp.xy = mix(sp.xy, floor(sp.xy / sp.w * uSnap + 0.5) / uSnap * sp.w, jitter);
-      gl_Position = sp;`);
+      gl_Position = sp;` + (lit ? `
+      vec4 wlp = vec4(transformed, 1.0);
+      #ifdef USE_INSTANCING
+      wlp = instanceMatrix * wlp;
+      #endif
+      vWLPos = (modelMatrix * wlp).xyz;` : ''));
+    if (lit) {
+      Object.assign(sh.uniforms, { uWLOn: WL.on, uWLMax: WL.max, uWLGrid: WL.grid, uWLLights: WL.lights, uWLMask: WL.mask, uWLOrigin: WL.origin, uWLGridSize: WL.gridSize, uWLCell: WL.cell,
+        uWLMaskInv: WL.maskInv, uWLBase: WL.base, uWLIndoor: WL.indoor, uWLAo: WL.aoK, uWLK: WL.lightK, uDynP: WL.dynP, uDynC: WL.dynC });
+      sh.fragmentShader = WL_HEAD + sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + WL_BODY);
+    }
   };
   return m;
 }
+/* Свет мира (world/world-light.js): AO у стен и предметов, «небо» внутри зданий слабее,
+   до 8 ближайших видимых источников на клетку 1×1 м + 4 вспышки эффектов. */
+const WL_HEAD = `varying vec3 vWLPos; uniform float uWLOn, uWLMax, uWLCell, uWLBase, uWLIndoor, uWLAo, uWLK; uniform vec2 uWLOrigin, uWLGridSize, uWLMaskInv;
+uniform highp sampler2D uWLGrid; uniform highp sampler2D uWLLights; uniform sampler2D uWLMask; uniform vec4 uDynP[4]; uniform vec3 uDynC[4];
+`;
+const WL_BODY = `
+  {
+    vec3 wN = inverseTransformDirection(normal, viewMatrix), wP = vWLPos, acc = vec3(0.0);
+    float aoF = 1.0, sky = 1.0; vec3 skyT = vec3(1.0);
+    if (uWLOn > 0.5) {
+      vec4 mk = texture2D(uWLMask, (wP.xz + wN.xz * 0.22 - uWLOrigin) * uWLMaskInv);
+      float hgt = wP.y - uWLBase;
+      // затенение у основания стен и предметов, вверх сходит на нет; под землёй своё
+      aoF = mix(1.0, mix(mk.r, 1.0, smoothstep(0.1, 1.9, hgt)), step(-0.6, hgt) * uWLAo);
+      float roofY = mk.g * 48.0;
+      float inside = max(step(0.05, roofY) * step(wP.y, roofY - 0.25), step(hgt, -0.8));
+      sky = mix(1.0, uWLIndoor, inside);
+      skyT = mix(vec3(1.0), vec3(1.08, 0.9, 0.78), inside);
+      ivec2 gc = ivec2(floor((wP.xz - uWLOrigin) / uWLCell));
+      if (gc.x >= 0 && gc.y >= 0 && float(gc.x) < uWLGridSize.x && float(gc.y) < uWLGridSize.y) {
+        vec4 ia = texelFetch(uWLGrid, ivec2(gc.x * 2, gc.y), 0), ib = texelFetch(uWLGrid, ivec2(gc.x * 2 + 1, gc.y), 0);
+        float ids[8] = float[8](ia.x, ia.y, ia.z, ia.w, ib.x, ib.y, ib.z, ib.w);
+        for (int k = 0; k < 8; k++) {
+          if (ids[k] < 0.0 || float(k) >= uWLMax) break;
+          int ii = int(ids[k] + 0.5);
+          vec4 lp = texelFetch(uWLLights, ivec2(ii, 0), 0), lb = texelFetch(uWLLights, ivec2(ii, 2), 0);
+          if (wP.y < lb.x || wP.y > lb.y) continue;
+          vec3 L = lp.xyz - wP; float d = length(L), a = clamp(1.0 - d / lp.w, 0.0, 1.0); a *= a;
+          if (a <= 0.0) continue;
+          float nl = clamp(dot(wN, L / max(d, 1e-3)) * 0.85 + 0.15, 0.0, 1.0);
+          acc += texelFetch(uWLLights, ivec2(ii, 1), 0).rgb * a * nl;
+        }
+      }
+    }
+    for (int k = 0; k < 4; k++) { vec4 p = uDynP[k]; vec3 L = p.xyz - wP; float d = length(L), a = clamp(1.0 - d / p.w, 0.0, 1.0); a *= a;
+      acc += uDynC[k] * a * clamp(dot(wN, L / max(d, 1e-3)) * 0.7 + 0.3, 0.0, 1.0); }
+    acc /= 1.0 + max(acc.r, max(acc.g, acc.b)) * 0.12; // мягкий потолок: у самой лампы не выжигает
+    reflectedLight.indirectDiffuse *= aoF * sky * skyT;
+    reflectedLight.directDiffuse *= mix(1.0, aoF, 0.6);
+    reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * acc * uWLK * mix(1.0, aoF, 0.45);
+  }
+`;
 
 // Постобработка: дизеринг Bayer 4x4 и урезанная палитра
 const post = new THREE.ShaderMaterial({
@@ -57,8 +112,11 @@ const post = new THREE.ShaderMaterial({
       // сумеречная цветокоррекция: тени в сливовый, свет в тёплый
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c = mix(c * vec3(0.92, 0.9, 1.06), c * vec3(1.06, 1.0, 0.92), smoothstep(0.2, 0.8, l)) + vec3(0.012, 0.006, 0.02);
+      // v0.51: киношный контраст — мягкая S-кривая, тени холоднее, свет теплее и чуть насыщеннее
+      vec3 sc = clamp(c, 0.0, 1.0); c = mix(c, sc * sc * (3.0 - 2.0 * sc), 0.32);
+      float l2 = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l2), c, 1.0 + 0.18 * smoothstep(0.25, 0.7, l2));
       // виньетка
-      vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * 0.42;
+      vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * 0.62;
       // Мягкий подъём тёмных деталей, без плоской общей засветки.
       c += vec3(.015,.012,.014)*(1.0-smoothstep(.0,.22,l));
       float edge=smoothstep(.25,.68,length(q));c+=edge*punch*vec3(.09,.035,.012);
@@ -79,12 +137,15 @@ let lastShadow=-Infinity,qualityRevision=0;
 const sceneQuality=new WeakMap();
 onGraphics(()=>{qualityRevision++;lastShadow=-Infinity;resize();});
 export function setActionVisuals(speed=0,impact=0){post.uniforms.velocity.value=Math.min(1,Math.max(0,speed));post.uniforms.punch.value=Math.min(1,Math.max(0,impact));}
+// Компиляция шейдеров заранее (после генерации карты): без подвисаний при первом появлении предметов и эффектов.
+export function warmup(scene,camera){batchBegin(scene,camera,true);try{renderer.compile(scene,camera);}finally{batchEnd();}}
 export function present(scene, camera, outlineTarget=null) {
   const quality=graphics.current,now=performance.now();
   if(sceneQuality.get(scene)!==qualityRevision){scene.traverse(o=>{if(o.isLight&&o.shadow){const sh=o.shadow;if(sh.mapSize.x!==quality.shadow){sh.mapSize.set(quality.shadow,quality.shadow);sh.map?.dispose();sh.map=null;}}});sceneQuality.set(scene,qualityRevision);}
   renderer.shadowMap.needsUpdate=now-lastShadow>1000/quality.shadowHz;if(renderer.shadowMap.needsUpdate)lastShadow=now;
   post.uniforms.glowSteps.value=graphics.key==='low'?2:graphics.key==='medium'?4:8;
-  renderer.setRenderTarget(rt); renderer.render(scene, camera);
+  if(scene.userData.wl)scene.userData.wl.apply();else disableWL();WL.max.value=quality.wl??8;
+  renderer.setRenderTarget(rt); batchBegin(scene,camera); try{renderer.render(scene, camera);}finally{batchEnd();}
   post.uniforms.outlineOn.value=outlineTarget?1:0;
   if(outlineTarget){const marked=[],layers=camera.layers.mask,bg=scene.background,override=scene.overrideMaterial,shadow=renderer.shadowMap.autoUpdate;
     outlineTarget.traverse(o=>{if(o.isMesh&&o.visible&&!o.userData.noOutline&&o.name!=='character-shadow'){marked.push([o,o.layers.mask]);o.layers.enable(2);}});

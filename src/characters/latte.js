@@ -43,7 +43,7 @@ export const LATTE_SKIN={
   const geo=liquidGeo.clone(),liquid=mesh(geo,lam({map:coffee(),vertexColors:true,flatShading:true,transparent:true,opacity:.68,depthWrite:false,emissive:0x876b49,emissiveIntensity:.30},'latte351-layered-liquid'),0,0,0,1,1,1,head);liquid.name='latte-liquid';liquid.renderOrder=1;liquid.frustumCulled=false;
   // Кофе к нижней части темнее, молочный верх светлее.
   const colors=[];for(let i=0;i<geo.attributes.position.count;i++){const y=geo.attributes.position.getY(i),c=new THREE.Color(y<.5?0xc69768:y<.9?0xe8c9a4:0xf5ddba);colors.push(c.r,c.g,c.b);}geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-  const ice=new THREE.InstancedMesh(iceGeo,lam({map:iceTex(),vertexColors:true,emissive:0x526f73,emissiveIntensity:.22,transparent:true,opacity:.9,depthWrite:true,flatShading:true},'latte351-ice'),6);ice.name='latte-ice';ice.renderOrder=2;ice.frustumCulled=false;ice.instanceMatrix.setUsage(THREE.DynamicDrawUsage);head.add(ice);
+  const ice=new THREE.InstancedMesh(iceGeo,lam({map:iceTex(),vertexColors:true,emissive:0x526f73,emissiveIntensity:.22,transparent:true,opacity:.9,depthWrite:true,flatShading:true},'latte351-ice'),6);ice.name='latte-ice';ice.renderOrder=2;ice.frustumCulled=false;ice.instanceMatrix.setUsage(THREE.DynamicDrawUsage);head.add(ice);{const z=new THREE.Matrix4().makeScale(0,0,0);for(let i=0;i<6;i++)ice.setMatrixAt(i,z);}
   const shellMesh=mesh(cupGeo,shell,0,.84,0,1,1,1,head);shellMesh.name='latte-cup';shellMesh.renderOrder=3;shellMesh.castShadow=false;
   const rim=mesh(lidGeo,shell,0,1.36,0,1,1,1,head);rim.name='latte-lid';rim.renderOrder=4;
   const base=mesh(baseGeo,shell,0,0,0,1,1,1,head);base.name='latte-base';base.renderOrder=4;

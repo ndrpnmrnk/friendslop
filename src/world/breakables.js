@@ -1,3 +1,4 @@
+import { impactBurst, sparks } from '../game/vfx.js';
 import { THREE, G, mesh, tmat, col, lam } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
@@ -57,6 +58,9 @@ export function breakPiece(p, vel = [0, 0, 0]) {
   if (p.inst) for (const q of p.inst) { q.im.setMatrixAt(q.i, ZERO); q.im.instanceMatrix.needsUpdate = true; }
   const pos = m.position, sc = m.scale;
   sfx(p.kind === 'glass' || p.kind === 'bottle' || p.kind === 'bulb' ? 'glass' : 'wood', { at: pos });
+  { const c = { x: pos.x, y: pos.y + (p.kind === 'glass' ? 0 : 0.3), z: pos.z }, glassy = p.kind === 'glass' || p.kind === 'bottle' || p.kind === 'bulb';
+    impactBurst(c, glassy ? 0xd8f2ff : p.kind === 'brick' ? 0xffc9a0 : 0xffd8a0, glassy ? 1.1 : 1.4, glassy ? [0xd8f2ff, 0x9fd0ef, 0xffffff] : p.kind === 'brick' ? [0x8a4a3a, 0xa05a44, 0x6d6560] : [0x8a5a34, 0xb07a48, 0x5e3b22]);
+    if (p.kind === 'bulb') sparks(c, 14, 0xfff2c0); }
   if (p.kind === 'crate') {
     crateCoins(p);
     // ящик разлетается на доски и щепки

@@ -14,6 +14,7 @@ import { splash, burst, puff, smokeRing } from '../world/particles.js';
 import { groundAt, isFree } from '../world/physics.js';
 import { actors, shove, knockDown, dropHeld, daze } from './actors.js';
 import { spawnTool, explode } from './tools.js';
+import { sparks as vfxSparks } from './vfx.js';
 import { iconCanvas } from '../ui/icons.js';
 import { CONFIG } from '../config.js';
 import { sfx } from '../core/sfx.js';
@@ -189,11 +190,16 @@ const BIG = {
         const h=s.h;if(h.drone||h.returning){const next=actors()[0];if(next)give(s,next);return null;}h.held&&dropHeld(h);const d=h.ch.d;h.ch.handL.position.set(-.22,d.holdY,d.holdZ+.08);h.ch.handR.position.set(.22,d.holdY,d.holdZ+.08);h.root.updateMatrixWorld(true);s.bomb.position.copy(h.root.localToWorld(new V3(0,d.holdY,d.holdZ+.17)));
         if (s.cd <= 0) for (const o of actors()) if (o !== h && !o.hidden && o.pos.distanceTo(h.pos) < 1.15 && raySolids(h.pos.clone().add(new V3(0,.8,0)),o.pos.clone().sub(h.pos).normalize(),o.pos.distanceTo(h.pos))>=o.pos.distanceTo(h.pos)-.1) { give(s, o); sfx('pop', { at: o.pos }); break; }
       }
-      s.bomb.rotation.y += dt * 4;
+      // v0.51: в руках тыква-бомба не крутится сама по себе — смотрит вперёд вместе с персонажем и дрожит сильнее к концу фитиля;
+      // в полёте кувыркается, на земле лежит; от фитиля летят искры
+      { const k0 = Math.max(0, s.left / s.T), jit = (1 - k0) * 0.12;
+        if (s.flight) { s.bomb.rotation.x += dt * 9; s.bomb.rotation.z += dt * 5; }
+        else if (s.h) s.bomb.rotation.set(Math.sin(t * 31) * jit, s.h.root.rotation.y + Math.sin(t * 23) * jit, Math.cos(t * 27) * jit);
+        if (Math.random() < dt * (14 + 30 * (1 - k0))) { const q = s.bomb.localToWorld(new V3(0, 0.44, 0)); vfxSparks(q, 2, 0xffd25c, { x: 0, y: 1, z: 0 }); } }
       const k = Math.max(0, s.left / s.T); s.tick -= dt; if (s.tick <= 0) { s.tick = 0.15 + k * 0.6; sfx('tick', { at: s.bomb.position, v: 0.7 }); puff(s.bomb.position.x, s.bomb.position.y + 0.45, s.bomb.position.z, { color: 0xffd25c, size: 0.08, vy: 1, life: 0.3 }); }
       if (s.left <= 0) {
         const victim = s.flight ? s.flight.by : s.h, p = s.bomb.position.clone(); p.y = groundAt(p.x, p.z, 0.2, p.y) + 0.3;
-        explode(p, null); if (victim) { award(victim, -60, victim.pos); eliminate(victim, 25); } s.boom++;
+        explode(p, null, 'bomb'); if (victim) { award(victim, -60, victim.pos); eliminate(victim, 25); } s.boom++;
         const others = actors(); if (!others.length) return 'end'; give(s, others[(Math.random() * others.length) | 0], true);
       }
       return null;
