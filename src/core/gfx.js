@@ -210,13 +210,26 @@ export const flat = t => lam({ map: t, polygonOffset: true, polygonOffsetFactor:
 export const paint = c => lam({ color: c, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }, 'paint' + c, true);
 // v0.52: «желейная» копия материала (перелив по краю, блик). Кешируется по исходному материалу и силе.
 const JM = new Map();
-export function jellyMat(m, k = 0.8) {
+// градиент с зерном вместо плоского цвета: светлее сверху, глубже и насыщеннее снизу, лёгкий «перелив» оттенка
+const GT = new Map();
+function gradTex(hex) {
+  let t = GT.get(hex); if (t) return t;
+  const c = document.createElement('canvas'); c.width = 16; c.height = 32; const g = c.getContext('2d');
+  const base = new THREE.Color(hex), hi = base.clone().lerp(new THREE.Color(1, .93, .82), .28), lo = base.clone().multiplyScalar(.62); const hsl = {}; lo.getHSL(hsl); lo.setHSL((hsl.h + .97) % 1, Math.min(1, hsl.s * 1.25), hsl.l);
+  const gr = g.createLinearGradient(0, 0, 0, 32); gr.addColorStop(0, '#' + hi.getHexString()); gr.addColorStop(.55, '#' + base.getHexString()); gr.addColorStop(1, '#' + lo.getHexString());
+  g.fillStyle = gr; g.fillRect(0, 0, 16, 32);
+  const im = g.getImageData(0, 0, 16, 32); for (let i = 0; i < im.data.length; i += 4) { const n = (Math.random() - .5) * 26; im.data[i] += n; im.data[i + 1] += n; im.data[i + 2] += n; } g.putImageData(im, 0, 0);
+  t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.NoColorSpace; GT.set(hex, t); return t;
+}
+export function jellyMat(m, k = 0.8, grad = false) {
   if (!m || Array.isArray(m) || !m.isMeshLambertMaterial || m.userData.jelly) return m;
-  const key = m.uuid + '|' + k; let j = JM.get(key);
-  if (!j) { j = m.clone(); j.userData = { ...m.userData, jelly: k }; ps1(j, !!m.userData.ps1Stable); JM.set(key, j); }
+  const key = m.uuid + '|' + k + '|' + grad; let j = JM.get(key);
+  if (!j) { j = m.clone(); j.userData = { ...m.userData, jelly: k };
+    if (grad && !m.map && !m.vertexColors && !(m.emissive && m.emissiveIntensity > .4)) { j.map = gradTex(m.color.getHex()); j.color.setRGB(1, 1, 1); }
+    ps1(j, !!m.userData.ps1Stable); JM.set(key, j); }
   return j;
 }
-export function jellify(root, k = 0.8) { root.traverse(o => { if (o.isMesh && !o.userData.noJelly) o.material = Array.isArray(o.material) ? o.material.map(x => jellyMat(x, k)) : jellyMat(o.material, k); }); return root; }
+export function jellify(root, k = 0.8, grad = false) { root.traverse(o => { if (o.isMesh && !o.userData.noJelly && o.geometry.attributes.uv) o.material = Array.isArray(o.material) ? o.material.map(x => jellyMat(x, k, grad)) : jellyMat(o.material, k, grad); }); return root; }
 // Уникальный материал (для объектов, которые затухают, когда закрывают игрока)
 export const own = (opts) => ps1(new THREE.MeshLambertMaterial(opts));
 

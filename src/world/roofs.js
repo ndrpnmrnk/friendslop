@@ -1,4 +1,4 @@
-import { THREE, G, mesh, col, tmat, lam, compose } from '../core/gfx.js';
+import { THREE, G, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
 import { addSolid, isFree } from './physics.js';
@@ -64,5 +64,51 @@ export function dressRoofs() {
     if (Math.random() < 0.6) { const along = w > d, len = (along ? w : d) * rnd(0.4, 0.8), pm = tmat(T.paintMetal(0x6a6e78));
       const p = mesh(G.cyl6, pm, along ? (s.x0 + s.x1) / 2 : s.x0 + 0.45, y + 0.16, along ? s.z0 + 0.45 : (s.z0 + s.z1) / 2, 0.06, len, 0.06, g); p.rotation[along ? 'z' : 'x'] = Math.PI / 2; }
   }
-  return done.length;
+  return done;
+}
+
+/* v0.52: многослойность — мостики между крышами соседних районов через дорогу.
+   Ищем пары крыш разных районов, которые смотрят друг на друга через улицу (6–10 м), с близкой высотой.
+   Мост — дощатый настил с перилами и гирляндой; физика ступеньками по 1 м (подъём ≤ 0.4 м на ступень). */
+export function bridgeRoofs(roofs) {
+  const dist = (x, z) => W.districts.find(d => x >= d.ox && x < d.x1 && z >= d.oz && z < d.z1)?.id;
+  // только верхние крыши (перекрытия этажей под ними не считаем)
+  roofs = roofs.filter(r => !roofs.some(q => q !== r && q.y1 > r.y1 + .5 && q.x0 < r.x1 - .5 && q.x1 > r.x0 + .5 && q.z0 < r.z1 - .5 && q.z1 > r.z0 + .5 && (q.x1 - q.x0) * (q.z1 - q.z0) > (r.x1 - r.x0) * (r.z1 - r.z0) * .5));
+  const cand = [];
+  for (const a of roofs) for (const b of roofs) {
+    if (a === b) continue;
+    const da = dist((a.x0 + a.x1) / 2, (a.z0 + a.z1) / 2), db = dist((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2);
+    if ((!da && !db) || da === db || Math.abs(a.y1 - b.y1) > 3.2) continue;
+    // по x: a слева, b справа
+    const gx = b.x0 - a.x1, oz0 = Math.max(a.z0, b.z0), oz1 = Math.min(a.z1, b.z1);
+    if (gx > 4 && gx < 13 && oz1 - oz0 > 1.8) cand.push({ ax: 'x', a, b, from: a.x1, to: b.x0, c: (oz0 + oz1) / 2, gap: gx });
+    const gz = b.z0 - a.z1, ox0 = Math.max(a.x0, b.x0), ox1 = Math.min(a.x1, b.x1);
+    if (gz > 4 && gz < 13 && ox1 - ox0 > 1.8) cand.push({ ax: 'z', a, b, from: a.z1, to: b.z0, c: (ox0 + ox1) / 2, gap: gz });
+  }
+  // сначала мосты между районами, к домам на краю карты — в последнюю очередь
+  for (const k of cand) k.score = k.gap + (dist((k.a.x0 + k.a.x1) / 2, (k.a.z0 + k.a.z1) / 2) && dist((k.b.x0 + k.b.x1) / 2, (k.b.z0 + k.b.z1) / 2) ? 0 : 6);
+  cand.sort((p, q) => p.score - q.score);
+  const used = new Set(), made = [];
+  const wood = tmat(T.wood()), iron = col(0x2b2533), dark = col(0x3a2418);
+  for (const k of cand) {
+    if (made.length >= 5 || used.has(k.a) || used.has(k.b)) continue;
+    used.add(k.a); used.add(k.b);
+    const len = k.to - k.from + .6, n = Math.ceil(len), y0 = k.a.y1, y1 = k.b.y1, g = new THREE.Group(); g.name = 'roof-bridge'; W.group.add(g);
+    for (let i = 0; i < n; i++) {
+      const t0 = i / n, t1 = (i + 1) / n, s0 = k.from - .3 + len * t0, s1 = k.from - .3 + len * t1, y = y0 + (y1 - y0) * (t0 + t1) / 2, mid = (s0 + s1) / 2;
+      const X = k.ax === 'x' ? mid : k.c, Z = k.ax === 'x' ? k.c : mid, sx = k.ax === 'x' ? s1 - s0 + .02 : 1.5, sz = k.ax === 'x' ? 1.5 : s1 - s0 + .02;
+      mesh(G.box, wood, X, y - .06, Z, sx, .12, sz, g); mesh(G.box, dark, X, y - .16, Z, k.ax === 'x' ? sx : .2, .1, k.ax === 'x' ? .2 : sz, g);
+      addSolid(X - sx / 2, Z - sz / 2, X + sx / 2, Z + sz / 2, y - .14, y);
+      // перила с двух сторон (твёрдые — не падаешь случайно, но перепрыгнуть можно)
+      for (const sd of [-1, 1]) { const rx = k.ax === 'x' ? X : X + sd * .72, rz = k.ax === 'x' ? Z + sd * .72 : Z;
+        mesh(G.box, iron, rx, y + .9, rz, k.ax === 'x' ? sx : .05, .05, k.ax === 'x' ? .05 : sz, g); if (i % 2 === 0) mesh(G.box, iron, rx, y + .45, rz, .05, .9, .05, g);
+        addSolid(rx - (k.ax === 'x' ? sx / 2 : .04), rz - (k.ax === 'x' ? .04 : sz / 2), rx + (k.ax === 'x' ? sx / 2 : .04), rz + (k.ax === 'x' ? .04 : sz / 2), y, y + .95, 'fence'); }
+    }
+    // огоньки по перилам — видно издалека, что туда можно пройти (светят как источники мира)
+    const cols = [0xff8a1f, 0xff5aa0, 0x7ad8ff];
+    for (let i = 0, m = Math.floor(len / 1.4); i <= m; i++) { const t = i / m, sAt = k.from - .3 + len * t, y = y0 + (y1 - y0) * t + .98;
+      for (const sd of [-1, 1]) { const X = k.ax === 'x' ? sAt : k.c + sd * .72, Z = k.ax === 'x' ? k.c + sd * .72 : sAt; mesh(G.box, glow(cols[(i + (sd > 0 ? 1 : 0)) % 3]), X, y, Z, .1, .1, .1, g); } }
+    made.push({ ax: k.ax, from: k.from, to: k.to, c: k.c, y0, y1, x: k.ax === 'x' ? (k.from + k.to) / 2 : k.c, z: k.ax === 'x' ? k.c : (k.from + k.to) / 2, y: (y0 + y1) / 2 });
+  }
+  return made;
 }

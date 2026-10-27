@@ -38,7 +38,7 @@ import { mouse as M_ } from './core/input.js';
 import { cargoPosition,poseMeleeItem } from './game/handheld.js';
 import { createBots, updateBots, botHitHook, interruptBot } from './game/bots.js';
 import { voice } from './game/voice.js';
-import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide, leaveBench } from './game/worldfx.js';
+import { FX, hitFreeze, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide, leaveBench } from './game/worldfx.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict, addItem } from './game/items.js';
@@ -446,7 +446,10 @@ function closeMission(res) {
 
 // очки за миссию: «+N» вылетает из места миссии на экране и летит в счёт
 function scored(m, pts) {
-  actionEffect('success',P.pos.clone().add(new V3(0,1,0)),1.25);markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m);
+  actionEffect('success',P.pos.clone().add(new V3(0,1,0)),1.25);
+  // v0.52: сочный финиш миссии — вспышка, кольцо, разноцветные искры фонтаном, короткий стоп-кадр
+  { const q = { x: P.pos.x, y: P.pos.y + 1.1, z: P.pos.z }; impactBurst(q, 0xc7ef94, 2.2); for (const c of [0xff6aa8, 0x7ad8ff, 0xffd04a, 0x9be36b]) vfxSparks(q, 9, c, { x: 0, y: 1.6, z: 0 }); W.flash?.(P.pos, 0xc7ef94, .9, 7, 3); hitFreeze(.06); }
+  markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m);
   const st = statsOf(P); st.missions++; st.mpts += pts;
   const p = (m.obj.pos && m.obj.pos()) || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   const sx = Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), sy = Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight));
@@ -868,3 +871,5 @@ import { makeCharacter as __mkChar } from './characters/rig.js';
 import { SKIN_IDS as __skinIds } from './characters/skins.js';
 import { busKitten as __busKitten } from './missions/bus-model.js';
 Object.assign(window.__fs, { busKitten: __busKitten });
+import { addItem as __addItem } from './game/items.js';
+Object.assign(window.__fs, { addItem: __addItem, itemTypes: () => Object.keys(CONFIG.items) });
