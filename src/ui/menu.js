@@ -1,3 +1,4 @@
+import {updateVfx,resetVfx} from '../game/vfx.js';
 import {createLocalLighting} from '../world/scene-lighting.js';
 import {updateActionEffects} from '../world/action-fx.js';
 import {characterFade} from '../core/model-fade.js';
@@ -150,13 +151,13 @@ export function createMenu(){
     const inBucket=world.catapult.st.riders.includes(P)&&!st.launch;
     if(inBucket){P.ch.animate(dt,{t:st.t,speed:0,ride:'sit',dangle:true});P.root.position.copy(P.pos);}
     else updatePlayer(P,dt,st.t,!st.launch,rig.state.yaw);
-    if(st.launch){st.launch.t+=dt;if(st.launch.t>1.15&&!st.launch.done){st.launch.done=true;st.onLaunch?.(world.ouija.choice());}}
+    if(st.launch){st.launch.t+=dt;if(st.launch.t>1.15&&!st.launch.done){st.launch.done=true;resetVfx();st.onLaunch?.(world.ouija.choice());}}
     if(P.held){cargoPosition(P,P.held.pos,P.held.def.r);P.held.g.rotation.y=P.root.rotation.y;poseMeleeItem(P,P.held);}
     if(P.charging&&(!P.held||P.stun>0))clearThrow();
     let shown=0;if(P.charging&&P.held){const tgt=aimPoint();P.aimYaw=Math.atan2(tgt.x-P.pos.x,tgt.z-P.pos.z);shown=predict(P.held.pos,throwVelocity(P.held.pos,tgt,P.charge,P.held.def),arc,arc.length,P.held.def,land);}if(P.held?.type==='bow'&&(P.held.draw||0)>.05){shown=predictBow(P,aimPoint(),arc,land);for(const m of arc){m.scale.setScalar(.085);m.material.depthTest=true;m.material.color.setHex(0xe8dfb9);}}else for(const m of arc){m.scale.setScalar(.13);m.material.depthTest=true;m.material.color.setHex(0xffb45a);}arc.forEach((m,i)=>m.visible=i<shown);if(!shown)land.visible=false;
     world.ouija.update(dt,st.t,camera);
     st.party=world.catapult.update(dt,st.t,[P],riders=>{for(const a of riders){a.vel.set((Math.random()-.5)*2,17,-12);a.onGround=false;a.airPeak=a.pos.y;}st.launch={t:0,done:false};sfx('dash',{v:1.4});sfx('spring');});
-    updateCoins(dt,P);updateItems(dt,P);updatePushables(dt,P);for(const fn of world.state.animated)fn(dt,st.t);updateSwingers(dt,st.t,P);updateWorldFx(dt,st.t,P);updateTools(dt,st.t);updateGrabs(dt,st.t);updateTraps(dt,st.t);updateSnacks(P,dt);updateBreakables(dt,P);updateActionEffects(dt,P,camera);updateParticles(dt);updateSplat(dt);
+    updateCoins(dt,P);updateItems(dt,P);updatePushables(dt,P);for(const fn of world.state.animated)fn(dt,st.t);updateSwingers(dt,st.t,P);updateWorldFx(dt,st.t,P);updateTools(dt,st.t);updateGrabs(dt,st.t);updateTraps(dt,st.t);updateSnacks(P,dt);updateBreakables(dt,P);updateActionEffects(dt,P,camera);updateParticles(dt);updateVfx(dt);updateSplat(dt);
     const want=new Set();if(!P.held)for(const it of world.state.items)if(['rest','placed'].includes(it.state)&&!it.noPickup&&(!it.boxed||it.boxed.open)&&it.pos.distanceTo(P.pos)<2.2)want.add(it.outline);
     for(const q of world.state.interacts)if(q.outline&&(!q.glow||q.glow())&&(!q.enabled||q.enabled(P))&&Math.hypot(q.x-P.pos.x,q.z-P.pos.z)<q.r+.7&&Math.abs(q.y-P.pos.y)<(q.dy??.9)+.3)want.add(q.outline);
     const ride=nearestRideable(P)||nearestRideable(P,1.7,true);if(ride&&!P.held)want.add(ride.outline);for(const o of glowing)if(!want.has(o))o?.set(false);for(const o of want)o?.set(true);glowing.clear();for(const o of want)glowing.add(o);pulseOutline(dt);
@@ -184,7 +185,7 @@ export function createMenu(){
     if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}sky.update(camera,st.t,dt);setListener(camera.position.x,camera.position.y,camera.position.z);
     tvUI.update(camera,st.mode==='tv'&&!st.pausedForSettings);const wantedScreen=st.mode==='tv'||st.transition?.name==='sofa-in'?0:1;screenFade+=(wantedScreen-screenFade)*(1-Math.exp(-dt*5));const noise=st.t%7.3>7.04?.82+Math.sin(st.t*83)*.12:1;world.tvScreen.material.color.setScalar(screenFade*noise);
     for(const{light}of world.lampLights)light.removeFromParent();scope(()=>{if(!localLighting.wl)localLighting.rebuild();localLighting.update(camera,dt);});
-    screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){const party=st.party;if(world.catapult.st.riders.includes(P))text=party&&party.phase==='count'?'Держись!':'<b>E</b>Выпрыгнуть';else if(!P.held&&stationAt(P.pos)?.id==='catapult'&&!P.ride&&!P.grab)text='<b>E</b>Запрыгнуть в катапульту';else if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(!P.ride){const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
+    screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){const party=st.party;if(st.launch)text='';else if(world.catapult.st.riders.includes(P))text=party&&party.phase==='count'?'Держись!':'<b>E</b>Выпрыгнуть';else if(!P.held&&stationAt(P.pos)?.id==='catapult'&&!P.ride&&!P.grab)text='<b>E</b>Запрыгнуть в катапульту';else if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(!P.ride){const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
 
 
   });

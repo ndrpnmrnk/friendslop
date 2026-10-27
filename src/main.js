@@ -138,7 +138,7 @@ function showMenu() {
 function showHub(){S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
 // v0.52: матч стартует из хаба — катапульта выстрелила; подборка районов выбрана спиритической доской
 menu.onLaunch=choice=>{if(S.state!=='hub')return;const musicReady=roundMusic.preload();S.state='roulette';menu.active=false;screen(null);$('fade').classList.add('on');
-  setTimeout(async()=>{await musicReady;globalThis.__forceDistricts=choice.ids||null;try{prepareRound();}finally{globalThis.__forceDistricts=null;}$('fade').classList.remove('on');startIntro();toast(choice.name);},420);};
+  setTimeout(async()=>{await musicReady;await new Promise(r=>setTimeout(r,700));globalThis.__forceDistricts=choice.ids||null;try{prepareRound();}finally{globalThis.__forceDistricts=null;}$('fade').classList.remove('on');startIntro();toast(choice.name);},420);};
 menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen('menu');};
 $('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
