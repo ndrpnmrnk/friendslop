@@ -584,3 +584,24 @@ button:disabled{opacity:.45;cursor:default}
 @keyframes v51gone{to{transform:translateX(-110%);opacity:0;filter:saturate(0)}}
 #score.bump{animation:v51bump .32s cubic-bezier(.2,2,.4,1)}
 @keyframes v51bump{0%{transform:scale(1)}35%{transform:scale(1.45) rotate(-4deg)}100%{transform:scale(1)}}
+
+/* ================= v0.53 «Хром и стекло»: интерфейс из стекла =================
+   Панели — тонированное стекло с градиентом (светлее сверху), тонкой «хромовой» кромкой, мягким бликом
+   и плёночным зерном. Цвета акцентов — неон из мира (янтарь, циан, розовый). В меню стекло размывает фон,
+   в игре размытие не используется (бережём FPS) — только градиент и кромка. */
+:root{
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  --panel:var(--grain),linear-gradient(165deg,rgba(90,110,230,.38) 0%,rgba(26,30,86,.66) 42%,rgba(10,10,34,.82) 100%);
+  --edge:rgba(185,208,255,.42);--edge2:rgba(255,196,120,.7);
+  --notch:inset(0 round 10px);
+  --night:#0a0c24;--plum:#18205a;--gold:#ffc14a;--pumpkin:#ff8a3a;--sky:#4fe6ff;--candy:#7aff9a;--blood:#ff4f7a;--muted:#a8b4e8;--text:#f2f4ff;
+}
+.pframe,.parr,.plabel,.pcard,.mcard,#held,#hubHeld,#gslot,#prompt,#hubPrompt,.rrow,#toast,#compass,.aw,#nav .nb,#tutBtn,#droneHud .dh,#evchip,.rcard .plate,#characterPick{
+  border-radius:10px;
+  box-shadow:inset 0 0 0 1.5px var(--edge),inset 0 1px 0 0 rgba(255,255,255,.35),inset 0 -12px 18px -12px rgba(120,160,255,.35);
+}
+/* в меню (не в игре) — настоящее матовое стекло */
+body:not(.playing) :is(.pframe,.plabel,.pcard,.rrow,.parr){backdrop-filter:blur(10px) saturate(1.5);-webkit-backdrop-filter:blur(10px) saturate(1.5)}
+.key{background:linear-gradient(180deg,#ffd28a,#ff8a3a 60%,#d8582a);color:#1a0c24;border-radius:5px;box-shadow:0 2px 0 #8a3a1a,inset 0 1px 0 rgba(255,255,255,.6)}
+#dot i{border-radius:50%}
+#dot b{background:conic-gradient(var(--sky) var(--c,0%),transparent 0)}

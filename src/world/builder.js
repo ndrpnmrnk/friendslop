@@ -42,7 +42,7 @@ export class Builder {
   // Каждая грань получает фасад своего размера: метр окна одинаков на торце и длинной стене.
   facadeBlock(x,z,w,d,h,color,opt={}) {
     // v0.53: у дома один стиль фасада на все стороны — кирпич, панели, стеклянная стена или ар-деко с пилястрами
-    if(!opt.style)opt={...opt,style:opt.brick===false?pick(['panel','glass','deco']):pick(['brick','brick','panel','glass','deco'])};
+    if(!opt.style)opt={...opt,style:DSTYLE[this.d?.id]?pick(DSTYLE[this.d.id]):opt.brick===false?pick(['panel','glass','deco']):pick(['brick','brick','panel','glass','deco'])};
     const side=tmat(facade(color,d,h,opt)),front=tmat(facade(color,w,h,opt)),roof=tmat(T.roof());
     const g=this.box(x,z,w,d,h,[side,side,roof,roof,front,front]);
     for(const y of[.45,h-.3])this.box(x,z,w+.12,d+.12,.12,y<1?col(color):chrome(0xd8deff),{y,solid:false});
@@ -461,6 +461,9 @@ Object.assign(Builder.prototype, PropMethods, TowerMethods, OpenMethods, MoreMet
 
 // У кабины машины наклонены стойки, при той же малой геометрии и старом хитбоксе.
 const LEAF_GEO = new THREE.IcosahedronGeometry(1, 1);
+// v0.53: у каждого района свой характер фасадов (подстиль района)
+export const DSTYLE = { yard: ['brick'], park: ['deco', 'brick'], plaza: ['deco'], shops: ['panel', 'glass'], construction: ['panel'], cemetery: ['brick', 'deco'], gas: ['panel'], market: ['brick', 'panel'],
+  school: ['brick'], foodcourt: ['glass'], sewer: ['brick'], office: ['glass'], port: ['panel', 'brick'], skatepark: ['panel'], hospital: ['panel', 'glass'], factory: ['brick'], townhall: ['deco'], university: ['deco', 'brick'], cinema: ['deco'] };
 const TRUNK_GEO = new THREE.CylinderGeometry(0.12, 0.22, 1, 8);
 // три вертикальные карточки под 60° + горизонтальная: кучка листвы из 4 плоскостей
 const LEAF_CARDS = (() => { const parts = [];

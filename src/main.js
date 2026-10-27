@@ -20,7 +20,7 @@ import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
 import {predictBow} from './game/bow.js';
-import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow,setActionVisuals,warmup } from './core/gfx.js';
+import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow,setActionVisuals,warmup, lam } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
 import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock,clearInput } from './core/input.js';
@@ -712,6 +712,7 @@ const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
   clock.update(); let dt = Math.min(0.05, clock.getDelta());
   if(graphicsLost||document.hidden){endFrame();return;}
+  if (S.studio) { S.studio.t += dt; S.studio.spin && S.studio.list.forEach((g, i) => g.rotation.y = S.studio.t * .6 + i); present(S.studio.sc, S.studio.cam); endFrame(); return; }
   if(S.settingsOpen)clearInput();
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
   t += dt;runtimeCheckpoint(dt,{state:S.state,drone:!!P?.drone,returning:!!P?.returning,botsFlying:(W.bots||[]).filter(a=>a.drone||a.returning).length,mission:S.wm?.m.key||S.mg?.m.key||null,items:W.items.length,geometry:renderer.info?.memory?.geometries,textures:renderer.info?.memory?.textures});
@@ -883,3 +884,14 @@ import { addItem as __addItem } from './game/items.js';
 Object.assign(window.__fs, { addItem: __addItem, itemTypes: () => Object.keys(CONFIG.items) });
 
 Object.assign(window.__fs, { setStyle: i => { applyStyle(i, { scene, sky, hemi }); setDistricts(W.districts, CONFIG.chunk); return STYLE_VARIANTS[i].name; } });
+
+// отладка: «студия» для осмотра моделей предметов (скриншоты для проверки стиля)
+window.__fs.studio = (types, cols = 8, sp = 1.15, spin = false) => {
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0x141a44); sc.fog = new THREE.Fog(0x141a44, 30, 60);
+  sc.add(new THREE.HemisphereLight(0xb8c8ff, 0x3a2050, 2.4)); const d = new THREE.DirectionalLight(0xffe8d0, 2.6); d.position.set(3, 6, 5); sc.add(d);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), lam({ color: 0x2a2a5a }, 'studioFloor')); fl.rotation.x = -Math.PI / 2; fl.position.y = -.2; sc.add(fl);
+  const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, .1, 100), list = [];
+  types.forEach((t, i) => { let g; if (t.startsWith('ch:')) { g = __mkChar(t.slice(3)).root; } else { const it = __addItem(t, 0, 0, 0); it.state = 'placed'; it.noPickup = true; g = it.g; } g.removeFromParent(); g.position.set((i % cols - (cols - 1) / 2) * sp, 0, -Math.floor(i / cols) * sp); sc.add(g); list.push(g); });
+  const rows = Math.ceil(types.length / cols); cam.position.set(0, .8 + rows * sp * .42, 1.2 + cols * sp * .5); cam.lookAt(0, .05, -(rows - 1) * sp / 2 - .1);
+  S.studio = { sc, cam, list, t: 0, spin }; $('hud').classList.add('hidden');
+};

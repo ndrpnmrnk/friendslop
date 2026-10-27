@@ -38,7 +38,7 @@ function assets(){
 export const LATTE_SKIN={
  name:'Айс Латте',rigidBody:true,
  build({root,head,handL,handR,footL,footR}){
-  assets();const shell=lam({map:plastic(),color:0xe1e5d8,emissive:0x7c8771,emissiveIntensity:.22,transparent:true,opacity:.44,depthWrite:false,side:THREE.FrontSide,flatShading:true},'latte351-shell'),back=lam({map:plastic(),color:0xd1ddd1,transparent:true,opacity:.16,depthWrite:false,side:THREE.BackSide,flatShading:true},'latte351-back'),frost=lam({map:plastic(),color:0xdae8da,transparent:true,opacity:.60,depthWrite:false,flatShading:true},'latte351-frost');
+  assets();const shell=lam({map:plastic(),color:0xe1e5d8,emissive:0x7c8771,emissiveIntensity:.22,transparent:true,opacity:.44,depthWrite:false,side:THREE.FrontSide,flatShading:true},'latte351-shell'),back=lam({map:plastic(),color:0xd1ddd1,transparent:true,opacity:.16,depthWrite:false,side:THREE.BackSide,flatShading:true},'latte351-back'),frost=lam({map:plastic(),color:0xdae8da,transparent:true,opacity:.60,depthWrite:false,flatShading:true},'latte351-frost');shell.userData.mc='glass';
   const glassBack=mesh(cupGeo,back,0,.84,0,1,1,1,head);glassBack.renderOrder=0;glassBack.castShadow=false;
   const geo=liquidGeo.clone(),liquid=mesh(geo,lam({map:coffee(),vertexColors:true,flatShading:true,transparent:true,opacity:.68,depthWrite:false,emissive:0x876b49,emissiveIntensity:.30},'latte351-layered-liquid'),0,0,0,1,1,1,head);liquid.name='latte-liquid';liquid.renderOrder=1;liquid.frustumCulled=false;
   // Кофе к нижней части темнее, молочный верх светлее.

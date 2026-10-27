@@ -9,10 +9,10 @@ await pg.addInitScript(() => {
   window.__prof = { frames: [], on: false };
   window.requestAnimationFrame = cb => raf(t => { const a = performance.now(); cb(t); if (window.__prof.on) window.__prof.frames.push(performance.now() - a); });
 });
-await pg.goto(URL);
+await pg.goto(URL, { timeout: 120000 });
 await pg.waitForFunction(() => window.__fs && window.__fs.startRound, null, { timeout: 120000 });
 await pg.evaluate(q => { localStorage.setItem('friendslop.graphics', q); }, Q);
-await pg.reload();
+await pg.reload({ timeout: 120000 });
 await pg.waitForFunction(() => window.__fs && window.__fs.startRound, null, { timeout: 120000 });
 await pg.evaluate(() => {
   const r = window.__fs.renderer, orig = r.render.bind(r);

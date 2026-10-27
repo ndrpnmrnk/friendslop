@@ -5,6 +5,7 @@ import {batchBegin,batchEnd} from './batch.js';
 import {WL,disableWL} from './wl-uniforms.js';
 import {STYLE_HEAD,STYLE_BODY,MC_BODY,MC_ID,styleUniforms,POST} from './style.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 
 THREE.ColorManagement.enabled = false;
 export { THREE };
@@ -49,7 +50,7 @@ export function ps1(m, stable = false) {
       Object.assign(sh.uniforms, { uWLOn: WL.on, uWLMax: WL.max, uWLGrid: WL.grid, uWLLights: WL.lights, uWLMask: WL.mask, uWLOrigin: WL.origin, uWLGridSize: WL.gridSize, uWLCell: WL.cell,
         uWLMaskInv: WL.maskInv, uWLBase: WL.base, uWLIndoor: WL.indoor, uWLAo: WL.aoK, uWLK: WL.lightK, uDynP: WL.dynP, uDynC: WL.dynC });
       Object.assign(sh.uniforms, styleUniforms());
-      const c = mcOf(), def = c ? `#define MC ${c[0]}\n#define MCG ${c[1].toFixed(3)}\n` : '';
+      const c = mcOf(), def = c ? `#define MC ${c[0]}\n#define MCG ${c[1].toFixed(3)}\n#define MCX ${c[0] === 3 ? '220.0' : c[0] === 1 ? '48.0' : '72.0'}\n` : '';
       sh.fragmentShader = def + WL_HEAD + STYLE_HEAD + sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + WL_BODY).replace('#include <opaque_fragment>', MC_BODY + STYLE_BODY + '#include <opaque_fragment>');
       if (m.userData.jelly) { sh.uniforms.uJelly = { value: m.userData.jelly }; sh.uniforms.uTime = WL.time;
         sh.fragmentShader = 'uniform float uJelly; uniform float uTime;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', JELLY + '#include <opaque_fragment>'); }
@@ -100,7 +101,7 @@ const WL_BODY = `
           if (wP.y < lb.x || wP.y > lb.y) continue;
           vec3 L = lp.xyz - wP; float d = length(L), a = clamp(1.0 - d / lp.w, 0.0, 1.0); a *= a;
           #ifdef MC
-          { vec3 Hh = normalize(L / max(d, 1e-3) + wV); float aw = clamp(1.0 - d / (lp.w * 1.8), 0.0, 1.0); wlSpec += texelFetch(uWLLights, ivec2(ii, 1), 0).rgb * aw * pow(max(dot(wN, Hh), 0.0), 48.0) * 1.6; }
+          { vec3 Hh = normalize(L / max(d, 1e-3) + wV); float aw = clamp(1.0 - d / (lp.w * 1.8), 0.0, 1.0); wlSpec += texelFetch(uWLLights, ivec2(ii, 1), 0).rgb * aw * pow(max(dot(wN, Hh), 0.0), MCX) * 1.6; }
           #endif
           if (a <= 0.0) continue;
           float nl = clamp(dot(wN, L / max(d, 1e-3)) * 0.85 + 0.15, 0.0, 1.0);
@@ -214,7 +215,17 @@ export function lam(opts, key, stable = false) {
   if (key) MC.set(key, m);
   return m;
 }
-export const col = c => lam({ color: c }, 'c' + c);
+// v0.53: плоский цвет сам выбирает класс материала: тёмное «железо» и яркая краска — лак, светлые серые — хром
+const DARKS = new Set([0x2b2533, 0x17111f, 0x3a3440, 0x17141c, 0x2a2232, 0x23202a, 0x292331, 0x241a30, 0x3a3046, 0x272332]);
+const _hsl = {};
+export function mcOfColor(c) {
+  if (DARKS.has(c)) return 'lacquer';
+  new THREE.Color(c).getHSL(_hsl);
+  if (_hsl.s < 0.12 && _hsl.l > 0.3 && _hsl.l < 0.92) return 'chrome';
+  if (_hsl.s > 0.45 && _hsl.l > 0.2) return 'lacquer';
+  return null;
+}
+export const col = c => { const k = 'c' + c; if (MC.has(k)) return MC.get(k); const m = lam({ color: c }, k), mc = mcOfColor(c); if (mc) m.userData.mc = mc; return m; };
 export const tmat = (t,extra)=>{const m=lam({map:t,...(extra||{})},extra||t.userData.transient?null:'t'+t.uuid);if(t.userData.transient)t.mapResources?.add(m);return m;};
 // «стабильный» материал для больших стен и полов: без дрожания вершин (иначе длинные стены «плывут» рябью)
 export const smat=t=>{const m=lam({map:t},t.userData.transient?null:'s'+t.uuid,true);if(t.userData.transient)t.mapResources?.add(m);return m;};
@@ -268,9 +279,23 @@ export const G = {
   halfTorus: new THREE.TorusGeometry(1, 0.12, 4, 10, Math.PI),
 };
 
+/* v0.53: «игрушечная» коробка со скошенными рёбрами (44 треугольника, плоские грани) — у предметов вместо
+   острых кубов; глянец и перелив «желе» ложатся на фаски. UV как у BoxGeometry, чтобы надписи не отражались. */
+function chamferBox(b) {
+  const pts = [], h = .5, i = .5 - b;
+  for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) pts.push(new THREE.Vector3(x * i, y * i, z * h), new THREE.Vector3(x * i, y * h, z * i), new THREE.Vector3(x * h, y * i, z * i));
+  const g = new ConvexGeometry(pts), p = g.attributes.position, n = g.attributes.normal, uv = new Float32Array(p.count * 2);
+  for (let k = 0; k < p.count; k++) { const nx = n.getX(k), ny = n.getY(k), nz = n.getZ(k), ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz), x = p.getX(k), y = p.getY(k), z = p.getZ(k); let u, v;
+    if (ax >= ay && ax >= az) { u = nx > 0 ? .5 - z : z + .5; v = y + .5; } else if (ay >= az) { u = x + .5; v = ny > 0 ? .5 - z : z + .5; } else { u = nz > 0 ? x + .5 : .5 - x; v = y + .5; }
+    uv[k * 2] = u; uv[k * 2 + 1] = v; }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return g;
+}
+export const CHAMFER = chamferBox(.12);
+export const ROUND = { on: false };
 let parent = null;
 export const setParent = p => { parent = p; };
 export function mesh(geo, m, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, p = parent) {
+  if (ROUND.on && geo === G.box && !Array.isArray(m)) geo = CHAMFER;
   const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz);
   if (p) p.add(o);
   return o;
@@ -302,6 +327,7 @@ export function compose(key, fn) {
   if (!parts) {
     const by = new Map();
     fn((geo, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) => {
+      if (ROUND.on && geo === G.box) geo = CHAMFER;
       let g = geo.index ? geo.toNonIndexed() : geo.clone();
       for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k);
       g.clearGroups();

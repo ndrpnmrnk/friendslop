@@ -52,8 +52,9 @@ function aboveGround(v, maxY, clear = 0.35) {
 
 /* Камера свободно наклоняется мышью: от взгляда снизу вверх (камера у самой земли) до вида
    почти сверху. Стены и потолки её останавливают, а по полу и низким объектам она скользит. */
+const _occHead = new THREE.Vector3();
 function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
-  if (!cam.pose) updateOcclusion(camera, null);
+  if (cam.free) updateOcclusion(camera, null);
   if (cam.free) { camera.position.copy(cam.free.p); camera.lookAt(cam.free.l); return; } // отладка: свободная камера
   const clearanceFov = cam.pose ? 105 : camera.fov;
   const radius = Math.max(0.2, camera.near * Math.hypot(1, Math.tan(clearanceFov * Math.PI / 360) * Math.hypot(camera.aspect, 1)) + 0.02);
@@ -134,7 +135,8 @@ function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   camera.position.copy(pos); camera.lookAt(look);
   if(snap||cam.pose)handoff=null;
   else if(handoff){handoff.t=Math.min(1,handoff.t+dt/1.2);const k=handoff.t*handoff.t*handoff.t*(handoff.t*(handoff.t*6-15)+10),q=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(P,L,camera.up));camera.position.lerpVectors(handoff.p,P,k);camera.quaternion.slerpQuaternions(handoff.q,q,k);pos.copy(camera.position);look.copy(pos).addScaledVector(camera.getWorldDirection(dir),20);if(handoff.t===1)handoff=null;}
-  updateOcclusion(camera, cam.pose && cam.pose.l);
+  // v0.53: всё мелкое (деревья, фонари, ларьки), что встало между камерой и игроком, растворяется пиксельной сеткой
+  updateOcclusion(camera, cam.pose ? cam.pose.l : _occHead.set(p.pos.x, p.pos.y + 1.1, p.pos.z));
   // тряска: короткие пиксельные рывки, затухают сами
   if (cam.shake > 0.001 && !cam.pose) { const k = Math.min(.8,cam.shake) * 0.45; camera.position.x += (Math.random() - 0.5) * k; camera.position.y += (Math.random() - 0.5) * k; camera.rotation.z += (Math.random() - 0.5) * k * 0.15; }
 
