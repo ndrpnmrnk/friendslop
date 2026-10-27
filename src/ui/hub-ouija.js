@@ -30,8 +30,7 @@ const nameOf = id => DISTRICTS.find(d => d.id === id)?.name || id;
 // доска: 9 × 6 м, центр в (cx, cz), длинная сторона вдоль x
 const BW = 9, BD = 6;
 function boardTexture() {
-  return pix('ouija52-board2', 512, 342, (g, w, h) => {
-    g.translate(0, h); g.scale(1, -1);
+  return pix('ouija52-board4', 512, 342, (g, w, h) => {
     // фон: тёплый градиент дерева (бордо → янтарь) с зерном — в духе постеров
     const gr = g.createRadialGradient(w * .5, h * .55, w * .05, w * .5, h * .5, w * .62);
     gr.addColorStop(0, '#c4743a'); gr.addColorStop(.45, '#8c3a2c'); gr.addColorStop(1, '#3a1626'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
@@ -51,8 +50,7 @@ function boardTexture() {
   });
 }
 function plateTexture(mix) {
-  return pix('ouija52-plate2-' + (mix ? mix.name : 'random'), 192, 96, (g, w, h) => {
-    g.translate(0, h); g.scale(1, -1);
+  return pix('ouija52-plate4-' + (mix ? mix.name : 'random'), 192, 96, (g, w, h) => {
     const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#1a0f22'); gr.addColorStop(1, '#3a1830'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
     g.strokeStyle = mix ? mix.c : '#f2c46a'; g.lineWidth = 4; g.strokeRect(4, 4, w - 8, h - 8);
     g.fillStyle = mix ? mix.c : '#f6d98a'; g.textAlign = 'center'; g.font = 'bold 22px sans-serif'; g.fillText(mix ? mix.name : 'СЛУЧАЙНО', w / 2, 38);
