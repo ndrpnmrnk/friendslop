@@ -291,7 +291,8 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   p.ch.animate(dt, { t, act: p.chill ? 'smoke' : undefined, smokePh: p.chill ? (p.chill.t > 8.8 ? 'take' : p.chill.t < 0.8 ? 'flick' : 'smoke') : undefined, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, rag: ragK(p), daze: p.daze > 0, grabbed: p.netT > 0 && !(p.stun > 0), climb: !!p.climb,
     payload:p.carryCrate?0.5:p.carryKitten?0.42:p.held?.def.r||0, missionTool: !!p.missionTool, hold: (!!p.hotPotato || !!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten || !!p.carryCrate || !!p.carryNet) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
-    emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, restrained: !!p.heldBy, swat: p.swatT > 0 ? p.swatT : 0 });
+    emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, restrained: !!p.heldBy, swat: p.swatT > 0 ? p.swatT : 0, fly: p.flyT > 0 && !p.onGround, vy2: p.vel.y, flySpin: p.flyT > 0 ? 6 : 0 });
+  if (p.flyT > 0) { p.flyT -= dt; if (p.onGround) p.flyT = 0; else if (p.vel.lengthSq() > 4) { p.facing = Math.atan2(p.vel.x, p.vel.z); p.root.rotation.y = p.facing; } }
 }
 
 // выбить дверь выпадом (v0.22): дверь распахивается в сторону выпада и летит по инерции (игрок и боты)

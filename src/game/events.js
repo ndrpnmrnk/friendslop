@@ -20,6 +20,8 @@ import { CONFIG } from '../config.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
 import { shake, hitFreeze } from './worldfx.js';
+import { MODE } from './modes.js';
+const isMode = id => MODE.cur.id === id;
 
 /* События раунда.
    Малые (раз в ~минуту, 20 с): тыквопад, темнота с фонариком, потоп в тоннелях.
@@ -33,7 +35,8 @@ export const EV = { t: 0, next: 1e9, cur: null, left: 0, big: null, bigAt: 120, 
 const DUR = 20;
 let ctx = null;
 export function initEvents(c) { ctx = c; }
-export function resetEvents() { if (EV.cur) stopEvent(); if (EV.big) stopBig(); EV.t = 0; EV.next = 1e9; EV.cur = null; EV.bigAt = PHASE.event; EV.bigDone = false; W.eventBot = null; }
+// v0.53: режим задаёт ритм — «Хаос-ночь» включает малые события, «Марафон» ставит общие события подряд
+export function resetEvents() { if (EV.cur) stopEvent(); if (EV.big) stopBig(); EV.t = 0; EV.next = isMode('chaos') ? 25 : 1e9; EV.cur = null; EV.bigAt = isMode('marathon') ? 25 : PHASE.event; EV.bigDone = false; EV.lastBig = null; W.eventBot = null; }
 
 const EVENTS = {
   pumpkins: { title: 'ТЫКВЕННЫЙ ДОЖДЬ', sub: 'С неба падают тыквы!',
@@ -312,8 +315,9 @@ export function updateEvents(dt, ui) {
   // общее событие — один раз, около середины раунда
   if (!EV.big && !EV.bigDone && EV.t >= EV.bigAt && !EV.cur) startBig(ui);
   if (EV.big) { const B = EV.big; B.left -= dt; const r = B.def.update(B.s, dt, EV.t); ui.tick(B.key, Math.ceil(B.left), B.def.info ? B.def.info(B.s) : '');
-    if (B.left <= 0 || r === 'end' || EV.t >= PHASE.resume) { stopBig(); ui.end(); } return; }
-  if (!EV.cur && EV.t >= EV.next && EV.t < 170) {
+    if (B.left <= 0 || r === 'end' || (!isMode('marathon') && EV.t >= PHASE.resume)) { stopBig(); ui.end();
+      if (isMode('marathon') && EV.t < CONFIG.roundTime - 45) { EV.bigDone = false; EV.bigAt = EV.t + 12; } } return; }
+  if (!EV.cur && EV.t >= EV.next && EV.t < (isMode('chaos') ? CONFIG.roundTime - 25 : 170)) {
     const keys = Object.keys(EVENTS).filter(k => k !== EV.last), key = keys[(Math.random() * keys.length) | 0];
     EV.cur = { key, def: EVENTS[key], s: {} }; EV.left = DUR; EV.last = key; EV.cur.def.start(EV.cur.s);
     ui.start(key);
@@ -321,12 +325,13 @@ export function updateEvents(dt, ui) {
   if (EV.cur) {
     EV.cur.def.update(EV.cur.s, dt); EV.left -= dt;
     ui.tick(EV.cur.key, Math.ceil(EV.left));
-    if (EV.left <= 0) { stopEvent(); EV.next = EV.t + 40 + Math.random() * 20; ui.end(); if (!EV.bigDone && EV.bigAt < EV.t + 8) EV.bigAt = EV.t + 8; }
+    if (EV.left <= 0) { stopEvent(); EV.next = EV.t + (isMode('chaos') ? 15 + Math.random() * 8 : 40 + Math.random() * 20); ui.end(); if (!EV.bigDone && EV.bigAt < EV.t + 8) EV.bigAt = EV.t + 8; }
   }
 }
 function startBig(ui) {
-  const keys = Object.keys(BIG), key = globalThis.__forceBig || keys[(Math.random() * keys.length) | 0];
-  EV.big = { key, def: BIG[key], s: {}, left:key==='lava'?Math.min(24,Math.max(0,PHASE.resume-EV.t)):Math.max(0,PHASE.resume-EV.t) }; EV.bigDone = true; EV.big.def.start(EV.big.s);
+  const keys = Object.keys(BIG).filter(k => k !== EV.lastBig), key = globalThis.__forceBig || keys[(Math.random() * keys.length) | 0];
+  const until = isMode('marathon') ? Math.min(45, CONFIG.roundTime - 15 - EV.t) : PHASE.resume - EV.t;
+  EV.big = { key, def: BIG[key], s: {}, left:key==='lava'?Math.min(24,Math.max(0,until)):Math.max(0,until) }; EV.bigDone = true; EV.lastBig = key; EV.big.def.start(EV.big.s);
   W.eventBot = b => EV.big ? EV.big.def.bot(EV.big.s, b) : null;
   ui.start(key, true);
 }

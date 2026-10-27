@@ -1,9 +1,10 @@
 import { applyStyle, setDistricts, styleState, VARIANTS as STYLE_VARIANTS } from './core/style.js';
 import { updateVfx, explosion, fireworks, sparks as vfxSparks, impactBurst } from './game/vfx.js';
+import { MODES, setMode } from './game/modes.js';
+import { randomMap } from './ui/hub-ouija.js';
 import {createLocalLighting} from './world/scene-lighting.js';
 import {actionEffect,updateActionEffects,actionStats} from './world/action-fx.js';
 import {graphics,setGraphics} from './core/quality.js';
-import {introFlight} from './ui/intro-flight.js';
 import {roundMusic} from './core/round-music.js';
 import {cancelBotOnEliminate} from './missions/bot-work.js';
 import {worldTarget,worldAimPoint,pickTarget} from './game/object-actions.js';
@@ -26,7 +27,7 @@ import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook,
 import { W } from './world/state.js';
 import { generateMap } from './world/world.js';
 import { updatePushables, groundAt, raySolids } from './world/physics.js';
-import { updateParticles, burst } from './world/particles.js';
+import { updateParticles, burst, smokeRing } from './world/particles.js';
 import { updateBirds } from './world/birds.js';
 import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
@@ -137,9 +138,10 @@ function showMenu() {
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
 function showHub(){S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
-// v0.52: матч стартует из хаба — катапульта выстрелила; подборка районов выбрана спиритической доской
-menu.onLaunch=choice=>{if(S.state!=='hub')return;const musicReady=roundMusic.preload();S.state='roulette';menu.active=false;screen(null);$('fade').classList.add('on');
-  setTimeout(async()=>{await musicReady;await new Promise(r=>setTimeout(r,700));globalThis.__forceDistricts=choice.ids||null;try{prepareRound();}finally{globalThis.__forceDistricts=null;}$('fade').classList.remove('on');startIntro();toast(choice.name);},420);};
+// v0.53: матч стартует из хаба — доска выбрала режим, рулетка собрала карту, катапульта выстрелила
+function launchRound(mode,ids){const musicReady=roundMusic.preload();S.state='roulette';menu.active=false;screen(null);$('fade').classList.add('on');S.lastMode=mode;setMode(mode.id);
+  setTimeout(async()=>{await musicReady;await new Promise(r=>setTimeout(r,700));globalThis.__forceDistricts=ids||null;try{prepareRound();}finally{globalThis.__forceDistricts=null;}$('fade').classList.remove('on');startIntro();toast(mode.name);},420);}
+menu.onLaunch=choice=>{if(S.state!=='hub')return;launchRound(choice.mode||MODES[0],choice.ids);};
 menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen('menu');};
 $('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
@@ -152,7 +154,7 @@ $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 $('playBtn').onclick = showHub;
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
-$('modeCard').onclick = () => { S.state='starting';requestLock(); $('modeCard').classList.add('pressed');menu.tvTransition('depart');sfx('pickup');setTimeout(startRoulette,480); };
+$('modeCard').onclick = () => { requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(() => launchRound(MODES[0], randomMap()), 300); };
 $('tutBtn').onclick = () => { S.state='starting';requestLock(); sfx('click'); startTutorial(); };
 $('modeBack').onclick = () => { sfx('click'); menu.closeTV(); };
 /* настройки: микрофон */
@@ -179,32 +181,9 @@ function drawMicMeter() {
   $('micThr').style.left = Math.round((m.thr || 0.1) * 100) + '%'; $('micLoud').style.left = Math.min(98, Math.round((m.loud || 0.5) * 100)) + '%';
   const st = !MIC.on ? 'выключен' : MIC.err ? MIC.err : !MIC.ok ? 'включаю…' : MIC.cal > 0 ? 'тишина… калибрую' : m.shout > 0.2 ? 'КРИК!' : m.talk > 0.1 ? 'говоришь' : 'тишина'; if ($('micState').textContent !== st) $('micState').textContent = st;
 }
-$('againBtn').onclick = () => { S.state='starting';requestLock(); startRoulette(); };
+$('againBtn').onclick = () => { requestLock(); launchRound(S.lastMode||MODES[0], randomMap()); };
 $('menuBtn').onclick = () => { sfx('click'); showHub(); };
 $('mgexit').onclick = cancelMission;
-
-/* Рулетка тематики: лента карточек крутится с замедлением, щёлкает на каждой, всегда останавливается на «ГОРОДЕ» */
-function startRoulette() {
-  const musicReady=roundMusic.preload();
-  S.state = 'roulette';menu.prepareTV(); menu.active = false; screen('roulette'); $('roulette').classList.remove('done');menu.tvTransition('roulette');
-  const strip = $('rstrip'); strip.innerHTML = '';
-  const N=28+(Math.random()*9|0),WIN=N-5,CW=134,half=60,dur=3.6+Math.random()*.7;
-  const sequence=Array.from({length:N},(_,i)=>i===WIN||Math.random()<.24);sequence[WIN]=true;S.roulette={sequence,win:WIN,duration:dur};
-  for(let i=0;i<N;i++){const city=sequence[i],c=document.createElement('div');c.className='rcard'+(city?'':' q')+(i===WIN?' win':'');
-    const cv=document.createElement('canvas');cv.width=68;cv.height=84;drawCard(cv,city?'city':'unknown',Math.random()*64|0);c.appendChild(cv);
-    const pl=document.createElement('div');pl.className='plate';pl.textContent=city?TEXT.city:'?';c.appendChild(pl);strip.appendChild(c);}
-  const cards=[...strip.children],end=-(WIN*CW+half),t0=performance.now();let last=-1;
-  strip.style.transform=`translateX(-${half}px)`;
-  const step=()=>{
-    if(S.state!=='roulette')return;
-    const k=Math.min(1,(performance.now()-t0)/1000/dur),e=1-Math.pow(1-k,4),x=-half+(end+half)*e;
-    strip.style.transform=`translateX(${x}px)`;
-    const idx=Math.round((-x-half)/CW);if(idx!==last){last=idx;sfx('tick');cards.forEach((c,i)=>c.classList.toggle('flash',i===idx));}
-    if(k<1)requestAnimationFrame(step);
-    else{$('roulette').classList.add('done');sfx('win');setTimeout(()=>{$('fade').classList.add('on');setTimeout(async()=>{await musicReady;if(S.state!=='roulette')return;prepareRound();$('fade').classList.remove('on');startIntro();},420);},1100);}
-  };
-  requestAnimationFrame(step);
-}
 
 /* Снимок города для пазла: случайный район с высоты, каждый раз новый ракурс → картинка 96×96 */
 const snapRT = new THREE.WebGLRenderTarget(96, 96), snapCam = new THREE.PerspectiveCamera(48, 1, 0.5, 160);
@@ -294,22 +273,49 @@ function prepareRound(tut = false) {
   screen(null); $('mgpanel').classList.add('hidden'); resetHud();
 }
 /* Непрерывный пролёт по кварталам к игроку, затем отсчёт 5-4-3-2-1. */
+/* v0.53: прилёт на карту. Каждого игрока выстреливает дугой из-за края города (продолжение залпа катапульты):
+   полёт «супергероем» с кувырком, камера летит следом, жёсткое приземление со шлепком и пылью, потом отсчёт 3-2-1. */
+function arrivalArc(to) {
+  const d = Math.hypot(to.x, to.z), ang = d > 4 ? Math.atan2(to.z, to.x) + (Math.random() - .5) * .5 : Math.random() * Math.PI * 2, R = W.bounds + 34;
+  return { from: new V3(Math.cos(ang) * R, 36 + Math.random() * 8, Math.sin(ang) * R), to: to.clone(), dur: 2.7 + Math.random() * .4, h: 16 + Math.random() * 6, spin: (Math.random() < .5 ? -1 : 1) * (5 + Math.random() * 4) };
+}
+const arcAt = (f, k, out) => { out.lerpVectors(f.from, f.to, k); out.y += f.h * 4 * k * (1 - k); return out; };
 function startIntro() {
   void roundMusic.intro();
   S.state = 'intro'; $('hud').classList.add('hidden'); $('intro').classList.remove('hidden'); $('count').textContent = ''; $('dname').textContent = '';
-  S.intro = {t:0,flight:introFlight(P),drop:false,landed:false,cd:6};takeLook();
-  P.root.visible = false; P.frozen = true;
+  S.intro = { t: 0, drop: true, landed: false, cd: 4, me: arrivalArc(P.pos), delay: .35, bots: (W.bots || []).map((b, i) => ({ b, f: arrivalArc(b.pos), delay: .1 + i * .3, landed: false })) };
+  takeLook(); P.frozen = true; P.root.visible = true; P.pos.copy(S.intro.me.from); P.root.position.copy(P.pos);
+  for (const q of S.intro.bots) { q.b.root.visible = false; q.b.frozenIntro = true; }
   document.body.classList.add('playing');
 }
+const _ia = new V3(), _ib = new V3();
+function flyStep(a, f, k, dt, t) {
+  arcAt(f, k, _ia); arcAt(f, Math.min(1, k + .01), _ib); const vx = _ib.x - _ia.x, vy = _ib.y - _ia.y, vz = _ib.z - _ia.z;
+  a.pos.copy(_ia); a.root.position.copy(_ia); a.root.rotation.y = Math.atan2(vx, vz); a.facing = a.root.rotation.y;
+  a.ch.animate(dt, { t, fly: true, vy: vy / .01 / f.dur, flySpin: f.spin * (1 - k) * (1 - k) });
+}
+function landArc(a, f, me) {
+  a.pos.copy(f.to); a.root.position.copy(f.to); a.vel.set(0, 0, 0); a.onGround = true; a.ch.squash = 1.3; a.ch.flySpin = 0;
+  smokeRing(f.to.x, f.to.y + .05, f.to.z, me ? 12 : 8, { speed: 3, size: .3, grow: 1.2, life: .7 });
+  impactBurst({ x: f.to.x, y: f.to.y + .4, z: f.to.z }, 0xffd8a0, me ? 1.3 : .9); sfx('land', { v: me ? 1.6 : .9, at: f.to });
+}
 function updateIntro(dt) {
-  const I = S.intro; I.t += dt; const t = I.t;
-  if(t<I.flight.duration){cam.free=I.flight.sample(t/I.flight.duration);return;}
-  if (!I.drop) { I.drop = true; cam.free = null; P.root.visible = true; P.frozen = false; P.noRun = true; P.pos.y += 9; P.vel.set(0, -2, 0); P.airPeak = P.pos.y - 9; resumeCamera(camera);updateCamera(camera,P,1/60,false); }
-  if (!I.landed && P.onGround && t > I.flight.duration+.2) { I.landed = true; sparks(innerWidth / 2, innerHeight * 0.6, ['#ff8a1f', '#f5c542'], 14); sfx('land', { v: 1.4 }); shakeCam(0.35); }
-  if (t > I.flight.duration+1.2) {
-    const left = Math.max(0,Math.ceil(I.flight.duration+6.2-t)), c = $('count');
+  const I = S.intro; I.t += dt; const t = I.t, f = I.me;
+  for (const q of I.bots) { if (q.landed) continue; const k = (t - q.delay) / q.f.dur; if (k < 0) continue; q.b.root.visible = true;
+    if (k >= 1) { q.landed = true; q.b.frozenIntro = false; landArc(q.b, q.f, false); } else flyStep(q.b, q.f, k, dt, t); }
+  if (!I.landed) {
+    const k = Math.max(0, (t - I.delay) / f.dur);
+    if (k < 1) { flyStep(P, f, k, dt, t);
+      // камера летит следом: сзади и чуть выше, смотрит по ходу полёта и на точку приземления
+      const dir = _ib.clone().sub(_ia).normalize(), back = P.pos.clone().addScaledVector(dir, -7.5); back.y += 3 - k * 1.2;
+      const look = P.pos.clone().addScaledVector(dir, 5).lerp(f.to, k * k); cam.free = { p: back, l: look }; return; }
+    I.landed = true; I.landT = t; cam.free = null; P.frozen = false; P.noRun = true; landArc(P, f, true); P.landedNow = true;
+    sparks(innerWidth / 2, innerHeight * 0.6, ['#ff8a1f', '#f5c542', '#4fe6ff'], 18); shakeCam(0.5); resumeCamera(camera); updateCamera(camera, P, 1 / 60, false);
+  }
+  if (t > I.landT + .6) {
+    const left = Math.max(0, Math.ceil(I.landT + 3.6 - t)), c = $('count');
     if (left !== I.cd) { I.cd = left; c.classList.remove('tick', 'go'); void c.offsetWidth;
-      if (left > 0) { c.textContent = left; sfx('count'); } else { c.textContent = TEXT.go; c.classList.add('go'); sfx('go'); goRound(); }
+      if (left > 0) { c.textContent = left; sfx('count'); } else { c.textContent = TEXT.go; c.classList.add('go'); sfx('go'); for (const q of I.bots) if (!q.landed) { q.landed = true; landArc(q.b, q.f, false); q.b.root.visible = true; } goRound(); }
       c.classList.add('tick'); }
   }
 }
@@ -720,7 +726,7 @@ function frame() {
     logoT -= dt; if (logoT <= 0 && S.state === 'menu') { logoT = 4; [...$('logo').children].forEach((sp, i) => setTimeout(() => { sp.classList.remove('hop'); void sp.offsetWidth; sp.classList.add('hop'); }, i * 70)); }
   }
   else {
-    if (S.state === 'intro') { updateIntro(dt); updatePlayer(P, dt, t, true, cam.yaw); }
+    if (S.state === 'intro') { updateIntro(dt); if (S.intro?.landed) updatePlayer(P, dt, t, true, cam.yaw); }
     if (S.state === 'play') {
       updateDrones(dt, t);
       S.time -= dt;
@@ -859,7 +865,7 @@ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();graphicsLost=t
 canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;if(!document.hidden)roundMusic.resume();clock.reset();toast('Графика восстановлена');});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)roundMusic.pause();else if(!graphicsLost)roundMusic.resume();});
 // отладочный доступ из консоли браузера
-window.__fs = { lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: startRoulette };
+window.__fs = { lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: () => launchRound(MODES[0], randomMap()), launchRound, randomMap, setMode };
 window.__fs.lastFaults=lastFaults;
 Object.assign(window.__fs,{scene,makeCharacter:(id)=>__mkChar(id),skinIds:()=>__skinIds,vfx:{explosion,fireworks,sparks:vfxSparks,impactBurst},menu,collection,coinState,showHub,showMenu,roundMusic,graphics,actionStats,addFists:(n=500)=>addCoins(n)});
 if(new URLSearchParams(globalThis.location?.search||'').get('dev')==='1'){const b=document.createElement('button');b.id='devFists';b.textContent='+500';b.title='Тест автомата: добавить 500 фистов';b.onclick=()=>addCoins(500);$('wallet').appendChild(b);}

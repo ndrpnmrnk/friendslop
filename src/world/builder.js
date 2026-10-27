@@ -41,11 +41,13 @@ export class Builder {
   }
   // Каждая грань получает фасад своего размера: метр окна одинаков на торце и длинной стене.
   facadeBlock(x,z,w,d,h,color,opt={}) {
+    // v0.53: у дома один стиль фасада на все стороны — кирпич, панели, стеклянная стена или ар-деко с пилястрами
+    if(!opt.style)opt={...opt,style:opt.brick===false?pick(['panel','glass','deco']):pick(['brick','brick','panel','glass','deco'])};
     const side=tmat(facade(color,d,h,opt)),front=tmat(facade(color,w,h,opt)),roof=tmat(T.roof());
     const g=this.box(x,z,w,d,h,[side,side,roof,roof,front,front]);
-    for(const y of[.45,h-.3])this.box(x,z,w+.12,d+.12,.12,col(color),{y,solid:false});
+    for(const y of[.45,h-.3])this.box(x,z,w+.12,d+.12,.12,y<1?col(color):chrome(0xd8deff),{y,solid:false});
     // Подоконники выступают из стены, совпадая с сеткой окон в facade().
-    for(let fy=opt.rowStart??.9;fy<h-1.3;fy+=opt.rowStep||2.4){
+    if(opt.style!=='glass'&&opt.windows!==false)for(let fy=opt.rowStart??.9;fy<h-1.3;fy+=opt.rowStep||2.4){
       for(let fx=.7;fx<w-1;fx+=2)for(const sign of[-1,1])this.box(x+sign*(-w/2+fx+.5),z+sign*(d/2+.055),1.16,.18,.10,chrome(0xd8deff),{y:fy-.04,solid:false});
       for(let fx=.7;fx<d-1;fx+=2)for(const sign of[-1,1])this.box(x+sign*(w/2+.055),z+sign*(d/2-fx-.5),.18,1.16,.10,chrome(0xd8deff),{y:fy-.04,solid:false});
     }
@@ -72,7 +74,7 @@ export class Builder {
 
   /* ---------- свет и эффекты ---------- */
   light(x, z, r = 3, y = 0, dim = false) {
-    const m = this.m(G.plane, dim ? LIGHTDIM() : LIGHTMAT(), x, y + 0.03, z, r * 2, r * 2, 1); m.rotation.x = -Math.PI / 2; m.renderOrder = 2;(W.lightSources??=[]).push({x:this.X(x),y:this.Y+y+(dim?1.85:2.55),z:this.Z(z),color:dim?0xffd8ac:0xffc384,strength:dim?3.5:6,range:dim?6:8,pool:m});return m;
+    const m = this.m(G.plane, dim ? LIGHTDIM() : LIGHTMAT(), x, y + 0.03, z, r * 2, r * 2, 1); m.rotation.x = -Math.PI / 2; m.renderOrder = 2;(W.lightSources??=[]).push({x:this.X(x),y:this.Y+y+(dim?1.85:2.55),z:this.Z(z),color:dim?0xffd8ac:0xffd2a0,strength:dim?2.4:2.8,range:dim?6:7.5,pool:m});return m;
   }
   // вода: тёмная толща + бегущие блики + пена у берега
   water(x, z, r, y = 0, fish = true) {

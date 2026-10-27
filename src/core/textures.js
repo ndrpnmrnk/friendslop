@@ -727,7 +727,7 @@ T.grannyFace = () => photo('grannyFace', 48, 24, (g, W, H) => { fill(g, W, H, '#
 const NEON = ['#ff4fa8', '#4fe6ff', '#ffb43a', '#b47aff', '#7aff9a'];
 export function facade(base, wM, hM, opt = {}) {
   const D = 16, pw = Math.max(8, Math.round(wM * D)), ph = Math.max(8, Math.round(hM * D));
-  const brick = opt.brick !== false, rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9, neon = NEON[(facN++) % NEON.length];
+  const style = opt.style || (opt.brick !== false ? 'brick' : 'panel'), brick = style === 'brick', rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9, neon = NEON[(facN++) % NEON.length];
   const t = photo(null, pw, ph, (g, W, H) => {
     const s = W / pw, m = D * s; // m — пикселей hi-res на метр
     const lin = (x0, y0, x1, y1, st) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (const [o, c] of st) gr.addColorStop(o, c); return gr; };
@@ -753,7 +753,20 @@ export function facade(base, wM, hM, opt = {}) {
     const neonY = opt.cornice !== false && hM > 3 ? 0.42 * m : -1;
     if (neonY > 0) { g.fillStyle = shade(base, 36); g.fillRect(0, 0, W, 0.3 * m); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(0, 0.3 * m - s, W, s); g.fillStyle = 'rgba(8,6,24,.5)'; g.fillRect(0, 0.3 * m, W, s * 1.5); }
     const masks = [];
-    if (opt.windows !== false) {
+    if (style === 'glass' && opt.windows !== false) {
+      // стеклянная стена: сетка стёкол в хромовых импостах, непрозрачные полосы перекрытий, часть офисов горит
+      g.fillStyle = shade(base, -52); g.fillRect(0, 0, W, H);
+      for (let fy = 0; fy < hM - 0.4; fy += rs) { const y1 = (hM - fy) * m, y0 = Math.max(0, (hM - fy - rs) * m);
+        for (let fx = 0; fx < wM; fx += 1.0) { const x = fx * m + s, w = m - 2 * s, y = y0 + 0.35 * m, h = y1 - y - s; if (h <= 0) continue;
+          const lit = R() < (opt.lit ?? 0.45) * 0.55, warm = R() < 0.5;
+          g.fillStyle = lit ? lin(x, y, x, y + h, warm ? [[0, '#ffe8c0'], [1, '#ffb070']] : [[0, '#e0f4ff'], [1, '#7ac8ff']]) : lin(x, y, x + w, y + h, [[0, '#3a4a9a'], [0.5, '#121646'], [1, '#26306a']]);
+          g.fillRect(x, y, w, h); masks.push([x, y, w, h, lit ? 0.25 : 0.45]); }
+        g.fillStyle = shade(base, 22); g.fillRect(0, y0, W, 0.35 * m); g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(0, y0, W, s); }
+      g.fillStyle = '#d8e0ff'; for (let fx = 0; fx <= wM; fx += 1.0) g.fillRect(fx * m - s * 0.6, 0, s * 1.2, H);
+      if (neonY > 0) { g.fillStyle = shade(base, 36); g.fillRect(0, 0, W, 0.3 * m); }
+    } else if (opt.windows !== false) {
+      if (style === 'deco') for (let fx = 0.7; fx < wM - 1; fx += 2.0) { const x = (fx + 1.25) * m, w = 0.5 * m; // пилястры между окнами
+        g.fillStyle = lin(x, 0, x + w, 0, [[0, shade(base, 30)], [0.5, shade(base, 14)], [1, shade(base, -10)]]); g.fillRect(x, 0.3 * m, w, H - 0.9 * m); g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(x, 0.3 * m, s, H - 0.9 * m); }
       for (let fy = r0; fy < hM - 1.3; fy += rs) for (let fx = 0.7; fx < wM - 1; fx += 2.0) {
         if (opt.door && fy < 2.2 && fx + 1.1 > opt.door[0] && fx - 0.2 < opt.door[1]) continue;
         const x = (fx - 0.05) * m, y = (hM - fy - 1.45) * m, w = 1.1 * m, h = 1.35 * m, lit = R() < (opt.lit ?? 0.45);

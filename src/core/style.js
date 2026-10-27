@@ -93,7 +93,7 @@ export const MC_BODY = `
     outgoingLight = outgoingLight * 0.6 + env * (0.18 + frs * 0.9) + wlSpec * 1.8 + uEnvHi * st * (0.4 + frs);
   #elif MC == 3
     // мокрый асфальт и полированный камень: отражение неба у горизонта и бликующие фонари
-    outgoingLight = outgoingLight * (1.0 - 0.25 * MCG) + env * (0.015 + frs * 0.2) * MCG + wlSpec * 0.9 * MCG;
+    outgoingLight = outgoingLight * (1.0 - 0.25 * MCG) + env * (0.015 + frs * 0.2) * MCG + wlSpec * 0.35 * MCG;
   #elif MC == 4
     // фасад: альфа текстуры = маска стекла (0.55 тёмное стекло, 0.8 горящее окно, 1 стена)
     float a = diffuseColor.a; float gm = 1.0 - smoothstep(0.88, 0.95, a); float litW = smoothstep(0.66, 0.74, a) * gm;

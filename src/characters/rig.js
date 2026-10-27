@@ -115,6 +115,19 @@ function animateRag(c, dt, s) {
   c.holdPoint.set(0, d.handY + 0.12, d.handZ); c.root.localToWorld(c.holdPoint);
   const e = 'dizzy'; if (e !== c.expr) { c.expr = e; c.skin.face && c.skin.face(c, e); }
 }
+/* v0.53: полёт после катапульты — «супергерой»: тело вытянуто по ходу полёта, руки вперёд,
+   ноги болтаются позади, кувырок «бочкой» затухает к приземлению. */
+function animateFly(c, dt, s) {
+  const d = c.d, t = s.t, f = damp(12, dt), cc = 0.8;
+  c.flySpin = (c.flySpin || 0) + dt * (s.flySpin || 0);
+  const pitch = 1.15 - clamp((s.vy || 0) * 0.03, -0.55, 0.55);
+  c.body.rotation.set(pitch, 0, Math.sin(t * 3) * 0.2 + c.flySpin); c.body.scale.set(1, 1, 1);
+  c.body.position.set(0, cc - cc * Math.cos(pitch), -cc * Math.sin(pitch)); c.stars.visible = false;
+  const fl = Math.sin(t * 18) * 0.12, fl2 = Math.cos(t * 15) * 0.14;
+  setHand(c.handL, -d.handX * 0.7, 0.95 + fl, 1.25, f); setHand(c.handR, d.handX * 0.7, 0.95 - fl, 1.25, f);
+  setHand(c.footL, -d.footX, 0.72 + fl2, -0.78, f); setHand(c.footR, d.footX, 0.86 - fl2, -0.66, f);
+  c.handL.rotation.x = c.handR.rotation.x = c.footL.rotation.x = c.footR.rotation.x = 0;
+}
 function setHand(h, x, y, z, k) { h.position.x += (x - h.position.x) * k; h.position.y += (y - h.position.y) * k; h.position.z += (z - h.position.z) * k; }
 
 function animate(c, dt, s) {
@@ -122,6 +135,7 @@ function animate(c, dt, s) {
   const d = c.d, t = s.t, k = clamp(s.speed || 0, 0, 1), run = !s.air && !s.climb && k > 0.05;
   if (s.rag > 0.001) return animateRag(c, dt, s);
   if (s.ride) return animateRide(c, dt, s);
+  if (s.fly) return animateFly(c, dt, s);
   if (s.dive || s.slide) return animateMove(c, dt, s);
   c.body.position.z = 0; c.body.position.x = 0; c.body.rotation.x = Math.atan2(Math.sin(c.body.rotation.x), Math.cos(c.body.rotation.x));
   c.ph += dt * (s.climb ? 7 : 4 + k * 10) * (run || s.climb ? 1 : 0);
