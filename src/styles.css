@@ -584,3 +584,43 @@ button:disabled{opacity:.45;cursor:default}
 @keyframes v51gone{to{transform:translateX(-110%);opacity:0;filter:saturate(0)}}
 #score.bump{animation:v51bump .32s cubic-bezier(.2,2,.4,1)}
 @keyframes v51bump{0%{transform:scale(1)}35%{transform:scale(1.45) rotate(-4deg)}100%{transform:scale(1)}}
+
+/* v0.56: полосы кино в катсцене рогатки */
+#cineBars{position:fixed;inset:0;pointer-events:none;z-index:45}
+#cineBars i{position:absolute;left:0;right:0;height:11vh;background:#07050c;transform:scaleY(0);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+#cineBars i:first-child{top:0;transform-origin:top}#cineBars i:last-child{bottom:0;transform-origin:bottom}
+body.cine #cineBars i{transform:scaleY(1)}
+body.cine #hubUI,body.cine #hubPrompt,body.cine #hubHeld{opacity:0;pointer-events:none}
+/* v0.56: экран загрузки после залпа */
+#loadScreen{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#2e2350 0%,#140f22 60%,#09070f 100%);opacity:0;transition:opacity .4s;font-family:Rubik,Arial,sans-serif;color:#f4ecdc}
+#loadScreen.on{opacity:1;transition:none}#loadScreen.hidden{display:none}
+#loadScreen .ls-in{width:min(760px,92vw);display:flex;flex-direction:column;align-items:center;gap:12px}
+#loadScreen small{font:10px "Press Start 2P",monospace;letter-spacing:.2em;color:#8a82a8}
+#loadScreen h2{margin:0;font:22px "Press Start 2P",monospace;text-shadow:0 3px 0 #000}
+#loadScreen .ls-mode{font-size:14px;color:#c8bedc}#loadScreen .ls-mode b{color:#fff}
+#lsMap{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%;margin-top:6px}
+#lsMap .ls-cell{position:relative;border:2px solid #2e2846;background:#17132a;aspect-ratio:200/120;overflow:hidden;animation:lsPop .25s both}
+#lsMap .ls-cell.must{border-color:#ffd27a}
+#lsMap img{width:100%;height:100%;object-fit:cover;display:block}
+#lsMap b{position:absolute;left:0;right:0;bottom:0;padding:3px 4px;background:rgba(10,8,18,.8);font-size:12px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes lsPop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+#loadScreen .ls-bar{width:100%;height:14px;border:2px solid #4a4268;background:#120e1e;padding:2px;box-sizing:border-box;margin-top:4px}
+/* во время постройки города главный поток занят: никаких CSS-анимаций (полоса стоит на 35 %, потом доезжает до конца) */
+#loadScreen .ls-bar i{display:block;height:100%;transform-origin:left;transform:scaleX(.35);background:repeating-linear-gradient(90deg,#ffd27a 0 10px,#ffb04a 10px 14px)}
+#loadScreen.done .ls-bar i{transform:scaleX(1);transition:transform .3s;background:#7dffa0}
+#lsStage{font:10px "Press Start 2P",monospace;color:#c8bedc;min-height:12px}
+#lsPlayers{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.ls-player{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#1c1830;border:2px solid #2e2846;font-size:13px}
+.ls-player i{width:10px;height:10px;border-radius:50%;background:#ffd27a}
+.ls-player em{font-style:normal;font-size:11px;color:#8a82a8}
+.ls-player.ready{border-color:#3a7a52}.ls-player.ready i{background:#7dffa0}.ls-player.ready em{color:#7dffa0}
+@keyframes lsBlink{50%{opacity:.25}}
+
+/* v0.56: камера в кроне дерева — по краям кадра пиксельная листва */
+#leafVeil{position:fixed;inset:0;pointer-events:none;z-index:4;image-rendering:pixelated;
+ background:radial-gradient(ellipse at 50% 50%,transparent 38%,rgba(20,40,18,.35) 62%,rgba(12,26,12,.85) 100%);}
+#leafVeil::before,#leafVeil::after{content:"";position:absolute;inset:-4%;background-image:
+ radial-gradient(circle at 20% 30%,#2f5a2c 0 18px,transparent 19px),radial-gradient(circle at 70% 60%,#3a6a30 0 14px,transparent 15px),radial-gradient(circle at 40% 80%,#c96a25 0 9px,transparent 10px),radial-gradient(circle at 85% 15%,#24481f 0 20px,transparent 21px);
+ background-size:120px 120px,90px 90px,140px 140px,160px 160px;-webkit-mask:radial-gradient(ellipse at 50% 50%,transparent 45%,#000 75%);mask:radial-gradient(ellipse at 50% 50%,transparent 45%,#000 75%);animation:leafSway 3s ease-in-out infinite alternate}
+#leafVeil::after{background-size:70px 70px,110px 110px,95px 95px,130px 130px;opacity:.7;animation-duration:4.3s;animation-direction:alternate-reverse}
+@keyframes leafSway{from{transform:translate(-6px,2px) rotate(-.6deg)}to{transform:translate(6px,-3px) rotate(.6deg)}}

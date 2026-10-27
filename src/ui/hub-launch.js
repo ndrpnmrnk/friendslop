@@ -4,6 +4,7 @@ import { W } from '../world/state.js';
 import { addSolid } from '../world/physics.js';
 import { addPushable } from '../world/pushables.js';
 import { DISTRICTS } from '../world/districts/index.js';
+import { districtIcon } from './district-icons.js';
 import { CONFIG, HW } from '../config.js';
 import { sfx } from '../core/sfx.js';
 import { sparks, impactBurst } from '../game/vfx.js';
@@ -106,9 +107,22 @@ function ballPumpkin() { return pix('ball55-pumpkin', 64, 32, (g, w, h) => { for
   g.fillStyle = '#2a1206'; g.beginPath(); g.moveTo(10, 12); g.lineTo(16, 8); g.lineTo(18, 14); g.fill(); g.beginPath(); g.moveTo(26, 12); g.lineTo(20, 8); g.lineTo(18, 14); g.fill();
   g.beginPath(); g.moveTo(8, 18); for (let i = 0; i <= 6; i++) g.lineTo(8 + i * 3.4, 18 + (i % 2 ? 4 : 0)); g.lineTo(28, 22); g.lineTo(8, 22); g.fill(); }); }
 
-// случайная карта: 9 разных районов; порт — только в южном ряду (как в генераторе)
-export function randomMap(n = CONFIG.grid) {
-  const ids = DISTRICTS.map(d => d.id).sort(() => Math.random() - .5).slice(0, n * n), pi = ids.indexOf('port');
+// v0.56: тематики карты — сначала рулетка выбирает тему (три обязательных района), остальные районы случайные
+export const THEMES = [
+  { name: 'Набережная', ids: ['port', 'park', 'market'], c: '#4fc3ff' },
+  { name: 'Тёмная сторона', ids: ['cemetery', 'hospital', 'sewer'], c: '#9be36b' },
+  { name: 'Центр', ids: ['office', 'plaza', 'foodcourt'], c: '#ff6aa8' },
+  { name: 'Учёба и труд', ids: ['school', 'university', 'factory'], c: '#ffd04a' },
+  { name: 'Окраина', ids: ['construction', 'gas', 'skatepark'], c: '#ff8a3d' },
+  { name: 'Вечерний город', ids: ['cinema', 'shops', 'townhall'], c: '#c08bff' },
+  { name: 'Старые дворы', ids: ['yard', 'cemetery', 'market'], c: '#ffb06a' },
+];
+export const pickTheme = () => THEMES[(Math.random() * THEMES.length) | 0];
+// карта: 9 разных районов (районы темы обязательно); порт — только в южном ряду (как в генераторе)
+export function randomMap(theme = null, n = CONFIG.grid) {
+  const must = theme ? theme.ids.filter(id => DISTRICTS.some(d => d.id === id)) : [];
+  const rest = DISTRICTS.map(d => d.id).filter(id => !must.includes(id)).sort(() => Math.random() - .5);
+  const ids = must.concat(rest).slice(0, n * n).sort(() => Math.random() - .5), pi = ids.indexOf('port');
   if (pi >= 0) { const row = [...Array(n)].map((_, gx) => gx * n + n - 1); if (!row.includes(pi)) { const to = row[(Math.random() * n) | 0]; [ids[pi], ids[to]] = [ids[to], ids[pi]]; } }
   return ids;
 }
@@ -122,12 +136,35 @@ export function buildScreen(b, x, y, z, modes) {
     a(G.box, dark, x, y, z - .05, SW + .7, SH + .7, .45); a(G.box, steel, x, y + SH / 2 + .45, z, SW + 1.4, .2, .5); a(G.box, steel, x, y - SH / 2 - .45, z, SW + 1.4, .2, .5);
   }));
   for (const s of [-1, 1]) addSolid(x + s * (SW / 2 + .5) - .2, z - .2, x + s * (SW / 2 + .5) + .2, z + .2, 0, y + .3);
-  const S = canvasTex(320, 180, () => {}), g = S.c.getContext('2d');
+  // v0.56: табло в 2× разрешении (640×360), логические координаты остаются 320×180
+  const S = canvasTex(640, 360, () => {}), g = S.c.getContext('2d'); S.t.magFilter = THREE.LinearFilter;
   const scr = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: S.t, fog: false })); scr.position.set(x, y, z + .19); scr.scale.set(SW, SH, 1); scr.userData.noBatch = true; scr.userData.noLight = true; group.add(scr);
   (W.lightSources ??= []).push({ x, y: y - 1, z: z + 2.5, color: 0x9ab8ff, strength: 2.4, range: 9 });
-  const st = { kind: 'idle', mode: null, ids: null, reel: null, count: 0, t: 0, dirty: true, n: CONFIG.grid };
-  const bg = () => { g.fillStyle = '#0d0b16'; g.fillRect(0, 0, 320, 180); g.fillStyle = 'rgba(255,255,255,.04)'; for (let yy = 0; yy < 180; yy += 2) g.fillRect(0, yy, 320, 1); };
-  const center = (text, y0, size, color, font = PX, maxW = 300) => { g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle'; fit(g, text, maxW, size, font, font === TX ? 700 : ''); g.fillText(text, 160, y0); };
+  const st = { kind: 'idle', mode: null, ids: null, reel: null, theme: null, treel: null, ready: 0, total: 1, wait: 0, t: 0, dirty: true, n: CONFIG.grid };
+  const bg = () => { g.setTransform(2, 0, 0, 2, 0, 0); g.imageSmoothingEnabled = true; g.fillStyle = '#0d0b16'; g.fillRect(0, 0, 320, 180); g.fillStyle = 'rgba(255,255,255,.035)'; for (let yy = 0; yy < 180; yy += 2) g.fillRect(0, yy, 320, .6); };
+  const center = (text, y0, size, color, font = PX, maxW = 300, cx = 160) => { g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle'; fit(g, text, maxW, size, font, font === TX ? 700 : ''); g.fillText(text, cx, y0); };
+  // ячейка района: картинка прокручивается как барабан, снизу — название
+  function cell(r, x0, y0, cw, chh) {
+    const L = DISTRICTS.length, p = r.pos, i0 = ((Math.floor(p) % L) + L) % L, fr = p - Math.floor(p);
+    g.save(); g.beginPath(); g.rect(x0, y0, cw, chh); g.clip();
+    for (const [k, off] of [[i0, -fr], [(i0 + 1) % L, 1 - fr]]) { const im = districtIcon(DISTRICTS[k].id); g.drawImage(im, x0, y0 + off * chh, cw, chh); }
+    if (!r.stopped) { g.fillStyle = 'rgba(13,11,22,.35)'; g.fillRect(x0, y0, cw, chh); }
+    const d = DISTRICTS[r.stopped ? i0 : ((Math.round(p) % L) + L) % L];
+    g.fillStyle = 'rgba(10,8,18,.78)'; g.fillRect(x0, y0 + chh - 12, cw, 12); g.fillStyle = r.stopped ? '#ffffff' : '#a59cc0'; g.textAlign = 'center'; g.textBaseline = 'middle'; fit(g, d.name, cw - 4, 8, TX, 700); g.fillText(d.name, x0 + cw / 2, y0 + chh - 5.6);
+    if (r.stopped && r.flash > 0) { g.fillStyle = `rgba(255,236,180,${r.flash * .5})`; g.fillRect(x0, y0, cw, chh); }
+    g.restore(); g.strokeStyle = r.stopped ? (r.must ? st.theme.c : 'rgba(255,255,255,.35)') : '#3a3458'; g.lineWidth = r.must && r.stopped ? 1.6 : .8; g.strokeRect(x0 + .5, y0 + .5, cw - 1, chh - 1);
+  }
+  // рулетка тем: прямоугольная полоса сверху, названия едут влево и останавливаются на выбранной
+  function themeBar(x0, y0, w, h) {
+    g.fillStyle = '#17132a'; g.fillRect(x0, y0, w, h); const L = THEMES.length, p = st.treel.pos, slot = w / 2.2;
+    g.save(); g.beginPath(); g.rect(x0, y0, w, h); g.clip();
+    for (let k = -2; k <= 2; k++) { const idx = ((Math.floor(p) + k) % L + L) % L, th = THEMES[idx], cx = x0 + w / 2 + (k - (p - Math.floor(p))) * slot, on = st.treel.stopped && k === 0;
+      g.fillStyle = on ? th.c : 'rgba(255,255,255,.06)'; g.fillRect(cx - slot / 2 + 2, y0 + 2, slot - 4, h - 4);
+      g.fillStyle = on ? '#17111f' : '#c8bedc'; g.textAlign = 'center'; g.textBaseline = 'middle'; fit(g, th.name.toUpperCase(), slot - 12, 8, PX); g.fillText(th.name.toUpperCase(), cx, y0 + h / 2 + .5); }
+    g.restore(); g.fillStyle = 'rgba(13,11,22,.85)'; g.fillRect(x0, y0, 10, h); g.fillRect(x0 + w - 10, y0, 10, h);
+    g.fillStyle = '#ffd27a'; poly3(x0 + w / 2 - 4, y0, x0 + w / 2 + 4, y0, x0 + w / 2, y0 + 4); poly3(x0 + w / 2 - 4, y0 + h, x0 + w / 2 + 4, y0 + h, x0 + w / 2, y0 + h - 4);
+  }
+  function poly3(a, b2, c, d, e, f) { g.beginPath(); g.moveTo(a, b2); g.lineTo(c, d); g.lineTo(e, f); g.closePath(); g.fill(); }
   function draw() {
     bg();
     if (st.kind === 'idle') {
@@ -139,34 +176,36 @@ export function buildScreen(b, x, y, z, modes) {
     } else if (st.kind === 'mode') {
       const m = st.mode; g.fillStyle = hex(m.color); g.fillRect(0, 0, 320, 6); center('РЕЖИМ', 24, 9, '#c8bedc'); center(m.name.toUpperCase(), 50, 18, '#ffffff');
       m.lines.forEach((l, k) => center(l, 86 + k * 20, 13, '#e6deef', TX)); center(m.tag, 162, 10, hex(m.color), TX);
-    } else if (st.kind === 'map' || st.kind === 'count') {
-      center(st.kind === 'count' ? 'К РОГАТКЕ!' : 'КАРТА ГОРОДА', 12, 9, '#ffd27a');
-      const n = st.n, cw = st.kind === 'count' ? 62 : 96, chh = st.kind === 'count' ? 44 : 50, ox = st.kind === 'count' ? 12 : 16, oy = 26;
-      for (let gz = 0; gz < n; gz++) for (let gx = 0; gx < n; gx++) { const r = st.reel[gx * n + gz], d = DISTRICTS[((Math.floor(r.pos) % DISTRICTS.length) + DISTRICTS.length) % DISTRICTS.length];
-        const x0 = ox + gx * (cw + 4), y0 = oy + gz * (chh + 4), hue = (DISTRICTS.indexOf(d) * 47) % 360;
-        g.fillStyle = r.stopped ? `hsl(${hue},55%,34%)` : '#24203a'; g.fillRect(x0, y0, cw, chh); g.fillStyle = r.stopped ? `hsl(${hue},70%,62%)` : '#3a3458'; g.fillRect(x0, y0, cw, 3);
-        g.fillStyle = r.stopped ? '#ffffff' : '#a59cc0'; g.textAlign = 'center'; g.textBaseline = 'middle'; const words = d.name.split(' ');
-        if (words.length > 1 && fit(g, d.name, cw - 6, 11, TX, 700) < 9) { const h2 = Math.ceil(words.length / 2), a = words.slice(0, h2).join(' '), c = words.slice(h2).join(' '); fit(g, a.length > c.length ? a : c, cw - 6, 11, TX, 700); g.fillText(a, x0 + cw / 2, y0 + chh / 2 - 6); g.fillText(c, x0 + cw / 2, y0 + chh / 2 + 7); }
-        else { fit(g, d.name, cw - 6, 11, TX, 700); g.fillText(d.name, x0 + cw / 2, y0 + chh / 2 + 1); } }
-      if (st.kind === 'count') { g.fillStyle = '#1c1830'; g.fillRect(222, 26, 90, 140); center2(String(Math.max(0, Math.ceil(st.count))), 267, 80, 40, '#ffffff'); center2('ВСТАНЬ', 267, 128, 8, '#c8bedc'); center2('НА ПЛОЩАДКУ', 267, 142, 7, '#c8bedc'); }
+    } else if (st.kind === 'map' || st.kind === 'gather') {
+      const gat = st.kind === 'gather', n = st.n, cw = gat ? 66 : 100, chh = gat ? 46 : 44, ox = 6, oy = gat ? 34 : 34;
+      themeBar(ox, 6, gat ? 3 * cw + 8 : 308, 22);
+      for (let gz = 0; gz < n; gz++) for (let gx = 0; gx < n; gx++) { const r = st.reel[gx * n + gz]; if (st.t < r.start) { g.fillStyle = '#17132a'; g.fillRect(ox + gx * (cw + 4), oy + gz * (chh + 4), cw, chh); continue; } cell(r, ox + gx * (cw + 4), oy + gz * (chh + 4), cw, chh); }
+      if (gat) { const x0 = 218, all = st.ready >= st.total; g.fillStyle = all ? '#173a24' : '#1c1830'; g.fillRect(x0, 6, 96, 168);
+        center('К РОГАТКЕ!', 20, 8, '#ffd27a', PX, 88, x0 + 48); center(`${st.ready}/${st.total}`, 66, 30, all ? '#7dffa0' : '#ffffff', PX, 88, x0 + 48);
+        center(all ? 'ВСЕ В СБОРЕ' : 'ЗАЙДИ В ЗОНУ', 104, 8, all ? '#7dffa0' : '#c8bedc', PX, 88, x0 + 48); center('У РОГАТКИ', 118, 8, '#c8bedc', PX, 88, x0 + 48);
+        if (!all) center(String(Math.max(0, Math.ceil(st.wait))) + ' с', 154, 10, '#8a82a8', PX, 88, x0 + 48); }
     } else if (st.kind === 'go') { center('ПОЕХАЛИ!', 90, 22, '#ffd27a'); }
-    S.t.needsUpdate = true; st.dirty = false;
+    g.setTransform(1, 0, 0, 1, 0, 0); S.t.needsUpdate = true; st.dirty = false;
   }
-  function center2(text, cx2, y0, size, color) { g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle'; fit(g, text, 84, size, PX); g.fillText(text, cx2, y0); }
   redraws.push(() => { st.dirty = true; });
   let acc = 0;
   return {
     group, st,
     idle() { st.kind = 'idle'; st.dirty = true; },
     showMode(m) { st.kind = 'mode'; st.mode = m; st.t = 0; st.dirty = true; },
-    spinMap(ids) { st.kind = 'map'; st.ids = ids; st.t = 0; st.reel = ids.map((id, k) => { const idx = DISTRICTS.findIndex(d => d.id === id), from = Math.random() * DISTRICTS.length, to = Math.ceil(from) + DISTRICTS.length * 3 + ((idx - Math.ceil(from)) % DISTRICTS.length + DISTRICTS.length) % DISTRICTS.length; return { from, to, pos: from, dur: 1.6 + k * .22, stopped: false }; }); st.dirty = true; },
+    spinMap(ids, theme) { st.kind = 'map'; st.ids = ids; st.t = 0; st.theme = theme || THEMES[0];
+      const ti = THEMES.indexOf(st.theme), tf = Math.random() * THEMES.length; st.treel = { from: tf, to: Math.ceil(tf) + THEMES.length * 2 + ((ti - Math.ceil(tf)) % THEMES.length + THEMES.length) % THEMES.length, pos: tf, dur: 1.5, stopped: false };
+      st.reel = ids.map((id, k) => { const idx = DISTRICTS.findIndex(d => d.id === id), from = Math.random() * DISTRICTS.length, to = Math.ceil(from) + DISTRICTS.length * 3 + ((idx - Math.ceil(from)) % DISTRICTS.length + DISTRICTS.length) % DISTRICTS.length;
+        return { from, to, pos: from, start: 1.8, dur: 1.5 + k * .2, stopped: false, flash: 0, must: st.theme.ids.includes(id) }; }); st.dirty = true; },
     get mapDone() { return st.reel && st.reel.every(r => r.stopped); },
-    countdown(s) { if (st.kind !== 'count' || Math.ceil(s) !== Math.ceil(st.count)) st.dirty = true; st.kind = 'count'; st.count = s; },
+    gather(ready, total, wait) { if (st.kind !== 'gather' || ready !== st.ready || Math.ceil(wait) !== Math.ceil(st.wait)) st.dirty = true; st.kind = 'gather'; st.ready = ready; st.total = total; st.wait = wait; },
     go() { st.kind = 'go'; st.dirty = true; },
     update(dt) {
       st.t += dt;
-      if (st.kind === 'map' && st.reel) { let tick = false; for (const r of st.reel) { if (r.stopped) continue; const k = Math.min(1, st.t / r.dur), e = 1 - Math.pow(1 - k, 3), prev = Math.floor(r.pos); r.pos = r.from + (r.to - r.from) * e; if (Math.floor(r.pos) !== prev) tick = true; if (k >= 1) { r.stopped = true; sfx('pickup'); } }
-        if (tick) sfx('tick'); acc += dt; if (acc > 1 / 15) { acc = 0; st.dirty = true; } }
+      if (st.kind === 'map' && st.reel) { let tick = false; const T0 = st.treel;
+        if (!T0.stopped) { const k = Math.min(1, st.t / T0.dur), prev = Math.floor(T0.pos); T0.pos = T0.from + (T0.to - T0.from) * (1 - Math.pow(1 - k, 3)); if (Math.floor(T0.pos) !== prev) tick = true; if (k >= 1) { T0.stopped = true; sfx('pickup'); sfx('confetti'); } }
+        for (const r of st.reel) { r.flash = Math.max(0, r.flash - dt * 2.5); if (r.stopped || st.t < r.start) continue; const k = Math.min(1, (st.t - r.start) / r.dur), e = 1 - Math.pow(1 - k, 3), prev = Math.floor(r.pos); r.pos = r.from + (r.to - r.from) * e; if (Math.floor(r.pos) !== prev) tick = true; if (k >= 1) { r.stopped = true; r.pos = r.to; r.flash = 1; sfx('pickup'); } }
+        if (tick) sfx('tick'); acc += dt; if (acc > 1 / 20) { acc = 0; st.dirty = true; } }
       if (st.dirty) draw();
     },
   };
@@ -207,18 +246,28 @@ export function buildSlingshot(b, x, z) {
       m.position.copy(a).add(p2).multiplyScalar(.5); const len = a.distanceTo(p2); m.scale.set(.12 + st.pull * -.03, len, .12 + st.pull * -.03); m.quaternion.setFromUnitVectors(new V3(0, 1, 0), p2.clone().sub(a).normalize()); }
   }
   placeBands();
+  // v0.56: зона сбора — светящаяся рамка со стрелками на площадке; горит, пока ждём игроков, зеленеет, когда все внутри
+  const zoneTex = canvasTex(256, 192, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = '#ffd27a'; g.lineWidth = 8; g.setLineDash([22, 14]); g.strokeRect(8, 8, w - 16, h - 16); g.setLineDash([]);
+    g.fillStyle = '#ffd27a'; for (const yy of [52, 96, 140]) { g.beginPath(); g.moveTo(w / 2 - 34, yy + 16); g.lineTo(w / 2, yy - 10); g.lineTo(w / 2 + 34, yy + 16); g.lineTo(w / 2 + 20, yy + 16); g.lineTo(w / 2, yy + 2); g.lineTo(w / 2 - 20, yy + 16); g.fill(); } });
+  const zoneMat = new THREE.MeshBasicMaterial({ map: zoneTex.t, transparent: true, opacity: 0, depthWrite: false, color: 0xffd27a, fog: false });
+  const zoneMesh = new THREE.Mesh(G.plane, zoneMat); zoneMesh.rotation.x = -Math.PI / 2; zoneMesh.position.set(x, .06, z + 4.2); zoneMesh.scale.set(7.8, 5.8, 1); zoneMesh.renderOrder = 3; zoneMesh.userData.noBatch = true; zoneMesh.visible = false; group.add(zoneMesh);
+  const zoneBeams = [-1, 1].flatMap(sx => [-1, 1].map(sz => { const m = new THREE.Mesh(G.cyl8, new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, depthWrite: false, fog: false })); m.position.set(x + sx * 3.9, 1.6, z + 4.2 + sz * 2.9); m.scale.set(.12, 3.2, .12); m.userData.noBatch = true; m.visible = false; group.add(m); return m; }));
   return {
-    st, pocket, seats, pad: { x0: x - 4, x1: x + 4, z0: z + 1.2, z1: z + 7.2 }, rest: REST,
+    st, pocket, seats,
+    zone(on, t = 0, all = false) { zoneMesh.visible = on; for (const m of zoneBeams) m.visible = on; if (!on) return; const pulse = .55 + Math.sin(t * 5) * .25, c = all ? 0x7dffa0 : 0xffd27a;
+      zoneMat.opacity = pulse; zoneMat.color.setHex(c); for (const m of zoneBeams) { m.material.opacity = pulse * .5; m.material.color.setHex(c); } },
+    arm(riders) { st.riders = riders.slice(); st.phase = 'board'; st.t = 0; st.manual = true; },
+    pull() { if (st.phase === 'board') { st.phase = 'pull'; st.t = 0; sfx('squeak'); } }, pad: { x0: x - 4, x1: x + 4, z0: z + 1.2, z1: z + 7.2 }, rest: REST,
     onPad(p) { return p.x > x - 4 && p.x < x + 4 && p.z > z + 1.2 && p.z < z + 7.2 && Math.abs(p.y) < 1; },
     seatPos(i, out = new V3()) { pocket.updateMatrixWorld(true); const s = seats[i % seats.length]; return pocket.localToWorld(out.set(s[0], -.8, s[1])); },
     // сценка: board (запрыгивают) → pull (натяжение) → fire (выстрел) → fly
     start(riders) { st.riders = riders.slice(); st.phase = 'board'; st.t = 0; },
-    reset() { st.phase = 'idle'; st.t = 0; st.riders = []; st.pull = 0; st.out = 0; placeBands(); },
+    reset() { st.phase = 'idle'; st.t = 0; st.riders = []; st.pull = 0; st.out = 0; st.manual = false; zoneMesh.visible = false; for (const m of zoneBeams) m.visible = false; placeBands(); },
     update(dt, t) {
       st.t += dt;
       if (st.phase === 'idle') { st.pull += (Math.sin(t * 1.5) * .02 - st.pull) * Math.min(1, dt * 4); }
-      else if (st.phase === 'board') { if (st.t > .9 + st.riders.length * .2) { st.phase = 'pull'; st.t = 0; sfx('squeak'); } }
-      else if (st.phase === 'pull') { st.pull = Math.min(1, st.pull + dt / 1.3); if (Math.random() < dt * 6) sfx('squeak', { v: .3 }); if (st.t > 1.6) { st.phase = 'fire'; st.t = 0; sfx('spring'); sfx('dash', { v: 1.4 }); shake(.5); } }
+      else if (st.phase === 'board') { if (!st.manual && st.t > .9 + st.riders.length * .2) { st.phase = 'pull'; st.t = 0; sfx('squeak'); } }
+      else if (st.phase === 'pull') { st.pull = Math.min(1, st.pull + dt / 1.3); if (Math.random() < dt * 6) sfx('squeak', { v: .3 }); if (st.t > 1.6) { st.phase = 'fire'; st.t = 0; sfx('spring'); sfx('dash', { v: 1.4 }); sfx('birdcry'); shake(.5); } }
       else if (st.phase === 'fire') { const k = Math.min(1, st.t / .16); st.pull = 1 - k; st.out = Math.sin(k * Math.PI) * .9; if (k >= 1) { st.phase = 'fly'; st.t = 0; st.pull = 0; st.out = 0; sparks({ x: REST.x, y: REST.y + 1, z: REST.z }, 30, 0xffd27a); } }
       else if (st.phase === 'fly') { st.pull = Math.sin(st.t * 18) * .12 * Math.max(0, 1 - st.t * 1.5); }
       placeBands();

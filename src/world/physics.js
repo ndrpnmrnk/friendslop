@@ -154,10 +154,14 @@ export function updatePushables(dt, player) {
     if(b.solid)b.solid.on=false;
     if (b.grabbed) { b.hitSpeed = 0;if(b.solid)b.solid.on=true;syncPushable(b);continue; } // её ведёт игрок
     const op = { x: b.x, z: b.z };
-    b.x += b.vx * dt; b.z += b.vz * dt;
-    const p = { x: b.x, z: b.z };
     b.hitSpeed = 0;
-    const hit=pushOut(p,b.r,b.y+(b.ride&&b.kind!=='ring'?.5:.2),b.y+1);recordImpact(b,hit,Math.hypot(b.vx,b.vz));
+    // v0.56: движение по шагам не длиннее половины радиуса — быстрые машинки и карты больше не проскакивают сквозь стены
+    const y0 = b.y + (b.ride && b.kind !== 'ring' ? .5 : .2), mv = Math.hypot(b.vx, b.vz) * dt, n = Math.min(12, Math.max(1, Math.ceil(mv / Math.max(.08, b.r * .5))));
+    const p = { x: b.x, z: b.z }; let hit = null;
+    for (let i = 0; i < n; i++) { p.x += b.vx * dt / n; p.z += b.vz * dt / n; const h = pushOut(p, b.r, y0, b.y + 1); if (h) { hit = h; break; } }
+    if (b.ride && b.rider && !isFree(p.x - b.r * .7, p.z - b.r * .7, p.x + b.r * .7, p.z + b.r * .7, y0, b.y + 1)) { p.x = op.x; p.z = op.z; hit = hit || true; }
+    b.x = p.x; b.z = p.z;
+    recordImpact(b,hit,Math.hypot(b.vx,b.vz));
     if (hit) { b.hitSpeed = Math.hypot(b.vx, b.vz); const k = b.kind === 'voteBall' ? -0.7 : -0.3; b.vx *= k; b.vz *= k; }
     b.x = p.x; b.z = p.z;constrainWaterRide(b,op);
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: .45, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;

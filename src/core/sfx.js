@@ -32,7 +32,25 @@ function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(fl); fl.connect(g); g.connect(buses[route]||master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
 }
+// v0.56: мультяшный «птичий» крик при залпе рогатки — пила через форманту + вибрато, голос «уи-и-и» / «я-я-я»
+function cry(pts, vol = .12, at = 0, vib = 9, depth = .06, formant = 1400) {
+  if (!ac) return; const t = ac.currentTime + at, o = ac.createOscillator(), l = ac.createOscillator(), lg = ac.createGain(), fl = ac.createBiquadFilter(), g = ac.createGain();
+  o.type = 'sawtooth'; fl.type = 'bandpass'; fl.frequency.value = formant; fl.Q.value = 1.6; l.frequency.value = vib;
+  o.frequency.setValueAtTime(pts[0][0], t); for (const [f, k] of pts.slice(1)) o.frequency.exponentialRampToValueAtTime(f, t + k);
+  const dur = pts[pts.length - 1][1]; lg.gain.value = pts[0][0] * depth; l.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .04); g.gain.setValueAtTime(vol, t + dur * .7); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(fl); fl.connect(g); g.connect(buses[route] || master); o.start(t); l.start(t); o.stop(t + dur + .03); l.stop(t + dur + .03);
+}
+const CRIES = [
+  () => cry([[520, 0], [1150, .35], [900, .9]], .13, 0, 11, .07, 1600),            // «уи-и-и-и!»
+  () => { cry([[300, 0], [620, .12], [560, .5]], .12, 0, 7, .05, 900); cry([[640, 0], [980, .25], [700, .55]], .07, .45, 12, .08, 1800); }, // «я-а — ху!»
+  () => cry([[700, 0], [1400, .2], [1300, .5], [600, 1.1]], .11, 0, 14, .09, 2000),  // «и-и-и-и-у-у»
+  () => { for (let i = 0; i < 3; i++) cry([[420 + i * 90, 0], [760 + i * 120, .14], [500 + i * 60, .26]], .1, i * .2, 8, .04, 1200); }, // «я-я-я!»
+  () => cry([[260, 0], [380, .3], [1200, .7], [1000, 1.0]], .12, 0, 6, .05, 1100),   // «ва-а-а-ау!»
+];
 const SND = {
+  birdcry: s => { const k = s.k ?? (Math.random() * CRIES.length | 0); CRIES[k % CRIES.length](); noise(.5, .05, 2200, .7, .05, 'bandpass', 600); },
+  clap: s => { noise(.06, .22 * (s.v ?? 1), 2600, .9); noise(.05, .12 * (s.v ?? 1), 1200, 1.5, .01); tone(900, 500, .05, 'square', .03); },
   fabric:s=>{noise(.13,.04*(s.v??1),1150,.65);tone(480,330,.055,'triangle',.026*(s.v??1),.06);},
   dash:s=>noise(.16,.035*(s.v??1),1900,.6,0,'bandpass',700),
   switch:()=>{tone(380,210,.06,'triangle',.045);noise(.04,.025,1800,1);},

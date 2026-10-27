@@ -22,13 +22,18 @@ export function raceEvent(ctx,award){return{
  update(s,dt,t){s.time+=dt;for(const q of s.entries.values()){const a=q.a;q.cool-=dt;if(q.finished)continue;if(a.bot&&a.ride!==q.car&&Math.hypot(a.pos.x-q.car.x,a.pos.z-q.car.z)<1.8)mount(a,q.car);
  if(a.ride!==q.car){q.last.copy(a.pos);continue;}
  if(s.time<3){q.car.vx=q.car.vz=0;continue;}
- const target=s.route[q.next],segment=a.pos.clone().sub(q.last),u=Math.max(0,Math.min(1,target.clone().sub(q.last).dot(segment)/Math.max(.001,segment.lengthSq()))),close=q.last.clone().addScaledVector(segment,u).distanceTo(target)<3.1;
- if(close&&segment.length()<8&&q.cool<=0){q.cool=.25;q.next=(q.next+1)%s.route.length;if(target.checkpoint)sfx('beep',{at:a.pos,range:12,v:.45});if(q.next===1){q.lap++;if(q.lap>=2){q.finished=true;q.car.vx*=.35;q.car.vz*=.35;s.finish.push(a);award(a,Math.max(60,240-(s.finish.length-1)*50),a.pos);sfx('goal',{at:a.pos});}}}
+ /* v0.56: засчитывание ворот. Раньше нужно было проехать в 3 м от КАЖДОЙ невидимой точки маршрута — срезал угол,
+    и следующее кольцо уже не считалось. Теперь промежуточные точки берутся с запасом (7 м) и их можно пропускать,
+    а кольцо засчитывается, если путь за кадр прошёл через него (радиус кольца + запас). */
+ const segment=a.pos.clone().sub(q.last),near=(pt,r)=>{const u=Math.max(0,Math.min(1,pt.clone().sub(q.last).dot(segment)/Math.max(.001,segment.lengthSq())));return q.last.clone().addScaledVector(segment,u).setY(0).distanceTo(pt.clone().setY(0))<r;};
+ if(segment.length()<10)for(let guard=0;guard<6&&!q.finished;guard++){let step=0;for(let k=0;k<4;k++){const p=s.route[(q.next+k)%s.route.length];if(near(p,p.checkpoint?3.8:7)){step=k+1;break;}if(p.checkpoint)break;}if(!step)break;
+  for(let k=0;k<step;k++){const passed=s.route[q.next];q.next=(q.next+1)%s.route.length;if(passed.checkpoint){sfx('beep',{at:a.pos,range:12,v:.6});sfx('pickup',{at:a.pos,range:12,v:.5});q.car.boostT=Math.max(q.car.boostT||0,.7);if(a===ctx.player())s.flash=1;}
+   if(q.next===1){q.lap++;if(q.lap>=2){q.finished=true;q.car.vx*=.35;q.car.vz*=.35;s.finish.push(a);award(a,Math.max(60,240-(s.finish.length-1)*50),a.pos);sfx('goal',{at:a.pos});break;}}}}
  q.last.copy(a.pos);
  if(q.car.y<-1){ // Никаких очков за спасение: возврат к последней пройденной точке.
  const prev=s.route[(q.next+s.route.length-1)%s.route.length];q.car.x=prev.x;q.car.z=prev.z;q.car.y=.15;q.car.vx=q.car.vz=q.car.vy=0;q.last.copy(prev);q.cool=1.5;daze(a,1);}
  }
- const q=s.entries.get(ctx.player());if(!q){s.ring.visible=false;return null;}const goal=visibleGate(s,q),i=s.route.indexOf(goal),prev=s.route[(i+s.route.length-1)%s.route.length];s.ring.position.copy(goal).y=2.4;s.ring.lookAt(goal.clone().add(goal.clone().sub(prev)).setY(2.4));s.ring.material.opacity=.8+Math.sin(t*4)*.12;
+ const q=s.entries.get(ctx.player());if(!q){s.ring.visible=false;return null;}const goal=visibleGate(s,q),i=s.route.indexOf(goal),prev=s.route[(i+s.route.length-1)%s.route.length];s.ring.position.copy(goal).y=2.4;s.ring.lookAt(goal.clone().add(goal.clone().sub(prev)).setY(2.4));s.flash=Math.max(0,(s.flash||0)-dt*2.5);s.ring.material.opacity=.8+Math.sin(t*4)*.12;s.ring.material.color.setHex(s.flash>0?0x7dffa0:0xe0be67);s.ring.scale.setScalar(1+s.flash*.35);
  return s.finish.length===s.entries.size?'end':null;
  },
  bot(s,b){const q=s.entries.get(b);return q?{x:q.car.x,y:q.car.y,z:q.car.z,kind:'event',near:1}:null;},

@@ -86,6 +86,14 @@
 9. Сначала вместе с автором решаем, что убрать/добавить/изменить, и только потом делаем; после — полный отчёт об изменениях.
 
 ## 5. Сделано в последних версиях
+- v0.56 (`docs/UPDATE-v0.56.md`): запуск из хаба — стадии `flow` в menu.js: mode → map → gather (зона у рогатки,
+  `sling.zone/arm/pull`) → cutscene (`launchStep`: линия, «пять» — поза `act:'five'`/`'cheer'` в rig.js, разбег, сальто
+  `dive:'roll'`, залп со звуком `birdcry`) → экран загрузки `#loadScreen` (main.js `showLoading/loadingReady`).
+  Темы карты `THEMES`/`pickTheme`/`randomMap(theme)` в hub-launch.js, иконки районов `ui/district-icons.js`. Сетемёт —
+  hold-инструмент (`releaseNet`, `predictNet`), стрелы-присоски `stickArrow` в tools.js. Пушаблы двигаются шагами
+  (physics.js), гонка `race.js` засчитывает кольца по пути с пропуском промежуточных точек, дрифт-буст в ride.js.
+  Люки шире (underground.js), жёлтые скобы у всех лестниц (builder.ladder). Листва: дизеринг у камеры (`LEAF_CAM`),
+  `W.crowns`, `inLeaves` (боты не видят). Автомат: кинематические пальцы и шарнир в claw-physics.js.
 - v0.55 (`docs/UPDATE-v0.55.md`): откат графики и UI к v0.52 (удалены `core/style.js`, `world/skyways.js`, `ui/hub-ouija.js`,
   режиссура миссий). Хаб «Двор» (`ui/hub-world.js` + `ui/hub-launch.js`): мини-футбол — мяч (`voteBall`) в одни из трёх ворот
   выбирает режим, табло (`buildScreen`) показывает режим → рулетку карты → отсчёт, рогатка (`buildSlingshot`) — сцена запуска

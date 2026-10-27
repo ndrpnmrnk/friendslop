@@ -155,7 +155,7 @@ export const CONFIG = {
     duck:    { name: 'Резиновая уточка', tool: true, heavy: false, r: 0.12, respawn: 0, mass: 0.2, drag: 0.1, bounce: 0.6, ammo: 99 },
     bubbles: { name: 'Мыльные пузыри', tool: true, heavy: false, r: 0.12, respawn: 0, mass: 0.3, drag: 0.1, bounce: 0.3, ammo: 5 },
     whistle: { name: 'Свисток', tool: true, heavy: false, r: 0.08, respawn: 0, mass: 0.1, drag: 0.1, bounce: 0.3, ammo: 3 },
-    net:     { name: 'Сетемёт', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.8, drag: 0.05, bounce: 0.2, cdMax: 10 },
+    net:     { name: 'Сетемёт', tool: true, heavy: false, r: 0.16, respawn: 0, mass: 0.8, drag: 0.05, bounce: 0.2, cdMax: 10, hold: true },
     perfume:{name:'Парфюм',tool:true,heavy:false,r:.12,mass:.3,respawn:0,drag:.1,bounce:.2,ammo:3},
     bong:{name:'Космический бонг',tool:true,heavy:false,r:.24,mass:.65,respawn:0,drag:.12,bounce:.15},
     bow:{name:'Лук',tool:true,heavy:false,r:.25,mass:.7,respawn:0,drag:.1,bounce:.25,ammo:8,hold:true},

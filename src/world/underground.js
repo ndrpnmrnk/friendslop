@@ -28,17 +28,18 @@ export function buildRoadsAndTunnels(half) {
     segs.push({ axis: 'z', c: c(i), a: c(j) + road / 2, b: c(j + 1) - road / 2 });   // вдоль Z на x = c(i)
   }
   const manholes = new Set(shuffle(segs.slice()).slice(0, 10));
-  const H = 0.6;
+  // v0.56: люк шире — 2.2 × 2 м (был 1.2 × 1.2): камера не застревает в шахте, сразу видно, куда спускаться
+  const HU = 1.1, HV = 1.0;
   for (const s of segs) {
     const P = (u, v) => s.axis === 'x' ? [u, v] : [v, u]; // u — вдоль, v — поперёк
     const R = (u0, v0, u1, v1) => { const [x0, z0] = P(u0, v0), [x1, z1] = P(u1, v1); roadBox(Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1)); };
     const v0 = s.c - road / 2, v1 = s.c + road / 2;
     if (manholes.has(s)) {
-      const m = (s.a + s.b) / 2 + 6, hv = s.c + 0.85; // люк над тоннелем, сбоку от разметки
-      R(s.a, v0, m - H, v1); R(m + H, v0, s.b, v1); R(m - H, v0, m + H, hv - H); R(m - H, hv + H, m + H, v1);
-      const [hx, hz] = P(m, hv);
-      W.holes.push({ x0: hx - H, z0: hz - H, x1: hx + H, z1: hz + H });
-      manhole(hx, hz, s.axis);
+      const m = (s.a + s.b) / 2 + 6, hv = s.c + 0.35; // люк над тоннелем (шахта целиком над проходом)
+      R(s.a, v0, m - HU, v1); R(m + HU, v0, s.b, v1); R(m - HU, v0, m + HU, hv - HV); R(m - HU, hv + HV, m + HU, v1);
+      const [hx, hz] = P(m, hv), hx2 = s.axis === 'x' ? HU : HV, hz2 = s.axis === 'x' ? HV : HU;
+      W.holes.push({ x0: hx - hx2, z0: hz - hz2, x1: hx + hx2, z1: hz + hz2 });
+      manhole(hx, hz, hx2, hz2);
     } else R(s.a, v0, s.b, v1);
     tunnelSegment(s, P, brick, conc);
   }
@@ -136,15 +137,18 @@ function tunnelNode(x, z, w0, w1, n0, n1, brick, conc) {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) wallPiece(x + sx * e + (sx < 0 ? -t : 0), z + sz * e + (sz < 0 ? -t : 0), x + sx * e + (sx < 0 ? 0 : t), z + sz * e + (sz < 0 ? 0 : t), brick);
   lampAt(x, UG.ceil - 0.25, z);
 }
-function manhole(x, z, axis) {
+function manhole(x, z, hx, hz) {
   W.manholes.push({ x, z });
-  // люк: рамка, сдвинутая крышка, лестница вниз
-  const iron = col(0x2b2533);
-  for (const [dx, dz, w, d] of [[0, -0.65, 1.4, 0.1], [0, 0.65, 1.4, 0.1], [-0.65, 0, 0.1, 1.4], [0.65, 0, 0.1, 1.4]]) mesh(G.box, iron, x + dx, 0.02, z + dz, w, 0.04, d, W.group);
-  const lid = mesh(G.cyl12, tmat(T.metal()), x + 1.2, 0.03, z + 0.4, 0.55, 0.05, 0.55, W.group);
+  // люк: рамка в жёлто-чёрную полосу, сдвинутая крышка, лестница вниз с жёлтыми поручнями у северного края
+  const iron = col(0x2b2533), warn = tmat(T.hazard ? T.hazard() : T.metal());
+  for (const [dx, dz, w, d] of [[0, -hz - .06, hx * 2 + .24, .12], [0, hz + .06, hx * 2 + .24, .12], [-hx - .06, 0, .12, hz * 2], [hx + .06, 0, .12, hz * 2]]) mesh(G.box, warn, x + dx, 0.02, z + dz, w, 0.05, d, W.group);
+  mesh(G.box, col(0xf5c542), x, 0.03, z - hz - .2, hx * 2, 0.02, .16, W.group);
+  // шахта: бетонные стенки толщиной в плиту дороги (сверху не видно «пустоты» между асфальтом и тоннелем)
+  for (const [dx, dz, w, d] of [[0, -hz + .04, hx * 2, .08], [0, hz - .04, hx * 2, .08], [-hx + .04, 0, .08, hz * 2], [hx - .04, 0, .08, hz * 2]]) mesh(G.box, tmat(T.concrete()), x + dx, -0.5, z + dz, w, 0.98, d, W.group);
+  mesh(G.cyl12, tmat(T.metal()), x + hx + .7, 0.03, z + 0.3, 0.6, 0.05, 0.6, W.group);
   const b = new Builder(0, 0, 0, 'Тоннели');
-  b.ladder(x, z - 0.6, 's', 0.05, UG.floor);
+  b.ladder(x, z - hz + .05, 's', 0.05, UG.floor);
   // столб света из люка вниз
-  const shaft = mesh(G.cone8, alphaMat(T.light(), { blending: THREE.AdditiveBlending, opacity: 0.35, side: THREE.DoubleSide }), x, -2.4, z, 1.0, 3.0, 1.0, W.group); shaft.rotation.x = 0;
-  b.light(x, z, 1.4, 0.03, false);
+  const shaft = mesh(G.cone8, alphaMat(T.light(), { blending: THREE.AdditiveBlending, opacity: 0.3, side: THREE.DoubleSide }), x, -2.4, z, hx * 1.3, 3.0, hz * 1.3, W.group); shaft.rotation.x = 0;
+  b.light(x, z, 1.8, 0.03, false);
 }

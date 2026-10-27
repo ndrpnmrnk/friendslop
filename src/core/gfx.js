@@ -163,7 +163,9 @@ export function setActionVisuals(speed=0,impact=0){post.uniforms.velocity.value=
 // в тайниках) компилировались прямо в игре — отсюда фризы при ходьбе по городу. Временно показываем всё.
 export function warmup(scene,camera){const hid=[];scene.traverse(o=>{if(!o.visible){hid.push(o);o.visible=true;}});
   batchBegin(scene,camera,true);try{renderer.compile(scene,camera);}finally{batchEnd();for(const o of hid)o.visible=false;}}
+export const LEAF_CAM = { value: new THREE.Vector3(0, -999, 0) }; // v0.56: позиция камеры для дизеринга листвы
 export function present(scene, camera, outlineTarget=null) {
+  LEAF_CAM.value.copy(camera.position);
   const quality=graphics.current,now=performance.now();
   if(sceneQuality.get(scene)!==qualityRevision){scene.traverse(o=>{if(o.isLight&&o.shadow){const sh=o.shadow;if(sh.mapSize.x!==quality.shadow){sh.mapSize.set(quality.shadow,quality.shadow);sh.map?.dispose();sh.map=null;}}});sceneQuality.set(scene,qualityRevision);}
   renderer.shadowMap.needsUpdate=now-lastShadow>1000/quality.shadowHz;if(renderer.shadowMap.needsUpdate)lastShadow=now;
