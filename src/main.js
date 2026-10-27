@@ -5,7 +5,7 @@ import {graphics,setGraphics} from './core/quality.js';
 import {introFlight} from './ui/intro-flight.js';
 import {roundMusic} from './core/round-music.js';
 import {cancelBotOnEliminate} from './missions/bot-work.js';
-import {worldTarget,worldAimPoint} from './game/object-actions.js';
+import {worldTarget,worldAimPoint,pickTarget} from './game/object-actions.js';
 import { updateOcclusion } from './game/occlusion.js';
 import {updateBongEffects} from './game/bong.js';
 import {recordFault,lastFaults,runtimeCheckpoint,lastRuntime} from './core/diagnostics.js';
@@ -38,7 +38,7 @@ import { mouse as M_ } from './core/input.js';
 import { cargoPosition,poseMeleeItem } from './game/handheld.js';
 import { createBots, updateBots, botHitHook, interruptBot } from './game/bots.js';
 import { voice } from './game/voice.js';
-import { FX, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide, leaveBench } from './game/worldfx.js';
+import { FX, hitFreeze, updateWorldFx, nearInteract, registerInteracts, leaveSwing, leaveHide, leaveBench } from './game/worldfx.js';
 import { createPlayer, updatePlayer } from './game/player.js';
 import { updateCat } from './game/cats.js';
 import { updateItems, nearestItem, pickUp, drop, throwVelocity, launch, predict, addItem } from './game/items.js';
@@ -136,6 +136,9 @@ function showMenu() {
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
 function showHub(){S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
+// v0.52: матч стартует из хаба — катапульта выстрелила; подборка районов выбрана спиритической доской
+menu.onLaunch=choice=>{if(S.state!=='hub')return;const musicReady=roundMusic.preload();S.state='roulette';menu.active=false;screen(null);$('fade').classList.add('on');
+  setTimeout(async()=>{await musicReady;await new Promise(r=>setTimeout(r,700));globalThis.__forceDistricts=choice.ids||null;try{prepareRound();}finally{globalThis.__forceDistricts=null;}$('fade').classList.remove('on');startIntro();toast(choice.name);},420);};
 menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen('menu');};
 $('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
@@ -220,12 +223,12 @@ const TUT = [
   { t: 'Бег', d: 'Зажми Shift на ходу — бег (тратит выносливость)', k: ['SHIFT'], ok: s => s.sprint > 1 },
   { t: 'Прыжок', d: 'Прыгни', k: ['ПРОБЕЛ'], ok: s => s.jumps > 0 },
   { t: 'Присед', d: 'Пригнись (C). На бегу C — подкат, Q — выпад', k: ['C'], ok: s => s.crouch > 0.6 },
-  { t: 'Взять', d: 'Подойди к помидору и нажми E', k: ['E'], ok: () => !!P.held, enter: () => tutItem('tomato', 2.5) },
+  { t: 'Взять', d: 'Подойди к помидору и нажми ЛКМ', k: ['ЛКМ'], ok: () => !!P.held, enter: () => tutItem('tomato', 2.5) },
   { t: 'Бросок', d: 'Зажми ПКМ — прицел, отпусти — бросок. Чем дольше держишь, тем дальше', k: ['ПКМ'], ok: s => s.throws > 0 },
-  { t: 'Инструмент', d: 'Возьми тапок (E) и шлёпни им (ЛКМ)', k: ['E', 'ЛКМ'], ok: s => s.tools > 0, enter: () => tutItem('slipper', 2.5) },
-  { t: 'Взаимодействие', d: 'Всё остальное — тоже E: двери, шкафы, кататься, кран', k: ['E'], ok: s => s.t > 4 },
+  { t: 'Инструмент', d: 'Возьми тапок (ЛКМ) и шлёпни им (ЛКМ ещё раз)', k: ['ЛКМ'], ok: s => s.tools > 0, enter: () => tutItem('slipper', 2.5) },
+  { t: 'Взаимодействие', d: 'E — двери, шкафы, сесть, кататься, кран, миссии', k: ['E'], ok: s => s.t > 4 },
   { t: 'Миссия', d: 'Метка на экране и мини-карта ведут к миссии. Подойди и нажми E', k: ['E'], ok: s => s.missions > 0, enter: () => { const m = spawnMission(P, 'shells'); if (m) { m.life = m.maxLife = 999; } } },
-  { t: 'Уличная миссия', d: 'Собери мусор в урну — неси (E) или бросай (ПКМ)', k: ['E', 'ПКМ'], ok: s => s.missions > 1, enter: () => { const m = spawnMission(P, 'cleanup'); if (m) { m.life = m.maxLife = 999; } } },
+  { t: 'Уличная миссия', d: 'Собери мусор в урну — бери (ЛКМ) и бросай (ПКМ)', k: ['ЛКМ', 'ПКМ'], ok: s => s.missions > 1, enter: () => { const m = spawnMission(P, 'cleanup'); if (m) { m.life = m.maxLife = 999; } } },
   { t: 'Готово!', d: 'В раунде миссии приходят волнами, соперники мешают — бей, кради, ставь ловушки. Удачи!', k: [], ok: s => s.t > 4 },
 ];
 function tutItem(type, r) { const a = Math.random() * 6.28, x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r, gy = groundAt(x, z, 0.2, P.pos.y + 1); if (CONFIG.items[type].tool) spawnTool(x, gy, z, false, type); else { const it = addItem(type, x, gy, z); it.def = { ...it.def, respawn: 0 }; } }
@@ -443,7 +446,10 @@ function closeMission(res) {
 
 // очки за миссию: «+N» вылетает из места миссии на экране и летит в счёт
 function scored(m, pts) {
-  actionEffect('success',P.pos.clone().add(new V3(0,1,0)),1.25);markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m);
+  actionEffect('success',P.pos.clone().add(new V3(0,1,0)),1.25);
+  // v0.52: сочный финиш миссии — вспышка, кольцо, разноцветные искры фонтаном, короткий стоп-кадр
+  { const q = { x: P.pos.x, y: P.pos.y + 1.1, z: P.pos.z }; impactBurst(q, 0xc7ef94, 2.2); for (const c of [0xff6aa8, 0x7ad8ff, 0xffd04a, 0x9be36b]) vfxSparks(q, 9, c, { x: 0, y: 1.6, z: 0 }); W.flash?.(P.pos, 0xc7ef94, .9, 7, 3); hitFreeze(.06); }
+  markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m);
   const st = statsOf(P); st.missions++; st.mpts += pts;
   const p = (m.obj.pos && m.obj.pos()) || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   const sx = Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), sy = Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight));
@@ -561,9 +567,11 @@ on('down', btn => {
   // замах (ПКМ зажата): ЛКМ — передумал, опустить руку (бросок отменён)
   if (btn === 0 && P.charging) { P.charging = false; P.chargeManual = false; $('dot').classList.remove('charge'); sfx('click'); throwTip(true); return; }
   // в руках инструмент: ЛКМ — применить
-  if (btn === 0 && P.held) { if (!P.held.def.hold) { const snd = useTool(P, P.held, aimPoint()); if (snd) sfx(snd); } return; }
+  if (btn === 0 && P.held) { if (!P.held.def.hold) { const snd = useTool(P, P.held, aimPoint()); if (snd) sfx(snd); else if (!P.held.def.tool && !P.held.def.use) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; } } return; }
   if(btn===0&&!P.held){const r=nearRadio(P,aim(camera));if(r){toggleRadio(r);return;}}
   if (P.holding) { if (btn === 0 || btn === 2) letGo(P); return; }
+  // v0.52: ЛКМ с пустыми руками — подобрать предмет или поймать летящий
+  if (btn === 0 && !P.held && !P.ride) { const q = lmbTarget(); if (q) { const wasCatch = q.catch; q.act(); if (wasCatch) comboAct(P, 'catches', PTS.catch, P.pos); return; } }
   if (!P.held && !P.ride && !P.holding && (btn === 0 || btn === 2)) {
     const c = nearestRideable(P, 1.7, true), d = btn === 0 ? nearDoor() : null;
     if (c?.holdOnly)return;
@@ -658,14 +666,12 @@ function interact() {
   if (m) { openMission(m); return; }
   { const e = eTarget(); if (e) { e.act(); return; } }
   if (P.held) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; return; }
-  // поймать предмет на лету
-  { let fl = null, fd = 1.7; for (const q of W.items) if (q.state === 'fly' && q.owner !== P && !q.def.heavy) { const d = Math.hypot(q.pos.x - P.pos.x, q.pos.z - P.pos.z); if (d < fd && q.pos.y > P.pos.y && q.pos.y < P.pos.y + 2.4) { fd = d; fl = q; } }
-    if (fl&&!fl.noPickup) { pickUp(fl); P.held = fl; fl.owner = P; fl.wasHeld = true; sfx('pickup'); comboAct(P, 'catches', PTS.catch, P.pos); return; } }
   if (nearCrane()) enterCrane();
 }
 /* E (v0.21): из всего, что рядом (предметы, шкафы/багажники/скамейки…, двери, транспорт), выбирается БЛИЖАЙШЕЕ,
    с поправкой на направление взгляда (то, что перед тобой, — важнее). Подсказка показывает ровно это. */
-function eTarget() { return worldTarget(P,camera,{stealItem}); }
+function eTarget() { return worldTarget(P,camera,{stealItem,items:false}); }
+function lmbTarget() { return pickTarget(P,{stealItem}); }
 // подобрал чужой предмет миссии (заказ, пиццу, лампочку) — миссия засчитывается тебе
 function stealItem(it) {
   const pts = Math.round(it.steal.pts * (W.scoreMul || 1)); it.state = 'gone'; it.g.visible = false; it.steal = null;
@@ -687,6 +693,7 @@ function promptText() {
   if (P.swing || P.bench) return '<b>E</b>Встать';
   if (P.hidden) return '<b>E</b>Выскочить';
   { const e = eTarget(); if (e) return `<b>E</b>${e.label}`; }
+  { const q = !P.held && lmbTarget(); if (q) return `<b>ЛКМ</b>${q.label}`; }
   return '';
 }
 
@@ -862,3 +869,7 @@ import {updateSnacks} from './game/snacks.js';
 // отладка: модели персонажей для проверки внешнего вида
 import { makeCharacter as __mkChar } from './characters/rig.js';
 import { SKIN_IDS as __skinIds } from './characters/skins.js';
+import { busKitten as __busKitten } from './missions/bus-model.js';
+Object.assign(window.__fs, { busKitten: __busKitten });
+import { addItem as __addItem } from './game/items.js';
+Object.assign(window.__fs, { addItem: __addItem, itemTypes: () => Object.keys(CONFIG.items) });

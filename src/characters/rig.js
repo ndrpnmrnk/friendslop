@@ -1,5 +1,5 @@
 import {meleeHand} from './melee-pose.js';
-import { THREE, G, sprite } from '../core/gfx.js';
+import { THREE, G, sprite , jellify } from '../core/gfx.js';
 import {makeSpeechMouth,animateSpeech} from './speech.js';
 import { T } from '../core/textures.js';
 import { clamp, damp } from '../core/rng.js';
@@ -34,6 +34,7 @@ export function makeCharacter(skinId) {
   ch.animate = (dt, st) => {if(ch.hazeTilt){body.rotation.z-=ch.hazeTilt;ch.hazeTilt=0;}bindBody();animate(ch, dt, st);bindBody();if(rigidBase&&(ch.shout||0)>.02){body.rotation.z+=Math.sin(st.t*25)*.025*ch.shout;}skin.animate?.(ch, dt, st);animateSpeech(ch,dt);updateOutfit(ch,dt,st); if (st.daze && !(st.rag > 0.001)) { ch.stars.visible = true; ch.stars.rotation.y += dt * 5; } };
   // голос: мешок надувается сразу (звук включает тот, кто вызвал)
   ch.croakNow = () => { if (ch.head.userData.sac) ch.sacT = -0.0001; };
+  jellify(ch.root, 0.45); // v0.52: персонажи с мягким переливом по краю — самые заметные в кадре
   return ch;
 }
 

@@ -18,7 +18,7 @@ export function busGame(o,api,ctx){
  const start=o.place,sign=start.sign||1,axis=start.axis||'z',right=new V3(Math.cos(g.rotation.y),0,-Math.sin(g.rotation.y)),forward=new V3(Math.sin(g.rotation.y),0,Math.cos(g.rotation.y));
  const stops=start.stops||[0,1,2].map(i=>{const p=new V3(start.x,0,start.z);p[axis]=sign*(roads[0]+(CONFIG.chunk+CONFIG.road)*(i+.5));return p;});
  const signs=stops.map((p,i)=>busStop(p,start.stopYaws?.[i]??g.rotation.y));
- for(let i=0;i<6;i++){const cat=busKitten();cat.position.set(i%2?.72:-.72,.93,-2.45+Math.floor(i/2)*1.3);cat.scale.setScalar(.78);g.add(cat);passengers.push(cat);}
+ for(let i=0;i<6;i++){const cat=busKitten(i);cat.position.set(i%2?.72:-.72,.93,-2.45+Math.floor(i/2)*1.3);cat.scale.setScalar(.78);g.add(cat);passengers.push(cat);}
  const lastMatrix=new THREE.Matrix4();let routeIndex=1;
  const nearStop=()=>{if(stop>=3)return false;const yaw=start.stopYaws?.[stop]??g.rotation.y,q=stops[stop],dx=g.position.x-q.x,dz=g.position.z-q.z,c=Math.cos(yaw),s=Math.sin(yaw);return Math.abs(dx*c-dz*s)<1.0&&Math.abs(dx*s+dz*c)<2.4&&Math.abs(Math.atan2(Math.sin(g.rotation.y-yaw),Math.cos(g.rotation.y-yaw)))<.42;};
  const free=(x,z,yaw)=>busClear(x,z,yaw,o.solid);

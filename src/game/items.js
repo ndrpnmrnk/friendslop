@@ -6,7 +6,7 @@ import {bowModel} from './bow.js';
 import {bongModel} from './bong.js';
 import { pantsModel } from '../characters/mammoth.js';
 import {fatCanModel} from '../missions/fat-models.js';
-import { THREE, G, V3, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, lam, compose, glow , jellify } from '../core/gfx.js';
 import { addOutline, OUTLINE } from './outline.js';
 import { chairModel, coneModel, trashModel, litterModel } from '../world/props.js';
 import { PFACE } from '../world/builder.js';
@@ -38,8 +38,11 @@ function build(type) {
   if(type==='mammothpants')return pantsModel();
   const g = new THREE.Group();
   if (type === 'balloon') {
-    mesh(G.sph, lam({ map: T.balloon(), transparent: true, opacity: 0.92 }, 'balloon'), 0, 0, 0, 0.22, 0.26, 0.22, g);
-    mesh(G.cone4, col(0x1a5ab0), 0, -0.27, 0, 0.05, 0.07, 0.05, g);
+    // v0.52: капля из тонкой резины — глянцевое «желе», внутри темнее вода, горлышко перевязано узелком
+    mesh(BALLOON_GEO, lam({ color: 0x5ac8ff, transparent: true, opacity: 0.82, emissive: 0x0a3a6a, emissiveIntensity: .35 }, 'balloon52'), 0, -0.02, 0, 1, 1, 1, g);
+    mesh(G.sph10, lam({ color: 0x1a5ab0, transparent: true, opacity: 0.5, depthWrite: false }, 'balloon52in'), 0, -0.06, 0, 0.15, 0.13, 0.15, g);
+    mesh(G.sph10, lam({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: .6 }, 'balloon52hl'), -0.07, 0.1, 0.12, 0.035, 0.05, 0.02, g).userData.noLight = true;
+    mesh(G.cyl8, col(0x2a8ad8), 0, -0.29, 0, 0.025, 0.05, 0.025, g); mesh(G.torus, col(0x2a8ad8), 0, -0.32, 0, 0.03, 0.03, 0.03, g).rotation.x = Math.PI / 2;
   } else if (type === 'tomato') {
     mesh(G.sph, tmat(T.tomato()), 0, 0, 0, 0.16, 0.13, 0.16, g);
     for (let i = 0; i < 5; i++) { const l = mesh(G.box, col(0x3f6b2a), Math.cos(i * 1.26) * 0.04, 0.13, Math.sin(i * 1.26) * 0.04, 0.07, 0.01, 0.025, g); l.rotation.y = -i * 1.26; }
@@ -78,6 +81,11 @@ function build(type) {
   const sc = TOOL_SCALE[type]; if (sc) g.children.forEach(c => c.scale.multiplyScalar(sc));
   return g;
 }
+const BALLOON_GEO = (() => { const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12, a = t * Math.PI; pts.push(new THREE.Vector2(Math.sin(a) * (0.24 - 0.06 * t) * (t > .9 ? (1 - t) * 6 + .3 : 1), -Math.cos(a) * 0.27 * (1 + .1 * t))); } const g = new THREE.LatheGeometry(pts.reverse(), 14); g.rotateZ(Math.PI); return g; })();
+const SLIPPER_SOLE = (() => { const sh = new THREE.Shape(); sh.moveTo(0, -.15); sh.bezierCurveTo(.08, -.15, .075, -.02, .065, .04); sh.bezierCurveTo(.075, .12, .05, .16, 0, .16); sh.bezierCurveTo(-.05, .16, -.075, .12, -.065, .04); sh.bezierCurveTo(-.075, -.02, -.08, -.15, 0, -.15);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: .035, bevelEnabled: true, bevelSize: .01, bevelThickness: .01, bevelSegments: 1, curveSegments: 6 }); g.rotateX(-Math.PI / 2); return g; })();
+const BANANA_GEO = (() => { const c = new THREE.CatmullRomCurve3([new THREE.Vector3(0, .05, -.17), new THREE.Vector3(0, -.01, -.08), new THREE.Vector3(0, -.025, 0), new THREE.Vector3(0, -.01, .08), new THREE.Vector3(0, .05, .17)]); const g = new THREE.TubeGeometry(c, 12, .04, 6, false);
+  const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const z = p.getZ(i), k = 1 - Math.pow(Math.abs(z) / .19, 3) * .6; const cy = .05 * Math.pow(z / .17, 2) - .025; p.setX(i, p.getX(i) * k); p.setY(i, cy + (p.getY(i) - cy) * k); } g.computeVertexNormals(); return g; })();
 const TOOL_SCALE = { whistle: 1.6, badge: 1.4, energy: 1.3, duck: 1.3, banana: 1.3, popper: 1.35, firework: 1.3, sling: 1.35, web: 1.25, cushion: 1.25, bubbles: 1.35, bulb: 1.2, net: 1.2, slipper: 1.1 };
 export const rarityOf = type => { const d = CONFIG.items[type]; return !d || !d.tool ? 'item' : CONFIG.toolRare.includes(type) ? 'rare' : 'tool'; };
 /* Модели инструментов и предметов миссий: по 5–20 деталей, собираются один раз (compose) */
@@ -91,9 +99,9 @@ function toolModel(type, g) {
   }
   return compose('tool_' + type, a => {
     switch (type) {
-      case 'slipper': { const pk = C(0xff7aa8); a(G.box, C(0xf1e8ff), 0, -0.04, 0, 0.13, 0.04, 0.3); a(G.box, pk, 0, -0.065, 0, 0.14, 0.02, 0.31); a(G.box, pk, 0, 0.0, 0.05, 0.14, 0.06, 0.12); a(G.sph, C(0xffffff), 0, 0.04, 0.06, 0.05, 0.04, 0.05); break; }
+      case 'slipper': { const pk = C(0xff6aa0); a(SLIPPER_SOLE, C(0xfff0f4), 0, -0.07, 0, 1, 1, 1); a(SLIPPER_SOLE, pk, 0, -0.085, 0, 1.04, .5, 1.02); a(G.halfTorus, pk, 0, -0.04, 0.06, 0.08, 0.09, 0.55, 0, Math.PI / 2, 0); a(G.sph10, C(0xffffff), 0, 0.03, 0.09, 0.05, 0.045, 0.05); a(G.sph10, C(0xffd0e0), 0, 0.03, 0.09, 0.032, 0.05, 0.032); break; }
       case 'extinguisher': { const r = C(0xd8243a), k = C(0x17111f); a(G.cyl8, r, 0, 0, 0, 0.11, 0.42, 0.11); a(G.sph, r, 0, 0.21, 0, 0.11, 0.06, 0.11); a(G.box, k, 0, 0.29, 0, 0.05, 0.08, 0.05); a(G.box, k, 0.06, 0.32, 0, 0.14, 0.03, 0.04); a(G.cyl6, k, -0.06, 0.24, 0.06, 0.02, 0.2, 0.02, 0.8); a(G.box, C(0xf1e8ff), 0, 0.02, 0.112, 0.12, 0.12, 0.004); break; }
-      case 'banana': { const y = C(0xf5d442), d = C(0x6a4a1a); a(G.box, y, 0, 0, 0, 0.06, 0.06, 0.12, 0, 0, 0); a(G.box, y, 0, 0.02, 0.1, 0.055, 0.055, 0.1, -0.45); a(G.box, y, 0, 0.02, -0.1, 0.055, 0.055, 0.1, 0.45); a(G.box, d, 0, 0.05, 0.16, 0.02, 0.02, 0.04, -0.8); break; }
+      case 'banana': { a(BANANA_GEO, C(0xf7d64a), 0, 0, 0, 1, 1, 1); for (const z of [-.15, .15]) a(G.sph, C(0xf0c83a), 0, .045, z, .03, .03, .03); a(G.cyl6, C(0x6a4a1a), 0, .07, .175, .015, .05, .015, .6, 0, 0); a(G.sph, C(0x3a2a14), 0, .05, -.18, .018, .018, .018); break; }
       case 'pillow': { const w = C(0xeee8ff); a(G.sph10, w, 0, 0, 0, 0.26, 0.09, 0.19); for (const sx of [-1, 1]) for (const sz of [-1, 1]) a(G.cone4, w, sx * 0.22, 0, sz * 0.15, 0.04, 0.08, 0.04, 0, 0, sx * Math.PI / 2); a(G.box, C(0xb18cff), 0, 0.085, 0, 0.18, 0.01, 0.02); break; }
       case 'duck': { const y = C(0xf5c542); a(G.sph10, y, 0, -0.02, 0, 0.12, 0.09, 0.14); a(G.sph10, y, 0, 0.09, 0.07, 0.07, 0.07, 0.07); a(G.cone4, C(0xff8a1f), 0, 0.08, 0.15, 0.03, 0.06, 0.02, Math.PI / 2); for (const sx of [-1, 1]) a(G.box, C(0x17111f), sx * 0.035, 0.11, 0.125, 0.015, 0.02, 0.01); a(G.cone4, y, 0, 0.0, -0.14, 0.04, 0.06, 0.03, -1.2); break; }
       case 'bubbles': { a(G.cyl8, lam({ color: 0x8ad0f0, transparent: true, opacity: 0.85 }, 'bubBottle'), 0, -0.02, 0, 0.06, 0.18, 0.06); a(G.cyl8, C(0xff5a9e), 0, 0.09, 0, 0.04, 0.04, 0.04); a(G.cyl5, C(0xff5a9e), 0.06, 0.1, 0, 0.008, 0.2, 0.008, 0, 0, -0.4); a(G.torus, C(0xff5a9e), 0.11, 0.21, 0, 0.04, 0.04, 0.04, Math.PI / 2); break; }
@@ -106,7 +114,8 @@ function toolModel(type, g) {
       case 'paint': { a(G.cyl8, tmat(T.metal()), 0, 0, 0, 0.14, 0.22, 0.14); a(G.cyl8, C(0x4ab0f0), 0, 0.105, 0, 0.13, 0.02, 0.13); a(G.halfTorus, C(0x2b2533), 0, 0.11, 0, 0.14, 0.16, 0.6); a(G.box, C(0x4ab0f0), 0.12, 0.05, 0.07, 0.03, 0.1, 0.01); a(G.box, C(0xf1e8ff), 0, 0.0, 0.142, 0.1, 0.08, 0.004); break; }
       case 'energy': { a(G.cyl8, lam({ color: 0x5ac83a, emissive: 0x1a3a08 }, 'energyCan'), 0, 0, 0, 0.06, 0.2, 0.06); a(G.cyl8, C(0xd8d8e0), 0, 0.105, 0, 0.055, 0.012, 0.055); a(G.box, C(0xf5c542), 0, 0.01, 0.061, 0.03, 0.1, 0.004, 0, 0, 0.4); break; }
       case 'water': { const b = C(0x4ab0f0), o = C(0xff8a1f); a(G.box, b, 0, 0.03, 0.04, 0.07, 0.08, 0.22); a(G.box, o, 0, -0.05, -0.04, 0.06, 0.14, 0.06, 0.25); a(G.cyl8, lam({ color: 0x9ccbec, transparent: true, opacity: 0.8 }, 'wgTank'), 0, 0.11, 0.0, 0.05, 0.08, 0.05); a(G.cyl6, o, 0, 0.04, 0.17, 0.018, 0.08, 0.018, Math.PI / 2); a(G.box, C(0x17111f), 0, -0.01, 0.02, 0.02, 0.05, 0.02, 0.4); break; }
-      case 'firework': { a(G.cyl8, C(0xd8243a), 0, 0.02, 0, 0.05, 0.2, 0.05); a(G.cone8, C(0xf5c542), 0, 0.15, 0, 0.055, 0.08, 0.055); a(G.box, C(0xf1e8ff), 0, 0.02, 0.051, 0.06, 0.04, 0.002); a(G.cyl5, C(0x8a6a4a), 0.06, -0.15, 0, 0.008, 0.34, 0.008); a(G.box, C(0x17111f), 0, -0.09, 0, 0.01, 0.04, 0.01); break; }
+      case 'firework': { a(G.cyl8, C(0xe8304a), 0, 0.02, 0, 0.055, 0.22, 0.055); for (const y of [-.05, .06]) a(G.cyl8, C(0xfff0d0), 0, y, 0, 0.057, 0.025, 0.057); a(G.cone8, C(0xffc93a), 0, 0.17, 0, 0.06, 0.1, 0.06);
+        for (let k = 0; k < 4; k++) a(G.box, C(0x4ab0f0), Math.cos(k * 1.571) * .06, -.08, Math.sin(k * 1.571) * .06, .012, .08, .05, 0, -k * 1.571, 0); a(G.cyl5, C(0x8a6a4a), 0.07, -0.16, 0, 0.008, 0.3, 0.008); a(G.cyl5, C(0x2b2533), 0, -0.11, 0, 0.006, 0.05, 0.006); break; }
       case 'popper': { a(G.cone8, C(0xf5c542), 0, 0, 0, 0.06, 0.18, 0.06, Math.PI); a(G.cyl8, C(0xff5a6e), 0, 0.09, 0, 0.065, 0.02, 0.065); a(G.box, C(0xf1e8ff), 0, -0.1, 0, 0.01, 0.06, 0.01); for (let i = 0; i < 3; i++) a(G.box, C([0x9be36b, 0x4ab0f0, 0xb18cff][i]), (i - 1) * 0.03, 0.105, 0, 0.02, 0.02, 0.02); break; }
       case 'sling': { const w = tmat(T.wood()); a(G.box, w, 0, -0.08, 0, 0.035, 0.18, 0.035); for (const sx of [-1, 1]) a(G.box, w, sx * 0.05, 0.05, 0, 0.03, 0.12, 0.03, 0, 0, -sx * 0.4); a(G.box, C(0xd8243a), 0, 0.09, 0, 0.16, 0.012, 0.012); break; }
       // паутина: банка с паучком внутри (крышка, паутинка на стекле)
@@ -118,7 +127,8 @@ function toolModel(type, g) {
       case 'rake': { const w = tmat(T.wood()), m = C(0x8a8d98); a(G.box, w, 0, 0.0, 0, 0.05, 0.05, 1.1); a(G.box, m, 0, 0, 0.55, 0.4, 0.04, 0.05); for (let i = 0; i < 6; i++) a(G.box, m, -0.17 + i * 0.07, -0.04, 0.58, 0.02, 0.08, 0.02); break; }
       case 'cushion': { const p = lam({ color: 0xff5a9e }, 'cushion'); a(G.sph10, p, 0, 0, 0, 0.2, 0.06, 0.2); a(G.cyl6, p, 0, 0, 0.22, 0.04, 0.08, 0.04, Math.PI / 2); break; }
       // сетемёт: короткий ствол-раструб, рукоять, свёрнутая сетка сверху
-      case 'net': { a(G.cyl8, C(0x3a6a4a), 0, 0, 0.05, 0.07, 0.36, 0.07, Math.PI / 2); a(G.cone8, C(0x2b2533), 0, 0, 0.27, 0.11, 0.12, 0.11, -Math.PI / 2); a(G.box, C(0x2b2533), 0, -0.1, -0.06, 0.05, 0.16, 0.06, 0.3); a(G.sph, lam({ color: 0xe8e0c8 }, 'netRoll'), 0, 0.09, 0.02, 0.07, 0.05, 0.12); break; }
+      case 'net': { const body = C(0x2fa86a), dk = C(0x22202a); a(G.cyl12, body, 0, 0, 0.0, 0.075, 0.3, 0.075, Math.PI / 2); a(G.cone8, dk, 0, 0, 0.22, 0.12, 0.14, 0.12, -Math.PI / 2); a(G.cyl12, C(0xf5c542), 0, 0, 0.29, 0.125, 0.02, 0.125, Math.PI / 2);
+        a(G.box, dk, 0, -0.11, -0.07, 0.05, 0.17, 0.065, 0.3); a(G.box, dk, 0, -0.05, -0.0, 0.02, 0.05, 0.06); a(G.sph10, lam({ color: 0xe8f0d8, transparent: true, opacity: .75 }, 'netRoll52'), 0, 0.1, -0.02, 0.08, 0.07, 0.11); a(G.box, glow(0x7affb0), 0.077, 0.02, -0.06, 0.004, 0.02, 0.05); break; }
       // жетон: золотая звезда на синей «корочке»
       case 'badge': { a(G.box, C(0x2a3a7a), 0, 0, 0, 0.18, 0.02, 0.24); const gd = lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.5 }, 'badgeGold'); a(G.cyl8, gd, 0, 0.02, 0.03, 0.07, 0.015, 0.07); for (let i = 0; i < 5; i++) { const an = i / 5 * 6.28; a(G.cone4, gd, Math.cos(an) * 0.06, 0.02, 0.03 + Math.sin(an) * 0.06, 0.03, 0.01, 0.03, Math.PI / 2, 0, an); } break; }
       // перчатка-пружина: красная боксёрская перчатка на гармошке
@@ -130,7 +140,7 @@ function toolModel(type, g) {
   });
 }
 export function addItem(type, x, y, z, ry = 0) {
-  const def = CONFIG.items[type], g = build(type); W.group.add(g);
+  const def = CONFIG.items[type], g = jellify(build(type), 0.7, true); W.group.add(g); // v0.52: предметы — «желе», выделяются из фона
   const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z, ry }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g, 0.045, OUTLINE[rarityOf(type)]), rarity: rarityOf(type), ammo: def.ammo || 0, cd: 0 };
   g.rotation.y = ry;
   it.pos.set(x, y + (def.halfHeight??def.r), z);
