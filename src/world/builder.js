@@ -42,7 +42,8 @@ export class Builder {
   // Каждая грань получает фасад своего размера: метр окна одинаков на торце и длинной стене.
   facadeBlock(x,z,w,d,h,color,opt={}) {
     // v0.53: у дома один стиль фасада на все стороны — кирпич, панели, стеклянная стена или ар-деко с пилястрами
-    if(!opt.style)opt={...opt,style:DSTYLE[this.d?.id]?pick(DSTYLE[this.d.id]):opt.brick===false?pick(['panel','glass','deco']):pick(['brick','brick','panel','glass','deco'])};
+    if(!opt.style)opt={...opt,style:DSTYLE[this.did]?pick(DSTYLE[this.did]):opt.brick===false?pick(['panel','glass','deco']):pick(['brick','brick','panel','glass','deco'])};
+    if(opt.neon==null&&DACCENT[this.did])opt={...opt,neon:DACCENT[this.did]};
     const side=tmat(facade(color,d,h,opt)),front=tmat(facade(color,w,h,opt)),roof=tmat(T.roof());
     const g=this.box(x,z,w,d,h,[side,side,roof,roof,front,front]);
     for(const y of[.45,h-.3])this.box(x,z,w+.12,d+.12,.12,y<1?col(color):chrome(0xd8deff),{y,solid:false});
@@ -462,6 +463,8 @@ Object.assign(Builder.prototype, PropMethods, TowerMethods, OpenMethods, MoreMet
 // У кабины машины наклонены стойки, при той же малой геометрии и старом хитбоксе.
 const LEAF_GEO = new THREE.IcosahedronGeometry(1, 1);
 // v0.53: у каждого района свой характер фасадов (подстиль района)
+export const DACCENT = { yard: 0xffb43a, park: 0x7aff9a, plaza: 0xffd27a, shops: 0xff4fa8, construction: 0xff8a3a, cemetery: 0x9aff5a, gas: 0xff4a4a, market: 0xff7a3a, school: 0x4fe6ff,
+  foodcourt: 0xff5ad8, sewer: 0x5aff8a, office: 0x7ab8ff, port: 0x4fffd8, skatepark: 0xb47aff, hospital: 0xaaf8ff, factory: 0xffc04a, townhall: 0xffd27a, university: 0xc08aff, cinema: 0xff3a6a };
 export const DSTYLE = { yard: ['brick'], park: ['deco', 'brick'], plaza: ['deco'], shops: ['panel', 'glass'], construction: ['panel'], cemetery: ['brick', 'deco'], gas: ['panel'], market: ['brick', 'panel'],
   school: ['brick'], foodcourt: ['glass'], sewer: ['brick'], office: ['glass'], port: ['panel', 'brick'], skatepark: ['panel'], hospital: ['panel', 'glass'], factory: ['brick'], townhall: ['deco'], university: ['deco', 'brick'], cinema: ['deco'] };
 const TRUNK_GEO = new THREE.CylinderGeometry(0.12, 0.22, 1, 8);

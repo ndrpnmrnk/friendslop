@@ -1,5 +1,5 @@
 import { THREE, G, col, tmat, glow, own, lam, flat, chrome } from '../core/gfx.js';
-import { DSTYLE } from './builder.js';
+import { DSTYLE, DACCENT } from './builder.js';
 import { T, facade, rep } from '../core/textures.js';
 import { HW } from '../config.js';
 import { W } from './state.js';
@@ -16,13 +16,13 @@ const BM = {}; const bottleMat = c => BM[c] || (BM[c] = lam({ color: c, transpar
    interior(fb, k, r) вызывается для каждого этажа: fb — конструктор, поднятый на высоту этажа
    (всё ставится как на земле), r — свободная часть этажа без лестницы. */
 export const TowerMethods = {
-  at(y) { const B = this.constructor, b = new B(this.ox, this.oz, this.Y + y, this.d); b._pk = 99; return b; },
+  at(y) { const B = this.constructor, b = new B(this.ox, this.oz, this.Y + y, this.d); b._pk = 99; b.did = this.did; return b; },
 
   tower(o) {
     const { x, z, w, d } = o, n = o.floors, fh = Math.max(3.8, o.fh ?? 3.8), H = n * fh, t = 0.25, base = o.wall ?? 0x7c6a9c;
     const lit = o.lit ?? 0.5, brick = o.brick !== false, hasStairs = o.stairs !== false && n > 1;
     // v0.53: стиль стен по району; стеклянную стену у дома с настоящими проёмами заменяем панелями
-    const twStyle = o.style || (DSTYLE[this.d?.id] ? DSTYLE[this.d.id].map(x => x === 'glass' ? 'panel' : x)[(Math.random() * DSTYLE[this.d.id].length) | 0] : (brick ? 'brick' : 'panel'));
+    const twStyle = o.style || (DSTYLE[this.did] ? DSTYLE[this.did].map(x => x === 'glass' ? 'panel' : x)[(Math.random() * DSTYLE[this.did].length) | 0] : (brick ? 'brick' : 'panel'));
     // лестница «с разворотом»: широкий марш до площадки на полэтажа, разворот, второй марш до этажа
     const run = o.run ?? 0.42, lane = o.lane ?? 2.25, EL = o.entry ?? 1.8, ML = o.mid ?? lane;
     const hsteps = Math.max(2, Math.round(fh / 2 / 0.28)), rise = fh / 2 / hsteps, Lh = hsteps * run;
@@ -61,7 +61,7 @@ export const TowerMethods = {
       }
       if (dr) holes.push({ u0: g0, u1: g1, y0: 0, y1: dh, door: true });
       // стена из прямоугольников вокруг проёмов
-      const fac = facade(base, sd.len, H, { lit, brick, windows: false, style: twStyle });
+      const fac = facade(base, sd.len, H, { lit, brick, windows: false, style: twStyle, neon: DACCENT[this.did] });
       const us = [...new Set([0, sd.len, ...holes.flatMap(h => [h.u0, h.u1])])].sort((a, b2) => a - b2);
       const ys = [...new Set([0, H, ...holes.flatMap(h => [h.y0, h.y1])])].sort((a, b2) => a - b2);
       const solidCell = (ua, ub, ya, yb) => !holes.some(h => ua >= h.u0 - 1e-6 && ub <= h.u1 + 1e-6 && ya >= h.y0 - 1e-6 && yb <= h.y1 + 1e-6);

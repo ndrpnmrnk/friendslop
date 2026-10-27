@@ -727,7 +727,7 @@ T.grannyFace = () => photo('grannyFace', 48, 24, (g, W, H) => { fill(g, W, H, '#
 const NEON = ['#ff4fa8', '#4fe6ff', '#ffb43a', '#b47aff', '#7aff9a'];
 export function facade(base, wM, hM, opt = {}) {
   const D = 16, pw = Math.max(8, Math.round(wM * D)), ph = Math.max(8, Math.round(hM * D));
-  const style = opt.style || (opt.brick !== false ? 'brick' : 'panel'), brick = style === 'brick', rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9, neon = NEON[(facN++) % NEON.length];
+  const style = opt.style || (opt.brick !== false ? 'brick' : 'panel'), brick = style === 'brick', rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9, neon = opt.neon != null ? hex(opt.neon) : NEON[(facN++) % NEON.length];
   const t = photo(null, pw, ph, (g, W, H) => {
     const s = W / pw, m = D * s; // m — пикселей hi-res на метр
     const lin = (x0, y0, x1, y1, st) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (const [o, c] of st) gr.addColorStop(o, c); return gr; };
@@ -866,7 +866,7 @@ T.burlap=()=>pix('sack43-weave',32,32,g=>{g.fillStyle='#a88b5c';g.fillRect(0,0,3
   // тротуар: крупная керамогранитная плитка 2×2 с фаской
   T.pave = () => photo('pave53', 64, 64, (g, W, H) => {
     fill(g, W, H, '#202238'); const n = 2, s = W / n;
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) bevelTile(g, x * s + 1, y * s + 1, s - 2, s - 2, 0x5e608c + (((R() - 0.5) * 18) | 0) * 0x010101, 1, 2);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) bevelTile(g, x * s + 1, y * s + 1, s - 2, s - 2, 0x4a4c78 + (((R() - 0.5) * 18) | 0) * 0x010101, 1, 2);
     speck(g, W, H, 220, ['rgba(40,40,70,.5)', 'rgba(190,195,240,.4)'], 1); grain(g, W, H, 6);
   }, 2);
   // площадь: полированные плиты разной длины с тонкими «мраморными» прожилками
@@ -1028,3 +1028,19 @@ T.crown = (k = 0) => photo('crown53' + k, 32, 32, (g, W, H) => { const p = CROWN
   for (let i = 0; i < 90; i++) { const x = R() * W, y = R() * H; g.fillStyle = y < H * 0.5 ? 'rgba(255,255,230,.35)' : 'rgba(20,0,30,.3)'; g.beginPath(); g.ellipse(x, y, 2.2, 1.3, R() * 3, 0, 7); g.fill(); }
   grain(g, W, H, 8); }, 3);
 { const o = T.crown; T.crown = k => { const t = o(k); t.userData.mc = 'lacquer'; return t; }; }
+// v0.53: вывески — глянцевая табличка со скруглением, градиентом и бликом, жирный шрифт с обводкой (читается издалека)
+{ const hx = s => parseInt(String(s).replace('#', '').slice(0, 6), 16) || 0;
+  T.sign = (text, bg, fg) => pix('sign53' + text + bg + fg, Math.max(96, Math.ceil(text.length * 11) + 18), 28, (g, W, H) => {
+    const c = hx(bg); g.fillStyle = shade(c, -60); g.fillRect(0, 0, W, H);
+    const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, shade(c, 38)); gr.addColorStop(.5, shade(c, 0)); gr.addColorStop(1, shade(c, -34));
+    g.fillStyle = gr; g.beginPath(); g.roundRect(1.5, 1.5, W - 3, H - 3, 5); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.28)'; g.fillRect(5, 3, W - 10, 1.5);
+    g.font = '900 16px Rubik, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,10,.4)'; g.strokeText(text, W / 2, H / 2 + 1); g.fillStyle = fg; g.fillText(text, W / 2, H / 2 + 1);
+  });
+  T.awning = (a, b) => pix('aw53' + a + b, 32, 16, (g, W, H) => {
+    for (let x = 0; x < W; x += 8) { const c = hx((x / 8) % 2 ? b : a), gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, shade(c, 30)); gr.addColorStop(.7, shade(c, 0)); gr.addColorStop(1, shade(c, -40));
+      g.fillStyle = gr; g.fillRect(x, 0, 8, H); g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(x + 1, 0, 1, H - 3); }
+    g.fillStyle = 'rgba(0,0,10,.35)'; for (let x = 0; x < W; x += 4) { g.beginPath(); g.arc(x + 2, H, 2.2, Math.PI, 0); g.fill(); }
+  });
+}

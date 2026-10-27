@@ -17,7 +17,8 @@ import {buildOuija,buildCatapult,buildRoulette,buildModeCards,beamMat} from './h
    с автоматом-клешнёй, за доской — карточки режимов и голографическое табло карты, ещё дальше —
    северный двор с люком катапульты. По бокам бульвара — площадка для дурачества и кафе-терраса.
    Акцентные места подсвечены: неоновое кольцо на земле, столб света и парящая иконка. */
-export const HUB={spawn:new V3(0,0,22),board:new V3(0,0,-6),bounds:36};
+// точки появления на 8 игроков полукругом на бульваре (локальный игрок — первая); для сети — по номеру в группе
+export const HUB={spawn:new V3(0,0,22),spawns:Array.from({length:8},(_,i)=>new V3((i%4-1.5)*1.8,0,22+Math.floor(i/4)*1.8)),board:new V3(0,0,-6),bounds:36};
 const NEON=[0xff4fa8,0x4fe6ff,0xffb43a,0xb47aff];
 const hex=c=>'#'+c.toString(16).padStart(6,'0');
 const tag=o=>{o.userData.noOcc=true;o.userData.noLight=true;o.userData.noBatch=true;return o;};

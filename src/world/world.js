@@ -1,11 +1,11 @@
 import { addItem } from '../game/items.js';
-import { THREE, G, mesh, tmat, flat, paint, setParent, col, lam } from '../core/gfx.js';
+import { THREE, G, mesh, tmat, flat, paint, setParent, col, lam, glow } from '../core/gfx.js';
 import { T, rep } from '../core/textures.js';
 import { CONFIG } from '../config.js';
 import { seed, shuffle } from '../core/rng.js';
 import { W, resetWorld } from './state.js';
 import { addSolid, isFree } from './physics.js';
-import { Builder } from './builder.js';
+import { Builder, DACCENT } from './builder.js';
 import { DISTRICTS } from './districts/index.js';
 import { resetParticles } from './particles.js';
 import { spawnCat } from '../game/cats.js';
@@ -13,7 +13,8 @@ import { resetBreakables } from './breakables.js';
 import { buildEdges } from './edges.js';
 import { buildRoadsAndTunnels } from './underground.js';
 import { bakeStatic } from './bake.js';
-import { dressRoofs, bridgeRoofs } from './roofs.js';
+import { dressRoofs, bridgeRoofs, roofAccess } from './roofs.js';
+import { buildSkyways } from './skyways.js';
 
 const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dirt(), concrete: () => T.concrete(), asphalt: () => T.asphalt(), cobble: () => T.cobble(), flag: () => T.flag() };
 
@@ -67,7 +68,9 @@ export function generateMap(scene, s) {
     if (gz === grid - 1) zebra(ox + chunk / 2, oz + chunk + road / 2, true);
     if (gx === grid - 1) zebra(ox + chunk + road / 2, oz + chunk / 2, false);
     W.districts.push({ id: d.id, name: d.name, ox, oz, x1: ox + chunk, z1: oz + chunk, ground: d.ground });
-    d.build(new Builder(ox, oz, base, d.name));
+    { const bd = new Builder(ox, oz, base, d.name); bd.did = d.id; d.build(bd); }
+    // v0.53: неоновая кромка по краю тротуара — цвет района, районы читаются как отдельные зоны
+    { const nm = glow(DACCENT[d.id] ?? 0xb47aff); for (const [x, z, w, dd] of [[ox + chunk / 2, oz + .12, chunk, .08], [ox + chunk / 2, oz + chunk - .12, chunk, .08], [ox + .12, oz + chunk / 2, .08, chunk], [ox + chunk - .12, oz + chunk / 2, .08, chunk]]) mesh(G.box, nm, x, base + .015, z, w, .04, dd, group); }
     // уличный мусор (v0.21): несколько штук по тротуарам у краёв района — можно поднять и бросить
     for (let i = 0, n = 0; i < 40 && n < 5; i++) { const e = Math.random() * 4 | 0, t = 1 + Math.random() * (chunk - 2), w0 = 0.4 + Math.random() * 1.2;
       const x = e === 0 ? ox + t : e === 1 ? ox + t : e === 2 ? ox + w0 : ox + chunk - w0, z = e === 0 ? oz + w0 : e === 1 ? oz + chunk - w0 : oz + t;
@@ -76,7 +79,8 @@ export function generateMap(scene, s) {
   buildRoadsAndTunnels(half);
   streetFurniture(half);
   buildEdges(half);
-  { const roofs = dressRoofs(); W.roofs = roofs; W.bridges = bridgeRoofs(roofs); }
+  { const roofs = dressRoofs(); W.roofs = roofs; W.bridges = bridgeRoofs(roofs); W.roofLadders = roofAccess(roofs, Builder); }
+  W.skyways = buildSkyways(half);
   // точки появления не должны оказаться внутри объектов: сдвигаем на ближайшее свободное место
   for (const sp of W.spawns) {
     if (isFree(sp.x - 0.4, sp.z - 0.4, sp.x + 0.4, sp.z + 0.4, sp.y + 0.1, sp.y + 1.8)) continue;

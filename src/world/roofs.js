@@ -112,3 +112,28 @@ export function bridgeRoofs(roofs) {
   }
   return made;
 }
+
+/* v0.53: на каждую плоскую крышу можно забраться — если рядом нет лестницы, ставим хромовую лестницу
+   на свободной стене (у подножия пусто, не у двери). Крыши, мосты между ними и скайвеи — второй уровень города. */
+export function roofAccess(roofs, Builder) {
+  const base = CONFIG.base, b = new Builder(0, 0, base, 'Крыши'); let n = 0;
+  const top = roofs.filter(r => !roofs.some(q => q !== r && q.y1 > r.y1 + .5 && q.x0 < r.x1 - .5 && q.x1 > r.x0 + .5 && q.z0 < r.z1 - .5 && q.z1 > r.z0 + .5));
+  for (const s of top) {
+    const y = s.y1; if (y - base < 2.8 || y - base > 15) continue;
+    if (W.ladders.some(l => l.x1 > s.x0 - 1.5 && l.x0 < s.x1 + 1.5 && l.z1 > s.z0 - 1.5 && l.z0 < s.z1 + 1.5 && l.y1 > y - .5)) continue;
+    const walls = [['e', s.x1, null], ['w', s.x0, null], ['s', null, s.z1], ['n', null, s.z0]].sort(() => Math.random() - .5);
+    let ok = false;
+    for (const [side, wx, wz] of walls) { if (ok) break;
+      for (const t of [.5, .3, .7, .15, .85]) {
+        const x = wx ?? s.x0 + (s.x1 - s.x0) * t, z = wz ?? s.z0 + (s.z1 - s.z0) * t, nx = side === 'e' ? 1 : side === 'w' ? -1 : 0, nz = side === 's' ? 1 : side === 'n' ? -1 : 0;
+        const fx = x + nx * .8, fz = z + nz * .8, ax = nz !== 0;
+        if (!isFree(fx - (ax ? .5 : .45), fz - (ax ? .45 : .5), fx + (ax ? .5 : .45), fz + (ax ? .45 : .5), base + .05, base + 2.2)) continue;
+        if (!isFree(x + nx * .05 - (ax ? .4 : .05), z + nz * .05 - (ax ? .05 : .4), x + nx * .3 + (ax ? .4 : .05), z + nz * .3 + (ax ? .05 : .4), base + .05, y - .1)) continue;
+        if (W.doors.some(d => Math.hypot(d.x - x, d.z - z) < 2.2)) continue;
+        if (Math.abs(x) > W.bounds - 4 || Math.abs(z) > W.bounds - 4) continue;
+        b.ladder(x, z, side, y - base, 0); n++; ok = true; break;
+      }
+    }
+  }
+  return n;
+}
