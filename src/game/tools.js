@@ -242,10 +242,11 @@ function spiderModel() { const g = new THREE.Group(), b = col(0x17111f); mesh(G.
   const legs = []; for (const sd of [-1, 1]) for (let i = 0; i < 4; i++) { const l = mesh(G.box, b, sd * 0.1, 0.06, 0.06 - i * 0.05, 0.16, 0.012, 0.012, g); l.rotation.y = sd * (0.5 - i * 0.33); l.rotation.z = sd * -0.4; legs.push(l); }
   g.userData.legs = legs; return g; }
 function webTrap(x, y, z, owner = null) {
-  const m = decal(T.web(), x, y, z, 3, 16, 0xffffff); m.scale.setScalar(0.01);
-  const sp = spiderModel(), a0 = Math.random() * 6.28; sp.position.set(x + Math.cos(a0) * 0.9, y + 0.02, z + Math.sin(a0) * 0.9); W.group.add(sp);
-  burst(x + Math.cos(a0) * 0.9, y + 0.15, z + Math.sin(a0) * 0.9, 8, { color: 0xd8f0f0, size: 0.08, speed: 2, up: 1.5 }); sfx('glass', { at: { x, y, z }, v: 0.5 });
-  toolState().traps.push({ kind: 'web', x, y, z, r: 1.4, t: 16, m, sp, a0, weave: 0, owner, hit: new Set() }); }
+  // v0.57: паутина вдвое шире (6 м) — накрывает проход целиком, паучок плетёт её по большой спирали
+  const m = decal(T.web(), x, y, z, 6, 16, 0xffffff); m.scale.setScalar(0.01);
+  const sp = spiderModel(), a0 = Math.random() * 6.28; sp.position.set(x + Math.cos(a0) * 2.1, y + 0.02, z + Math.sin(a0) * 2.1); W.group.add(sp);
+  burst(x + Math.cos(a0) * 2.1, y + 0.15, z + Math.sin(a0) * 2.1, 12, { color: 0xd8f0f0, size: 0.08, speed: 2, up: 1.5 }); sfx('glass', { at: { x, y, z }, v: 0.5 });
+  toolState().traps.push({ kind: 'web', x, y, z, r: 2.8, t: 16, m, sp, a0, weave: 0, owner, hit: new Set() }); }
 
 /* сетка накрыла: 2.5 с еле ползёшь, первые 1.2 с — оглушение; сверху видна сетка */
 const NETM = () => lam({ color: 0xe8e0c8, wireframe: true }, 'netWire');
@@ -384,7 +385,7 @@ export function updateTools(dt, t) {
     if (q.kind === 'netlie') { if (q.t < 1) q.m.scale.y = 0.05 * q.t; if (q.t <= 0) { W.group.remove(q.m); toolState().traps.splice(i, 1); } continue; }
     if (q.t <= 0) { if (q.m && q.kind === 'banana') W.group.remove(q.m); if (q.sp) W.group.remove(q.sp); toolState().traps.splice(i, 1); continue; }
     if (q.kind === 'web' && q.sp) { const sp = q.sp, L = sp.userData.legs;
-      if (q.weave < 1) { q.weave = Math.min(1, q.weave + dt); const k = q.weave, ang = q.a0 + k * 9, r = 0.9 * (1 - k); q.m.scale.setScalar(Math.max(0.01, k));
+      if (q.weave < 1) { q.weave = Math.min(1, q.weave + dt / 1.3); const k = q.weave, ang = q.a0 + k * 13, r = 2.1 * (1 - k); q.m.scale.setScalar(Math.max(0.01, k));
         sp.position.set(q.x + Math.cos(ang) * r, q.y + 0.03, q.z + Math.sin(ang) * r); sp.rotation.y = -ang; L.forEach((l, j) => (l.rotation.x = Math.sin(t * 40 + j) * 0.5)); }
       else { sp.position.set(q.x, q.y + 0.03, q.z); L.forEach((l, j) => (l.rotation.x = Math.sin(t * 3 + j) * 0.08)); }
     }

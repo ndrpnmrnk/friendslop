@@ -50,7 +50,8 @@ export function buildOverpasses(half) {
     for (const [px, pz] of [[x0 + .2, z0 + .2], [x1 - .2, z0 + .2], [x0 + .2, z1 - .2], [x1 - .2, z1 - .2]]) { b.box(px, pz, .26, .26, H - .3 - base, pm); }
     const sides = { n: [cx, z0, w, 'x'], s: [cx, z1, w, 'x'], w: [x0, cz, d, 'z'], e: [x1, cz, d, 'z'] };
     for (const [k, [px, pz, len, ax]] of Object.entries(sides)) if (k !== q.open && k !== q.dir) truss(px, pz, len, ax, paint);
-    if (HW && Math.random() < .5) b.web(cx + (Math.random() < .5 ? -1 : 1) * (w / 2 - .1), H + .7, cz, Math.PI / 2, .8);
+    // паутина — только на стороне с фермой (там, где есть к чему крепиться)
+    const ws = ['w', 'e'].filter(k => k !== q.open && k !== q.dir); if (HW && ws.length && Math.random() < .5) { const sd = ws[Math.random() * ws.length | 0] === 'w' ? -1 : 1; b.web(cx + sd * (w / 2 - .1), H + .7, cz, Math.PI / 2, .8); }
     (W.lightSources ??= []).push({ x: cx, y: H - .8, z: cz, color: 0xffd8a0, strength: 1.6, range: 5 });
   }
   function stairsUp(q, paint) {
@@ -58,11 +59,12 @@ export function buildOverpasses(half) {
     const back = { n: 's', s: 'n', e: 'w', w: 'e' }[q.dir], n = Math.round((H - base) / .3);
     const sx = q.dir === 'e' ? x1 : q.dir === 'w' ? x0 : (x0 + x1) / 2, sz = q.dir === 's' ? z1 : q.dir === 'n' ? z0 : (z0 + z1) / 2;
     // открытая стальная лестница: ступени-решётки на двух косоурах, под ней видно насквозь.
-    // Коллизия — сплошная «лесенка» под ступенями, чтобы под марш нельзя было залезть.
+    // Коллизия: низ марша сплошной, верх — тонкие ступени (под ними проходят с обеих сторон).
     const run = (len - .1) / n, rise = (H - base) / n, v = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }[back], tread = tmat(T.paintMetal(0x4a4a52));
     for (let i = 0; i < n; i++) { const tx = sx + v[0] * (i + .5) * run, tz = sz + v[1] * (i + .5) * run, top = rise * (i + 1);
       b.box(tx, tz, v[0] ? run + .02 : w - .16, v[0] ? w - .16 : run + .02, .07, tread, { y: top - .07, solid: false });
-      b.solid(tx, tz, v[0] ? run : w, v[0] ? w : run, 0, top); }
+      // v0.57: высокие ступени — тонкая плита, под маршем можно пройти; низкие — сплошные (под ними не пролезть)
+      const y0 = top > 2.3 ? top - .32 : 0; b.solid(tx, tz, v[0] ? run : w, v[0] ? w : run, y0, top - y0); }
     { const pmS = tmat(T.paintMetal(paint));
       for (const s of [-1, 1]) { const ox = along ? s * (w / 2 - .06) : 0, oz = along ? 0 : s * (w / 2 - .06);
         const lo = new THREE.Vector3(sx + ox, base + .02, sz + oz), hi = new THREE.Vector3(sx + ox + v[0] * n * run, H - .12, sz + oz + v[1] * n * run);

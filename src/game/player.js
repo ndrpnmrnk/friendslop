@@ -62,8 +62,8 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   { const sx = ix, sz = iz, s = Math.sin(yaw), c = Math.cos(yaw); ix = sx * c + sz * s; iz = -sx * s + sz * c; }
   if (p.noRun) { ix = 0; iz = 0; }
   const il = Math.hypot(ix, iz); if (il) { ix /= il; iz /= il; }
-  // эмоции 1–4
-  if (ctrl) for (let i = 0; i < 4; i++) if (tapped('Digit' + (i + 1))) startEmote(p, EMOTES[i]);
+  // эмоции 1–5
+  if (ctrl) for (let i = 0; i < 5; i++) if (tapped('Digit' + (i + 1))) startEmote(p, EMOTES[i]);
   // F — «ква» (V оставлена под голосовой ввод)
   if (ctrl && tapped('KeyF')) voice(p.ch, ['idle', 'happy', 'jump'][(Math.random() * 3) | 0], undefined, true);
   updateEmote(p, dt, il > 0 || tapped('Space'));
@@ -206,6 +206,12 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   // раскрытый зонтик — парашют
   if (!p.onGround && p.held && p.held.type === 'umbrella' && p.held.open && p.vel.y < -2.2) { p.vel.y = -2.2; p.airPeak = p.pos.y + 1; p.vel.x *= 0.99; p.vel.z *= 0.99; }
   if (p.jetT > 0) { p.jetT -= dt; p.airPeak = p.pos.y; }
+  // v0.57: перекат и подкат — лёгкий толчок: задетого отодвигает на 0.5–1 м с маленьким подскоком, без падения и без потери предмета
+  if ((p.dive === 'roll' || p.slideT > 0) && p.onGround) for (const b of actors()) { if (b === p || b.hidden || b.heldBy || b.ride || b.bumpT > 0) continue;
+    const dx = b.pos.x - p.pos.x, dz = b.pos.z - p.pos.z, d = Math.hypot(dx, dz) || .01; if (d > p.r + b.r + .12 || Math.abs(b.pos.y - p.pos.y) > 1) continue;
+    const sp = Math.hypot(p.vel.x, p.vel.z) || 1, ux = (dx / d) * .6 + (p.vel.x / sp) * .4, uz = (dz / d) * .6 + (p.vel.z / sp) * .4, ul = Math.hypot(ux, uz) || 1;
+    b.vel.x = ux / ul * 3.4; b.vel.z = uz / ul * 3.4; b.vel.y = Math.max(b.vel.y, 2.2); b.onGround = false; b.knockT = Math.max(b.knockT || 0, .18); b.bumpT = .6;
+    p.vel.x *= .8; p.vel.z *= .8; sfx('hit', { at: b.pos, v: .35 }); voice(b.ch, 'hurt', b.pos); burst(b.pos.x, b.pos.y + .9, b.pos.z, 3, { color: 0xf1e8ff, size: .12, speed: 1.4, up: 1 }); }
   if (p.dive === 'air') {
     worldHit({ x: p.pos.x + p.vel.x * 0.05, y: p.pos.y + 0.6, z: p.pos.z + p.vel.z * 0.05 }, 4, p.vel);
     // выпад: сбивает толчком (без оглушения), выбивает предмет из рук; закрытую дверь — вышибает
@@ -216,7 +222,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
       slamDoor(d, ux, uz, vl);
       for (const b of actors()) { if (b === p || b.hidden) continue; const dx = b.pos.x - d.x, dz = b.pos.z - d.z; if (Math.hypot(dx, dz) < 1.6 && dx * ux + dz * uz > 0 && Math.abs(b.pos.y - d.y) < 1.2) { knockDown(b, ux * 9, uz * 9, 1.4); voice(b.ch, 'hurt', b.pos); W.onHit && W.onHit(p, b, 'heavy'); } } }
   }
-  if (p.diveHitT > 0) p.diveHitT -= dt;
+  if (p.diveHitT > 0) p.diveHitT -= dt; if (p.bumpT > 0) p.bumpT -= dt;
   applyGripMotion(p, dt);
   // короткое нажатие — низкий прыжок, удержание — полный; вниз падаем быстрее (меньше «лунной» паузы)
   if (p.vel.y <= 0 || p.onGround) p.jumpHeld = false;
@@ -289,7 +295,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
   p.ch.animate(dt, { t, act: p.chill ? 'smoke' : undefined, smokePh: p.chill ? (p.chill.t > 8.8 ? 'take' : p.chill.t < 0.8 ? 'flick' : 'smoke') : undefined, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, rag: ragK(p), daze: p.daze > 0, grabbed: p.netT > 0 && !(p.stun > 0), climb: !!p.climb,
-    payload:p.carryCrate?0.5:p.carryKitten?0.42:p.held?.def.r||0, missionTool: !!p.missionTool, hold: (!!p.hotPotato || !!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten || !!p.carryCrate || !!p.carryNet) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
+    payload:p.carryCrate?0.5:p.carryKitten||p.dogHeld?0.42:p.held?.def.r||0, missionTool: !!p.missionTool, hold: (!!p.hotPotato || !!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten || !!p.carryCrate || !!p.carryNet || !!p.dogHeld) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
     emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, restrained: !!p.heldBy, swat: p.swatT > 0 ? p.swatT : 0, fly: p.flyT > 0 && !p.onGround, vy2: p.vel.y, flySpin: p.flyT > 0 ? 6 : 0 });
   if (p.flyT > 0) { p.flyT -= dt; if (p.onGround) p.flyT = 0; else if (p.vel.lengthSq() > 4) { p.facing = Math.atan2(p.vel.x, p.vel.z); p.root.rotation.y = p.facing; } }

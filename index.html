@@ -12,6 +12,8 @@
 <div id="droneT" class="hidden"><small>ВЕРНЁШЬСЯ ЧЕРЕЗ</small><b>12</b></div>
 <div id="throwTip" class="hidden"><span>колёсико</span> сила · <span>ЛКМ</span> отмена</div>
 <div id="fade"></div>
+<div id="studioUI" class="hidden"><div class="st-card"><div class="st-head"><b>СТУДИЯ</b><span>Один район или одно задание — играешь своим персонажем, без ботов и таймера</span><button id="studioClose">✕</button></div><div class="st-cols"><section><h3>РАЙОНЫ</h3><div id="studioDistricts" class="st-list"></div></section><section><h3>ЗАДАНИЯ</h3><div id="studioMissions" class="st-list"></div></section></div></div></div>
+<div id="studioBar" class="hidden"></div>
 <div id="cineBars"><i></i><i></i></div>
 <div id="leafVeil" class="hidden"></div>
 <div id="loadScreen" class="hidden"><div class="ls-in"><small>ЛЕТИМ В ГОРОД</small><h2 id="lsTheme"></h2><div class="ls-mode">Режим: <b id="lsMode"></b></div><div id="lsMap"></div><div class="ls-bar"><i></i></div><div id="lsStage"></div><div id="lsPlayers"></div></div></div>
@@ -35,13 +37,13 @@
 
   <div id="skinLock" class="hidden">ЗАКРЫТ · ВЫЛОВИ В АВТОМАТЕ</div>
   <div id="hubUI" class="hidden"><div id="hubPrompt" class="hidden"></div><div id="hubHeld" class="hidden"></div></div>
-  <nav id="hubPause" aria-label="Меню хаба"><small>ДВОР FRIENDSLOP</small><button id="hubResume" class="pbtn">ПРОДОЛЖИТЬ</button><button id="hubExit" class="pbtn alt">ВЫХОД ИЗ ИГРЫ</button><button id="hubTutorial" class="pback">Обучение</button></nav>
+  <nav id="hubPause" aria-label="Меню хаба"><small>ДВОР FRIENDSLOP</small><button id="hubResume" class="pbtn">ПРОДОЛЖИТЬ</button><button id="hubExit" class="pbtn alt">ВЫХОД ИЗ ИГРЫ</button><button id="hubStudio" class="pback">Студия</button><button id="hubTutorial" class="pback">Обучение</button></nav>
 </div>
 <div id="clawUI" class="hidden"><div class="clawTop"></div><p id="clawMessage" aria-live="polite"></p><div class="clawControls"><div class="clawArrows"><button class="parr" data-claw="KeyW" aria-label="Клешня назад">▲</button><div><button class="parr" data-claw="KeyA" aria-label="Клешня влево">◀</button><button class="parr" data-claw="KeyS" aria-label="Клешня вперёд">▼</button><button class="parr" data-claw="KeyD" aria-label="Клешня вправо">▶</button></div></div><button class="pbtn" id="clawDrop">ИГРАТЬ · 50 ФИСТОВ</button><button class="pback" id="clawBack">ВЕРНУТЬСЯ</button></div></div>
 
 <!-- Настройки звука, графики и микрофона -->
 <div id="settings" class="screen hidden">
-  <div class="sctitle">НАСТРОЙКИ</div><p class="liveMatchNotice">Матч продолжается</p>
+  <div class="sctitle">НАСТРОЙКИ</div><p class="liveMatchNotice">Матч продолжается</p><button id="studioLeave" class="pbtn alt hidden">ВЫЙТИ ИЗ СТУДИИ</button>
   <div id="setbox" class="pframe">
     <section class="settingsGroup graphicsSettings" aria-labelledby="graphicsTitle"><h2 id="graphicsTitle">ГРАФИКА</h2><div class="srow"><label class="sl" for="graphicsQ">Качество</label><select id="graphicsQ"><option value="low">Низкая</option><option value="medium">Средняя</option><option value="high">Высокая</option></select></div></section>
     <section class="settingsGroup audioSettings" aria-labelledby="audioTitle"><h2 id="audioTitle">ЗВУК</h2>

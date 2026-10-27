@@ -37,9 +37,12 @@ export function decal(tex, x, y, z, size, life, color) {
 
 export function updateParticles(dt) {
   const state=particles();
+  // v0.57: пар и дым расступаются вокруг персонажей (их скорость отталкивает облачка)
+  const movers=[];for(const a of [W.player,...(W.bots||[])])if(a&&a.pos){const sp=Math.hypot(a.vel?.x||0,a.vel?.z||0);if(sp>.6)movers.push(a.pos.x,a.pos.y,a.pos.z,sp);}
   for(const kind of ['puff','smoke','dust','ripple']){
     const batch=state[kind];if(!batch)continue;let changed=false;
     for(const p of batch.records){if(!p.alive)continue;changed=true;p.t+=dt;const k=p.t/p.life;if(k>=1){p.alive=false;continue;}
+      if(kind==='puff'||kind==='smoke')for(let m=0;m<movers.length;m+=4){const dx=p.x-movers[m],dz=p.z-movers[m+2],dy=p.y-movers[m+1]-.9;if(dy*dy>1.8)continue;const d2=dx*dx+dz*dz;if(d2>1.6||d2<1e-4)continue;const f=movers[m+3]*(1.6-d2)*1.4*dt/Math.sqrt(d2);p.vx+=dx*f;p.vz+=dz*f;p.vy+=.4*f;}
       if(kind==='ripple'){p.scale=.2+p.size*2*(1-(1-k)**2);p.alpha=.75*(1-k);continue;}
       p.vy-=p.g*dt;const drag=kind==='puff'?1:Math.exp(-dt*(kind==='dust'?.5:2.5));p.vx*=drag;p.vz*=drag;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;
       if(kind==='dust'&&p.vy<0){const floor=groundAt(p.x,p.z,0,p.y+.3);if(p.y<floor+.02){p.y=floor+.02;p.vy=0;p.vx*=.5;p.vz*=.5;}}

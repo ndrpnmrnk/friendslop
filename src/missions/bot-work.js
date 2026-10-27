@@ -95,13 +95,15 @@ export function tickBotWork(b,dt) {
   const interrupted=b.heldBy||b.stun>0||b.daze>0||b.getT>0||b.caged||b.drone||b.returning;
   if(!job.world&&(interrupted||b.pos.distanceTo(job.start)>0.65)){interruptBotWork(b);return;}
   brain.time+=dt;job.elapsed+=dt;
+  // v0.57: страховка — мини-игра не должна держать бота на месте бесконечно (в тесте с 7 ботами один стоял >60 с)
+  if(!job.world&&job.elapsed>40){b.avoid={m,left:30};interruptBotWork(b);b.goal=null;return;}
   if(job.world){
     const goal=game.botTarget?.()||game.target?.();const progress=m.progress||0;
     if(!job.probe)job.probe={p:b.pos.clone(),progress,time:0};
     const q=job.probe,moved=q.p.distanceTo(b.pos)>1.5,advanced=progress>q.progress+.025;
     if(moved||advanced){q.p.copy(b.pos);q.progress=progress;q.time=0;}else q.time+=dt;
     const lost=game.impossible?.()||goal&&goal.y<b.pos.y-3&&job.elapsed>12&&m.key==='cart';
-    if(lost||q.time>18){b.avoidM??={};b.avoidM[m.id]=30;removeMission(m);return;}
+    if(lost||q.time>18){b.avoid={m,left:30};removeMission(m);return;}
   }
   if(!interrupted){
     if(job.world){

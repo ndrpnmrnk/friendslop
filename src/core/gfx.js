@@ -15,7 +15,7 @@ renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setPixelRatio(1);
 // Тени: жёсткие пиксельные (как в играх конца 90-х), карта теней ездит за игроком
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.BasicShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap; // v0.57: мягкий край тени (5 выборок с шумом — в духе зерна PS1), без квадратных лесенок
 renderer.shadowMap.autoUpdate=false;
 export const canvas = renderer.domElement;
 document.getElementById('game').appendChild(canvas);

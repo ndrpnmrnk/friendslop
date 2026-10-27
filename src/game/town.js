@@ -240,9 +240,14 @@ function dogDrop(f) { const it = f.it; if (!it) return; f.it = null; it.state = 
 function updDog(f, dt, t) {
   const p = f.pos, h = f.home;
   // на руках: держим перед собой, вырывается
-  if (f.heldBy) { const P = f.heldBy, fy = P.root.rotation.y; f.holdT -= dt; p.set(P.pos.x + Math.sin(fy) * 0.6, P.pos.y + 0.55, P.pos.z + Math.cos(fy) * 0.6); f.g.rotation.y = fy + Math.sin(t * 14) * 0.5;
-    f.legs.forEach((l, i) => (l.rotation.x = Math.sin(t * 22 + i) * 0.9)); f.tail.rotation.z = Math.sin(t * 30) * 0.8; if (Math.random() < dt * 2.5) sfx('bark', { at: p, v: 0.8 });
-    if (f.holdT <= 0 || P.stun > 0 || P.drone) { f.heldBy = null; P.dogHeld = null; f.vel.set(Math.sin(fy) * 4, 0, Math.cos(fy) * 4); p.y = groundAt(p.x, p.z, 0.2, p.y + 0.5); f.runT = 2; f.wp.set(p.x + Math.sin(fy) * 6, p.y, p.z + Math.cos(fy) * 6); f.wt = 2; burst(p.x, p.y + 0.5, p.z, 6, { color: 0x9a6a3a, size: 0.12, speed: 2 }); }
+  if (f.heldBy) { const P = f.heldBy, fy = P.root.rotation.y; f.holdT -= dt;
+    // v0.57: держат под передние лапы — собака стоит «столбиком» спиной к игроку, задние лапы болтаются, вырывается
+    const pitch = -1.2 + Math.sin(t * 9) * .08, sh = f.legs[0].position, by = f.body.position.y + sh.y, bz = f.body.position.z + sh.z;
+    const oy = by * Math.cos(pitch) - bz * Math.sin(pitch), oz = by * Math.sin(pitch) + bz * Math.cos(pitch), hp = P.ch ? P.ch.holdPoint : new V3(P.pos.x + Math.sin(fy) * .45, P.pos.y + 1.1, P.pos.z + Math.cos(fy) * .45);
+    p.set(hp.x - Math.sin(fy) * oz, hp.y - oy - .08, hp.z - Math.cos(fy) * oz);
+    f.g.rotation.order = 'YXZ'; f.g.rotation.y = fy + Math.sin(t * 6) * .18; f.g.rotation.x = pitch; f.g.rotation.z = Math.sin(t * 11) * .12;
+    f.legs.forEach((l, i) => (l.rotation.x = i < 2 ? -.5 + Math.sin(t * 16 + i) * .25 : Math.sin(t * 22 + i) * .9)); f.tail.rotation.z = Math.sin(t * 30) * 0.8; if (Math.random() < dt * 2.5) sfx('bark', { at: p, v: 0.8 });
+    if (f.holdT <= 0 || P.stun > 0 || P.drone) { f.heldBy = null; P.dogHeld = null; f.g.rotation.x = f.g.rotation.z = 0; f.vel.set(Math.sin(fy) * 4, 0, Math.cos(fy) * 4); p.y = groundAt(p.x, p.z, 0.2, p.y + 0.5); f.runT = 2; f.wp.set(p.x + Math.sin(fy) * 6, p.y, p.z + Math.cos(fy) * 6); f.wt = 2; burst(p.x, p.y + 0.5, p.z, 6, { color: 0x9a6a3a, size: 0.12, speed: 2 }); }
     return; }
   // оглушена броском: лежит со звёздочками, добыча выпала
   if (f.stunT > 0) { f.stunT -= dt; f.body.rotation.z = Math.min(1.4, f.body.rotation.z + dt * 6); f.legs.forEach(l => (l.rotation.x = 0.6)); if (Math.random() < dt * 3) puff(p.x, p.y + 0.8, p.z, { color: 0xf5c542, size: 0.08, grow: 0, vy: 0.3, life: 0.5 }); return; }

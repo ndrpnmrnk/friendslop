@@ -125,6 +125,14 @@ export function updateCat(c, dt, t, player) {
         }
       }
       for(const dog of W.dogs||[]){if(dog.heldBy||Math.abs(dog.pos.y-p.y)>.8)continue;let dx=p.x-dog.pos.x,dz=p.z-dog.pos.z,dd=Math.hypot(dx,dz);if(dd<.85){if(dd<.01){dx=Math.cos(c.ph0);dz=Math.sin(c.ph0);dd=1;}const k=(.85-Math.min(dd,.85));p.x+=dx/dd*k;p.z+=dz/dd*k;}}
+      // v0.57: кот снова «живой» в мире — с персонажами сталкивается: шагом его мягко отодвигают (и он чуть толкает в ответ),
+      // разбег, перекат или подкат — кот кувыркается и убегает
+      for(const a of [player,...(W.bots||[])]){if(!a||a.hidden||a.ride||Math.abs(a.pos.y-p.y)>.9)continue;let dx=p.x-a.pos.x,dz=p.z-a.pos.z,dd=Math.hypot(dx,dz);if(dd>=.62)continue;
+        if(dd<.01){dx=Math.cos(c.ph0);dz=Math.sin(c.ph0);dd=1;}const sp=Math.hypot(a.vel.x,a.vel.z);
+        if(sp>7.5||(sp>3&&(a.dive||a.slideT>0))){c.hit(true,(a.vel.x*.6+dx/dd*3)*2,(a.vel.z*.6+dz/dd*3)*2);c.flee=2;c.fx=dx/dd;c.fz=dz/dd;sfx('meow',{at:p});return;}
+        const k=.62-dd;p.x+=dx/dd*k*.85;p.z+=dz/dd*k*.85;a.pos.x-=dx/dd*k*.15;a.pos.z-=dz/dd*k*.15;
+        if(sp>1.5&&c.flee<=0){c.flee=.8;c.fx=dx/dd;c.fz=dz/dd;if(!(c.bumpT>0)){c.bumpT=2;sfx('meow',{at:p});}}}
+      if(c.bumpT>0)c.bumpT-=dt;
       pushOut(p,.3,p.y+.15,p.y+.65);p.y = groundAt(p.x, p.z, 0.2, p.y + 0.3);
     }
   }

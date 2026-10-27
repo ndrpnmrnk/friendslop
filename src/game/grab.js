@@ -89,11 +89,11 @@ export function updateGrabs(dt) {
   }
 }
 
-/* ---------- эмоции на 1–4 ---------- */
-export const EMOTES = ['wave', 'dance', 'laugh', 'call'];
+/* ---------- эмоции на 1–5 ---------- */
+export const EMOTES = ['wave', 'dance', 'laugh', 'call', 'clap'];
 export function startEmote(a, k) {
   if (!a.onGround || a.held || a.holding || a.heldBy || a.ride || a.stun > 0) return false;
-  a.emote = k; a.emoteT = 0; a.emoteDur = k === 'dance' ? 3.2 : 2.2;
+  a.emote = k; a.emoteT = 0; a.emoteDur = k === 'dance' ? 3.2 : k === 'clap' ? 2.5 : 2.2; a.clapN = -1;
   sfx('emote_' + k, { at: a.pos, v: a === W.player ? 1 : 0.7 });
   if (a.ch.skinId === 'frog') voice(a.ch, k === 'laugh' ? 'happy' : k === 'call' ? 'idle' : 'jump', a === W.player ? undefined : a.pos);
   return true;
@@ -102,6 +102,7 @@ export function updateEmote(a, dt, moving) {
   if (!a.emote) return;
   a.emoteT += dt;
   if (moving || a.emoteT > a.emoteDur || !a.onGround || a.stun > 0 || a.heldBy) a.emote = null;
+  else if (a.emote === 'clap') { const n = Math.floor(a.emoteT * 3.2 + 0.25); if (n !== a.clapN && a.emoteT > 0.1) { a.clapN = n; sfx('clap', { at: a.pos, v: a === W.player ? 0.8 : 0.5 }); } }
   else if (a.emote === 'dance' && a.ch.skinId === 'frog' && Math.random() < dt * 0.9) voice(a.ch, 'jump', a === W.player ? undefined : a.pos);
 }
 void V3;
