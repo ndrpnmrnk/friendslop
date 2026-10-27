@@ -95,7 +95,7 @@ function canon(mat, g) {
     map = b;
   }
   const key = [mat.type, mat.color && mat.color.getHex(), mat.emissive && mat.emissive.getHex(), mat.emissiveIntensity, map ? map.source.uuid : '-', mat.polygonOffset ? mat.polygonOffsetFactor : 0,
-    mat.side, mat.alphaTest, mat.transparent, mat.opacity, mat.blending, mat.depthWrite, mat.userData.ps1Stable, mat.userData.mc, mat.userData.gloss].join('|');
+    mat.side, mat.alphaTest, mat.transparent, mat.opacity, mat.blending, mat.depthWrite, mat.userData.ps1Stable].join('|');
   let c = CANON.get(key);
   if (!c) {
     if (map === mat.map) c = mat;

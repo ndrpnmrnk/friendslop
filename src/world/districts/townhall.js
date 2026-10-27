@@ -1,4 +1,4 @@
-import {G,col,tmat,glow} from '../../core/gfx.js';
+import {G,col,tmat,glow,lam} from '../../core/gfx.js';
 import {T} from '../../core/textures.js';
 import {W} from '../state.js';
 import {mayorModel} from '../../characters/mayor.js';
@@ -9,13 +9,20 @@ import {pitchedRoof,portico} from '../architecture.js';
 import {mayorLife} from '../../game/mayor-life.js';
 export default{id:'townhall',name:'Мэрия',ground:'pave',build(b){
  b.tower({x:3,z:2,w:26,d:17,floors:2,fh:4,wall:0xc4b397,winStep:3,windowPools:false,doorW:2.6,door:{side:'s',at:.50,sign:['МЭРИЯ','#384f55','#e0d5ad']},ladder:{side:'e',at:.45},floor:T.floorTile(),interior(f,k,r){
-  if(k===0){f.box(19,9,8,1.1,1.0,tmat(T.cabinet(0x78674f)));f.m(G.box,tmat(T.sign('ПРИЁМ ГРАЖДАН','#ddd4b8','#354343')),19,1.55,8.9,2.5,.40,.03);for(const x of [13,16,19,22])f.chair(x,14,Math.PI);f.sofa(26,15,Math.PI/2,0x586868);f.plantPot(11,16);f.waterCooler(27,8);f.cabinet(28,11,.7,1.7,2,0x766349,0,-Math.PI/2);
+  if(k===0){f.box(19,9,8,1.1,1.0,tmat(T.cabinet(0x78674f)));f.m(G.box,tmat(T.sign('ПРИЁМ ГРАЖДАН','#ddd4b8','#354343')),19,1.55,8.9,2.5,.40,.03);for(const z of[13.4,15.8])for(const x of[16,22])f.bench(x,z,Math.PI);f.sofa(26,15,Math.PI/2,0x586868);f.plantPot(11,16);f.waterCooler(27,8);f.cabinet(28,11,.7,1.7,2,0x766349,0,-Math.PI/2);
    archives(f,13.3,4.2);archives(f,16,4.2);displayCase(f,25.7,4.2,'trophies');detailAction(f,18.6,9,1.04,'stamp');noticeBoard(f,26.8,17.9);
    for(const x of[17.9,20.1])f.m(G.box,col(0x56655c),x,1.25,8.9,.035,.50,.035);
    f.m(G.box,tmat(T.sign('ТАЛОНЫ · ОКНО 1','#c7bca0','#405752')),22.6,1.00,9.57,1.5,.18,.025);for(let i=0;i<4;i++){f.m(G.box,col(0xc2b79d),15.9+i*.38,1.09,8.9,.3,.06,.42);f.m(G.box,col(0x8f775f),15.9+i*.38,1.13,8.9,.26,.02,.36);}f.sign(21,2.9,2.27,0,'ГОРОДСКОЙ АРХИВ','#52645f','#d6ceb0',4.4,.45);
   }
-  else{f.partition(11,11,28,11,3.5,.55,2.2);f.desk(21,15,Math.PI,true);f.shelf(14,17.8,3.6,Math.PI,'office');f.safe(27.5,14,-Math.PI/2);f.sofa(14,14,Math.PI/2,0x675e70);f.rug(21,14,6,4,'#45686a','#b4ab86');f.plantPot(27,17);f.whiteboard(21,1.8,11.16,0,3);
-   archives(f,13.3,4);archives(f,16,4);archives(f,18.7,4);displayCase(f,26.7,15.8,'trophies');f.ptable(23,6.9,1.8);for(const x of [21.5,24.5]){f.chair(x,6.9,x<23?Math.PI/2:-Math.PI/2);f.item('books',x,6.6,.9);}noticeBoard(f,25.8,10.72,Math.PI);f.sign(16.1,2.9,11.14,0,'КАБИНЕТ МЭРА','#4e6066','#d7cba5',3.5,.42);
+  else{
+   // v0.55: второй этаж — кабинет мэра (юг) и архив с переговорной (север). Перегородка не голая белая стена,
+   // а деревянная панель со стеклом сверху, как в старых учреждениях; лишние доски и шкафы убраны.
+   const wd=tmat(T.wood()),frame=col(0x3e3a34),gl=lam({color:0xbfe8ff,emissive:0x1a3040,transparent:true,opacity:.3,depthWrite:false},'thGlass55');
+   for(const[a,b2]of[[11,19.3],[21.5,28]]){const cx=(a+b2)/2,L=b2-a;f.box(cx,11,L,.14,1.0,wd);f.box(cx,11,L,.05,2.3,gl,{y:1.0});f.box(cx,11,L,.16,.12,wd,{y:3.3});f.box(cx,11,L,.16,.06,frame,{y:1.0});
+    for(let x=a+.03;x<=b2;x+=Math.max(1,L/Math.round(L/1.5)))f.m(G.box,frame,Math.min(x,b2-.03),2.15,11,.07,2.3,.1);}
+   f.box(20.4,11,2.2,.16,.2,wd,{y:3.22});f.sign(20.4,2.75,11.1,0,'КАБИНЕТ МЭРА','#4e6066','#d7cba5',2,.32);
+   f.desk(21,15.4,Math.PI,true);f.shelf(14,17.8,3.6,Math.PI,'office');f.safe(27.5,17.2,-Math.PI/2);f.sofa(13.2,14.2,Math.PI/2,0x675e70);f.rug(21,14.6,5,3.4,'#45686a','#b4ab86');f.plantPot(27.4,12.2);f.plantPot(11.8,12.2);
+   archives(f,13.3,4);archives(f,16,4);archives(f,18.7,4);f.ptable(24,6.9,1.8);for(const x of [22.5,25.5])f.chair(x,6.9,x<24?Math.PI/2:-Math.PI/2);f.item('books',24,6.9,.85);displayCase(f,27.6,4.2,'trophies');
   }
  }});
  portico(b,16,22,10.0,2.7,4.6);pitchedRoof(b,8,13,10,9.8,8,1.7);pitchedRoof(b,24,10.5,10,16.4,8,1.7);
