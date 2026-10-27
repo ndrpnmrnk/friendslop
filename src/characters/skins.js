@@ -40,7 +40,7 @@ export const SKINS = {
   tv: {
     name: 'Телевизор',
     build({ head, handL, handR, footL, footR }) {
-      const bodyT = tmat(T.tvBody()), bez = tmat(T.tvBezel()), dk = col(0x22243a);
+      const bodyT = tmat(T.tvBody()), bez = tmat(T.tvBezel()), dk = col(0x22243a); bodyT.userData.mc = 'lacquer'; bez.userData.mc = 'chrome';
       mesh(G.box, [bodyT, bodyT, bodyT, dk, bez, bodyT], 0, 0.8, 0.05, 1.12, 0.92, 0.72, head);
       mesh(G.box, bodyT, 0, 0.82, -0.45, 0.82, 0.68, 0.36, head);
       const scr = mesh(G.plane, basic(0xffffff), 0, 0.85, 0.415, 0.86, 0.6, 1, head);

@@ -6,7 +6,7 @@ import {bowModel} from './bow.js';
 import {bongModel} from './bong.js';
 import { pantsModel } from '../characters/mammoth.js';
 import {fatCanModel} from '../missions/fat-models.js';
-import { THREE, G, V3, mesh, col, tmat, lam, compose, glow , jellify } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, lam, compose, glow , jellify, ROUND } from '../core/gfx.js';
 import { addOutline, OUTLINE } from './outline.js';
 import { chairModel, coneModel, trashModel, litterModel } from '../world/props.js';
 import { PFACE } from '../world/builder.js';
@@ -28,6 +28,7 @@ const GRAV = 22;
 function integrateProjectile(p,v,dt,drag=0){const k=Math.max(0,drag);if(k<1e-5){p.addScaledVector(v,dt);p.y-=GRAV*dt*dt/2;v.y-=GRAV*dt;}else{const e=Math.exp(-k*dt),f=(1-e)/k;p.x+=v.x*f;p.z+=v.z*f;p.y+=(v.y+GRAV/k)*f-GRAV*dt/k;v.multiplyScalar(e);v.y-=GRAV/k*(1-e);}}
 function boundaryHit(old,p,r){const B=W.bounds-r;let t=1,n=null;for(const a of['x','z'])if(Math.abs(p[a])>B){const edge=Math.sign(p[a])*B,u=(edge-old[a])/(p[a]-old[a]);if(u<t){t=Math.max(0,u);n=a==='x'?[-Math.sign(p.x),0,0]:[0,0,-Math.sign(p.z)];}}if(n)p.lerpVectors(old,p,t);return n;}
 
+function buildRound(type) { ROUND.on = true; try { return build(type); } finally { ROUND.on = false; } }
 function build(type) {
   if(type==='fatcan')return fatCanModel();
   if(SNACKS[type])return snackModel(type);
@@ -140,7 +141,7 @@ function toolModel(type, g) {
   });
 }
 export function addItem(type, x, y, z, ry = 0) {
-  const def = CONFIG.items[type], g = jellify(build(type), 0.7, true); W.group.add(g); // v0.52: предметы — «желе», выделяются из фона
+  const def = CONFIG.items[type], g = jellify(buildRound(type), 0.7, true); W.group.add(g); // v0.52: предметы — «желе», выделяются из фона
   const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z, ry }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g, 0.045, OUTLINE[rarityOf(type)]), rarity: rarityOf(type), ammo: def.ammo || 0, cd: 0 };
   g.rotation.y = ry;
   it.pos.set(x, y + (def.halfHeight??def.r), z);

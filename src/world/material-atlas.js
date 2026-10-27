@@ -20,9 +20,10 @@ export function materialAtlas(materials,resources,animated=new Set()){
  for(const m of materials)if(eligible(m)&&!animated.has(m.map?.source.uuid))reserve(m.map);
  for(const p of pages){const t=trackTexture(new THREE.CanvasTexture(p.canvas));t.magFilter=THREE.NearestFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;p.texture=t;resources.add(t);}
  function apply(m,g){if(!eligible(m)||animated.has(m.map?.source.uuid))return m;const slot=slots.get(m.map?.source.uuid||'white');if(!slot)return m;
-  const key=[slot.page.index,m.type,m.side,m.depthTest,m.depthWrite,m.opacity,m.polygonOffset,m.polygonOffsetFactor,m.polygonOffsetUnits,m.userData.ps1Stable].join('|');
+  const mc=m.userData.mc??m.map?.userData?.mc,gloss=m.userData.gloss??m.map?.userData?.gloss;
+  const key=[slot.page.index,m.type,m.side,m.depthTest,m.depthWrite,m.opacity,m.polygonOffset,m.polygonOffsetFactor,m.polygonOffsetUnits,m.userData.ps1Stable,mc,gloss].join('|');
   let mat=shared.get(key);if(!mat){const opts={map:slot.page.texture,color:0xffffff,vertexColors:true,side:m.side,depthTest:m.depthTest,depthWrite:m.depthWrite,opacity:m.opacity,polygonOffset:m.polygonOffset,polygonOffsetFactor:m.polygonOffsetFactor,polygonOffsetUnits:m.polygonOffsetUnits};
-   mat=ps1(m.isMeshBasicMaterial?new THREE.MeshBasicMaterial(opts):new THREE.MeshLambertMaterial(opts),!!m.userData.ps1Stable);const before=mat.onBeforeCompile,program=mat.customProgramCacheKey();
+   mat=ps1(m.isMeshBasicMaterial?new THREE.MeshBasicMaterial(opts):new THREE.MeshLambertMaterial(opts),!!m.userData.ps1Stable);if(mc){mat.userData.mc=mc;if(gloss!=null)mat.userData.gloss=gloss;}const before=mat.onBeforeCompile,program=mat.customProgramCacheKey();
    mat.onBeforeCompile=shader=>{before.call(mat,shader);shader.vertexShader='attribute vec4 aAtlas; varying vec4 vAtlas;\n'+shader.vertexShader.replace('#include <uv_vertex>','#include <uv_vertex>\nvAtlas=aAtlas;');
     shader.fragmentShader='varying vec4 vAtlas;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#ifdef USE_MAP
       vec2 atlasUv=vAtlas.xy+fract(vMapUv)*vAtlas.zw;

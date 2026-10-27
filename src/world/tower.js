@@ -1,4 +1,5 @@
-import { THREE, G, col, tmat, glow, own, lam, flat } from '../core/gfx.js';
+import { THREE, G, col, tmat, glow, own, lam, flat, chrome } from '../core/gfx.js';
+import { DSTYLE } from './builder.js';
 import { T, facade, rep } from '../core/textures.js';
 import { HW } from '../config.js';
 import { W } from './state.js';
@@ -20,6 +21,8 @@ export const TowerMethods = {
   tower(o) {
     const { x, z, w, d } = o, n = o.floors, fh = Math.max(3.8, o.fh ?? 3.8), H = n * fh, t = 0.25, base = o.wall ?? 0x7c6a9c;
     const lit = o.lit ?? 0.5, brick = o.brick !== false, hasStairs = o.stairs !== false && n > 1;
+    // v0.53: стиль стен по району; стеклянную стену у дома с настоящими проёмами заменяем панелями
+    const twStyle = o.style || (DSTYLE[this.d?.id] ? DSTYLE[this.d.id].map(x => x === 'glass' ? 'panel' : x)[(Math.random() * DSTYLE[this.d.id].length) | 0] : (brick ? 'brick' : 'panel'));
     // лестница «с разворотом»: широкий марш до площадки на полэтажа, разворот, второй марш до этажа
     const run = o.run ?? 0.42, lane = o.lane ?? 2.25, EL = o.entry ?? 1.8, ML = o.mid ?? lane;
     const hsteps = Math.max(2, Math.round(fh / 2 / 0.28)), rise = fh / 2 / hsteps, Lh = hsteps * run;
@@ -37,7 +40,7 @@ export const TowerMethods = {
     const SILL = o.sill ?? 0.55, WH = Math.min(1.95, fh - SILL - 0.42), WW = 1.3, STEP = o.winStep ?? 2.3;
     const sides = { s: { len: w, at: z + d - t / 2, axis: 'x', out: 4, inn: 5 }, n: { len: w, at: z + t / 2, axis: 'x', out: 5, inn: 4 },
       e: { len: d - 2 * t, at: x + w - t / 2, axis: 'z', out: 0, inn: 1 }, w: { len: d - 2 * t, at: x + t / 2, axis: 'z', out: 1, inn: 0 } };
-    const frame = col(0x2a2232), sill = col(0xc8c0b4), curtain = lam({ color: 0xffb070, emissive: 0xff9a4a, emissiveIntensity: 0.55 }, 'curtain');
+    const frame = chrome(0xc8d0ff), sill = chrome(0xe0e4ff), curtain = lam({ color: 0xffb070, emissive: 0xff9a4a, emissiveIntensity: 0.55 }, 'curtain');
     let doorOut=null,intercom=null,entryDoor=null;
     for (const [k, sd] of Object.entries(sides)) {
       const dr = doors.find(q => q.side === k);
@@ -58,7 +61,7 @@ export const TowerMethods = {
       }
       if (dr) holes.push({ u0: g0, u1: g1, y0: 0, y1: dh, door: true });
       // стена из прямоугольников вокруг проёмов
-      const fac = facade(base, sd.len, H, { lit, brick, windows: false });
+      const fac = facade(base, sd.len, H, { lit, brick, windows: false, style: twStyle });
       const us = [...new Set([0, sd.len, ...holes.flatMap(h => [h.u0, h.u1])])].sort((a, b2) => a - b2);
       const ys = [...new Set([0, H, ...holes.flatMap(h => [h.y0, h.y1])])].sort((a, b2) => a - b2);
       const solidCell = (ua, ub, ya, yb) => !holes.some(h => ua >= h.u0 - 1e-6 && ub <= h.u1 + 1e-6 && ya >= h.y0 - 1e-6 && yb <= h.y1 + 1e-6);

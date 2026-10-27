@@ -3,7 +3,9 @@ import { CONFIG } from '../config.js';
 import {graphics,onGraphics} from './quality.js';
 import {batchBegin,batchEnd} from './batch.js';
 import {WL,disableWL} from './wl-uniforms.js';
+import {STYLE_HEAD,STYLE_BODY,MC_BODY,MC_ID,styleUniforms,POST} from './style.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 
 THREE.ColorManagement.enabled = false;
 export { THREE };
@@ -27,7 +29,8 @@ export const SNAP = { value: new THREE.Vector2(256, 144) };
 // Дрожание вершин в стиле PS1: проекция вершины округляется до сетки экрана
 export function ps1(m, stable = false) {
   m.userData.ps1Stable = stable;
-  m.customProgramCacheKey = () => (stable ? 'ps1-stable-v51' : 'ps1-distance-v51') + (m.userData.jelly ? '-jelly' : '');
+  const mcOf = () => { const c = m.userData.mc ?? m.map?.userData?.mc; return c ? [MC_ID[c] || 0, m.userData.gloss ?? m.map?.userData?.gloss ?? 0.6] : null; };
+  m.customProgramCacheKey = () => { const c = mcOf(); return (stable ? 'ps1-stable-v53b' : 'ps1-distance-v53b') + (m.userData.jelly ? '-jelly' : '') + (c ? '-mc' + c[0] + '_' + c[1] : ''); };
   m.onBeforeCompile = sh => {
     sh.uniforms.uSnap = SNAP;
     const lit = sh.fragmentShader.includes('#include <lights_fragment_end>');
@@ -46,7 +49,9 @@ export function ps1(m, stable = false) {
     if (lit) {
       Object.assign(sh.uniforms, { uWLOn: WL.on, uWLMax: WL.max, uWLGrid: WL.grid, uWLLights: WL.lights, uWLMask: WL.mask, uWLOrigin: WL.origin, uWLGridSize: WL.gridSize, uWLCell: WL.cell,
         uWLMaskInv: WL.maskInv, uWLBase: WL.base, uWLIndoor: WL.indoor, uWLAo: WL.aoK, uWLK: WL.lightK, uDynP: WL.dynP, uDynC: WL.dynC });
-      sh.fragmentShader = WL_HEAD + sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + WL_BODY);
+      Object.assign(sh.uniforms, styleUniforms());
+      const c = mcOf(), def = c ? `#define MC ${c[0]}\n#define MCG ${c[1].toFixed(3)}\n#define MCX ${c[0] === 3 ? '220.0' : c[0] === 1 ? '48.0' : '72.0'}\n` : '';
+      sh.fragmentShader = def + WL_HEAD + STYLE_HEAD + sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + WL_BODY).replace('#include <opaque_fragment>', MC_BODY + STYLE_BODY + '#include <opaque_fragment>');
       if (m.userData.jelly) { sh.uniforms.uJelly = { value: m.userData.jelly }; sh.uniforms.uTime = WL.time;
         sh.fragmentShader = 'uniform float uJelly; uniform float uTime;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', JELLY + '#include <opaque_fragment>'); }
     }
@@ -69,8 +74,12 @@ const WL_HEAD = `varying vec3 vWLPos; uniform float uWLOn, uWLMax, uWLCell, uWLB
 uniform highp sampler2D uWLGrid; uniform highp sampler2D uWLLights; uniform sampler2D uWLMask; uniform vec4 uDynP[4]; uniform vec3 uDynC[4];
 `;
 const WL_BODY = `
+  vec3 wlSpec = vec3(0.0);
   {
     vec3 wN = inverseTransformDirection(normal, viewMatrix), wP = vWLPos, acc = vec3(0.0);
+    #ifdef MC
+    vec3 wV = normalize(cameraPosition - wP);
+    #endif
     float aoF = 1.0, sky = 1.0; vec3 skyT = vec3(1.0);
     if (uWLOn > 0.5) {
       vec4 mk = texture2D(uWLMask, (wP.xz + wN.xz * 0.22 - uWLOrigin) * uWLMaskInv);
@@ -91,14 +100,22 @@ const WL_BODY = `
           vec4 lp = texelFetch(uWLLights, ivec2(ii, 0), 0), lb = texelFetch(uWLLights, ivec2(ii, 2), 0);
           if (wP.y < lb.x || wP.y > lb.y) continue;
           vec3 L = lp.xyz - wP; float d = length(L), a = clamp(1.0 - d / lp.w, 0.0, 1.0); a *= a;
+          #ifdef MC
+          { vec3 Hh = normalize(L / max(d, 1e-3) + wV); float aw = clamp(1.0 - d / (lp.w * 1.8), 0.0, 1.0); wlSpec += texelFetch(uWLLights, ivec2(ii, 1), 0).rgb * aw * pow(max(dot(wN, Hh), 0.0), MCX) * 1.6; }
+          #endif
           if (a <= 0.0) continue;
           float nl = clamp(dot(wN, L / max(d, 1e-3)) * 0.85 + 0.15, 0.0, 1.0);
-          acc += texelFetch(uWLLights, ivec2(ii, 1), 0).rgb * a * nl;
+          vec3 lcol = texelFetch(uWLLights, ivec2(ii, 1), 0).rgb;
+          acc += lcol * a * nl;
         }
       }
     }
     for (int k = 0; k < 4; k++) { vec4 p = uDynP[k]; vec3 L = p.xyz - wP; float d = length(L), a = clamp(1.0 - d / p.w, 0.0, 1.0); a *= a;
-      acc += uDynC[k] * a * clamp(dot(wN, L / max(d, 1e-3)) * 0.7 + 0.3, 0.0, 1.0); }
+      acc += uDynC[k] * a * clamp(dot(wN, L / max(d, 1e-3)) * 0.7 + 0.3, 0.0, 1.0);
+      #ifdef MC
+      wlSpec += uDynC[k] * a * pow(max(dot(wN, normalize(L / max(d, 1e-3) + wV)), 0.0), 32.0);
+      #endif
+    }
     acc /= 1.0 + max(acc.r, max(acc.g, acc.b)) * 0.12; // мягкий потолок: у самой лампы не выжигает
     reflectedLight.indirectDiffuse *= aoF * sky * skyT;
     reflectedLight.directDiffuse *= mix(1.0, aoF, 0.6);
@@ -108,23 +125,23 @@ const WL_BODY = `
 
 // Постобработка: дизеринг Bayer 4x4 и урезанная палитра
 const post = new THREE.ShaderMaterial({
-  uniforms: { t: { value: rt.texture },silhouette:{value:silhouetteRT.texture},outlineOn:{value:0}, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 },glowSteps:{value:4},punch:{value:0},velocity:{value:0},time:{value:0},style:{value:1} },
+  uniforms: { t: { value: rt.texture },silhouette:{value:silhouetteRT.texture},outlineOn:{value:0}, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 },glowSteps:{value:4},punch:{value:0},velocity:{value:0},time:{value:0},style:{value:1},grainK:POST.grain,caK:POST.ca,haloA:POST.haloA,haloB:POST.haloB,gTop:POST.top,gBot:POST.bot,vigK:POST.vig },
   vertexShader: 'varying vec2 v; void main(){ v = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-  fragmentShader: `uniform sampler2D t;uniform sampler2D silhouette;uniform float outlineOn; uniform vec2 px; uniform float glowK;uniform float glowSteps;uniform float punch;uniform float velocity;uniform float time;uniform float style; varying vec2 v;
+  fragmentShader: `uniform sampler2D t;uniform sampler2D silhouette;uniform float outlineOn; uniform vec2 px; uniform float glowK;uniform float glowSteps;uniform float punch;uniform float velocity;uniform float time;uniform float style;uniform float grainK,caK,vigK;uniform vec3 haloA,haloB,gTop,gBot; varying vec2 v;
     float b2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
     float b4(vec2 a){ return b2(0.5 * a) * 0.25 + b2(a); }
     vec3 bright(vec2 o){ vec3 s = texture2D(t, v + o).rgb; return max(s - 0.74, 0.0); }
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
       // v0.52 «PS1 + желе»: RGB-сдвиг растёт к краям кадра и на ударах (как на постерах)
-      vec2 q0 = v - 0.5; float ca = (0.0016 + punch * 0.006 + velocity * 0.002) * style * smoothstep(0.15, 0.75, length(q0));
+      vec2 q0 = v - 0.5; float ca = (caK + punch * 0.006 + velocity * 0.002) * style * smoothstep(0.1, 0.75, length(q0));
       vec3 c = vec3(texture2D(t, v + q0 * ca * 1.6).r, texture2D(t, v).g, texture2D(t, v - q0 * ca * 1.6).b);
       // свечение ярких мест (фонари, окна, огоньки)
       vec3 g = vec3(0.0);
       for (int i = 0; i < 8; i++) { if(float(i)>=glowSteps)break;float a = float(i) * 6.2831853/glowSteps; vec2 d = vec2(cos(a), sin(a));
         g += bright(d * px * 3.0) * 0.6 + bright(d * px * 7.0) * 0.4; }
       // ореол: свечение тёплое в центре и розово-пурпурное по краю (халация плёнки)
-      vec3 halo = mix(vec3(1.0, 0.78, 0.55), vec3(1.0, 0.42, 0.62), clamp(length(g) * 0.6, 0.0, 1.0));
+      vec3 halo = mix(haloA, haloB, clamp(length(g) * 0.6, 0.0, 1.0));
       c += g * (0.24*8.0/glowSteps) * glowK * mix(vec3(1.0, 0.85, 0.7), halo, style);
       // сумеречная цветокоррекция: тени в сливовый, свет в тёплый
       float l = dot(c, vec3(0.299, 0.587, 0.114));
@@ -133,15 +150,15 @@ const post = new THREE.ShaderMaterial({
       vec3 sc = clamp(c, 0.0, 1.0); c = mix(c, sc * sc * (3.0 - 2.0 * sc), 0.32);
       float l2 = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l2), c, 1.0 + 0.18 * smoothstep(0.25, 0.7, l2));
       // градиентная тонировка кадра: сверху холодный пурпур, снизу тёплый янтарь (мягко, как радиальный градиент постера)
-      c *= mix(vec3(1.0), mix(vec3(1.05, 0.96, 0.9), vec3(0.94, 0.92, 1.08), smoothstep(0.1, 0.95, v.y)), style);
+      c *= mix(vec3(1.0), mix(gBot, gTop, smoothstep(0.05, 0.95, v.y)) * 1.08, style * 0.6);
       // виньетка
-      vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * 0.62;
+      vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * vigK;
       // Мягкий подъём тёмных деталей, без плоской общей засветки.
       c += vec3(.015,.012,.014)*(1.0-smoothstep(.0,.22,l));
       float edge=smoothstep(.25,.68,length(q));c+=edge*punch*vec3(.09,.035,.012);
       c+=edge*velocity*.018*vec3(.42,.57,.75);
       // плёночное зерно: сильнее в полутонах, слабее в чёрном и белом
-      { float gn = hash(floor(v / px) + fract(time * 7.13) * 91.7) - 0.5; float lm = dot(c, vec3(0.3, 0.59, 0.11)); c += gn * 0.055 * style * (0.35 + lm * (1.0 - lm) * 2.4); }
+      { float gn = hash(floor(v / px) + fract(time * 7.13) * 91.7) - 0.5; float lm = dot(c, vec3(0.3, 0.59, 0.11)); c += gn * grainK * style * (0.35 + lm * (1.0 - lm) * 2.4); }
       // палитра как у PS1: 5 бит на канал (32 уровня) с дизерингом Bayer 4×4
       c += (b4(floor(v / px)) - 0.46875) / 32.0; c = floor(c * 31.0 + 0.5) / 31.0;
       if(outlineOn>0.5){float center=texture2D(silhouette,v).r;float edge=0.0;for(int i=0;i<8;i++){float a=float(i)*0.785398;edge=max(edge,texture2D(silhouette,v+vec2(cos(a),sin(a))*px*1.4).r);}c=mix(c,vec3(.96,.77,.26),step(.5,edge)*(1.0-step(.5,center)));}
@@ -198,7 +215,17 @@ export function lam(opts, key, stable = false) {
   if (key) MC.set(key, m);
   return m;
 }
-export const col = c => lam({ color: c }, 'c' + c);
+// v0.53: плоский цвет сам выбирает класс материала: тёмное «железо» и яркая краска — лак, светлые серые — хром
+const DARKS = new Set([0x2b2533, 0x17111f, 0x3a3440, 0x17141c, 0x2a2232, 0x23202a, 0x292331, 0x241a30, 0x3a3046, 0x272332]);
+const _hsl = {};
+export function mcOfColor(c) {
+  if (DARKS.has(c)) return 'lacquer';
+  new THREE.Color(c).getHSL(_hsl);
+  if (_hsl.s < 0.12 && _hsl.l > 0.3 && _hsl.l < 0.92) return 'chrome';
+  if (_hsl.s > 0.45 && _hsl.l > 0.2) return 'lacquer';
+  return null;
+}
+export const col = c => { const k = 'c' + c; if (MC.has(k)) return MC.get(k); const m = lam({ color: c }, k), mc = mcOfColor(c); if (mc) m.userData.mc = mc; return m; };
 export const tmat = (t,extra)=>{const m=lam({map:t,...(extra||{})},extra||t.userData.transient?null:'t'+t.uuid);if(t.userData.transient)t.mapResources?.add(m);return m;};
 // «стабильный» материал для больших стен и полов: без дрожания вершин (иначе длинные стены «плывут» рябью)
 export const smat=t=>{const m=lam({map:t},t.userData.transient?null:'s'+t.uuid,true);if(t.userData.transient)t.mapResources?.add(m);return m;};
@@ -230,6 +257,11 @@ export function jellyMat(m, k = 0.8, grad = false) {
   return j;
 }
 export function jellify(root, k = 0.8, grad = false) { root.traverse(o => { if (o.isMesh && !o.userData.noJelly && o.geometry.attributes.uv) o.material = Array.isArray(o.material) ? o.material.map(x => jellyMat(x, k, grad)) : jellyMat(o.material, k, grad); }); return root; }
+// v0.53 «Хром и стекло»: готовые материалы классов
+const mcMat = (m, mc) => { m.userData.mc = mc; return m; };
+export const chrome = (c = 0xdfe4ff) => mcMat(lam({ color: c }, 'chrome53' + c), 'chrome');
+export const glassMC = (c = 0x8ab0f0, op = 0.45) => mcMat(lam({ color: c, transparent: true, opacity: op, depthWrite: false }, 'glass53' + c + '_' + op), 'glass');
+export const lacq = c => mcMat(lam({ color: c }, 'lacq53' + c), 'lacquer');
 // Уникальный материал (для объектов, которые затухают, когда закрывают игрока)
 export const own = (opts) => ps1(new THREE.MeshLambertMaterial(opts));
 
@@ -247,9 +279,23 @@ export const G = {
   halfTorus: new THREE.TorusGeometry(1, 0.12, 4, 10, Math.PI),
 };
 
+/* v0.53: «игрушечная» коробка со скошенными рёбрами (44 треугольника, плоские грани) — у предметов вместо
+   острых кубов; глянец и перелив «желе» ложатся на фаски. UV как у BoxGeometry, чтобы надписи не отражались. */
+function chamferBox(b) {
+  const pts = [], h = .5, i = .5 - b;
+  for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) pts.push(new THREE.Vector3(x * i, y * i, z * h), new THREE.Vector3(x * i, y * h, z * i), new THREE.Vector3(x * h, y * i, z * i));
+  const g = new ConvexGeometry(pts), p = g.attributes.position, n = g.attributes.normal, uv = new Float32Array(p.count * 2);
+  for (let k = 0; k < p.count; k++) { const nx = n.getX(k), ny = n.getY(k), nz = n.getZ(k), ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz), x = p.getX(k), y = p.getY(k), z = p.getZ(k); let u, v;
+    if (ax >= ay && ax >= az) { u = nx > 0 ? .5 - z : z + .5; v = y + .5; } else if (ay >= az) { u = x + .5; v = ny > 0 ? .5 - z : z + .5; } else { u = nz > 0 ? x + .5 : .5 - x; v = y + .5; }
+    uv[k * 2] = u; uv[k * 2 + 1] = v; }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return g;
+}
+export const CHAMFER = chamferBox(.12);
+export const ROUND = { on: false };
 let parent = null;
 export const setParent = p => { parent = p; };
 export function mesh(geo, m, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, p = parent) {
+  if (ROUND.on && geo === G.box && !Array.isArray(m)) geo = CHAMFER;
   const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz);
   if (p) p.add(o);
   return o;
@@ -281,6 +327,7 @@ export function compose(key, fn) {
   if (!parts) {
     const by = new Map();
     fn((geo, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) => {
+      if (ROUND.on && geo === G.box) geo = CHAMFER;
       let g = geo.index ? geo.toNonIndexed() : geo.clone();
       for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k);
       g.clearGroups();
