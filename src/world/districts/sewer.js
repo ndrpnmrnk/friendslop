@@ -12,7 +12,7 @@ import { burst } from '../particles.js';
 const FLOOR = -4, LEDGE = -3;
 export default {
   id: 'sewer', name: 'Коллектор', ground: 'concrete',
-  holes: [[12, 0, 20, 32], [27.4, 23.4, 28.6, 24.6]],
+  holes: [[12, 0, 20, 32], [27, 23, 29, 25]],
   build(b) {
     const surfaceY=b.Y;b=b.at(-b.Y);
     const conc = smat(T.concrete()), brick = smat(T.brickWall()), dk = col(0x2b2533);
@@ -64,14 +64,14 @@ export default {
     S(r0[0] - 0.4, r0[1] - 0.4, r0[2] + 0.4, r0[1], LEDGE, RIM, brick); S(r0[0] - 0.4, r0[3], r0[2] + 0.4, r0[3] + 0.4, LEDGE, RIM, brick);
     S(r0[2], r0[1], r0[2] + 0.4, r0[3], LEDGE, RIM, brick);
     S(r0[0] - 0.4, r0[1], r0[0], pz - 0.6, LEDGE, RIM, brick); S(r0[0] - 0.4, pz + 0.6, r0[0], r0[3], LEDGE, RIM, brick); S(r0[0] - 0.4, pz - 0.6, r0[0], pz + 0.6, -1.8, RIM, brick);
-    for (const [x0, z0, x1, z1] of [[r0[0], r0[1], r0[2], 23.4], [r0[0], 24.6, r0[2], r0[3]], [r0[0], 23.4, 27.4, 24.6], [28.6, 23.4, r0[2], 24.6]]) S(x0, z0, x1, z1, -0.4, ROOF, conc);
-    b.ladder(28,24.6,'n',.15,LEDGE);routeLight(b,28,25.3,surfaceY,0,true);routeLight(b,27.1,25.985,LEDGE+.4,Math.PI,false,0xb6c9a1);
+    for (const [x0, z0, x1, z1] of [[r0[0], r0[1], r0[2], 23], [r0[0], 25, r0[2], r0[3]], [r0[0], 23, 27, 25], [29, 23, r0[2], 25]]) S(x0, z0, x1, z1, -0.4, ROOF, conc);
+    b.ladder(28,25,'n',.15,LEDGE);routeLight(b,28,25.7,surfaceY,0,true);routeLight(b,27.1,25.985,LEDGE+.4,Math.PI,false,0xb6c9a1);
     for (const x of [27, 29.6]) b.pump(x, 20.6, 0.5, 1.6, LEDGE);
     b.m(G.box, glow(0x9be36b), 30.6, LEDGE + 1.4, 25.4, 0.05, 0.3, 0.6); b.m(G.box, glow(0xffc070), 28.5, -0.55, 21.5, 0.3, 0.1, 0.3);
     W.missionZones.push({ type: 'nook', x0: b.X(26.4), z0: b.Z(21.6), x1: b.X(30.6), z1: b.Z(25.6), y: b.Y + LEDGE, district: 'Коллектор' });
     // люк насосной на поверхности
-    for (const [dx, dz, w, d] of [[0, -0.65, 1.4, 0.1], [0, 0.65, 1.4, 0.1], [-0.65, 0, 0.1, 1.4], [0.65, 0, 0.1, 1.4]]) b.m(G.box, dk, 28 + dx, 0.17, 24 + dz, w, 0.04, d);
-    b.m(G.cyl12, tmat(T.metal()), 29.4, 0.18, 24.4, 0.55, 0.05, 0.55);
+    for (const [dx, dz, w, d] of [[0, -1.06, 2.24, 0.12], [0, 1.06, 2.24, 0.12], [-1.06, 0, 0.12, 2.0], [1.06, 0, 0.12, 2.0]]) b.m(G.box, dk, 28 + dx, 0.17, 24 + dz, w, 0.05, d);
+    b.m(G.cyl12, tmat(T.metal()), 29.9, 0.18, 24.4, 0.6, 0.05, 0.6);
     // насосная станция наверху
     b.house({ x: 22, z: 2, w: 9, d: 8, h: 4.4, wall: 0x6a7a8a, lit: 0.6, door: { side: 'w', at: 0.5, sign: ['НАСОСНАЯ', '#3a6a9a', '#f1e8ff'] }, ladder: { side: 'e', at: 0.5 }, roof: true,
       interior(b, r) { for (const x of [24.5, 28]) b.pump(x, 6, 0.8, 2);

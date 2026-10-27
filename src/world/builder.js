@@ -2,7 +2,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import {surface,supportAt} from './surfaces.js';
 import {dressShelf} from './shelf-dressing.js';
 import {pix} from '../core/textures.js';
-import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat, paint, compose } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat, paint, compose, LEAF_CAM } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { rand, range, pick } from '../core/rng.js';
 import { HW, SEASON } from '../config.js';
@@ -146,7 +146,7 @@ export class Builder {
     if (HW && rand() < 0.12) { const a = rand() * 6.28, p = new THREE.Group(); p.position.set(this.X(x + Math.cos(a) * 1.0 * s), this.Y + y + 2.2 * s, this.Z(z + Math.sin(a) * 1.0 * s)); p.rotation.y = a; this.g.add(p);
       p.add(compose('ghostSheet', q => { const wm = lam({ color: 0xeee8ff, emissive: 0x6a6080, emissiveIntensity: 0.6 }, 'ghostSheet'); q(G.sph10, wm, 0, -0.35, 0, 0.26, 0.26, 0.26); q(G.cone8, wm, 0, -0.75, 0, 0.36, 0.6, 0.36); q(G.box, col(0x17111f), -0.09, -0.33, 0.24, 0.06, 0.09, 0.02); q(G.box, col(0x17111f), 0.09, -0.33, 0.24, 0.06, 0.09, 0.02); q(G.cyl5, col(0xd8d0c0), 0, -0.05, 0, 0.01, 0.15, 0.01); }));
       addSwinger(p, { len: 0.7, damp: 1.2, max: 0.8, r: 0.4, idle: 0.12 }); }
-    this.solid(x, z, 0.45, 0.45, y, 2);
+    this.solid(x, z, 0.45, 0.45, y, 2); (W.crowns ??= []).push({ x: this.X(x), y: this.Y + y + 3.0 * s, z: this.Z(z), r: 1.7 * s });
   }
   deadTree(x, z) {
     const b = tmat(T.bark());
@@ -413,9 +413,12 @@ export class Builder {
   ladder(x, z, side, top, y0 = 0) {
     const n = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }[side], mat = col(0x5a5d68);
     const ax = n[1] !== 0, h = top - y0 + 0.9;
-    const px = x + n[0] * 0.12, pz = z + n[1] * 0.12;
-    for (const o of [-0.32, 0.32]) this.m(G.box, mat, px + (ax ? o : 0), y0 + h / 2, pz + (ax ? 0 : o), 0.07, h, 0.07);
-    for (let y = y0 + 0.3; y < top + 0.8; y += 0.38) this.m(G.box, mat, px, y, pz, ax ? 0.64 : 0.05, 0.05, ax ? 0.05 : 0.64);
+    const px = x + n[0] * 0.12, pz = z + n[1] * 0.12, hand = col(0xf5c542);
+    // v0.56: сверху лестницы — жёлтые поручни-скобы и жёлтая полоса на краю: издалека видно, где и с какой стороны залезать
+    for (const o of [-0.32, 0.32]) { this.m(G.box, mat, px + (ax ? o : 0), y0 + (top - y0) / 2, pz + (ax ? 0 : o), 0.07, top - y0, 0.07); this.m(G.box, hand, px + (ax ? o : 0), top + 0.45, pz + (ax ? 0 : o), 0.08, 0.9, 0.08); }
+    this.m(G.box, hand, px, top + 0.9, pz, ax ? 0.72 : 0.08, 0.08, ax ? 0.08 : 0.72);
+    this.m(G.box, hand, x - n[0] * 0.08, top + 0.012, z - n[1] * 0.08, ax ? 0.8 : 0.14, 0.02, ax ? 0.14 : 0.8);
+    for (let y = y0 + 0.3; y < top + 0.1; y += 0.38) this.m(G.box, mat, px, y, pz, ax ? 0.64 : 0.05, 0.05, ax ? 0.05 : 0.64);
     const wx = this.X(x), wz = this.Z(z);
     W.ladders.push({ x0: wx + Math.min(0, n[0] * 0.9) - (ax ? 0.4 : 0), x1: wx + Math.max(0, n[0] * 0.9) + (ax ? 0.4 : 0),
       z0: wz + Math.min(0, n[1] * 0.9) - (ax ? 0 : 0.4), z1: wz + Math.max(0, n[1] * 0.9) + (ax ? 0 : 0.4),
@@ -469,8 +472,20 @@ const LEAF_CARDS = (() => { const parts = [];
   const top = new THREE.PlaneGeometry(2, 2); top.rotateX(-Math.PI / 2); top.translate(0, 0.25, 0); parts.push(top);
   return mergeGeometries(parts, false); })();
 const _lc = new Map(), _core = new Map();
-const leafCardMat = k => _lc.get(k) || (_lc.set(k, lam({ map: T.leafCard(k), alphaTest: 0.5, side: THREE.DoubleSide }, 'leafCard' + k)), _lc.get(k));
-const coreMat = kind => _core.get(kind) || (_core.set(kind, lam({ map: T.leafCard(kind === 'maple' ? 0 : 1), color: 0x8a6a5a }, 'leafCore' + kind)), _core.get(kind));
+/* v0.56: листва у камеры не пропадает целиком, а рассыпается пиксельным дизерингом (Bayer 4×4): чем ближе к камере,
+   тем «прозрачнее» — видно, что ты в кроне, и видно своего персонажа. */
+function leafDither(m) {
+  const before = m.onBeforeCompile, key = m.customProgramCacheKey();
+  m.onBeforeCompile = (sh, r) => { before.call(m, sh, r); sh.uniforms.uLeafCam = LEAF_CAM;
+    sh.vertexShader = 'varying vec3 vLeafW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vLeafW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = 'varying vec3 vLeafW; uniform vec3 uLeafCam;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+      { float dd = distance(vLeafW, uLeafCam); float k = 1.0 - smoothstep(1.1, 3.4, dd);
+        if (k > 0.0) { vec2 qa = floor(gl_FragCoord.xy), qb = floor(qa * 0.5); float bay = fract(dot(qb, vec2(0.5, qb.y * 0.75))) * 0.25 + fract(dot(qa, vec2(0.5, qa.y * 0.75)));
+          if (bay < k * 0.92) discard; } }`); };
+  m.customProgramCacheKey = () => key + '-leafdither56'; m.needsUpdate = true; return m;
+}
+const leafCardMat = k => _lc.get(k) || (_lc.set(k, leafDither(lam({ map: T.leafCard(k), alphaTest: 0.5, side: THREE.DoubleSide }, 'leafCard' + k))), _lc.get(k));
+const coreMat = kind => _core.get(kind) || (_core.set(kind, leafDither(lam({ map: T.leafCard(kind === 'maple' ? 0 : 1), color: 0x8a6a5a, alphaTest: 0.01 }, 'leafCore' + kind))), _core.get(kind));
 const CAR_CABIN = G.box.clone();
 for (let i = 0; i < CAR_CABIN.attributes.position.count; i++) {
   const a = CAR_CABIN.attributes.position;

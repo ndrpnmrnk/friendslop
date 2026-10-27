@@ -1,6 +1,8 @@
 import { updateVfx, explosion, fireworks, sparks as vfxSparks, impactBurst } from './game/vfx.js';
 import { MODES, setMode } from './game/modes.js';
 import { randomMap } from './ui/hub-launch.js';
+import { districtIcon } from './ui/district-icons.js';
+import { SKINS } from './characters/skins.js';
 import {createLocalLighting} from './world/scene-lighting.js';
 import {actionEffect,updateActionEffects,actionStats} from './world/action-fx.js';
 import {graphics,setGraphics} from './core/quality.js';
@@ -18,7 +20,7 @@ import '@fontsource/press-start-2p/400.css';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
-import {predictBow} from './game/bow.js';
+import {predictBow,predictNet} from './game/bow.js';
 import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow,setActionVisuals,warmup, lam } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
@@ -32,7 +34,7 @@ import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
 import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
-import { resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow } from './game/tools.js';
+import { resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow,releaseNet } from './game/tools.js';
 import { knockDown } from './game/actors.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import { mouse as M_ } from './core/input.js';
@@ -138,9 +140,19 @@ function showMenu() {
 }
 function showHub(){S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
 // v0.53: матч стартует из хаба — доска выбрала режим, рулетка собрала карту, катапульта выстрелила
-function launchRound(mode,ids){const musicReady=roundMusic.preload();S.state='roulette';menu.active=false;screen(null);$('fade').classList.add('on');S.lastMode=mode;setMode(mode.id);
-  setTimeout(async()=>{await musicReady;await new Promise(r=>setTimeout(r,700));globalThis.__forceDistricts=ids||null;try{prepareRound();}finally{globalThis.__forceDistricts=null;}$('fade').classList.remove('on');startIntro();toast(mode.name);},420);}
-menu.onLaunch=choice=>{if(S.state!=='hub')return;launchRound(choice.mode||MODES[0],choice.ids);};
+/* v0.56: экран загрузки после залпа рогатки — тема и 9 районов карты, полоса загрузки и игроки со статусом.
+   Матч стартует, только когда готовы все (сейчас участник один; список рассчитан на группу). */
+function showLoading(mode,ids,theme,members){const L=$('loadScreen');L.classList.remove('hidden','done');void L.offsetWidth;L.classList.add('on');
+  $('lsTheme').textContent=theme?theme.name:'Случайный город';$('lsTheme').style.color=theme?.c||'#ffd27a';$('lsMode').textContent=mode.name;$('lsStage').textContent='Строим районы…';
+  const grid=$('lsMap');grid.innerHTML='';for(const id of ids||[]){const d=DISTRICTS.find(q=>q.id===id);if(!d)continue;const c=document.createElement('div');c.className='ls-cell'+(theme?.ids.includes(id)?' must':'');const im=districtIcon(id);const img=document.createElement('img');img.src=im.toDataURL();const b=document.createElement('b');b.textContent=d.name;c.append(img,b);grid.appendChild(c);}
+  const pl=$('lsPlayers');pl.innerHTML='';for(const id of members){const c=document.createElement('div');c.className='ls-player';c.innerHTML=`<i></i><span></span><em>загрузка</em>`;c.querySelector('span').textContent=SKINS[id]?.name||id;pl.appendChild(c);}}
+function loadingReady(){$('loadScreen').classList.add('done');$('lsStage').textContent='Все готовы!';for(const c of document.querySelectorAll('.ls-player')){c.classList.add('ready');c.querySelector('em').textContent='готов';}}
+function hideLoading(){const L=$('loadScreen');L.classList.remove('on');setTimeout(()=>L.classList.add('hidden'),450);}
+function launchRound(mode,ids,theme=null,members=null){const musicReady=roundMusic.preload();S.state='roulette';menu.active=false;screen(null);document.body.classList.remove('cine');S.lastMode=mode;setMode(mode.id);
+  ids=ids||randomMap(theme);showLoading(mode,ids,theme,members||[menu.skin()]);
+  setTimeout(async()=>{await musicReady;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));S.loadingHold=true;globalThis.__forceDistricts=ids;try{prepareRound();}finally{globalThis.__forceDistricts=null;}
+    loadingReady();sfx('pickup');await new Promise(r=>setTimeout(r,900));S.loadingHold=false;hideLoading();startIntro();toast(mode.name);},350);}
+menu.onLaunch=choice=>{if(S.state!=='hub')return;launchRound(choice.mode||MODES[0],choice.ids,choice.theme,choice.members);};
 menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen('menu');};
 $('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
@@ -604,7 +616,7 @@ on('up', btn => {
   if (S.mg) { if (btn === 0 && S.mg.game.up) S.mg.game.up(aim(camera)); return; }
   if(btn===0)S.wm?.game.up?.(aim(camera));
   // пылесос: отпустил ЛКМ — содержимое вылетает очередью
-  if(btn===0&&P.held?.type==='bow')releaseBow(P,P.held,aimPoint());
+  if(btn===0&&P.held?.type==='bow')releaseBow(P,P.held,aimPoint());if(btn===0&&P.held?.type==='net')releaseNet(P,P.held,aimPoint());
   if (btn === 0 && P.held && P.held.type === 'vacuum') { const n = vacuumFire(P, P.held, aimPoint()); if (n) P.throwT = 0.3; }
   if (btn === 2 && P.charging) {
     P.charging = false; $('dot').classList.remove('charge'); throwTip(true); if (tipN < 4) { tipN++; try { localStorage.setItem('friendslop.throwTip', tipN); } catch (_) {} }
@@ -725,7 +737,8 @@ function frame() {
   waterTex.offset.x += dt * 0.03; waterTex.offset.y += dt * 0.015; waterHi.offset.x -= dt * 0.05; waterHi.offset.y += dt * 0.035; foamTex.offset.x += dt * 0.04; foamTex.offset.y = Math.sin(t * 1.3) * 0.08;
   if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
   else if (S.state === 'starting' || S.state === 'hub' || S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {
-    menu.update(dt);const presentation=menu.claw.presentation;present(presentation?.scene||menu.scene,presentation?.camera||menu.camera,presentation?null:menu.active&&menu.hover&&!menu.choosing&&!menu.drag?menu.ch.root:null);
+    // v0.56: пока висит экран загрузки и город уже построен, хаб не рисуем (общие материалы уже настроены под город)
+    if (S.loadingHold) {} else { menu.update(dt);const presentation=menu.claw.presentation;present(presentation?.scene||menu.scene,presentation?.camera||menu.camera,presentation?null:menu.active&&menu.hover&&!menu.choosing&&!menu.drag?menu.ch.root:null); }
     if (S.state === 'settings') drawMicMeter();
     // логотип: буквы по очереди подпрыгивают раз в несколько секунд
     logoT -= dt; if (logoT <= 0 && S.state === 'menu') { logoT = 4; [...$('logo').children].forEach((sp, i) => setTimeout(() => { sp.classList.remove('hop'); void sp.offsetWidth; sp.classList.add('hop'); }, i * 70)); }
@@ -739,7 +752,7 @@ function frame() {
       if (S.tut) updateTutorial(dt);
       if (!S.settingsOpen&&tapped('KeyE')) interact();
       // инструмент, который действует пока зажата ЛКМ (огнетушитель, магнит)
-      if (M_.left && P.held && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT=P.held.type==='bow'?0:.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; if(P.held.type!=='bow')sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
+      if (M_.left && P.held && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT=['bow','net'].includes(P.held.type)?0:.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; if(!['bow','net'].includes(P.held.type))sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
       if (P.charging && !P.chargeManual) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
       if(S.mg&&(P.heldBy||P.stun>0||P.daze>0||P.pos.distanceTo(S.mg.start)>0.65))closeMission(null);
       updatePlayer(P, dt, t, !S.settingsOpen && !S.mg && !S.crane && !P.stationaryWork, cam.yaw);
@@ -788,7 +801,8 @@ function frame() {
       }
       $('dot').style.setProperty('--c', (P.charge * 100) + '%');
     }
-    if(S.state==='play'&&P.held?.type==='bow'&&(P.held.draw||0)>.05&&!S.mg){shown=predictBow(P,aimPoint(),arc,land);for(const q of arc){q.scale.setScalar(.085);q.material.depthTest=true;q.material.color.setHex(0xe8dfb9);}}else for(const q of arc){q.scale.setScalar(.13);q.material.depthTest=true;}
+    if(S.state==='play'&&P.held?.type==='net'&&(P.held.aimT||0)>0&&!S.mg&&M_.left){shown=predictNet(P,aimPoint(),arc,land);for(const q of arc){q.scale.setScalar(.11);q.material.depthTest=true;q.material.color.setHex(0x9be36b);}}
+    else if(S.state==='play'&&P.held?.type==='bow'&&(P.held.draw||0)>.05&&!S.mg){shown=predictBow(P,aimPoint(),arc,land);for(const q of arc){q.scale.setScalar(.085);q.material.depthTest=true;q.material.color.setHex(0xe8dfb9);}}else for(const q of arc){q.scale.setScalar(.13);q.material.depthTest=true;}
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
     const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt); updateGlow(); setGlow(S.mg ? 0.15 : 1); updateDust(t, P); { const dt2 = $('droneT'), on = !!(P && (P.drone || P.returning)); dt2.classList.toggle('hidden', !on); if (on) { const v = P.drone ? Math.max(0, Math.ceil(P.drone.left)) : 0, h = P.drone ? String(v) : 'СЕЙЧАС'; if (dt2.lastChild.textContent !== h) dt2.lastChild.textContent = h; } } { const h = $('droneHud'), on = !!(P && P.drone && !(P.drone.intro > 0)); h.classList.toggle('hidden', !on);
       if (on) { if (!h.dataset.ok) { h.dataset.ok = 1; for (const [id, n] of [['dhNet', 'net'], ['dhCandy', 'candy'], ['dhUp', 'updown']]) { $(id).firstChild.innerHTML = img(n, 28); $(id).insertAdjacentHTML('beforeend', '<b></b>'); } }
@@ -834,6 +848,11 @@ function frame() {
     sky.update(camera, t, dt, P, hemi, scene.fog);
     updateLife(dt, t, S.state === 'play' ? P : null, camera);
     updateWorldFx(dt, t, S.state === 'play' ? P : null);
+    // v0.56: листва — кто головой в кроне дерева, того боты не видят; камера в кроне — по краям экрана листья
+    if (S.state === 'play') { const cr = W.crowns || [], inC = (x, y, z) => cr.some(c => (x - c.x) ** 2 + (y - c.y) ** 2 * 1.6 + (z - c.z) ** 2 < c.r * c.r);
+      for (const a of [P, ...(W.bots || [])]) a.inLeaves = inC(a.pos.x, a.pos.y + 1.3, a.pos.z);
+      const cp = camera.position, want = inC(cp.x, cp.y, cp.z) || P.inLeaves ? 1 : 0; S.leafVeil = (S.leafVeil || 0) + (want - (S.leafVeil || 0)) * Math.min(1, dt * 6);
+      const lv = $('leafVeil'); if (lv) { lv.style.opacity = S.leafVeil.toFixed(3); lv.classList.toggle('hidden', S.leafVeil < .01); } }
     if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); updateGrabs(dt, t); updateTraps(dt, t); updateTown(dt, t, P, !!EV.big); updateFun(dt, t); updatePolice(dt, t); updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.state === 'play' || S.state === 'results' ? 1 - Math.max(0, S.time) / CONFIG.roundTime : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);

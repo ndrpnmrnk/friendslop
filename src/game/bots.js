@@ -69,7 +69,7 @@ function wanderGoal() {
 }
 // цель-противник для задиры: игрок чаще, иногда другой бот
 function pickVictim(b) {
-  const list = actors().filter(a => a !== b && !a.hidden && !(a.ghost > 0) && Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z) < 16 && Math.abs(a.pos.y - b.pos.y) < 3);
+  const list = actors().filter(a => a !== b && !a.hidden && !a.inLeaves && !(a.ghost > 0) && Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z) < 16 && Math.abs(a.pos.y - b.pos.y) < 3);
   if (!list.length) return null;
   list.sort((p, q) => (q === W.player ? 6 : 0) + (q.held ? 3 : 0) - ((p === W.player ? 6 : 0) + (p.held ? 3 : 0)) + (Math.random() - 0.5) * 4);
   return list[0];
@@ -354,11 +354,11 @@ function act(b, P, dt) {
   if (g && g.kind === 'eventThrow') { if (it && b.throwCD <= 0) { throwAt(b, g.who); b.throwCD = 1.2 + Math.random(); } return; }
   if (!g || g.kind !== 'fight') {
     // держит предмет без цели: изредка бросает в игрока, если тот рядом
-    if (it && P && b.throwCD <= 0 && Math.hypot(P.pos.x - b.pos.x, P.pos.z - b.pos.z) < 10 && !P.hidden && !(P.ghost > 0)) throwAt(b, P);
+    if (it && P && b.throwCD <= 0 && Math.hypot(P.pos.x - b.pos.x, P.pos.z - b.pos.z) < 10 && !P.hidden && !P.inLeaves && !(P.ghost > 0)) throwAt(b, P);
     return;
   }
   const v = g.who; g.t -= dt;
-  if (!v || v.hidden || v.heldBy || g.t <= 0) { b.goal = null; return; }
+  if (!v || v.hidden || v.inLeaves || v.heldBy || g.t <= 0) { b.goal = null; return; }
   const d = Math.hypot(v.pos.x - b.pos.x, v.pos.z - b.pos.z); b.aimAt = v.pos;
   if (it) {
     const melee = ['slipper', 'pillow', 'glove'].includes(it.type), shooter = ['bow','perfume','water', 'sling', 'bubbles', 'extinguisher', 'net'].includes(it.type);

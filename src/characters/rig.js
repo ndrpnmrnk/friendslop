@@ -196,6 +196,16 @@ function animate(c, dt, s) {
   } else if (s.act === 'stretch') {
     const a = Math.sin(Math.min(1, s.actK) * Math.PI);
     setHand(c.handL, -hx - 0.15 * a, hy + (d.top - hy + 0.35) * a, hz, f); setHand(c.handR, hx + 0.15 * a, hy + (d.top - hy + 0.35) * a, hz, f); c.body.scale.y *= 1 + 0.08 * a;
+  } else if (s.act === 'cheer') {
+    // v0.56: радуется — обе руки вверх, машет
+    const w = Math.sin(t * 14) * 0.12;
+    setHand(c.handL, -hx - 0.2, d.top + 0.25 + w, hz + 0.05, damp(14, dt)); setHand(c.handR, hx + 0.2, d.top + 0.25 - w, hz + 0.05, damp(14, dt));
+  } else if (s.act === 'five') {
+    // v0.56: «дай пять» — рука в сторону напарника (s.side: -1 левая, 1 правая), замах вверх и хлопок (actK 0..1)
+    const a = clamp(s.actK || 0, 0, 1), up = a < 0.6 ? a / 0.6 : 1, hit = a < 0.6 ? 0 : (a - 0.6) / 0.4, sd = s.side || 1;
+    const h = sd > 0 ? c.handR : c.handL, o = sd > 0 ? c.handL : c.handR;
+    setHand(h, sd * (hx + 0.12 + 0.18 * hit), hy + (d.top + 0.2 - hy) * up - 0.12 * hit, hz + 0.25, damp(22, dt));
+    setHand(o, -sd * hx, hy + fl, hz, f); c.body.rotation.z = -sd * 0.12 * up;
   } else if (s.act === 'scratch') {
     setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx * 0.8, d.top - 0.2 + Math.sin(t * 16) * 0.04, 0.05, f); c.body.rotation.z = 0.08;
   } else if (s.act === 'special') {

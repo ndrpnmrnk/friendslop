@@ -33,7 +33,7 @@ function feathers(x, y, z, n) { for (let i = 0; i < n; i++) puff(x + (Math.rando
 
 export function resetTools() {
   for (const q of toolState().gold) W.group.remove(q.g);
-  for (const s of toolState().shots) W.group.remove(s.m);
+  for (const s of toolState().shots) W.group.remove(s.m); for (const q of toolState().stuck || []) q.m.removeFromParent(); toolState().stuck = [];
   for (const t of toolState().traps) if (t.m) W.group.remove(t.m);
   for (const b of toolState().bubbles.values()) W.group.remove(b); for (const m of toolState().nets.values()) W.group.remove(m); toolState().nets = new Map();
   toolState().shots = []; toolState().traps = []; toolState().clouds = []; toolState().gold = []; toolState().bubbles = new Map();
@@ -158,7 +158,8 @@ export function useTool(a, it, aim, dt = 0) {
     }
     // сетемёт: сетка летит вперёд, накрывает — запутался
     // сетемёт: бесконечный, но перезарядка 10 с (видна на иконке в карточке «в руках»)
-    case 'net': { it.cd = d.cdMax; shoot('net', from, dir, 19, 0, a); return 'throw'; }
+    // v0.56: игрок держит ЛКМ — видна дуга прицела, отпускает — выстрел (releaseNet). Боты стреляют сразу.
+    case 'net': { if (it.cd > 0) return null; if (a.bot) { it.cd = d.cdMax; shoot('net', from, dir, 19, 0, a); return 'throw'; } it.aimT = (it.aimT || 0) + (dt || 0); it.drawAim = aim.clone(); return null; }
     // жетон: вызвать наряд (ПКМ — бросить жетон в соперника)
     case 'badge': return null; // жетон работает броском (ПКМ): наряд выбегает из точки падения
     // перчатка-пружина: удар на 3 м вперёд, отбрасывает далеко
@@ -204,6 +205,20 @@ export function vacuumFire(a, it, aim) {
   for (const q of it.bag) { const k = i++; setTimeout(() => { if (q.state !== 'gone') return; q.state = 'fly'; q.g.visible = true; q.owner = a; q.noHitT = 0.15; q.pos.copy(hp).addScaledVector(dir, 0.7); q.vel.set(dir.x * 22 + (Math.random() - 0.5) * 2, dir.y * 22 + 2, dir.z * 22 + (Math.random() - 0.5) * 2); sfx('throw', { at: a.pos }); }, k * 110); }
   const n = it.bag.length; it.bag = []; return n;
 }
+const _wob = new THREE.Quaternion(), _we = new THREE.Euler();
+// присоска прилипает: к стене/земле — в точке удара, к персонажу — к его телу (ездит вместе с ним)
+function stickArrow(s, pt, actor, gy) {
+  const st = toolState(), list = st.stuck || (st.stuck = []), m = s.m, dir = s.v.clone().normalize();
+  if (list.length >= 24) { const old = list.shift(); old.m.removeFromParent(); }
+  if (actor && actor.ch && actor.ch.body) {
+    const body = actor.ch.body; body.updateMatrixWorld(true); const c = new V3(actor.pos.x, Math.min(actor.pos.y + 1.6, Math.max(actor.pos.y + .45, pt.y)), actor.pos.z);
+    const flat = new V3(pt.x - actor.pos.x, 0, pt.z - actor.pos.z); if (flat.lengthSq() < .001) flat.set(-dir.x, 0, -dir.z); flat.normalize();
+    const at = c.clone().addScaledVector(flat, .36), tail = at.clone().addScaledVector(flat, 1), lp = body.worldToLocal(at.clone());
+    body.add(m); m.position.copy(lp); m.lookAt(at.clone().addScaledVector(flat, -1)); m.position.addScaledVector(new V3(0, 0, -.42).applyQuaternion(m.quaternion), 1); void tail;
+  } else { const p = pt.clone(); if (s.p.y <= gy) p.y = gy + .02; m.position.copy(p).addScaledVector(dir, -.4); m.lookAt(p.clone().add(dir)); }
+  m.visible = true; list.push({ m, t: 0, q0: m.quaternion.clone(), a: actor || null });
+}
+export function releaseNet(a,it,aim){if(it?.type!=='net')return;const ok=(it.aimT||0)>0;it.aimT=0;if(!ok||it.cd>0||a.stun>0)return;const from=it.pos.clone(),dir=aim.clone().sub(from).normalize();shoot('net',from,dir,19,0,a);it.cd=it.def.cdMax;a.throwT=.2;sfx('throw',{at:a.pos});}
 export function releaseBow(a,it,aim){if(it?.type!=='bow')return;const draw=it.draw||0;it.draw=0;if(draw<.12||it.cd>0||it.ammo<=0||a.stun>0)return;const from=it.pos.clone(),velocity=bowVelocity(from,aim,draw),shot=shoot('arrow',from,velocity.clone().normalize(),velocity.length(),0,a);shot.p.copy(from);shot.v.copy(velocity);shot.g=ARROW_GRAVITY;shot.life=3;it.ammo--;it.cd=1.05;a.throwT=.2;sfx('throw',{at:a.pos});}
 function consume(a, it) { if (a.held === it) a.held = null; it.state = 'gone'; it.g.visible = false; it.def = { ...it.def, respawn: 0 }; }
 
@@ -341,7 +356,7 @@ export function updateTools(dt, t) {
     if(s.p.y<=gy||wall||hitA||npcHit){
       const pt = s.p.clone(); if (s.p.y <= gy) pt.y = gy; gone = true;
       const fakeIt = (type, mass) => ({ type, vel: s.v, def: { mass, r: 0.1, heavy: false }, pos: pt });
-      if(s.kind==='arrow'){if(hitA){daze(hitA,1.5);W.onHit?.(s.owner,hitA,'light');}burst(pt.x,pt.y,pt.z,4,{color:0xe9dfc8,size:.06,speed:1.5});sfx('bonk',{at:pt});}
+      if(s.kind==='arrow'){if(hitA){daze(hitA,1.2);W.onHit?.(s.owner,hitA,'light');}burst(pt.x,pt.y,pt.z,4,{color:0xff6a7a,size:.05,speed:1.2});sfx('pop',{at:pt,v:.7});sfx('squeak',{at:pt,v:.35});stickArrow(s,pt,hitA,gy);s.stuck=true;}
       else if (s.kind === 'water') { burst(pt.x, pt.y, pt.z, 3, { color: 0x9ccbec, size: 0.12, speed: 1.5 }); sfx('imp', { at: pt, v: 0.25, m: 'water' });
         // раскрытый зонтик спереди — вода не мочит
         if (hitA && hitA.held && hitA.held.type === 'umbrella' && hitA.held.open && -(s.v.x * Math.sin(hitA.root.rotation.y) + s.v.z * Math.cos(hitA.root.rotation.y)) > 2) hitA = null;
@@ -356,8 +371,13 @@ export function updateTools(dt, t) {
         const gy2 = groundAt(pt.x, pt.z, 0.2, pt.y + 0.5), nm = mesh(G.sph10, NETM(), pt.x, gy2 + 0.04, pt.z, 0.85, 0.05, 0.85, W.group); nm.rotation.y = Math.random() * 6; toolState().traps.push({ kind: 'netlie', x: pt.x, y: gy2, z: pt.z, r: 0, t: 6, m: nm }); } }
     }
     if(gone&&s.kind==='perfume'){toolState().clouds.push({x:s.p.x,y:s.p.y-.6,z:s.p.z,t:4,effect:s.effect,tick:0,owner:s.owner,grace:.8,hit:new Set()});smokeRing(s.p.x,s.p.y,s.p.z,7,{color:0xb9a0df,speed:1.4,size:.1,life:.6});}
-    if (gone) { W.group.remove(s.m); toolState().shots.splice(i, 1); }
+    if (gone) { if (!s.stuck) W.group.remove(s.m); toolState().shots.splice(i, 1); }
   }
+  // стрелы-присоски: покачиваются после удара, через 8 с плавно исчезают; с игрока отваливаются при кувырке
+  const stuck = toolState().stuck || [];
+  for (let i = stuck.length - 1; i >= 0; i--) { const q = stuck[i]; q.t += dt; const amp = .35 * Math.exp(-q.t * 5);
+    q.m.quaternion.copy(q.q0).multiply(_wob.setFromEuler(_we.set(Math.sin(q.t * 34) * amp, Math.cos(q.t * 29) * amp * .6, 0)));
+    const off = q.a && (q.a.dive || q.a.rag > .5 || q.a.drone); if (q.t > 8 || off) { const k = off ? 0 : Math.min(1, (q.t - 8) * 3); q.m.scale.setScalar(1 - k); if (off || k >= 1) { q.m.removeFromParent(); stuck.splice(i, 1); } } }
   // ловушки
   for (let i = toolState().traps.length - 1; i >= 0; i--) {
     const q = toolState().traps[i]; q.t -= dt; if (q.arm > 0) q.arm -= dt;
@@ -390,7 +410,7 @@ export function updateTools(dt, t) {
   void _f; void addZone;
 }
 // иконка-подсказка для HUD: есть ли у инструмента действие на ЛКМ
-export const toolVerb = it => SNACKS[it?.type]?'съесть · восстановить выносливость':it?.type==='boombox'?`${it.radio?.on?'выключить':'включить'} · колесо - волна ${STATIONS[it.radio?.station||0].freq}`:({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: 'выстрел сеткой', badge: 'брось (ПКМ) — вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
+export const toolVerb = it => SNACKS[it?.type]?'съесть · восстановить выносливость':it?.type==='boombox'?`${it.radio?.on?'выключить':'включить'} · колесо - волна ${STATIONS[it.radio?.station||0].freq}`:({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: it && it.cd > 0 ? 'перезарядка' : 'держи ЛКМ — прицел, отпусти — сетка', badge: 'брось (ПКМ) — вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
   bong:'воспользоваться',perfume:'распылить облако',bow:'держи ЛКМ - тяни, отпусти - выстрел',water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', rake:'ЛКМ - удар, ПКМ - бросить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';
 import {SNACKS,eatSnack} from './snacks.js';
 import {toggleRadio,STATIONS} from './radio.js';
