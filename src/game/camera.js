@@ -52,8 +52,11 @@ function aboveGround(v, maxY, clear = 0.35) {
 
 /* Камера свободно наклоняется мышью: от взгляда снизу вверх (камера у самой земли) до вида
    почти сверху. Стены и потолки её останавливают, а по полу и низким объектам она скользит. */
-const _occHead = new THREE.Vector3();
+const _occHead = new THREE.Vector3(), _swQ = new THREE.Quaternion(); let swoop = null, wasPose = false;
 function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
+  // v0.53: вход в мини-игру — камера подлетает к позе миссии за 0.5 с (не прыгает)
+  if (cam.pose && !wasPose) swoop = { p: camera.position.clone(), q: camera.quaternion.clone(), t: 0 };
+  if (!cam.pose) swoop = null; wasPose = !!cam.pose;
   if (cam.free) updateOcclusion(camera, null);
   if (cam.free) { camera.position.copy(cam.free.p); camera.lookAt(cam.free.l); return; } // отладка: свободная камера
   const clearanceFov = cam.pose ? 105 : camera.fov;
@@ -133,6 +136,8 @@ function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   if (snap || cam.pose || cam.blend >= 1) { pos.copy(P); look.copy(L); }
   else { const f = damp(6, dt); pos.lerp(P, f); look.lerp(L, f); constrain(eye, pos, radius, null, p.pos.y + 0.45); }
   camera.position.copy(pos); camera.lookAt(look);
+  if (cam.pose && swoop) { swoop.t = Math.min(1, swoop.t + dt / .5); const k = 1 - Math.pow(1 - swoop.t, 3); _swQ.copy(camera.quaternion);
+    camera.position.lerpVectors(swoop.p, pos, k); camera.quaternion.slerpQuaternions(swoop.q, _swQ, k); if (swoop.t >= 1) swoop = null; }
   if(snap||cam.pose)handoff=null;
   else if(handoff){handoff.t=Math.min(1,handoff.t+dt/1.2);const k=handoff.t*handoff.t*handoff.t*(handoff.t*(handoff.t*6-15)+10),q=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(P,L,camera.up));camera.position.lerpVectors(handoff.p,P,k);camera.quaternion.slerpQuaternions(handoff.q,q,k);pos.copy(camera.position);look.copy(pos).addScaledVector(camera.getWorldDirection(dir),20);if(handoff.t===1)handoff=null;}
   // v0.53: всё мелкое (деревья, фонари, ларьки), что встало между камерой и игроком, растворяется пиксельной сеткой

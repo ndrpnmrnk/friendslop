@@ -375,7 +375,7 @@ function openWorld(m) {
   if (P.ride) dismount(P, false);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   startMissionClock(m);m.onExpire=()=>closeWorld({success:false});
-  m.claimedBy=P; m.busy = true; S.wm = { m, game: null };
+  m.claimedBy=P; m.busy = true; S.wm = { m, game: null }; missionIntro(m);
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = m.key==='fat'?'':(TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden'); $('mgbar').classList.remove('hidden'); $('mgbar').firstChild.style.width = '0%';
@@ -407,6 +407,11 @@ function callout(text, cls = '') {
   e.textContent = text; e.className = 'c-' + (cls || 'info'); void e.offsetWidth; e.classList.add('pop');
   callT = setTimeout(() => e.classList.add('fade'), cls ? 1300 : 2600);
 }
+// v0.53: режиссура миссий — карточка «МИССИЯ: …» при входе, штамп «ГОТОВО +N» на финише
+const mIntroEl = (() => { const e = document.createElement('div'); e.id = 'mintro'; e.innerHTML = '<span class="ic"></span><div><small>МИССИЯ</small><b></b></div>'; document.body.appendChild(e); return e; })();
+const mStampEl = (() => { const e = document.createElement('div'); e.id = 'mstamp'; document.body.appendChild(e); return e; })();
+function missionIntro(m) { mIntroEl.querySelector('.ic').innerHTML = img(m.key, 32); mIntroEl.querySelector('b').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; mIntroEl.classList.remove('on'); void mIntroEl.offsetWidth; mIntroEl.classList.add('on'); sfx('dash', { v: .6 }); }
+function missionStamp(pts) { mStampEl.textContent = 'ГОТОВО! +' + pts; mStampEl.classList.remove('on'); void mStampEl.offsetWidth; mStampEl.classList.add('on'); }
 function closeWorld(res) {
   if (!S.wm) return;
   const { m, game } = S.wm; m.onExpire=null; S.wm = null; game.stop();missionCountdown(0); m.busy = false; m.track = null;
@@ -436,7 +441,7 @@ function openMission(m) {
     msg: (text, cls = '') => callout(text, cls),
     finish: res => { if (S.mg && S.mg.m === m) closeMission(res); },
   };
-  S.mg = { m, game: null, start:P.pos.clone() };
+  S.mg = { m, game: null, start:P.pos.clone() }; missionIntro(m); document.body.classList.add('cine');
   unlock(); $('lockhint').classList.add('hidden');
   S.mg.game = ALL_GAMES[m.def.game](m.obj, api, { cursor:setCursor, character:P.ch,player:P,camera,mission:m });
   if(S.mg?.game.hint)$('mghint').textContent=S.mg.game.hint;
@@ -444,6 +449,7 @@ function openMission(m) {
 function closeMission(res) {
   if (!S.mg) return;
   const { m, game } = S.mg;m.onExpire=null;
+  document.body.classList.remove('cine');
   game.stop();P.stationaryWork=false; S.mg = null; cam.pose = null; updateOcclusion(camera, null); m.busy = false; m.doer=null; P.root.visible = true; setCursor(true); requestLock();
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
@@ -457,7 +463,7 @@ function scored(m, pts) {
   actionEffect('success',P.pos.clone().add(new V3(0,1,0)),1.25);
   // v0.52: сочный финиш миссии — вспышка, кольцо, разноцветные искры фонтаном, короткий стоп-кадр
   { const q = { x: P.pos.x, y: P.pos.y + 1.1, z: P.pos.z }; impactBurst(q, 0xc7ef94, 2.2); for (const c of [0xff6aa8, 0x7ad8ff, 0xffd04a, 0x9be36b]) vfxSparks(q, 9, c, { x: 0, y: 1.6, z: 0 }); W.flash?.(P.pos, 0xc7ef94, .9, 7, 3); hitFreeze(.06); }
-  markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m);
+  markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m); missionStamp(pts);
   const st = statsOf(P); st.missions++; st.mpts += pts;
   const p = (m.obj.pos && m.obj.pos()) || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   const sx = Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), sy = Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight));
@@ -895,3 +901,4 @@ window.__fs.studio = (types, cols = 8, sp = 1.15, spin = false) => {
   const rows = Math.ceil(types.length / cols); cam.position.set(0, .8 + rows * sp * .42, 1.2 + cols * sp * .5); cam.lookAt(0, .05, -(rows - 1) * sp / 2 - .1);
   S.studio = { sc, cam, list, t: 0, spin }; $('hud').classList.add('hidden');
 };
+Object.assign(window.__fs, { closeMission, closeMG: closeMission });

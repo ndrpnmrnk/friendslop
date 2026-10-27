@@ -727,7 +727,7 @@ T.grannyFace = () => photo('grannyFace', 48, 24, (g, W, H) => { fill(g, W, H, '#
 const NEON = ['#ff4fa8', '#4fe6ff', '#ffb43a', '#b47aff', '#7aff9a'];
 export function facade(base, wM, hM, opt = {}) {
   const D = 16, pw = Math.max(8, Math.round(wM * D)), ph = Math.max(8, Math.round(hM * D));
-  const style = opt.style || (opt.brick !== false ? 'brick' : 'panel'), brick = style === 'brick', rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9, neon = NEON[(facN++) % NEON.length];
+  const style = opt.style || (opt.brick !== false ? 'brick' : 'panel'), brick = style === 'brick', rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9, neon = opt.neon != null ? hex(opt.neon) : NEON[(facN++) % NEON.length];
   const t = photo(null, pw, ph, (g, W, H) => {
     const s = W / pw, m = D * s; // m — пикселей hi-res на метр
     const lin = (x0, y0, x1, y1, st) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (const [o, c] of st) gr.addColorStop(o, c); return gr; };
