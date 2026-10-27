@@ -27,7 +27,7 @@ export const SNAP = { value: new THREE.Vector2(256, 144) };
 // Дрожание вершин в стиле PS1: проекция вершины округляется до сетки экрана
 export function ps1(m, stable = false) {
   m.userData.ps1Stable = stable;
-  m.customProgramCacheKey = () => stable ? 'ps1-stable-v51' : 'ps1-distance-v51';
+  m.customProgramCacheKey = () => (stable ? 'ps1-stable-v51' : 'ps1-distance-v51') + (m.userData.jelly ? '-jelly' : '');
   m.onBeforeCompile = sh => {
     sh.uniforms.uSnap = SNAP;
     const lit = sh.fragmentShader.includes('#include <lights_fragment_end>');
@@ -47,12 +47,24 @@ export function ps1(m, stable = false) {
       Object.assign(sh.uniforms, { uWLOn: WL.on, uWLMax: WL.max, uWLGrid: WL.grid, uWLLights: WL.lights, uWLMask: WL.mask, uWLOrigin: WL.origin, uWLGridSize: WL.gridSize, uWLCell: WL.cell,
         uWLMaskInv: WL.maskInv, uWLBase: WL.base, uWLIndoor: WL.indoor, uWLAo: WL.aoK, uWLK: WL.lightK, uDynP: WL.dynP, uDynC: WL.dynC });
       sh.fragmentShader = WL_HEAD + sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + WL_BODY);
+      if (m.userData.jelly) { sh.uniforms.uJelly = { value: m.userData.jelly }; sh.uniforms.uTime = WL.time;
+        sh.fragmentShader = 'uniform float uJelly; uniform float uTime;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', JELLY + '#include <opaque_fragment>'); }
     }
   };
   return m;
 }
 /* Свет мира (world/world-light.js): AO у стен и предметов, «небо» внутри зданий слабее,
    до 8 ближайших видимых источников на клетку 1×1 м + 4 вспышки эффектов. */
+/* «Желе» (v0.52): по краю силуэта перелив оранжевый → розовый → голубой, мягкий блик сверху, лёгкое свечение.
+   Интерактивное и персонажи «блестят», фон остаётся матовым. Сила — userData.jelly (0..1). */
+const JELLY = `
+  { vec3 Vd = normalize(vViewPosition), Nn = normalize(normal); float fr = pow(1.0 - clamp(dot(Nn, Vd), 0.0, 1.0), 2.2);
+    float hue = fr * 1.6 + vWLPos.y * 0.35 + uTime * 0.15;
+    vec3 iri = 0.5 + 0.5 * cos(6.2831 * (vec3(0.0, 0.33, 0.67) + hue));
+    iri = mix(vec3(1.0, 0.55, 0.3), iri, 0.65);
+    vec3 H = normalize(Vd + vec3(0.0, 0.8, 0.25)); float sp = pow(max(dot(Nn, H), 0.0), 24.0);
+    outgoingLight = outgoingLight * (1.0 + 0.12 * uJelly) + iri * fr * 0.55 * uJelly + vec3(1.0, 0.95, 0.9) * sp * 0.35 * uJelly; }
+`;
 const WL_HEAD = `varying vec3 vWLPos; uniform float uWLOn, uWLMax, uWLCell, uWLBase, uWLIndoor, uWLAo, uWLK; uniform vec2 uWLOrigin, uWLGridSize, uWLMaskInv;
 uniform highp sampler2D uWLGrid; uniform highp sampler2D uWLLights; uniform sampler2D uWLMask; uniform vec4 uDynP[4]; uniform vec3 uDynC[4];
 `;
@@ -96,31 +108,40 @@ const WL_BODY = `
 
 // Постобработка: дизеринг Bayer 4x4 и урезанная палитра
 const post = new THREE.ShaderMaterial({
-  uniforms: { t: { value: rt.texture },silhouette:{value:silhouetteRT.texture},outlineOn:{value:0}, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 },glowSteps:{value:4},punch:{value:0},velocity:{value:0} },
+  uniforms: { t: { value: rt.texture },silhouette:{value:silhouetteRT.texture},outlineOn:{value:0}, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 },glowSteps:{value:4},punch:{value:0},velocity:{value:0},time:{value:0},style:{value:1} },
   vertexShader: 'varying vec2 v; void main(){ v = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-  fragmentShader: `uniform sampler2D t;uniform sampler2D silhouette;uniform float outlineOn; uniform vec2 px; uniform float glowK;uniform float glowSteps;uniform float punch;uniform float velocity; varying vec2 v;
+  fragmentShader: `uniform sampler2D t;uniform sampler2D silhouette;uniform float outlineOn; uniform vec2 px; uniform float glowK;uniform float glowSteps;uniform float punch;uniform float velocity;uniform float time;uniform float style; varying vec2 v;
     float b2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
     float b4(vec2 a){ return b2(0.5 * a) * 0.25 + b2(a); }
     vec3 bright(vec2 o){ vec3 s = texture2D(t, v + o).rgb; return max(s - 0.74, 0.0); }
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
-      vec3 c = texture2D(t, v).rgb;
+      // v0.52 «PS1 + желе»: RGB-сдвиг растёт к краям кадра и на ударах (как на постерах)
+      vec2 q0 = v - 0.5; float ca = (0.0016 + punch * 0.006 + velocity * 0.002) * style * smoothstep(0.15, 0.75, length(q0));
+      vec3 c = vec3(texture2D(t, v + q0 * ca * 1.6).r, texture2D(t, v).g, texture2D(t, v - q0 * ca * 1.6).b);
       // свечение ярких мест (фонари, окна, огоньки)
       vec3 g = vec3(0.0);
       for (int i = 0; i < 8; i++) { if(float(i)>=glowSteps)break;float a = float(i) * 6.2831853/glowSteps; vec2 d = vec2(cos(a), sin(a));
         g += bright(d * px * 3.0) * 0.6 + bright(d * px * 7.0) * 0.4; }
-      c += g * (0.21*8.0/glowSteps) * glowK * vec3(1.0, 0.85, 0.7);
+      // ореол: свечение тёплое в центре и розово-пурпурное по краю (халация плёнки)
+      vec3 halo = mix(vec3(1.0, 0.78, 0.55), vec3(1.0, 0.42, 0.62), clamp(length(g) * 0.6, 0.0, 1.0));
+      c += g * (0.24*8.0/glowSteps) * glowK * mix(vec3(1.0, 0.85, 0.7), halo, style);
       // сумеречная цветокоррекция: тени в сливовый, свет в тёплый
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c = mix(c * vec3(0.92, 0.9, 1.06), c * vec3(1.06, 1.0, 0.92), smoothstep(0.2, 0.8, l)) + vec3(0.012, 0.006, 0.02);
       // v0.51: киношный контраст — мягкая S-кривая, тени холоднее, свет теплее и чуть насыщеннее
       vec3 sc = clamp(c, 0.0, 1.0); c = mix(c, sc * sc * (3.0 - 2.0 * sc), 0.32);
       float l2 = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l2), c, 1.0 + 0.18 * smoothstep(0.25, 0.7, l2));
+      // градиентная тонировка кадра: сверху холодный пурпур, снизу тёплый янтарь (мягко, как радиальный градиент постера)
+      c *= mix(vec3(1.0), mix(vec3(1.05, 0.96, 0.9), vec3(0.94, 0.92, 1.08), smoothstep(0.1, 0.95, v.y)), style);
       // виньетка
       vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * 0.62;
       // Мягкий подъём тёмных деталей, без плоской общей засветки.
       c += vec3(.015,.012,.014)*(1.0-smoothstep(.0,.22,l));
       float edge=smoothstep(.25,.68,length(q));c+=edge*punch*vec3(.09,.035,.012);
       c+=edge*velocity*.018*vec3(.42,.57,.75);
+      // плёночное зерно: сильнее в полутонах, слабее в чёрном и белом
+      { float gn = hash(floor(v / px) + fract(time * 7.13) * 91.7) - 0.5; float lm = dot(c, vec3(0.3, 0.59, 0.11)); c += gn * 0.055 * style * (0.35 + lm * (1.0 - lm) * 2.4); }
       // палитра как у PS1: 5 бит на канал (32 уровня) с дизерингом Bayer 4×4
       c += (b4(floor(v / px)) - 0.46875) / 32.0; c = floor(c * 31.0 + 0.5) / 31.0;
       if(outlineOn>0.5){float center=texture2D(silhouette,v).r;float edge=0.0;for(int i=0;i<8;i++){float a=float(i)*0.785398;edge=max(edge,texture2D(silhouette,v+vec2(cos(a),sin(a))*px*1.4).r);}c=mix(c,vec3(.96,.77,.26),step(.5,edge)*(1.0-step(.5,center)));}
@@ -143,7 +164,7 @@ export function present(scene, camera, outlineTarget=null) {
   const quality=graphics.current,now=performance.now();
   if(sceneQuality.get(scene)!==qualityRevision){scene.traverse(o=>{if(o.isLight&&o.shadow){const sh=o.shadow;if(sh.mapSize.x!==quality.shadow){sh.mapSize.set(quality.shadow,quality.shadow);sh.map?.dispose();sh.map=null;}}});sceneQuality.set(scene,qualityRevision);}
   renderer.shadowMap.needsUpdate=now-lastShadow>1000/quality.shadowHz;if(renderer.shadowMap.needsUpdate)lastShadow=now;
-  post.uniforms.glowSteps.value=graphics.key==='low'?2:graphics.key==='medium'?4:8;
+  post.uniforms.glowSteps.value=graphics.key==='low'?2:graphics.key==='medium'?4:8;post.uniforms.time.value=now*.001;WL.time.value=now*.001;
   if(scene.userData.wl)scene.userData.wl.apply();else disableWL();WL.max.value=quality.wl??8;
   renderer.setRenderTarget(rt); batchBegin(scene,camera); try{renderer.render(scene, camera);}finally{batchEnd();}
   post.uniforms.outlineOn.value=outlineTarget?1:0;
@@ -187,6 +208,15 @@ export const alphaMat = (t, opts = {}) => ps1(new THREE.MeshBasicMaterial({ map:
 // Плоскости, лежащие на других поверхностях (пол, дорожки), чтобы не мерцали
 export const flat = t => lam({ map: t, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }, 'f' + t.uuid, true);
 export const paint = c => lam({ color: c, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }, 'paint' + c, true);
+// v0.52: «желейная» копия материала (перелив по краю, блик). Кешируется по исходному материалу и силе.
+const JM = new Map();
+export function jellyMat(m, k = 0.8) {
+  if (!m || Array.isArray(m) || !m.isMeshLambertMaterial || m.userData.jelly) return m;
+  const key = m.uuid + '|' + k; let j = JM.get(key);
+  if (!j) { j = m.clone(); j.userData = { ...m.userData, jelly: k }; ps1(j, !!m.userData.ps1Stable); JM.set(key, j); }
+  return j;
+}
+export function jellify(root, k = 0.8) { root.traverse(o => { if (o.isMesh && !o.userData.noJelly) o.material = Array.isArray(o.material) ? o.material.map(x => jellyMat(x, k)) : jellyMat(o.material, k); }); return root; }
 // Уникальный материал (для объектов, которые затухают, когда закрывают игрока)
 export const own = (opts) => ps1(new THREE.MeshLambertMaterial(opts));
 

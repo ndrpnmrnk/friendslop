@@ -6,7 +6,7 @@ import {bowModel} from './bow.js';
 import {bongModel} from './bong.js';
 import { pantsModel } from '../characters/mammoth.js';
 import {fatCanModel} from '../missions/fat-models.js';
-import { THREE, G, V3, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, lam, compose, glow , jellify } from '../core/gfx.js';
 import { addOutline, OUTLINE } from './outline.js';
 import { chairModel, coneModel, trashModel, litterModel } from '../world/props.js';
 import { PFACE } from '../world/builder.js';
@@ -130,7 +130,7 @@ function toolModel(type, g) {
   });
 }
 export function addItem(type, x, y, z, ry = 0) {
-  const def = CONFIG.items[type], g = build(type); W.group.add(g);
+  const def = CONFIG.items[type], g = jellify(build(type), 0.7); W.group.add(g); // v0.52: предметы — «желе», выделяются из фона
   const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z, ry }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g, 0.045, OUTLINE[rarityOf(type)]), rarity: rarityOf(type), ammo: def.ammo || 0, cd: 0 };
   g.rotation.y = ry;
   it.pos.set(x, y + (def.halfHeight??def.r), z);

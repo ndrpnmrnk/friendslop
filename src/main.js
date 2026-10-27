@@ -136,6 +136,9 @@ function showMenu() {
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
 function showHub(){S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
+// v0.52: матч стартует из хаба — катапульта выстрелила; подборка районов выбрана спиритической доской
+menu.onLaunch=choice=>{if(S.state!=='hub')return;const musicReady=roundMusic.preload();S.state='roulette';menu.active=false;screen(null);$('fade').classList.add('on');
+  setTimeout(async()=>{await musicReady;globalThis.__forceDistricts=choice.ids||null;try{prepareRound();}finally{globalThis.__forceDistricts=null;}$('fade').classList.remove('on');startIntro();toast(choice.name);},420);};
 menu.onMode=()=>showMode();menu.onHub=()=>{S.state='hub';menu.active=true;screen('menu');};
 $('hubExit').onclick=showMenu;$('hubTutorial').onclick=()=>{menu.suspend();S.state='starting';requestLock();startTutorial();};
 function showMode() {
@@ -220,12 +223,12 @@ const TUT = [
   { t: 'Бег', d: 'Зажми Shift на ходу — бег (тратит выносливость)', k: ['SHIFT'], ok: s => s.sprint > 1 },
   { t: 'Прыжок', d: 'Прыгни', k: ['ПРОБЕЛ'], ok: s => s.jumps > 0 },
   { t: 'Присед', d: 'Пригнись (C). На бегу C — подкат, Q — выпад', k: ['C'], ok: s => s.crouch > 0.6 },
-  { t: 'Взять', d: 'Подойди к помидору и нажми E', k: ['E'], ok: () => !!P.held, enter: () => tutItem('tomato', 2.5) },
+  { t: 'Взять', d: 'Подойди к помидору и нажми ЛКМ', k: ['ЛКМ'], ok: () => !!P.held, enter: () => tutItem('tomato', 2.5) },
   { t: 'Бросок', d: 'Зажми ПКМ — прицел, отпусти — бросок. Чем дольше держишь, тем дальше', k: ['ПКМ'], ok: s => s.throws > 0 },
-  { t: 'Инструмент', d: 'Возьми тапок (E) и шлёпни им (ЛКМ)', k: ['E', 'ЛКМ'], ok: s => s.tools > 0, enter: () => tutItem('slipper', 2.5) },
-  { t: 'Взаимодействие', d: 'Всё остальное — тоже E: двери, шкафы, кататься, кран', k: ['E'], ok: s => s.t > 4 },
+  { t: 'Инструмент', d: 'Возьми тапок (ЛКМ) и шлёпни им (ЛКМ ещё раз)', k: ['ЛКМ'], ok: s => s.tools > 0, enter: () => tutItem('slipper', 2.5) },
+  { t: 'Взаимодействие', d: 'E — двери, шкафы, сесть, кататься, кран, миссии', k: ['E'], ok: s => s.t > 4 },
   { t: 'Миссия', d: 'Метка на экране и мини-карта ведут к миссии. Подойди и нажми E', k: ['E'], ok: s => s.missions > 0, enter: () => { const m = spawnMission(P, 'shells'); if (m) { m.life = m.maxLife = 999; } } },
-  { t: 'Уличная миссия', d: 'Собери мусор в урну — неси (E) или бросай (ПКМ)', k: ['E', 'ПКМ'], ok: s => s.missions > 1, enter: () => { const m = spawnMission(P, 'cleanup'); if (m) { m.life = m.maxLife = 999; } } },
+  { t: 'Уличная миссия', d: 'Собери мусор в урну — бери (ЛКМ) и бросай (ПКМ)', k: ['ЛКМ', 'ПКМ'], ok: s => s.missions > 1, enter: () => { const m = spawnMission(P, 'cleanup'); if (m) { m.life = m.maxLife = 999; } } },
   { t: 'Готово!', d: 'В раунде миссии приходят волнами, соперники мешают — бей, кради, ставь ловушки. Удачи!', k: [], ok: s => s.t > 4 },
 ];
 function tutItem(type, r) { const a = Math.random() * 6.28, x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r, gy = groundAt(x, z, 0.2, P.pos.y + 1); if (CONFIG.items[type].tool) spawnTool(x, gy, z, false, type); else { const it = addItem(type, x, gy, z); it.def = { ...it.def, respawn: 0 }; } }

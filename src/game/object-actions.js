@@ -42,7 +42,7 @@ export function leaveObject(P){
 }
 export function interactObject(P,camera){
  if(P.heldBy||P.stun>0||P.getT>0)return false;if(leaveObject(P))return true;
- const target=worldTarget(P,camera);if(target){target.act();return true;}
+ const target=worldTarget(P,camera,{items:false});if(target){target.act();return true;}
  if(P.held){drop(P.held,P.pos.x+Math.sin(P.root.rotation.y)*.7,P.pos.y,P.pos.z+Math.cos(P.root.rotation.y)*.7);P.held=null;return true;}
  let fl=null,fd=1.7;for(const q of W.items)if(q.state==='fly'&&q.owner!==P&&!q.def.heavy&&!q.noPickup){const d=Math.hypot(q.pos.x-P.pos.x,q.pos.z-P.pos.z);if(d<fd&&q.pos.y>P.pos.y&&q.pos.y<P.pos.y+2.4){fd=d;fl=q;}}
  if(fl){pickUp(fl);P.held=fl;fl.owner=P;fl.wasHeld=true;sfx('pickup');return true;}return false;
