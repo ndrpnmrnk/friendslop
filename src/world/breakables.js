@@ -147,5 +147,5 @@ export function bakeBreakables(group) {
   }
 }
 let _g;
-const GLASS = () => _g || (_g = lam({ color: 0xbfe0f0, transparent: true, opacity: 0.55 }));
+const GLASS = () => _g || (_g = lam({ color: 0x9ab8f0, transparent: true, opacity: 0.5 }), _g.userData.mc = 'glass', _g);
 export const glassMat = GLASS;

@@ -1,4 +1,4 @@
-import { THREE, G, col, tmat, glow, own, lam, flat } from '../core/gfx.js';
+import { THREE, G, col, tmat, glow, own, lam, flat, chrome } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { HW } from '../config.js';
 import { W } from './state.js';
@@ -37,7 +37,7 @@ export const TowerMethods = {
     const SILL = o.sill ?? 0.55, WH = Math.min(1.95, fh - SILL - 0.42), WW = 1.3, STEP = o.winStep ?? 2.3;
     const sides = { s: { len: w, at: z + d - t / 2, axis: 'x', out: 4, inn: 5 }, n: { len: w, at: z + t / 2, axis: 'x', out: 5, inn: 4 },
       e: { len: d - 2 * t, at: x + w - t / 2, axis: 'z', out: 0, inn: 1 }, w: { len: d - 2 * t, at: x + t / 2, axis: 'z', out: 1, inn: 0 } };
-    const frame = col(0x2a2232), sill = col(0xc8c0b4), curtain = lam({ color: 0xffb070, emissive: 0xff9a4a, emissiveIntensity: 0.55 }, 'curtain');
+    const frame = chrome(0xc8d0ff), sill = chrome(0xe0e4ff), curtain = lam({ color: 0xffb070, emissive: 0xff9a4a, emissiveIntensity: 0.55 }, 'curtain');
     let doorOut=null,intercom=null,entryDoor=null;
     for (const [k, sd] of Object.entries(sides)) {
       const dr = doors.find(q => q.side === k);

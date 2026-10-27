@@ -701,15 +701,7 @@ T.leafCard = (kind = 0) => pix('leafCard' + kind, 64, 64, (g, W, H) => {
 /* ---------- фасад с окнами (уникальный под каждую стену) ---------- */
 let facN = 0;
 // фото-версии основных материалов (если картинка загрузилась)
-{ const ORIG = { ...T }, over = (name, k, w, h, tint, tile = 1) => { T[name] = (...a) => phOk(k) ? photo('ph_' + name + (a[0] ?? ''), w, h, (g, W, H) => phDraw(g, W, H, k, tint ? tint(...a) : null, tile, tile), 1) : ORIG[name](...a); };
-  // v0.51: новые фото (Poly Haven, CC0) 96–128 px — вдвое больше деталей при том же PS1-пикселе
-  over('asphalt', 'asphalt', 128, 128); over('pave', 'pave', 128, 128); over('cobble', 'cobble', 128, 128); over('flag', 'flag', 128, 128);
-  over('grass', 'grass', 128, 128, HW ? () => '#b49a78' : null); over('dirt', 'dirt', 128, 128); over('concrete', 'concrete', 128, 128);
-  over('wood', 'wood', 128, 128); over('floorWood', 'planks', 128, 128); over('oldBrick', 'oldbrick', 128, 128); over('plaster', 'plaster', 64, 64);
-  over('roof', 'roof', 64, 64, () => '#9a8aaa'); over('metal', 'metal', 32, 32); over('rust', 'rust', 64, 64);
-  over('corrugated', 'corrug_g', 64, 64, c => shade(c, 30)); over('bark', 'bark', 32, 64); over('stone', 'stone', 64, 64); over('soil', 'soil', 128, 128);
-  over('carpet', 'carpet_g', 64, 64, c => shade(c ?? 0x3a4458, 40)); over('brickWall', 'brick', 128, 128);
-  over('cardboard', 'cardboard', 32, 32); over('floorTile', 'tiles', 128, 128, () => '#e4d8ee'); }
+// v0.53: фото-фактуры Poly Haven для земли и стен заменены новым графичным набором (см. конец файла)
 /* v0.20: стены квартир изнутри — фото обоев (2 раза по ширине), окрашены в цвет квартиры, плинтус и карниз;
    текстура на один этаж по высоте. Ткань/кожа для диванов и кроватей, фанера для ящиков. */
 T.wallIn = (c = 0xc8b8d8, k = 'wallpaper_g') => phOk(k) ? photo('wallIn' + c + k, 128, 128, (g, W, H) => { phDraw(g, W, H * 0.86, k, shade(c, 10), 2, 2);
@@ -728,53 +720,63 @@ T.grannyFace = () => photo('grannyFace', 48, 24, (g, W, H) => { fill(g, W, H, '#
   g.strokeStyle = 'rgba(120,70,50,.6)'; g.lineWidth = 1; for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(cx + sx * W * 0.1, H * (0.42 + i * 0.05)); g.lineTo(cx + sx * W * 0.13, H * (0.4 + i * 0.06)); g.stroke(); }
   for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(cx - W * 0.05, H * (0.22 + i * 0.05)); g.lineTo(cx + W * 0.05, H * (0.22 + i * 0.05)); g.stroke(); }
   g.fillStyle = '#c88a70'; g.fillRect(cx - 1.5, H * 0.45, 3, H * 0.15); g.fillStyle = '#7a3a3a'; g.fillRect(cx - W * 0.035, H * 0.74, W * 0.07, 1.5); grain(g, W, H, 14); });
+/* v0.53 «Хром и стекло»: фасад — гладкие панели или графичный кирпич, светлые пояса перекрытий,
+   большие стёкла в хромовых рамах, неоновая полоса под карнизом (цвет района через общий стиль).
+   Альфа-канал текстуры — маска стекла для шейдера (класс 'facade'): 0.55 тёмное стекло (отражает небо и фонари),
+   0.75 горящее окно (светится само), 1 — стена. */
+const NEON = ['#ff4fa8', '#4fe6ff', '#ffb43a', '#b47aff', '#7aff9a'];
 export function facade(base, wM, hM, opt = {}) {
-  const D = 16, pw = Math.max(8, Math.round(wM * D)), ph = Math.max(8, Math.round(hM * D)); // 16 px на метр (v0.51)
-  const brick = opt.brick !== false;
-  return photo(null, pw, ph, (g, W, H) => {
-    const s = W / pw; // пикселей hi-res на 1 px текстуры
-    g.fillStyle = shade(base, -10); g.fillRect(0, 0, W, H);
-    // стены — из фото кирпича/штукатурки, окрашенного в цвет дома (плитка ~1.4 м)
-    const pk = brick ? 'brick_g' : 'plaster_g';
-    if (phOk(pk)) { const tw = (brick ? 1.4 : 2.2) * D * s, th = tw; for (let y = H; y > -th; y -= th) for (let x = 0; x < W; x += tw) g.drawImage(PH[pk], x, y - th, tw, th);
-      g.globalCompositeOperation = 'multiply'; g.fillStyle = shade(base, 18); g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; }
-    else if (brick) {
-      const bh = 3 * s * D / 6, bw = 6 * s * D / 6;
-      for (let y = 0, r = 0; y < H; y += bh, r++) for (let x = -bw; x < W; x += bw) {
-        g.fillStyle = shade(base, (R() - 0.5) * 26); g.fillRect(x + (r % 2 ? bw / 2 : 0) + s * 0.4, y + s * 0.4, bw - s * 0.8, bh - s * 0.8);
-      }
-    } else blobs(g, W, H, [shade(base, -20), shade(base, 15)], 60, s * 2, s * 8, 0.3);
-    blobs(g, W, H, ['rgba(20,14,26,.6)'], 18, s * 2, s * 10, 0.15);
-    // v0.51: грязь стекает вниз, у земли стена темнее; цоколь и карниз — фасад читается как настоящий дом
-    { const gr = g.createLinearGradient(0, H * 0.55, 0, H); gr.addColorStop(0, 'rgba(15,10,20,0)'); gr.addColorStop(1, 'rgba(15,10,20,.38)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); }
-    g.globalAlpha = 0.16; g.fillStyle = '#100a14'; for (let i = 0; i < W / (D * s) * 1.2; i++) { const x = R() * W, w = (0.08 + R() * 0.2) * D * s, y = R() * H * 0.6; g.fillRect(x, y, w, (0.6 + R() * 2.2) * D * s); } g.globalAlpha = 1;
-    if (opt.plinth !== false) { const ph2 = 0.55 * D * s; g.fillStyle = shade(base, -38); g.fillRect(0, H - ph2, W, ph2); g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(0, H - ph2, W, s);
-      if (phOk('stonewall_g')) { g.globalAlpha = 0.35; g.globalCompositeOperation = 'multiply'; for (let x = 0; x < W; x += ph2 * 2) g.drawImage(PH.stonewall_g, x, H - ph2, ph2 * 2, ph2); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; } }
-    if (opt.cornice !== false && hM > 3) { const ch = 0.32 * D * s; g.fillStyle = shade(base, 26); g.fillRect(0, 0, W, ch); g.fillStyle = 'rgba(10,6,14,.55)'; g.fillRect(0, ch, W, s * 1.5); g.fillStyle = 'rgba(10,6,14,.25)'; for (let x = 0; x < W; x += s * 6) g.fillRect(x, ch, s * 2, s * 3); }
-    // окна
+  const D = 16, pw = Math.max(8, Math.round(wM * D)), ph = Math.max(8, Math.round(hM * D));
+  const brick = opt.brick !== false, rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9, neon = NEON[(facN++) % NEON.length];
+  const t = photo(null, pw, ph, (g, W, H) => {
+    const s = W / pw, m = D * s; // m — пикселей hi-res на метр
+    const lin = (x0, y0, x1, y1, st) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (const [o, c] of st) gr.addColorStop(o, c); return gr; };
+    g.fillStyle = shade(base, -46); g.fillRect(0, 0, W, H);
+    if (brick) { // графичный кирпич 0.5×0.2 м с фаской
+      const bw = 0.5 * m, bh = 0.2 * m;
+      for (let y = H, r = 0; y > -bh; y -= bh, r++) for (let x = -bw; x < W + bw; x += bw) { const xx = x + (r % 2 ? bw / 2 : 0), c = shade(base, (R() - 0.5) * 18);
+        g.fillStyle = c; g.fillRect(xx + s * 0.5, y - bh + s * 0.5, bw - s, bh - s); g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(xx + s * 0.5, y - bh + s * 0.5, bw - s, s * 0.6); }
+    } else { // облицовочные панели по этажам, шов и мягкий вертикальный градиент в каждой
+      const pwM = 1.0 * m, phM = rs * m;
+      for (let y = H; y > -phM; y -= phM) for (let x = 0; x < W; x += pwM) { const k = (R() - 0.5) * 10;
+        g.fillStyle = lin(0, y - phM, 0, y, [[0, shade(base, 16 + k)], [1, shade(base, -10 + k)]]); g.fillRect(x + s * 0.5, y - phM + s * 0.5, pwM - s, phM - s); }
+    }
+    // общий градиент: выше — светлее (небесный свет), у земли — глубже
+    g.fillStyle = lin(0, 0, 0, H, [[0, 'rgba(255,240,255,.10)'], [0.6, 'rgba(0,0,0,0)'], [1, 'rgba(10,6,30,.32)']]); g.fillRect(0, 0, W, H);
+    // пояса перекрытий
+    for (let fy = r0 - 0.35; fy < hM - 0.6; fy += rs) { const y = (hM - fy) * m; if (fy < 0.6) continue;
+      g.fillStyle = shade(base, 30); g.fillRect(0, y - 0.18 * m, W, 0.18 * m); g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(0, y - 0.18 * m, W, s); g.fillStyle = 'rgba(8,6,24,.45)'; g.fillRect(0, y, W, s * 1.2); }
+    // цоколь
+    if (opt.plinth !== false) { const p2 = 0.6 * m; g.fillStyle = lin(0, H - p2, 0, H, [[0, shade(base, -34)], [1, shade(base, -58)]]); g.fillRect(0, H - p2, W, p2);
+      g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(0, H - p2, W, s); for (let x = 0; x < W; x += 1.2 * m) { g.fillStyle = 'rgba(0,0,20,.35)'; g.fillRect(x, H - p2, s, p2); } }
+    // карниз и неоновая полоса (самосветящаяся: альфа 0.75)
+    const neonY = opt.cornice !== false && hM > 3 ? 0.42 * m : -1;
+    if (neonY > 0) { g.fillStyle = shade(base, 36); g.fillRect(0, 0, W, 0.3 * m); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(0, 0.3 * m - s, W, s); g.fillStyle = 'rgba(8,6,24,.5)'; g.fillRect(0, 0.3 * m, W, s * 1.5); }
+    const masks = [];
     if (opt.windows !== false) {
-      const per = D;
-      const rs = opt.rowStep || 2.4, r0 = opt.rowStart ?? 0.9;
       for (let fy = r0; fy < hM - 1.3; fy += rs) for (let fx = 0.7; fx < wM - 1; fx += 2.0) {
         if (opt.door && fy < 2.2 && fx + 1.1 > opt.door[0] && fx - 0.2 < opt.door[1]) continue;
-        const x = fx * per * s, y = (hM - fy - 1.4) * per * s, w = D * s, h = 1.25 * D * s;
-        g.fillStyle = '#1a1420'; g.fillRect(x - s, y - s, w + 2 * s, h + 2 * s);
-        const lit = R() < (opt.lit ?? 0.45);
-        const gr = g.createLinearGradient(x, y, x + w, y + h);
-        if (lit) { gr.addColorStop(0, '#ffd28a'); gr.addColorStop(1, SEASON.lit); }
-        else { gr.addColorStop(0, '#4a5a7a'); gr.addColorStop(0.6, '#1e2232'); gr.addColorStop(1, '#2a3048'); }
-        g.fillStyle = gr; g.fillRect(x, y, w, h);
-        if (lit && R() < 0.5) { g.fillStyle = 'rgba(120,40,20,.45)'; g.fillRect(x, y, w * 0.3, h); }
-        g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(x + w / 2 - s * 0.4, y, s * 0.8, h); g.fillRect(x, y + h * 0.45, w, s * 0.8);
-        g.fillStyle = shade(base, 30); g.fillRect(x - s, y + h, w + 2 * s, s * 1.2);
-        g.fillStyle = shade(base, 22); g.fillRect(x - s * 2, y - s * 3, w + 4 * s, s * 2); // перемычка
-        if (lit && R() < 0.35) { g.fillStyle = 'rgba(30,18,24,.55)'; const bx = x + w * (0.25 + R() * 0.4); g.fillRect(bx, y + h * 0.35, w * 0.18, h * 0.65); g.beginPath(); g.arc(bx + w * 0.09, y + h * 0.3, w * 0.09, 0, 7); g.fill(); } // силуэт в окне
-        else if (lit && R() < 0.4) { g.fillStyle = 'rgba(80,40,20,.35)'; for (let k = 0; k < h; k += s * 2) g.fillRect(x, y + k, w, s * 0.8); } // жалюзи
-        if (!lit && R() < 0.12 && fy > 2) { g.fillStyle = '#8a8a94'; g.fillRect(x + w * 0.1, y + h + s * 1.5, w * 0.8, h * 0.4); g.fillStyle = '#3a3a44'; for (let k = 0; k < 3; k++) g.fillRect(x + w * 0.2, y + h + s * (2.5 + k * 1.6), w * 0.6, s * 0.6); } // кондиционер
+        const x = (fx - 0.05) * m, y = (hM - fy - 1.45) * m, w = 1.1 * m, h = 1.35 * m, lit = R() < (opt.lit ?? 0.45);
+        // хромовая рама
+        g.fillStyle = '#e8ecff'; g.fillRect(x - s, y - s, w + 2 * s, h + 2 * s); g.fillStyle = '#5a6090'; g.fillRect(x - s, y + h, w + 2 * s, s);
+        if (lit) { const warm = R() < 0.8; g.fillStyle = lin(x, y, x, y + h, warm ? [[0, '#ffe2a8'], [0.6, SEASON.lit], [1, '#ff8a4a']] : [[0, '#ffc8ff'], [1, R() < 0.5 ? '#ff5aa8' : '#5ad8ff']]); g.fillRect(x, y, w, h);
+          if (R() < 0.45) { g.fillStyle = 'rgba(90,30,60,.55)'; g.fillRect(x, y, w * 0.28, h); g.fillRect(x + w * 0.72, y, w * 0.28, h); } // шторы
+          else if (R() < 0.35) { g.fillStyle = 'rgba(40,16,40,.6)'; const bx = x + w * (0.25 + R() * 0.4); g.fillRect(bx, y + h * 0.42, w * 0.2, h * 0.58); g.beginPath(); g.arc(bx + w * 0.1, y + h * 0.34, w * 0.1, 0, 7); g.fill(); } // силуэт
+          masks.push([x, y, w, h, 0.25]);
+        } else { g.fillStyle = lin(x, y, x + w * 0.4, y + h, [[0, '#2a3470'], [0.55, '#0e1238'], [1, '#1a2252']]); g.fillRect(x, y, w, h); masks.push([x, y, w, h, 0.45]); }
+        // импост и форточка
+        g.fillStyle = '#c8d0f0'; g.fillRect(x + w / 2 - s * 0.5, y, s, h); g.fillRect(x, y + h * 0.36, w, s);
       }
     }
-    grain(g, W, H, 14);
+    if (neonY > 0) { g.fillStyle = neon; g.fillRect(0, neonY, W, 0.09 * m); masks.push([0, neonY, W, 0.09 * m, 0.25]); }
+    grain(g, W, H, 6);
+    // маска стекла в альфе
+    g.globalCompositeOperation = 'destination-out';
+    for (const [x, y, w, h, a] of masks) { g.fillStyle = `rgba(0,0,0,${a})`; g.fillRect(x, y, w, h); }
+    g.globalCompositeOperation = 'source-over';
   }, 4);
+  t.userData.mc = 'facade';
+  return t;
 }
 export { hex };
 // v0.21: фото-фактуры для бабки (цветастое платье, вязаная кофта, платок) и собаки (шерсть с подшёрстком)
@@ -816,3 +818,200 @@ T.dogFringe = (c, d, l) => photo('dogFringe' + c, 32, 32, (g, W, H) => { g.clear
 T.crate=()=>pix('crate43-boards',32,32,g=>{g.fillStyle='#886344';g.fillRect(0,0,32,32);for(let y=0;y<32;y+=8){g.fillStyle=y%16?'#987550':'#a17d56';g.fillRect(0,y+1,32,6);g.fillStyle='#513d2e';g.fillRect(0,y,32,1);for(let x=2;x<32;x+=5){g.fillStyle='#725338';g.fillRect(x,y+3,(x*7+y)%7+2,1);}}g.fillStyle='#c5a277';g.fillRect(0,1,32,1);g.fillStyle='#44382f';for(const x of[3,28])for(const y of[3,28])g.fillRect(x,y,2,2);});
 T.lockerDoor=c=>pix('locker43-'+c,32,64,g=>{g.fillStyle=shade(c,0);g.fillRect(0,0,32,64);g.strokeStyle=shade(c,-28);g.strokeRect(1,1,29,61);g.fillStyle=shade(c,18);g.fillRect(3,3,1,57);g.fillStyle='#302e37';for(const y of[8,11,14,51,54])g.fillRect(8,y,16,1);g.fillStyle='#bcb7a6';g.fillRect(8,22,15,5);g.fillStyle='#4d5259';g.fillRect(10,24,10,1);g.fillStyle=shade(c,-15);for(let i=0;i<30;i++)g.fillRect(i*17%30+1,i*23%62+1,1,1);});
 T.burlap=()=>pix('sack43-weave',32,32,g=>{g.fillStyle='#a88b5c';g.fillRect(0,0,32,32);for(let y=0;y<32;y+=2)for(let x=0;x<32;x+=2){g.fillStyle=(x+y)%4?'#bba176':'#89734f';g.fillRect(x,y,2,1);}g.fillStyle='#66543d';g.fillRect(3,0,1,32);g.fillStyle='#d1ba8e';for(let y=1;y<32;y+=4)g.fillRect(2,y,3,1);});
+
+/* ===================================================================================================
+   v0.53 «Хром и стекло»: новый набор фактур вместо фото-«грязи».
+   Чистые графичные формы, плавные градиенты, фаски-блики, мелкое зерно. Цвет и свет дальше задаёт общий стиль
+   (core/style.js), а класс материала (хром, стекло, мокрый камень, лак) — texture.userData.mc.
+   =================================================================================================== */
+{
+  const lin = (g, x0, y0, x1, y1, st) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (const [o, c] of st) gr.addColorStop(o, c); return gr; };
+  const tagMC = (name, mc, gloss) => { const o = T[name]; T[name] = (...a) => { const t = o(...a); if (t) { t.userData.mc = mc; if (gloss != null) t.userData.gloss = gloss; } return t; }; };
+  // плитка с фаской: светлая кромка сверху-слева, тень снизу-справа, градиент по диагонали
+  const bevelTile = (g, x, y, w, h, c, k = 1, b = 2) => {
+    g.fillStyle = lin(g, x, y, x + w, y + h, [[0, shade(c, 14 * k)], [1, shade(c, -14 * k)]]); g.fillRect(x, y, w, h);
+    g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(x, y, w, b); g.fillRect(x, y, b, h);
+    g.fillStyle = 'rgba(0,0,10,.28)'; g.fillRect(x, y + h - b, w, b); g.fillRect(x + w - b, y, b, h);
+  };
+  const speck = (g, W, H, n, cols, s = 1) => { for (let i = 0; i < n; i++) { g.fillStyle = cols[(R() * cols.length) | 0]; g.fillRect((R() * W) | 0, (R() * H) | 0, s, s); } };
+  const softBlobs = (g, W, H, cols, n, r0, r1, a) => { for (let i = 0; i < n; i++) { const x = R() * W, y = R() * H, r = r0 + R() * (r1 - r0);
+    for (const [ox, oy] of [[0, 0], [W, 0], [-W, 0], [0, H], [0, -H]]) { const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r); const c = cols[i % cols.length];
+      gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = a; g.fillStyle = gr; g.fillRect(x + ox - r, y + oy - r, r * 2, r * 2); } } g.globalAlpha = 1; };
+  const crack = (g, W, H, n, c, w) => { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; for (let i = 0; i < n; i++) { let x = R() * W, y = R() * H; g.beginPath(); g.moveTo(x, y);
+    const a = R() * 6.28; for (let k = 0; k < 6; k++) { x += Math.cos(a + (R() - 0.5) * 1.6) * W * 0.06; y += Math.sin(a + (R() - 0.5) * 1.6) * H * 0.06; g.lineTo(x, y); } g.stroke(); } };
+
+  /* ---------- земля ---------- */
+  // асфальт: глубокий сине-фиолетовый, мягкие пятна, мелкий щебень, пара трещин и заплаток; мокрый — отражает фонари
+  T.asphalt = () => photo('asph53', 128, 128, (g, W, H) => {
+    fill(g, W, H, '#262947'); softBlobs(g, W, H, ['rgba(16,18,40,.9)', 'rgba(52,58,100,.8)'], 26, W * 0.08, W * 0.25, 0.45);
+    for (let i = 0; i < 3; i++) { g.fillStyle = 'rgba(14,15,32,.45)'; const x = R() * W, y = R() * H; g.fillRect(x, y, W * (0.15 + R() * 0.2), H * (0.08 + R() * 0.12)); }
+    speck(g, W, H, 2600, ['#3b4170', '#1a1c36', '#4a5088', '#2e3360'], 2); speck(g, W, H, 140, ['#7a84c0'], 2);
+    crack(g, W, H, 3, 'rgba(8,8,22,.8)', 2.2);
+    softBlobs(g, W, H, ['rgba(10,12,30,.9)'], 4, W * 0.05, W * 0.11, 0.6); // лужи
+    grain(g, W, H, 8);
+  }, 2);
+  // тротуар: крупная керамогранитная плитка 2×2 с фаской
+  T.pave = () => photo('pave53', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#202238'); const n = 2, s = W / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) bevelTile(g, x * s + 1, y * s + 1, s - 2, s - 2, 0x5e608c + (((R() - 0.5) * 18) | 0) * 0x010101, 1, 2);
+    speck(g, W, H, 220, ['rgba(40,40,70,.5)', 'rgba(190,195,240,.4)'], 1); grain(g, W, H, 6);
+  }, 2);
+  // площадь: полированные плиты разной длины с тонкими «мраморными» прожилками
+  T.flag = () => photo('flag53', 128, 128, (g, W, H) => {
+    fill(g, W, H, '#1c1e34'); const rows = 4, rh = H / rows;
+    for (let r = 0; r < rows; r++) { let x = -((r * 37) % 41); while (x < W) { const w = 30 + ((R() * 3) | 0) * 14, c = 0x4c4e78 + (((R() - 0.5) * 16) | 0) * 0x010101;
+      for (const ox of [0, W]) bevelTile(g, x + 1 - ox, r * rh + 1, w - 2, rh - 2, c, 0.8, 2); x += w; } }
+    g.globalAlpha = 0.18; g.strokeStyle = '#e8eaff'; g.lineWidth = 1; for (let i = 0; i < 9; i++) { let x = R() * W, y = R() * H; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 8; k++) { x += (R() - 0.3) * 14; y += (R() - 0.5) * 9; g.lineTo(x, y); } g.stroke(); } g.globalAlpha = 1;
+    grain(g, W, H, 5);
+  }, 2);
+  // брусчатка: скруглённые камни с бликом, тёмные швы
+  T.cobble = () => photo('cobble53', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#16172c'); const n = 6, s = W / n;
+    for (let y = 0; y < n; y++) for (let x = -1; x < n + 1; x++) { const cx = (x + (y % 2 ? 0.5 : 0)) * s + 1, cy = y * s + 1, c = 0x6a6a92 + (((R() - 0.5) * 22) | 0) * 0x010101;
+      g.fillStyle = radial(g, cx + s * 0.35, cy + s * 0.3, s * 0.8, shade(c, 26), shade(c, -16)); g.beginPath(); g.roundRect(cx, cy, s - 2, s - 2, s * 0.28); g.fill(); }
+    grain(g, W, H, 6);
+  }, 2);
+  T.rosette = () => photo('rosette53', 128, 128, (g, W, H) => {
+    fill(g, W, H, '#16172c'); const cx = W / 2, cy = H / 2;
+    for (let ring = 0; ring < 9; ring++) { const r0 = W * 0.06 + ring * W * 0.05, r1 = r0 + W * 0.044, n = 10 + ring * 7;
+      for (let i = 0; i < n; i++) { const a0 = i / n * 6.283 + ring * 0.2, a1 = (i + 1) / n * 6.283 + ring * 0.2 - 0.03, c = ring % 3 === 2 ? 0xb08a60 : 0x6c6e96;
+        g.fillStyle = radial(g, cx, cy, r1, shade(c, 20), shade(c, -10 + (R() - 0.5) * 16)); g.beginPath(); g.arc(cx, cy, r1, a0, a1); g.arc(cx, cy, r0, a1, a0, true); g.fill(); } }
+    grain(g, W, H, 5);
+  }, 2);
+  T.pathStone = () => photo('path53', 32, 64, (g, W, H) => {
+    fill(g, W, H, '#1e1f36'); const s = W / 2;
+    for (let y = -1; y < H / s + 1; y++) for (let x = 0; x < 2; x++) bevelTile(g, x * s + 1, y * s + (x % 2) * s / 2 + 1, s - 2, s - 2, 0x9a8a80 + (((R() - 0.5) * 16) | 0) * 0x010101, 1, 2);
+    grain(g, W, H, 6);
+  }, 2);
+  // трава: стилизованные пучки трёх тонов, редкие опавшие листья
+  T.grass = () => photo('grass53', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#20402e'); softBlobs(g, W, H, ['rgba(40,90,60,.9)', 'rgba(16,40,30,.9)'], 22, W * 0.1, W * 0.3, 0.5);
+    for (let i = 0; i < 520; i++) { const x = R() * W, y = R() * H, h = 4 + R() * 6, c = ['#3c7a4c', '#2a5a3c', '#58a064', '#2f6646'][(R() * 4) | 0];
+      g.strokeStyle = c; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x - 2, y); g.lineTo(x, y - h); g.lineTo(x + 2, y); g.stroke(); }
+    if (HW) for (let i = 0; i < 26; i++) { g.fillStyle = ['#e0702a', '#c84a2a', '#f0a03a'][i % 3]; g.save(); g.translate(R() * W, R() * H); g.rotate(R() * 6); g.fillRect(-2.5, -1.5, 5, 3); g.restore(); }
+    grain(g, W, H, 6);
+  }, 2);
+  T.dirt = () => photo('dirt53', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#4a3442'); softBlobs(g, W, H, ['rgba(110,74,70,.9)', 'rgba(40,24,40,.9)'], 20, W * 0.08, W * 0.25, 0.5);
+    for (let i = 0; i < 60; i++) { const x = R() * W, y = R() * H, r = 1 + R() * 2.5, c = 0x8a6a6a + (((R() - 0.5) * 30) | 0) * 0x010101; g.fillStyle = radial(g, x - r * 0.3, y - r * 0.3, r * 1.4, shade(c, 30), shade(c, -20)); g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+    grain(g, W, H, 8);
+  }, 2);
+  T.soil = () => photo('soil53', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#2e1e2a'); softBlobs(g, W, H, ['rgba(80,50,60,.9)', 'rgba(20,12,22,.9)'], 18, W * 0.08, W * 0.2, 0.5); speck(g, W, H, 500, ['#5a3e4a', '#1a1018', '#6a4a52'], 2); grain(g, W, H, 8);
+  }, 2);
+  // архитектурный бетон: панели опалубки, отверстия от стяжек, мягкий градиент
+  T.concrete = () => photo('conc53', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#30324a'); const s = W / 2;
+    for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) { const c = 0x7e809e + (((R() - 0.5) * 12) | 0) * 0x010101;
+      g.fillStyle = lin(g, 0, y * s, 0, y * s + s, [[0, shade(c, 10)], [1, shade(c, -12)]]); g.fillRect(x * s + 1, y * s + 1, s - 2, s - 2);
+      g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(x * s + 1, y * s + 1, s - 2, 1);
+      g.fillStyle = 'rgba(16,16,34,.75)'; for (const [u, v] of [[0.22, 0.22], [0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) { g.beginPath(); g.arc(x * s + u * s, y * s + v * s, 1.6, 0, 7); g.fill(); } }
+    speck(g, W, H, 260, ['rgba(30,30,50,.35)', 'rgba(220,224,255,.25)'], 1); grain(g, W, H, 6);
+  }, 2);
+  T.court = () => photo('court53', 32, 32, (g, W, H) => { g.fillStyle = lin(g, 0, 0, W, H, [[0, '#c0466a'], [1, '#8a2c5a']]); g.fillRect(0, 0, W, H); speck(g, W, H, 120, ['rgba(255,255,255,.12)', 'rgba(0,0,0,.15)'], 1); grain(g, W, H, 6); }, 2);
+
+  /* ---------- дерево, полы, стены ---------- */
+  T.wood = () => photo('wood53', 64, 64, (g, W, H) => {
+    const n = 4, s = H / n;
+    for (let i = 0; i < n; i++) { const c = 0x9a5e3e + (((R() - 0.5) * 24) | 0) * 0x010000; g.fillStyle = lin(g, 0, i * s, 0, i * s + s, [[0, shade(c, 18)], [0.5, shade(c, 0)], [1, shade(c, -22)]]); g.fillRect(0, i * s, W, s);
+      g.globalAlpha = 0.35; g.strokeStyle = shade(c, -40); g.lineWidth = 1; for (let k = 0; k < 4; k++) { const yy = i * s + 3 + R() * (s - 6); g.beginPath(); g.moveTo(0, yy); g.bezierCurveTo(W * 0.3, yy + (R() - 0.5) * 4, W * 0.6, yy + (R() - 0.5) * 4, W, yy); g.stroke(); } g.globalAlpha = 1;
+      g.fillStyle = 'rgba(255,230,200,.25)'; g.fillRect(0, i * s, W, 1.5); g.fillStyle = '#2a1420'; g.fillRect(0, i * s + s - 1.5, W, 1.5);
+      g.fillStyle = '#20101a'; for (const x of [W * 0.07, W * 0.93]) g.fillRect(x - 1, i * s + s * 0.45, 2, 2); }
+    grain(g, W, H, 6);
+  }, 2);
+  T.floorWood = () => photo('floorW53', 64, 64, (g, W, H) => {
+    const n = 6, s = W / n;
+    for (let i = 0; i < n; i++) { const off = (i * 23) % H; for (const oy of [off - H, off]) { const c = 0xa06a44 + (((R() - 0.5) * 26) | 0) * 0x010100;
+      g.fillStyle = lin(g, i * s, 0, i * s + s, 0, [[0, shade(c, 12)], [1, shade(c, -12)]]); g.fillRect(i * s, oy, s, H); g.fillStyle = '#2e1820'; g.fillRect(i * s, oy, s, 1.5); } }
+    g.fillStyle = '#2e1820'; for (let i = 1; i < n; i++) g.fillRect(i * s - 0.75, 0, 1.5, H);
+    grain(g, W, H, 6);
+  }, 2);
+  T.floorTile = () => photo('floorT53', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#3a3a5a'); const n = 2, s = W / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) bevelTile(g, x * s + 1, y * s + 1, s - 2, s - 2, (x + y) % 2 ? 0xd8d6ee : 0xb8b6d8, 0.7, 2);
+    grain(g, W, H, 4);
+  }, 2);
+  T.plaster = () => photo('plast53', 32, 32, (g, W, H) => {
+    g.fillStyle = lin(g, 0, 0, 0, H, [[0, '#d0c4d8'], [1, '#a89cb8']]); g.fillRect(0, 0, W, H); softBlobs(g, W, H, ['rgba(255,255,255,.6)', 'rgba(80,70,110,.6)'], 6, W * 0.2, W * 0.5, 0.15);
+    g.fillStyle = '#4a3e5a'; g.fillRect(0, H - 6, W, 6); g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(0, H - 6, W, 1); grain(g, W, H, 5);
+  }, 2);
+  T.brickWall = () => photo('brick53', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#2a1e34'); const rows = 8, bh = H / rows, bw = W / 4;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < 5; c++) { const x = c * bw + (r % 2 ? bw / 2 : 0), col = 0x9a4a46 + (((R() - 0.5) * 30) | 0) * 0x010000;
+      bevelTile(g, x + 1, r * bh + 1, bw - 2, bh - 2, col, 1, 1.5); }
+    grain(g, W, H, 6);
+  }, 2);
+  T.oldBrick = () => photo('oldbr53', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#1e1626'); const rows = 8, bh = H / rows, bw = W / 4;
+    for (let r = 0; r < rows; r++) for (let c = -1; c < 5; c++) { const x = c * bw + (r % 2 ? bw / 2 : 0), col = 0x6e3a40 + (((R() - 0.5) * 30) | 0) * 0x010101;
+      if (R() < 0.06) continue; bevelTile(g, x + 1, r * bh + 1, bw - 2, bh - 2, col, 1, 1.5); }
+    softBlobs(g, W, H, ['rgba(40,90,70,.8)'], 5, W * 0.06, W * 0.16, 0.35); grain(g, W, H, 7);
+  }, 2);
+  T.stone = () => photo('stone53', 32, 32, (g, W, H) => {
+    fill(g, W, H, '#262640'); const s = W / 2;
+    for (let y = 0; y < 2; y++) for (let x = -1; x < 3; x++) bevelTile(g, x * s + (y % 2 ? s / 2 : 0) + 1, y * s + 1, s - 2, s - 2, 0x8a88a8 + (((R() - 0.5) * 20) | 0) * 0x010101, 1, 2);
+    grain(g, W, H, 6);
+  }, 2);
+  T.roof = () => photo('roof53', 32, 32, (g, W, H) => {
+    // фальцевая кровля: рёбра с бликом
+    const n = 4, s = W / n; for (let i = 0; i < n; i++) { g.fillStyle = lin(g, i * s, 0, i * s + s, 0, [[0, '#3a3c62'], [0.5, '#4a4e78'], [1, '#2c2e4c']]); g.fillRect(i * s, 0, s, H);
+      g.fillStyle = '#8a90c8'; g.fillRect(i * s, 0, 1.5, H); g.fillStyle = '#16172c'; g.fillRect(i * s + 1.5, 0, 1, H); }
+    grain(g, W, H, 6);
+  }, 2);
+  T.carpet = (c = 0x3a4458) => photo('carp53' + c, 32, 32, (g, W, H) => { fill(g, W, H, shade(c, 0));
+    for (let y = 0; y < H; y += 2) for (let x = (y / 2) % 2; x < W; x += 2) { g.fillStyle = shade(c, 10); g.fillRect(x, y, 1, 1); }
+    g.strokeStyle = shade(c, 34); g.lineWidth = 2; g.strokeRect(3, 3, W - 6, H - 6); g.strokeStyle = shade(c, -24); g.strokeRect(1, 1, W - 2, H - 2); grain(g, W, H, 5); }, 2);
+  T.bark = () => photo('bark53', 16, 32, (g, W, H) => {
+    fill(g, W, H, '#3a2434'); for (let x = 0; x < W; x += 3) { g.fillStyle = lin(g, x, 0, x + 3, 0, [[0, '#5a3a48'], [1, '#22141e']]); g.fillRect(x, 0, 2.5, H); }
+    for (let i = 0; i < 8; i++) { g.fillStyle = '#1a0e16'; g.fillRect(R() * W, R() * H, 2, 3); } grain(g, W, H, 6);
+  }, 2);
+
+  /* ---------- металлы и стекло ---------- */
+  // шлифованный металл → хром (отражает окружение и фонари)
+  T.metal = () => photo('metal53', 32, 32, (g, W, H) => {
+    g.fillStyle = lin(g, 0, 0, 0, H, [[0, '#d8dcf0'], [0.5, '#9aa0c0'], [1, '#c0c6e0']]); g.fillRect(0, 0, W, H);
+    g.globalAlpha = 0.25; for (let y = 0; y < H; y++) { g.fillStyle = R() < 0.5 ? '#ffffff' : '#5a6080'; g.fillRect(0, y, W, 0.5); } g.globalAlpha = 1; grain(g, W, H, 4);
+  }, 2);
+  T.paintMetal = c => photo('pm53' + c, 32, 32, (g, W, H) => {
+    g.fillStyle = lin(g, 0, 0, 0, H, [[0, shade(c, 34)], [0.45, shade(c, 0)], [1, shade(c, -30)]]); g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, H * 0.08, W, 1.5); grain(g, W, H, 5);
+  }, 2);
+  T.carPaint = c => photo('cp53' + c, 32, 32, (g, W, H) => {
+    g.fillStyle = lin(g, 0, 0, 0, H, [[0, shade(c, 46)], [0.35, shade(c, 8)], [0.7, shade(c, -10)], [1, shade(c, -40)]]); g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(0, H * 0.3, W, 1); grain(g, W, H, 4);
+  }, 2);
+  T.corrugated = c => photo('corr53' + c, 32, 32, (g, W, H) => {
+    for (let x = 0; x < W; x += 6) { g.fillStyle = lin(g, x, 0, x + 6, 0, [[0, shade(c, -36)], [0.45, shade(c, 26)], [0.6, shade(c, 34)], [1, shade(c, -36)]]); g.fillRect(x, 0, 6, H); }
+    grain(g, W, H, 5);
+  }, 2);
+  T.carGlass = c => photo('cg53' + c, 32, 16, (g, W, H) => {
+    fill(g, W, H, shade(c, -6)); g.fillStyle = lin(g, 0, 0, 0, H, [[0, '#2a3a7a'], [0.6, '#0c1030'], [1, '#18204a']]); g.fillRect(W * 0.06, H * 0.12, W * 0.88, H * 0.76);
+    g.fillStyle = shade(c, -6); g.fillRect(W * 0.48, 0, W * 0.04, H);
+  }, 2);
+  T.hubcap = () => photo('hub53', 16, 16, (g, W, H) => { fill(g, W, H, '#14142a'); g.fillStyle = radial(g, W * 0.4, H * 0.35, W * 0.55, '#ffffff', '#7a80b0'); g.beginPath(); g.arc(W / 2, H / 2, W * 0.42, 0, 7); g.fill();
+    g.fillStyle = '#3a3e66'; for (let a = 0; a < 5; a++) { g.beginPath(); g.arc(W / 2 + Math.cos(a * 1.257) * W * 0.24, H / 2 + Math.sin(a * 1.257) * H * 0.24, W * 0.08, 0, 7); g.fill(); } }, 4);
+
+  // классы материалов: что блестит как хром, что отражает как стекло, что мокрое
+  tagMC('metal', 'chrome'); tagMC('hubcap', 'chrome');
+  tagMC('paintMetal', 'lacquer'); tagMC('carPaint', 'lacquer'); tagMC('corrugated', 'lacquer');
+  tagMC('carGlass', 'glass');
+  tagMC('asphalt', 'wet', 0.55); tagMC('pave', 'wet', 0.4); tagMC('flag', 'wet', 0.6); tagMC('cobble', 'wet', 0.45); tagMC('rosette', 'wet', 0.55); tagMC('pathStone', 'wet', 0.35);
+  tagMC('floorTile', 'wet', 0.55); tagMC('water', 'glass'); tagMC('floorWood', 'wet', 0.3); tagMC('roof', 'wet', 0.3); tagMC('court', 'wet', 0.3);
+
+  // стены квартир изнутри: окрашенная стена с филёнкой, плинтус, карниз
+  T.wallIn = (c = 0xc8b8d8) => photo('wallIn53' + c, 64, 64, (g, W, H) => {
+    g.fillStyle = lin(g, 0, 0, 0, H, [[0, shade(c, 14)], [1, shade(c, -16)]]); g.fillRect(0, 0, W, H);
+    g.strokeStyle = shade(c, 22); g.lineWidth = 1.5; for (const x of [4, W / 2 + 4]) g.strokeRect(x, H * 0.52, W / 2 - 8, H * 0.3);
+    g.fillStyle = shade(c, 40); g.fillRect(0, 0, W, H * 0.04); g.fillStyle = '#241c34'; g.fillRect(0, H * 0.88, W, H * 0.12); g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(0, H * 0.88, W, 1);
+    grain(g, W, H, 4);
+  }, 2);
+  T.cloth = (c = 0x6a3a5a) => photo('cloth53' + c, 32, 32, (g, W, H) => { g.fillStyle = lin(g, 0, 0, W, H, [[0, shade(c, 18)], [1, shade(c, -18)]]); g.fillRect(0, 0, W, H);
+    for (let y = 0; y < H; y += 2) { g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(0, y, W, 1); } grain(g, W, H, 5); }, 2);
+}
+// v0.53: глянцевая «конфетная» крона — градиент сверху вниз, мелкие листья-блики, зерно (материал класса lacquer)
+const CROWN = [['#ffb45a', '#e8642a', '#7a1e3a'], ['#ff6a7a', '#c02a5a', '#4a0e3a'], ['#c8a0ff', '#7a4ad8', '#2a1060'], ['#7affd0', '#2aa08a', '#0e3a4a'], ['#ffe07a', '#d89a2a', '#6a2a1a']];
+T.crown = (k = 0) => photo('crown53' + k, 32, 32, (g, W, H) => { const p = CROWN[k % CROWN.length];
+  const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, p[0]); gr.addColorStop(0.5, p[1]); gr.addColorStop(1, p[2]); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 90; i++) { const x = R() * W, y = R() * H; g.fillStyle = y < H * 0.5 ? 'rgba(255,255,230,.35)' : 'rgba(20,0,30,.3)'; g.beginPath(); g.ellipse(x, y, 2.2, 1.3, R() * 3, 0, 7); g.fill(); }
+  grain(g, W, H, 8); }, 3);
+{ const o = T.crown; T.crown = k => { const t = o(k); t.userData.mc = 'lacquer'; return t; }; }

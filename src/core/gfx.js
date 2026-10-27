@@ -3,7 +3,7 @@ import { CONFIG } from '../config.js';
 import {graphics,onGraphics} from './quality.js';
 import {batchBegin,batchEnd} from './batch.js';
 import {WL,disableWL} from './wl-uniforms.js';
-import {STYLE_HEAD,STYLE_BODY,styleUniforms,POST} from './style.js';
+import {STYLE_HEAD,STYLE_BODY,MC_BODY,MC_ID,styleUniforms,POST} from './style.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 THREE.ColorManagement.enabled = false;
@@ -28,7 +28,8 @@ export const SNAP = { value: new THREE.Vector2(256, 144) };
 // Дрожание вершин в стиле PS1: проекция вершины округляется до сетки экрана
 export function ps1(m, stable = false) {
   m.userData.ps1Stable = stable;
-  m.customProgramCacheKey = () => (stable ? 'ps1-stable-v53' : 'ps1-distance-v53') + (m.userData.jelly ? '-jelly' : '');
+  const mcOf = () => { const c = m.userData.mc ?? m.map?.userData?.mc; return c ? [MC_ID[c] || 0, m.userData.gloss ?? m.map?.userData?.gloss ?? 0.6] : null; };
+  m.customProgramCacheKey = () => { const c = mcOf(); return (stable ? 'ps1-stable-v53b' : 'ps1-distance-v53b') + (m.userData.jelly ? '-jelly' : '') + (c ? '-mc' + c[0] + '_' + c[1] : ''); };
   m.onBeforeCompile = sh => {
     sh.uniforms.uSnap = SNAP;
     const lit = sh.fragmentShader.includes('#include <lights_fragment_end>');
@@ -48,7 +49,8 @@ export function ps1(m, stable = false) {
       Object.assign(sh.uniforms, { uWLOn: WL.on, uWLMax: WL.max, uWLGrid: WL.grid, uWLLights: WL.lights, uWLMask: WL.mask, uWLOrigin: WL.origin, uWLGridSize: WL.gridSize, uWLCell: WL.cell,
         uWLMaskInv: WL.maskInv, uWLBase: WL.base, uWLIndoor: WL.indoor, uWLAo: WL.aoK, uWLK: WL.lightK, uDynP: WL.dynP, uDynC: WL.dynC });
       Object.assign(sh.uniforms, styleUniforms());
-      sh.fragmentShader = WL_HEAD + STYLE_HEAD + sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + WL_BODY).replace('#include <opaque_fragment>', STYLE_BODY + '#include <opaque_fragment>');
+      const c = mcOf(), def = c ? `#define MC ${c[0]}\n#define MCG ${c[1].toFixed(3)}\n` : '';
+      sh.fragmentShader = def + WL_HEAD + STYLE_HEAD + sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + WL_BODY).replace('#include <opaque_fragment>', MC_BODY + STYLE_BODY + '#include <opaque_fragment>');
       if (m.userData.jelly) { sh.uniforms.uJelly = { value: m.userData.jelly }; sh.uniforms.uTime = WL.time;
         sh.fragmentShader = 'uniform float uJelly; uniform float uTime;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', JELLY + '#include <opaque_fragment>'); }
     }
@@ -71,8 +73,12 @@ const WL_HEAD = `varying vec3 vWLPos; uniform float uWLOn, uWLMax, uWLCell, uWLB
 uniform highp sampler2D uWLGrid; uniform highp sampler2D uWLLights; uniform sampler2D uWLMask; uniform vec4 uDynP[4]; uniform vec3 uDynC[4];
 `;
 const WL_BODY = `
+  vec3 wlSpec = vec3(0.0);
   {
     vec3 wN = inverseTransformDirection(normal, viewMatrix), wP = vWLPos, acc = vec3(0.0);
+    #ifdef MC
+    vec3 wV = normalize(cameraPosition - wP);
+    #endif
     float aoF = 1.0, sky = 1.0; vec3 skyT = vec3(1.0);
     if (uWLOn > 0.5) {
       vec4 mk = texture2D(uWLMask, (wP.xz + wN.xz * 0.22 - uWLOrigin) * uWLMaskInv);
@@ -93,14 +99,22 @@ const WL_BODY = `
           vec4 lp = texelFetch(uWLLights, ivec2(ii, 0), 0), lb = texelFetch(uWLLights, ivec2(ii, 2), 0);
           if (wP.y < lb.x || wP.y > lb.y) continue;
           vec3 L = lp.xyz - wP; float d = length(L), a = clamp(1.0 - d / lp.w, 0.0, 1.0); a *= a;
+          #ifdef MC
+          { vec3 Hh = normalize(L / max(d, 1e-3) + wV); float aw = clamp(1.0 - d / (lp.w * 1.8), 0.0, 1.0); wlSpec += texelFetch(uWLLights, ivec2(ii, 1), 0).rgb * aw * pow(max(dot(wN, Hh), 0.0), 48.0) * 1.6; }
+          #endif
           if (a <= 0.0) continue;
           float nl = clamp(dot(wN, L / max(d, 1e-3)) * 0.85 + 0.15, 0.0, 1.0);
-          acc += texelFetch(uWLLights, ivec2(ii, 1), 0).rgb * a * nl;
+          vec3 lcol = texelFetch(uWLLights, ivec2(ii, 1), 0).rgb;
+          acc += lcol * a * nl;
         }
       }
     }
     for (int k = 0; k < 4; k++) { vec4 p = uDynP[k]; vec3 L = p.xyz - wP; float d = length(L), a = clamp(1.0 - d / p.w, 0.0, 1.0); a *= a;
-      acc += uDynC[k] * a * clamp(dot(wN, L / max(d, 1e-3)) * 0.7 + 0.3, 0.0, 1.0); }
+      acc += uDynC[k] * a * clamp(dot(wN, L / max(d, 1e-3)) * 0.7 + 0.3, 0.0, 1.0);
+      #ifdef MC
+      wlSpec += uDynC[k] * a * pow(max(dot(wN, normalize(L / max(d, 1e-3) + wV)), 0.0), 32.0);
+      #endif
+    }
     acc /= 1.0 + max(acc.r, max(acc.g, acc.b)) * 0.12; // мягкий потолок: у самой лампы не выжигает
     reflectedLight.indirectDiffuse *= aoF * sky * skyT;
     reflectedLight.directDiffuse *= mix(1.0, aoF, 0.6);
@@ -232,6 +246,11 @@ export function jellyMat(m, k = 0.8, grad = false) {
   return j;
 }
 export function jellify(root, k = 0.8, grad = false) { root.traverse(o => { if (o.isMesh && !o.userData.noJelly && o.geometry.attributes.uv) o.material = Array.isArray(o.material) ? o.material.map(x => jellyMat(x, k, grad)) : jellyMat(o.material, k, grad); }); return root; }
+// v0.53 «Хром и стекло»: готовые материалы классов
+const mcMat = (m, mc) => { m.userData.mc = mc; return m; };
+export const chrome = (c = 0xdfe4ff) => mcMat(lam({ color: c }, 'chrome53' + c), 'chrome');
+export const glassMC = (c = 0x8ab0f0, op = 0.45) => mcMat(lam({ color: c, transparent: true, opacity: op, depthWrite: false }, 'glass53' + c + '_' + op), 'glass');
+export const lacq = c => mcMat(lam({ color: c }, 'lacq53' + c), 'lacquer');
 // Уникальный материал (для объектов, которые затухают, когда закрывают игрока)
 export const own = (opts) => ps1(new THREE.MeshLambertMaterial(opts));
 
