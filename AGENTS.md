@@ -86,6 +86,12 @@
 9. Сначала вместе с автором решаем, что убрать/добавить/изменить, и только потом делаем; после — полный отчёт об изменениях.
 
 ## 5. Сделано в последних версиях
+- v0.52 (`docs/UPDATE-v0.52.md`, план `docs/PLAN-v0.52.md`): управление ЛКМ — взять/поймать (`pickTarget` в object-actions.js),
+  ПКМ — бросок, E — только взаимодействие (`worldTarget(...,{items:false})`). Хаб: `ui/hub-ouija.js` — доска Уиджа (планшетка —
+  pushable `planchette`, подборки районов `MIXES`) и катапульта (`catapult.update(dt,t,members,onFire)`, готовность группы),
+  старт матча `menu.onLaunch(choice)` → `__forceDistricts`. Стиль: пост-обработка (зерно, RGB-сдвиг, ореол, градиент) в gfx.js,
+  «желе» — `jellify(root,k,grad)` / `jellyMat` (френель-перелив + блик; grad — градиент с зерном вместо плоского цвета).
+  Мосты между крышами `bridgeRoofs` (roofs.js, `W.bridges`). Котята автобуса `busKitten(i)` (6 окрасов).
 - v0.51 (`docs/UPDATE-v0.51.md`): свет мира `world/world-light.js` (все источники в шейдере ps1, сетка 1 м, AO и «крыша»
   0.25 м, `W.flash(p,c,k,range,decay)` — 4 вспышки; новые источники: `W.lightSources.push({x,y,z,color,strength,range})`
   или светящийся материал — найдётся сам). Автосклейка подвижных мешей `core/batch.js` (`userData.noBatch` — исключить).
