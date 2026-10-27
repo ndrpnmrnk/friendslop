@@ -624,3 +624,30 @@ body.cine #hubUI,body.cine #hubPrompt,body.cine #hubHeld{opacity:0;pointer-event
  background-size:120px 120px,90px 90px,140px 140px,160px 160px;-webkit-mask:radial-gradient(ellipse at 50% 50%,transparent 45%,#000 75%);mask:radial-gradient(ellipse at 50% 50%,transparent 45%,#000 75%);animation:leafSway 3s ease-in-out infinite alternate}
 #leafVeil::after{background-size:70px 70px,110px 110px,95px 95px,130px 130px;opacity:.7;animation-duration:4.3s;animation-direction:alternate-reverse}
 @keyframes leafSway{from{transform:translate(-6px,2px) rotate(-.6deg)}to{transform:translate(6px,-3px) rotate(.6deg)}}
+
+/* v0.57: F3 и F8 */
+#perfHud{position:fixed;left:8px;top:8px;z-index:90;margin:0;padding:8px 10px;background:rgba(10,8,18,.82);color:#d8f5c8;font:11px/1.35 ui-monospace,Consolas,monospace;pointer-events:none;white-space:pre;border:1px solid #2e2846}
+#perfHud.hidden{display:none}
+#bugModal{position:fixed;inset:0;z-index:95;background:rgba(5,4,10,.7);display:flex;align-items:center;justify-content:center;font-family:Rubik,Arial,sans-serif;color:#f4ecdc}
+#bugModal .bm-card{width:min(640px,92vw);background:#1c1830;border:2px solid #4a4268;padding:14px;display:flex;flex-direction:column;gap:10px}
+#bugModal b{font:12px "Press Start 2P",monospace;color:#ffd27a}
+#bugModal img{width:100%;border:1px solid #2e2846}
+#bugModal textarea{height:60px;background:#120e1e;color:#f4ecdc;border:1px solid #4a4268;padding:6px;font:14px Rubik,Arial;resize:none}
+#bugModal .bm-row{display:flex;gap:8px}#bugModal button{flex:1;padding:9px;background:#2e2846;color:#f4ecdc;border:1px solid #4a4268;font:13px Rubik,Arial;cursor:pointer}
+#bugModal .bm-save{background:#3a7a52;border-color:#5aa070}#bugModal small{color:#8a82a8}
+
+/* v0.57: студия районов и заданий */
+#studioUI{position:fixed;inset:0;z-index:70;background:rgba(8,6,14,.82);display:flex;align-items:center;justify-content:center;font-family:Rubik,Arial,sans-serif;color:#f4ecdc}
+#studioUI.hidden{display:none}
+#studioUI .st-card{width:min(980px,94vw);max-height:90vh;background:#1c1830;border:2px solid #4a4268;padding:16px;display:flex;flex-direction:column;gap:12px}
+#studioUI .st-head{display:flex;align-items:center;gap:14px}#studioUI .st-head b{font:16px "Press Start 2P",monospace;color:#ffd27a}
+#studioUI .st-head span{flex:1;color:#a59cc0;font-size:13px}#studioUI .st-head button{background:none;border:0;color:#f4ecdc;font-size:20px;cursor:pointer}
+#studioUI .st-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;min-height:0;overflow:hidden}
+#studioUI section{display:flex;flex-direction:column;min-height:0}#studioUI h3{margin:0 0 8px;font:11px "Press Start 2P",monospace;color:#c8bedc}
+#studioUI .st-list{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;overflow:auto;max-height:68vh;padding-right:4px}
+#studioUI .st-list button{display:flex;align-items:center;gap:8px;padding:6px;background:#2a2442;border:1px solid #3a3458;color:#f4ecdc;font:13px Rubik,Arial;text-align:left;cursor:pointer}
+#studioUI .st-list button:hover{background:#3a3260;border-color:#ffd27a}
+#studioUI .st-list img{width:56px;height:34px;object-fit:cover;flex:none}
+#studioBar{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:30;padding:6px 14px;background:rgba(10,8,18,.8);border:1px solid #4a4268;color:#ffd27a;font:11px "Press Start 2P",monospace;pointer-events:none;white-space:nowrap}
+#studioBar.hidden{display:none}#studioBar span{color:#c8bedc;font-family:Rubik,Arial;font-size:13px}
+#studioLeave.hidden{display:none}

@@ -30,7 +30,7 @@ import { applyGripMotion, grabTarget, grabActor, letGo, startEmote, updateEmote 
    Характеры: задира (кидается, толкает, хватает, отбирает), трудяга (почти только миссии), трус (уворачивается, прячется).
    Ходят «щупальцами»: если впереди стена — ищут обход, низкое — перепрыгивают, высоко — ищут лестницу. */
 const PC = CONFIG.player;
-const NAMES = ['Тыквоед', 'Бублик', 'Шпрот', 'Кексик'];
+const NAMES = ['Тыквоед', 'Бублик', 'Шпрот', 'Кексик', 'Пельмень', 'Сырок', 'Зефир'];
 const MOODS = ['bully', 'worker', 'coward'];
 export function createBots(scene, playerSkin, n = 3) {
   for (const b of W.bots || []) scene.remove(b.root);
@@ -40,7 +40,7 @@ export function createBots(scene, playerSkin, n = 3) {
     const skin = others[i % others.length] || playerSkin, ch = makeCharacter(skin); ch.onCroak = () => sfx('croak', { at: ch.root.position, v: 0.6 });
     const sp = W.spawns[(i + 1) % W.spawns.length] || { x: 0, y: 0.15, z: 0 };
     ch.root.position.set(sp.x + (Math.random() - 0.5) * 2, sp.y, sp.z + (Math.random() - 0.5) * 2); scene.add(ch.root);
-    W.bots.push({ bot: true, name: NAMES[i], skin, mood: moods[i % 3], ch, root: ch.root, pos: ch.root.position, vel: new V3(), push: new V3(), r: PC.radius, h: PC.height, step: PC.step,
+    W.bots.push({ bot: true, name: NAMES[i % NAMES.length], skin, mood: moods[i % 3], ch, root: ch.root, pos: ch.root.position, vel: new V3(), push: new V3(), r: PC.radius, h: PC.height, step: PC.step,
       onGround: true, stun: 0, score: 0, goal: null, doT: 0, think: 0, stuck: 0, last: new V3(), facing: 0, throwCD: 3 + Math.random() * 5, held: null, wander: null, airPeak: 0,
       side: 1, sideT: 0, dodge: null, hideT: 0, actCD: 2, carry: null });
     statsOf(W.bots[W.bots.length - 1]);
@@ -195,7 +195,7 @@ export function updateBots(dt, t, P) {
     } else {b.ugT=0;b.escapeLadder=null;}
     if (b.webT > 0) b.webT -= dt;
     if (b.knockT > 0) b.knockT -= dt;
-    if (b.diveHitT > 0) b.diveHitT -= dt;
+    if (b.diveHitT > 0) b.diveHitT -= dt; if (b.bumpT > 0) b.bumpT -= dt;
     if (b.diveCD > 0) b.diveCD -= dt;
     if (b.diveT > 0) { b.diveT -= dt; hitBreakables({ x: b.pos.x + b.vel.x * 0.05, y: b.pos.y + 0.6, z: b.pos.z + b.vel.z * 0.05 }, 0.6, [b.vel.x, b.vel.y, b.vel.z], 1, ['glass', 'crate']); }
     if(b.avoid){b.avoid.left-=dt;if(b.avoid.left<=0)b.avoid=null;}

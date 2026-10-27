@@ -80,7 +80,9 @@ function tunnelSegment(s, P, brick, conc) {
   // стены с обеих сторон, с проёмами для входов из районов
   for (const side of [-1, 1]) {
     const v = s.c + side * (half + t / 2);
-    const ops = W.tunnelOpenings.filter(o => o.axis === s.axis && Math.abs(o.at - v) < 1).map(o => [o.from, o.to]).sort((p, q) => p[0] - q[0]);
+    // v0.57: проём берём только свой (в пределах этого сегмента). Раньше проём из коллектора попадал во все сегменты ряда,
+    // и у соседних строилась «вывернутая» стена поперёк канала — тоннель торчал внутри коллектора и закрывал выход.
+    const ops = W.tunnelOpenings.filter(o => o.axis === s.axis && Math.abs(o.at - v) < 1 && o.to > ua && o.from < ub).map(o => [Math.max(ua, o.from), Math.min(ub, o.to)]).sort((p, q) => p[0] - q[0]);
     let cur = ua;
     // ниша-кладовка в одной из стен (случайно): там ящики и нычка для миссий
     const alcove = side === 1 && !ops.length && rand() < 0.35 ? (s.a + s.b) / 2 + (rand() - 0.5) * 8 : null;
@@ -111,7 +113,10 @@ function tunnelSegment(s, P, brick, conc) {
     box(ua, s.c + sd * (half - 0.12), ub, s.c + sd * (half - 0.02), (x0, z0, x1, z1) => { for (const [y, cc] of [[-1.35, 0x1a1a1a], [-1.5, 0x8a2a2a], [-1.65, 0x2a2a6a]]) mesh(G.box, col(cc), (x0 + x1) / 2, y, (z0 + z1) / 2, x1 - x0, 0.06, z1 - z0, W.group); });
   }
   // трубы вдоль стены с хомутами
-  const ps = rand() < 0.5 ? -1 : 1;
+  let ps = rand() < 0.5 ? -1 : 1;
+  // трубы — по глухой стене, не поперёк проёма в район
+  const opOn = sd => W.tunnelOpenings.some(o => o.axis === s.axis && Math.abs(o.at - (s.c + sd * (half + t / 2))) < 1 && o.to > ua && o.from < ub);
+  if (opOn(ps)) ps = -ps;
   box(ua, s.c + ps * (half - 0.25), ub, s.c + ps * (half - 0.25), (x0, z0, x1, z1) => {
     const len = Math.max(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, alongX = x1 - x0 > z1 - z0;
     for (const [y, r, m] of [[-2.0, 0.16, tmat(T.rust())], [-2.45, 0.1, tmat(T.metal())]]) { const pp = mesh(G.cyl8, m, cx, y, cz, r, len, r, W.group); pp.rotation[alongX ? 'z' : 'x'] = Math.PI / 2; }
@@ -139,10 +144,9 @@ function tunnelNode(x, z, w0, w1, n0, n1, brick, conc) {
 }
 function manhole(x, z, hx, hz) {
   W.manholes.push({ x, z });
-  // люк: рамка в жёлто-чёрную полосу, сдвинутая крышка, лестница вниз с жёлтыми поручнями у северного края
-  const iron = col(0x2b2533), warn = tmat(T.hazard ? T.hazard() : T.metal());
+  // люк: чугунная рамка (v0.57: без жёлто-чёрных полос — это цвет опасности), сдвинутая крышка, лестница у северного края
+  const iron = col(0x2b2533), warn = tmat(T.metal());
   for (const [dx, dz, w, d] of [[0, -hz - .06, hx * 2 + .24, .12], [0, hz + .06, hx * 2 + .24, .12], [-hx - .06, 0, .12, hz * 2], [hx + .06, 0, .12, hz * 2]]) mesh(G.box, warn, x + dx, 0.02, z + dz, w, 0.05, d, W.group);
-  mesh(G.box, col(0xf5c542), x, 0.03, z - hz - .2, hx * 2, 0.02, .16, W.group);
   // шахта: бетонные стенки толщиной в плиту дороги (сверху не видно «пустоты» между асфальтом и тоннелем)
   for (const [dx, dz, w, d] of [[0, -hz + .04, hx * 2, .08], [0, hz - .04, hx * 2, .08], [-hx + .04, 0, .08, hz * 2], [hx - .04, 0, .08, hz * 2]]) mesh(G.box, tmat(T.concrete()), x + dx, -0.5, z + dz, w, 0.98, d, W.group);
   mesh(G.cyl12, tmat(T.metal()), x + hx + .7, 0.03, z + 0.3, 0.6, 0.05, 0.6, W.group);

@@ -86,6 +86,17 @@
 9. Сначала вместе с автором решаем, что убрать/добавить/изменить, и только потом делаем; после — полный отчёт об изменениях.
 
 ## 5. Сделано в последних версиях
+- v0.57 (`docs/UPDATE-v0.57.md`): инструменты — `src/core/devtools.js` (F3 счётчик `prof.mark()` по системам в `frame()`,
+  F8 отчёт-скриншот `afterRender(canvas)`), **студия** (`S.studioCfg`, `openStudio/startStudio/leaveStudio` в main.js:
+  район — `CONFIG.grid=1` + `__forceDistricts`, задание — до 4 попыток `prepareRound()`+`studioMission()`; без ботов,
+  таймера и событий). Скорость — `src/world/cull.js`: `updateCull` (дальняя мелочь на слой 5, не рисуется),
+  `freezeStatic/checkFrozen` (статичный мир без пересчёта матриц; подвижные корни — предметы, толкаемые, двери, `W.keep` —
+  обновляются при сдвиге; что сдвинул чужой код — «оттаивает»). Прогрев шейдеров — в конце `prepareRound` +
+  `prewarmKit()` из items.js. Дымка `src/world/haze.js`, PCF-тени с `shadow.radius`. Проёмы тоннелей `W.tunnelOpenings`
+  теперь только в пределах своего сегмента. Эмоции 1–5 (`EMOTES` в grab.js, позы в rig.js), толчок переката/подката
+  в player.js (`bumpT`), коты сталкиваются с персонажами (cats.js), собака на руках — поза в town.js `updDog`.
+  **Порядок проверки после сборки**: `npx vite build`, затем тестовый раунд с 7 ботами (`S.botCount=7`, логика без
+  рендера `window.__noRender=true`, снимки, ошибки консоли, застрявшие боты) — коротко, без лишних проверок.
 - v0.56 (`docs/UPDATE-v0.56.md`): запуск из хаба — стадии `flow` в menu.js: mode → map → gather (зона у рогатки,
   `sling.zone/arm/pull`) → cutscene (`launchStep`: линия, «пять» — поза `act:'five'`/`'cheer'` в rig.js, разбег, сальто
   `dive:'roll'`, залп со звуком `birdcry`) → экран загрузки `#loadScreen` (main.js `showLoading/loadingReady`).

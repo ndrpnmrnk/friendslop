@@ -126,9 +126,16 @@ function toolModel(type, g) {
       case 'pizza': { const bx = C(0xd8b888); a(G.box, bx, 0, 0, 0, 0.46, 0.07, 0.46); a(G.cyl12, tmat(T.pizzaTop()), 0, 0.04, 0, 0.21, 0.012, 0.21); a(G.box, tmat(T.sign('ПИЦЦА', '#d8243a', '#f1e8ff')), 0, 0.0, 0.232, 0.3, 0.05, 0.004); a(G.box, C(0x8a6a4a), 0, -0.036, 0, 0.47, 0.004, 0.47); break; }
       case 'rake': { const w = tmat(T.wood()), m = C(0x8a8d98); a(G.box, w, 0, 0.0, 0, 0.05, 0.05, 1.1); a(G.box, m, 0, 0, 0.55, 0.4, 0.04, 0.05); for (let i = 0; i < 6; i++) a(G.box, m, -0.17 + i * 0.07, -0.04, 0.58, 0.02, 0.08, 0.02); break; }
       case 'cushion': { const p = lam({ color: 0xff5a9e }, 'cushion'); a(G.sph10, p, 0, 0, 0, 0.2, 0.06, 0.2); a(G.cyl6, p, 0, 0, 0.22, 0.04, 0.08, 0.04, Math.PI / 2); break; }
-      // сетемёт: короткий ствол-раструб, рукоять, свёрнутая сетка сверху
-      case 'net': { const body = C(0x2fa86a), dk = C(0x22202a); a(G.cyl12, body, 0, 0, 0.0, 0.075, 0.3, 0.075, Math.PI / 2); a(G.cone8, dk, 0, 0, 0.22, 0.12, 0.14, 0.12, -Math.PI / 2); a(G.cyl12, C(0xf5c542), 0, 0, 0.29, 0.125, 0.02, 0.125, Math.PI / 2);
-        a(G.box, dk, 0, -0.11, -0.07, 0.05, 0.17, 0.065, 0.3); a(G.box, dk, 0, -0.05, -0.0, 0.02, 0.05, 0.06); a(G.sph10, lam({ color: 0xe8f0d8, transparent: true, opacity: .75 }, 'netRoll52'), 0, 0.1, -0.02, 0.08, 0.07, 0.11); a(G.box, glow(0x7affb0), 0.077, 0.02, -0.06, 0.004, 0.02, 0.05); break; }
+      // v0.57 сетемёт: коренастый «бластер» — корпус, барабан с сеткой сверху, на дульном срезе четыре грузика-утяжелителя
+      // (как у настоящих сетемётов: летят по углам и раскрывают сетку), между ними свёрнутая сетка; рукоять со скобой, приклад
+      case 'net': { const body = C(0x2f7a6a), dk = C(0x22202a), or = C(0xff8a1f), lt = C(0x9be36b), net = lam({ color: 0xe8f0d8, transparent: true, opacity: .8 }, 'netRoll52');
+        a(G.box, body, 0, 0, 0.02, 0.12, 0.12, 0.3); a(G.box, dk, 0, 0.065, 0.02, 0.08, 0.02, 0.26); a(G.box, body, 0, -0.01, -0.17, 0.09, 0.09, 0.1);
+        a(G.box, dk, 0, 0, 0.18, 0.2, 0.17, 0.04);
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) { a(G.cyl8, dk, sx * 0.075, sy * 0.06, 0.215, 0.028, 0.06, 0.028, Math.PI / 2 - sy * 0.25, 0, sx * 0.25); a(G.sph10, or, sx * 0.085, sy * 0.068, 0.25, 0.034, 0.034, 0.04); }
+        a(G.sph10, net, 0, 0, 0.215, 0.07, 0.06, 0.05);
+        a(G.cyl12, lt, 0, 0.12, -0.01, 0.065, 0.2, 0.065, Math.PI / 2); for (const z of [-0.08, 0.06]) a(G.cyl12, dk, 0, 0.12, z, 0.068, 0.018, 0.068, Math.PI / 2); a(G.box, C(0xf5c542), 0.066, 0.12, -0.01, 0.004, 0.035, 0.08);
+        a(G.box, dk, 0, -0.12, -0.08, 0.055, 0.17, 0.07, 0.3); a(G.halfTorus, dk, 0, -0.07, -0.01, 0.045, 0.05, 0.3, Math.PI / 2, 0, Math.PI); a(G.box, or, 0, -0.07, -0.025, 0.02, 0.04, 0.015);
+        a(G.box, glow(0x7affb0), 0.062, 0.02, -0.06, 0.004, 0.02, 0.05); break; }
       // жетон: золотая звезда на синей «корочке»
       case 'badge': { a(G.box, C(0x2a3a7a), 0, 0, 0, 0.18, 0.02, 0.24); const gd = lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.5 }, 'badgeGold'); a(G.cyl8, gd, 0, 0.02, 0.03, 0.07, 0.015, 0.07); for (let i = 0; i < 5; i++) { const an = i / 5 * 6.28; a(G.cone4, gd, Math.cos(an) * 0.06, 0.02, 0.03 + Math.sin(an) * 0.06, 0.03, 0.01, 0.03, Math.PI / 2, 0, an); } break; }
       // перчатка-пружина: красная боксёрская перчатка на гармошке
@@ -139,6 +146,9 @@ function toolModel(type, g) {
     }
   });
 }
+// v0.57: прогрев шейдеров — по одной модели каждого предмета (с обводкой), чтобы первый выпавший сетемёт или петарда
+// не подвешивали кадр компиляцией. Группу показывают на один renderer.compile и выбрасывают.
+export function prewarmKit() { const kit = new THREE.Group(); for (const type of Object.keys(CONFIG.items)) { try { const g = jellify(build(type), 0.7, true); addOutline(g, 0.045, OUTLINE[rarityOf(type)]); kit.add(g); } catch (_) {} } return kit; }
 export function addItem(type, x, y, z, ry = 0) {
   const def = CONFIG.items[type], g = jellify(build(type), 0.7, true); W.group.add(g); // v0.52: предметы — «желе», выделяются из фона
   const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z, ry }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g, 0.045, OUTLINE[rarityOf(type)]), rarity: rarityOf(type), ammo: def.ammo || 0, cd: 0 };

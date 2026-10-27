@@ -147,6 +147,7 @@ const SND = {
   emote_wave: s => { tone(520, 700, 0.1, 'triangle', 0.07 * (s.v ?? 1)); tone(700, 880, 0.12, 'triangle', 0.06 * (s.v ?? 1), 0.1); },
   emote_dance: s => { [523, 659, 784, 659, 880, 784].forEach((f, i) => tone(f, f, 0.12, 'square', 0.04 * (s.v ?? 1), i * 0.14)); },
   emote_laugh: s => { for (let i = 0; i < 5; i++) tone(420 - i * 20, 300 - i * 20, 0.09, 'square', 0.06 * (s.v ?? 1), i * 0.12); },
+  emote_clap: s => { tone(660, 990, 0.12, 'triangle', 0.05 * (s.v ?? 1)); },
   emote_call: s => { tone(600, 900, 0.18, 'triangle', 0.09 * (s.v ?? 1)); tone(900, 700, 0.25, 'triangle', 0.08 * (s.v ?? 1), 0.22); },
   // миссии, события, город
   chop: () => { noise(0.05, 0.18, 2000, 1.4); tone(700, 400, 0.04, 'square', 0.04); },

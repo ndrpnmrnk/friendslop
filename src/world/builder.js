@@ -7,7 +7,7 @@ import { T, facade, rep } from '../core/textures.js';
 import { rand, range, pick } from '../core/rng.js';
 import { HW, SEASON } from '../config.js';
 import { W } from './state.js';
-import { addSolid, addZone } from './physics.js';
+import { addSolid, addZone, isFree } from './physics.js';
 import { addItem,restOnSurface } from '../game/items.js';
 import { addBirds } from './birds.js';
 import { addOutline } from '../game/outline.js';
@@ -363,7 +363,10 @@ export class Builder {
     const tg = new THREE.Group(); tg.rotation.z = tilt; tg.add(slab, cap); g.add(tg, base);
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.36 : 0.95, q ? 0.95 : 0.36, 0, 1.25);
   }
-  web(x, y, z, ry, s = 1.2) { const m = this.m(G.plane, alphaMat(T.web(), { side: THREE.DoubleSide, opacity: 0.7 }), x, y, z, s, s, 1); m.rotation.y = ry; }
+  // v0.57: паутина только «в углу» — если за ней (или перед ней) нет стены в 0.35 м, не вешаем: висящей в воздухе паутины больше нет
+  web(x, y, z, ry, s = 1.2) { if (this.name !== 'Двор') { const nx = Math.sin(ry), nz = Math.cos(ry), X = this.X(x), Z = this.Z(z), Y = this.Y + y, e = s * .3;
+      if (isFree(Math.min(X - nx * .35, X + nx * .35) - (nz ? e : .02), Math.min(Z - nz * .35, Z + nz * .35) - (nx ? e : .02), Math.max(X - nx * .35, X + nx * .35) + (nz ? e : .02), Math.max(Z - nz * .35, Z + nz * .35) + (nx ? e : .02), Y - s * .3, Y + s * .3)) return; }
+    const m = this.m(G.plane, alphaMat(T.web(), { side: THREE.DoubleSide, opacity: 0.7 }), x, y, z, s, s, 1); m.rotation.y = ry; }
   // гирлянда на столбах: столбы каждые ~8 м, провод провисает между ними, лампочки висят на проводе
   stringLights(x0, z0, x1, z1, y, colors = [0xff8a1f, 0xb18cff, 0x9be36b]) {
     const len = Math.hypot(x1 - x0, z1 - z0), spans = Math.max(1, Math.ceil(len / 8)), pole = col(0x2b2533);
@@ -413,11 +416,12 @@ export class Builder {
   ladder(x, z, side, top, y0 = 0) {
     const n = { s: [0, 1], n: [0, -1], e: [1, 0], w: [-1, 0] }[side], mat = col(0x5a5d68);
     const ax = n[1] !== 0, h = top - y0 + 0.9;
-    const px = x + n[0] * 0.12, pz = z + n[1] * 0.12, hand = col(0xf5c542);
-    // v0.56: сверху лестницы — жёлтые поручни-скобы и жёлтая полоса на краю: издалека видно, где и с какой стороны залезать
-    for (const o of [-0.32, 0.32]) { this.m(G.box, mat, px + (ax ? o : 0), y0 + (top - y0) / 2, pz + (ax ? 0 : o), 0.07, top - y0, 0.07); this.m(G.box, hand, px + (ax ? o : 0), top + 0.45, pz + (ax ? 0 : o), 0.08, 0.9, 0.08); }
-    this.m(G.box, hand, px, top + 0.9, pz, ax ? 0.72 : 0.08, 0.08, ax ? 0.08 : 0.72);
-    this.m(G.box, hand, x - n[0] * 0.08, top + 0.012, z - n[1] * 0.08, ax ? 0.8 : 0.14, 0.02, ax ? 0.14 : 0.8);
+    const px = x + n[0] * 0.12, pz = z + n[1] * 0.12, hand = col(0x858a96);
+    // v0.57: вместо жёлтого — тихая подсказка: поручни выходят над краем дугой (как у настоящей стремянки на крышу),
+    // на дуге маленький тёплый огонёк — ночью видно, где залезть, но глаз не режет
+    for (const o of [-0.32, 0.32]) { this.m(G.box, mat, px + (ax ? o : 0), y0 + (top - y0) / 2, pz + (ax ? 0 : o), 0.07, top - y0, 0.07); this.m(G.box, hand, px + (ax ? o : 0), top + 0.42, pz + (ax ? 0 : o), 0.07, 0.84, 0.07); }
+    this.m(G.box, hand, px, top + 0.84, pz, ax ? 0.71 : 0.07, 0.07, ax ? 0.07 : 0.71);
+    this.m(G.box, glow(0xffd9a0), px + n[0] * 0.04, top + 0.84, pz + n[1] * 0.04, 0.07, 0.05, 0.07);
     for (let y = y0 + 0.3; y < top + 0.1; y += 0.38) this.m(G.box, mat, px, y, pz, ax ? 0.64 : 0.05, 0.05, ax ? 0.05 : 0.64);
     const wx = this.X(x), wz = this.Z(z);
     W.ladders.push({ x0: wx + Math.min(0, n[0] * 0.9) - (ax ? 0.4 : 0), x1: wx + Math.max(0, n[0] * 0.9) + (ax ? 0.4 : 0),
