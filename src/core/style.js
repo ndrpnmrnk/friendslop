@@ -35,7 +35,7 @@ export const VARIANTS = [
   { id: 'chrome', name: 'Хром и стекло',
     // холодный электрик-синий против янтаря, сильная хроматическая кайма и ореолы, как стеклянные постеры
     a: 0x05103a, b: 0x2a5ad8, c: 0xffd6a0, rim: 0x9af0ff, rimK: .6, bands: 5, keepHue: .3, k: .95,
-    fog: 0x1a2a6a, sky: [0x020418, 0x16247a, 0xff9a4a], hemi: [0xa0c0ff, 0x101a40, .8], env: [0x3a6aff, 0xff9a4a, 0x04071a, 0xfff2dc],
+    fog: 0x1a2a6a, sky: [0x020418, 0x16247a, 0xff9a4a], hemi: [0xa0c0ff, 0x101a40, .68], env: [0x3a6aff, 0xff9a4a, 0x04071a, 0xfff2dc],
     post: { grain: .07, ca: .009, haloA: 0xffb060, haloB: 0x5ab0ff, top: 0xb8c8ff, bot: 0xffc890, vig: .8 },
     shift: { yard: 0, park: .05, plaza: -.05, shops: .1, construction: .03, cemetery: .45, gas: -.08, market: .07, school: .15,
       foodcourt: .85, sewer: .4, office: -.03, port: .02, skatepark: .9, hospital: .35, factory: .12, townhall: -.1, university: .2, cinema: .8 } },
@@ -54,7 +54,7 @@ export function applyStyle(i = current, { scene, sky, hemi } = {}) {
   if (scene?.fog) scene.fog.color.setHex(v.fog);
   if (scene?.background?.isColor) scene.background.setHex(v.fog);
   sky?.setColors?.(v.sky[0], v.sky[1], v.sky[2], v.fog, v.hemi[0]);
-  if (hemi) { hemi.color.setHex(v.hemi[0]); hemi.groundColor.setHex(v.hemi[1]); }
+  if (hemi) { hemi.color.setHex(v.hemi[0]); hemi.groundColor.setHex(v.hemi[1]); hemi.userData.base ??= hemi.intensity; hemi.intensity = hemi.userData.base * (v.hemi[2] ?? 1); }
   return v;
 }
 // районы текущей карты → сдвиги оттенка

@@ -843,7 +843,7 @@ function frame() {
     if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); updateGrabs(dt, t); updateTraps(dt, t); updateTown(dt, t, P, !!EV.big); updateFun(dt, t); updatePolice(dt, t); updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.state === 'play' || S.state === 'results' ? 1 - Math.max(0, S.time) / CONFIG.roundTime : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
-      if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
+      if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1) * (styleState.variant.hemi?.[2] ?? 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
     updateReflections(camera, t);localLighting.update(camera,dt,sky.dim||0);
     cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play'&&!S.mg ? P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8) : 0;

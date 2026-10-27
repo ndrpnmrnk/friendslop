@@ -19,7 +19,8 @@ export function buildSkyways(half) {
   const clearDoors = (x0, z0, x1, z1) => !W.doors.some(d => d.x > x0 - 2.2 && d.x < x1 + 2.2 && d.z > z0 - 2.2 && d.z < z1 + 2.2 && Math.abs(d.y - base) < 1.5);
   // лестница — сплошная, под ней ничего; у площадки свободными должны быть только места колонн и объём на уровне настила
   const high = (x0, z0, x1, z1) => isFree(x0 - .8, z0 - .8, x1 + .8, z1 + .8, H - 1.2, H + 2.5);
-  const free = (x0, z0, x1, z1) => isFree(x0, z0, x1, z1, base + .05, H + 2.5) && high(x0, z0, x1, z1) && clearDoors(x0, z0, x1, z1);
+  const noSpawn = (x0, z0, x1, z1) => !W.spawns.some(p => p.x > x0 - 1 && p.x < x1 + 1 && p.z > z0 - 1 && p.z < z1 + 1);
+  const free = (x0, z0, x1, z1) => isFree(x0, z0, x1, z1, base + .05, H + 2.5) && high(x0, z0, x1, z1) && clearDoors(x0, z0, x1, z1) && noSpawn(x0, z0, x1, z1);
   const platFree = (x0, z0, x1, z1) => high(x0, z0, x1, z1) && [[x0, z0], [x1 - .4, z0], [x0, z1 - .4], [x1 - .4, z1 - .4]].every(([px, pz]) => isFree(px - .05, pz - .05, px + .45, pz + .45, base + .05, H));
   // площадка (PW×PW) с лестницей; ищем свободное место у края района, при необходимости глубже внутри
   const L = Math.round((H - base) / .3) * .42 + .1;
@@ -65,8 +66,11 @@ export function buildSkyways(half) {
     const back = { n: 's', s: 'n', e: 'w', w: 'e' }[q.dir], n = Math.round((H - base) / .3);
     const sx = q.dir === 'e' ? x1 : q.dir === 'w' ? x0 : (x0 + x1) / 2, sz = q.dir === 's' ? z1 : q.dir === 'n' ? z0 : (z0 + z1) / 2;
     b.stairs(sx, sz, back, 0, H - base, w, 0, (len - .1) / n);
-    for (const s of [-1, 1]) { const m = b.m(G.box, steel, along ? (x0 + x1) / 2 + s * w / 2 : (x0 + x1) / 2, H / 2 + .9, along ? (z0 + z1) / 2 : (z0 + z1) / 2 + s * w / 2, along ? .06 : len, .06, along ? len : .06);
-      const a = Math.atan2(H, len); if (along) m.rotation.x = q.dir === 's' ? a : -a; else m.rotation.z = q.dir === 'w' ? a : -a; }
+    // поручни: тонкая хромовая труба от низа лестницы к площадке (ориентация через lookAt — без ошибок знака)
+    const far = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }[q.dir], cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    for (const s of [-1, 1]) { const ox = along ? s * w / 2 : 0, oz = along ? 0 : s * w / 2;
+      const lo = new THREE.Vector3(cx + ox + far[0] * len / 2, base + .95, cz + oz + far[1] * len / 2), hi = new THREE.Vector3(cx + ox - far[0] * len / 2, H + .95, cz + oz - far[1] * len / 2);
+      const m = new THREE.Mesh(G.box, steel); m.position.copy(lo).add(hi).multiplyScalar(.5); m.scale.set(.06, .06, lo.distanceTo(hi)); m.lookAt(hi); W.group.add(m); }
   }
   function bridge(ax, a, bq, c, ci) {
     // ax: 'x' — мост вдоль x между a и bq (координаты x), c — z центра

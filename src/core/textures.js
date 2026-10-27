@@ -866,7 +866,7 @@ T.burlap=()=>pix('sack43-weave',32,32,g=>{g.fillStyle='#a88b5c';g.fillRect(0,0,3
   // тротуар: крупная керамогранитная плитка 2×2 с фаской
   T.pave = () => photo('pave53', 64, 64, (g, W, H) => {
     fill(g, W, H, '#202238'); const n = 2, s = W / n;
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) bevelTile(g, x * s + 1, y * s + 1, s - 2, s - 2, 0x5e608c + (((R() - 0.5) * 18) | 0) * 0x010101, 1, 2);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) bevelTile(g, x * s + 1, y * s + 1, s - 2, s - 2, 0x4a4c78 + (((R() - 0.5) * 18) | 0) * 0x010101, 1, 2);
     speck(g, W, H, 220, ['rgba(40,40,70,.5)', 'rgba(190,195,240,.4)'], 1); grain(g, W, H, 6);
   }, 2);
   // площадь: полированные плиты разной длины с тонкими «мраморными» прожилками
