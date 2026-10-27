@@ -38,7 +38,7 @@ export function buildHub(scene){
   // Направления к станциям читаются по мощению; середина двора остаётся свободной.
   // v0.52: дорожка от входа к доске; середина двора — спиритическая доска и катапульта
   b.ground(-1.6,2,1.6,17,T.pave(),1.4,.018);
-  for(const[x,z,ry]of[[-5,3,Math.PI/2],[5,0,-Math.PI/2],[-11,-10,Math.PI/2],[11,11,-Math.PI/2]])b.lamp(x,z,ry);
+  for(const[x,z,ry]of[[-6.6,3,Math.PI/2],[6.6,-.5,-Math.PI/2],[-11,-10,Math.PI/2],[11,11,-Math.PI/2]])b.lamp(x,z,ry);
   // Те же пятна и конусы, что в матче; локальный свет действительно освещает модели.
   const lampLights=[];
   for(const lamp of state.lamps){group.add(lamp.cone);lamp.cone.visible=true;const light=new THREE.PointLight(0xffc481,9,8,1.5);light.position.set(lamp.lx,2.92,lamp.lz);group.add(light);lampLights.push({lamp,light});}

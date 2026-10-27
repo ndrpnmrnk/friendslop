@@ -105,6 +105,16 @@ export function buildOuija(b, cx, cz) {
     bctx.font = 'bold 26px sans-serif'; bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
     bctx.shadowColor = color; bctx.shadowBlur = 10; bctx.fillStyle = '#fff4e0'; bctx.fillText(text, 128, 24); banner.needsUpdate = true;
   }
+  // 8 свечей по краю доски — места для восьми игроков; тёплый свет мира и дрожащее пламя
+  const flames = [];
+  for (let i = 0; i < 8; i++) { const sx = i < 4 ? -1 : 1, k = i % 4, x = cx + sx * (BW / 2 + .55), z = cz - BD / 2 + .6 + k * (BD - 1.2) / 3;
+    group.add(compose('ouija52-candle', a => { a(G.cyl8, col(0x2a1a22), 0, .35, 0, .16, .7, .16); a(G.cyl8, col(0xf2c46a), 0, .72, 0, .2, .05, .2); a(G.cyl8, col(0xf4ead2), 0, .95, 0, .085, .45, .085); }).translateX(x).translateZ(z));
+    const f = new THREE.Mesh(G.cone6, new THREE.MeshBasicMaterial({ color: 0xffc46a, fog: false })); f.position.set(x, 1.27, z); f.scale.set(.06, .16, .06); f.userData.noLight = true; group.add(f); flames.push(f);
+    (W.lightSources ??= []).push({ x, y: 1.4, z, color: 0xff9a40, strength: 3.2, range: 4.5 }); b.solid(x - b.X(0), z - b.Z(0), .3, .3, 0, 1.2); }
+  // блуждающие огоньки-духи: полупрозрачные «желейные» шарики кружат над доской
+  const wisps = [];
+  for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(G.sph10, new THREE.MeshBasicMaterial({ color: [0xff7ab8, 0x7ad8ff, 0xffd27a][i % 3], transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    m.scale.setScalar(.12 + (i % 3) * .04); m.userData.noLight = true; m.userData.noOcc = true; group.add(m); wisps.push({ m, ph: i * 1.05, r: 2 + (i % 3) * .9, h: 1.2 + (i % 2) * .7 }); }
   let sel = -1, selT = 0, last = -1;
   return {
     group, planchette: pl, plates, get mixes() { return mixes; }, get selected() { return sel; },
@@ -126,6 +136,10 @@ export function buildOuija(b, cx, cz) {
       for (const p of plates) { const on = p.i === sel; p.mesh.material.emissiveIntensity = on ? .9 + Math.sin(t * 6) * .25 : .35; p.mesh.position.y = .135 + (on ? .03 + Math.sin(t * 6) * .01 : 0); }
       const m = sel >= 0 ? mixes[sel] : null;
       drawBanner(sel < 0 ? 'Толкай планшетку' : m ? m.name : 'Случайный город', m ? m.c : '#f2c46a');
+      for (const f of flames) { const k = .85 + Math.sin(t * 17 + f.position.x * 3) * .1 + Math.sin(t * 7.3 + f.position.z) * .08; f.scale.set(.06 * k, .16 * k, .06 * k); }
+      for (const w of wisps) { const a = t * .5 + w.ph, px = cx + Math.cos(a) * w.r * 1.3, pz = cz + Math.sin(a) * w.r * .8;
+        // дух тянется к выбранному варианту
+        const tgt = sel >= 0 ? plates[sel] : null; w.m.position.set(tgt ? px + (tgt.x - px) * .35 : px, w.h + Math.sin(t * 2 + w.ph) * .25, tgt ? pz + (tgt.z - pz) * .35 : pz); w.m.material.opacity = .4 + Math.sin(t * 3 + w.ph) * .15; }
       bannerMesh.position.y = 2.6 + Math.sin(t * 1.6) * .08; if (camera) bannerMesh.quaternion.copy(camera.quaternion);
     },
   };
