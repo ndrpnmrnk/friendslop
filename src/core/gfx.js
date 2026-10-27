@@ -3,6 +3,7 @@ import { CONFIG } from '../config.js';
 import {graphics,onGraphics} from './quality.js';
 import {batchBegin,batchEnd} from './batch.js';
 import {WL,disableWL} from './wl-uniforms.js';
+import {STYLE_HEAD,STYLE_BODY,styleUniforms,POST} from './style.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 THREE.ColorManagement.enabled = false;
@@ -27,7 +28,7 @@ export const SNAP = { value: new THREE.Vector2(256, 144) };
 // Дрожание вершин в стиле PS1: проекция вершины округляется до сетки экрана
 export function ps1(m, stable = false) {
   m.userData.ps1Stable = stable;
-  m.customProgramCacheKey = () => (stable ? 'ps1-stable-v51' : 'ps1-distance-v51') + (m.userData.jelly ? '-jelly' : '');
+  m.customProgramCacheKey = () => (stable ? 'ps1-stable-v53' : 'ps1-distance-v53') + (m.userData.jelly ? '-jelly' : '');
   m.onBeforeCompile = sh => {
     sh.uniforms.uSnap = SNAP;
     const lit = sh.fragmentShader.includes('#include <lights_fragment_end>');
@@ -46,7 +47,8 @@ export function ps1(m, stable = false) {
     if (lit) {
       Object.assign(sh.uniforms, { uWLOn: WL.on, uWLMax: WL.max, uWLGrid: WL.grid, uWLLights: WL.lights, uWLMask: WL.mask, uWLOrigin: WL.origin, uWLGridSize: WL.gridSize, uWLCell: WL.cell,
         uWLMaskInv: WL.maskInv, uWLBase: WL.base, uWLIndoor: WL.indoor, uWLAo: WL.aoK, uWLK: WL.lightK, uDynP: WL.dynP, uDynC: WL.dynC });
-      sh.fragmentShader = WL_HEAD + sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + WL_BODY);
+      Object.assign(sh.uniforms, styleUniforms());
+      sh.fragmentShader = WL_HEAD + STYLE_HEAD + sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + WL_BODY).replace('#include <opaque_fragment>', STYLE_BODY + '#include <opaque_fragment>');
       if (m.userData.jelly) { sh.uniforms.uJelly = { value: m.userData.jelly }; sh.uniforms.uTime = WL.time;
         sh.fragmentShader = 'uniform float uJelly; uniform float uTime;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', JELLY + '#include <opaque_fragment>'); }
     }
@@ -108,23 +110,23 @@ const WL_BODY = `
 
 // Постобработка: дизеринг Bayer 4x4 и урезанная палитра
 const post = new THREE.ShaderMaterial({
-  uniforms: { t: { value: rt.texture },silhouette:{value:silhouetteRT.texture},outlineOn:{value:0}, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 },glowSteps:{value:4},punch:{value:0},velocity:{value:0},time:{value:0},style:{value:1} },
+  uniforms: { t: { value: rt.texture },silhouette:{value:silhouetteRT.texture},outlineOn:{value:0}, px: { value: new THREE.Vector2(1 / 256, 1 / 144) }, glowK: { value: 1 },glowSteps:{value:4},punch:{value:0},velocity:{value:0},time:{value:0},style:{value:1},grainK:POST.grain,caK:POST.ca,haloA:POST.haloA,haloB:POST.haloB,gTop:POST.top,gBot:POST.bot,vigK:POST.vig },
   vertexShader: 'varying vec2 v; void main(){ v = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-  fragmentShader: `uniform sampler2D t;uniform sampler2D silhouette;uniform float outlineOn; uniform vec2 px; uniform float glowK;uniform float glowSteps;uniform float punch;uniform float velocity;uniform float time;uniform float style; varying vec2 v;
+  fragmentShader: `uniform sampler2D t;uniform sampler2D silhouette;uniform float outlineOn; uniform vec2 px; uniform float glowK;uniform float glowSteps;uniform float punch;uniform float velocity;uniform float time;uniform float style;uniform float grainK,caK,vigK;uniform vec3 haloA,haloB,gTop,gBot; varying vec2 v;
     float b2(vec2 a){ a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
     float b4(vec2 a){ return b2(0.5 * a) * 0.25 + b2(a); }
     vec3 bright(vec2 o){ vec3 s = texture2D(t, v + o).rgb; return max(s - 0.74, 0.0); }
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
       // v0.52 «PS1 + желе»: RGB-сдвиг растёт к краям кадра и на ударах (как на постерах)
-      vec2 q0 = v - 0.5; float ca = (0.0016 + punch * 0.006 + velocity * 0.002) * style * smoothstep(0.15, 0.75, length(q0));
+      vec2 q0 = v - 0.5; float ca = (caK + punch * 0.006 + velocity * 0.002) * style * smoothstep(0.1, 0.75, length(q0));
       vec3 c = vec3(texture2D(t, v + q0 * ca * 1.6).r, texture2D(t, v).g, texture2D(t, v - q0 * ca * 1.6).b);
       // свечение ярких мест (фонари, окна, огоньки)
       vec3 g = vec3(0.0);
       for (int i = 0; i < 8; i++) { if(float(i)>=glowSteps)break;float a = float(i) * 6.2831853/glowSteps; vec2 d = vec2(cos(a), sin(a));
         g += bright(d * px * 3.0) * 0.6 + bright(d * px * 7.0) * 0.4; }
       // ореол: свечение тёплое в центре и розово-пурпурное по краю (халация плёнки)
-      vec3 halo = mix(vec3(1.0, 0.78, 0.55), vec3(1.0, 0.42, 0.62), clamp(length(g) * 0.6, 0.0, 1.0));
+      vec3 halo = mix(haloA, haloB, clamp(length(g) * 0.6, 0.0, 1.0));
       c += g * (0.24*8.0/glowSteps) * glowK * mix(vec3(1.0, 0.85, 0.7), halo, style);
       // сумеречная цветокоррекция: тени в сливовый, свет в тёплый
       float l = dot(c, vec3(0.299, 0.587, 0.114));
@@ -133,15 +135,15 @@ const post = new THREE.ShaderMaterial({
       vec3 sc = clamp(c, 0.0, 1.0); c = mix(c, sc * sc * (3.0 - 2.0 * sc), 0.32);
       float l2 = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l2), c, 1.0 + 0.18 * smoothstep(0.25, 0.7, l2));
       // градиентная тонировка кадра: сверху холодный пурпур, снизу тёплый янтарь (мягко, как радиальный градиент постера)
-      c *= mix(vec3(1.0), mix(vec3(1.05, 0.96, 0.9), vec3(0.94, 0.92, 1.08), smoothstep(0.1, 0.95, v.y)), style);
+      c *= mix(vec3(1.0), mix(gBot, gTop, smoothstep(0.05, 0.95, v.y)) * 1.08, style * 0.6);
       // виньетка
-      vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * 0.62;
+      vec2 q = v - 0.5; c *= 1.0 - dot(q, q) * vigK;
       // Мягкий подъём тёмных деталей, без плоской общей засветки.
       c += vec3(.015,.012,.014)*(1.0-smoothstep(.0,.22,l));
       float edge=smoothstep(.25,.68,length(q));c+=edge*punch*vec3(.09,.035,.012);
       c+=edge*velocity*.018*vec3(.42,.57,.75);
       // плёночное зерно: сильнее в полутонах, слабее в чёрном и белом
-      { float gn = hash(floor(v / px) + fract(time * 7.13) * 91.7) - 0.5; float lm = dot(c, vec3(0.3, 0.59, 0.11)); c += gn * 0.055 * style * (0.35 + lm * (1.0 - lm) * 2.4); }
+      { float gn = hash(floor(v / px) + fract(time * 7.13) * 91.7) - 0.5; float lm = dot(c, vec3(0.3, 0.59, 0.11)); c += gn * grainK * style * (0.35 + lm * (1.0 - lm) * 2.4); }
       // палитра как у PS1: 5 бит на канал (32 уровня) с дизерингом Bayer 4×4
       c += (b4(floor(v / px)) - 0.46875) / 32.0; c = floor(c * 31.0 + 0.5) / 31.0;
       if(outlineOn>0.5){float center=texture2D(silhouette,v).r;float edge=0.0;for(int i=0;i<8;i++){float a=float(i)*0.785398;edge=max(edge,texture2D(silhouette,v+vec2(cos(a),sin(a))*px*1.4).r);}c=mix(c,vec3(.96,.77,.26),step(.5,edge)*(1.0-step(.5,center)));}

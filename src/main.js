@@ -1,3 +1,4 @@
+import { applyStyle, setDistricts, styleState, VARIANTS as STYLE_VARIANTS } from './core/style.js';
 import { updateVfx, explosion, fireworks, sparks as vfxSparks, impactBurst } from './game/vfx.js';
 import {createLocalLighting} from './world/scene-lighting.js';
 import {actionEffect,updateActionEffects,actionStats} from './world/action-fx.js';
@@ -267,6 +268,7 @@ function prepareRound(tut = false) {
   for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
   if (tut) globalThis.__forceDistricts = ['yard', 'plaza', 'park'];
   generateMap(scene, (Math.random() * 1e9) | 0);
+  applyStyle(styleState.index, { scene, sky, hemi }); setDistricts(W.districts, CONFIG.chunk);
   { const wl = localLighting.rebuild(); console.info('[friendslop] свет мира:', wl.count, 'источников,', wl.ms, 'мс'); }
   { const t0 = performance.now(); warmup(scene, camera); console.info('[friendslop] шейдеры:', Math.round(performance.now() - t0), 'мс'); }
   if (tut) globalThis.__forceDistricts = null;
@@ -873,3 +875,5 @@ import { busKitten as __busKitten } from './missions/bus-model.js';
 Object.assign(window.__fs, { busKitten: __busKitten });
 import { addItem as __addItem } from './game/items.js';
 Object.assign(window.__fs, { addItem: __addItem, itemTypes: () => Object.keys(CONFIG.items) });
+
+Object.assign(window.__fs, { setStyle: i => { applyStyle(i, { scene, sky, hemi }); setDistricts(W.districts, CONFIG.chunk); return STYLE_VARIANTS[i].name; } });
