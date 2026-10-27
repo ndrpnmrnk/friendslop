@@ -2,7 +2,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import {surface,supportAt} from './surfaces.js';
 import {dressShelf} from './shelf-dressing.js';
 import {pix} from '../core/textures.js';
-import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat, paint, compose, chrome, chrome as chromeM, glassMC } from '../core/gfx.js';
+import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat, paint, compose } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { rand, range, pick } from '../core/rng.js';
 import { HW, SEASON } from '../config.js';
@@ -41,16 +41,13 @@ export class Builder {
   }
   // Каждая грань получает фасад своего размера: метр окна одинаков на торце и длинной стене.
   facadeBlock(x,z,w,d,h,color,opt={}) {
-    // v0.53: у дома один стиль фасада на все стороны — кирпич, панели, стеклянная стена или ар-деко с пилястрами
-    if(!opt.style)opt={...opt,style:DSTYLE[this.did]?pick(DSTYLE[this.did]):opt.brick===false?pick(['panel','glass','deco']):pick(['brick','brick','panel','glass','deco'])};
-    if(opt.neon==null&&DACCENT[this.did])opt={...opt,neon:DACCENT[this.did]};
     const side=tmat(facade(color,d,h,opt)),front=tmat(facade(color,w,h,opt)),roof=tmat(T.roof());
     const g=this.box(x,z,w,d,h,[side,side,roof,roof,front,front]);
-    for(const y of[.45,h-.3])this.box(x,z,w+.12,d+.12,.12,y<1?col(color):chrome(0xd8deff),{y,solid:false});
+    for(const y of[.45,h-.3])this.box(x,z,w+.12,d+.12,.12,col(color),{y,solid:false});
     // Подоконники выступают из стены, совпадая с сеткой окон в facade().
-    if(opt.style!=='glass'&&opt.windows!==false)for(let fy=opt.rowStart??.9;fy<h-1.3;fy+=opt.rowStep||2.4){
-      for(let fx=.7;fx<w-1;fx+=2)for(const sign of[-1,1])this.box(x+sign*(-w/2+fx+.5),z+sign*(d/2+.055),1.16,.18,.10,chrome(0xd8deff),{y:fy-.04,solid:false});
-      for(let fx=.7;fx<d-1;fx+=2)for(const sign of[-1,1])this.box(x+sign*(w/2+.055),z+sign*(d/2-fx-.5),.18,1.16,.10,chrome(0xd8deff),{y:fy-.04,solid:false});
+    for(let fy=opt.rowStart??.9;fy<h-1.3;fy+=opt.rowStep||2.4){
+      for(let fx=.7;fx<w-1;fx+=2)for(const sign of[-1,1])this.box(x+sign*(-w/2+fx+.5),z+sign*(d/2+.055),1.16,.18,.10,col(0x827b7b),{y:fy-.04,solid:false});
+      for(let fx=.7;fx<d-1;fx+=2)for(const sign of[-1,1])this.box(x+sign*(w/2+.055),z+sign*(d/2-fx-.5),.18,1.16,.10,col(0x827b7b),{y:fy-.04,solid:false});
     }
     return g;
   }
@@ -75,7 +72,7 @@ export class Builder {
 
   /* ---------- свет и эффекты ---------- */
   light(x, z, r = 3, y = 0, dim = false) {
-    const m = this.m(G.plane, dim ? LIGHTDIM() : LIGHTMAT(), x, y + 0.03, z, r * 2, r * 2, 1); m.rotation.x = -Math.PI / 2; m.renderOrder = 2;(W.lightSources??=[]).push({x:this.X(x),y:this.Y+y+(dim?1.85:2.55),z:this.Z(z),color:dim?0xffd8ac:0xffd2a0,strength:dim?2.4:2.8,range:dim?6:7.5,pool:m});return m;
+    const m = this.m(G.plane, dim ? LIGHTDIM() : LIGHTMAT(), x, y + 0.03, z, r * 2, r * 2, 1); m.rotation.x = -Math.PI / 2; m.renderOrder = 2;(W.lightSources??=[]).push({x:this.X(x),y:this.Y+y+(dim?1.85:2.55),z:this.Z(z),color:dim?0xffd8ac:0xffc384,strength:dim?3.5:6,range:dim?6:8,pool:m});return m;
   }
   // вода: тёмная толща + бегущие блики + пена у берега
   water(x, z, r, y = 0, fish = true) {
@@ -124,22 +121,26 @@ export class Builder {
   /* ---------- пропсы ---------- */
   // Дерево: ствол с корневым расширением, пара ветвей и несколько угловатых шапок листвы
   tree(x, z, s = 1, y = 0, kind) {
-    // v0.53: стилизованные деревья — гладкий ствол и глянцевые «конфетные» кроны с градиентом (осенняя палитра)
+    // три породы: клён (рыхлая крона из шапок), дуб (плотная крона), ель (ярусы конусов)
     kind = kind || (rand() < 0.2 ? 'spruce' : rand() < 0.55 ? 'maple' : 'oak');
     const bk = tmat(T.bark());
     if (kind === 'spruce') {
-      const lm = tmat(T.crown(3));
+      const lm = tmat(T.leaves(2));
       this.m(G.cyl6, bk, x, y + 0.6 * s, z, 0.16 * s, 1.2 * s, 0.16 * s);
       for (const [h, r, yy] of [[1.5, 1.35, 1.0], [1.3, 1.05, 1.9], [1.1, 0.75, 2.7], [0.8, 0.42, 3.4]]) { const c = this.m(G.cone8, lm, x, y + (yy + h / 2) * s, z, r * s, h * s, r * s); c.rotation.y = rand() * 3; }
       this.solid(x, z, 0.4, 0.4, y, 2); return;
     }
-    this.m(TRUNK_GEO, bk, x, y + 1.1 * s, z, s, 2.2 * s, s);
-    for (const a of [rand() * 6, rand() * 6]) { const br = this.m(G.cyl5, bk, x + Math.cos(a) * 0.28 * s, y + 2.15 * s, z + Math.sin(a) * 0.28 * s, 0.06 * s, 0.75 * s, 0.06 * s); br.rotation.z = -Math.cos(a) * 0.75; br.rotation.x = Math.sin(a) * 0.75; }
-    const pal = kind === 'maple' ? (rand() < 0.5 ? 0 : 1) : (rand() < 0.6 ? 4 : 2), cm = tmat(T.crown(pal));
-    const n = kind === 'maple' ? 4 : 3;
+    const lm = tmat(T.leaves(kind === 'maple' ? 0 : 1));
+    this.m(G.cyl6, bk, x, y + 1.0 * s, z, 0.19 * s, 2.0 * s, 0.19 * s);
+    this.m(G.cone6, bk, x, y + 0.18 * s, z, 0.36 * s, 0.36 * s, 0.36 * s);
+    for (const a of [rand() * 6, rand() * 6, rand() * 6]) { const br = this.m(G.cyl5, bk, x + Math.cos(a) * 0.32 * s, y + 2.1 * s, z + Math.sin(a) * 0.32 * s, 0.06 * s, 0.85 * s, 0.06 * s); br.rotation.z = -Math.cos(a) * 0.75; br.rotation.x = Math.sin(a) * 0.75; } // ветви растут из ствола наружу (v0.19)
+    // v0.51: крона = тёмное ядро + «карточки» листвы с просветами: пушистый силуэт вместо гладких шаров
+    const n = kind === 'maple' ? 6 : 5, card = leafCardMat(kind === 'maple' ? 0 : rand() < 0.5 ? 1 : 2), core = coreMat(kind);
     for (let i = 0; i < n; i++) {
-      const a = i / n * 6.28 + rand() * 0.6, d = i === 0 ? 0 : 0.7 * (0.7 + rand() * 0.4), r = (kind === 'maple' ? 0.95 : 1.15) * (0.8 + rand() * 0.3) * (i === 0 ? 1.2 : 1);
-      const c = this.m(LEAF_GEO, cm, x + Math.cos(a) * d * s, y + (2.8 + (i === 0 ? 0.5 : rand() * 0.5)) * s, z + Math.sin(a) * d * s, r * s, r * 0.85 * s, r * s); c.rotation.set(rand() * 0.4, rand() * 3, rand() * 0.4); c.castShadow = true;
+      const a = i / n * 6.28 + rand() * 0.6, d = i === 0 ? 0 : (kind === 'maple' ? 0.8 : 0.62) * (0.7 + rand() * 0.4), r = (kind === 'maple' ? 0.78 : 1.0) * (0.8 + rand() * 0.35);
+      const cx = x + Math.cos(a) * d * s, cy = y + (2.7 + (i === 0 ? 0.6 : rand() * 0.6)) * s, cz = z + Math.sin(a) * d * s;
+      const c = this.m(LEAF_GEO, core, cx, cy, cz, r * 0.5 * s, r * 0.42 * s, r * 0.5 * s); c.rotation.set(rand(), rand() * 3, rand());
+      const k = this.m(LEAF_CARDS, card, cx, cy + 0.05 * s, cz, r * 1.4 * s, r * 1.15 * s, r * 1.4 * s); k.rotation.y = rand() * 3.14; k.castShadow = true;
     }
     // Хэллоуин: на ветке висит «привидение» из простыни и покачивается
     if (HW && rand() < 0.12) { const a = rand() * 6.28, p = new THREE.Group(); p.position.set(this.X(x + Math.cos(a) * 1.0 * s), this.Y + y + 2.2 * s, this.Z(z + Math.sin(a) * 1.0 * s)); p.rotation.y = a; this.g.add(p);
@@ -157,7 +158,7 @@ export class Builder {
     this.solid(x, z, 0.6, 0.6, 0, 3);
   }
   bush(x, z, w = 1.6, d = 1.2, h = 1) {
-    const m = this.m(LEAF_GEO, tmat(T.crown(rand() < 0.5 ? 3 : 2)), x, h * 0.5, z, w * 0.55, h * 0.6, d * 0.55); m.rotation.y = rand() * 3;
+    const m = this.m(G.ico, tmat(T.bush()), x, h * 0.5, z, w * 0.6, h * 0.6, d * 0.6); m.rotation.y = rand() * 3;
     this.solid(x, z, w * 0.85, d * 0.85, 0, h);
   }
   car(x, z, ry, c, type = 'sedan') {
@@ -166,7 +167,7 @@ export class Builder {
       pickup: { L: 4.3, cab: [0.5, 1.5, 0.55], H: 0.95 }, van: { L: 4.4, cab: [-0.3, 3.6, 0.95], H: 0.95 } }, ty = TY[type] || TY.sedan, L = ty.L, hl = L / 2;
     const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
     g.add(compose('car3' + type + c, add => {
-      const paint = tmat(T.carPaint(c)), side = tmat(T.carSide(c)), glass = tmat(T.carGlass(c)), dk = col(0x17111f), bump = col(0x2b2833), chrome = chromeM(0xe8ecff), [cx, cl, ch] = ty.cab;
+      const paint = tmat(T.carPaint(c)), side = tmat(T.carSide(c)), glass = tmat(T.carGlass(c)), dk = col(0x17111f), bump = col(0x2b2833), chrome = col(0x9a9da8), [cx, cl, ch] = ty.cab;
       add(G.box, paint, 0, 0.66, 0, L, 0.58, 1.76); add(G.box, side, 0, 0.66, 0.885, L - 0.3, 0.5, 0.01); add(G.box, side, 0, 0.66, -0.885, L - 0.3, 0.5, 0.01, 0, Math.PI);
       if (type === 'van') { add(G.box, paint, cx, 0.95 + ch / 2, 0, cl, ch, 1.74); add(G.box, glass, cx + cl / 2 - 0.35, 0.95 + ch * 0.62, 0, 0.72, ch * 0.5, 1.76); add(G.box, glass, cx + cl / 2 + 0.005, 0.95 + ch * 0.62, 0, 0.01, ch * 0.5, 1.5);
         add(G.box, dk, cx - 0.4, 0.95 + ch * 0.5, 0.875, 0.02, ch * 0.9, 0.01); add(G.box, col(0xf1e8ff), cx - 0.6, 0.95 + ch * 0.55, 0.88, 1.6, 0.18, 0.01); add(G.box, col(0xf1e8ff), cx - 0.6, 0.95 + ch * 0.55, -0.88, 1.6, 0.18, 0.01); }
@@ -429,7 +430,7 @@ export class Builder {
     const px = axis === 'x' ? w / 2 : 0, pz = axis === 'x' ? 0 : w / 2;
     if (style === 'glass') {
       // стеклянная дверь торгового центра: металлическая рама, стекло, поручень, наклейка «ВХОД»
-      const fr = col(0x3a3440), gl = glassMC(0x9ac0ff, 0.35), ch = chromeM(0xe0e4ff);
+      const fr = col(0x3a3440), gl = lam({ color: 0xbfe8ff, emissive: 0x1a3040, transparent: true, opacity: 0.35, depthWrite: false }, 'mallGlass'), ch = col(0xd8d8e0);
       const B = (x0, y0, z0, sx, sy, sz, m) => mesh(G.box, m, axis === 'x' ? x0 : 0, y0, axis === 'x' ? 0 : z0, axis === 'x' ? sx : sz, sy, axis === 'x' ? sz : sx, pivot);
       B(px, h / 2, pz, w - 0.1, h - 0.1, 0.03, gl); B(px, h - 0.04, pz, w, 0.08, 0.1, fr); B(px, 0.04, pz, w, 0.08, 0.1, fr);
       for (const e of [0.04, w - 0.04, w / 2]) B(e, h / 2, e, 0.08, h, 0.1, fr);
@@ -462,12 +463,6 @@ Object.assign(Builder.prototype, PropMethods, TowerMethods, OpenMethods, MoreMet
 
 // У кабины машины наклонены стойки, при той же малой геометрии и старом хитбоксе.
 const LEAF_GEO = new THREE.IcosahedronGeometry(1, 1);
-// v0.53: у каждого района свой характер фасадов (подстиль района)
-export const DACCENT = { yard: 0xffb43a, park: 0x7aff9a, plaza: 0xffd27a, shops: 0xff4fa8, construction: 0xff8a3a, cemetery: 0x9aff5a, gas: 0xff4a4a, market: 0xff7a3a, school: 0x4fe6ff,
-  foodcourt: 0xff5ad8, sewer: 0x5aff8a, office: 0x7ab8ff, port: 0x4fffd8, skatepark: 0xb47aff, hospital: 0xaaf8ff, factory: 0xffc04a, townhall: 0xffd27a, university: 0xc08aff, cinema: 0xff3a6a };
-export const DSTYLE = { yard: ['brick'], park: ['deco', 'brick'], plaza: ['deco'], shops: ['panel', 'glass'], construction: ['panel'], cemetery: ['brick', 'deco'], gas: ['panel'], market: ['brick', 'panel'],
-  school: ['brick'], foodcourt: ['glass'], sewer: ['brick'], office: ['glass'], port: ['panel', 'brick'], skatepark: ['panel'], hospital: ['panel', 'glass'], factory: ['brick'], townhall: ['deco'], university: ['deco', 'brick'], cinema: ['deco'] };
-const TRUNK_GEO = new THREE.CylinderGeometry(0.12, 0.22, 1, 8);
 // три вертикальные карточки под 60° + горизонтальная: кучка листвы из 4 плоскостей
 const LEAF_CARDS = (() => { const parts = [];
   for (let i = 0; i < 3; i++) { const p = new THREE.PlaneGeometry(2, 2); p.rotateY(i * Math.PI / 3); parts.push(p); }

@@ -1,6 +1,5 @@
 import {buildClockTower} from './plaza-landmarks.js';
-import { THREE, G, mesh, compose, col, tmat, lam, glow, chrome, lacq } from '../core/gfx.js';
-const NEONC = [0xff4fa8, 0x4fe6ff, 0xffb43a, 0xb47aff];
+import { THREE, G, mesh, compose, col, tmat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { HW } from '../config.js';
 import { W } from './state.js';
@@ -160,7 +159,7 @@ const FLOWERS = HW ? [0xff8a1f, 0xb18cff, 0xf1e8ff, 0xd8243a, 0xf5c542] : [0xff5
 export const PropMethods = {
   // Бетонная клумба: корпус, бортик, земля и растения (flowers | shrub | grass | tree)
   planter(x, z, w, d, h = 0.5, kind = 'flowers') {
-    const st = tmat(T.planter()), rim = chrome(0xdfe4ff);
+    const st = tmat(T.planter()), rim = col(0x9a94a4);
     if (kind === 'flowers') W.flowerbeds.push({ x0: this.X(x - w / 2), z0: this.Z(z - d / 2), x1: this.X(x + w / 2), z1: this.Z(z + d / 2), y: this.Y, top: this.Y + h, district: this.d });
     this.m(G.box, st, x, h / 2, z, w, h, d);
     for (const [cx, cz, ww, dd] of [[x, z - d / 2 + 0.07, w + 0.06, 0.16], [x, z + d / 2 - 0.07, w + 0.06, 0.16], [x - w / 2 + 0.07, z, 0.16, d - 0.2], [x + w / 2 - 0.07, z, 0.16, d - 0.2]]) this.m(G.box, rim, cx, h + 0.03, cz, ww, 0.08, dd);
@@ -169,7 +168,7 @@ export const PropMethods = {
     const iw = w - 0.4, id = d - 0.4, top = h + 0.02;
     if (kind === 'tree') { this.tree(x, z, 0.75, top); return; }
     if (kind === 'shrub') {
-      const n = Math.max(2, Math.round(iw * id * 1.2)), lm = tmat(T.crown(3));
+      const n = Math.max(2, Math.round(iw * id * 1.2)), lm = tmat(T.bush());
       for (let i = 0; i < n; i++) { const s = 0.35 + Math.random() * 0.25; const o = this.m(G.ico, lm, x + (Math.random() - 0.5) * iw, top + s * 0.6, z + (Math.random() - 0.5) * id, s, s * 0.85, s); o.rotation.y = Math.random() * 3; }
     }
     if (kind === 'grass') {
@@ -191,7 +190,7 @@ export const PropMethods = {
   },
   // Парковая скамейка: чугунные боковины с подлокотниками, рейки сиденья и наклонной спинки
   bench(x, z, ry = 0) {
-    const g = this.prop(x, z, ry), w = tmat(T.wood()), dk = chrome(0xc8d0ff);
+    const g = this.prop(x, z, ry), w = tmat(T.wood()), dk = col(0x2b2533);
     const add = (geo, m, px, py, pz, sx, sy, sz, rx = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.x = rx; g.add(o); };
     for (const zz of [-0.18, -0.06, 0.06, 0.18]) add(G.box, w, 0, 0.47, zz, 1.9, 0.05, 0.1);
     for (const [yy, zz] of [[0.66, -0.27], [0.8, -0.3], [0.94, -0.33]]) add(G.box, w, 0, yy, zz, 1.9, 0.1, 0.04, -0.22);
@@ -211,21 +210,20 @@ export const PropMethods = {
   },
   // Фонарь: постамент, сужающаяся опора с кольцом, изогнутый кронштейн и фонарь с колпаком
   lamp(x, z, ry = 0) {
-    // v0.53 «Хром и стекло»: хромовый постамент, лакированная тёмная опора с неоновым кольцом,
-    // дуга-кронштейн и стеклянный плафон-«капля» под хромовым диском
-    const d = lacq(0x1c2246), mt = chrome(0xdfe4ff), neon = glow(NEONC[(Math.random() * NEONC.length) | 0]);
-    this.m(G.cyl12, mt, x, 0.16, z, 0.2, 0.32, 0.2); this.m(G.cyl12, mt, x, 0.36, z, 0.14, 0.08, 0.14);
-    this.m(TAPER_POLE, d, x, 1.9, z, 1, 3.0, 1); this.m(G.cyl12, neon, x, 2.35, z, 0.075, 0.12, 0.075); this.m(G.cyl12, mt, x, 3.38, z, 0.06, 0.08, 0.06);
+    const d = col(0x2b2533), mt = tmat(T.metal());
+    this.m(G.cyl8, mt, x, 0.2, z, 0.17, 0.4, 0.17); this.m(G.cyl8, d, x, 0.43, z, 0.13, 0.06, 0.13);
+    this.m(TAPER_POLE, d, x, 1.9, z, 1, 3.0, 1); this.m(G.cyl8, d, x, 2.6, z, 0.08, 0.06, 0.08); this.m(G.sph, d, x, 3.42, z, 0.07, 0.07, 0.07);
     const dx = Math.sin(ry), dz = Math.cos(ry);
-    const arm = this.m(G.halfTorus, mt, x + dx * 0.3, 3.38, z + dz * 0.3, 0.3, 0.3, 0.25); arm.rotation.y = ry + Math.PI / 2;
+    const arm = this.m(G.box, d, x + dx * 0.32, 3.36, z + dz * 0.32, 0.05, 0.05, 0.62); arm.rotation.y = ry;
+    const br = this.m(G.box, d, x + dx * 0.12, 3.18, z + dz * 0.12, 0.04, 0.04, 0.42); br.rotation.y = ry; br.rotation.x = 0.8;
     const lx = x + dx * 0.6, lz = z + dz * 0.6;
-    this.m(G.cyl12, mt, lx, 3.3, lz, 0.03, 0.12, 0.03);
-    this.m(G.cyl12, mt, lx, 3.22, lz, 0.28, 0.05, 0.28); this.m(G.sph10, mt, lx, 3.22, lz, 0.2, 0.06, 0.2);
-    this.m(G.sph10, glassMCp(), lx, 3.02, lz, 0.2, 0.2, 0.2);
+    this.m(G.box, d, lx, 3.3, lz, 0.05, 0.12, 0.05);
+    const cap = this.m(G.cone4, d, lx, 3.27, lz, 0.26, 0.14, 0.26); cap.rotation.y = Math.PI / 4 + ry;
+    this.m(G.box, d, lx, 2.98, lz, 0.26, 0.04, 0.26);
     // плафон бьётся от брошенного предмета — фонарь гаснет
     // часть фонарей мигает: у них свой материал плафона и пятна света
     const fl = Math.random() < 0.15, bm = fl ? lam({ color: 0xfff0c8, emissive: 0xfff0c8, emissiveIntensity: 0.9 }) : glow(0xfff0c8);
-    const bulb = breakBox(this.X(lx), this.Y + 3.02, this.Z(lz), 0.2, 0.2, 0.2, 'bulb', bm), pool = this.light(lx, lz, 3.2);
+    const bulb = breakBox(this.X(lx), this.Y + 3.0, this.Z(lz), 0.22, 0.2, 0.22, 'bulb', bm), pool = this.light(lx, lz, 3.2);
     if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: Math.random() * 5, on: true }); }
     W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; pool.userData.broken = true; };
     // объёмный конус света под плафоном (v0.23): аддитивный, мягкий к краям и к земле; гаснет вместе с фонарём
@@ -235,7 +233,7 @@ export const PropMethods = {
   },
   // Столбик-ограничитель со светоотражающей полосой
   bollard(x, z) {
-    const d = chrome(0xdfe4ff); this.m(G.cyl12, d, x, 0.45, z, 0.1, 0.9, 0.1); this.m(G.cyl12, glow(NEONC[(Math.random() * NEONC.length) | 0]), x, 0.74, z, 0.106, 0.08, 0.106); this.m(G.sph10, d, x, 0.9, z, 0.1, 0.06, 0.1);
+    const d = col(0x2b2533); this.m(G.cyl8, d, x, 0.45, z, 0.1, 0.9, 0.1); this.m(G.cyl8, col(0xf5c542), x, 0.78, z, 0.105, 0.08, 0.105); this.m(G.sph, d, x, 0.9, z, 0.1, 0.05, 0.1);
     this.solid(x, z, 0.22, 0.22, 0, 0.9);
   },
   // Мешки с мусором у стены: это предметы — можно взять и бросить, рвутся при ударе
@@ -662,5 +660,3 @@ let _lc; export const LAMP_CONE_M = () => _lc || (_lc = new THREE.ShaderMaterial
   uniforms: { c: { value: new THREE.Color(0xffe2a8) }, k: { value: 1 } },
   vertexShader: 'varying vec2 vu; varying float vf; void main(){ vu = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vec3 n = normalize(normalMatrix * normal); vf = abs(dot(n, normalize(-mv.xyz))); gl_Position = projectionMatrix * mv; }',
   fragmentShader: 'uniform vec3 c; uniform float k; varying vec2 vu; varying float vf; void main(){ float a = pow(vu.y, 1.6) * pow(vf, 1.5) * 0.18 * k; gl_FragColor = vec4(c * a, a); }' }));
-
-let _lg; const glassMCp = () => _lg || (_lg = lam({ color: 0xfff0d0, emissive: 0xffc070, emissiveIntensity: 0.35, transparent: true, opacity: 0.5, depthWrite: false }, 'lampGlass53'), _lg.userData.mc = 'glass', _lg);

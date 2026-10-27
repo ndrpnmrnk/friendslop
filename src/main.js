@@ -1,7 +1,6 @@
-import { applyStyle, setDistricts, styleState, VARIANTS as STYLE_VARIANTS } from './core/style.js';
 import { updateVfx, explosion, fireworks, sparks as vfxSparks, impactBurst } from './game/vfx.js';
 import { MODES, setMode } from './game/modes.js';
-import { randomMap } from './ui/hub-ouija.js';
+import { randomMap } from './ui/hub-launch.js';
 import {createLocalLighting} from './world/scene-lighting.js';
 import {actionEffect,updateActionEffects,actionStats} from './world/action-fx.js';
 import {graphics,setGraphics} from './core/quality.js';
@@ -27,7 +26,7 @@ import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook,
 import { W } from './world/state.js';
 import { generateMap } from './world/world.js';
 import { updatePushables, groundAt, raySolids } from './world/physics.js';
-import { updateParticles, burst, smokeRing } from './world/particles.js';
+import { updateParticles, burst, smokeRing, puff } from './world/particles.js';
 import { updateBirds } from './world/birds.js';
 import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
@@ -247,7 +246,6 @@ function prepareRound(tut = false) {
   for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
   if (tut) globalThis.__forceDistricts = ['yard', 'plaza', 'park'];
   generateMap(scene, (Math.random() * 1e9) | 0);
-  applyStyle(styleState.index, { scene, sky, hemi }); setDistricts(W.districts, CONFIG.chunk);
   { const wl = localLighting.rebuild(); console.info('[friendslop] свет мира:', wl.count, 'источников,', wl.ms, 'мс'); }
   { const t0 = performance.now(); warmup(scene, camera); console.info('[friendslop] шейдеры:', Math.round(performance.now() - t0), 'мс'); }
   if (tut) globalThis.__forceDistricts = null;
@@ -293,11 +291,14 @@ function flyStep(a, f, k, dt, t) {
   arcAt(f, k, _ia); arcAt(f, Math.min(1, k + .01), _ib); const vx = _ib.x - _ia.x, vy = _ib.y - _ia.y, vz = _ib.z - _ia.z;
   a.pos.copy(_ia); a.root.position.copy(_ia); a.root.rotation.y = Math.atan2(vx, vz); a.facing = a.root.rotation.y;
   a.ch.animate(dt, { t, fly: true, vy: vy / .01 / f.dur, flySpin: f.spin * (1 - k) * (1 - k) });
+  // v0.55: инверсионный след — маленькие облачка позади, гуще на скорости
+  a.trailT = (a.trailT || 0) - dt; if (a.trailT <= 0) { a.trailT = a === P ? .05 : .09;
+    const L = Math.hypot(vx, vy, vz) || 1; puff(_ia.x - vx / L * .7, _ia.y + .8 - vy / L * .7, _ia.z - vz / L * .7, { size: .32, grow: 1.1, life: .55, vx: 0, vy: .2, vz: 0, color: 0xe8e2f2, opacity: .55 }); }
 }
 function landArc(a, f, me) {
   a.pos.copy(f.to); a.root.position.copy(f.to); a.vel.set(0, 0, 0); a.onGround = true; a.ch.squash = 1.3; a.ch.flySpin = 0;
-  smokeRing(f.to.x, f.to.y + .05, f.to.z, me ? 12 : 8, { speed: 3, size: .3, grow: 1.2, life: .7 });
-  impactBurst({ x: f.to.x, y: f.to.y + .4, z: f.to.z }, 0xffd8a0, me ? 1.3 : .9); sfx('land', { v: me ? 1.6 : .9, at: f.to });
+  smokeRing(f.to.x, f.to.y + .05, f.to.z, me ? 9 : 6, { speed: 3.4, size: .1, grow: .5, life: .5, color: 0x9a90a6 });
+  impactBurst({ x: f.to.x, y: f.to.y + .4, z: f.to.z }, 0xffd8a0, me ? .8 : .6); sfx('land', { v: me ? 1.6 : .9, at: f.to });
 }
 function updateIntro(dt) {
   const I = S.intro; I.t += dt; const t = I.t, f = I.me;
@@ -307,8 +308,11 @@ function updateIntro(dt) {
     const k = Math.max(0, (t - I.delay) / f.dur);
     if (k < 1) { flyStep(P, f, k, dt, t);
       // камера летит следом: сзади и чуть выше, смотрит по ходу полёта и на точку приземления
-      const dir = _ib.clone().sub(_ia).normalize(), back = P.pos.clone().addScaledVector(dir, -7.5); back.y += 3 - k * 1.2;
-      const look = P.pos.clone().addScaledVector(dir, 5).lerp(f.to, k * k); cam.free = { p: back, l: look }; return; }
+      // v0.55: камера дальше (персонаж не закрывает город), а под конец плавно уходит за спину точки приземления,
+      // чтобы падение было видно целиком и переход в обычную камеру не дёргался
+      const dir = _ib.clone().sub(_ia).normalize(), back = P.pos.clone().addScaledVector(dir, -10); back.y += 4.2 - k * 1.5;
+      const look = P.pos.clone().addScaledVector(dir, 5).lerp(f.to, k * k), fl = new V3(dir.x, 0, dir.z).normalize(), w = Math.min(1, Math.max(0, (k - .7) / .3)), ws = w * w * (3 - 2 * w);
+      back.lerp(f.to.clone().addScaledVector(fl, -6.5).setY(f.to.y + 3.6), ws); look.lerp(f.to.clone().setY(f.to.y + 1), ws); cam.free = { p: back, l: look }; return; }
     I.landed = true; I.landT = t; cam.free = null; P.frozen = false; P.noRun = true; landArc(P, f, true); P.landedNow = true;
     sparks(innerWidth / 2, innerHeight * 0.6, ['#ff8a1f', '#f5c542', '#4fe6ff'], 18); shakeCam(0.5); resumeCamera(camera); updateCamera(camera, P, 1 / 60, false);
   }
@@ -375,7 +379,7 @@ function openWorld(m) {
   if (P.ride) dismount(P, false);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   startMissionClock(m);m.onExpire=()=>closeWorld({success:false});
-  m.claimedBy=P; m.busy = true; S.wm = { m, game: null }; missionIntro(m);
+  m.claimedBy=P; m.busy = true; S.wm = { m, game: null };
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = m.key==='fat'?'':(TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden'); $('mgbar').classList.remove('hidden'); $('mgbar').firstChild.style.width = '0%';
@@ -407,11 +411,6 @@ function callout(text, cls = '') {
   e.textContent = text; e.className = 'c-' + (cls || 'info'); void e.offsetWidth; e.classList.add('pop');
   callT = setTimeout(() => e.classList.add('fade'), cls ? 1300 : 2600);
 }
-// v0.53: режиссура миссий — карточка «МИССИЯ: …» при входе, штамп «ГОТОВО +N» на финише
-const mIntroEl = (() => { const e = document.createElement('div'); e.id = 'mintro'; e.innerHTML = '<span class="ic"></span><div><small>МИССИЯ</small><b></b></div>'; document.body.appendChild(e); return e; })();
-const mStampEl = (() => { const e = document.createElement('div'); e.id = 'mstamp'; document.body.appendChild(e); return e; })();
-function missionIntro(m) { mIntroEl.querySelector('.ic').innerHTML = img(m.key, 32); mIntroEl.querySelector('b').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; mIntroEl.classList.remove('on'); void mIntroEl.offsetWidth; mIntroEl.classList.add('on'); sfx('dash', { v: .6 }); }
-function missionStamp(pts, fail = false) { mStampEl.classList.toggle('fail', fail); mStampEl.textContent = fail ? 'ПРОВАЛ' : 'ГОТОВО! +' + pts; mStampEl.classList.remove('on'); void mStampEl.offsetWidth; mStampEl.classList.add('on'); }
 function closeWorld(res) {
   if (!S.wm) return;
   const { m, game } = S.wm; m.onExpire=null; S.wm = null; game.stop();missionCountdown(0); m.busy = false; m.track = null;
@@ -441,7 +440,7 @@ function openMission(m) {
     msg: (text, cls = '') => callout(text, cls),
     finish: res => { if (S.mg && S.mg.m === m) closeMission(res); },
   };
-  S.mg = { m, game: null, start:P.pos.clone() }; missionIntro(m); document.body.classList.add('cine');
+  S.mg = { m, game: null, start:P.pos.clone() };
   unlock(); $('lockhint').classList.add('hidden');
   S.mg.game = ALL_GAMES[m.def.game](m.obj, api, { cursor:setCursor, character:P.ch,player:P,camera,mission:m });
   if(S.mg?.game.hint)$('mghint').textContent=S.mg.game.hint;
@@ -449,12 +448,11 @@ function openMission(m) {
 function closeMission(res) {
   if (!S.mg) return;
   const { m, game } = S.mg;m.onExpire=null;
-  document.body.classList.remove('cine');
   game.stop();P.stationaryWork=false; S.mg = null; cam.pose = null; updateOcclusion(camera, null); m.busy = false; m.doer=null; P.root.visible = true; setCursor(true); requestLock();
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
   if (!res) {m.progress=0;return;}
-  if (res.success) { const pts = Math.round(m.pts * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); } else { missionStamp(0, true); sfx('swat'); }
+  if (res.success) { const pts = Math.round(m.pts * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
   removeMission(m);
 }
 
@@ -463,8 +461,7 @@ function scored(m, pts) {
   actionEffect('success',P.pos.clone().add(new V3(0,1,0)),1.25);
   // v0.52: сочный финиш миссии — вспышка, кольцо, разноцветные искры фонтаном, короткий стоп-кадр
   { const q = { x: P.pos.x, y: P.pos.y + 1.1, z: P.pos.z }; impactBurst(q, 0xc7ef94, 2.2); for (const c of [0xff6aa8, 0x7ad8ff, 0xffd04a, 0x9be36b]) vfxSparks(q, 9, c, { x: 0, y: 1.6, z: 0 }); W.flash?.(P.pos, 0xc7ef94, .9, 7, 3); hitFreeze(.06); }
-  markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m); missionStamp(pts);
-  if (!S.mg && !S.wm && !cam.pose) S.finishCam = { t: 0, a: cam.yaw + Math.PI * .75 }; // облёт камеры вокруг победителя
+  markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m);
   const st = statsOf(P); st.missions++; st.mpts += pts;
   const p = (m.obj.pos && m.obj.pos()) || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   const sx = Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), sy = Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight));
@@ -736,9 +733,6 @@ function frame() {
   else {
     if (S.state === 'intro') { updateIntro(dt); if (S.intro?.landed) updatePlayer(P, dt, t, true, cam.yaw); }
     if (S.state === 'play') {
-      // v0.53: финиш миссии — камера коротко облетает игрока (0.9 с), потом спокойно возвращается за спину
-      if (S.finishCam) { const f = S.finishCam; f.t += dt; if (f.t > .9 || S.mg || S.wm) { if (cam.pose?.finish) { cam.pose = null; resumeCamera(camera); } S.finishCam = null; }
-        else { const a = f.a + f.t * 1.6, r = 3.4 - f.t * .6; cam.pose = { p: new V3(P.pos.x + Math.sin(a) * r, P.pos.y + 1.5 + f.t * .4, P.pos.z + Math.cos(a) * r), l: new V3(P.pos.x, P.pos.y + 1.0, P.pos.z), finish: true }; } }
       updateDrones(dt, t);
       S.time -= dt;
       if (S.time > 0 && S.time <= 10) { S.beep = (S.beep || 0) - dt; if (S.beep <= 0) { S.beep = 0.18 + 0.082 * S.time; sfx('deadline', { urgency: 1 - S.time / 10 }); } } else S.beep = 0;
@@ -843,7 +837,7 @@ function frame() {
     if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); updateGrabs(dt, t); updateTraps(dt, t); updateTown(dt, t, P, !!EV.big); updateFun(dt, t); updatePolice(dt, t); updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.state === 'play' || S.state === 'results' ? 1 - Math.max(0, S.time) / CONFIG.roundTime : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
-      if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1) * (styleState.variant.hemi?.[2] ?? 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
+      if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
     updateReflections(camera, t);localLighting.update(camera,dt,sky.dim||0);
     cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play'&&!S.mg ? P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8) : 0;
@@ -893,7 +887,6 @@ Object.assign(window.__fs, { busKitten: __busKitten });
 import { addItem as __addItem } from './game/items.js';
 Object.assign(window.__fs, { addItem: __addItem, itemTypes: () => Object.keys(CONFIG.items) });
 
-Object.assign(window.__fs, { setStyle: i => { applyStyle(i, { scene, sky, hemi }); setDistricts(W.districts, CONFIG.chunk); return STYLE_VARIANTS[i].name; } });
 
 // отладка: «студия» для осмотра моделей предметов (скриншоты для проверки стиля)
 window.__fs.studio = (types, cols = 8, sp = 1.15, spin = false) => {

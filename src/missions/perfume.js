@@ -11,7 +11,8 @@ import {sfx} from '../core/sfx.js';
 export function buildPerfume(x,y,z,f){
  const g=new THREE.Group();g.name='perfume-station';g.position.set(x,y,z);g.rotation.y=Math.atan2(f[0],f[1]);W.group.add(g);g.add(perfumeCabinet());
  const stock=new THREE.Group();stock.name='perfume-display';g.add(stock);PERFUME_INGREDIENTS.slice(0,6).forEach(([name,color],i)=>stock.add(ingredientBottle(name,color,i)));
- const light=new THREE.PointLight(0xffcf92,.16,3.6,2);light.position.set(0,2.22,.20);g.add(light);
+ // v0.55: без PointLight — новый источник света пересобирал шейдеры всего города (фриз на 1–2 с)
+ (W.lightSources??=[]).push({x:g.localToWorld(new V3(0,2.22,.2)).x,y:y+2.22,z:g.localToWorld(new V3(0,2.22,.2)).z,color:0xffcf92,strength:.6,range:3.6});
  const solids=[];
  function body(cx,cy,cz,w,h,d){const p=g.localToWorld(new V3(cx,cy,cz)),along=f[0]===0,rx=(along?w:d)/2,rz=(along?d:w)/2;solids.push(addSolid(p.x-rx,p.z-rz,p.x+rx,p.z+rz,p.y-h/2,p.y+h/2));}
  body(0,.44,0,2.4,.89,.85);body(0,1.62,-.40,2.26,1.50,.09);for(const a of[-1,1])body(a*1.13,1.61,-.09,.12,1.50,.67);

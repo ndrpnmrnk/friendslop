@@ -55,15 +55,10 @@ export function createSky(scene, {moonDirection} = {}) {
   const TINT = { cemetery: 0x9ad8a8, industrial: 0xffc890, sewer: 0x90d8d0, hospital: 0x9ad8c0, port: 0xa8c8ff };
   const baseHemi = new THREE.Color(SEASON.hemi[0]), baseFog = new THREE.Color(SEASON.fog[0]), curT = new THREE.Color(1, 1, 1), tmp = new THREE.Color();
   let dim = 0, night = 0; const nightFog = new THREE.Color(0x120c1e), md0 = md.clone();
-  // v0.53: цвета купола задаёт стиль (зенит, середина, горизонт)
-  const recolor = (t, m, lo) => { const top2 = new THREE.Color(t), mid2 = new THREE.Color(m), low2 = new THREE.Color(lo), at = dome.attributes.color;
-    for (let i = 0; i < at.count; i++) { const y = dome.attributes.position.getY(i) / 190; if (y < 0.12) c.copy(mid2).lerp(low2, Math.max(0, 1 - Math.abs(y - 0.02) / 0.14) * 0.85); else c.copy(mid2).lerp(top2, Math.min(1, (y - 0.12) / 0.55)); at.setXYZ(i, c.r, c.g, c.b); }
-    at.needsUpdate = true; baseFog.copy(mid2).lerp(low2, .35); };
   return {
     setDim(k) { dim = k; },
     get dim() { return dim; },
     moonDir: () => moon.position.clone().normalize(),
-    setColors: (t, m, lo, fogC, hemiC) => { recolor(t, m, lo); if (fogC != null) baseFog.setHex(fogC); if (hemiC != null) baseHemi.setHex(hemiC); },
     setNight(k) { night = k; const m2 = md0.clone(); m2.y += k * 55; m2.normalize().multiplyScalar(170); moon.position.copy(m2); halo.position.copy(m2).multiplyScalar(1.01); },
     update(camera, t, dt, player, hemi, fog) {
       g.position.set(camera.position.x, 0, camera.position.z);

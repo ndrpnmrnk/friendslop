@@ -42,10 +42,25 @@ export default{id:'cinema',name:'Последний сеанс',ground:'pave',bu
   f.zone('inside',12.8,5,19.2,7);f.zone('inside',12.8,19,19.2,23.6);
  }});
  // Козырёк и фасад: полосы ламп закреплены под рамой, афиши утоплены в ниши.
- b.box(16,26,20,2.2,.28,dark,{y:3.1});b.box(16,27.05,20,.18,.9,brass,{y:3.22});b.sign(16,3.68,27.15,0,'ПОСЛЕДНИЙ СЕАНС','#41313e','#f3cf8b',18.8,.62);
+ b.box(16,26,20,2.2,.28,dark,{y:3.1});b.box(16,27.05,20,.18,.9,brass,{y:3.22});b.m(G.box,tmat(T.sign('ПОСЛЕДНИЙ СЕАНС','#41313e','#f3cf8b')),16,3.68,27.19,18.8,.62,.08);
  for(let x=6.5;x<26;x+=.7)b.m(G.sph,glow(0xe6b77e),x,3.19,27.03,.06,.06,.06);
  for(const x of[5.3,26.7]){b.box(x,25.03,2.8,.17,2.3,dark,{y:.35});cinemaPoster(b,x,25.14,0,x<16?0:1);}
- b.box(16,26.2,5.2,1.1,.12,tmat(T.carpet(0x753f50)));b.marking(16,28.6,2.2,.12,0xc2a97c);b.lamp(11.5,29.6);b.lamp(21,29.6);
+ b.box(16,26.2,5.2,1.1,.12,tmat(T.carpet(0x753f50)));b.marking(16,28.6,2.2,.12,0xc2a97c);b.lamp(3.6,29.6);b.lamp(30.4,29.6);
+ // v0.55 — фасад перестал быть глухой коробкой: пилястры, цоколь, карниз, световые афиши по бокам,
+ // вертикальная вывеска «КИНО» и пожарные выходы на задней стене.
+ const pil=col(0x5c4250),trim=tmat(T.concrete()),plinth=col(0x2a2230);
+ for(const z of[2.25,5.6,10.4,14.2,18,21.8,24.75])for(const x of[1.86,30.14])b.box(x,z,.28,.5,FH-.3,pil,{solid:false});
+ for(const x of[2.25,6,10,14,18,22,26,29.75])b.box(x,1.86,.5,.28,FH-.3,pil,{solid:false});
+ for(const[x,z,w,d]of[[16,1.8,28.6,.4],[16,25.2,28.6,.4],[1.8,13.5,.4,23.4],[30.2,13.5,.4,23.4]])b.box(x,z,w,d,.38,trim,{y:FH-.38,solid:false});
+ for(const[x,z,w,d]of[[16,1.92,28,.16],[1.92,13.5,.16,23],[30.08,13.5,.16,23]])b.box(x,z,w,d,.55,plinth,{solid:false});
+ for(const[i,z]of[[0,12.3],[1,16.1],[2,19.9]]){cinemaPoster(b,30.05,z,Math.PI/2,i);cinemaPoster(b,1.95,z,-Math.PI/2,(i+1)%3);
+  for(const[x,o]of[[30.2,1],[1.8,-1]]){b.m(G.box,dark,x+o*.1,2.6,z,.2,.08,.5);b.m(G.box,glow(0xe6b87c),x+o*.12,2.55,z,.1,.04,.36);}}
+ {const bx=28.2,bz=25.75,y0=2.2;b.box(bx,bz,.26,1.3,3.9,dark,{y:y0,solid:false});b.box(bx,bz,.3,1.4,.12,brass,{y:y0+3.9,solid:false});b.box(bx,bz,.3,1.4,.12,brass,{y:y0-.06,solid:false});
+  ['К','И','Н','О'].forEach((ch,i)=>{const y=y0+3.4-i*.9;b.m(G.box,tmat(T.sign(ch,'#41313e','#f3cf8b')),bx,y,bz,.3,.8,.8);});
+  for(let i=0;i<10;i++)b.m(G.sph,glow(0xe6b77e),bx,y0+.2+i*.39,bz+.68,.06,.06,.06);}
+ for(const x of[8,24]){b.box(x,1.95,1.5,.1,2.4,col(0x3a3440),{solid:false});b.box(x,1.92,1.3,.06,2.2,tmat(T.paintMetal(0x58606a)),{solid:false});b.m(G.box,col(0x2a2230),x+.45,1.1,1.86,.08,.08,.18);
+  b.m(G.box,tmat(T.sign('ВЫХОД','#1f5a3a','#d8f5c8')),x,2.75,1.88,.9,.26,.04);b.box(x,1.55,1.8,.6,.16,trim,{solid:false});}
+ for(const x of[2.1,29.9])b.m(G.cyl6,col(0x4a4450),x,FH/2,1.7,.09,FH,.09);
  // Доступная крыша и сервисная зона: агрегаты на рамах, кабели идут к аппаратной.
  b.aircon(25.8,5.8,FH);b.box(25.8,8,.07,3.8,.07,dark,{y:FH});b.box(21,9.9,9.6,.07,.07,dark,{y:FH});b.box(16.2,9.9,.5,.5,.75,tmat(T.metal()),{y:FH});
  b.box(16,20.8,5.4,3.3,1.5,tmat(T.corrugated(0x5f6269)),{y:FH});b.box(16,20.8,5.6,3.5,.10,tmat(T.roof()),{y:FH+1.5});for(const x of[14.5,17.5])b.m(G.box,tmat(T.vent()),x,FH+.85,19.13,1.1,.65,.035).rotation.y=Math.PI;
