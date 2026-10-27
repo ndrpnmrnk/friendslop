@@ -97,7 +97,7 @@ export function addPushable(b, kind, x, z, y = 0) {
     r = 0.5;
   }
   // mass: тележка катится легко, урна потяжелее, бочка тяжёлая
-  const mass = { planchette:2.6, bike:.8,kart:2.2, table: 2.4, sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
+  const mass = { planchette:1.8, bike:.8,kart:2.2, table: 2.4, sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
   const h = { planchette:.9, bike:1.0,kart:.65, table: 0.8, sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
   const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y + y, vx: 0, vz: 0, r, mass, h, ride: RIDE[kind] || null, heading: 0 };
   if (p.ride) p.outline = addOutline(g, 0.04);

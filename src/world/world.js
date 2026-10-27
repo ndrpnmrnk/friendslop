@@ -13,7 +13,7 @@ import { resetBreakables } from './breakables.js';
 import { buildEdges } from './edges.js';
 import { buildRoadsAndTunnels } from './underground.js';
 import { bakeStatic } from './bake.js';
-import { dressRoofs, bridgeRoofs } from './roofs.js';
+import { dressRoofs, bridgeRoofs, roofAccess } from './roofs.js';
 import { buildSkyways } from './skyways.js';
 
 const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dirt(), concrete: () => T.concrete(), asphalt: () => T.asphalt(), cobble: () => T.cobble(), flag: () => T.flag() };
@@ -79,7 +79,7 @@ export function generateMap(scene, s) {
   buildRoadsAndTunnels(half);
   streetFurniture(half);
   buildEdges(half);
-  { const roofs = dressRoofs(); W.roofs = roofs; W.bridges = bridgeRoofs(roofs); }
+  { const roofs = dressRoofs(); W.roofs = roofs; W.bridges = bridgeRoofs(roofs); W.roofLadders = roofAccess(roofs, Builder); }
   W.skyways = buildSkyways(half);
   // точки появления не должны оказаться внутри объектов: сдвигаем на ближайшее свободное место
   for (const sp of W.spawns) {

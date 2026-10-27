@@ -618,3 +618,4 @@ body.cine::before,body.cine::after{height:6.5vh}
 #mstamp{position:fixed;left:50%;top:36%;z-index:31;pointer-events:none;opacity:0;font:30px var(--px);color:#fff;white-space:nowrap;text-shadow:3px 3px 0 #ff4fa8,-3px -3px 0 #4fe6ff,0 0 24px rgba(255,200,120,.7)}
 #mstamp.on{animation:stamp53 1.4s cubic-bezier(.2,1.6,.4,1) forwards}
 @keyframes stamp53{0%{opacity:0;transform:translate(-50%,-50%) scale(2.6) rotate(-14deg)}16%{opacity:1;transform:translate(-50%,-50%) scale(.9) rotate(-6deg)}28%{transform:translate(-50%,-50%) scale(1.06) rotate(-7deg)}78%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-7deg)}100%{opacity:0;transform:translate(-50%,-75%) scale(1) rotate(-7deg)}}
+#mstamp.fail{color:#ffd8e0;text-shadow:3px 3px 0 #8a0a2a,-3px -3px 0 #ff4f7a,0 0 24px rgba(255,60,100,.7)}

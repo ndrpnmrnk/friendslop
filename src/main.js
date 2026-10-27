@@ -411,7 +411,7 @@ function callout(text, cls = '') {
 const mIntroEl = (() => { const e = document.createElement('div'); e.id = 'mintro'; e.innerHTML = '<span class="ic"></span><div><small>МИССИЯ</small><b></b></div>'; document.body.appendChild(e); return e; })();
 const mStampEl = (() => { const e = document.createElement('div'); e.id = 'mstamp'; document.body.appendChild(e); return e; })();
 function missionIntro(m) { mIntroEl.querySelector('.ic').innerHTML = img(m.key, 32); mIntroEl.querySelector('b').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; mIntroEl.classList.remove('on'); void mIntroEl.offsetWidth; mIntroEl.classList.add('on'); sfx('dash', { v: .6 }); }
-function missionStamp(pts) { mStampEl.textContent = 'ГОТОВО! +' + pts; mStampEl.classList.remove('on'); void mStampEl.offsetWidth; mStampEl.classList.add('on'); }
+function missionStamp(pts, fail = false) { mStampEl.classList.toggle('fail', fail); mStampEl.textContent = fail ? 'ПРОВАЛ' : 'ГОТОВО! +' + pts; mStampEl.classList.remove('on'); void mStampEl.offsetWidth; mStampEl.classList.add('on'); }
 function closeWorld(res) {
   if (!S.wm) return;
   const { m, game } = S.wm; m.onExpire=null; S.wm = null; game.stop();missionCountdown(0); m.busy = false; m.track = null;
@@ -454,7 +454,7 @@ function closeMission(res) {
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
   if (!res) {m.progress=0;return;}
-  if (res.success) { const pts = Math.round(m.pts * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
+  if (res.success) { const pts = Math.round(m.pts * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); } else { missionStamp(0, true); sfx('swat'); }
   removeMission(m);
 }
 
@@ -464,6 +464,7 @@ function scored(m, pts) {
   // v0.52: сочный финиш миссии — вспышка, кольцо, разноцветные искры фонтаном, короткий стоп-кадр
   { const q = { x: P.pos.x, y: P.pos.y + 1.1, z: P.pos.z }; impactBurst(q, 0xc7ef94, 2.2); for (const c of [0xff6aa8, 0x7ad8ff, 0xffd04a, 0x9be36b]) vfxSparks(q, 9, c, { x: 0, y: 1.6, z: 0 }); W.flash?.(P.pos, 0xc7ef94, .9, 7, 3); hitFreeze(.06); }
   markWon(m.id); sfx('done'); voice(P.ch, 'happy'); comboAct(P, null, 0); missionDone(m); missionStamp(pts);
+  if (!S.mg && !S.wm && !cam.pose) S.finishCam = { t: 0, a: cam.yaw + Math.PI * .75 }; // облёт камеры вокруг победителя
   const st = statsOf(P); st.missions++; st.mpts += pts;
   const p = (m.obj.pos && m.obj.pos()) || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
   const sx = Math.max(40, Math.min(innerWidth - 80, (v.x + 1) / 2 * innerWidth)), sy = Math.max(60, Math.min(innerHeight - 60, (1 - v.y) / 2 * innerHeight));
@@ -735,6 +736,9 @@ function frame() {
   else {
     if (S.state === 'intro') { updateIntro(dt); if (S.intro?.landed) updatePlayer(P, dt, t, true, cam.yaw); }
     if (S.state === 'play') {
+      // v0.53: финиш миссии — камера коротко облетает игрока (0.9 с), потом спокойно возвращается за спину
+      if (S.finishCam) { const f = S.finishCam; f.t += dt; if (f.t > .9 || S.mg || S.wm) { if (cam.pose?.finish) { cam.pose = null; resumeCamera(camera); } S.finishCam = null; }
+        else { const a = f.a + f.t * 1.6, r = 3.4 - f.t * .6; cam.pose = { p: new V3(P.pos.x + Math.sin(a) * r, P.pos.y + 1.5 + f.t * .4, P.pos.z + Math.cos(a) * r), l: new V3(P.pos.x, P.pos.y + 1.0, P.pos.z), finish: true }; } }
       updateDrones(dt, t);
       S.time -= dt;
       if (S.time > 0 && S.time <= 10) { S.beep = (S.beep || 0) - dt; if (S.beep <= 0) { S.beep = 0.18 + 0.082 * S.time; sfx('deadline', { urgency: 1 - S.time / 10 }); } } else S.beep = 0;
