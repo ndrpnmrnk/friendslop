@@ -3,7 +3,7 @@ import {THREE,V3} from '../core/gfx.js';
 // Один закрытый физический мир автомата. Контакты и трение решает Cannon;
 // уснувшая куча не пересчитывается, пока клешня не потревожит игрушки.
 export function toyPhysics(dolls){
- const world=new C.World({gravity:new C.Vec3(0,-9,0),allowSleep:true});world.broadphase=new C.SAPBroadphase(world);world.solver.iterations=14;world.solver.tolerance=.0001;
+ const world=new C.World({gravity:new C.Vec3(0,-9,0),allowSleep:true});world.broadphase=new C.SAPBroadphase(world);world.solver.iterations=9;world.solver.tolerance=.0001;
  const plush=new C.Material('plush'),cabinet=new C.Material('cabinet');world.addContactMaterial(new C.ContactMaterial(plush,plush,{friction:.72,restitution:0,contactEquationStiffness:2e6,contactEquationRelaxation:4}));world.addContactMaterial(new C.ContactMaterial(plush,cabinet,{friction:.8,restitution:0}));
  function wall(x,y,z,hx,hy,hz){const body=new C.Body({mass:0,material:cabinet,shape:new C.Box(new C.Vec3(hx,hy,hz)),position:new C.Vec3(x,y,z)});world.addBody(body);}
  wall(0,.94,0,1.5,.1,1.06);wall(-1.55,1.94,0,.05,.9,1.11);wall(1.55,1.94,0,.05,.9,1.11);wall(0,1.94,-1.11,1.5,.9,.05);wall(0,1.94,1.11,1.5,.9,.05);wall(0,2.84,0,1.5,.05,1.06);
@@ -33,6 +33,10 @@ export function toyPhysics(dolls){
   grab(toy,localPivot){this.drop();toy.physics.collisionFilterMask=G_TOY|G_WALL;toy.physics.wakeUp();joint=new C.PointToPointConstraint(palm,new C.Vec3(0,-.08,0),toy.physics,new C.Vec3(localPivot.x,localPivot.y,localPivot.z),40);world.addConstraint(joint);joint.toy=toy;moving=true;quiet=0;},
   drop(){if(!joint)return;world.removeConstraint(joint);joint.toy.physics.collisionFilterMask=G_TOY|G_CLAW|G_WALL;joint.toy.physics.wakeUp();joint=null;moving=true;quiet=0;},
   get holding(){return joint?.toy||null;},
+  // v0.58: игрушку в клешне ведём сами (без шарнира): тело убираем из мира, соседи мягко оседают в образовавшуюся ямку
+  take(toy){this.wake(toy);if(toy.physics.world)world.removeBody(toy.physics);toy.held=true;moving=true;quiet=0;},
+  // пальцы перестают толкать игрушки, пока сжимаются (раньше разбрасывали соседей)
+  ghost(on){for(const b of fingers)b.collisionFilterMask=on?0:G_TOY;palm.collisionFilterMask=on?0:G_TOY;},
   wake(toy){moving=true;quiet=0;for(const d of dolls)if(d.g.position.distanceTo(toy.g.position)<.9)d.physics.wakeUp();},
   hold(toy){this.wake(toy);toy.physics.type=C.Body.KINEMATIC;toy.physics.mass=0;toy.physics.updateMassProperties();},
   remove(toy){if(toy.physics.world)world.removeBody(toy.physics);},

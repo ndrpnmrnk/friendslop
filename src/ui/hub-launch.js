@@ -214,36 +214,56 @@ export function buildScreen(b, x, y, z, modes) {
 /* ---------- гигантская рогатка ---------- */
 export function buildSlingshot(b, x, z) {
   const group = new THREE.Group(); W.group.add(group); W.keep.push(group);
-  const wood = tmat(T.bark()), band = lam({ color: 0x7a2a2a }, 'sling55-band'), leather = lam({ color: 0x5a3a26, side: THREE.DoubleSide }, 'sling55-leather'), steel = tmat(T.metal()), conc = tmat(T.concrete());
+  const wood = tmat(T.bark()), band = lam({ color: 0xc8402a }, 'sling58-band'), leather = lam({ color: 0x5a3a26, side: THREE.DoubleSide }, 'sling55-leather'), steel = tmat(T.metal()), conc = tmat(T.concrete());
   // рогатка-«Y»: толстый ствол на бетонной тумбе, два рога, обмотка верёвкой, железные наконечники
   const ARM = .5, FORK = 3.3, LEN = 3.8, TIPX = Math.sin(ARM) * LEN, TIPY = FORK + Math.cos(ARM) * LEN, rope = lam({ color: 0x3a2a1e }, 'sling55-rope');
   // площадка «готовности» перед рогаткой
   b.ground(x - 4, z + 1.2, x + 4, z + 7.2, T.concrete(), 2, .03);
   for (const [mx, mz, sx, sz] of [[x, z + 1.25, 8, .12], [x, z + 7.15, 8, .12], [x - 3.95, z + 4.2, .12, 6], [x + 3.95, z + 4.2, .12, 6]]) b.marking(mx, mz, sx, sz, 0xf5c542);
-  group.add(compose('sling55-frame', a => {
-    a(G.box, conc, x, .3, z, 3, .6, 3); a(G.box, conc, x, .66, z, 2.4, .12, 2.4);
-    a(G.cyl8, wood, x, 2.0, z, .6, 2.8, .6); a(G.sph10, wood, x, FORK + .1, z, .72, .6, .72);
-    for (const yy of [1.2, 2.6]) a(G.cyl8, rope, x, yy, z, .64, .22, .64);
-    for (const s of [-1, 1]) {
-      a(G.cyl8, wood, x + s * Math.sin(ARM) * LEN / 2, FORK + Math.cos(ARM) * LEN / 2, z, .42, LEN, .42, 0, 0, -s * ARM);
-      for (const k of [.35, .7]) a(G.cyl8, rope, x + s * Math.sin(ARM) * LEN * k, FORK + Math.cos(ARM) * LEN * k, z, .46, .2, .46, 0, 0, -s * ARM);
-      a(G.cyl8, steel, x + s * TIPX, TIPY, z, .48, .5, .48, 0, 0, -s * ARM); a(G.sph10, steel, x + s * (TIPX + Math.sin(ARM) * .3), TIPY + Math.cos(ARM) * .3, z, .36, .3, .36);
-    }
+  // v0.58: рогатка детальнее и «инженернее»: ствол и рога — гладкая изогнутая рогулька (труба по кривой), на концах
+  // кожаные обмотки, где завязаны резинки (ничего не торчит). Стоит на каменной тумбе с железными косынками и болтами,
+  // сзади — лебёдка: трос тянет кармашек назад, барабан крутится, храповик щёлкает.
+  const tube = (pts, r) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, r, 8, false);
+  group.add(compose('sling58-frame', a => {
+    a(G.box, conc, x, .3, z, 3, .6, 3); a(G.box, tmat(T.stone()), x, .68, z, 2.5, .16, 2.5);
+    for (const [dx, dz] of [[-1.05, -1.05], [1.05, -1.05], [-1.05, 1.05], [1.05, 1.05]]) a(G.cyl8, steel, x + dx, .78, z + dz, .09, .06, .09);
+    // косынки-упоры от тумбы к стволу
+    for (const [sx, sz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) a(G.box, steel, x + sx * .55, 1.12, z + sz * .55, sz ? .08 : .7, .08, sx ? .08 : .7, sz * .9, 0, -sx * .9);
+    a(G.cyl8, steel, x, .9, z, .72, .14, .72);
+    for (const s of [-1, 1]) a(tube([new V3(0, .8, 0), new V3(0, FORK - .3, 0), new V3(s * .55, FORK + .7, 0), new V3(s * TIPX, TIPY, 0)], .3), wood, x, 0, z, 1, 1, 1);
+    a(G.sph10, wood, x, FORK - .1, z, .62, .55, .62);
+    for (const yy of [1.4, 2.5]) a(G.cyl8, rope, x, yy, z, .66, .2, .66);
+    for (const s of [-1, 1]) { const tx = x + s * TIPX, ty = TIPY;
+      a(G.cyl8, leather, tx - s * .05, ty - .35, z, .4, .55, .4, 0, 0, -s * ARM); a(G.cyl8, rope, tx - s * .02, ty - .1, z, .42, .08, .42, 0, 0, -s * ARM);
+      a(G.sph10, wood, tx, ty + .05, z, .31, .22, .31); }
+    // лебёдка позади площадки
+    a(G.box, conc, x, .25, z + 8.1, 1.6, .5, .9);
+    for (const s of [-1, 1]) a(G.box, steel, x + s * .55, .9, z + 8.1, .1, .9, .5);
   }));
-  addSolid(x - 1.5, z - 1.5, x + 1.5, z + 1.5, 0, .72); addSolid(x - .6, z - .6, x + .6, z + .6, 0, FORK);
+  const winch = new THREE.Group(); winch.position.set(x, 1.05, z + 8.1); group.add(winch);
+  winch.add(compose('sling58-drum', a => { a(G.cyl12, wood, 0, 0, 0, .32, 1.0, .32, 0, 0, Math.PI / 2); for (const s of [-1, 1]) a(G.cyl12, steel, s * .5, 0, 0, .4, .04, .4, 0, 0, Math.PI / 2); for (let i = 0; i < 6; i++) a(G.box, steel, -.58, Math.cos(i) * .36, Math.sin(i) * .36, .04, .08, .08, i, 0, 0); }));
+  const crank = new THREE.Group(); crank.position.set(x + .62, 1.05, z + 8.1); group.add(crank); crank.add(compose('sling58-crank', a => { a(G.box, steel, .05, -.22, 0, .05, .5, .06); a(G.cyl8, col(0xd8243a), .14, -.45, 0, .05, .2, .05, 0, 0, Math.PI / 2); }));
+  const tow = new THREE.Mesh(G.cyl6, rope); tow.userData.noBatch = true; group.add(tow);
+  addSolid(x - .8, z + 7.65, x + .8, z + 8.55, 0, 1.4);
   // кармашек и две резинки (обновляются каждый кадр)
   const pocket = new THREE.Group(); group.add(pocket);
   // кармашек — кожаная «ванночка» (половина трубы, открыта вверх), по краям железные кольца для резинок
-  pocket.add(compose('sling55-pocket', a => { const sh = new THREE.CylinderGeometry(1, 1, 1, 14, 1, true, Math.PI, Math.PI); a(sh, leather, 0, 0, 0, .95, 3.0, .95, 0, 0, Math.PI / 2); for (const s of [-1, 1]) a(G.cyl8, steel, s * 1.55, 0, 0, .14, .3, .14, 0, 0, Math.PI / 2); }));
-  const bands = [-1, 1].map(s => { const m = new THREE.Mesh(G.cyl8, band); m.userData.noBatch = true; group.add(m); return { m, s }; });
+  pocket.add(compose('sling58-pocket', a => { const sh = new THREE.CylinderGeometry(1, 1, 1, 14, 1, true, Math.PI, Math.PI); a(sh, leather, 0, 0, 0, .95, 3.0, .95, 0, 0, Math.PI / 2);
+    for (const s of [-1, 1]) { a(G.box, steel, s * 1.5, -.05, 0, .1, .22, .5); a(G.halfTorus, lam({ color: 0xc8a070 }, 'sling58-stitch'), s * 1.45, 0, 0, .9, .9, .9, 0, Math.PI / 2, 0); }
+    a(G.box, steel, 0, -.92, .5, .3, .12, .12); }));
+  const bands = [-1, 1].flatMap(s => [-.09, .09].map(o => { const m = new THREE.Mesh(G.cyl8, band); m.userData.noBatch = true; group.add(m); return { m, s, o }; }));
   const REST = new V3(x, TIPY - 1.1, z + .4), seats = [[0, 0], [-.8, .3], [.8, .3], [-.8, -.35], [.8, -.35], [0, .55], [0, -.55], [1.2, 0]];
   const st = { phase: 'idle', t: 0, riders: [], pull: 0, out: 0 };
   const tmp = new V3();
   function placeBands() {
     pocket.position.set(REST.x, REST.y - st.pull * .4 + st.out * 1.5, REST.z + st.pull * 5.2 - st.out * 2.2); pocket.rotation.x = -st.pull * .25;
     pocket.updateMatrixWorld(true);
-    for (const { m, s } of bands) { const a = new V3(x + s * TIPX, TIPY, z), p2 = pocket.localToWorld(tmp.set(s * 1.55, 0, 0)).clone();
-      m.position.copy(a).add(p2).multiplyScalar(.5); const len = a.distanceTo(p2); m.scale.set(.12 + st.pull * -.03, len, .12 + st.pull * -.03); m.quaternion.setFromUnitVectors(new V3(0, 1, 0), p2.clone().sub(a).normalize()); }
+    for (const { m, s, o } of bands) { const a = new V3(x + s * TIPX, TIPY - .1 + o, z), p2 = pocket.localToWorld(tmp.set(s * 1.5, o, 0)).clone();
+      m.position.copy(a).add(p2).multiplyScalar(.5); const len = a.distanceTo(p2), th = .075 - st.pull * .025; m.scale.set(th, len, th); m.quaternion.setFromUnitVectors(new V3(0, 1, 0), p2.clone().sub(a).normalize()); }
+    // трос лебёдки: от барабана к задней скобе кармашка; провисает, пока не натянут
+    { const a = new V3(x, 1.05 + .32, z + 8.1 - .2), p2 = pocket.localToWorld(tmp.set(0, -.92, .55)).clone(), mid = a.clone().add(p2).multiplyScalar(.5); mid.y -= (1 - Math.min(1, st.pull * 3)) * .25;
+      tow.position.copy(mid); tow.scale.set(.035, a.distanceTo(p2), .035); tow.quaternion.setFromUnitVectors(new V3(0, 1, 0), p2.clone().sub(a).normalize()); }
+    winch.rotation.x = -st.pull * 9; crank.rotation.x = -st.pull * 9;
   }
   placeBands();
   // v0.56: зона сбора — светящаяся рамка со стрелками на площадке; горит, пока ждём игроков, зеленеет, когда все внутри
@@ -267,7 +287,7 @@ export function buildSlingshot(b, x, z) {
       st.t += dt;
       if (st.phase === 'idle') { st.pull += (Math.sin(t * 1.5) * .02 - st.pull) * Math.min(1, dt * 4); }
       else if (st.phase === 'board') { if (!st.manual && st.t > .9 + st.riders.length * .2) { st.phase = 'pull'; st.t = 0; sfx('squeak'); } }
-      else if (st.phase === 'pull') { st.pull = Math.min(1, st.pull + dt / 1.3); if (Math.random() < dt * 6) sfx('squeak', { v: .3 }); if (st.t > 1.6) { st.phase = 'fire'; st.t = 0; sfx('spring'); sfx('dash', { v: 1.4 }); sfx('birdcry'); shake(.5); } }
+      else if (st.phase === 'pull') { st.pull = Math.min(1, st.pull + dt / 1.3); if (Math.random() < dt * 6) sfx('squeak', { v: .3 }); if (Math.random() < dt * 9) sfx('tick', { v: .5 }); if (st.t > 1.6) { st.phase = 'fire'; st.t = 0; sfx('spring'); sfx('dash', { v: 1.4 }); sfx('birdcry'); shake(.5); } }
       else if (st.phase === 'fire') { const k = Math.min(1, st.t / .16); st.pull = 1 - k; st.out = Math.sin(k * Math.PI) * .9; if (k >= 1) { st.phase = 'fly'; st.t = 0; st.pull = 0; st.out = 0; sparks({ x: REST.x, y: REST.y + 1, z: REST.z }, 30, 0xffd27a); } }
       else if (st.phase === 'fly') { st.pull = Math.sin(st.t * 18) * .12 * Math.max(0, 1 - st.t * 1.5); }
       placeBands();

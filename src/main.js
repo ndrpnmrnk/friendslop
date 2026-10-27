@@ -30,7 +30,7 @@ import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
 import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock,clearInput } from './core/input.js';
 import { W } from './world/state.js';
 import { generateMap } from './world/world.js';
-import { updatePushables, groundAt, raySolids } from './world/physics.js';
+import { updatePushables, groundAt, raySolids, moveBody } from './world/physics.js';
 import { updateParticles, burst, smokeRing, puff } from './world/particles.js';
 import { updateBirds } from './world/birds.js';
 import { updateCrane } from './world/crane.js';
@@ -325,11 +325,30 @@ function prepareRound(tut = false) {
 /* Непрерывный пролёт по кварталам к игроку, затем отсчёт 5-4-3-2-1. */
 /* v0.53: прилёт на карту. Каждого игрока выстреливает дугой из-за края города (продолжение залпа катапульты):
    полёт «супергероем» с кувырком, камера летит следом, жёсткое приземление со шлепком и пылью, потом отсчёт 3-2-1. */
+/* v0.58: дуга — честная баллистика (по горизонтали равномерно, по высоте парабола). Перед полётом проверяем её
+   лучами на уровне ног и головы: если по пути стена или дом — пробуем другой заход и высоту. Если чистой дуги нет,
+   летим как есть, но по-настоящему: врезался — отскок, кувырок и падение по физике (crashArrival). */
 function arrivalArc(to) {
-  const d = Math.hypot(to.x, to.z), ang = d > 4 ? Math.atan2(to.z, to.x) + (Math.random() - .5) * .5 : Math.random() * Math.PI * 2, R = W.bounds + 34;
-  return { from: new V3(Math.cos(ang) * R, 36 + Math.random() * 8, Math.sin(ang) * R), to: to.clone(), dur: 2.7 + Math.random() * .4, h: 16 + Math.random() * 6, spin: (Math.random() < .5 ? -1 : 1) * (5 + Math.random() * 4) };
+  const d = Math.hypot(to.x, to.z), base = d > 4 ? Math.atan2(to.z, to.x) + (Math.random() - .5) * .5 : Math.random() * Math.PI * 2, R = W.bounds + 34;
+  const dur = 2.7 + Math.random() * .4, spin = (Math.random() < .5 ? -1 : 1) * (5 + Math.random() * 4); let f = null;
+  for (const h of [16 + Math.random() * 6, 26, 36]) for (const dA of [0, .6, -.6, 1.2, -1.2, 2, -2, Math.PI]) {
+    const ang = base + dA; f = { from: new V3(Math.cos(ang) * R, 36 + Math.random() * 8, Math.sin(ang) * R), to: to.clone(), dur, h, spin }; if (arcClear(f)) return f; }
+  f.risky = true; return f;
 }
 const arcAt = (f, k, out) => { out.lerpVectors(f.from, f.to, k); out.y += f.h * 4 * k * (1 - k); return out; };
+function arcClear(f) { const a = new V3(), b = new V3(), d = new V3(); arcAt(f, 0, a);
+  for (let i = 1; i <= 40; i++) { arcAt(f, i / 40, b); d.subVectors(b, a); const len = d.length(); if (len > 1e-4 && i < 39) { d.divideScalar(len);
+    for (const off of [.35, 1.25]) { a.y += off; const hit = raySolids(a, d, len); a.y -= off; if (hit < len - 1e-3) return false; } } a.copy(b); }
+  return true; }
+const _cp = new V3(), _cd = new V3();
+// по пути в стену/дом: отскок назад, кувырок, дальше — обычная физика падения
+function arrivalHit(a, prev) { _cd.subVectors(a.pos, prev); const len = _cd.length(); if (len < 1e-4) return null; _cd.divideScalar(len);
+  for (const off of [.5, 1.2]) { _cp.copy(prev); _cp.y += off; const hit = raySolids(_cp, _cd, len); if (hit < len - 1e-3) return { t: hit, len }; } return null; }
+function crashArrival(a, prev, hit, dt) {
+  const sp = hit.len / Math.max(dt, 1e-3); a.pos.copy(prev).addScaledVector(_cd, Math.max(0, hit.t - .45)); a.root.position.copy(a.pos);
+  const vx = -_cd.x * Math.min(6, sp * .25), vz = -_cd.z * Math.min(6, sp * .25); a.frozen = false; a.ch.flySpin = 0; knockDown(a, vx, vz, 1.2); a.vel.y = Math.min(a.vel.y, 1.5);
+  impactBurst({ x: a.pos.x, y: a.pos.y + 1, z: a.pos.z }, 0xffd8a0, .7); sfx('hit', { at: a.pos, v: 1.2 }); sfx('land', { at: a.pos, v: .8 });
+}
 function startIntro() {
   void roundMusic.intro();
   S.state = 'intro'; $('hud').classList.add('hidden'); $('intro').classList.remove('hidden'); $('count').textContent = ''; $('dname').textContent = '';
@@ -355,10 +374,14 @@ function landArc(a, f, me) {
 function updateIntro(dt) {
   const I = S.intro; I.t += dt; const t = I.t, f = I.me;
   for (const q of I.bots) { if (q.landed) continue; const k = (t - q.delay) / q.f.dur; if (k < 0) continue; q.b.root.visible = true;
-    if (k >= 1) { q.landed = true; q.b.frozenIntro = false; landArc(q.b, q.f, false); } else flyStep(q.b, q.f, k, dt, t); }
+    if (q.crash) { moveBody(q.crash, dt); q.b.root.position.copy(q.b.pos); q.b.ch.animate(dt, { t, fly: true, vy: q.b.vel.y, flySpin: 7 }); if (q.crash.onGround) { q.landed = true; q.b.frozenIntro = false; q.b.ch.flySpin = 0; smokeRing(q.b.pos.x, q.b.pos.y + .05, q.b.pos.z, 5, { speed: 2.4, size: .1, grow: .5, life: .5, color: 0x9a90a6 }); sfx('land', { at: q.b.pos, v: .7 }); } continue; }
+    if (k >= 1) { q.landed = true; q.b.frozenIntro = false; landArc(q.b, q.f, false); continue; }
+    const prev = q.b.pos.clone(); flyStep(q.b, q.f, k, dt, t); const hit = k > .04 && arrivalHit(q.b, prev);
+    if (hit) { crashArrival(q.b, prev, hit, dt); q.crash = { pos: q.b.pos, vel: q.b.vel, r: .35, h: 1.5, step: .3, onGround: false }; } }
   if (!I.landed) {
     const k = Math.max(0, (t - I.delay) / f.dur);
-    if (k < 1) { flyStep(P, f, k, dt, t);
+    if (k < 1) { const prev = P.pos.clone(); flyStep(P, f, k, dt, t); const hit = k > .04 && arrivalHit(P, prev);
+      if (hit) { crashArrival(P, prev, hit, dt); I.landed = true; I.landT = t; cam.free = null; P.noRun = true; shakeCam(0.6); resumeCamera(camera); updateCamera(camera, P, 1 / 60, false); return; }
       // камера летит следом: сзади и чуть выше, смотрит по ходу полёта и на точку приземления
       // v0.55: камера дальше (персонаж не закрывает город), а под конец плавно уходит за спину точки приземления,
       // чтобы падение было видно целиком и переход в обычную камеру не дёргался
