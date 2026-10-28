@@ -9,7 +9,7 @@ import { W } from './state.js';
 const R = Math.random;
 function canvasTex(key, w, h, draw) { return pix(key, w, h, draw); }
 
-export function createSky(scene, {moonDirection} = {}) {
+export function createSky(scene, {moonDirection, skyline = true} = {}) {
   const g = new THREE.Group(); g.renderOrder = -10; scene.add(g);
   const mat = o => new THREE.MeshBasicMaterial({ fog: false, depthWrite: false, ...o });
   // купол
@@ -49,7 +49,7 @@ export function createSky(scene, {moonDirection} = {}) {
       px += bw; } });
   skyT.wrapS = THREE.RepeatWrapping; skyT.repeat.set(5, 1);
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(175, 175, 34, 48, 1, true), mat({ map: skyT, transparent: true, alphaTest: 0.5, side: THREE.BackSide }));
-  ring.position.y = 10; ring.renderOrder = -7; g.add(ring);
+  ring.position.y = 10; ring.renderOrder = -7; ring.visible = skyline; g.add(ring); // v0.58: в хабе (остров над городом) силуэта на горизонте нет
 
   // ---- оттенок района ----
   const TINT = { cemetery: 0x9ad8a8, industrial: 0xffc890, sewer: 0x90d8d0, hospital: 0x9ad8c0, port: 0xa8c8ff };

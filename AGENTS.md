@@ -86,6 +86,16 @@
 9. Сначала вместе с автором решаем, что убрать/добавить/изменить, и только потом делаем; после — полный отчёт об изменениях.
 
 ## 5. Сделано в последних версиях
+- v0.58 (`docs/UPDATE-v0.58.md`): хаб — летающий остров `src/ui/hub-island.js` (`buildIsland`, контур `islandR(th)`,
+  город внизу на y −78 без тумана, облака, свет `cityGlow` снизу в menu.js; северный дом убран). Подлёт камеры —
+  `WIDE_P/WIDE_L`, `bez()` и `setFog()` в menu.js (`st.intro` на заставке, `arc` в `travel('arrive')`). Гардероб —
+  `picTex/garment/sneaker` в hub-world.js. Автомат — цель фиксируется при опускании (`lock`), игрушку ведём сами
+  (`physics.take`, `hang`, маятник `swing`), пальцы при сжатии «призрачные» (`physics.ghost`). Рогатка — `sling58-*`,
+  лебёдка `winch/crank/tow`; залп `L.ft` (замедление) в `launchStep`. Полёт — `animateFly` считает точки конечностей
+  в системе тела (`_fp`, пружина `flyLag`). Прилёт — `arrivalArc/arcClear/arrivalHit/crashArrival` в main.js.
+  Транспорт — `classic` в ride.js (W/S/A/D, `b.steer`, `b.lean`, `steerParts`), модели `bicycleModel/scooterModel`
+  в vehicles.js. Финал — `startFinale/updateFinale/finishFinale` (состояние `finale`, стадии whistle → replay),
+  запись и повтор — `src/game/replay.js` (`resetReplay/recordReplay/replayMoment/replayClip/createReplayPlayer`).
 - v0.57 (`docs/UPDATE-v0.57.md`): инструменты — `src/core/devtools.js` (F3 счётчик `prof.mark()` по системам в `frame()`,
   F8 отчёт-скриншот `afterRender(canvas)`), **студия** (`S.studioCfg`, `openStudio/startStudio/leaveStudio` в main.js:
   район — `CONFIG.grid=1` + `__forceDistricts`, задание — до 4 попыток `prepareRound()`+`studioMission()`; без ботов,

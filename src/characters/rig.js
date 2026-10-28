@@ -38,7 +38,7 @@ export function makeCharacter(skinId) {
   return ch;
 }
 
-const _up = new THREE.Vector3(0, 0.18, 0);
+const _up = new THREE.Vector3(0, 0.18, 0), _fp = new THREE.Vector3();
 // поза при катании: сидя (кресло, тележка, тачка) или стоя боком (скейт)
 // выпад (тело вытянуто вперёд), перекат (кувырок через голову), подкат (откинулся назад)
 // v0.57: всё плавно — поза выпада и подката «наплывает» (а не встаёт рывком), кувырок продолжает наклон выпада
@@ -126,9 +126,15 @@ function animateFly(c, dt, s) {
   const pitch = 1.15 - clamp((s.vy || 0) * 0.03, -0.55, 0.55);
   c.body.rotation.set(pitch, 0, Math.sin(t * 3) * 0.2 + c.flySpin); c.body.scale.set(1, 1, 1);
   c.body.position.set(0, cc - cc * Math.cos(pitch), -cc * Math.sin(pitch)); c.stars.visible = false;
-  const fl = Math.sin(t * 18) * 0.12, fl2 = Math.cos(t * 15) * 0.14;
-  setHand(c.handL, -d.handX * 0.7, 0.95 + fl, 1.25, f); setHand(c.handR, d.handX * 0.7, 0.95 - fl, 1.25, f);
-  setHand(c.footL, -d.footX, 0.72 + fl2, -0.78, f); setHand(c.footR, d.footX, 0.86 - fl2, -0.66, f);
+  /* v0.58: руки и ноги прижаты к телу и летят вместе с ним: точки считаются в системе тела (наклон и «бочка»),
+     а не висят в метре впереди. Инерция — пружина: на взлёте конечности отстают вниз, на спуске вскидываются. */
+  const lagT = clamp(-(s.vy || 0) * 0.012, -0.16, 0.16); c.flyLagV = ((c.flyLagV || 0) + ((lagT - (c.flyLag || 0)) * 60 - (c.flyLagV || 0) * 7) * dt); c.flyLag = (c.flyLag || 0) + c.flyLagV * dt;
+  const fl = Math.sin(t * 9) * 0.03, lag = c.flyLag; c.body.updateMatrix();
+  const P = (x, y, z) => _fp.set(x, y, z).applyMatrix4(c.body.matrix);
+  let q = P(-d.handX * 0.85, d.handY + 0.18 + lag, 0.2 + fl); setHand(c.handL, q.x, q.y, q.z, f);
+  q = P(d.handX * 0.85, d.handY + 0.18 + lag, 0.2 - fl); setHand(c.handR, q.x, q.y, q.z, f);
+  q = P(-d.footX * 0.7, d.footY - 0.02 - lag * 1.3, -0.08 + fl); setHand(c.footL, q.x, q.y, q.z, f);
+  q = P(d.footX * 0.7, d.footY + 0.02 - lag * 1.3, -0.12 - fl); setHand(c.footR, q.x, q.y, q.z, f);
   c.handL.rotation.x = c.handR.rotation.x = c.footL.rotation.x = c.footR.rotation.x = 0;
 }
 function setHand(h, x, y, z, k) { h.position.x += (x - h.position.x) * k; h.position.y += (y - h.position.y) * k; h.position.z += (z - h.position.z) * k; }

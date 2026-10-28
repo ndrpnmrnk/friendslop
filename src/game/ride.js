@@ -58,6 +58,7 @@ export function hopIn(p) {
 export function dismount(p, jump) {
   const b = p.ride; if (!b) return;
   p.ride = null; b.rider = null; b.trick = null; b.flip = 0; b.shuv = 0; p.root.rotation.x = 0; p.root.rotation.z = 0; p.rideKick = null; p.trickK = 0;
+  b.lean = 0; b.steer = 0; b.mesh.rotation.z = 0; { const u = b.mesh.children.find(q => q.userData.vehicle || q.userData.scoot)?.userData, v2 = u?.vehicle || u?.scoot; if (v2?.steerParts) for (const q of v2.steerParts) q.rotation.y = 0; }
   // сходим вбок от доски/кресла, чтобы не встать обратно на неё; какое-то время сам не садишься
   const f = b.heading || 0, sx = Math.cos(f), sz = -Math.sin(f);
   p.pos.set(b.x + (jump ? 0 : sx * (b.r + 0.5)), b.y + (jump ? b.ride.seat + 0.05 : 0.05), b.z + (jump ? 0 : sz * (b.r + 0.5)));
@@ -79,7 +80,22 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   const il = Math.hypot(ix, iz);
   const sp0 = Math.hypot(b.vx, b.vz);
   ctrl=ctrl&&!(p.daze>0)&&!(p.stun>0);
-  if (ctrl && il > 0.1) {
+  /* v0.58: велосипед, скейт и самокат — понятное управление: W — разгон, S — тормоз (велосипед потом медленно
+     сдаёт назад), A/D — руль. Раньше «поворачивался туда, куда жмёшь относительно камеры» — S разворачивал. */
+  const classic = b.kind === 'bike' || board;
+  const thr = ctrl ? ((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0) : 0, st = ctrl ? ((keys.KeyD || keys.ArrowRight) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft) ? 1 : 0) : 0;
+  if (classic) {
+    const fwd0 = b.vx * Math.sin(b.heading) + b.vz * Math.cos(b.heading), turn = R.turn * (0.35 + 0.65 * Math.min(1, sp0 / 4)) * (b.air ? 0.3 : 1);
+    if (st) b.heading -= st * turn * dt * (fwd0 < -0.2 ? -1 : 1);
+    let push = 0;
+    if (thr > 0 && !b.air) { push = R.acc * dt;
+      if (board && sp0 < R.max * 0.92) { b.kickPh = (b.kickPh || 0) + dt / 0.7; const ph = b.kickPh % 1; p.rideKick = ph; push *= ph > 0.2 && ph < 0.55 ? 2.6 : 0.12; if (ph > 0.2 && ph - dt / 0.7 <= 0.2) sfx('step', { v: 0.6 }); } else p.rideKick = null; }
+    else p.rideKick = null;
+    if (thr < 0 && !b.air) { if (fwd0 > 0.3) { const k = Math.exp(-dt * 3.2); b.vx *= k; b.vz *= k; if (sp0 > 4 && Math.random() < dt * 14) smoke(b.x, b.y + 0.08, b.z, { size: 0.12, grow: 0.4, life: 0.4, color: 0xc5bacd }); }
+      else if (b.kind === 'bike') push = -R.acc * 0.3 * dt; }
+    b.vx += Math.sin(b.heading) * push; b.vz += Math.cos(b.heading) * push;
+    b.steer = (b.steer || 0) + (st - (b.steer || 0)) * Math.min(1, dt * 9);
+  } else if (ctrl && il > 0.1) {
     const want = Math.atan2(ix, iz);
     let d = want - b.heading; d = Math.atan2(Math.sin(d), Math.cos(d));
     // по инерции рулится тем слабее, чем медленнее едешь
@@ -119,7 +135,12 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
       if (k >= 0.8) { W.onTrick && W.onTrick(p, tr.kind); burst(b.x, b.y + 0.2, b.z, 8, { color: 0xf5c542, size: 0.12, speed: 2.5, up: 2 }); sfx('land', { v: 1.2 }); }
       else { dismount(p, false); p.vel.set(b.vx * 0.5, 4, b.vz * 0.5); p.onGround = false; p.stun = 0.7; p.noMountT = 2.5; sfx('hit'); return 'crash'; } } }
   p.pos.set(b.x, b.y + R.seat, b.z); p.vel.set(b.vx, 0, b.vz); p.onGround = !b.air; p.speed = sp;
-  p.root.rotation.order = 'YXZ'; p.root.rotation.y = b.heading; p.facing = b.heading; p.root.rotation.x = board ? -(b.pitch || 0) * 0.85 : 0;
+  // наклон в повороте: сильнее на скорости; руль и переднее колесо поворачиваются
+  const leanMax = b.kind === 'bike' ? 0.34 : b.kind === 'skate' ? 0.24 : b.kind === 'scooter' ? 0.2 : 0, leanT = classic && !b.air ? (b.steer || 0) * leanMax * Math.min(1, sp / 5) : 0;
+  b.lean = (b.lean || 0) + (leanT - (b.lean || 0)) * Math.min(1, dt * 7);
+  if (classic) { const sv = (b.steer || 0) * (b.kind === 'skate' ? 0 : 0.42), veh = b.mesh.children.find(q => q.userData.vehicle || q.userData.scoot)?.userData; const v2 = veh?.vehicle || veh?.scoot;
+    if (v2?.steerParts) for (const q of v2.steerParts) { q.rotation.order = 'YXZ'; q.rotation.y = -sv; } }
+  p.root.rotation.order = 'YXZ'; p.root.rotation.y = b.heading; p.facing = b.heading; p.root.rotation.x = board ? -(b.pitch || 0) * 0.85 : 0; p.root.rotation.z = (b.lean || 0) * 0.9;
   // наехал на кого-то — тот отлетает
   if (sp > 4) for (const o of actors()) { if (o === p || o.hidden || o.heldBy || o.ride) continue; if (Math.hypot(o.pos.x - b.x, o.pos.z - b.z) < b.r + 0.45 && Math.abs(o.pos.y - b.y) < 1.2 && !(o.diveHitT > 0)) { shove(o, b.vx, b.vz, sp * 0.8, 4, true); o.diveHitT = 0.6; sfx(b.kind === 'kidcar' ? 'honk' : 'hit', { at: o.pos }); } }
   // врезался

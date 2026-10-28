@@ -197,7 +197,7 @@ export function updatePushables(dt, player) {
     // движение по форме: стоячий бак скользит не поворачиваясь; бочка, шина и колёсное едут вдоль «колёс»,
     // боковое скольжение гасится, направление плавно доворачивается к толчку
     const sp = Math.hypot(b.vx, b.vz);
-    if (b.rider) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.set(-(b.pitch || 0), b.heading + (b.shuv || 0), b.flip || 0); }
+    if (b.rider) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.set(-(b.pitch || 0), b.heading + (b.shuv || 0), (b.flip || 0) + (b.lean || 0)); }
     else if ((b.kind === 'skate' || b.kind === 'scooter') && (b.pitch || b.flip)) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.x = -(b.pitch || 0); b.mesh.rotation.z = 0; b.flip = 0; b.shuv = 0; }
     else if (b.kind === 'chair') b.mesh.rotation.y += Math.hypot(b.x - op.x, b.z - op.z) * 2;
     else if (b.kind !== 'bin' && b.kind!=='crate' && sp > 0.02) {

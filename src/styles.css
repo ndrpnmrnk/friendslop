@@ -651,3 +651,14 @@ body.cine #hubUI,body.cine #hubPrompt,body.cine #hubHeld{opacity:0;pointer-event
 #studioBar{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:30;padding:6px 14px;background:rgba(10,8,18,.8);border:1px solid #4a4268;color:#ffd27a;font:11px "Press Start 2P",monospace;pointer-events:none;white-space:nowrap}
 #studioBar.hidden{display:none}#studioBar span{color:#c8bedc;font-family:Rubik,Arial;font-size:13px}
 #studioLeave.hidden{display:none}
+
+/* v0.58: финал — штамп «ВРЕМЯ!» и плашка повтора */
+#finStamp{position:fixed;left:50%;top:42%;z-index:46;transform:translate(-50%,-50%) rotate(-8deg);font:900 clamp(56px,11vw,150px)/1 Rubik,Arial,sans-serif;color:#ffd27a;letter-spacing:.04em;
+ text-shadow:0 6px 0 #d8243a,0 12px 0 #2a1f3d,0 0 40px rgba(255,140,60,.45);-webkit-text-stroke:3px #2a1f3d;pointer-events:none}
+#finStamp.pop{animation:finPop .5s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes finPop{0%{transform:translate(-50%,-50%) rotate(-30deg) scale(3);opacity:0}60%{opacity:1}100%{transform:translate(-50%,-50%) rotate(-8deg) scale(1)}}
+#replayTag{white-space:nowrap;position:fixed;left:50%;top:calc(11vh + 14px);transform:translateX(-50%);z-index:46;display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:999px;
+ background:rgba(18,13,28,.82);color:#f4ecdc;font:700 15px/1 Rubik,Arial,sans-serif;letter-spacing:.06em;pointer-events:none}
+#replayTag b{color:#ffd27a}#replayTag i{width:11px;height:11px;border-radius:50%;background:#ff4a4a;animation:recBlink 1s steps(2) infinite}
+#replayTag small{opacity:.55;font-weight:500;margin-left:6px;letter-spacing:0}
+@keyframes recBlink{50%{opacity:.2}}
