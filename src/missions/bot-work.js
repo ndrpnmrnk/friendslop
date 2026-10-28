@@ -4,7 +4,7 @@ import { CONFIG } from '../config.js';
 import { M, ALL_GAMES, WORLD_GAMES, canReach, missionDone, removeMission, startMissionClock } from './missions.js';
 import { pickUp, drop, launch, throwVelocity } from '../game/items.js';
 import { grabActor, letGo } from '../game/grab.js';
-import { sfx } from '../core/sfx.js';
+import { sfx, SFX_FROM } from '../core/sfx.js';
 import { dropHeld } from '../game/actors.js';
 import { useTool } from '../game/tools.js';
 import { statsOf } from '../game/score.js';
@@ -89,6 +89,9 @@ function recoverBotItem(b,job,items,dt) {
   return true;
 }
 export function tickBotWork(b,dt) {
+  if(!b.work)return;SFX_FROM.at=b.pos;try{tickBotWork0(b,dt);}finally{SFX_FROM.at=null;}
+}
+function tickBotWork0(b,dt) {
   const job=b.work;if(!job)return;
   const {m,game,brain}=job;
   if(!M.list.includes(m)){stopBotWork(b);return;}

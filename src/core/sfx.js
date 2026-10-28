@@ -50,6 +50,8 @@ const CRIES = [
 ];
 const SND = {
   birdcry: s => { const k = s.k ?? (Math.random() * CRIES.length | 0); CRIES[k % CRIES.length](); noise(.5, .05, 2200, .7, .05, 'bandpass', 600); },
+  // v0.59: ровный металлический скрежет при катании по перилам (короткие перекрывающиеся кусочки)
+  grind: s => { noise(.16, .05 * (s.v ?? 1), 3400, 6, 0, 'bandpass'); noise(.16, .025 * (s.v ?? 1), 900, 3, 0, 'bandpass'); },
   clap: s => { noise(.06, .22 * (s.v ?? 1), 2600, .9); noise(.05, .12 * (s.v ?? 1), 1200, 1.5, .01); tone(900, 500, .05, 'square', .03); },
   fabric:s=>{noise(.13,.04*(s.v??1),1150,.65);tone(480,330,.055,'triangle',.026*(s.v??1),.06);},
   dash:s=>noise(.16,.035*(s.v??1),1900,.6,0,'bandpass',700),
@@ -203,9 +205,17 @@ function frog(parts, v = 1) {
 // мировой звук: громкость по расстоянию до слушателя
 let listener = { x: 0, y: 0, z: 0 };
 export function setListener(x, y, z) { listener.x = x; listener.y = y; listener.z = z; }
+/* v0.59: у каждого звука свой радиус слышимости. Мелочь — 12–20 м, обычные действия — 25–30 м, громкое — 45–70 м,
+   взрывы и гром — на всю карту. Затухание плавное (без «пола» громкости). Звуки, которые миссии ботов играют
+   без точки (мини-игры написаны «для игрока»), идут из точки бота — SFX_FROM (см. bot-work.js). */
+const RANGE = { step: 14, tick: 12, click: 12, hover: 10, spray: 16, squeak: 16, fabric: 14, pickup: 18, drop: 18, emote_wave: 22, emote_dance: 22, emote_laugh: 24, emote_call: 30, emote_clap: 22,
+  throw: 22, jump: 18, land: 22, dive: 20, roll: 16, slip: 22, swat: 20, pillow: 22, grab: 18, door: 24, chop: 22, screw: 16, ring: 26, msg: 20, beep: 18, points: 20, done: 24, grind: 20, purr: 10, meow: 22, hiss: 22, bark: 32,
+  bell: 60, alarm: 60, horn: 60, honk: 45, hydrant: 40, fire: 40, goal: 50, siren: 70, crow: 40, gull: 40, bong: 30, boom: 400, thunder: 400, fanfare: 400, podium: 400 };
+export const SFX_FROM = { at: null };
 export function sfx(name, o = {}) {
   if (!ac || muted || !SND[name]) return;
-  if (o.at) { const d = Math.hypot(o.at.x - listener.x, o.at.y - listener.y, o.at.z - listener.z); const range=o.range??30;if (d >= range) return; o.v = (o.v ?? 1) * (o.range?Math.pow(1-d/range,1.5):Math.max(0.15,1-d/range)); }
+  if (!o.at && SFX_FROM.at) o = { ...o, at: SFX_FROM.at, v: (o.v ?? 1) * .8 };
+  if (o.at) { const d = Math.hypot(o.at.x - listener.x, o.at.y - listener.y, o.at.z - listener.z); const range = o.range ?? RANGE[name] ?? 30; if (d >= range) return; o.v = (o.v ?? 1) * Math.pow(1 - d / range, 1.3); }
   route=['wind','thunder','crow','gull','purr'].includes(name)?'ambient':'effects';
   try{SND[name](o);}finally{route='effects';}
 }

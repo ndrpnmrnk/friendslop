@@ -35,7 +35,7 @@ export function toyPhysics(dolls){
   drop(){if(!joint)return;world.removeConstraint(joint);joint.toy.physics.collisionFilterMask=G_TOY|G_CLAW|G_WALL;joint.toy.physics.wakeUp();joint=null;moving=true;quiet=0;},
   get holding(){return joint?.toy||null;},
   // v0.58: игрушку в клешне ведём сами (без шарнира): тело убираем из мира, соседи мягко оседают в образовавшуюся ямку
-  take(toy){this.wake(toy);if(toy.physics.world)world.removeBody(toy.physics);toy.held=true;moving=true;quiet=0;},
+  take(toy){moving=true;quiet=0;for(const d of dolls)if(d!==toy&&d.g.position.y>toy.g.position.y-.05&&Math.hypot(d.g.position.x-toy.g.position.x,d.g.position.z-toy.g.position.z)<.45)d.physics.wakeUp();/* будим только тех, кто лежал на пойманной */if(toy.physics.world)world.removeBody(toy.physics);toy.held=true;moving=true;quiet=0;},
   // пальцы перестают толкать игрушки, пока сжимаются (раньше разбрасывали соседей)
   ghost(on){for(const b of fingers)b.collisionFilterMask=on?0:G_TOY;palm.collisionFilterMask=on?0:G_TOY;},
   wake(toy){moving=true;quiet=0;for(const d of dolls)if(d.g.position.distanceTo(toy.g.position)<.9)d.physics.wakeUp();},
