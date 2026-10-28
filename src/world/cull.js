@@ -58,7 +58,9 @@ export function freezeStatic() {
     for (const c of o.children) walk(c); };
   for (const c of W.group.children) walk(c);
   // целые «застывшие» ветки three.js даже не обходит (matrixWorldAutoUpdate=false); что в них сдвинется — обновим сами
-  thawed = new Set(); for (const c of W.group.children) if (!live.has(c) && c.matrixAutoUpdate === false) { c.matrixWorldAutoUpdate = false; c.userData.skipTree = true; }
+  // v0.58.2: подвижные корни (предметы, транспорт, двери) НЕ «застывают» целиком: у застывшей ветки three.js не считает
+  // matrixWorld даже по прямому вызову — из-за этого взятый предмет визуально оставался лежать на месте
+  thawed = new Set(); for (const c of W.group.children) if (!live.has(c) && !root.has(c) && c.matrixAutoUpdate === false) { c.matrixWorldAutoUpdate = false; c.userData.skipTree = true; }
   return frozen.length + roots.length;
 }
 const inSkipped = o => { for (let p = o.parent; p && p !== W.group; p = p.parent) if (p.userData.skipTree) return true; return !!o.userData.skipTree; };
@@ -71,6 +73,6 @@ export function checkFrozen() {
   for (const o of thawed) { if (!o.parent) { thawed.delete(o); continue; } o.updateMatrixWorld(true); }
   if (!frozen.length) return; const n = Math.min(frozen.length, 400);
   for (let k = 0; k < n; k++) { if (slice >= frozen.length) slice = 0; const f = frozen[slice], o = f.o;
-    if (o.matrixAutoUpdate || moved(f)) { if (!o.matrixAutoUpdate) { o.matrixAutoUpdate = true; o.updateMatrix(); } if (inSkipped(o)) thawed.add(o); frozen[slice] = frozen[frozen.length - 1]; frozen.pop(); continue; }
+    if (o.matrixAutoUpdate || moved(f)) { if (!o.matrixAutoUpdate) { o.matrixAutoUpdate = true; o.updateMatrix(); } if (o.userData.skipTree) { o.userData.skipTree = false; o.matrixWorldAutoUpdate = true; } else if (inSkipped(o)) thawed.add(o); frozen[slice] = frozen[frozen.length - 1]; frozen.pop(); continue; }
     slice++; }
 }
