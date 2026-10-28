@@ -332,7 +332,7 @@ function prepareRound(tut = false) {
    летим как есть, но по-настоящему: врезался — отскок, кувырок и падение по физике (crashArrival). */
 function arrivalArc(to) {
   const d = Math.hypot(to.x, to.z), base = d > 4 ? Math.atan2(to.z, to.x) + (Math.random() - .5) * .5 : Math.random() * Math.PI * 2, R = W.bounds + 34;
-  const dur = 2.7 + Math.random() * .4, spin = (Math.random() < .5 ? -1 : 1) * (5 + Math.random() * 4); let f = null;
+  const dur = 2.2 + Math.random() * .3, spin = (Math.random() < .5 ? -1 : 1) * (5 + Math.random() * 4); let f = null;
   for (const h of [16 + Math.random() * 6, 26, 36]) for (const dA of [0, .6, -.6, 1.2, -1.2, 2, -2, Math.PI]) {
     const ang = base + dA; f = { from: new V3(Math.cos(ang) * R, 36 + Math.random() * 8, Math.sin(ang) * R), to: to.clone(), dur, h, spin }; if (arcClear(f)) return f; }
   f.risky = true; return f;
@@ -373,11 +373,17 @@ function landArc(a, f, me) {
   smokeRing(f.to.x, f.to.y + .05, f.to.z, me ? 9 : 6, { speed: 3.4, size: .1, grow: .5, life: .5, color: 0x9a90a6 });
   impactBurst({ x: f.to.x, y: f.to.y + .4, z: f.to.z }, 0xffd8a0, me ? .8 : .6); sfx('land', { v: me ? 1.6 : .9, at: f.to });
 }
+// приземление «тряпичной куклой»: инерция полёта по горизонтали + подскок, лежит ~2.3 с, встаёт за 0.7 с (всего 3 с)
+function landRag(a, f) { const dx = f.to.x - f.from.x, dz = f.to.z - f.from.z, L = Math.hypot(dx, dz) || 1, sp = Math.min(9, L / f.dur * .35);
+  knockDown(a, dx / L * sp, dz / L * sp, 1.7); a.vel.y = 3.2; sfx('hit', { at: a.pos, v: .8 }); }
 function updateIntro(dt) {
   const I = S.intro; I.t += dt; const t = I.t, f = I.me;
+  // v0.59: приземлившиеся боты лежат «тряпичной куклой», скользят по инерции и за 3 с поднимаются
+  for (const q of I.bots) { if (!q.landed || !q.rag) continue; const r = q.rag; r.t += dt; moveBody(r.body, dt); if (r.body.onGround) { q.b.vel.x *= Math.exp(-dt * 4); q.b.vel.z *= Math.exp(-dt * 4); }
+    q.b.root.position.copy(q.b.pos); const k = r.t < 2.3 ? 1 : Math.max(0, 1 - (r.t - 2.3) / .7); q.b.ch.animate(dt, { t, rag: k, stun: k >= 1, air: !r.body.onGround, vy: q.b.vel.y, speed: 0 }); if (r.t > 3) { q.rag = null; q.b.stun = 0; q.b.getT = 0; } }
   for (const q of I.bots) { if (q.landed) continue; const k = (t - q.delay) / q.f.dur; if (k < 0) continue; q.b.root.visible = true;
     if (q.crash) { moveBody(q.crash, dt); q.b.root.position.copy(q.b.pos); q.b.ch.animate(dt, { t, fly: true, vy: q.b.vel.y, flySpin: 7 }); if (q.crash.onGround) { q.landed = true; q.b.frozenIntro = false; q.b.ch.flySpin = 0; smokeRing(q.b.pos.x, q.b.pos.y + .05, q.b.pos.z, 5, { speed: 2.4, size: .1, grow: .5, life: .5, color: 0x9a90a6 }); sfx('land', { at: q.b.pos, v: .7 }); } continue; }
-    if (k >= 1) { q.landed = true; q.b.frozenIntro = false; landArc(q.b, q.f, false); continue; }
+    if (k >= 1) { q.landed = true; q.b.frozenIntro = false; landArc(q.b, q.f, false); landRag(q.b, q.f); q.rag = { t: 0, body: { pos: q.b.pos, vel: q.b.vel, r: .35, h: 1.5, step: .3, onGround: false } }; continue; }
     const prev = q.b.pos.clone(); flyStep(q.b, q.f, k, dt, t); const hit = k > .04 && arrivalHit(q.b, prev);
     if (hit) { crashArrival(q.b, prev, hit, dt); q.crash = { pos: q.b.pos, vel: q.b.vel, r: .35, h: 1.5, step: .3, onGround: false }; } }
   if (!I.landed) {
@@ -390,7 +396,7 @@ function updateIntro(dt) {
       const dir = _ib.clone().sub(_ia).normalize(), back = P.pos.clone().addScaledVector(dir, -10); back.y += 4.2 - k * 1.5;
       const look = P.pos.clone().addScaledVector(dir, 5).lerp(f.to, k * k), fl = new V3(dir.x, 0, dir.z).normalize(), w = Math.min(1, Math.max(0, (k - .7) / .3)), ws = w * w * (3 - 2 * w);
       back.lerp(f.to.clone().addScaledVector(fl, -6.5).setY(f.to.y + 3.6), ws); look.lerp(f.to.clone().setY(f.to.y + 1), ws); cam.free = { p: back, l: look }; return; }
-    I.landed = true; I.landT = t; cam.free = null; P.frozen = false; P.noRun = true; landArc(P, f, true); P.landedNow = true;
+    I.landed = true; I.landT = t; cam.free = null; P.frozen = false; P.noRun = true; landArc(P, f, true); P.landedNow = true; landRag(P, f);
     sparks(innerWidth / 2, innerHeight * 0.6, ['#ff8a1f', '#f5c542', '#4fe6ff'], 18); shakeCam(0.5); resumeCamera(camera); updateCamera(camera, P, 1 / 60, false);
   }
   if (t > I.landT + .6) {
@@ -963,9 +969,9 @@ function frame() {
       if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
     updateReflections(camera, t);localLighting.update(camera,dt,sky.dim||0); haze.update(t, camera); prof.mark('погода/свет');
-    cam.shake = FX.shake; cam.fovAdd = P && S.state === 'play'&&!S.mg ? P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8) : 0;
+    cam.shake = FX.shake; cam.fovAdd = S.state === 'intro' && S.intro && !S.intro.landed ? 12 : P && S.state === 'play'&&!S.mg ? P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8) : 0;
     // линии скорости: спринт, катание, полёт после броска
-    { const sp = P && S.state === 'play' ? Math.hypot(P.vel.x, P.vel.z) : 0, k = Math.max(0, Math.min(1, (sp - 8.5) / 6)), el = $('speedl'); const o = (Math.round(k * 5) / 5).toFixed(1); if (el.style.opacity !== o) el.style.opacity = o; }
+    { const sp = S.state === 'intro' && S.intro && !S.intro.landed && S.intro.t > S.intro.delay ? 14 : P && S.state === 'play' ? Math.hypot(P.vel.x, P.vel.z) : 0, k = Math.max(0, Math.min(1, (sp - 8.5) / 6)), el = $('speedl'); const o = (Math.round(k * 5) / 5).toFixed(1); if (el.style.opacity !== o) el.style.opacity = o; }
     updateBreakables(dt, S.state === 'play' ? P : null);
     updateActionEffects(dt,S.state==='play'&&!S.mg?P:null,camera);updateParticles(dt);updateVfx(dt);updateSplat(dt);setActionVisuals(P&&!S.mg?Math.max(0,(Math.hypot(P.vel.x,P.vel.z)-7)/8):0,FX.shake*.5);
     prof.mark('частицы');

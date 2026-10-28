@@ -35,7 +35,8 @@ export function solidsNear(x0, z0, x1, z1, out = _q) {
 export const overlapXZ = (s, x, z, r) => x + r > s.x0 && x - r < s.x1 && z + r > s.z0 && z - r < s.z1;
 
 // Проёмы в земле (люки, канал коллектора): там нет «нулевой» земли, можно провалиться вниз
-const inHole = (x, z) => { for (const h of W.holes) if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return true; return false; };
+// v0.59: W.walk(x,z) — где вообще есть земля (хаб: два острова и мост); вне её — пропасть
+const inHole = (x, z) => { if (W.walk && !W.walk(x, z)) return true; for (const h of W.holes) if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return true; return false; };
 /* Повёрнутые коробки (стрела крана, палуба катера): {cx, cz, yaw, lx0, lx1, lz0, lz1, y0, y1, on}.
    Точку переводим в локальные оси коробки и проверяем как обычный AABB. */
 const _l = { x: 0, z: 0 };
@@ -172,9 +173,9 @@ export function updatePushables(dt, player) {
       if (W.rails && (b.kind === 'skate' || b.kind === 'scooter')) for (const r of W.rails) {
         const ex = r.x1 - r.x0, ez = r.z1 - r.z0, L2 = ex * ex + ez * ez, u = ((b.x - r.x0) * ex + (b.z - r.z0) * ez) / L2; if (u < 0 || u > 1) continue;
         const qx = r.x0 + ex * u, qz = r.z0 + ez * u; if (Math.hypot(b.x - qx, b.z - qz) > 0.35 || b.y < r.y - 0.25 || b.y > r.y + 0.7 || b.vy > 0.5) continue;
-        gy = Math.max(gy, r.y); if (!b.grind) { b.grind = r; W.onGrind && W.onGrind(b); } const L = Math.sqrt(L2), tx = ex / L, tz = ez / L, v = b.vx * tx + b.vz * tz; b.vx = tx * v; b.vz = tz * v; b.x = qx; b.z = qz;
+        gy = Math.max(gy, r.y); if (!b.grind) { b.grind = r; const now = performance.now(); if (b.lastRail !== r || now - (b.grindEnd || 0) > 400) W.onGrind && W.onGrind(b); b.lastRail = r; } // v0.59: одно касание перил = одно событие (раньше дребезг давал звук комбо каждый кадр) const L = Math.sqrt(L2), tx = ex / L, tz = ez / L, v = b.vx * tx + b.vz * tz; b.vx = tx * v; b.vz = tz * v; b.x = qx; b.z = qz;
       }
-      if (b.grind && Math.abs(b.y - b.grind.y) > 0.05) b.grind = null;
+      if (b.grind && Math.abs(b.y - b.grind.y) > 0.05) { b.grind = null; b.grindEnd = performance.now(); }
       const board = b.kind === 'skate' || b.kind === 'scooter';
       if (b.y > gy + 0.02) { b.vy -= 22 * dt; b.y = Math.max(gy, b.y + b.vy * dt); if (b.y <= gy) { if (b.vy < -7 && b.rider) b.hardLand = -b.vy; b.vy = 0; } b.air = b.y > gy; if (board) b.pitch = (b.pitch || 0) * Math.exp(-dt * 3); }
       else {

@@ -86,6 +86,10 @@
 9. Сначала вместе с автором решаем, что убрать/добавить/изменить, и только потом делаем; после — полный отчёт об изменениях.
 
 ## 5. Сделано в последних версиях
+- v0.59 (`docs/UPDATE-v0.59.md`): второй остров `src/ui/hub-isle2.js` (`ISLE`, `hubWalk` → `W.walk(x,z)`: вне него
+  `inHole` = пропасть; `buildIsle2` → `stations` (телескоп `scope`), `update`, `respawn`), режим меню `scope`
+  (menu.js, `scopeView`); радиусы звуков `RANGE` и `SFX_FROM.at` (sfx.js, bot-work.js); рты по скинам `MOUTH`
+  (speech.js); `contactRadius` у клешни; рэгдолл-приземление `landRag` (main.js); паркур и граффити/плющ во дворе.
 - v0.58.1 (`docs/UPDATE-v0.58.1.md`): рогатка заново (`buildSlingshot`: помост `deck`, лестницы, кармашек-гамак, `huddle`,
   `bounce`), сцена запуска заново (`startLaunch/launchStep` в menu.js: планы `shot` 1–7 со склейками), батут с прогибом
   (`trampoline` в hub-world.js), автомат внутри аркады, отсвет прожекторов выключается `floodlight(…, pool=false)`.

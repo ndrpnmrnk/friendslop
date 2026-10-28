@@ -148,6 +148,7 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   if (b.kind!=='kart'&&b.hitSpeed > 6) { const v = b.hitSpeed; dismount(p, false); p.vel.set(-fx * 3, 5, -fz * 3); p.onGround = false; p.stun = 0.9; p.noMountT = 2.5; burst(b.x, b.y + 0.6, b.z, 8, { size: 0.4, speed: 3 }); return 'crash'; }
   // скейт и самокат: пробел — прыжок (олли), слезть — E
   if (ctrl && b.kind!=='kart' && tapped('Space')) { if (board) { if (!b.air) { b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(Math.random() * L.length) | 0], t: 0, dur: 0.48 }; } return null; } dismount(p, true); return 'jump'; }
+  if (b.grind) { b.grindSnd = (b.grindSnd || 0) - dt; if (b.grindSnd <= 0) { b.grindSnd = .12; sfx('grind', { at: { x: b.x, y: b.y, z: b.z }, v: Math.min(1, Math.hypot(b.vx, b.vz) / 8) }); } }
   if (b.grind && Math.random() < dt * 30) burst(b.x, b.y + 0.05, b.z, 1, { color: 0xffd25c, size: 0.06, speed: 2, up: 1.5, g: 12, life: 0.3, grow: 0 });
   return null;
 }

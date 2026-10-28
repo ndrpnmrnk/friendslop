@@ -13,13 +13,13 @@ import { burst } from '../world/particles.js';
 export const islandR = th => 47 - 18 * Math.pow(Math.max(0, Math.cos(th - Math.PI * 1.5)), 3) + Math.sin(th * 5) * 1.1 + Math.sin(th * 11 + 1) * .6;
 let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
-function rockCone() {
-  const SEG = 28, RINGS = 7, DEPTH = 46, pos = [], colr = [], uv = [], idx = [], jit = Array.from({ length: (RINGS + 1) * SEG }, () => [rnd(), rnd(), rnd()]);
+export function rockCone(rf = islandR, DEPTH = 46, key = 'island-rock') {
+  const SEG = 28, RINGS = 7, pos = [], colr = [], uv = [], idx = [], jit = Array.from({ length: (RINGS + 1) * SEG }, () => [rnd(), rnd(), rnd()]);
   const top = new THREE.Color(0x9a6238), mid = new THREE.Color(0x7a6488), low = new THREE.Color(0x4a3450), c = new THREE.Color();
   for (let r = 0; r <= RINGS; r++) {
     const v = r / RINGS, y = -v * v * DEPTH * .92 - v * DEPTH * .08 - .3;
     for (let s = 0; s <= SEG; s++) {
-      const th = s / SEG * Math.PI * 2, J = jit[r * SEG + s % SEG], R = islandR(th) * Math.pow(1 - v, 1.35) * (r ? .93 + J[0] * .12 : 1);
+      const th = s / SEG * Math.PI * 2, J = jit[r * SEG + s % SEG], R = rf(th) * Math.pow(1 - v, 1.35) * (r ? .93 + J[0] * .12 : 1);
       pos.push(Math.cos(th) * R, y + (r && r < RINGS ? (J[1] - .5) * 2.4 : 0), Math.sin(th) * R);
       c.copy(v < .18 ? top : mid).lerp(v < .18 ? mid : low, v < .18 ? v / .18 : (v - .18) / .82); c.multiplyScalar((r % 2 ? .62 : 1.12) * (.85 + J[2] * .3)); /* полосы-слои породы */ colr.push(c.r, c.g, c.b);
       uv.push(s / SEG * 10, v * 4);
@@ -28,18 +28,18 @@ function rockCone() {
   for (let r = 0; r < RINGS; r++) for (let s = 0; s < SEG; s++) { const a = r * (SEG + 1) + s, b = a + SEG + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); }
   const g = new THREE.BufferGeometry(); g.setIndex(idx);
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  g.computeVertexNormals(); return new THREE.Mesh(g.toNonIndexed(), lam({ vertexColors: true, flatShading: true, map: rep(T.stone(), 1, 1), emissive: 0x150f20 }, 'island-rock'));
+  g.computeVertexNormals(); return new THREE.Mesh(g.toNonIndexed(), lam({ vertexColors: true, flatShading: true, map: rep(T.stone(), 1, 1), emissive: 0x150f20 }, key));
 }
 // верх острова: асфальт двора + травяная кромка по контуру
-function cap() {
+export function cap(rf = islandR) {
   const SEG = 56, shape = new THREE.Shape(), inner = new THREE.Shape();
-  for (let s = 0; s <= SEG; s++) { const th = s / SEG * Math.PI * 2, R = islandR(th); (s ? shape.lineTo : shape.moveTo).call(shape, Math.cos(th) * R, -Math.sin(th) * R); }
+  for (let s = 0; s <= SEG; s++) { const th = s / SEG * Math.PI * 2, R = rf(th); (s ? shape.lineTo : shape.moveTo).call(shape, Math.cos(th) * R, -Math.sin(th) * R); }
   const geo = new THREE.ShapeGeometry(shape, 2); geo.rotateX(-Math.PI / 2); // форма в XY (y = −z мира) → на землю лицом вверх
   const uvs = geo.attributes.uv; for (let i = 0; i < uvs.count; i++) uvs.setXY(i, uvs.getX(i) / 4, uvs.getY(i) / 4);
   const asphalt = new THREE.Mesh(geo, lam({ map: rep(T.asphalt(), 1, 1) }, 'island-asphalt')); asphalt.position.y = -.04;
   // кромка: кольцо травы и земляной бортик (толщина 0.6 м) по краю
   const pos = [], idx = [], uv = [];
-  for (let s = 0; s <= SEG; s++) { const th = s / SEG * Math.PI * 2, R = islandR(th), x = Math.cos(th), z = Math.sin(th);
+  for (let s = 0; s <= SEG; s++) { const th = s / SEG * Math.PI * 2, R = rf(th), x = Math.cos(th), z = Math.sin(th);
     pos.push(x * (R - 3.2), -.02, z * (R - 3.2), x * (R + .4), .02, z * (R + .4), x * (R + .2), -.7, z * (R + .2)); uv.push(0, s, 1.2, s, 1.6, s); }
   for (let s = 0; s < SEG; s++) { const a = s * 3, b = a + 3; idx.push(a, b, a + 1, a + 1, b, b + 1, a + 1, b + 1, a + 2, a + 2, b + 1, b + 2); }
   const rg = new THREE.BufferGeometry(); rg.setIndex(idx); rg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); rg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); rg.computeVertexNormals();

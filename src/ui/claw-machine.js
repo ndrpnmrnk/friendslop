@@ -73,6 +73,16 @@ export function createClaw(scene,onReward){
  function refresh(){const c=collection();button.disabled=!dolls.length||(!practice&&!paid&&(c.coins<50||SKIN_IDS.every(owns)))||!['ready','aim','done'].includes(phase);button.textContent=phase==='aim'?'ОПУСТИТЬ КЛЕШНЮ':phase==='done'?(practice?'ЕЩЁ РАЗ · БЕСПЛАТНО':'ЕЩЁ РАЗ · 50 ФИСТОВ'):(practice?'ИГРАТЬ · БЕСПЛАТНО':'ИГРАТЬ · 50 ФИСТОВ');back.disabled=!['ready','aim','collect','done'].includes(phase);practiceButton.disabled=!['ready','done'].includes(phase);practiceButton.textContent=practice?'ТРЕНИРОВКА: БЕЗЛИМИТ ВКЛ':'БЕСПЛАТНАЯ ТРЕНИРОВКА';practiceButton.setAttribute('aria-pressed',String(practice));}
  function training(value=!practice){if(!['ready','done'].includes(phase))return;practice=!!value;try{localStorage.setItem('friendslop.clawPractice',practice?'1':'0');}catch{}reveal.clear();toy=null;reward=null;phase='ready';time=0;fill();target.set(0,2.64,0);message(practice?'Безлимитные попытки. Тестовые награды не меняют коллекцию.':'');refresh();}
  practiceButton.onclick=()=>training();
+ /* v0.59: пальцы сжимаются по контуру игрушки: для каждого из трёх пальцев ищем, где по его направлению кончается тело
+    игрушки на высоте пальцев (по коробкам-коллайдерам частей тела), и сжимаем до этой границы (+1.5 см) */
+ const _cq=new THREE.Quaternion(),_cp=new V3();
+ function contactRadius(toy){const tipY=crane.position.y-.14-DEPTH,palmY=crane.position.y-.1,cx=crane.position.x,cz=crane.position.z;let sum=0,n=0;
+  for(let i=0;i<3;i++){const a=i*Math.PI*2/3,dx=Math.cos(a),dz=-Math.sin(a);let ext=0;
+   for(const box of toy.colliders){const yLo=box.center.y-box.half.y,yHi=box.center.y+box.half.y;
+    for(const sx of[-1,0,1])for(const sy of[-1,0,1])for(const sz of[-1,0,1]){_cp.set(box.center.x+sx*box.half.x,box.center.y+sy*box.half.y,box.center.z+sz*box.half.z).applyQuaternion(toy.g.quaternion).add(toy.g.position);
+     if(_cp.y<tipY-.04||_cp.y>palmY+.04)continue;ext=Math.max(ext,(_cp.x-cx)*dx+(_cp.z-cz)*dz);}}
+   if(ext>0){sum+=ext;n++;}}
+  return n?clamp(sum/n+.015,CLOSED_R,OPEN_R):clamp(Math.hypot(toy.g.position.x-cx,toy.g.position.z-cz)+.12,CLOSED_R,OPEN_R);}
  function profile(d){const min=new V3(Infinity,Infinity,Infinity),max=new V3(-Infinity,-Infinity,-Infinity);let radius=0;for(const point of d.support){relative.copy(point).applyQuaternion(d.g.quaternion);min.min(relative);max.max(relative);radius=Math.max(radius,Math.hypot(relative.x+d.g.position.x-crane.position.x,relative.z+d.g.position.z-crane.position.z));}return{top:max.y,bottom:min.y,height:max.y-min.y,radius};}
 
  function close(){if(!active||!['ready','aim','collect','done'].includes(phase))return;if(paid&&!reward&&!refundClaw()){message('Не удалось сохранить возврат. Повтори');return;}if(phase==='collect'&&!practice){const id=finishClaw();if(!id){message('Не удалось сохранить награду');return;}paid=false;onReward(id);}reveal.clear();highlight.clear();aimPick=null;startBadge.hidden=true;active=false;keys.clear();drag=null;stickX=stickZ=0;aim.visible=false;sparks.visible=false;frontLight.intensity=.35;if(toy?.held){toy.g.scale.setScalar(0);batch?.update();}root.visible=true;ui.classList.add('hidden');document.getElementById('menu').classList.remove('clawing');controller.onClose?.();}
@@ -98,7 +108,7 @@ export function createClaw(scene,onReward){
   else if(phase==='lower'){crane.position.y=Math.max(1.48,crane.position.y-dt*1.35);radius=OPEN_R;const top=lock?Math.max(topUnder(crane.position.x,crane.position.z,OPEN_R*.5),lock.g.position.y+profile(lock).top-.08):topUnder(crane.position.x,crane.position.z,OPEN_R*.8);
    if(crane.position.y<=Math.max(1.48,top+.36)||crane.position.y<=1.48){crane.position.y=Math.max(1.48,Math.min(crane.position.y,top+.36));phase='grip';time=0;start=crane.position.clone();cand=candidate();
     if(lock){const q=profile(lock),d=Math.hypot(lock.g.position.x-crane.position.x,lock.g.position.z-crane.position.z);cand={toy:lock,dist:d,half:Math.max(.08,Math.min(.3,q.radius-d)),top:lock.g.position.y+q.top};}
-    closeR=cand?clamp(cand.dist+cand.half*.62,CLOSED_R,OPEN_R):CLOSED_R;physics.ghost(true);bob=1;sfx('squeak',{v:.4});}}
+    closeR=cand?contactRadius(cand.toy):CLOSED_R;physics.ghost(true);bob=1;sfx('squeak',{v:.4});}}
   else if(phase==='grip'){radius=THREE.MathUtils.lerp(OPEN_R,closeR,ease(time/.45));if(time>.55){
     if(cand){toy=cand.toy;slipAt=Infinity;physics.take(toy);const q=profile(toy);hang={from:toy.g.position.clone().sub(crane.position),to:new V3(0,-.3-q.top,0),q0:toy.g.quaternion.clone(),q1:new THREE.Quaternion().setFromAxisAngle(new V3(0,1,0),Math.atan2(2*(toy.g.quaternion.w*toy.g.quaternion.y),1-2*toy.g.quaternion.y*toy.g.quaternion.y)),t:0};swing.x=swing.z=swing.vx=swing.vz=0;sfx('click');flash=1;phase='lift';}
     else phase='retry';time=0;start=crane.position.clone();}}
