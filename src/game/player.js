@@ -166,12 +166,13 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
       let dir = 0;
       if (into > 0.3) dir = 1; else if (into < -0.3 && !p.onGround) dir = -1;
       if (dir || (!p.onGround && p.vel.y <= 0.5) || (wasClimb === l && !p.onGround)) p.climb = l;
+      if (l.slide && p.climb && dir <= 0 && !p.onGround) dir = -1; // v0.60: в люке не зависаем: не жмёшь к лестнице — плавно съезжаешь вниз
       if (p.climb) {
         // кто-то на лестнице выше/ниже — дальше не пролезть
         for (const b of actors()) { if (b === p || (b.climb !== l && b.climbing !== l)) continue; const dy = b.pos.y - p.pos.y; if ((dir > 0 && dy > 0 && dy < 1.7) || (dir < 0 && dy < 0 && dy > -1.7)) dir = 0; }
         let v = 0;
         if (dir > 0) { v = PC.climb; if (shift && p.stamina > 0.05 && !p.exhausted) { v *= 1.8; p.stamina = Math.max(0, p.stamina - dt * 0.35); } }
-        else if (dir < 0) v = shift ? -PC.climb * 3 : -PC.climb;
+        else if (dir < 0) v = shift || l.slide ? -PC.climb * (l.slide ? 2.2 : 3) : -PC.climb;
         p.vel.y = v;
         const cx = (l.x0 + l.x1) / 2, cz = (l.z0 + l.z1) / 2, k = Math.min(1, dt * 12);
         // плавно к центру лестницы (поперёк) и к стене (вдоль нормали) — не цепляемся за края

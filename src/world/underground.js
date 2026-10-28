@@ -38,7 +38,7 @@ export function buildRoadsAndTunnels(half) {
       const m = (s.a + s.b) / 2 + 6, hv = s.c + 0.35; // люк над тоннелем (шахта целиком над проходом)
       R(s.a, v0, m - HU, v1); R(m + HU, v0, s.b, v1); R(m - HU, v0, m + HU, hv - HV); R(m - HU, hv + HV, m + HU, v1);
       const [hx, hz] = P(m, hv), hx2 = s.axis === 'x' ? HU : HV, hz2 = s.axis === 'x' ? HV : HU;
-      W.holes.push({ x0: hx - hx2, z0: hz - hz2, x1: hx + hx2, z1: hz + hz2 });
+      W.holes.push({ x0: hx - hx2, z0: hz - hz2, x1: hx + hx2, z1: hz + hz2, soft: true });
       manhole(hx, hz, hx2, hz2);
     } else R(s.a, v0, s.b, v1);
     tunnelSegment(s, P, brick, conc);
@@ -151,7 +151,7 @@ function manhole(x, z, hx, hz) {
   for (const [dx, dz, w, d] of [[0, -hz + .04, hx * 2, .08], [0, hz - .04, hx * 2, .08], [-hx + .04, 0, .08, hz * 2], [hx - .04, 0, .08, hz * 2]]) mesh(G.box, tmat(T.concrete()), x + dx, -0.5, z + dz, w, 0.98, d, W.group);
   mesh(G.cyl12, tmat(T.metal()), x + hx + .7, 0.03, z + 0.3, 0.6, 0.05, 0.6, W.group);
   const b = new Builder(0, 0, 0, 'Тоннели');
-  b.ladder(x, z - hz + .05, 's', 0.05, UG.floor);
+  b.ladder(x, z - hz + .05, 's', 0.05, UG.floor); W.ladders[W.ladders.length - 1].slide = true; // сверху — плавно съезжаешь, снизу — лезешь
   // столб света из люка вниз
   const shaft = mesh(G.cone8, alphaMat(T.light(), { blending: THREE.AdditiveBlending, opacity: 0.3, side: THREE.DoubleSide }), x, -2.4, z, hx * 1.3, 3.0, hz * 1.3, W.group); shaft.rotation.x = 0;
   b.light(x, z, 1.8, 0.03, false);

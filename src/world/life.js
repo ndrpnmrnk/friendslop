@@ -23,7 +23,7 @@ export function buildLife(scene) {
   for (const m of batMesh) { m.frustumCulled = false; W.group.add(m); W.keep.push(m); W.mapResources.add(m.geometry); }
   for (let f = 0; f < nFlocks; f++) {
     const d = W.districts[(Math.random() * W.districts.length) | 0]; if (!d) break;
-    const c = { x: d.ox + 16, z: d.oz + 16, y: 14 + Math.random() * 8, r: 7 + Math.random() * 6, sp: 0.5 + Math.random() * 0.4, ph: Math.random() * 6, members: [] };
+    const c = { x: (d.ox + d.x1) / 2, z: (d.oz + d.z1) / 2, y: 14 + Math.random() * 8, r: 7 + Math.random() * 6, sp: 0.5 + Math.random() * 0.4, ph: Math.random() * 6, members: [] };
     for (let i = 0; i < per; i++) c.members.push({ p: new THREE.Vector3(c.x, c.y, c.z), ry: 0, off: [Math.random() * 3 - 1.5, Math.random() * 2 - 1, Math.random() * 3 - 1.5], ph: Math.random() * 6 });
     bats.push(c);
   }

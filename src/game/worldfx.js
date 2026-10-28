@@ -124,6 +124,9 @@ export function leaveSwing(P, jump) {
   const ry = s.pivot.rotation.y, v = s.vel * s.len;
   const h = jump ? 1.6 : 1; // спрыгнуть с размаху — далеко
   P.vel.set(Math.sin(ry) * Math.cos(s.ang) * v * h, jump ? 5 + Math.abs(v) * 0.9 : 0, Math.cos(ry) * Math.cos(s.ang) * v * h); P.onGround = false; P.airPeak = P.pos.y;
+  // v0.60: качели-катапульта во дворе — прыжок на высшей точке (горит фонарь) запускает далеко вверх, на крыши гаражей
+  if (jump && s.catapult && Math.abs(s.ang) > s.max * .62) { const d = Math.sign(s.ang); P.vel.set(Math.sin(ry) * d * 12, 11.5, Math.cos(ry) * d * 12); P.airPeak = P.pos.y + 1; P.flySpin = 1;
+    sfx('spring', { at: P.pos }); burst(P.pos.x, P.pos.y + .5, P.pos.z, 14, { color: 0xffd060, size: .16, speed: 3 }); }
   if (jump && Math.abs(v) > 3) { sfx('jump', { at: P.pos }); burst(P.pos.x, P.pos.y + 0.5, P.pos.z, 6, { color: 0xf1e8ff, size: 0.14, speed: 2 }); }
 }
 /* Скамейка (v0.18): E — сесть (болтает ногами, осматривается, выносливость восстанавливается быстрее); E/пробел/WASD — встать */

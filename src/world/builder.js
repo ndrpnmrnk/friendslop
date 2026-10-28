@@ -19,6 +19,7 @@ import { PropMethods, crateModel } from './props.js';
 import { TowerMethods } from './tower.js';
 import { OpenMethods } from './openables.js';
 import { MoreMethods } from './more.js';
+import { KitMethods } from './district-kit.js';
 
 /* Конструктор района. Все координаты — локальные (0..32), высота от уровня тротуара.
    Районы описываются вызовами этих методов в своих файлах в world/districts. */
@@ -234,11 +235,12 @@ export class Builder {
   dumpster(x, z) {
     const mt = tmat(T.corrugated(0x3e5a4a));
     this.box(x, z, 1.4, 1.1, 1.05, mt, { y: 0.12 });
-    this.m(G.box, tmat(T.paintMetal(0x243d32)), x, 1.2, z, 1.48, 0.1, 1.18); this.m(G.box, tmat(T.rust()), x, 0.2, z + 0.56, 1.42, 0.16, 0.02);
+    const lid = this.m(G.box, tmat(T.paintMetal(0x243d32)), x, 1.2, z, 1.48, 0.1, 1.18); lid.userData.noBatch = true; this.m(G.box, tmat(T.rust()), x, 0.2, z + 0.56, 1.42, 0.16, 0.02);
     this.solid(x, z, 1.48, 1.18, 1.15, 0.1);
     this.m(G.box, col(0x22222c), x, 1.28, z + 0.18, 0.4, 0.06, 0.07);
     W.hides.push({ x: this.X(x), y: this.Y, z: this.Z(z), r: 1.4, kind: 'bin', out: [0, 1] });
     for (const xx of [-0.55, 0.55]) this.m(G.cyl6, col(0x17111f), x + xx, 0.1, z - 0.35, 0.1, 0.08, 0.1).rotation.z = Math.PI / 2;
+    return lid;
   }
   pump(x, z, r = 0.5, h = 1.6, y = 0) {
     const mt = tmat(T.corrugated(0x3a6a9a)), dk = tmat(T.metal());
@@ -466,7 +468,7 @@ export class Builder {
   }
 }
 
-Object.assign(Builder.prototype, PropMethods, TowerMethods, OpenMethods, MoreMethods);
+Object.assign(Builder.prototype, PropMethods, TowerMethods, OpenMethods, MoreMethods, KitMethods);
 
 // У кабины машины наклонены стойки, при той же малой геометрии и старом хитбоксе.
 const LEAF_GEO = new THREE.IcosahedronGeometry(1, 1);

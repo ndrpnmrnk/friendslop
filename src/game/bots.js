@@ -1,3 +1,4 @@
+import { hazardSteer } from './grab-targets.js';
 import {findMantle,beginMantle,advanceMantle} from '../world/traversal.js';
 import {bounceAt} from './worldfx.js';
 import {tryBotTool,cancelBotAim} from './bot-tools.js';
@@ -44,6 +45,9 @@ export function createBots(scene, playerSkin, n = 3) {
       onGround: true, stun: 0, score: 0, goal: null, doT: 0, think: 0, stuck: 0, last: new V3(), facing: 0, throwCD: 3 + Math.random() * 5, held: null, wander: null, airPeak: 0,
       side: 1, sideT: 0, dodge: null, hideT: 0, actCD: 2, carry: null });
     statsOf(W.bots[W.bots.length - 1]);
+    // v0.60: «E — Поднять»: подошёл к упавшему — подал руку, он сразу встаёт
+    { const bt = W.bots[W.bots.length - 1]; W.interacts.push({ get x() { return bt.pos.x; }, get z() { return bt.pos.z; }, get y() { return bt.pos.y; }, r: 1.1, label: 'Поднять',
+      enabled: P => P !== bt && bt.stun > .3 && !bt.drone && !bt.returning && !bt.hidden && !bt.heldBy, act: P => { bt.stun = 0; bt.getT = .25; sfx('hi', { at: bt.pos }); P.emote = 'wave'; P.emoteT = 0; P.emoteDur = 1; } }); }
   }
   return W.bots;
 }
@@ -155,6 +159,7 @@ function stepDown(b,target){
 // направление к цели с обходом препятствий
 function steer(b, tx, tz, dt) {
   let dx = tx - b.pos.x, dz = tz - b.pos.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
+  { const hz = hazardSteer(b, dx, dz); if (hz) return hz; } // v0.60: опасная зона района — уходим/обходим
   botDive(b, dx, dz); // сначала открыть/разбить препятствие по исходному направлению
   const st = blockedAt(b, dx, dz);
   b.navCD = Math.max(0, (b.navCD || 0) - dt);

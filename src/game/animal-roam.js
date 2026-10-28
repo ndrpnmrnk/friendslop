@@ -29,9 +29,9 @@ function path(from,to){
  if(best.h>=first.h-.35)return[];const out=[];for(let q=best;q.parent;q=q.parent)out.push({x:from.x+q.x*STEP,y:q.y,z:from.z+q.z*STEP});return out.reverse();
 }
 export function animalGoal(a,radius=26){
- const p=position(a),near=(W.districts||[]).filter(d=>Math.hypot(d.ox+16-p.x,d.oz+16-p.z)<radius+24);
+ const p=position(a),near=(W.districts||[]).filter(d=>Math.hypot((d.ox+d.x1)/2-p.x,(d.oz+d.z1)/2-p.z)<radius+24);
  for(let i=0;i<36;i++){
-  let x,z;if(i<20&&near.length){const d=near[Math.random()*near.length|0],edge=Math.random()*4|0,t=2+Math.random()*28;x=d.ox+(edge===0?-.7:edge===1?32.7:t);z=d.oz+(edge===2?-.7:edge===3?32.7:t);}
+  let x,z;if(i<20&&near.length){const d=near[Math.random()*near.length|0],edge=Math.random()*4|0,S=d.x1-d.ox,t=2+Math.random()*(S-4);x=d.ox+(edge===0?-.7:edge===1?S+.7:t);z=d.oz+(edge===2?-.7:edge===3?S+.7:t);}
   else{const angle=Math.random()*Math.PI*2,d=3+Math.random()*radius;x=p.x+Math.cos(angle)*d;z=p.z+Math.sin(angle)*d;}
   const distance=Math.hypot(x-p.x,z-p.z);if(distance<3||distance>radius+12)continue;const q=floorPoint(x,z,p.y);if(q)return q;
  }

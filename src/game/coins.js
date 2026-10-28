@@ -7,16 +7,17 @@ import {sfx} from '../core/sfx.js';
 import {fistModel,FIST_SHINE} from './fist-model.js';
 const CAP=96,zero=new THREE.Matrix4().makeScale(0,0,0),tmp=new THREE.Object3D(),ray=new V3(),states=new WeakMap();
 const current=()=>{let s=states.get(W.group);if(!s){s={coins:[],batches:[],outlines:[],age:0,uiT:0,probe:0,spark:null};states.set(W.group,s);}return s;};
-export function resetCoins(enabled=true){const s={coins:[],batches:[],outlines:[],age:0,uiT:0,probe:0,spark:null};states.set(W.group,s);W.coinLoot=null;if(!enabled)return;
+export function resetCoins(enabled=true,scatter=true){const s={coins:[],batches:[],outlines:[],age:0,uiT:0,probe:0,spark:null};states.set(W.group,s);W.coinLoot=null;if(!enabled)return;
  const gold=new THREE.MeshBasicMaterial({color:0xffd84f,side:THREE.BackSide,depthWrite:false,fog:false});W.mapResources?.add(gold);
  for(const m of fistModel().children){for(const outline of[false,true]){const im=new THREE.InstancedMesh(m.geometry,outline?gold:m.material,CAP);im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);im.frustumCulled=false;im.count=CAP;for(let i=0;i<CAP;i++)im.setMatrixAt(i,zero);W.group.add(im);W.keep.push(im);W.mapResources.add(im);(outline?s.outlines:s.batches).push(im);}}
  s.spark=new THREE.InstancedMesh(G.box,new THREE.MeshBasicMaterial({color:0xffedb4,fog:false}),CAP*2);s.spark.frustumCulled=false;for(let i=0;i<CAP*2;i++)s.spark.setMatrixAt(i,zero);W.mapResources?.add(s.spark.material);W.group.add(s.spark);W.keep.push(s.spark);W.mapResources.add(s.spark);
+ if(!scatter)return;
  const surfaces=W.solids.filter(q=>q.on!==false&&q.y1>=-5&&q.y1<40&&q.x1-q.x0>.8&&q.z1-q.z0>.8),wanted=9+(Math.random()*14|0);
  for(let tries=0;tries<300&&s.coins.length<wanted;tries++){const q=surfaces[Math.random()*surfaces.length|0];if(!q)break;const x=q.x0+.3+Math.random()*(q.x1-q.x0-.6),z=q.z0+.3+Math.random()*(q.z1-q.z0-.6),y=groundAt(x,z,.16,q.y1+.12);if(y<-5||Math.abs(x)>W.bounds-1||Math.abs(z)>W.bounds-1||Math.abs(y-q.y1)>.2||!isFree(x-.3,z-.3,x+.3,z+.3,y+.06,y+.9)||s.coins.some(c=>Math.hypot(c.pos.x-x,c.pos.z-z)<2))continue;spawnCoin(x,y,z,false);}
  for(const p of W.breakables)if(p.kind==='crate')p.coinCount=Math.random()<.24?1+(Math.random()<.18?1:0):0;
  W.coinLoot=(p,source)=>{if(source?.coinLooted)return;if(source)source.coinLooted=true;if(Math.random()<.30)spawnCoin(p.x,p.y+.2,p.z,true);};
 }
-export function spawnCoin(x,y,z,fly=true){const s=current();if(!s.batches.length)return;let i=s.coins.findIndex(c=>c.gone);if(i<0){if(s.coins.length>=CAP)return;i=s.coins.length;}s.coins[i]={pos:new V3(x,y,z),vel:new V3(fly?(Math.random()-.5)*1.6:0,fly?2.4:0,fly?(Math.random()-.5)*1.6:0),r:.25,h:.64,step:.015,mass:.35,onGround:!fly,fly,phase:Math.random()*6.28,yaw:Math.random()*6.28,gone:false,take:null};}
+export function spawnCoin(x,y,z,fly=true){const s=current();if(!s.batches.length)return;let i=s.coins.findIndex(c=>c.gone);if(i<0){if(s.coins.length>=CAP)return;i=s.coins.length;}s.coins[i]={pos:new V3(x,y,z),vel:new V3(fly?(Math.random()-.5)*1.6:0,fly?2.4:0,fly?(Math.random()-.5)*1.6:0),r:.25,h:.64,step:.015,mass:.35,onGround:!fly,fly,phase:Math.random()*6.28,yaw:Math.random()*6.28,gone:false,take:null};return s.coins[i];}
 export function crateCoins(p){for(let n=0;n<(p.coinCount||0);n++)spawnCoin(p.mesh.position.x,p.solid.y0+.25,p.mesh.position.z,true);p.coinCount=0;}
 export function nearFist(P){if(!P||P.drone||P.returning||P.hidden||P.stun>0||P.getT>0)return null;let best=null,bd=1.8;for(const c of current().coins){if(c.gone||c.take)continue;const d=Math.hypot(P.pos.x-c.pos.x,P.pos.z-c.pos.z);if(d>=bd||c.pos.y<P.pos.y-.3||c.pos.y>P.pos.y+1.7)continue;const eye=P.pos.clone().add(new V3(0,.7,0));ray.copy(c.pos).y+=.2;ray.sub(eye);const len=ray.length();if(len>.05&&raySolids(eye,ray.multiplyScalar(1/len),len)<len-.12)continue;best=c;bd=d;}return best;}
 // Списание в мире и баланс фиксируются один раз, до анимации к кисти.

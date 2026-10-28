@@ -1,98 +1,108 @@
-import { THREE, G, tmat, col, lam } from '../../core/gfx.js';
+import { THREE, G, tmat, smat, col, lam, glow } from '../../core/gfx.js';
 import { addSwinger } from '../swingers.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
+import { sfx } from '../../core/sfx.js';
 
-// Двор: подъезд с интерьером, пожарная лестница, бег по крышам через мостик на пристройку,
-// плоские гаражи, сарай и забор (ломаются), качели, горка, скейт
+/* Двор (v0.60, 44×44 по схеме): П-образный жилой дом — северное крыло на три подъезда (3 этажа) и западное крыло,
+   ряд гаражей с плоскими крышами на востоке. В центре фишка — КАЧЕЛИ-КАТАПУЛЬТА: раскачайся (W/S в такт),
+   на высшей точке загорается фонарь на перекладине и скрип становится громче — жми пробел: улетаешь на крыши гаражей.
+   Мусорный бак у гаражей — цель для захвата: затащил соперника — сидит в баке 3 с, крышка подпрыгивает.
+   Детская площадка, песочница, бельё на верёвках, сарай, зиплайн с крыши дома на гаражи. */
 export default {
-  id: 'yard', name: 'Двор', ground: 'pave',
+  id: 'yard', name: 'Двор', ground: 'pave', size: 44,
   build(b) {
-    // жилой дом на 4 этажа: подъезд, квартиры, лестница до крыши
-    b.tower({ x: 4, z: 1, w: 20, d: 9, floors: 4, fh: 3.8, wall: 0x7c6a9c,
-      door: { side: 's', at: 0.5, sign: ['ПОДЪЕЗД 3', '#2a1f3d', '#f5c542'] }, gaps: [{ side: 'e', at: 0.5 }, { side: 'w', at: 0.5 }], floor: T.floorTile(),
-      interior(f, k, r) {
-        const back = r.z1 - 0.8, front = r.z0 + 1.0;
-        if (k === 0) {
-          f.box(18, 1.42, 2.6, 0.3, 1.1, tmat(T.mailbox()), { y: 1 });
-          f.bench(19.5, back, Math.PI); f.plantPot(22.9, back); f.rug(14, front, 2, 2);
-          f.box(r.x1 - 0.2, 4.6, 0.3, 1.6, 0.8, tmat(T.vent(0xd8d0c0)), { y: 0.3 }); f.trashBags(22.5, 2, 2); return;
-        }
-        f.partition(15.5, 1.25, 15.5, r.z1, 3.6, 0.65, 2);
-        if (k === 1) {
-          f.sofa(9, back, Math.PI); f.tvStand(9, front, 0); f.cupboard(5.2, back, Math.PI); f.rug(9, (front + back) / 2, 2.6, 1.6, '#4a6a9a', '#f1e8ff');
-          f.ptable(13.5, back - 0.7, 0.7); f.chair(13.5, back + 0.1, Math.PI);
-          f.kitchen(19.5, 1.6, 3); f.ptable(20, 6, 0.9); f.chair(19, 6, Math.PI / 2); f.chair(21, 6, -Math.PI / 2); f.plantPot(23.3, back);
-        } else if (k === 2) {
-          f.bed(12.8, back - 0.6, Math.PI / 2, 0x7b4bc4); f.wardrobe(5, back, 0); f.rug(9, front + 1, 3, 2);
-          f.bed(22.4, back - 0.7, Math.PI, 0x6aa84f); f.wardrobe(16.4, 2, Math.PI / 2); f.desk(19.5, back, Math.PI, true); f.item('ball', 18.5, 4.5);
-        } else {
-          for (const [x, z, size] of [[5.2, back, 1], [6.4, back, 0.9]]) f.crate(x, z, size);
-          f.shelf(13,r.z1-.3,2.6,Math.PI,'office'); f.item('chair', 9, front);
-          f.sofa(20, back, Math.PI, 0x3a5a4a); f.tvStand(20, 4.2, 0); f.plantPot(23.3, 4.3);
-        }
-      } });
-    b.dropLadder(4, 4.5, 'w', 15.2);
-    b.tower({ x: 25, z: 1, w: 6, d: 9, floors: 4, fh: 3.8, wall: 0x9c6a6a, door: { side: 's', at: 0.5 }, gaps: [{ side: 'w', at: 0.5 }],
-      run: 0.3, entry: 1.5, lane: 1.65, floor: T.floorWood(),
-      interior(f, k, r) { if (k % 2 === 0) f.shelf(k === 0 ? r.x1 - 0.85 : (r.x0 + r.x1) / 2, r.z1 - 0.3, k === 0 ? 1.4 : 3.4, Math.PI); else { f.ptable((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, 0.8); f.chair((r.x0 + r.x1) / 2 + 0.9, (r.z0 + r.z1) / 2, -Math.PI / 2); } } });
-    b.plank(24, 4.5, 25, 4.5, 15.2, 1.1);
+    /* ---------- северное крыло: три подъезда ---------- */
+    const walls = [0x7c6a9c, 0x8a6a6a, 0x6a7a8c];
+    for (let i = 0; i < 3; i++) {
+      const x = 2 + i * 13.34;
+      b.tower({ x, z: 2, w: 13.34, d: 8.2, floors: 3, fh: 3.8, wall: walls[i], brick: i !== 1, lit: .55,
+        door: { side: 's', at: .5, sign: ['ПОДЪЕЗД ' + (i + 1), '#2a1f3d', '#f5c542'] }, floor: i === 1 ? T.floorWood() : T.floorTile(),
+        fireEscape: i === 2 ? { side: 'e', at: .55 } : null,
+        interior(f, k, r) {
+          const back = r.z1 - .7, front = r.z0 + .9, cx = (r.x0 + r.x1) / 2;
+          if (k === 0) { f.box(r.x0 + 1.4, r.z0 + .2, 2.4, .3, 1.1, tmat(T.mailbox()), { y: 1 }); f.bench(cx + 2, back, Math.PI); f.plantPot(r.x1 - .5, back); f.rug(cx, (front + back) / 2, 2, 2.6); return; }
+          if ((k + i) % 2) { f.sofa(cx - 1.6, back, Math.PI, [0x4a6a9a, 0x9a4a5a, 0x5a8a5a][i]); f.tvStand(cx - 1.6, front + .3, 0); f.rug(cx - 1.6, (front + back) / 2, 2.6, 1.6, '#4a6a9a', '#f1e8ff'); f.kitchen(r.x1 - 1.2, r.z0 + .4, 2.4); f.ptable(r.x1 - 1.6, back - .8, .8); f.chair(r.x1 - 1.6, back, Math.PI); }
+          else { f.bed(r.x0 + 1.2, back - .6, Math.PI / 2, [0x7b4bc4, 0x6aa84f, 0xc46a4b][i]); f.wardrobe(r.x1 - .5, back, Math.PI); f.desk(cx + 1, front + .2, 0, true); f.rug(cx, (front + back) / 2, 2.4, 1.8); f.plantPot(r.x1 - .5, front); }
+        } });
+    }
     // на крыше: водонапорный бак, антенны, кондиционеры
-    b.box(17, 5, 2.4, 2.4, 0.6, tmat(T.metal()), { y: 15.2 }); b.m(G.cyl12, tmat(T.rust()), 17, 17.1, 5, 1.1, 2.2, 1.1); b.m(G.cone8, tmat(T.rust()), 17, 18.6, 5, 1.2, 0.8, 1.2); b.solid(17, 5, 2.2, 2.2, 15.8, 2.2);
-    for (const [x, z] of [[16.1, 4.1], [17.9, 4.1], [16.1, 5.9], [17.9, 5.9]]) b.m(G.box, col(0x3a3440), x, 15.5, z, 0.08, 0.6, 0.08);
-    for (const x of [14, 19]) b.aircon(x, 2.6, 15.2);
-    for (const x of [11, 21]) { b.m(G.cyl5, col(0x2b2533), x, 16.4, 6.5, 0.04, 2.4, 0.04); b.m(G.box, col(0x2b2533), x, 17.3, 6.5, 0.9, 0.04, 0.04); }
-    // детская площадка: резиновое покрытие, качели, турник
-    b.ground(4.5, 13.6, 12.5, 18.4, T.court(), 2);
-    b.swingSet(8.5, 16, 5.2, 0);
-    { const fr = col(0xd8243a); for (const x of [13.6, 15.2]) { b.m(G.cyl6, fr, x, 1.0, 17.6, 0.05, 2.0, 0.05); b.solid(x, 17.6, 0.15, 0.15, 0, 2); } b.m(G.cyl6, col(0x9a9da8), 14.4, 1.95, 17.6, 0.03, 1.7, 0.03).rotation.z = Math.PI / 2; }
-    // горка
-    b.box(17, 13, 1.2, 1.2, 0.12, col(0xd04a4a), { y: 1.25 });
-    for (const [x, z] of [[16.45, 12.45], [17.55, 12.45], [16.45, 13.55], [17.55, 13.55]]) b.m(G.box, col(0xf5c542), x, 0.62, z, 0.08, 1.25, 0.08);
-    b.solid(17, 13, 1.2, 1.2, 0, 1.25);
-    b.ladder(17, 12.4, 'n', 1.37);
-    // скат: верхний край у площадки, нижний — у земли, с бортиками; по нему съезжаешь
-    { const ang = Math.atan2(1.3, 3.0), L = Math.hypot(1.3, 3.0), zc = 13.6 + 1.5;
-      const sl = b.m(G.box, col(0x4ab0f0), 17, 0.72, zc, 0.8, 0.06, L); sl.rotation.x = ang;
-      for (const sx of [-0.43, 0.43]) { const r = b.m(G.box, col(0xf5c542), 17 + sx, 0.84, zc, 0.06, 0.16, L); r.rotation.x = ang; }
-      b.m(G.box, col(0xf5c542), 17, 0.04, 16.75, 0.9, 0.08, 0.3);
-      for (let i = 0; i < 6; i++) { const z0 = 13.6 + i * 0.5; b.solid(17, z0 + 0.25, 0.8, 0.5, 0, 1.3 * (1 - (i + 1) / 6) + 0.06); }
-      W.slides.push({ x0: b.X(16.6), x1: b.X(17.4), z0: b.Z(13.6), z1: b.Z(16.6), y: b.Y, dx: 0, dz: 1 }); }
-    // песочница и ведро с шариками
-    b.ground(2.5, 20, 7.5, 25, T.dirt(), 2);
-    for (const [x, z, w, d] of [[5, 19.9, 5.2, 0.2], [5, 25.1, 5.2, 0.2], [2.4, 22.5, 0.2, 5.2], [7.6, 22.5, 0.2, 5.2]]) b.box(x, z, w, d, 0.3, tmat(T.wood()));
-    b.m(G.cyl8, col(0x3a7ac8), 9, 0.25, 21, 0.25, 0.5, 0.25); b.solid(9, 21, 0.5, 0.5, 0, 0.5);
-    b.item('balloon', 9.7, 21.4); b.item('balloon', 8.4, 21.6); b.item('balloon', 9.2, 20.2);
-    // плоские гаражи: на крышу — с мусорного бака
-    const gc = [0x6a5a4a, 0x4a6a5a, 0x5a5a7a];
-    for (let i = 0; i < 3; i++) { const x = 23.5 + i * 2.8; b.box(x, 25, 2.7, 5, 2.3, tmat(T.corrugated(gc[i]))); b.m(G.box, tmat(T.roof()), x, 2.32, 25, 2.75, 0.04, 5.05); }
-    b.dumpster(20.6, 25.5); b.mattress(22, 21.6, 0.1);
-    b.zone('roof', 22.6, 23, 30.6, 27, 2.3);
-    // сарай и деревянный забор
-    b.shed(2, 27, 4, 3.5);
-    b.fence(8, 31.2, 19, 31.2, 1.4, 'wood');
-    // кирпичная оградка клумбы
-    b.brickWall(26, 17, 6, 1.2, 'x');
-    b.ground(23, 17.3, 29, 19.5, T.grass(), 2);
-    b.ride('skate', 14, 22, 1);
-    for (const x of [12, 18]) { b.m(G.cyl6, col(0x6a6d78), x, 1.1, 28, 0.05, 2.2, 0.05); b.solid(x, 28, 0.2, 0.2, 0, 2.2); }
-    b.m(G.box, col(0xd8d0c0), 15, 2.1, 28, 6, 0.02, 0.02);
-    [[13, 0xd8243a], [14.3, 0xf1e8ff], [15.6, 0x4ab0f0], [16.9, 0xf5c542]].forEach(([x, c]) => {
-      const p = new THREE.Group(); p.position.set(b.X(x), b.Y + 2.1, b.Z(28)); W.group.add(p);
-      const cl = new THREE.Mesh(G.plane, lam({ map: T.laundry(c), alphaTest: 0.4, side: THREE.DoubleSide }, 'laundry' + c)); cl.position.y = -0.42; cl.scale.set(0.8, 0.8, 1); p.add(cl);
-      addSwinger(p, { len: 0.5, damp: 1.4, max: 1.2, r: 0.45, idle: 0.06 });
-    });
-    b.bench(11, 10.9, 0); b.bench(21, 12, -Math.PI / 2);
-    b.bikeRack(6, 10.9, 3, 0); b.graffiti(26.5, 1.2, 22.44, Math.PI, 2.2, 0); b.puddle(14, 18, 1.1); b.puddle(24, 15, 0.8);
-    b.wires(9, 12, 8.05, 1.2, 3.4, 19, 2); b.trashBags(18.6, 26.2, 3); b.postBox(23.2, 10.8, 0); b.planter(18, 10.9, 3, 0.9, 0.4, 'flowers');
-    b.tree(30, 13); b.tree(1.8, 14); b.tree(29.5, 30); b.bin(2, 9.5);
-    b.lamp(1.2, 19, Math.PI / 2); b.lamp(30.8, 20, -Math.PI / 2);
-    // зиплайн с крыши дома на крышу гаражей, качели-катапульта, грабли у сарая, детская машинка
-    b.zipline(8, 16.1, 7.1, 24.5, 4.65, 24.2);
-    b.seesaw(15.6, 20.6, Math.PI / 2); b.rake(6.8, 28.6, 0.4); b.ride('kidcar', 12.5, 11.5, 1.2);
-    b.zone('floor', 1, 10.5, 31, 19); b.zone('floor', 9, 19, 21, 30.5);
-    b.cats(1, 9.5, 21, 30.5);
-    b.spawn(16, 11); b.spawn(11, 29);
-    b.hw(() => { b.pumpkin(12.6, 8.8); b.pumpkin(3, 19.4); b.web(4.3, 3, 1.3, 0, 1); });
+    b.box(22, 5.5, 2.4, 2.4, .6, tmat(T.metal()), { y: 11.4 }); b.m(G.cyl12, tmat(T.rust()), 22, 13.3, 5.5, 1.1, 2.2, 1.1); b.m(G.cone8, tmat(T.rust()), 22, 14.8, 5.5, 1.2, .8, 1.2); b.solid(22, 5.5, 2.2, 2.2, 12, 2.2);
+    for (const x of [8, 34]) b.aircon(x, 3.4, 11.4);
+    for (const x of [12, 30]) { b.m(G.cyl5, col(0x2b2533), x, 12.6, 7, .04, 2.4, .04); b.m(G.box, col(0x2b2533), x, 13.5, 7, .9, .04, .04); }
+
+    /* ---------- западное крыло ---------- */
+    b.tower({ x: 2, z: 11, w: 8.2, d: 20, floors: 2, fh: 3.8, wall: 0x8c7a5a, brick: true, lit: .5,
+      door: { side: 'e', at: .5, sign: ['ПОДЪЕЗД 4', '#2a1f3d', '#9be36b'] }, floor: T.floorWood(),
+      interior(f, k, r) { const cz = (r.z0 + r.z1) / 2;
+        if (k === 0) { for (const z of [r.z0 + 1, r.z0 + 2.2]) f.crate(r.x0 + .7, z, .9); f.shelf(r.x0 + .3, cz + 3, 2.6, Math.PI / 2, 'office'); f.bench(r.x1 - .6, cz - 4, -Math.PI / 2); f.plantPot(r.x1 - .5, r.z1 - .5); f.rug((r.x0 + r.x1) / 2, cz, 2, 3); return; }
+        f.bed(r.x0 + 1.1, r.z1 - 1.4, 0, 0x4a7ab4); f.wardrobe(r.x0 + .4, cz, Math.PI / 2); f.sofa(r.x1 - .6, cz - 3, -Math.PI / 2); f.tvStand(r.x0 + .5, cz - 3, Math.PI / 2); f.kitchen(r.x0 + .4, r.z0 + 2.4, 2.4); f.rug((r.x0 + r.x1) / 2, cz - 3, 2.4, 2); } });
+
+    /* ---------- гаражи: четыре бокса, плоские крыши, ворота во двор ---------- */
+    const gc = [0x6a5a4a, 0x4a6a5a, 0x5a5a7a, 0x7a4a4a];
+    for (let i = 0; i < 4; i++) { const z = 14.5 + i * 5;
+      b.box(38, z, 8, 4.9, 2.6, smat(T.corrugated(gc[i])));
+      b.m(G.box, tmat(T.roof()), 38, 2.63, z, 8.1, .06, 5);
+      b.m(G.box, tmat(T.corrugated(0x9a9488)), 33.97, 1.1, z, .04, 2.0, 3.6); // ворота
+      b.m(G.box, col(0x2b2533), 33.95, 2.15, z, .06, .12, 3.8); b.m(G.box, col(0xd8d0c0), 33.94, .5, z + 1.2, .03, .14, .14);
+      b.climbTrim(38, z, 8, 4.9, 2.6);
+    }
+    b.zone('roof', 34, 12, 42, 32, 2.66);
+    b.ladder(33.9, 24.5, 'w', 2.6);
+
+    /* ---------- фишка: качели-катапульта ---------- */
+    const SX = 25, SZ = 21, seats0 = (W.swingSeats || []).length;
+    b.ground(21.5, 17, 29.5, 25, T.court(), 2, .016);
+    b.swingSet(SX, SZ, 4.6, Math.PI / 2);
+    const seats = (W.swingSeats || []).slice(seats0); for (const s of seats) { s.catapult = true; s.max = 1.25; }
+    const lamp = b.warnLamp(SX, 2.75, SZ, 0xffd060, .26);
+    { let creak = 0; W.animated.push((dt) => { let amp = 0; for (const s of seats) amp = Math.max(amp, Math.abs(s.ang)); const hot = amp > seats[0].max * .62;
+        lamp.set(hot ? 1 : amp / seats[0].max * .3); creak -= dt;
+        for (const s of seats) { const turn = Math.sign(s.vel) !== Math.sign(s.prevV || 0); s.prevV = s.vel; if (turn && Math.abs(s.ang) > .45 && creak <= 0) { creak = .3; sfx('squeak', { at: { x: b.X(SX), y: b.Y + 2, z: b.Z(SZ) }, v: .3 + Math.abs(s.ang) * .5 }); } } }); }
+
+    /* ---------- детская площадка, песочница, горка ---------- */
+    b.ground(11, 13.5, 19, 19.5, T.court(), 2, .016);
+    b.box(13, 16, 1.2, 1.2, .12, col(0xd04a4a), { y: 1.25 });
+    for (const [x, z] of [[12.45, 15.45], [13.55, 15.45], [12.45, 16.55], [13.55, 16.55]]) b.m(G.box, col(0xf5c542), x, .62, z, .08, 1.25, .08);
+    b.solid(13, 16, 1.2, 1.2, 0, 1.25); b.ladder(12.4, 16, 'w', 1.37);
+    { const ang = Math.atan2(1.3, 3.0), L = Math.hypot(1.3, 3.0), xc = 13.6 + 1.5;
+      const sl = b.m(G.box, col(0x4ab0f0), xc, .72, 16, L, .06, .8); sl.rotation.z = -ang;
+      for (const sz of [-.43, .43]) { const r = b.m(G.box, col(0xf5c542), xc, .84, 16 + sz, L, .16, .06); r.rotation.z = -ang; }
+      for (let i = 0; i < 6; i++) b.solid(13.6 + i * .5 + .25, 16, .5, .8, 0, 1.3 * (1 - (i + 1) / 6) + .06);
+      W.slides.push({ x0: b.X(13.6), x1: b.X(16.6), z0: b.Z(15.6), z1: b.Z(16.4), y: b.Y, dx: 1, dz: 0 }); }
+    b.seesaw(17.5, 18.4, 0);
+    b.ground(25, 27, 29, 31, T.dirt(), 2, .016);
+    for (const [x, z, w, d] of [[27, 26.9, 4.2, .2], [27, 31.1, 4.2, .2], [24.9, 29, .2, 4.2], [29.1, 29, .2, 4.2]]) b.box(x, z, w, d, .3, tmat(T.wood()));
+    b.item('balloon', 26.2, 28.4); b.item('balloon', 27.8, 29.6); b.ride('kidcar', 18, 27, 1.2);
+
+    /* ---------- мусорный бак — цель для захвата ---------- */
+    const lid = b.dumpster(33, 36.5); W.keep.push(lid); const lidY = lid.position.y; let bounce = 0;
+    b.grabTarget({ x: 33, z: 37.7, r: 1.3, kind: 'stash', t: 3, at: { x: 33, y: .5, z: 36.5 }, label: 'бак', onUse: () => { bounce = 3; } });
+    W.animated.push(dt => { if (bounce <= 0) { if (lid.position.y !== lidY) lid.position.y = lidY; return; } bounce -= dt; const k = Math.abs(Math.sin(bounce * 11)) * .18 * Math.min(1, bounce); lid.position.y = lidY + k; lid.rotation.x = -k * .8; lid.updateMatrix(); if (Math.random() < dt * 4) sfx('bonk', { at: lid.position, v: .4 }); });
+    b.trashBags(35.5, 37, 3); b.bin(31, 38.6);
+
+    /* ---------- юг и запад: сарай, бельё, лавки, клумбы ---------- */
+    b.shed(3.2, 36, 4, 3.5);
+    for (const x of [12, 19]) { b.m(G.cyl6, col(0x6a6d78), x, 1.1, 38.5, .05, 2.2, .05); b.solid(x, 38.5, .2, .2, 0, 2.2); }
+    b.m(G.box, col(0xd8d0c0), 15.5, 2.1, 38.5, 7, .02, .02);
+    [[13, 0xd8243a], [14.4, 0xf1e8ff], [15.8, 0x4ab0f0], [17.2, 0xf5c542]].forEach(([x, c]) => {
+      const p = new THREE.Group(); p.position.set(b.X(x), b.Y + 2.1, b.Z(38.5)); W.group.add(p);
+      const cl = new THREE.Mesh(G.plane, lam({ map: T.laundry(c), alphaTest: .4, side: THREE.DoubleSide }, 'laundry' + c)); cl.position.y = -.42; cl.scale.set(.8, .8, 1); p.add(cl);
+      addSwinger(p, { len: .5, damp: 1.4, max: 1.2, r: .45, idle: .06 }); });
+    b.bench(12.5, 31.5, 0); b.bench(30.5, 33.5, 0); b.bench(20, 11.4, 0);
+    b.planter(16, 11.2, 3, .9, .4, 'flowers'); b.planter(28, 11.2, 3, .9, .4, 'flowers');
+    b.bikeRack(7, 11.4, 3, 0); b.postBox(36.5, 11.2, 0); b.graffiti(37, 1.2, 31.98, 0, 2.2, 0);
+    b.wires(15.4, 9.6, 10.2, 34, 2.6, 15, 2);
+    b.tree(12, 14 - 1.5); b.tree(30, 14.3); b.tree(6, 40); b.tree(39, 40); b.tree(20, 41.5, .8);
+    b.bush(41, 34, 1.6, 1.2, .9); b.bush(12, 34.5, 1.6, 1.1, .8);
+    b.lamp(11.2, 24, Math.PI / 2); b.lamp(32.8, 28, -Math.PI / 2); b.lamp(22, 35, 0);
+    b.puddle(19, 24, 1.1); b.puddle(30, 18, .8);
+    b.ride('skate', 20, 30, 1); b.rake(6.5, 34.2, .4); b.mattress(31, 20.6, .1);
+    // зиплайн: с крыши среднего подъезда на крыши гаражей
+    b.zipline(28.2, 11.6, 9.8, 37, 3.2, 20.5);
+    b.zone('floor', 10.5, 11, 33.5, 43); b.zone('floor', 2, 31.5, 10.5, 43);
+    b.cats(11, 13, 33, 43);
+    b.spawn(22, 14.5); b.spawn(16, 33); b.spawn(28, 36);
+    b.hw(() => { b.pumpkin(15.5, 10.9); b.pumpkin(3, 32.4); b.web(5.3, 2, 1.3, 0, 1); });
   },
 };

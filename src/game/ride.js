@@ -115,6 +115,8 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   if(b.kind==='kart'){if(drifting)b.driftT=(b.driftT||0)+dt;else{if((b.driftT||0)>.8){b.boostT=Math.max(b.boostT||0,b.driftT>1.6?1.2:.8);sfx('dash',{v:1.3});sfx('spring');}b.driftT=0;}
    if(b.boostT>0){b.boostT-=dt;b.vx+=Math.sin(b.heading)*R.acc*.9*dt;b.vz+=Math.cos(b.heading)*R.acc*.9*dt;if(Math.random()<dt*30)burst(b.x-Math.sin(b.heading)*.8,b.y+.25,b.z-Math.cos(b.heading)*.8,1,{color:0xffb04a,size:.12,speed:1.5,up:.5,g:2,life:.3,grow:.4});}
    if(drifting&&b.driftT>.8&&Math.random()<dt*24)burst(b.x-Math.sin(b.heading)*.7,b.y+.1,b.z-Math.cos(b.heading)*.7,1,{color:b.driftT>1.6?0x6ac8ff:0xffd27a,size:.06,speed:2.5,up:1.5,g:10,life:.3,grow:0});}
+  // v0.60: разгон не только у карта (сушилка автомойки и т. п.)
+  if(b.kind!=='kart'&&b.boostT>0){b.boostT-=dt;b.vx+=Math.sin(b.heading)*Math.max(R.acc,8)*.9*dt;b.vz+=Math.cos(b.heading)*Math.max(R.acc,8)*.9*dt;}
   b.drifting=drifting;if(b.skid>0){b.skid=Math.max(0,b.skid-dt);b.heading+=(b.spin||1.6)*dt;}else b.spin=0;
   const keep = drifting||b.skid>0?Math.exp(-dt*.55):b.kind === 'chair' ? 0.92 : Math.exp(-dt * 6);
   const mx = (R.water && !zoneAt(b.x, b.z, b.y, 'water') ? 2 : R.max) * (b.boostT > 0 ? 1.4 : 1);

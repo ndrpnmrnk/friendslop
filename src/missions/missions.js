@@ -35,7 +35,7 @@ export function resetMissions() {
   W.spots.bulb = (W.lamps || []).map(L => { const dx = Math.sin(L.ry), dz = Math.cos(L.ry); return { x: L.lx + dx * 1.35, z: L.lz + dz * 1.35, y: L.y, f: [-dx, -dz], lamp: L, district: L.district, label: 'фонарь' }; });
 }
 const actorsAll = () => [W.player, ...(W.bots || [])].filter(Boolean);
-const districtAt = (x, z) => (W.districts || []).find(d => x >= d.ox && x < d.ox + 32 && z >= d.oz && z < d.oz + 32);
+const districtAt = (x, z) => (W.districts || []).find(d => x >= d.ox && x < d.x1 && z >= d.oz && z < d.z1);
 
 /* Значок миссии над миром: пиксельная плашка — иконка, кольцо оставшегося времени и очки.
    Канва своя у каждой миссии и перерисовывается 4 раза в секунду. */

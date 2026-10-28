@@ -74,7 +74,7 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
         if (f.pool) f.pool.visible = f.on && !f.pool.userData.broken && dim < 0.3;
       }
       if (!player || !hemi) return;
-      let id = null; for (const d of W.districts) if (player.pos.x >= d.ox && player.pos.x < d.ox + 32 && player.pos.z >= d.oz && player.pos.z < d.oz + 32) { id = d.id; break; }
+      let id = null; for (const d of W.districts) if (player.pos.x >= d.ox && player.pos.x < d.x1 && player.pos.z >= d.oz && player.pos.z < d.z1) { id = d.id; break; }
       tmp.setHex(TINT[id] || 0xffffff); curT.lerp(tmp, Math.min(1, dt * 1.2));
       hemi.color.copy(baseHemi).multiply(curT);
       if (!dim && fog) { fog.color.copy(baseFog).lerp(tmp.copy(baseFog).multiply(curT), 0.5).lerp(nightFog, night * 0.55); }

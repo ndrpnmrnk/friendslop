@@ -23,7 +23,7 @@ export const CONFIG = {
   music: {intro:.14,play:.065,crossfade:.8}, // тихий фон; отдельный канал музыки и приглушение у радио
   season: 'halloween',            // 'halloween' | 'none'
   grid: 3,                        // 3x3 районов на карте
-  chunk: 32, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара
+  chunk: 44, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара
   pixelScale: 2,
   smoky: {smokeCount:6,smokeInterval:.38,smokeLife:2.2,smokeRise:.25},
   encounters:{vanTime:120,cosmoTime:120,bongEffect:6},

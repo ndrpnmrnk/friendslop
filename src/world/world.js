@@ -15,6 +15,7 @@ import { buildRoadsAndTunnels } from './underground.js';
 import { bakeStatic } from './bake.js';
 import { dressRoofs, bridgeRoofs, roofAccess } from './roofs.js';
 import { buildOverpasses } from './overpass.js';
+import { resetGrabTargets } from '../game/grab-targets.js';
 
 const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dirt(), concrete: () => T.concrete(), asphalt: () => T.asphalt(), cobble: () => T.cobble(), flag: () => T.flag() };
 
@@ -23,7 +24,7 @@ const GROUND = { pave: () => T.pave(), grass: () => T.grass(), dirt: () => T.dir
 export function generateMap(scene, s) {
   if (W.group) {W.group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});scene.remove(W.group);}
   const group = new THREE.Group(); scene.add(group);
-  resetWorld(group); resetParticles(); resetBreakables(); setParent(group);
+  resetWorld(group); resetParticles(); resetBreakables(); resetGrabTargets(); setParent(group);
   seed(s);
   const { grid, chunk, road, base } = CONFIG, total = grid * chunk + (grid + 1) * road, half = total / 2;
   W.bounds = half + 3.4;
@@ -48,7 +49,9 @@ export function generateMap(scene, s) {
     const ox = -half + road + gx * (chunk + road), oz = -half + road + gz * (chunk + road);
     const top = flat(rep(GROUND[d.ground](), chunk / 3, chunk / 3));
     // плита района; если в районе есть проёмы (канал, люк), плита собирается из кусков вокруг них
-    const holes = (d.holes || []).map(([a, b2, c2, e]) => [ox + a, oz + b2, ox + c2, oz + e]);
+    // v0.60: район нового формата (size 44) занимает всю клетку; старый (32 м) — в центре, вокруг бульвар
+    const inset = (d.size || 32) >= chunk ? 0 : (chunk - (d.size || 32)) / 2;
+    const holes = (d.holes || []).map(([a, b2, c2, e]) => [ox + inset + a, oz + inset + b2, ox + inset + c2, oz + inset + e]);
     for (const h of holes) W.holes.push({ x0: h[0], z0: h[1], x1: h[2], z1: h[3] });
     const xs = [ox, ox + chunk, ...holes.flatMap(h => [h[0], h[2]])].sort((a, b2) => a - b2), zs = [oz, oz + chunk, ...holes.flatMap(h => [h[1], h[3]])].sort((a, b2) => a - b2);
     for (let a = 0; a < xs.length - 1; a++) for (let e = 0; e < zs.length - 1; e++) {
@@ -68,7 +71,8 @@ export function generateMap(scene, s) {
     if (gz === grid - 1) zebra(ox + chunk / 2, oz + chunk + road / 2, true);
     if (gx === grid - 1) zebra(ox + chunk + road / 2, oz + chunk / 2, false);
     W.districts.push({ id: d.id, name: d.name, ox, oz, x1: ox + chunk, z1: oz + chunk, ground: d.ground });
-    d.build(new Builder(ox, oz, base, d.name));
+    d.build(new Builder(ox + inset, oz + inset, base, d.name));
+    if (inset) boulevard(new Builder(ox, oz, base, d.name), chunk, inset);
     // уличный мусор (v0.21): несколько штук по тротуарам у краёв района — можно поднять и бросить
     for (let i = 0, n = 0; i < 40 && n < 5; i++) { const e = Math.random() * 4 | 0, t = 1 + Math.random() * (chunk - 2), w0 = 0.4 + Math.random() * 1.2;
       const x = e === 0 ? ox + t : e === 1 ? ox + t : e === 2 ? ox + w0 : ox + chunk - w0, z = e === 0 ? oz + w0 : e === 1 ? oz + chunk - w0 : oz + t;
@@ -123,5 +127,16 @@ function streetFurniture(half) {
     if (![a, bq].every(([px, pz]) => isFree(px - 0.3, pz - 0.3, px + 0.3, pz + 0.3, base + 0.1, base + 6))) continue;
     for (const [px, pz] of [a, bq]) { b.m(G.cyl6, col(0x4a3a2e), px, 2.9, pz, 0.09, 5.8, 0.09); b.solid(px, pz, 0.25, 0.25, 0, 5.8); b.m(G.box, dk, px, 5.5, pz, 0.06, 0.06, 0.9); }
     b.wires(a[0], 5.5, z - 0.35, bq[0], 5.5, z - 0.35, 2); n++;
+  }
+}
+
+/* v0.60: бульвар вокруг старого района (32 м внутри клетки 44 м): по краям деревья, кусты, фонари и скамейки,
+   середины сторон свободны — там переходы и входы в район. Всё ставится только на свободное место. */
+function boulevard(b, S, w) {
+  const free = (x, z, r = .9) => isFree(b.X(x - r), b.Z(z - r), b.X(x + r), b.Z(z + r), b.Y + .05, b.Y + 3);
+  const mid = S / 2, sides = [[t => [t, w / 2], 0], [t => [t, S - w / 2], Math.PI], [t => [w / 2, t], Math.PI / 2], [t => [S - w / 2, t], -Math.PI / 2]];
+  for (const [P, ry] of sides) for (let t = 3, k = 0; t < S - 2; t += 5.5, k++) {
+    if (Math.abs(t - mid) < 4.5) continue; const [x, z] = P(t); if (!free(x, z, 1.4)) continue;
+    const r = k % 4; if (r === 0) b.tree(x, z, .9); else if (r === 1) b.lamp(x, z, ry); else if (r === 2) b.bush(x, z, 1.8, 1.2, .9); else b.bench(x, z, ry);
   }
 }
