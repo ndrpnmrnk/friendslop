@@ -1,4 +1,4 @@
-import {bicycleModel,kartModel} from './vehicles.js';
+import {bicycleModel,kartModel,scooterModel} from './vehicles.js';
 import { splatter } from './splat.js';
 import { THREE, G, mesh, col, tmat, compose, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -49,6 +49,9 @@ export function addPushable(b, kind, x, z, y = 0) {
       const deck = tmat(T.wood()), grip = col(0x23202a), tr = col(0x9a9da8), wh = col(0xf5c542);
       add(G.box, deck, 0, 0.12, 0, 0.24, 0.035, 0.66); for (const s2 of [-1, 1]) add(G.box, deck, 0, 0.135, s2 * 0.38, 0.24, 0.035, 0.12, s2 * -0.35);
       add(G.box, grip, 0, 0.14, 0, 0.23, 0.006, 0.64); add(G.box, col(0xff5a6e), 0, 0.103, 0, 0.18, 0.004, 0.4);
+      // v0.58: болты, подкладки, полоса-рисунок снизу, «колпачки» колёс
+      for (const z of [-0.26, 0.26]) { add(G.box, col(0x3a3440), 0, 0.105, z, 0.12, 0.012, 0.09); for (const x of [-0.035, 0.035]) for (const dz of [-0.025, 0.025]) add(G.box, tr, x, 0.146, z + dz, 0.012, 0.006, 0.012); }
+      add(G.box, col(0x4ab0f0), 0, 0.102, 0, 0.06, 0.004, 0.5);
       for (const z of [-0.26, 0.26]) { add(G.box, tr, 0, 0.085, z, 0.2, 0.03, 0.05); add(G.box, tr, 0, 0.065, z, 0.04, 0.03, 0.06); for (const x of [-0.12, 0.12]) add(G.cyl8, wh, x, 0.045, z, 0.045, 0.045, 0.045, 0, 0, Math.PI / 2); }
     }));
     r = 0.35;
@@ -63,10 +66,7 @@ export function addPushable(b, kind, x, z, y = 0) {
     }));
     r = 0.38;
   } else if (kind === 'scooter') {
-    g.add(compose('scooter', add => { const dk = col(0x2b2533), bl = col(0x4ab0f0), wh = col(0x17111f), mt = col(0x9a9da8);
-      add(G.box, bl, 0, 0.1, 0, 0.16, 0.04, 0.7); add(G.box, col(0x23202a), 0, 0.125, -0.05, 0.15, 0.01, 0.5);
-      add(G.box, bl, 0, 0.5, 0.36, 0.05, 0.85, 0.05, -0.12); add(G.box, mt, 0, 0.92, 0.41, 0.46, 0.04, 0.04); for (const sx of [-0.23, 0.23]) add(G.cyl6, dk, sx, 0.92, 0.41, 0.03, 0.1, 0.03, 0, 0, Math.PI / 2);
-      for (const z of [-0.32, 0.36]) add(G.cyl8, wh, 0, 0.07, z, 0.07, 0.04, 0.07, 0, 0, Math.PI / 2); add(G.box, col(0xd8243a), 0, 0.12, -0.36, 0.1, 0.03, 0.08); }));
+    g.add(scooterModel());
     r = 0.35;
   } else if (kind === 'kidcar') {
     g.add(compose('kidcar', add => { const rd = col(0xd8243a), yl = col(0xf5c542), dk = col(0x17111f);

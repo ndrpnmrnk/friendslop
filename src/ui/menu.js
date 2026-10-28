@@ -52,6 +52,8 @@ export function createMenu(){
   const moon=new THREE.DirectionalLight(SEASON.sun[0],SEASON.sun[1]*.93*Math.PI);moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);moon.shadow.bias=-.0008;moon.shadow.normalBias=.05;moon.shadow.radius=2.2;Object.assign(moon.shadow.camera,{left:-20,right:20,top:20,bottom:-20,near:1,far:160});scene.add(moon,moon.target);
   const world=buildHub(scene),localLighting=createLocalLighting(scene),sky=createSky(scene,{moonDirection:new V3(-.22,.29,-.91),skyline:false}),SPLASH_CAM=new V3(1.7,2.2,HUB.spawn.z+5.1),SPLASH_LOOK=new V3(0,1,HUB.spawn.z),look=SPLASH_LOOK.clone();sky.setNight(.12);const direction=sky.moonDir();moon.position.copy(direction).multiplyScalar(70);
   const haze=createHaze(scene,0x8a80b0,.9,36);const bounce=new THREE.DirectionalLight(0x8a7ac8,.35*Math.PI);bounce.position.set(-direction.x*45,30,-direction.z*45);scene.add(bounce);
+  // v0.58: тёплый отсвет ночного города снизу — подсвечивает каменное дно острова и облака снизу
+  const cityGlow=new THREE.DirectionalLight(0xff9a5a,.8*Math.PI);cityGlow.position.set(8,-60,14);scene.add(cityGlow);
   // v0.58: общий план острова, откуда камера подлетает к персонажу (на заставке и при возвращении в хаб)
   const WIDE_P=new V3(60,-6,74),WIDE_L=new V3(0,-4,0),bez=(a,c,b,k)=>a.clone().multiplyScalar((1-k)*(1-k)).addScaledVector(c,2*k*(1-k)).addScaledVector(b,k*k);
   // на общем плане туман отодвигаем, чтобы остров читался целиком; к персонажу — обычный

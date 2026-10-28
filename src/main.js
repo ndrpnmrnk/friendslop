@@ -39,6 +39,7 @@ import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
 import { resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow,releaseNet } from './game/tools.js';
 import { knockDown } from './game/actors.js';
+import { resetReplay, recordReplay, replayMoment, replayClip, createReplayPlayer } from './game/replay.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import { mouse as M_ } from './core/input.js';
 import { cargoPosition,poseMeleeItem } from './game/handheld.js';
@@ -321,6 +322,7 @@ function prepareRound(tut = false) {
   // прогрев шейдеров — в самом конце, когда на карте уже есть боты, коты, жители и все предметы (+ набор всех предметов)
   { const t0 = performance.now(), kit = prewarmKit(); scene.add(kit); try { warmup(scene, camera); } finally { scene.remove(kit); } console.info('[friendslop] шейдеры:', Math.round(performance.now() - t0), 'мс'); }
   console.info('[friendslop] неподвижных объектов:', freezeStatic());
+  resetReplay([P, ...(W.bots || [])]);
 }
 /* Непрерывный пролёт по кварталам к игроку, затем отсчёт 5-4-3-2-1. */
 /* v0.53: прилёт на карту. Каждого игрока выстреливает дугой из-за края города (продолжение залпа катапульты):
@@ -406,6 +408,35 @@ function goRound() {
   $('lockhint').classList.toggle('hidden', locked()); setCursor(true);
   setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
 }
+/* v0.58: финал матча. Свисток — стоп-кадр: мир замирает, камера облетает игрока, мультяшный штамп «ВРЕМЯ!».
+   Потом, если за матч был зрелищный момент, — его повтор в том же городе (замедление в пике, камера облетает
+   героя момента; ЛКМ / пробел — пропустить). Дальше — пьедестал с итогами. */
+function startFinale() {
+  roundMusic.stop(); if (S.mg) closeMission(null); if (S.wm) closeWorld(null); if (S.crane) exitCrane(); P.charging = false;
+  S.state = 'finale'; S.fin = { t: 0, stage: 'whistle', a0: P.root.rotation.y + Math.PI * .75, clip: replayClip() };
+  document.body.classList.add('cine'); $('hud').classList.add('hidden'); unlock(); setCursor(true);
+  const st = $('finStamp'); st.classList.remove('hidden', 'pop'); void st.offsetWidth; st.classList.add('pop'); sfx('whistle'); sfx('boom', { v: .5 }); shakeCam(.3);
+}
+const _fp = new V3();
+function updateFinale(dt) {
+  const F = S.fin; F.t += dt;
+  if (F.stage === 'whistle') {
+    const k = Math.min(1, F.t / 1.9), a = F.a0 + k * 1.1, r = 6 - k * 1.8; _fp.copy(P.root.position);
+    cam.free = { p: new V3(_fp.x + Math.sin(a) * r, _fp.y + 2.4 - k * .6, _fp.z + Math.cos(a) * r), l: new V3(_fp.x, _fp.y + 1.1, _fp.z) };
+    if (F.t > 1.9) { $('finStamp').classList.add('hidden');
+      if (F.clip) { F.stage = 'replay'; F.t = 0; F.player = createReplayPlayer(F.clip); F.a0 = Math.random() * 6.28; const tag = $('replayTag'); tag.querySelector('span').textContent = F.clip.focus === P ? TEXT.you : (F.clip.focus.name || ''); tag.classList.remove('hidden'); sfx('shutter'); }
+      else finishFinale(); }
+  } else if (F.stage === 'replay') {
+    F.player.step(dt); F.player.focusPos(_fp); const a = F.a0 + F.t * .32;
+    const want = { p: new V3(_fp.x + Math.sin(a) * 6, _fp.y + 2.6, _fp.z + Math.cos(a) * 6), l: new V3(_fp.x, _fp.y + 1, _fp.z) };
+    if (!F.cam) F.cam = want; else { F.cam.p.lerp(want.p, 1 - Math.exp(-dt * 4)); F.cam.l.lerp(want.l, 1 - Math.exp(-dt * 6)); }
+    cam.free = { p: F.cam.p.clone(), l: F.cam.l.clone() };
+    if (F.player.done || F.skip) { F.player.restore(); finishFinale(); }
+  }
+}
+function finishFinale() { $('replayTag').classList.add('hidden'); $('finStamp').classList.add('hidden'); document.body.classList.remove('cine'); cam.free = null; S.fin = null; endRound(); }
+addEventListener('keydown', e => { if (S.state === 'finale' && S.fin?.stage === 'replay' && ['Space', 'Enter', 'Escape'].includes(e.code)) S.fin.skip = true; });
+addEventListener('pointerdown', () => { if (S.state === 'finale' && S.fin?.stage === 'replay') S.fin.skip = true; });
 function endRound() {
   S.settingsOpen=false;$('settings').classList.add('hidden');$('settings').classList.remove('in-match');
   roundMusic.stop();
@@ -576,17 +607,18 @@ function hookFun() {
   // удар/попадание: мелкий бонус (по лидеру — чуть больше); ударил того, кто делает миссию, — СОРВАЛ
   W.onHit = (att, vic, kind) => {
     if (!att || att === vic || !vic) return;
+    replayMoment((kind === 'heavy' ? 3 : kind === 'melee' ? 2 : 1) + (att === P || vic === P ? 2 : 0) + (vic === FUN.leader ? 1 : 0), vic);
     if (EV.big && EV.big.def.onHit) EV.big.def.onHit(EV.big.s, att, vic, kind);
     if (vic === P) shakeCam(kind === 'heavy' ? 0.35 : 0.18); else if (att === P) shakeCam(0.1);
     if (!onHitLeader(att, vic)) comboAct(att, 'hits', kind === 'heavy' ? PTS.hitHeavy : PTS.hitLight, vic.pos); else comboAct(att, 'hits', 0);
     if (vic.bot) { const m = interruptBot(vic); if (m) sabotage(att, vic, m); }
     else if (vic === P && S.mg && kind !== 'light') { const m = S.mg.m; closeMission(null); sabotage(att, P, m); }
   };
-  W.onFunny = (vic, kind, owner) => { if (owner && vic !== owner) comboAct(owner, 'traps', PTS.trap, vic.pos); };
+  W.onFunny = (vic, kind, owner) => { replayMoment(2 + (owner === P || vic === P ? 1 : 0), vic); if (owner && vic !== owner) comboAct(owner, 'traps', PTS.trap, vic.pos); };
   // перила: 5 очков, за одни и те же — не чаще раза в 10 с
   W.onGrind = b => { const a = b.rider; if (!a) return; a.grinds = a.grinds || new Map(); const now = W.time || 0, last = a.grinds.get(b.grind) ?? -99;
     if (now - last >= 10) { a.grinds.set(b.grind, now); comboAct(a, 'tricks', PTS.grind, a.pos); } else if (a === P) comboAct(a, null, 0); };
-  W.onTrick = a => { const now = W.time || 0; if (now - (a.trickT ?? -99) >= 3) { a.trickT = now; comboAct(a, 'tricks', PTS.trick, a.pos); } };
+  W.onTrick = a => { replayMoment(2 + (a === P ? 1 : 0), a); const now = W.time || 0; if (now - (a.trickT ?? -99) >= 3) { a.trickT = now; comboAct(a, 'tricks', PTS.trick, a.pos); } };
   W.onVacuumSteal = (a, it) => { if (a === P) stealItem(it); };
   W.onArrest = (who, by) => { if (who === P) toast(TEXT.arrested, 'bad'); else if (by === P) { toast(TEXT.arrestOk(who.name), 'gold'); bonus(P, 'hits', 20, who.pos); } };
   W.onSteal = (thief, from, it) => { if (from === P) toast(TEXT.stolenFrom(thief.name), 'bad'); };
@@ -812,6 +844,7 @@ function frame() {
   }
   else {
     if (S.state === 'intro') { updateIntro(dt); if (S.intro?.landed) updatePlayer(P, dt, t, true, cam.yaw); }
+    if (S.state === 'finale') updateFinale(dt);
     if (S.state === 'play') {
       updateDrones(dt, t);
       if (!S.studioCfg) S.time -= dt;
@@ -827,7 +860,7 @@ function frame() {
       if (P.held) { cargoPosition(P,P.held.pos,P.held.def.r); P.held.g.rotation.y = P.root.rotation.y;poseMeleeItem(P,P.held); }
       if (P.charging && !P.held && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
-      W.time = EV.t;
+      W.time = EV.t; recordReplay(dt);
       {const m=S.mg?.m||S.wm?.m;if(m?.activeLeft!=null)$('mgpts').textContent=`+${m.pts} · ${Math.ceil(Math.max(0,m.activeLeft))} с`;}
       updateMissions(dt, t, P, { phase: phaseOf(EV.t), t: EV.t, playerScore: () => S.score });
       // главная цель — одна: ближайшая видимая миссия (своя личная — в приоритете), остальные приглушены
@@ -850,7 +883,7 @@ function frame() {
       if (flash.intensity > 0) { const f = P.root.rotation.y; flash.position.set(P.pos.x, P.pos.y + 1.6, P.pos.z); flash.target.position.set(P.pos.x + Math.sin(f) * 6, P.pos.y, P.pos.z + Math.cos(f) * 6); }
       // v0.57: мини-карта 30 раз в секунду, а не каждый кадр (на 144 Гц это лишние 2D-отрисовки)
       if ((S.mmT = (S.mmT || 0) - dt) <= 0) { S.mmT = 1 / 30; const bt = bigTarget(); drawMinimap(P, M.list.filter(m => visibleTo(m, P)), S.wm && S.wm.game.target ? S.wm.game.target() : null, bt ? [{ x: bt.x, z: bt.z, color: '#ff8a1f', icon: TEXT.eventIcon[EV.big.key] }] : null, S.nav); }
-      if (S.time <= 0) { S.time = 0; renderHud(S, P, '', 0); endRound(); }
+      if (S.time <= 0) { S.time = 0; renderHud(S, P, '', 0); startFinale(); }
     }
     if (P) { setGhost(P, P.ghost > 0); setListener(P.pos.x, P.pos.y, P.pos.z); }
     // траектория броска
@@ -926,7 +959,7 @@ function frame() {
     if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); updateGrabs(dt, t); updateTraps(dt, t); updateTown(dt, t, P, !!EV.big); updateFun(dt, t); updatePolice(dt, t); updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
     prof.mark('боты/события');
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
-    { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
+    { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' || S.state === 'finale' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
       if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
     updateReflections(camera, t);localLighting.update(camera,dt,sky.dim||0); haze.update(t, camera); prof.mark('погода/свет');
@@ -936,7 +969,7 @@ function frame() {
     updateBreakables(dt, S.state === 'play' ? P : null);
     updateActionEffects(dt,S.state==='play'&&!S.mg?P:null,camera);updateParticles(dt);updateVfx(dt);updateSplat(dt);setActionVisuals(P&&!S.mg?Math.max(0,(Math.hypot(P.vel.x,P.vel.z)-7)/8):0,FX.shake*.5);
     prof.mark('частицы');
-    updateCamera(camera, P, dt, false, S.state === 'play' && !S.settingsOpen ? lk : null, !!(P && P.charging)); prof.mark('камера'); if (S.state === 'play' || S.state === 'intro') { updateCull(dt, camera, P); checkFrozen(); }
+    updateCamera(camera, P, dt, false, S.state === 'play' && !S.settingsOpen ? lk : null, !!(P && P.charging)); prof.mark('камера'); if (S.state === 'play' || S.state === 'intro' || S.state === 'finale') { updateCull(dt, camera, P); checkFrozen(); }
     {const k=S.state==='play'&&!P?.drone&&!P?.returning?Math.min(1,(P?.hazeT||0)/2):0;camera.rotation.z+=Math.sin(t*1.8)*.035*k;canvas.style.filter=k>0?`blur(${(.45*k).toFixed(2)}px) saturate(1.12)`:'';}
     S.mg?.game?.afterCamera?.();S.wm?.game?.afterCamera?.();
     { aimMoon(sky.moonDir()); const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz);

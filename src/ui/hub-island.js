@@ -15,13 +15,13 @@ let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 214748364
 
 function rockCone() {
   const SEG = 28, RINGS = 7, DEPTH = 46, pos = [], colr = [], uv = [], idx = [], jit = Array.from({ length: (RINGS + 1) * SEG }, () => [rnd(), rnd(), rnd()]);
-  const top = new THREE.Color(0x7a5236), mid = new THREE.Color(0x6a6080), low = new THREE.Color(0x3a3048), c = new THREE.Color();
+  const top = new THREE.Color(0x9a6238), mid = new THREE.Color(0x7a6488), low = new THREE.Color(0x4a3450), c = new THREE.Color();
   for (let r = 0; r <= RINGS; r++) {
     const v = r / RINGS, y = -v * v * DEPTH * .92 - v * DEPTH * .08 - .3;
     for (let s = 0; s <= SEG; s++) {
       const th = s / SEG * Math.PI * 2, J = jit[r * SEG + s % SEG], R = islandR(th) * Math.pow(1 - v, 1.35) * (r ? .93 + J[0] * .12 : 1);
       pos.push(Math.cos(th) * R, y + (r && r < RINGS ? (J[1] - .5) * 2.4 : 0), Math.sin(th) * R);
-      c.copy(v < .18 ? top : mid).lerp(v < .18 ? mid : low, v < .18 ? v / .18 : (v - .18) / .82); c.multiplyScalar((r % 2 ? .78 : 1.05) * (.85 + J[2] * .3)); // полосы-слои породы colr.push(c.r, c.g, c.b);
+      c.copy(v < .18 ? top : mid).lerp(v < .18 ? mid : low, v < .18 ? v / .18 : (v - .18) / .82); c.multiplyScalar((r % 2 ? .62 : 1.12) * (.85 + J[2] * .3)); /* полосы-слои породы */ colr.push(c.r, c.g, c.b);
       uv.push(s / SEG * 10, v * 4);
     }
   }
@@ -61,13 +61,15 @@ function cityTex() {
     for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) {
       const x0 = xs[i] + 3, z0 = zs[j] + 3, w = xs[i + 1] - xs[i] - 6, d = zs[j + 1] - zs[j] - 6; if (w < 4 || d < 4) continue;
       const park = rnd() < .08; g.fillStyle = park ? '#14281c' : ['#1d1830', '#241d36', '#1a1628', '#2a2034'][rnd() * 4 | 0]; g.fillRect(x0, z0, w, d);
-      if (!park) for (let k = 0; k < w * d / 14; k++) { g.fillStyle = rnd() < .85 ? (rnd() < .6 ? '#ffcf7a' : '#ff9a5a') : ['#7ae8ff', '#ff6ab0', '#b18cff'][rnd() * 3 | 0]; g.globalAlpha = .5 + rnd() * .5; g.fillRect(x0 + (rnd() * w | 0), z0 + (rnd() * d | 0), 1, 1); }
+      if (!park) for (let k = 0; k < w * d / 8; k++) { g.fillStyle = rnd() < .85 ? (rnd() < .6 ? '#ffcf7a' : '#ff9a5a') : ['#7ae8ff', '#ff6ab0', '#b18cff'][rnd() * 3 | 0]; g.globalAlpha = .7 + rnd() * .3; g.fillRect(x0 + (rnd() * w | 0), z0 + (rnd() * d | 0), rnd() < .3 ? 2 : 1, 1); }
       g.globalAlpha = 1;
     }
     // улицы и фонари
-    g.fillStyle = '#2c2440'; for (const x of xs) g.fillRect(x - 1, 0, 3, H); for (const z of zs) g.fillRect(0, z - 1, W, 3);
-    for (const x of xs) for (let z = 0; z < H; z += 7) { g.fillStyle = rnd() < .5 ? '#ffb45a' : '#ffd27a'; g.fillRect(x, z, 1, 1); }
-    for (const z of zs) for (let x = 0; x < W; x += 7) { g.fillStyle = rnd() < .5 ? '#ffb45a' : '#ffd27a'; g.fillRect(x, z, 1, 1); }
+    g.fillStyle = '#4a3550'; for (const x of xs) g.fillRect(x - 1, 0, 3, H); for (const z of zs) g.fillRect(0, z - 1, W, 3);
+    // тёплое свечение вдоль улиц (фонари сливаются в линии, как на ночном снимке с высоты)
+    g.globalAlpha = .35; g.fillStyle = '#ff9a4a'; for (const x of xs) g.fillRect(x - 2, 0, 5, H); for (const z of zs) g.fillRect(0, z - 2, W, 5); g.globalAlpha = 1;
+    for (const x of xs) for (let z = 0; z < H; z += 5) { g.fillStyle = rnd() < .5 ? '#ffb45a' : '#ffe2a0'; g.fillRect(x - 1, z, 2, 2); }
+    for (const z of zs) for (let x = 0; x < W; x += 5) { g.fillStyle = rnd() < .5 ? '#ffb45a' : '#ffe2a0'; g.fillRect(x, z - 1, 2, 2); }
     // фары на главных улицах
     for (let k = 0; k < 120; k++) { const vert = rnd() < .5, a = vert ? xs[rnd() * xs.length | 0] : zs[rnd() * zs.length | 0], b = rnd() * W | 0; g.fillStyle = rnd() < .5 ? '#fff0d0' : '#ff4a4a'; g.fillRect(vert ? a + 1 : b, vert ? b : a + 1, 1, 1); }
     // края — в прозрачность
@@ -101,13 +103,13 @@ export function buildIsland(group) {
     const th = rnd() * Math.PI * 2, R = islandR(th) + 6 + rnd() * 10; m.position.set(Math.cos(th) * R, -4 - rnd() * 12, Math.sin(th) * R); m.scale.setScalar(.8 + rnd() * 1.8); g.add(m); rocks.push({ m, y: m.position.y, ph: rnd() * 6 }); }
   // город внизу
   const city = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: cityTex(), transparent: true, depthWrite: false, fog: false }));
-  city.rotation.x = -Math.PI / 2; city.position.y = -118; city.scale.set(380, 380, 1); city.renderOrder = -5; g.add(city);
+  city.rotation.x = -Math.PI / 2; city.position.y = -78; city.scale.set(330, 330, 1); city.renderOrder = -5; g.add(city);
   // несколько высоких домов-силуэтов под островом: дают глубину, когда смотришь вниз
-  { const bm = new THREE.MeshBasicMaterial({ color: 0x17121f, fog: false }), win = new THREE.MeshBasicMaterial({ color: 0xffc070, fog: false });
+  { const bm = new THREE.MeshBasicMaterial({ color: 0x17121f, fog: false }), win = new THREE.MeshBasicMaterial({ color: 0xff4a4a, fog: false });
     const tall = new THREE.InstancedMesh(G.box, bm, 40), lit = new THREE.InstancedMesh(G.box, win, 40), M4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
     for (let i = 0; i < 40; i++) { const th = rnd() * Math.PI * 2, R = 30 + rnd() * 120, h = 8 + rnd() * 26, w = 6 + rnd() * 8;
-      p.set(Math.cos(th) * R, -118 + h / 2, Math.sin(th) * R); s.set(w, h, w); M4.compose(p, q, s); tall.setMatrixAt(i, M4);
-      p.y = -118 + h + .2; s.set(w * .5, .4, w * .5); M4.compose(p, q, s); lit.setMatrixAt(i, M4); }
+      p.set(Math.cos(th) * R, -78 + h / 2, Math.sin(th) * R); s.set(w, h, w); M4.compose(p, q, s); tall.setMatrixAt(i, M4);
+      p.y = -78 + h + .3; s.set(.5, .5, .5); M4.compose(p, q, s); lit.setMatrixAt(i, M4); }
     tall.frustumCulled = lit.frustumCulled = false; g.add(tall, lit); }
   let wt = 0;
   return {

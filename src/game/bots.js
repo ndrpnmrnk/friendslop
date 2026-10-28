@@ -206,6 +206,11 @@ export function updateBots(dt, t, P) {
     if (b.caged) { b.ch.animate(dt, { t, speed: 0, grabbed: true }); blob(b); progBar(b); continue; }
     // прячется
     if (b.hidden) { b.hideT -= dt; if (b.hideT <= 0) { const h = b.hidden; b.hidden = null; b.root.visible = true; b.vel.set((Math.random() - 0.5) * 6, 6, (Math.random() - 0.5) * 6); b.onGround = false; burst(h.x, h.y + 0.6, h.z, 12, { color: h.kind === 'leaves' ? 0xe0902e : 0xd8d0e4, size: 0.22, speed: 3, up: 3 }); } else { b.root.visible = false; continue; } }
+    // v0.58: сторож — бот без дела 25 с стоит на одном месте (тест с 7 ботами: один простоял минуту на высоте 3.9 м
+    // без цели) — сбрасываем «сидячие» состояния и цель, слегка подпрыгивает и думает заново
+    { const w = b.watch ??= { x: b.pos.x, y: b.pos.y, z: b.pos.z, t: 0 }; if (Math.abs(b.pos.x - w.x) + Math.abs(b.pos.y - w.y) + Math.abs(b.pos.z - w.z) > .4) { w.x = b.pos.x; w.y = b.pos.y; w.z = b.pos.z; w.t = 0; }
+      else if (!b.work && !b.heldBy && !(b.stun > 0) && !b.race && (w.t += dt) > 25) { w.t = 0; console.info('[friendslop] бот стоял 25 с:', b.name, b.goal?.kind || 'без цели', b.bus ? 'автобус' : '', b.bench ? 'лавка' : '', b.swing ? 'качели' : '');
+        b.bus = null; b.roofSeat = null; if (b.bench && W.leaveBench) W.leaveBench(b); if (b.swing && W.leaveSwing) W.leaveSwing(b, false); b.goal = null; b.nav = null; b.think = 0; b.avoid = null; b.vel.y = Math.max(b.vel.y, 5); b.onGround = false; } }
     if(W.race&&b.ride?.kind==='kart'){W.race.drive(b,dt,t);progBar(b);continue;}
     tickBotWork(b,dt);
     if(b.bus){b.ch.animate(dt,{t,speed:0,ride:'sit'});continue;}
