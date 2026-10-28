@@ -160,48 +160,67 @@ export function createMenu(){
     else if(f.stage==='gather'){const ready=st.members.filter(a=>world.sling.onPad(a.pos)).length,all=ready>=st.members.length;
       f.wait-=dt;f.hold=all?f.hold+dt:0;world.screen.gather(ready,st.members.length,f.wait);world.sling.zone(true,st.t,all);
       if(all&&f.hold<dt*1.5)sfx('pickup');if(f.hold>.9||f.wait<=0)startLaunch();}}
+  /* v0.59 — сцена запуска заново, длиннее и «киношнее» (≈14 с), монтаж из нескольких планов со склейками:
+     1) все сходятся в кружок и здороваются: пары дают пять и стукаются кулаками, одиночки машут, хлопают, пританцовывают;
+     2) общий прыжок «ура!» и клич «погнали!»;
+     3) забег по боковым лестницам на помост (камера-кран сбоку);
+     4) по очереди прыжок с сальто в кармашек — кармашек пружинит (план снизу спереди);
+     5) лебёдка оттягивает кармашек, все пригнулись (план сбоку на уровне кармашка);
+     6) залп с замедлением и полёт вниз к городу. */
   function startLaunch(){const f=st.flow,P=st.player;f.stage='cutscene';f.t=0;world.screen.go();clearThrow();world.sling.zone(false);
     if(P.held){drop(P.held,P.pos.x,P.pos.y,P.pos.z);P.held=null;}if(P.ride||P.grab||P.bench||P.swing||P.hidden||P.holding)leaveObject(P);
-    const pad=world.sling.pad,n=st.members.length,lineZ=pad.z1-1.2,gap=Math.min(1.5,7/Math.max(1,n));
-    const riders=st.members.map((a,i)=>({a,i,from:a.pos.clone(),line:new V3((i-(n-1)/2)*gap,0,lineZ),partner:null,run0:2.75+i*.13}));
+    const n=st.members.length,H=world.sling.huddle,R=Math.max(1.25,n*.36);
+    const riders=st.members.map((a,i)=>{const an=Math.PI+(n>1?(i/(n-1)-.5)*Math.min(2.6,n*.55):0),spot=new V3(H.x+Math.sin(an)*R,0,H.z+Math.cos(an)*R*.8);
+      return{a,i,from:a.pos.clone(),spot,side:i%2?1:-1,partner:null,greet:['wave','clap','dance'][i%3]};});
     for(let i=0;i+1<n;i+=2){riders[i].partner=riders[i+1];riders[i+1].partner=riders[i];}
-    st.launch={t:0,done:false,fired:false,cam:camera.position.clone(),look:new V3(),camSet:false,riders,lineZ,clap:false};
+    st.launch={t:0,done:false,fired:false,cam:camera.position.clone(),look:new V3(),shot:-1,riders,jumpAt:0,seatedAt:0,cheer:false,clap:false,bump:false};
     world.sling.arm(st.members);document.body.classList.add('cine');sfx('fanfare');}
   const smooth=x=>{x=clamp(x,0,1);return x*x*(3-2*x);};
-  function launchStep(dt){const L=st.launch,S=world.sling.st,seat=new V3(),T=L.t+=dt,c=world.sling.rest;if(S.phase==='fly')L.ft=(L.ft||0)+dt*(S.t<.3?.3:S.t<.75?THREE.MathUtils.lerp(.3,1,(S.t-.3)/.45):1);
-    const take=r=>new V3(c.x+(r.i%3-1)*.7,0,c.z+3.6);
-    let seated=0;
+  function launchStep(dt){const L=st.launch,S=world.sling.st,seat=new V3(),T=L.t+=dt,c=world.sling.rest,D=world.sling.deck,H=world.sling.huddle;
+    if(S.phase==='fly')L.ft=(L.ft||0)+dt*(S.t<.3?.3:S.t<.75?THREE.MathUtils.lerp(.3,1,(S.t-.3)/.45):1);
+    const CLIMB=4.6;let seated=0;
     for(const r of L.riders){const a=r.a,o={t:st.t,speed:0};
-      /* v0.58: залп через край острова — вниз, в город. В первые доли секунды замедление (кино-момент выстрела),
-         потом полная скорость: дуга вверх-вперёд, за краем — вниз к огням города. */
       if(S.phase==='fly'){if(!r.v){r.p0=a.pos.clone();r.v=new V3((r.i%3-1)*1.6+(Math.random()-.5),12+Math.random()*1.5,-20-Math.random()*3);}
         const t=L.ft;a.pos.set(r.p0.x+r.v.x*t,r.p0.y+r.v.y*t-5*t*t,r.p0.z+r.v.z*t);a.root.position.copy(a.pos);a.root.rotation.y=Math.PI;a.ch.animate(dt,{t:st.t,fly:true,vy:r.v.y-10*t,flySpin:4.5});continue;}
-      if(r.seated){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=turn(a.root.rotation.y,Math.PI,1-Math.exp(-dt*8));a.ch.animate(dt,{t:st.t,speed:0,crouch:true,act:S.phase==='board'?'cheer':undefined});seated++;continue;}
-      if(T<.8){// встают в линию
-        const k=smooth(T/.75);a.pos.lerpVectors(r.from,r.line,k);const mv=r.line.clone().sub(r.from);if(mv.lengthSq()>.01&&k<1)a.root.rotation.y=turn(a.root.rotation.y,Math.atan2(mv.x,mv.z),1-Math.exp(-dt*10));o.speed=k<1?mv.length()*.6:0;}
-      else if(T<2.5){// пять! (или радость в одиночку)
-        a.pos.copy(r.line);const q=r.partner;
-        if(q&&T<1.75){const yaw=Math.atan2(q.line.x-r.line.x,q.line.z-r.line.z);a.root.rotation.y=turn(a.root.rotation.y,yaw,1-Math.exp(-dt*12));o.act='five';o.side=q.line.x>r.line.x?1:-1;o.actK=(T-.95)/.6;}
-        else{const ph=q?(T-1.75)/.75:(T-.8)/1.7,hop=Math.max(0,Math.sin(ph*Math.PI*(q?1:2)))*.55;a.pos.y=hop;a.root.rotation.y=turn(a.root.rotation.y,Math.PI,1-Math.exp(-dt*6));o.act='cheer';o.air=hop>.05;o.vy=Math.cos(ph*Math.PI*2)*4;}}
-      else if(T<r.run0){a.pos.copy(r.line);a.root.rotation.y=turn(a.root.rotation.y,Math.PI,1-Math.exp(-dt*9));}
-      else{// разбег и сальто в кармашек
-        const tk=take(r),runD=r.line.distanceTo(tk),runT=Math.max(.35,runD/7.5),t=T-r.run0;
-        if(t<runT){a.pos.lerpVectors(r.line,tk,t/runT);a.root.rotation.y=turn(a.root.rotation.y,Math.atan2(tk.x-r.line.x,tk.z-r.line.z),1-Math.exp(-dt*12));o.speed=1;o.sprint=1;}
-        else{const k=clamp((t-runT)/.75,0,1);world.sling.seatPos(r.i,seat);if(!r.jumped){r.jumped=true;sfx('jump');}
-          a.pos.lerpVectors(tk,seat,smooth(k));a.pos.y+=Math.sin(k*Math.PI)*3.2;a.root.rotation.y=turn(a.root.rotation.y,Math.PI,1-Math.exp(-dt*10));o.dive='roll';o.roll=smooth(k);
-          if(k>=1){r.seated=true;a.ch.squash=1;sfx('land',{v:.7});sfx('fabric',{v:1.4});}}}
+      if(r.seated){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=turn(a.root.rotation.y,Math.PI,1-Math.exp(-dt*8));
+        a.ch.animate(dt,{t:st.t,speed:0,crouch:S.phase==='pull',act:S.phase==='board'?'cheer':undefined});seated++;continue;}
+      const face=p=>{const d=p.clone().sub(a.pos);if(d.lengthSq()>.0004)a.root.rotation.y=turn(a.root.rotation.y,Math.atan2(d.x,d.z),1-Math.exp(-dt*10));};
+      const walk=(A,B,k,sp)=>{a.pos.lerpVectors(A,B,smooth(k));face(B);o.speed=k<1?sp:0;};
+      if(T<1.0){walk(r.from,r.spot,T/1.0,.8);}
+      else if(T<CLIMB){a.pos.copy(r.spot);const q=r.partner;
+        if(T<3.2){if(q){const t2=T-1.0;face(q.spot);if(t2<.9){o.act='five';o.side=q.spot.x>r.spot.x?1:-1;o.actK=t2/.9;}else if(t2<1.7){o.act='five';o.side=q.spot.x>r.spot.x?-1:1;o.actK=(t2-.9)/.8;}else{o.emote=r.greet;o.emoteT=t2-1.7;}}
+          else{face(H);o.emote=r.greet;o.emoteT=T-1.0;}}
+        else if(T<4.0){face(H);const k=(T-3.2)/.8,hop=Math.max(0,Math.sin(k*Math.PI))*.7;a.pos.y=hop;o.act='cheer';o.air=hop>.05;o.vy=Math.cos(k*Math.PI)*5;}
+        else{face(new V3(c.x,0,c.z));o.emote='call';o.emoteT=T-4.0;}}
+      else{// забег по лестнице на помост и ожидание своей очереди на краю
+        const t=T-CLIMB-r.i*.3,sx=r.side,bot=new V3(c.x+sx*(D.x+D.run+.7),0,D.stairZ),top=new V3(c.x+sx*(D.x+.2),D.y,D.stairZ),edge=new V3(clamp(world.sling.seats[r.i%8][0]*1.2,-1.9,1.9),D.y,D.z0+.35),
+          runT=Math.max(.6,r.spot.distanceTo(bot)/6.5);
+        if(t<0){a.pos.copy(r.spot);face(bot);}
+        else if(t<runT){walk(r.spot,bot,t/runT,1);o.sprint=1;}
+        else if(t<runT+1.1){const k=(t-runT)/1.1;a.pos.lerpVectors(bot,top,k);face(top);o.speed=1;}
+        else if(t<runT+1.7){walk(top,edge,(t-runT-1.1)/.6,.8);}
+        else{a.pos.copy(edge);face(new V3(edge.x,0,c.z-5));r.ready=true;}
+        if(r.ready&&!r.jump&&T>=L.jumpAt&&L.riders.filter(q=>q.jump&&!q.seated).length===0&&L.riders.every(q=>q.i>=r.i||q.jump)){r.jump={t0:T,from:a.pos.clone()};L.jumpAt=T+.55;sfx('jump');}
+        if(r.jump){const k=clamp((T-r.jump.t0)/.8,0,1);world.sling.seatPos(r.i,seat);a.pos.lerpVectors(r.jump.from,seat,smooth(k));a.pos.y+=Math.sin(k*Math.PI)*1.8;face(seat);o.dive='roll';o.roll=smooth(k);o.speed=0;
+          if(k>=1){r.seated=true;a.ch.squash=1.2;world.sling.bounce(1);sfx('land',{v:.7});sfx('fabric',{v:1.4});}}}
       a.root.position.copy(a.pos);a.ch.animate(dt,o);}
-    // хлопок ладоней: искры между парой
-    if(!L.clap&&T>1.33){L.clap=true;for(const r of L.riders)if(r.partner&&r.i<r.partner.i){const m=r.line.clone().add(r.partner.line).multiplyScalar(.5);sparksAt(m.x,1.75,m.z);}if(L.riders.some(r=>r.partner))sfx('clap');}
-    if(!L.fired&&seated===L.riders.length&&S.phase==='board'){L.fireT=(L.fireT||0)+dt;if(L.fireT>.35){L.fired=true;world.sling.pull();}}
-    // камера: 1) лица и «пять», 2) разбег сбоку сверху, 3) натяжение сбоку, 4) полёт следом
-    const P=st.player.pos;let cp,cl,rate=2.6;
-    if(S.phase==='fly'){const ft=L.ft||0;if(ft<.25){cp=new V3(c.x+6.4,c.y+.9,c.z+3.2);cl=new V3(P.x,P.y+.8,P.z);rate=6;}else{const down=clamp((ft-.9)/1.2,0,1);cp=new V3(P.x+2.4,P.y+3.2+down*2.5,P.z+8.5-down*1.5);cl=new V3(P.x,P.y+.4-down*7,P.z-6-down*4);rate=4.5;}}
-    else if(S.phase==='pull'||S.phase==='fire'){cp=new V3(c.x+6.4,c.y+.7,c.z+4.2);cl=new V3(c.x,c.y-.9,c.z+2.4+S.pull*2.2);rate=3;}
-    else if(T<2.6){cp=new V3(Math.sin(T*.4)*.5,2.0,L.lineZ-4.5+T*.15);cl=new V3(0,1.25,L.lineZ);}
-    else{cp=new V3(c.x-7.2,7.4,c.z+7.4);cl=new V3(c.x+.6,c.y-1.8,c.z+2.6);}
-    if(!L.camSet){L.camSet=true;L.cam.copy(cp);L.look.copy(cl);}
-    L.cam.lerp(cp,1-Math.exp(-dt*rate));L.look.lerp(cl,1-Math.exp(-dt*rate));camera.position.copy(L.cam);camera.lookAt(L.look);
+    // хлопки и искры: «пять» и общее «ура»
+    if(!L.clap&&T>1.6){L.clap=true;for(const r of L.riders)if(r.partner&&r.i<r.partner.i){const m=r.spot.clone().add(r.partner.spot).multiplyScalar(.5);sparksAt(m.x,1.75,m.z);}if(L.riders.some(r=>r.partner))sfx('clap');}
+    if(!L.bump&&T>2.4){L.bump=true;if(L.riders.some(r=>r.partner))sfx('clap',{v:.6});}
+    if(!L.cheer&&T>3.5){L.cheer=true;sparksAt(H.x,2.6,H.z);sfx('confetti');}
+    if(seated===L.riders.length&&!L.seatedAt)L.seatedAt=T;
+    if(!L.fired&&L.seatedAt&&T>L.seatedAt+.9&&S.phase==='board'){L.fired=true;world.sling.pull();}
+    // монтаж: номер плана и его камера; при смене плана — склейка (камера ставится сразу), внутри плана — плавное движение
+    const P=st.player.pos;let shot,cp,cl,rate=3;
+    if(S.phase==='fly'){shot=7;const ft=L.ft||0;if(ft<.25){cp=new V3(c.x+6.4,c.y+.9,c.z+3.2);cl=new V3(P.x,P.y+.8,P.z);rate=6;}else{const down=clamp((ft-.9)/1.2,0,1);cp=new V3(P.x+2.4,P.y+3.2+down*2.5,P.z+8.5-down*1.5);cl=new V3(P.x,P.y+.4-down*7,P.z-6-down*4);rate=4.5;}}
+    else if(S.phase==='pull'||S.phase==='fire'){shot=6;cp=new V3(c.x-6.6,c.y+.7,c.z+2.4);cl=new V3(c.x,c.y-.5,c.z+1.2+S.pull*1.6);rate=2;}
+    else if(L.riders.some(r=>r.jump)||L.seatedAt){shot=5;cp=new V3(c.x+3.4,1.4,c.z-4.4);cl=new V3(c.x,c.y-.2,c.z+1);rate=1.5;}
+    else if(T>=CLIMB){shot=4;const k=clamp((T-CLIMB)/3,0,1);cp=new V3(c.x+8,1.8+k*2.6,D.stairZ+4.4-k*1.2);cl=new V3(c.x+1.2,D.y*k*.8+.8,D.stairZ-.6);rate=1.6;}
+    else if(T>=3.2){shot=3;cp=new V3(H.x+5.2,.7,H.z+1.6);cl=new V3(H.x-.4,1.5,H.z-1.6);rate=1.2;}
+    else if(T>=1.6){shot=2;const an=.9+(T-1.6)*.42;cp=new V3(H.x+Math.sin(an)*4.4,1.7,H.z+Math.cos(an)*4.4);cl=new V3(H.x,1.05,H.z);rate=3;}
+    else{shot=1;const k=smooth(T/1.6);cp=new V3(H.x+4.6-k*1.4,1.1+k*.3,H.z+.9-k*.3);cl=new V3(H.x,1.0,H.z-.2);rate=2;}
+    if(shot!==L.shot){L.shot=shot;L.cam.copy(cp);L.look.copy(cl);}
+    L.cam.lerp(cp,1-Math.exp(-dt*rate));L.look.lerp(cl,1-Math.exp(-dt*rate*1.5));camera.position.copy(L.cam);camera.lookAt(L.look);
     if(S.phase==='fly'&&(L.ft||0)>2.7&&!L.done){L.done=true;resetVfx();st.onLaunch?.({mode:st.flow.mode,ids:st.flow.ids||randomMap(),theme:st.flow.theme,members:st.members.map(a=>a.ch.skinId)});}}
   function sparksAt(x,y,z){scope(()=>{impactBurst({x,y,z},0xffd27a,.8);vfxSparks({x,y,z},18,0xffd27a);});}
   function walk(dt){
