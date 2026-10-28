@@ -5,7 +5,6 @@ import { rep,pix } from '../core/textures.js';
 import { burst, puff } from './particles.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
-const INVIS = new THREE.MeshBasicMaterial({ visible: false });
 import { addZone } from './physics.js';
 import { addZipline } from '../game/zipline.js';
 import { placeRake, placeCushion, addSeesaw } from '../game/traps.js';
@@ -104,9 +103,8 @@ export const MoreMethods = {
   floodlight(x, z, ry = 0, h = 9, pool = true) {
     const dk = col(0x3a3440); this.m(G.cyl8, dk, x, h / 2, z, 0.14, h, 0.14); this.solid(x, z, 0.35, 0.35, 0, h);
     const g = this.prop(x, z, ry); g.add(compose('flood', a => { a(G.box, dk, 0, h + 0.4, 0.2, 1.8, 1.0, 0.15); for (let i = 0; i < 6; i++) a(G.box, glow(0xfff6e0), -0.6 + (i % 3) * 0.6, h + 0.65 - Math.floor(i / 3) * 0.5, 0.29, 0.45, 0.35, 0.03); }));
-    const fx = Math.sin(ry), fz = Math.cos(ry), m = this.light(x + fx * 5, z + fz * 5, 4.5);
-    // v0.59: без светлого пятна-отсвета на земле (в хабе оно висело посреди поля)
-    if (!pool) m.material = INVIS; // сам свет остаётся, пятно не рисуется
+    // v0.60: pool=false — только сам прожектор светится, ни пятна, ни света на земле (в хабе пятно висело посреди поля)
+    if (pool) { const fx = Math.sin(ry), fz = Math.cos(ry); this.light(x + fx * 5, z + fz * 5, 4.5); }
   },
   scoreboard(x, z, ry = 0) {
     const g = this.prop(x, z, ry), c = document.createElement('canvas'); c.width = 128; c.height = 48;

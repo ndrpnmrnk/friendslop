@@ -36,7 +36,10 @@ export const overlapXZ = (s, x, z, r) => x + r > s.x0 && x - r < s.x1 && z + r >
 
 // Проёмы в земле (люки, канал коллектора): там нет «нулевой» земли, можно провалиться вниз
 // v0.59: W.walk(x,z) — где вообще есть земля (хаб: два острова и мост); вне её — пропасть
-const inHole = (x, z) => { if (W.walk && !W.walk(x, z)) return true; for (const h of W.holes) if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return true; return false; };
+// v0.60: люки (soft) — для транспорта закрыты: колёса прокатываются по крышке, а не проваливаются в шахту
+let _cover = false;
+const inHole = (x, z) => { if (W.walk && !W.walk(x, z)) return true; for (const h of W.holes) if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1 && !(h.soft && _cover)) return true; return false; };
+const softHoleAt = (x, z) => { for (const h of W.holes) if (h.soft && x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return h; return null; };
 /* Повёрнутые коробки (стрела крана, палуба катера): {cx, cz, yaw, lx0, lx1, lz0, lz1, y0, y1, on}.
    Точку переводим в локальные оси коробки и проверяем как обычный AABB. */
 const _l = { x: 0, z: 0 };
@@ -81,11 +84,13 @@ export function pushOut(p, r, yLow, yHigh) {
 
 // Персонаж/животное: горизонталь, затем вертикаль с землёй и потолком
 export function moveBody(b, dt, g = 22) {
-  const p = b.pos, v = b.vel;
+  const p = b.pos, v = b.vel; _cover = !!(b.ride || b.riding);
   p.x += v.x * dt; p.z += v.z * dt;
   pushOut(p, b.r, p.y + b.step, p.y + b.h);
   const oldY = p.y;
   if (!b.noGrav) v.y -= g * dt;
+  // v0.60: в шахте люка спускаешься плавно, как по горке-трубе: скорость падения ограничена, без оглушения внизу
+  if (!_cover && p.y < .3 && p.y > -6 && softHoleAt(p.x, p.z)) { if (v.y < -7) v.y = -7; if (b.airPeak !== undefined) b.airPeak = Math.min(b.airPeak, p.y + 1.5); }
   p.y += v.y * dt;
   // Потолок навеса останавливает прыжок, но не выталкивает в соседние ступени купола.
   for(const s of solidsNear(p.x-b.r*.5,p.z-b.r*.5,p.x+b.r*.5,p.z+b.r*.5))if(s.on&&s.roof&&overlapXZ(s,p.x,p.z,b.r*.5)&&oldY<s.y0-.1&&p.y+b.h>s.y0&&p.y<s.y0){p.y=s.y0-b.h-.015;v.y=Math.min(0,v.y);s.roofTouch=true;}
@@ -96,7 +101,7 @@ export function moveBody(b, dt, g = 22) {
   if (v.y > 0) for (const s of solidsNear(p.x - b.r, p.z - b.r, p.x + b.r, p.z + b.r)) {
     if (s.on && !s.oneWay && overlapXZ(s, p.x, p.z, b.r * 0.6) && s.y0 >= oldY + b.h - 0.02 && s.y0 < p.y + b.h) { p.y = s.y0 - b.h; v.y = 0; }
   }
-  b.ground = gy;
+  b.ground = gy; _cover = false;
 }
 
 /* Зоны: вода, масло, лужи, щётки мойки. shape: {c:[x,z,r]} или {r:[x0,z0,x1,z1]} */
@@ -169,7 +174,7 @@ export function updatePushables(dt, player) {
     if (b.tipped) animateTip(b, dt);
     // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
     if (b.ride && b.kind !== 'ring') {
-      _selfP = b; let gy = groundAt(b.x, b.z, b.r * 0.4, b.y + 0.35); _selfP = null; b.vy = b.vy || 0;
+      _selfP = b; _cover = !!b.ride; let gy = groundAt(b.x, b.z, b.r * 0.4, b.y + 0.35); _cover = false; _selfP = null; b.vy = b.vy || 0;
       if (W.rails && (b.kind === 'skate' || b.kind === 'scooter')) for (const r of W.rails) {
         const ex = r.x1 - r.x0, ez = r.z1 - r.z0, L2 = ex * ex + ez * ez, u = ((b.x - r.x0) * ex + (b.z - r.z0) * ez) / L2; if (u < 0 || u > 1) continue;
         const qx = r.x0 + ex * u, qz = r.z0 + ez * u; if (Math.hypot(b.x - qx, b.z - qz) > 0.35 || b.y < r.y - 0.25 || b.y > r.y + 0.7 || b.vy > 0.5) continue;
@@ -184,7 +189,7 @@ export function updatePushables(dt, player) {
           /* доска «прилипает» к рампе: наклон по рельефу вдоль хода, на подъёме её тянет назад вниз —
              по инерции заезжает вверх и скатывается обратно (как в халфпайпе) */
           const h = b.rider ? b.heading : b.mesh.rotation.y, fx = Math.sin(h), fz = Math.cos(h);
-          _selfP = b; const gF = groundAt(b.x + fx * 0.35, b.z + fz * 0.35, 0.05, b.y + 0.7), gB = groundAt(b.x - fx * 0.35, b.z - fz * 0.35, 0.05, b.y + 0.7); _selfP = null;
+          _selfP = b; _cover = !!b.ride; const gF = groundAt(b.x + fx * 0.35, b.z + fz * 0.35, 0.05, b.y + 0.7), gB = groundAt(b.x - fx * 0.35, b.z - fz * 0.35, 0.05, b.y + 0.7); _cover = false; _selfP = null;
           const sl = Number.isFinite(gF) && Number.isFinite(gB) && Math.abs(gF - gB) < 1.5 ? Math.max(-2.5, Math.min(2.5, (gF - gB) / 0.7)) : 0, a = -21 * sl / Math.sqrt(1 + sl * sl);
           b.vx += fx * a * dt; b.vz += fz * a * dt; b.pitch = (b.pitch || 0) + (Math.atan(sl) - (b.pitch || 0)) * Math.min(1, dt * 14);
           if (b.vy > 0) b.vy *= 0.8;

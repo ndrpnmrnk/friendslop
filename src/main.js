@@ -239,7 +239,7 @@ $('mgexit').onclick = cancelMission;
 const snapRT = new THREE.WebGLRenderTarget(96, 96), snapCam = new THREE.PerspectiveCamera(48, 1, 0.5, 160);
 W.snapshot = () => {
   try {
-    const d = W.districts[(Math.random() * W.districts.length) | 0], a = Math.random() * 6.28, cx = d.ox + 16, cz = d.oz + 16;
+    const d = W.districts[(Math.random() * W.districts.length) | 0], a = Math.random() * 6.28, cx = (d.ox + d.x1) / 2, cz = (d.oz + d.z1) / 2;
     snapCam.position.set(cx + Math.cos(a) * 22, 12 + Math.random() * 10, cz + Math.sin(a) * 22); snapCam.lookAt(cx, 1.5, cz);
     renderer.setRenderTarget(snapRT); renderer.render(scene, snapCam); const px = new Uint8Array(96 * 96 * 4); renderer.readRenderTargetPixels(snapRT, 0, 0, 96, 96, px); renderer.setRenderTarget(null);
     const c = document.createElement('canvas'); c.width = c.height = 96; const g = c.getContext('2d'), im = g.createImageData(96, 96);

@@ -166,7 +166,7 @@ export function restOnSurface(it){
 function vanish(it) {
   it.g.visible = false; it.state = 'gone'; it.respawnT = 0;
 }
-// eslint-disable-next-line no-unused-vars
+export function respawnItem(it) { return respawn(it); }
 function respawn(it) {
   const h = it.home; it.pos.set(h.x, h.y + it.def.r, h.z); it.vel.set(0, 0, 0); it.g.rotation.set(0, h.ry || 0, 0);
   it.g.visible = true; it.state = 'rest';

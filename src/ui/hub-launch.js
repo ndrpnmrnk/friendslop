@@ -77,22 +77,22 @@ export function buildVoteArena(b, modes) {
   const skin = new THREE.Mesh(new THREE.SphereGeometry(.95, 14, 10), lam({ map: HW ? ballPumpkin() : ballSoccer() }, 'arena55-ball'));
   skin.position.y = .95; skin.castShadow = true; ball.mesh.add(jellify(skin, .35)); ball.mesh.userData.noBatch = true;
   if (HW) { const stem = mesh(G.cyl6, col(0x4a6a2a), 0, 1.0, 0, .08, .3, .08, skin); stem.position.set(0, .98 / .95, 0); }
-  let picked = -1, resetT = 0, flashT = 0;
+  let picked = -1, inside = -1, flashT = 0;
   const api = {
     group, goals, ball, get picked() { return picked >= 0 ? modes[picked] : null; }, onGoal: null,
-    reset() { picked = -1; resetT = 0; ball.x = cx; ball.z = cz + 1; ball.vx = ball.vz = 0; },
+    reset() { picked = -1; inside = -1; ball.x = cx; ball.z = cz + 1; ball.vx = ball.vz = 0; },
     update(dt, t) {
       // мяч катится: поворачиваем шар по ходу
       const sp = Math.hypot(ball.vx, ball.vz);
       if (sp > .01) { const ax = new V3(ball.vz, 0, -ball.vx).normalize(); skin.rotateOnWorldAxis(ax, sp * dt / .95); }
-      if (resetT > 0) { resetT -= dt; if (resetT <= 0) { ball.x = cx; ball.z = cz + 1; ball.vx = ball.vz = 0; skin.position.y = 4; sfx('spring'); } }
       if (skin.position.y > .95) skin.position.y = Math.max(.95, skin.position.y - dt * 8);
-      // гол: мяч целиком пересёк линию в створе ворот
-      if (resetT <= 0) for (const g of goals) if (ball.z < A.z0 - .3 && Math.abs(ball.x - g.x) < A.gw / 2 - .2) {
-        picked = g.i; resetT = 1.6; flashT = 1.2; sfx('goal'); shake(.25);
+      // гол: мяч целиком пересёк линию в створе ворот. v0.60: мяч остаётся в воротах — видно, что выбрано;
+      // выбить его обратно и забить в другие ворота можно в любой момент
+      let inG = -1; for (const g of goals) if (ball.z < A.z0 - .3 && Math.abs(ball.x - g.x) < A.gw / 2 - .2) inG = g.i;
+      if (inG !== inside) { inside = inG; const g = goals[inG]; if (g) {
+        picked = g.i; flashT = 1.2; sfx('goal'); shake(.25); ball.vx *= .2; ball.vz *= .2;
         const p = { x: g.x, y: 1.2, z: A.z0 - .6 }; impactBurst(p, g.m.color, 1.6); sparks(p, 30, g.m.color); sparks(p, 20, 0xffffff);
-        api.onGoal?.(g.m); break;
-      }
+        api.onGoal?.(g.m); } }
       flashT = Math.max(0, flashT - dt);
       for (const g of goals) { const on = g.i === picked; g.sm.material[4].emissiveIntensity = on ? .9 + Math.sin(t * 8) * .15 * (flashT > 0 ? 1 : .3) : .45;
         g.net.position.z = g.z - (on && flashT > 0 ? Math.sin(flashT * 30) * .08 * flashT : 0); }

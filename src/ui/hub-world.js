@@ -87,7 +87,7 @@ export function buildHub(scene){
   /* ---------- магазинчик «Гардероб» (запад) ---------- */
   // v0.56: примерочная меньше (6×7 м) — персонаж стоит близко, камера рядом; позади — склад магазина (глухой фасад)
   b.facadeBlock(-18.2,-5,2.8,10,4.4,0x5e4452,{lit:0});for(const z of[-9.3,-.7])b.box(-13.9,z,5.8,1.4,4.4,tmat(T.brickWall()));
-  const shop=room(b,group,{x0:-16.8,x1:-11,z0:-8.6,z1:-1.4,h:4.4,color:0x6a4a5a,wall:0xd8b8d0,plain:true,door:{side:'e',a:-6.2,b:-3.8},window:{side:'s',a:-16.2,b:-12.6}});
+  const shop=room(b,group,{x0:-16.8,x1:-11,z0:-8.6,z1:-1.4,h:4.4,color:0x6a4a5a,wall:0xd8b8d0,plain:true,floor:'tile',door:{side:'e',a:-6.2,b:-3.8},window:{side:'s',a:-16.2,b:-12.6}});
   { const t=picTex('shop','#2a1a2a','#ffd8ec',256,64,'#d8608a'),m=new THREE.Mesh(G.box,[lam({map:t,emissive:0xffffff,emissiveMap:t,emissiveIntensity:.5},'hub55-wsign'),dark,dark,dark,dark,dark]);m.position.set(-10.78,3.45,-5);m.scale.set(.12,.8,3.6);m.userData.noBatch=true;group.add(m); }
   awning(b,group,-10.3,-5,'x',3.6,'#d8608a','#f1e8ff');
   // у входа: уличная стойка с вещами на распродажу и горшки с цветами

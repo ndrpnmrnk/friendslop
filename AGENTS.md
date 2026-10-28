@@ -86,6 +86,13 @@
 9. Сначала вместе с автором решаем, что убрать/добавить/изменить, и только потом делаем; после — полный отчёт об изменениях.
 
 ## 5. Сделано в последних версиях
+- v0.60 (`docs/UPDATE-v0.60.md`): районы 44×44 (`CONFIG.chunk = 44`; район нового формата — `size: 44`, старый 32 м
+  ставится в центр клетки с бульваром `boulevard()` в world.js). Новые: yard, park, plaza, shops, construction, cemetery,
+  gas, market, sewer, school. Общий «язык» — `src/world/district-kit.js` (`hazardFloor`, `warnLamp`, `climbTrim`, `path`,
+  `softMist`, `grabTarget`, `hazard`); цели для захвата и опасные зоны — `src/game/grab-targets.js` (`tryGrabTarget` из
+  grab.js, `hazardSteer` в steer ботов). Лодка-уточка — ride `duck`; люки `soft` (транспорт не проваливается, спуск
+  плавный); «E — Поднять» упавшего бота. Хаб: остров затей переделан (фист на башне раз в 20 мин), телескоп убран,
+  `hubWalk` с углом `atan2(z, x)`, мяч остаётся в воротах, свет в помещениях хаба (`indoor` в menu.js).
 - v0.59 (`docs/UPDATE-v0.59.md`): второй остров `src/ui/hub-isle2.js` (`ISLE`, `hubWalk` → `W.walk(x,z)`: вне него
   `inHole` = пропасть; `buildIsle2` → `stations` (телескоп `scope`), `update`, `respawn`), режим меню `scope`
   (menu.js, `scopeView`); радиусы звуков `RANGE` и `SFX_FROM.at` (sfx.js, bot-work.js); рты по скинам `MOUTH`

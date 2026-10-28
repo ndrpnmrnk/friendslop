@@ -22,6 +22,8 @@ export const RIDE = {
   scooter: { seat: 0.2, pose: 'stand', max: 12, acc: 11, turn: 3.6, fric: 0.45 },
   kidcar: { seat: 0.32, pose: 'sit', max: 7.5, acc: 8, turn: 3.0, fric: 1.4 },
   ring:   { seat: 0.05, pose: 'sit', max: 8, acc: 8, turn: 3.2, fric: 0.8, water: true },
+  // v0.60: лодка-уточка в парке — только по воде, можно таранить другие лодки
+  duck:   { seat: 0.32, pose: 'sit', max: 9.5, acc: 9, turn: 2.6, fric: 0.6, water: true },
   // больничная каталка: как тележка — разогнать руками и запрыгнуть
   gurney: { seat: 0.82, pose: 'sit', max: 13, acc: 0, turn: 1.4, fric: 0.38, coast: true },
 };
@@ -80,6 +82,13 @@ export function addPushable(b, kind, x, z, y = 0) {
       for (const sx of [-0.28, 0.28]) { add(G.box, mt, sx, 0.9, 0.1, 0.03, 0.03, 1.2); for (const sz of [-0.8, 0.8]) { add(G.box, mt, sx, 0.38, sz, 0.04, 0.66, 0.04); add(G.cyl8, dk, sx, 0.06, sz, 0.06, 0.04, 0.06, 0, 0, Math.PI / 2); } }
       add(G.box, mt, 0, 0.25, 0, 0.5, 0.03, 1.5); }));
     r = 0.6;
+  } else if (kind === 'duck') {
+    const c = [0xf5c542, 0xf1e8ff, 0x9be36b, 0xff8a6e][W.pushables.filter(p => p.kind === 'duck').length % 4];
+    g.add(compose('duckBoat60-' + c, a => { const body = col(c), dk = col(0x2b2533), beak = col(0xff8a1f);
+      a(G.sph10, body, 0, .2, 0, .78, .34, .95); a(G.box, col(0x3a6a9a), 0, .34, -.1, .9, .06, 1.1); a(G.sph10, body, 0, .62, .62, .32, .34, .3); a(G.sph10, body, 0, .42, .55, .2, .3, .2);
+      a(G.box, beak, 0, .58, .94, .2, .08, .2); for (const s2 of [-1, 1]) a(G.box, dk, s2 * .17, .7, .82, .06, .07, .03); a(G.sph10, body, 0, .48, -.86, .25, .22, .18);
+      a(G.box, col(0xd8d0c0), 0, .42, -.15, .55, .12, .5); }));
+    r = 0.85;
   } else if (kind === 'ring') {
     roller = new THREE.Group(); g.add(roller);
     roller.add(compose('swimRing', add => { add(new THREE.TorusGeometry(0.42, 0.17, 6, 12), lam({ map: T.awning('#ff5a6e', '#f1e8ff') }, 'ringMat'), 0, 0.12, 0, 1, 1, 1, Math.PI / 2); }));

@@ -1,69 +1,78 @@
-import { THREE, G, tmat, col, glow } from '../../core/gfx.js';
+import { G, tmat, smat, col, lam } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { HW } from '../../config.js';
 import { W } from '../state.js';
+import { sfx } from '../../core/sfx.js';
+import { actors } from '../../game/actors.js';
 
-// Торговая улица: магазины с интерьерами и витринами (бьются), по крышам — через мостики,
-// тележки (можно толкать или запрыгнуть и кататься), стеклянная остановка
+/* Торговая улица (v0.60, 44×44 по схеме): два ряда по четыре магазина, между ними пешеходная улица.
+   У каждого магазина свой интерьер. Фишка — РОЛЛСТАВНИ: по звонку ставни всех магазинов опускаются на 5 с —
+   можно запереть соперника внутри или спрятаться самому. За 1.5 с над каждой дверью мигает жёлтая лампа.
+   Дверь магазина — цель для захвата: дотащил соперника — влетает внутрь (а ставни скоро закроются). */
+const ROWS = [
+  { x: 2, side: 'e', shops: [['ХЛЕБ', '#f1e8ff', '#3a2458', 'bakery', 0x9c7a5a], ['ОДЕЖДА', '#d8608a', '#f1e8ff', 'clothes', 0x8a6a8c], ['ТЕХНИКА', '#2a4a8a', '#9be36b', 'tech', 0x5a6a7c], ['ИГРУШКИ', '#f5c542', '#7b2a8a', 'toys', 0x9c6a5a]] },
+  { x: 29, side: 'w', shops: [[HW ? 'ТЫКВЫ' : 'ПРОДУКТЫ', '#ff8a1f', '#17111f', 'mart', 0x7a8a5a], ['КАФЕ', '#2a1f3d', '#ff8a1f', 'cafe', 0x6a7c9c], ['АПТЕКА', '#f1e8ff', '#2a8a5a', 'pharmacy', 0x7c9c8a], ['ЦВЕТЫ', '#9be36b', '#2a1f3d', 'flowers', 0x8a7c6a]] },
+];
+const W0 = 13, D0 = 9.4, Z0 = 3;
 export default {
-  id: 'shops', name: 'Торговая улица', ground: 'pave',
+  id: 'shops', name: 'Торговая улица', ground: 'pave', size: 44,
   build(b) {
-    const shops = [
-      { x: 1, wall: 0x9c7a5a, sign: ['ХЛЕБ', '#f1e8ff', '#3a2458'], aw: ['#f1e8ff', '#d8243a'], kind: 'bakery', up: 4.2, gaps: [{ side: 'e', at: 0.6 }] },
-      { x: 11.5, wall: 0x6a7c9c, sign: ['КАФЕ', '#2a1f3d', '#ff8a1f'], aw: ['#ff8a1f', '#2a1f3d'], kind: 'cafe', up: 4.2, gaps: [{ side: 'w', at: 0.6 }, { side: 'e', at: 0.6 }] },
-      { x: 22, wall: 0x8a6a8c, sign: [HW ? 'ТЫКВЫ' : '24/7', '#ff8a1f', '#17111f'], aw: ['#7b4bc4', '#f5c542'], kind: 'mart', up: 4.2, gaps: [{ side: 'w', at: 0.6 }] },
-    ];
-    for (const s of shops) {
-      // двухэтажный магазин: торговый зал внизу, наверху — склад/квартира/офис, лестница до крыши
-      b.tower({ x: s.x, z: 0.3, w: 9, d: 9.4, floors: 2, fh: 3.8, wall: s.wall, lit: 0.7, door: { side: 's', at: 0.5 }, sign: s.sign, awning: s.aw, floor: T.floorTile(),
-        gaps: s.kind === 'bakery' ? s.gaps.concat([{ side: 'w', at: 0.75 }]) : s.gaps,
-        interior(f, k, r) {
-          const cx = (r.x0 + r.x1) / 2;
-          if (k === 0) {
-            if (s.kind === 'bakery') { W.spots.pickup.push({ x: f.X(r.x0 + 2.2), z: f.Z(r.z0 + 1.9), y: f.Y, f: [0, -1], district: 'Торговая улица', label: 'пекарня' }); f.counter(r.x0 + 2.2, r.z0 + 0.8, 3, 0.8, 1.0, tmat(T.wood())); f.m(G.box, tmat(T.produce('pumpkin')), r.x0 + 2.2, 1.03, r.z0 + 0.8, 2.8, 0.06, 0.6); f.shelf(r.x1 - 0.3, r.z0 + 2, 2.6, -Math.PI / 2); }
-            if (s.kind === 'cafe') { f.ptable(r.x0 + 1.6, r.z1 - 1.3, 0.8); f.chair(r.x0 + 1.6, r.z1 - 0.5, Math.PI); f.ptable(r.x1 - 1.6, r.z1 - 1.3, 0.8);
-              f.counter(cx, r.z0 + 0.45, 4, 0.8, 1.05, tmat(T.wood())); f.box(cx + 1.2, r.z0 + 0.45, 0.5, 0.5, 0.6, col(0x3a3a40), { y: 1.05 }); f.ride('chair', r.x1 - 1.6, r.z1 - 0.5, Math.PI); }
-            if (s.kind === 'mart') { f.shelf(r.x0 + 2, r.z0 + 1.5, 2.6, Math.PI / 2,true); f.shelf(r.x0 + 4.2, r.z0 + 1.5, 2.6, Math.PI / 2,true); f.cabinet(r.x1 - 0.5, r.z0 + 1.2, 0.6, 1.8, 2, 0xd8d8e0, 0, -Math.PI / 2); }
-          } else {
-            if (s.kind === 'bakery') { f.bed(r.x1 - 1.0, r.z1 - 1.3, Math.PI, 0xd8a040); f.wardrobe(r.x0 + 0.5, r.z1 - 0.5, 0); f.rug(cx, r.z0 + 1.5, 2.4, 1.4); }
-            if (s.kind === 'cafe') { for (const [x, z, s2] of [[r.x0 + 0.7, r.z1 - 0.6, 1], [r.x0 + 1.8, r.z1 - 0.6, 0.9], [r.x0 + 0.7, r.z1 - 0.6, 0.8, 1]]) f.crate(x, z, s2); f.shelf(r.x1 - 0.3, r.z0 + 1.6, 2.4, -Math.PI / 2); }
-            if (s.kind === 'mart') { f.desk(cx, r.z1 - 0.7, Math.PI); f.ride('chair', cx, r.z1 - 1.6, 0); f.cabinet(r.x0 + 0.4, r.z0 + 1.2, 0.6, 1.4, 1.5, 0x6a6d78, 0, Math.PI / 2); }
-          }
+    const shutters = [], wood = tmat(T.wood());
+    for (const row of ROWS) row.shops.forEach(([name, bg, fg, kind, wall], i) => {
+      const z = Z0 + i * D0, east = row.side === 'e';
+      b.house({ x: row.x, z, w: W0, d: D0 - .2, h: 4.2, wall, brick: i % 2 === 0, lit: .7, roof: true, floor: kind === 'cafe' || kind === 'bakery' ? T.floorWood() : T.floorTile(),
+        door: { side: row.side, at: .5, sign: [name, bg, fg] }, awning: [bg, fg],
+        interior(f, r) { const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2, back = east ? r.x0 + .4 : r.x1 - .4, ry = east ? Math.PI / 2 : -Math.PI / 2, front = east ? r.x1 - 2.2 : r.x0 + 2.2;
+          if (kind === 'bakery') { W.spots.pickup.push({ x: f.X(cx), z: f.Z(cz), y: f.Y, f: [east ? 1 : -1, 0], district: 'Торговая улица', label: 'пекарня' }); f.counter(cx - 1, cz, .8, 4, 1.0, wood); f.m(G.box, tmat(T.produce('pumpkin')), cx - 1, 1.03, cz, .7, .05, 3.8); f.shelf(back, cz, 4, ry, true); f.item('pizza', cx - 1, cz - 1.2, 1.03); }
+          if (kind === 'clothes') { for (const zz of [r.z0 + 1.2, r.z1 - 1.2]) f.wardrobe(back + (east ? .3 : -.3), zz, ry); f.rug(cx, cz, 3, 3, '#d8608a', '#f1e8ff'); f.shelf(cx + 1.6, r.z0 + .3, 3, 0, true); f.plantPot(front, r.z1 - .5); }
+          if (kind === 'tech') { f.desk(cx, r.z0 + .7, 0, true); f.desk(cx + 2.4, r.z0 + .7, 0, true); f.shelf(back, cz, 4, ry, true); f.cabinet(cx, r.z1 - .5, 2, .6, 1.5, 0x3a3a4a, 0, Math.PI); f.item('monitor', cx - 2, cz, .0); f.item('keyboard', cx - 1.4, cz + .6); }
+          if (kind === 'toys') { f.shelf(back, cz, 4, ry, true); f.shelf(cx, r.z1 - .3, 3, Math.PI, true); f.rug(cx, cz, 3, 2.6, '#f5c542', '#7b2a8a'); for (const [x, z] of [[cx - 1, cz - .6], [cx + .8, cz + .4]]) f.item('ball', x, z); f.item('duck', cx + .2, cz - 1.2); f.item('balloon', cx - 2, cz + 1.2); }
+          if (kind === 'mart') { for (const dx of [-1.6, 1.2]) f.shelf(cx + dx, cz, 4, Math.PI / 2, true); f.cabinet(back - (east ? 0 : .2), r.z0 + 1.2, .6, 1.8, 2, 0xd8d8e0, 0, ry); f.counter(front, r.z0 + .8, .8, 1.6, 1.0, wood); f.item('pumpkin', front, r.z1 - .8); }
+          if (kind === 'cafe') { f.counter(back + (east ? .6 : -.6), cz, .8, 4, 1.05, wood); for (const zz of [r.z0 + 1.4, r.z1 - 1.4]) { f.ptable(cx + 1, zz, .8); f.chair(cx + 1, zz + (zz < cz ? .8 : -.8), zz < cz ? Math.PI : 0); } f.item('mug', back + (east ? .6 : -.6), cz - 1, 1.05); f.ride('chair', cx - 1, cz, 0); }
+          if (kind === 'pharmacy') { f.counter(cx, r.z0 + .9, 4, .8, 1.05, wood); f.shelf(back, cz, 4, ry, true); f.cabinet(cx + 2, r.z1 - .5, 1.6, .6, 1.8, 0xe8f0e8, 0, Math.PI); f.plantPot(front, r.z1 - .5); f.item('water', cx - 1, r.z0 + .9, 1.05); }
+          if (kind === 'flowers') { for (const [x, z] of [[cx - 2, r.z0 + .7], [cx, r.z0 + .7], [cx + 2, r.z0 + .7], [cx - 1, r.z1 - .7], [cx + 1, r.z1 - .7]]) f.plantPot(x, z, 1.1); f.counter(cx, cz, 2, .8, 1.0, wood); f.item('pot', cx, cz, 1.0); }
         } });
-    }
-    b.dropLadder(1, 6.25, 'w', 7.6);
-    b.plank(10, 5.2, 11.5, 5.2, 7.6, 1.1); b.plank(20.5, 5.2, 22, 5.2, 7.6, 1.1);
-    // кондиционеры на крыше
-    for (const x of [4, 15]) b.aircon(x, 6.2, 7.6);
-    b.ride('cart', 8, 14); b.ride('cart', 24, 15, 0.6);
-    b.atm(10.75, 10.25, 0);
-    // остановка
-    const mt = col(0x3a4a6a);
-    for (const x of [13.2, 18.8]) b.box(x, 27, 0.15, 0.15, 2.6, mt);
-    b.box(16, 27.6, 6, 1.6, 0.12, mt, { y: 2.6 });
-    b.vitrine(16, 26.9, 5.4, 1.9, 'x', 0.45); b.bench(16, 27.8, 0);
-    // у входов в магазины свободно: урны и гидрант — между зданиями и по краям
-    b.bin(2.2, 10.5); b.bin(31.2, 10.5); b.hydrant(21.25, 10.5);
-    b.crate(30.6, 12, 1); b.crate(30.6, 13.1, 1); b.crate(30.6, 12.5, 0.9, 1);
-    // Проход между магазинами и остановкой свободен; ящики остаются у разгрузки.
-    [3, 9, 23, 29].forEach((x, i) => b.planter(x, 18.5, 2.2, 1.2, 0.5, i % 2 ? 'shrub' : 'flowers'));
-    b.bikeRack(30.2, 14.5, 4, Math.PI / 2); b.newsBox(13.2, 10.2); b.postBox(19, 10.2); b.graffiti(31.06, 1.4, 5, Math.PI / 2, 2.6, 1); b.puddle(8, 13, 1); b.puddle(24, 24, 0.9); b.trashBags(30.6, 9.8, 2); b.streetSign(1, 10.5, 'ТОРГОВАЯ', 'ЛЕСНАЯ');
-    for (const x of [6, 11, 21, 26]) b.bollard(x, 11.2);
-    b.bench(6, 22, Math.PI); b.bench(26, 22, Math.PI); b.parasol(6, 23.6, '#d8243a', '#f1e8ff');
-    b.lamp(1, 18, Math.PI / 2); b.lamp(31, 18, -Math.PI / 2);
-    // веранда кафе: кадки по периметру, столики под зонтами
-    for (const x of [12.2, 19.8]) b.planter(x, 13.6, 0.8, 3.6, 0.6, 'shrub');
-    b.planter(16, 15.6, 6.8, 0.8, 0.6, 'flowers');
-    for (const [x, c1] of [[13.9, '#ff8a1f'], [18.1, '#9be36b']]) { b.parasol(x, 13.4, c1, '#2a1f3d'); b.table(x + 0.75, 12.6, 0.75); b.staticChair(x + 0.75, 11.9, 0); b.staticChair(x + 0.75, 13.3, Math.PI); }
-    // у пекарни — доска с меню, у «тыквенного» — ящики с овощами
-    b.chalkSign(7.6, 10.6, 0.25);
-    for (const [x, g] of [[23.4, 'pumpkin'], [29.6, 'apple']]) { b.counter(x,10.6,1.2,.7,.605,tmat(T.wood())); b.m(G.box, tmat(T.produce(g)), x, 0.58, 10.6, 1.12, 0.05, 0.62); }
-    b.item('pumpkin', 28.5, 11.2); b.item('tomato', 23.2, 10.6, 0.6); b.item('tomato', 29.4, 10.7, 0.6);
-    // клумба-островок с деревом в центре площадки
-    b.planter(16, 21.5, 3, 3, 0.5, 'tree'); b.bench(16, 19.4, Math.PI); b.bench(16, 23.6, 0);
-    b.tree(3, 29.5); b.tree(29, 29.5);
-    b.zone('floor', 1, 10.5, 31, 31);
-    b.spawn(16, 17.6); b.spawn(5, 18);
-    b.hw(() => { b.pumpkin(4.2, 9.2); b.pumpkin(27.8, 9.2); b.stringLights(1.5, 11.2, 30.5, 11.2, 3.4); });
+      // роллставня над дверью + лампа-предупреждение
+      const dx = east ? row.x + W0 + .14 : row.x - .14, dz = z + (D0 - .2) / 2, SW = 2.3, SH = 2.4;
+      b.m(G.box, col(0x3a3440), dx, 2.62, dz, .28, .28, SW + .3); // короб
+      const sh = b.m(G.box, smat(T.corrugated(0xb8b4ac)), dx, 2.45, dz, .06, .1, SW); sh.userData.noBatch = true; W.keep.push(sh);
+      const lamp = b.warnLamp(dx + (east ? .1 : -.1), 3.0, dz + SW / 2 + .1, 0xffc030, .18);
+      const sol = b.solid(dx, dz, .25, SW, 0, SH); sol.on = false;
+      const exitX = east ? row.x + W0 + 1.2 : row.x - 1.2;
+      b.hazard({ x0: row.x + .3, z0: z + .3, x1: row.x + W0 - .3, z1: z + D0 - .5, exit: [exitX, dz], active: () => S.state === 'warn' || S.state === 'close' });
+      b.grabTarget({ x: east ? dx + 1.1 : dx - 1.1, z: dz, r: .9, kind: 'fling', t: 1, dir: [east ? -1 : 1, 0], label: 'дверь', ring: i % 2 === 0 });
+      shutters.push({ sh, lamp, sol, y0: b.Y + 2.45, x: b.X(dx), z: b.Z(dz) });
+    });
+    // звонок → 1.5 с мигают лампы → ставни вниз (0.5 с) → 5 с закрыто → вверх
+    const S = { state: 'open', t: 0, next: 35 + Math.random() * 15 };
+    W.animated.push(dt => { S.t += dt; const k = S.state === 'down' ? Math.min(1, S.t / .5) : S.state === 'closed' ? 1 : S.state === 'up' ? 1 - Math.min(1, S.t / .8) : 0;
+      if (S.state === 'open' && S.t > S.next) { S.state = 'warn'; S.t = 0; sfx('bell', { at: { x: b.X(22), y: b.Y + 3, z: b.Z(22) }, range: 60 }); }
+      else if (S.state === 'warn' && S.t > 1.5) { S.state = 'down'; S.t = 0; sfx('shutter', { at: { x: b.X(22), y: b.Y + 2, z: b.Z(22) }, range: 40 }); }
+      else if (S.state === 'down' && S.t > .5) { S.state = 'closed'; S.t = 0; }
+      else if (S.state === 'closed' && S.t > 5) { S.state = 'up'; S.t = 0; sfx('shutter', { at: { x: b.X(22), y: b.Y + 2, z: b.Z(22) }, range: 40 }); }
+      else if (S.state === 'up' && S.t > .8) { S.state = 'open'; S.t = 0; S.next = 40 + Math.random() * 20; }
+      for (const q of shutters) { const h = Math.max(.1, 2.4 * k); q.sh.scale.y = h; q.sh.position.y = q.y0 - h / 2 + .05; q.sh.updateMatrix();
+        q.lamp.set(S.state === 'warn' ? (Math.sin(S.t * 14) > 0 ? 1 : .1) : S.state === 'down' || S.state === 'closed' ? .4 : 0);
+        const was = q.sol.on; q.sol.on = k > .6; if (q.sol.on && !was) for (const a of actors()) if (Math.abs(a.pos.x - q.x) < .5 && Math.abs(a.pos.z - q.z) < 1.2) a.pos.x += a.pos.x < q.x ? -.5 : .5; } });
+    // S объявлена после замыканий выше — к моменту вызова уже есть
+    W.shopShutters = S;
+
+    /* ---------- пешеходная улица ---------- */
+    b.ground(15.6, 0, 28.4, 44, T.cobble(), 2.2, .012);
+    for (const [x, z, k] of [[20, 14, 'flowers'], [24, 30, 'flowers'], [22, 22, 'tree']]) b.planter(x, z, k === 'tree' ? 3 : 4, k === 'tree' ? 3 : 2, .5, k);
+    b.bench(22, 19.6, Math.PI); b.bench(22, 24.4, 0); b.bench(18, 36, Math.PI / 2); b.bench(26, 8, -Math.PI / 2);
+    for (const [x, c1] of [[19, '#ff8a1f'], [25, '#9be36b']]) { b.parasol(x, 33.8, c1, '#2a1f3d'); b.table(x + .75, 33.2, .75); b.staticChair(x + .75, 32.5, 0); b.staticChair(x + .75, 33.9, Math.PI); }
+    b.tree(22, 6.5); b.tree(22, 38.5); b.tree(17, 42.5, .8); b.tree(27, 42.5, .8);
+    b.ride('cart', 18, 12); b.ride('cart', 26.5, 27, .6); b.cartCorral(25.6, 3.4, 3);
+    b.atm(15.9, 26, Math.PI / 2); b.newsBox(28.1, 17.5, -Math.PI / 2); b.postBox(15.9, 36, Math.PI / 2); b.hydrant(28.2, 40);
+    b.chalkSign(17, 6.2, .25); b.bikeRack(27.5, 21.5, 3, Math.PI / 2);
+    b.bin(16.2, 10); b.bin(27.8, 31); b.trashBags(1.2, 41.5, 2); b.crate(42.6, 41.6, .9); b.crate(42.6, 42.6, .7);
+    for (const z of [10, 22, 34]) { b.lamp(16, z + 2.5, Math.PI / 2); b.lamp(28, z - 2.5, -Math.PI / 2); }
+    for (const x of [18.4, 25.6]) b.bollard(x, .8);
+    b.puddle(20, 28, 1); b.puddle(25, 16, .8);
+    b.streetSign(16.2, 1, 'ТОРГОВАЯ', 'ЛЕСНАЯ');
+    b.hw(() => { b.stringLights(16, 4, 28, 4, 3.6); b.stringLights(16, 40, 28, 40, 3.6); b.pumpkin(17, 27.5); b.pumpkin(27, 9); });
+    b.zone('floor', 16, 2, 28, 42); b.cats(16, 26, 28, 42);
+    b.spawn(22, 16); b.spawn(20, 28); b.spawn(24, 40);
   },
 };

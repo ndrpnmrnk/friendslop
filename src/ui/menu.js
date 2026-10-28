@@ -1,4 +1,3 @@
-import {ISLE} from './hub-isle2.js';
 import {updateVfx,resetVfx,impactBurst,sparks as vfxSparks} from '../game/vfx.js';
 import {createLocalLighting} from '../world/scene-lighting.js';
 import {updateActionEffects} from '../world/action-fx.js';
@@ -55,6 +54,10 @@ export function createMenu(){
   const haze=createHaze(scene,0x8a80b0,.9,36);const bounce=new THREE.DirectionalLight(0x8a7ac8,.35*Math.PI);bounce.position.set(-direction.x*45,30,-direction.z*45);scene.add(bounce);
   // v0.58: тёплый отсвет ночного города снизу — подсвечивает каменное дно острова и облака снизу
   const cityGlow=new THREE.DirectionalLight(0xff9a5a,.8*Math.PI);cityGlow.position.set(8,-60,14);scene.add(cityGlow);
+  // v0.60: в помещениях (гардероб, аркада) уличный свет не мешает: луна с тенями от рам, синий отсвет и оранжевый
+  // свет города снизу гаснут, общий свет — ровный тёплый-белый. Иначе на полу полосы теней, а лицо персонажа рыжее снизу.
+  const LB={hemi:hemi.intensity,hc:hemi.color.clone(),hg:hemi.groundColor.clone(),moon:moon.intensity,bounce:bounce.intensity,glow:cityGlow.intensity},IN_C=new THREE.Color(0xfff2ea),IN_G=new THREE.Color(0xcbb8b0);let inK=0;
+  const indoor=k=>{cityGlow.intensity=LB.glow*(1-k);moon.intensity=LB.moon*(1-.92*k);bounce.intensity=LB.bounce*(1-k);hemi.intensity=LB.hemi*(1+1.1*k);hemi.color.copy(LB.hc).lerp(IN_C,k);hemi.groundColor.copy(LB.hg).lerp(IN_G,k);};
   // v0.58: общий план острова, откуда камера подлетает к персонажу (на заставке и при возвращении в хаб)
   const WIDE_P=new V3(60,-6,74),WIDE_L=new V3(0,-4,0),bez=(a,c,b,k)=>a.clone().multiplyScalar((1-k)*(1-k)).addScaledVector(c,2*k*(1-k)).addScaledVector(b,k*k);
   // на общем плане туман отодвигаем, чтобы остров читался целиком; к персонажу — обычный
@@ -118,18 +121,14 @@ export function createMenu(){
   function clearThrow(){if(st.player)st.player.charging=false;for(const m of arc)m.visible=false;land.visible=false;}
   const stationAt=p=>world.stations.find(q=>Math.abs(p.y)<.6&&(q.contains?q.contains(p):Math.hypot(p.x-q.p.x,p.z-q.p.z)<q.r));
   function hubTarget(){const P=st.player,ordinary=worldTarget(P,camera,{items:false}),q=stationAt(P.pos);if(!q||P.held||ordinary&&ordinary.s<.9)return ordinary;
-    return {station:q,label:{wardrobe:'Гардероб',claw:'Автомат',scope:'Телескоп'}[q.id],act:()=>{}};}
-  // v0.59: вид в телескоп — круглое окно с затемнением по краям
-  const scopeView=on=>{let e=$('scopeView');if(!e){e=document.createElement('div');e.id='scopeView';e.innerHTML='<span>Мышь — смотреть · E — выйти</span>';e.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:5;background:radial-gradient(circle at 50% 50%,transparent 0 34vh,rgba(0,0,0,.55) 35vh,#000 37vh);display:none';e.firstChild.style.cssText='position:absolute;left:50%;bottom:4vh;transform:translateX(-50%);color:#fff;font:600 14px system-ui;opacity:.8';document.body.appendChild(e);}e.style.display=on?'block':'none';};
+    return {station:q,label:{wardrobe:'Гардероб',claw:'Автомат'}[q.id],act:()=>{}};}
   st.interact=()=>scope(()=>{
-    if(st.mode==='scope'){st.scope=null;scopeView(false);camera.fov=CONFIG.camera.fov;camera.updateProjectionMatrix();roam();sfx('click');return;}
-    const P=st.player;if(st.mode!=='roam'||st.pause||st.transition||P.stun>0||P.getT>0||P.heldBy)return;
+        const P=st.player;if(st.mode!=='roam'||st.pause||st.transition||P.stun>0||P.getT>0||P.heldBy)return;
     if(st.flow?.stage==='cutscene')return;
     const near=hubTarget()?.station;
     if(P.ride||P.grab||P.bench||P.swing||P.hidden||P.holding){leaveObject(P);return;}
     const station=near;if(!station||P.held){interactObject(P,camera);return;}if(P.dive||P.slideT>0||!P.onGround)return;
     if(station.id==='wardrobe'){st.idx=collectionOrder().indexOf(collection().selected);wardrobeTransition(false);}
-    else if(station.id==='scope'){st.scope={yaw:Math.atan2(station.eye.x-ISLE.c.x,station.eye.z-ISLE.c.z),pitch:-.28,eye:station.eye.clone(),back:{yaw:rig.state.yaw,pitch:rig.state.pitch}};mode('scope');st.ch.root.visible=false;st.ch.blob.visible=false;scopeView(true);requestLock();sfx('click');}
     else{
       st.clawRoam={yaw:rig.state.yaw,pitch:rig.state.pitch,pos:P.pos.clone(),actorYaw:P.root.rotation.y};const shot=st.claw.cameraPose(camera,true);travel('arcade-in',P.pos,shot.p,shot.l,1.6,()=>{mode('claw');st.ch.root.visible=false;st.claw.open();},{yaw:Math.PI/2});
     }
@@ -267,10 +266,8 @@ export function createMenu(){
       const speed=st.player.pos.distanceTo(previousActor)/Math.max(dt,.001);st.ch.animate(dt,{t:st.t,speed:speed/CONFIG.player.sprint*1.4,ride:st.sit>.05?'sit':null,dangle:true});
       if(q.t>=q.duration){if(q.arc)setFog(1);st.player.pos.copy(q.to);st.player.facing=st.ch.root.rotation.y;st.transition=null;q.done();}
     }
-    else if(st.mode==='scope'&&st.scope){const q=st.scope,d=takeLook();q.yaw-=d.dx*.0016;q.pitch=clamp(q.pitch-d.dy*.0016,-1.2,.3);camera.position.copy(q.eye);
-      look.set(q.eye.x+Math.sin(q.yaw)*Math.cos(q.pitch)*20,q.eye.y+Math.sin(q.pitch)*20,q.eye.z+Math.cos(q.yaw)*Math.cos(q.pitch)*20);camera.fov+=(20-camera.fov)*(1-Math.exp(-dt*5));camera.updateProjectionMatrix();st.ch.animate(dt,{t:st.t,speed:0});}
     else if(st.mode==='roam'&&!st.pause&&!st.pausedForSettings)walk(dt);else st.ch.animate(dt,{t:st.t,speed:0,ride:st.sit>.05?'sit':null,dangle:true});
-    if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}sky.update(camera,st.t,dt);{const c=camera.position,inside=(c.x>-17&&c.x<-10.8&&c.z>-8.8&&c.z<-1.2)||(c.x>10.8&&c.x<19.8&&c.z>-10.2&&c.z<.2)||st.mode==='claw'||st.mode==='wardrobe';haze.set(inside?0:1);/* v0.59: в помещениях дымки нет — она давала светлую пелену и полосы на стенах */}haze.update(st.t,camera);world.island.update(dt,st.t);world.isle2.update(dt,st.t,st.mode==='roam'?st.player:null);setListener(camera.position.x,camera.position.y,camera.position.z);
+    if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}sky.update(camera,st.t,dt);{const c=camera.position,inside=(c.x>-17&&c.x<-10.8&&c.z>-8.8&&c.z<-1.2)||(c.x>10.8&&c.x<19.8&&c.z>-10.2&&c.z<.2)||st.mode==='claw'||st.mode==='wardrobe';haze.set(inside?0:1);{const k0=inK;inK+=((inside?1:0)-inK)*(1-Math.exp(-dt*8));if(Math.abs(inK-k0)>1e-4||inK>.999&&k0!==1)indoor(inK>.999?1:inK<.001?0:inK);}/* v0.59: в помещениях дымки нет — она давала светлую пелену и полосы на стенах */}haze.update(st.t,camera);world.island.update(dt,st.t);world.isle2.update(dt,st.t,st.mode==='roam'?st.player:null);setListener(camera.position.x,camera.position.y,camera.position.z);
     for(const{light}of world.lampLights)light.removeFromParent();scope(()=>{if(!localLighting.wl)localLighting.rebuild();localLighting.update(camera,dt);});
     screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){if(st.flow?.stage==='cutscene')text='';else if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(!P.ride){const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
 

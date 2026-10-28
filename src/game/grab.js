@@ -5,6 +5,7 @@ import { actors, dropHeld } from './actors.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
 import { raySolids } from '../world/physics.js';
+import { tryGrabTarget, updateGrabTargets } from './grab-targets.js';
 
 /* Захват удерживает соперника за одежду на земле. Оба продолжают ходить,
    схваченный сильно замедлен и может вырваться. Подъёма и броска персонажа нет. */
@@ -86,7 +87,9 @@ export function updateGrabs(dt) {
     if (b.bot && !(b.stun > 0)) b.struggle += dt * 0.42;
     if (b.struggle >= 1) { breakFree(b); continue; }
     poseGrip(a,b,dt);
+    if (tryGrabTarget(a, b)) letGo(a); // v0.60: дотащил до цели района (бак, вода, маты…)
   }
+  updateGrabTargets(dt);
 }
 
 /* ---------- эмоции на 1–5 ---------- */
