@@ -85,3 +85,27 @@ test('eight-player lobby relays host packets to all seven guests and guest input
   assert(!clients[7].messages.some(m=>m.n===801&&m.id===clients[7].welcome.id));
  }finally{for(const c of clients)c.ws.close(1000,'leave');}
 });
+
+
+test('shared FIST snapshots and host-only grants use the existing match transport',async()=>{
+ const code='F'+Math.random().toString(36).slice(2,7).toUpperCase();
+ const h=await connect(code,'fist-host',true,'fist-version',true),g=await connect(code,'fist-guest',false,'fist-version');
+ try{
+  const rows=[[1,2.5,0,6.5,0],[2,4,1,8,1]];
+  h.send({t:'st',m:'match',protocol:2,ep:814,n:1,w:{coins:rows}});
+  const snapshot=await g.next(m=>m.t==='st'&&m.n===1);
+  assert.deepEqual(snapshot.w.coins,rows);
+  g.send({t:'ev',e:'effect',ep:814,to:'p'+g.welcome.id,k:'coin-award',v:{coin:1}});
+  await new Promise(r=>setTimeout(r,60));
+  assert(!h.messages.some(m=>m.k==='coin-award'),'guest cannot forge host-only currency grants');
+  g.send({t:'st',m:'match',protocol:2,ep:814,n:2,cmds:[{kind:'coin-take',coin:1}]});
+  const claim=await h.next(m=>m.t==='st'&&m.n===2);
+  assert.equal(claim.cmds[0].coin,1);
+  h.send({t:'ev',e:'effect',ep:814,to:'p'+g.welcome.id,k:'coin-award',v:{coin:1}});
+  const grant=await g.next(m=>m.e==='effect'&&m.k==='coin-award');
+  assert.equal(grant.v.coin,1);assert.equal(grant.id,h.welcome.id);
+  g.send({t:'ev',e:'cmd',ep:814,kind:'coin-ack',coin:1});
+  const ack=await h.next(m=>m.e==='cmd'&&m.kind==='coin-ack');
+  assert.equal(ack.coin,1);assert.equal(ack.id,g.welcome.id);
+ }finally{h.ws.close(1000,'leave');g.ws.close(1000,'leave');}
+});
