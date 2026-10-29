@@ -8,6 +8,7 @@ import { botHitHook } from '../game/bots.js';
 import { cargoPosition, poseMeleeItem } from '../game/handheld.js';
 import { pushOut, pushActorsOut, bumpPushables } from '../world/physics.js';
 import { vector, sweepPosition } from './state-codec.js';
+import { worldIntervalFor } from './cadence.js';
 
 const poseKeys='speed air vy climb dive roll slide crouch hold held2 restrained payload stun getup rag daze ride rideSpeed emote emoteT dangle sit board cyclePhase look act actK fly flySpin missionTool'.split(' ');
 const pose=a=>Object.fromEntries(poseKeys.filter(k=>['number','string','boolean'].includes(typeof a?.[k])).map(k=>[k,a[k]]));
@@ -94,8 +95,8 @@ export function createHubSession(world,remotes,options){
      worldT-=dt;full-=dt;
      if(host){m.fix=[];m.hs=[P,...world.state.bots].map(packet);const pm=net.motionEntries();if(pm.length)m.pm=pm;m.slots={...slots};m.door=world.curtainOpen;
        for(const a of world.state.bots)if(a.netInput){const p=a.netInput.p,dx=a.pos.x-p[0],dz=a.pos.z-p[2];if(Math.hypot(dx,dz)>.015){m.fix.push({to:a.netKey,n:a.netInput.n,delta:[dx,0,dz]});a.netInput=null;}}
-       if(worldT<=0){worldT=.2;m.hw=net.capture(full<=0);if(full<=0)full=3;}
-     }else{m.door=world.curtainOpen;if(worldT<=0){worldT=.2;m.c=net.proposals();}if(queue.length)m.cmds=queue.splice(0);}
+       if(worldT<=0){worldT=worldIntervalFor(NET.players.size);m.hw=net.capture(full<=0);if(full<=0)full=3;}
+     }else{m.door=world.curtainOpen;if(worldT<=0){worldT=worldIntervalFor(NET.players.size);m.c=net.proposals();}if(queue.length)m.cmds=queue.splice(0);}
    },get host(){return host;},get slots(){return slots;},get net(){return net;}
  };
 }
