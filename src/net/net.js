@@ -16,7 +16,7 @@ const listeners = {};
 export const onNet = (ev, fn) => { (listeners[ev] ??= []).push(fn); };
 const emit = (ev, ...a) => { for (const f of listeners[ev] || []) try { f(...a); } catch (e) { console.error(e); } };
 
-export const NET = { ws: null, state: 'off', code: '', id: 0, host: false, players: new Map(), rtt: 0, offset:0, skin: 'cat', error: '' };
+export const NET = { ws: null, state: 'off', code: '', id: 0, host: false, players: new Map(), rtt: 0, offset:0, skin: 'cat', error: '',botsEnabled:true };
 let pingT = null, retryTimer = null, retry = 0, wantClose = false, lastCreate = false;
 export const hubHostId=()=>[...NET.players.values()].filter(p=>p.scene!=='match').sort((a,b)=>Number(b.host)-Number(a.host)||a.id-b.id)[0]?.id;
 export const serverNow=()=>Date.now()+NET.offset;
@@ -33,7 +33,7 @@ function open(code, create) {
   let ws; try { ws = new WebSocket(serverUrl() + '/ws?room=' + code); } catch { fail('Сервер недоступен'); return; }
   NET.ws = ws;
   ws.onopen = () => { let token = SS('friendslop.tok.' + code); if (!token) { token = random().toString(36).slice(2) + Date.now().toString(36); SS('friendslop.tok.' + code, token); }
-    send({ t: 'hello', name: myName() || 'Игрок', skin: NET.skin, ver: VER, migrate: true, create: create ? 1 : 0, token }); };
+    send({ t: 'hello', name: myName() || 'Игрок', skin: NET.skin, ver: VER, migrate: true,bots:LS('friendslop.bots')!=='0', create: create ? 1 : 0, token }); };
   ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch { return; } handle(m); };
   ws.onclose = () => { if (NET.ws !== ws) return; clearInterval(pingT); NET.ws = null;
     if (NET.state !== 'off' && !wantClose && retry < 4) { retry++; NET.state = 'connecting'; emit('state'); emit('toast', 'Связь пропала — переподключаюсь…'); retryTimer = setTimeout(() => {if(!wantClose)open(NET.code, false);}, 800 * retry); return; }
@@ -45,9 +45,10 @@ function setInviteUrl(code) { try { const u = new URL(location.href); if (code) 
 
 function handle(m) {
   switch (m.t) {
-    case 'welcome': retry = 0; NET.state = 'on'; NET.id = m.id; NET.host = m.host; NET.code = m.code; NET.players.clear(); for (const p of m.players) NET.players.set(p.id, p);
+    case 'welcome': retry = 0; NET.state = 'on'; NET.id = m.id; NET.host = m.host; NET.code = m.code;NET.botsEnabled=m.bots!==false; NET.players.clear(); for (const p of m.players) NET.players.set(p.id, p);
       clearInterval(pingT); pingT = setInterval(() => send({ t: 'p', c: performance.now() }), 3000); send({ t: 'p', c: performance.now() });
       setInviteUrl(m.code); emit('state'); for (const p of m.players) if (p.id !== m.id) emit('join', p); break;
+    case 'rules': NET.botsEnabled=m.bots!==false;emit('rules');emit('state');break;
     case 'err': { const e = { nf: 'Нет такого лобби', busy: 'Код занят — пробую другой', full: 'Лобби заполнено (8 из 8)', ver: 'У вас разные версии игры — обновите страницу (Ctrl+F5)', bad: 'Неверный код' }[m.e] || 'Ошибка';
       if (m.e === 'busy' && lastCreate) { wantClose = true; open(newCode(), true); return; } wantClose = true; fail(e); break; }
     case 'join': NET.players.set(m.p.id, m.p); emit('join', m.p); emit('toast', m.p.name + ' в лобби'); emit('state'); break;
@@ -74,3 +75,6 @@ export function mute(id, v) { if (NET.host) send({ t: 'mute', id, v: v ? 1 : 0 }
 export const inviteLink = () => { const u = new URL(location.href); u.search = ''; u.hash = ''; u.searchParams.set('room', NET.code); return u.toString(); };
 export const roomFromUrl = () => { const c = new URLSearchParams(location.search).get('room'); return c ? c.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) : ''; };
 export const version = VER;
+
+export const botsEnabled=()=>inRoom()?NET.botsEnabled:LS('friendslop.bots')!=='0';
+export function setBotsEnabled(value){if(inRoom()&&!NET.host)return;const v=!!value;LS('friendslop.bots',v?'1':'0');NET.botsEnabled=v;if(inRoom())send({t:'rules',bots:v});emit('rules');emit('state');}

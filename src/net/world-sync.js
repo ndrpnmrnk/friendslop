@@ -1,3 +1,5 @@
+import {toggleRadio,tuneRadio} from '../game/radio.js';
+import {withSoundSource,sfx} from '../core/sfx.js';
 import { W } from '../world/state.js';
 import { V3, THREE } from '../core/gfx.js';
 import { addItem, pickUp, launch, drop } from '../game/items.js';
@@ -54,7 +56,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
   }
   function pack(type, o) {
     switch (type) {
-      case 'i': return [o.type, o.state, ...pos(o.pos), ...pos(o.vel), ...[o.g.rotation.x, o.g.rotation.y, o.g.rotation.z].map(q), keyOf(o.owner), o.noPickup ? 1 : 0, o.ammo || 0, o.taken ? 1 : 0, o.g.visible ? 1 : 0,q(o.cd),q(o.draw),q(o.aimT),o.perfumeEffect||'',o.mission?.id||null];
+      case 'i': return [o.type, o.state, ...pos(o.pos), ...pos(o.vel), ...[o.g.rotation.x, o.g.rotation.y, o.g.rotation.z].map(q), keyOf(o.owner), o.noPickup ? 1 : 0, o.ammo || 0, o.taken ? 1 : 0, o.g.visible ? 1 : 0,q(o.cd),q(o.draw),q(o.aimT),o.perfumeEffect||'',o.mission?.id||null,o.radio?[o.radio.on?1:0,o.radio.station,o.radio.since,o.radio.offset]:null];
       case 'p': return [o.kind, q(o.x), q(o.y), q(o.z), q(o.vx), q(o.vy), q(o.vz), ...[o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z].map(q), o.dead ? 1 : 0, o.tipped ? 1 : 0, keyOf(o.rider), keyOf(o.grabbed), q(o.heading)];
       case 's': return [...fields.map(k => q(o[k])), o.on ? 1 : 0];
       case 'a': return Object.getOwnPropertyDescriptor(o,'x')?.get?null:[q(o.x),q(o.y),q(o.z),q(o.r)];
@@ -101,7 +103,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       case 'i': {
         const owner = actor(v[11]);
         if (o.owner?.held === o && (v[1] !== 'held' || owner !== o.owner)) o.owner.held = null;
-        o.state = v[1]; o.owner = owner; o.vel.fromArray(v.slice(5, 8)); o.noPickup = !!v[12]; o.ammo = v[13]; o.taken = !!v[14]; o.g.visible = !!v[15];o.cd=v[16]||0;if(owner!==W.player){o.draw=v[17]||0;o.aimT=v[18]||0;}o.perfumeEffect=v[19]||undefined;o.mission=v[20]?api.getMission?.(v[20]):null;
+        o.state = v[1]; o.owner = owner; o.vel.fromArray(v.slice(5, 8)); o.noPickup = !!v[12]; o.ammo = v[13]; o.taken = !!v[14]; o.g.visible = !!v[15];o.cd=v[16]||0;if(owner!==W.player){o.draw=v[17]||0;o.aimT=v[18]||0;}o.perfumeEffect=v[19]||undefined;o.mission=v[20]?api.getMission?.(v[20]):null;if(o.type==='boombox'){const r=v[21]||[0,0,0,0];Object.assign(o.radio||(o.radio={}),{on:!!r[0],station:r[1],since:r[2],offset:r[3]});}
         if (o.state === 'held' && owner) { visual.delete(o.g);owner.held = o; if (owner !== W.player) cargoPosition(owner, o.pos, o.def.r); }
         else target(o.g, v.slice(2, 5));
         o.g.rotation.set(...v.slice(8, 11)); break;
@@ -150,7 +152,8 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     const from = a.pos.clone().add(new V3(0, 1, 0)), to = new V3(p.x, p.y + .7, p.z).sub(from), len = to.length();
     return len < .4 || raySolids(from, to.normalize(), len) >= len - .4;
   }
-  function act(a, msg) {
+  function act(a,msg){return withSoundSource(a,()=>actInner(a,msg));}
+  function actInner(a, msg) {
     if(msg.kind==='drone-action'){if(vector(msg.direction,3,1.1)&&[0,2].includes(msg.button))W.netDroneInput?.(a,msg.button,new V3(...msg.direction));return;}
     if(msg.kind==='demolish'){api.demolish?.(a);return;}
     const o = objects.get(msg.key)?.o;
@@ -167,6 +170,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     }
     if(msg.kind==='release-tool'){if(o.owner===a&&o.state==='held'&&vector(msg.target))W.netReleaseTool?.(a,o,new V3(...msg.target));return;}
     if(msg.kind==='dog'){if(reachable(a,p,1.6))W.netGrabDog?.(a);return;}
+    if(msg.kind==='radio'){if(o.type==='boombox'&&(o.owner===a&&o.state==='held'||reachable(a,p,2.5))){if(msg.action==='toggle')toggleRadio(o);else if(msg.action==='tune')tuneRadio(o,msg.step===-1?-1:1);}return;}
     if (msg.kind === 'throw') {
       if (o.state !== 'held' || o.owner !== a || !vector(msg.v, 3, 65)) return;
       const from = a.pos.clone().add(new V3(0, 1, 0)); a.held = null; launch(o, from, new V3(...msg.v)); return;
@@ -176,7 +180,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     if (!reachable(a, p, msg.kind === 'interact' ? Math.min(4, o.r || 2.4) + .3 : 2.5)) return;
     if (msg.kind === 'take') { if (!a.held && ['rest', 'placed', 'fly'].includes(o.state) && (!o.boxed || o.boxed.open) && pickUp(o) !== false) { o.owner = a; a.held = o; o.wasHeld = true; } }
     else if(msg.kind==='slam'){o.open=true;o.av=msg.ux?Math.sign(msg.ux)*10:10;}
-    else if (msg.kind === 'door') { o.open = !o.open; o.dirS = null; o.av = 0; }
+    else if (msg.kind === 'door') { o.open = !o.open; o.dirS = null; o.av = 0;sfx('door',{at:p}); }
     else if (msg.kind === 'mount') { if (!o.rider && !o.grabbed) mount(a, o); }
     else if (msg.kind === 'cart') { if (!o.rider && !o.grabbed) grab(a, o); }
     else if (msg.kind === 'interact' && (!o.enabled || o.enabled(a))) o.act(a);

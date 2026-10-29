@@ -1,5 +1,5 @@
 import { random } from '../core/random.js';
-import { NET, onNet, inRoom, me, myName, createRoom, joinRoom, leaveRoom, setReady, setName, kick, mute, inviteLink, roomFromUrl } from './net.js';
+import { NET, onNet, inRoom, me, myName, createRoom, joinRoom, leaveRoom, setReady, setName, kick, mute, inviteLink, roomFromUrl,botsEnabled,setBotsEnabled } from './net.js';
 import { remoteMode } from './hub-sync.js';
 import { SKINS } from '../characters/skins.js';
 import { sfx } from '../core/sfx.js';
@@ -41,6 +41,7 @@ function renderLobby() {
   const mine = me(), host = NET.host, list = [...NET.players.values()].sort((a, b) => (b.host - a.host) || a.id - b.id);
   box.innerHTML = `<small>ЛОББИ · ${list.length}/8</small>
     <div class="lbCode"><span>КОД</span><b>${esc(NET.code)}</b><button class="lbLink" data-a="copy">скопировать ссылку</button></div>
+    <div class="lbNick"><span>Боты-соперники</span><button class="stog ${botsEnabled()?'on':''}" role="switch" aria-label="Боты-соперники" aria-checked="${botsEnabled()}" data-a="bots" ${host?'':'disabled'}>${botsEnabled()?'ВКЛ':'ВЫКЛ'}</button></div>
     <ul class="lbList">${list.map(p => { const away = p.id !== NET.id && remoteMode(p.id) === 'match';
       return `<li class="${p.id === NET.id ? 'me' : ''}"><i class="lbSkin">${esc((SKINS[p.skin]?.name || p.skin || '').slice(0, 1))}</i>
         <b>${p.host ? '<em>ХОСТ</em>' : ''}${esc(p.name)}</b>
@@ -56,6 +57,7 @@ function act(a, id) {
   else if (a === 'create') { if (!myName()) askNick(() => createRoom(skinNow())); else createRoom(skinNow()); }
   else if (a === 'join') { const c = $('lbCode')?.value; if (!myName()) askNick(() => joinRoom(c, skinNow())); else joinRoom(c, skinNow()); }
   else if (a === 'copy') { const link = inviteLink(); (navigator.clipboard?.writeText(link) || Promise.reject()).then(() => toast('Ссылка скопирована — кинь её друзьям'), () => { prompt('Ссылка-приглашение:', link); }); }
+  else if(a==='bots')setBotsEnabled(!botsEnabled());
   else if (a === 'ready') setReady(!me()?.ready);
   else if (a === 'leave') { leaveRoom(); toast('Ты вышел из лобби'); }
   else if (a === 'kick') kick(+id);

@@ -31,6 +31,15 @@ export class Room extends DurableObject {
     if(!m||typeof m!=='object'||Array.isArray(m))return;
     const a = ws.deserializeAttachment() || {};
     if (!a.id) { if (m.t === 'hello') await this.hello(ws, a, m); return; }
+    // Адресный WebRTC-сигналинг: медиа через Worker не проходят. Отдельный бюджет для ICE при входе.
+    if(m.t==='ev'&&m.e==='rtc'){
+      const now=Date.now();if(!a.rtcAt||now-a.rtcAt>10000){a.rtcAt=now;a.rtcN=0;}if(++a.rtcN>160)return;ws.serializeAttachment(a);
+      const target=this.players().find(p=>p.a.id===m.to&&p.a.id!==a.id);if(!target)return;
+      const out={t:'ev',e:'rtc',id:a.id,to:m.to};
+      if(m.description&&['offer','answer'].includes(m.description.type)&&typeof m.description.sdp==='string'&&m.description.sdp.length<=32768)out.description={type:m.description.type,sdp:m.description.sdp};
+      else if(m.candidate&&typeof m.candidate.candidate==='string'&&m.candidate.candidate.length<=2048)out.candidate={candidate:m.candidate.candidate,sdpMid:typeof m.candidate.sdpMid==='string'?m.candidate.sdpMid.slice(0,32):null,sdpMLineIndex:Number.isInteger(m.candidate.sdpMLineIndex)?m.candidate.sdpMLineIndex:null,usernameFragment:typeof m.candidate.usernameFragment==='string'?m.candidate.usernameFragment.slice(0,256):undefined};
+      else return;this.send(target.ws,out);return;
+    }
     const now=Date.now();if(!a.rateAt||now-a.rateAt>=1000){a.rateAt=now;a.rateN=0;}if(++a.rateN>45)return;ws.serializeAttachment(a);
     switch (m.t) {
       case 'st': case 'ev': {
@@ -51,6 +60,7 @@ export class Room extends DurableObject {
         if(!a.host&&(m.w||m.h||m.b||m.t==='ev'&&(['hub','flow','roster','final','mission-grant','host-pause','correction','effect'].includes(m.e)||m.e==='hit'&&m.ep!==undefined)))break;
         this.cast(m,ws);break;
       }
+      case 'rules': {if(!a.host||typeof m.bots!=='boolean')break;await this.ctx.storage.put('bots',m.bots);this.cast({t:'rules',bots:m.bots});break;}
       case 'p': this.send(ws, { t: 'P', c: m.c, s:Date.now() }); break;
       case 'ready': a.ready = !!m.v; ws.serializeAttachment(a); this.cast({ t: 'upd', p: this.pub(a) }); break;
       case 'skin': a.skin = clean(m.s); ws.serializeAttachment(a); this.cast({ t: 'upd', p: this.pub(a) }); break;
@@ -68,7 +78,7 @@ export class Room extends DurableObject {
     if (!/^[A-Z0-9]{4,6}$/.test(a.code || '')) return fail('bad');
     const ver = String(m.ver || '').slice(0, 20), name = clean(m.name) || 'Игрок', token = String(m.token || '').slice(0, 40);
     let host = false, restored = null;
-    if (m.create) { if (list.length) return fail('busy'); await st.deleteAll(); await st.put({ ver, migrate:!!m.migrate, hostToken: token, next: 1 }); host = true; }
+    if (m.create) { if (list.length) return fail('busy'); await st.deleteAll(); await st.put({ ver, migrate:!!m.migrate, bots:m.bots!==false, hostToken: token, next: 1 }); host = true; }
     else {
       if (!list.length) return fail('nf');
       const rv = await st.get('ver'); if (rv && rv !== ver) return fail('ver');
@@ -85,7 +95,7 @@ export class Room extends DurableObject {
     const id=restored?.id||(await st.get('next'))||1;if(!restored)await st.put('next',id+1);
     Object.assign(a, { id, name, skin: clean(m.skin) || 'cat', ready: false, host, muted: false, rtt: 0, token });
     ws.serializeAttachment(a);
-    this.send(ws, { t: 'welcome', id, host, code: a.code, players: this.players().map(q => this.pub(q.a)) });
+    this.send(ws, { t: 'welcome', id, host, code: a.code, players: this.players().map(q => this.pub(q.a)),bots:(await st.get('bots'))!==false });
     this.cast({ t: 'join', p: this.pub(a) }, ws);
   }
   async webSocketClose(ws,code,reason) { await this.gone(ws,code,reason); }

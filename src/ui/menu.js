@@ -68,6 +68,7 @@ export function createMenu(){
   // на общем плане туман отодвигаем, чтобы остров читался целиком; к персонажу — обычный
   const setFog=k=>{scene.fog.near=THREE.MathUtils.lerp(120,40,k);scene.fog.far=THREE.MathUtils.lerp(300,120,k);};
   camera.position.copy(SPLASH_CAM);camera.lookAt(look);
+  const audioForward=new V3();
   const st={scene,camera,world,ch:null,player:null,rig,active:true,mode:'splash',idx:0,t:0,choosing:false,hover:false,drag:false,pause:false,transition:null,velocity:new V3(),sit:0};
   st.netHub=configureHubSync(world,{busy:()=>{sfx('no');},cutscene:()=>st.flow?.stage==='cutscene'});
   let screenTimer=0;const hubHud={prompt:'',held:'',heldType:''};const glowing=new Set();const characters=new Map(),hubFX={shake:0,freeze:0};
@@ -111,7 +112,7 @@ export function createMenu(){
   st.closeTV=()=>{};
   st.togglePause=()=>{if(st.mode!=='roam')return;clearThrow();st.pause=!st.pause;$('hubPause').classList.toggle('open',st.pause);$('setBtn').classList.toggle('hub-settings',st.pause);st.velocity.set(0,0,0);if(st.pause){unlock();$('hubResume').focus();}else requestLock();};
   st.resume=()=>{if(st.pause)st.togglePause();};st.suspend=()=>{st.pausedForSettings=true;unlock();};st.resumeSettings=()=>{st.pausedForSettings=false;};
-  Object.defineProperty(st,'wantsLock',{get:()=>st.active&&st.mode==='roam'&&!st.pause&&!st.pausedForSettings});
+  Object.defineProperty(st,'wantsLock',{get:()=>st.mode!=='splash'&&(st.active||st.pausedForSettings)});
   st.claw=createClaw(scene,id=>{character(id);st.ch.root.position.copy(st.clawRoam?.pos||clawStand);st.ch.root.rotation.y=st.clawRoam?.actorYaw??Math.PI/2;st.ch.root.visible=false;});
   st.claw.root.position.copy(world.claw.pos);st.claw.root.rotation.y=world.claw.ry;st.claw.root.scale.setScalar(world.claw.scale);scope(()=>addSolid(...world.claw.solid,0,2.5));
   st.claw.onClose=()=>{if(st.mode!=='claw')return;rig.state.yaw=st.clawRoam?.yaw??0;rig.state.pitch=st.clawRoam?.pitch??.45;st.ch.root.visible=true;const pos=(st.clawRoam?.pos||clawStand).clone(),pose=viewPose(pos,rig.state.yaw);travel('arcade-out',pos,pose.p,pose.l,1.45,roam);};
@@ -271,7 +272,7 @@ export function createMenu(){
   }
   function hubPhysics(dt){const P=st.player;if(st.mode==='roam'&&(st.pause||st.pausedForSettings)&&st.flow?.stage!=='cutscene')updatePlayer(P,dt,st.t,false,rig.state.yaw);else if(st.mode!=='roam')tickStun(P,dt);updateCoins(dt,P);updateItems(dt,P);updatePushables(dt,P);for(const fn of world.state.animated)if(!world.state.net||world.state.net.canAnimate(fn))fn(dt,st.t);updateSwingers(dt,st.t,P);updateWorldFx(dt,st.t,P);updateTools(dt,st.t);updateGrabs(dt,st.t);updateTraps(dt,st.t);updateSnacks(P,dt);updateBreakables(dt,P);updateActionEffects(dt,P,camera);updateParticles(dt);updateVfx(dt);updateSplat(dt);st.netHub.contact();}
   st.update=dt=>scope(()=>{
-    dt=Math.min(.05,dt);st.netHub.before(st.player);if(FX.freeze>0){FX.freeze=Math.max(0,FX.freeze-dt);dt*=.05;}st.t+=dt;updateRadios(dt,st.player.pos,st.active&&st.mode==='roam'&&!st.pause&&!st.pausedForSettings);if(!st.active&&st.mode!=='tv'){st.claw.update(dt);return;}
+    dt=Math.min(.05,dt);st.netHub.before(st.player);if(FX.freeze>0){FX.freeze=Math.max(0,FX.freeze-dt);dt*=.05;}st.t+=dt;updateRadios(dt,st.player.pos,st.mode!=='splash'&&(st.active||st.pausedForSettings));if(!st.active&&st.mode!=='tv'){st.claw.update(dt);return;}
     if(st.mode==='splash'){const goal=SPLASH_CAM.clone().setX(1.7+Math.sin(st.t*.12)*.15);
       if(st.intro){const q=st.intro;q.t+=dt;const k=ease(q.t/q.dur);camera.position.copy(bez(WIDE_P,new V3(0,40,46),goal,k));setFog(k);look.lerpVectors(WIDE_L,SPLASH_LOOK,ease(Math.min(1,q.t/q.dur*1.15)));if(q.t>=q.dur){st.intro=null;setFog(1);}}
       else{camera.position.lerp(goal,1-Math.exp(-dt*3));look.lerp(SPLASH_LOOK,1-Math.exp(-dt*3));}st.ch.animate(dt,{t:st.t,speed:0});}
@@ -291,7 +292,7 @@ export function createMenu(){
     }
     else if(st.mode==='roam'&&!st.pause&&!st.pausedForSettings)walk(dt);else st.ch.animate(dt,{t:st.t,speed:0,ride:st.sit>.05?'sit':null,dangle:true});
     if(st.mode!=='splash')hubPhysics(dt);
-    if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}sky.update(camera,st.t,dt);{const c=camera.position,inside=(c.x>-17&&c.x<-10.8&&c.z>-8.8&&c.z<-1.2)||(c.x>10.8&&c.x<19.8&&c.z>-10.2&&c.z<.2)||st.mode==='claw'||st.mode==='wardrobe';haze.set(inside?0:1);{const k0=inK;inK+=((inside?1:0)-inK)*(1-Math.exp(-dt*8));if(Math.abs(inK-k0)>1e-4||inK>.999&&k0!==1)indoor(inK>.999?1:inK<.001?0:inK);}/* v0.59: в помещениях дымки нет — она давала светлую пелену и полосы на стенах */}haze.update(st.t,camera);world.island.update(dt,st.t);world.isle2.update(dt,st.t,st.mode==='roam'?st.player:null);setListener(camera.position.x,camera.position.y,camera.position.z);
+    if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}sky.update(camera,st.t,dt);{const c=camera.position,inside=(c.x>-17&&c.x<-10.8&&c.z>-8.8&&c.z<-1.2)||(c.x>10.8&&c.x<19.8&&c.z>-10.2&&c.z<.2)||st.mode==='claw'||st.mode==='wardrobe';haze.set(inside?0:1);{const k0=inK;inK+=((inside?1:0)-inK)*(1-Math.exp(-dt*8));if(Math.abs(inK-k0)>1e-4||inK>.999&&k0!==1)indoor(inK>.999?1:inK<.001?0:inK);}/* v0.59: в помещениях дымки нет — она давала светлую пелену и полосы на стенах */}haze.update(st.t,camera);world.island.update(dt,st.t);world.isle2.update(dt,st.t,st.mode==='roam'?st.player:null);setListener(st.player.pos.x,st.player.pos.y+1.5,st.player.pos.z,camera.getWorldDirection(audioForward));
     for(const{light}of world.lampLights)light.removeFromParent();scope(()=>{if(!localLighting.wl)localLighting.rebuild();localLighting.update(camera,dt);});
     // v0.61: друзья в хабе (онлайн) — свои движения отправляем, чужих показываем
     if(st.ch?.skinId&&st.mode==='roam'&&st.ch.skinId!==NET.skin)setSkin(st.ch.skinId);

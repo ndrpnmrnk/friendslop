@@ -1,3 +1,4 @@
+import {withSoundSource} from '../core/sfx.js';
 import { W } from '../world/state.js';
 import { THREE, V3 } from '../core/gfx.js';
 import { withRandom, hashSeed } from '../core/random.js';
@@ -21,7 +22,7 @@ export function attachMissionSync(world, { myKey, host, actor, sendEvent, comman
   function work(m, kind, build) {
     m.netKind = kind;
     const seed = hashSeed(m.netRecipe.seed + '/' + m.netLease.token + '/' + (m.netStage || 0));
-    return world.scope(scope(m), () => withRandom(seed, build), [root(m)].filter(Boolean));
+    return world.scope(scope(m), () => withSoundSource(leaseOwner(m),()=>withRandom(seed, build)), [root(m)].filter(Boolean));
   }
   function observe(m) {
     if (!m.netLease || m.netLease.actor === myKey) return;
@@ -144,7 +145,7 @@ export function attachMissionSync(world, { myKey, host, actor, sendEvent, comman
   world.destructionState=()=>{const u=W.university;if(u?.netRuinsDue&&(W.time||0)>=u.netRuinsDue&&!u.netRuins)buildDemolitionRuins(u);return{destroyed:!!u?.destroyed,ruins:!!u?.netRuins};};
   world.receiveDestruction=data=>{const u=W.university;if(!data?.destroyed||!u)return;if(!u.netDestroyed){destroySection(u,true);u.destroyed=u.netDestroyed=true;}if(data.ruins&&!u.netRuins)buildDemolitionRuins(u);};
   Object.assign(world, { claimMission: ensure, work, finishMission: finish, chainMission: chain,
-    runWork(m,fn){return m.netLease?world.runScope(scope(m),fn,root(m)):fn();},
+    runWork(m,fn){return m.netLease?world.runScope(scope(m),()=>withSoundSource(leaseOwner(m),fn),root(m)):fn();},
     claimBot(m,b){const q=claim(m,b);if(q)m.busy=false;return !!q;},
     releaseBot(m,b){const q=m.netLease;if(q?.actor===world.keyOf(b)){leases.release(m.id,q.actor,q.token);m.netLease=null;m.busy=false;m.claimedBy=null;}}
   });

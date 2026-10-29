@@ -23,3 +23,11 @@ test('swept remote movement cannot step across a thin wall or invalid coordinate
   const fixed=sweepPosition([0,0,0],[10,0,0],.3,p=>{if(p.x>.9&&p.x<1.3)p.x=.9;});
   assert(fixed[0]<1.1);assert.deepEqual(sweepPosition([0,0,0],[NaN,0,0],.3,()=>{}),[0,0,0]);
 });
+
+test('radio clock retains playhead on pause, synchronizes late listeners and resets on tuning',async()=>{
+ const{changeRadio,radioPhase}=await import('../../src/game/radio-state.js');const it={};
+ changeRadio(it,'toggle',1000);assert.equal(it.radio.since,1500);assert.equal(radioPhase(it.radio,3500,10),2);
+ changeRadio(it,'toggle',4500);assert.equal(it.radio.offset,3);assert.equal(it.radio.on,false);
+ changeRadio(it,'toggle',10000);assert.equal(radioPhase(it.radio,12500,10),5);
+ changeRadio(it,'tune',13000,-1);assert.equal(it.radio.station,2);assert.equal(radioPhase(it.radio,13650,10),0);
+});

@@ -47,7 +47,7 @@ export function createBots(scene, playerSkin, n = 3) {
       side: 1, sideT: 0, dodge: null, hideT: 0, actCD: 2, carry: null });
     statsOf(W.bots[W.bots.length - 1]);
     // v0.60: «E — Поднять»: подошёл к упавшему — подал руку, он сразу встаёт
-    { const bt = W.bots[W.bots.length - 1]; W.interacts.push({ get x() { return bt.pos.x; }, get z() { return bt.pos.z; }, get y() { return bt.pos.y; }, r: 1.1, label: 'Поднять',
+    { const bt = W.bots[W.bots.length - 1]; W.interacts.push({ actor:bt,get x() { return bt.pos.x; }, get z() { return bt.pos.z; }, get y() { return bt.pos.y; }, r: 1.1, label: 'Поднять',
       enabled: P => P !== bt && bt.stun > .3 && !bt.drone && !bt.returning && !bt.hidden && !bt.heldBy, act: P => { bt.stun = 0; bt.getT = .25; sfx('hi', { at: bt.pos }); P.emote = 'wave'; P.emoteT = 0; P.emoteDur = 1; } }); }
   }
   return W.bots;

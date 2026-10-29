@@ -23,7 +23,7 @@ import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
 import { initNetUI, beforeHub, afterHubShown } from './net/ui.js';
 import { MATCH, seededMap, netPrepareMatch, netMarkReady, netMatchTick, netEndMatch, initMatchSync, humansInRoom, myRank, netPaused, netPublishFinal } from './net/match-sync.js';
-import { NET, onNet, serverNow } from './net/net.js';
+import { NET, onNet, serverNow,botsEnabled,setBotsEnabled } from './net/net.js';
 import { CANDY_TYPES, applyCandy } from './game/candy.js';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
@@ -79,7 +79,7 @@ import { updateTraps } from './game/traps.js';
 import { grabDog, resetTown, updateTown, TOWN } from './game/town.js';
 import { resetFun, updateFun, comboAct, onHitLeader, FUN } from './game/fun.js';
 import { LIGHTMAT } from './world/builder.js';
-import { MIC, startMic, stopMic, listMics, updateMic, saveMic, calibrateMic } from './core/mic.js';
+import { MIC, startMic, stopMic, listMics, updateMic, saveMic, calibrateMic,micTransport } from './core/mic.js';
 import { scareBirds } from './world/birds.js';
 import { resetSplat, updateSplat } from './world/splat.js';
 import { resetPolice, updatePolice, openCageUI, closeCageUI, POL } from './game/police.js';
@@ -213,7 +213,7 @@ initMatchSync({
   open: openMission,
   abort: m => { if(S.mg?.m===m)closeMission(null); if(S.wm?.m===m)closeWorld(null); },
   award: (a, pts, m) => { if(a===P){S.score+=pts;S.done++;scored(m,pts);}else{a.score=(a.score||0)+pts;const st=statsOf(a);st.missions++;st.mpts+=pts;missionDone(m);} },
-  score:()=>S.score, setScore:v=>{S.score=v;}, time:()=>S.time, state:()=>S.state,
+  botCount:()=>S.botCount??4,score:()=>S.score, setScore:v=>{S.score=v;}, time:()=>S.time, state:()=>S.state,
   setTime:v=>{if(Number.isFinite(v)&&S.state==='play')S.time=Math.max(0,v);},
   droneState:networkDroneState, droneApply:receiveNetworkDrone,candyState:networkCandyState,candyApply:receiveNetworkCandies, effect:(a,k,v)=>{if(k==='eliminate')eliminate(a,Math.min(30,v.seconds||15));else if(k==='net')netActor(a,W.net.actor(v.owner));else if(k==='candy'){const def=CANDY_TYPES.find(d=>d.id===v.id);if(def)applyCandy(def,a,W.net.actor(v.owner));}},
   eventUi, pause:on=>{if(on)toast('Хост свернул игру - общая пауза');},
@@ -221,6 +221,23 @@ initMatchSync({
 });
 onNet('state', () => { if (MATCH.on&&(NET.state==='off'||NET.state==='on'&&!MATCH.members.has(NET.id))) { netEndMatch(); if (!['hub', 'menu'].includes(S.state)) showHub(); } });
 initNetUI({ currentSkin: () => collection().selected });
+initSoundSync();
+const audioForward=new V3();
+const voiceChat=initVoiceChat({input:micTransport,scene:()=>['hub','menu','mode','roulette','settings','starting'].includes(S.state)?'hub':'match',actor:id=>{
+  if(['hub','menu','mode','roulette','settings','starting'].includes(S.state))return remoteActors().find(a=>a.id===id);
+  return W.bots?.find(a=>a.netKey==='p'+id);
+}});
+function updateVoice(dt){
+  if(MIC.on&&!MIC.ok&&!MIC.err&&!MIC.starting){MIC.starting=true;startMic().finally(()=>MIC.starting=false);}
+  const typing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
+  updateMic(dt,!typing&&keys.KeyV);const a=voiceChat&&(['hub','menu','mode','roulette','settings','starting'].includes(S.state)?menu.player:P);
+  if(a?.ch){a.ch.talk=MIC.on?MIC.talk:0;a.ch.shout=MIC.on?MIC.shout:0;}
+  voiceChat.update(dt);if(!document.getElementById('settings').classList.contains('hidden'))document.getElementById('voiceStatus').textContent=voiceChat.status();
+}
+function syncBotsUI(){const on=botsEnabled(),b=$('botsToggle');b.textContent=on?'ВКЛ':'ВЫКЛ';b.classList.toggle('on',on);b.setAttribute('aria-checked',String(on));b.disabled=NET.state==='on'&&!NET.host;$('botsNote').textContent=b.disabled?'Ботов включает и выключает хост':'Можно играть только своей компанией';}
+$('botsToggle').onclick=()=>{setBotsEnabled(!botsEnabled());sfx('click');};
+onNet('state',syncBotsUI);onNet('rules',()=>{syncBotsUI();if(!MATCH.on&&S.state==='play'&&!S.tut&&!S.studioCfg){for(const b of W.bots.slice()){cancelBotOnEliminate(b);releaseDisconnected(b);disposeActorDrone(b);b.root.removeFromParent();}W.interacts=W.interacts.filter(q=>!q.actor);W.bots=[];if(botsEnabled())createBots(scene,menu.skin(),S.botCount??4);}});
+
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
 $('modeCard').onclick = () => { requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(() => launchRound(MODES[0], randomMap()), 300); };
 $('tutBtn').onclick = () => { S.state='starting';requestLock(); sfx('click'); startTutorial(); };
@@ -230,12 +247,12 @@ $('setBtn').innerHTML = img('gear', 28); $('micIco').innerHTML = img('mic', 20);
 function showSettings() {
   if(S.state==='play'){S.settingsFrom='play';S.settingsOpen=true;setCursor(true);P.charging=false;if(P.held?.type==='bow')P.held.draw=0;S.mg?.game.up?.();S.wm?.game.up?.();clearInput();takeLook();unlock();$('settings').classList.add('in-match');$('settings').classList.remove('hidden');syncSettings();fillMics();return;}
   $('settings').classList.remove('in-match');S.settingsFrom=S.state;menu.suspend();S.state = 'settings'; menu.active = false; screen('settings'); sfx('click'); syncSettings(); fillMics(); }
-function syncSettings() { $('graphicsQ').value=graphics.key;const levels=audioLevels();for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio'})){const el=$(id);el.value=Math.round(levels[k]*100);el.nextElementSibling.textContent=el.value+'%';} $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micSens').value = MIC.sens; $('micLoudS').value = MIC.loudSens; }
+function syncSettings() {syncBotsUI(); $('graphicsQ').value=graphics.key;const levels=audioLevels();for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio',voice:'volVoice'})){const el=$(id);el.value=Math.round(levels[k]*100);el.nextElementSibling.textContent=el.value+'%';} $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micSens').value = MIC.sens; $('micLoudS').value = MIC.loudSens; }
 async function fillMics() { const list = await listMics(), sel = $('micDev'); sel.innerHTML = '<option value="">По умолчанию</option>' + list.map((d, i) => `<option value="${d.deviceId}">${d.label || 'Микрофон ' + (i + 1)}</option>`).join(''); sel.value = MIC.device || ''; }
 $('setBtn').onclick = showSettings;
 // качество света (v0.23): переключатель в настройках; карта теней меняется сразу, остальное — каждый кадр
 $('graphicsQ').onchange=e=>{setGraphics(e.target.value);sfx('click');};
-for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio'}))$(id).oninput=e=>{setAudioLevel(k,e.target.value/100);e.target.nextElementSibling.textContent=e.target.value+'%';};
+for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio',voice:'volVoice'}))$(id).oninput=e=>{setAudioLevel(k,e.target.value/100);e.target.nextElementSibling.textContent=e.target.value+'%';};
 function backSettings(){sfx('click');if(S.settingsOpen){S.settingsOpen=false;setCursor(true);$('settings').classList.add('hidden');$('settings').classList.remove('in-match');clearInput();takeLook();if(S.state==='play')requestLock();return;}menu.resumeSettings();if(S.settingsFrom==='hub'){S.state='hub';menu.active=true;screen('menu');}else showMenu();}
 $('setBack').onclick = backSettings;
 $('micOn').onclick = async () => { MIC.on = !MIC.on; saveMic(); syncSettings(); if (MIC.on) { await startMic(); fillMics(); } else stopMic(); };
@@ -245,7 +262,7 @@ $('micLoudS').oninput = e => { MIC.loudSens = +e.target.value; saveMic(); };
 $('micCal').onclick = () => { if (MIC.ok) { calibrateMic(); sfx('click'); } };
 $('micDev').onchange = async e => { MIC.device = e.target.value; saveMic(); if (MIC.on) await startMic(); };
 function drawMicMeter() {
-  const m = updateMic(1 / 60, keys.KeyV), i = $('micMeter').firstChild; i.style.width = `calc(${Math.round(m.level * 100)}% - 4px)`; i.className = m.shout > 0.2 ? 'shout' : m.talk > 0.1 ? 'talk' : '';
+  const m = MIC, i = $('micMeter').firstChild; i.style.width = `calc(${Math.round(m.level * 100)}% - 4px)`; i.className = m.shout > 0.2 ? 'shout' : m.talk > 0.1 ? 'talk' : '';
   $('micThr').style.left = Math.round((m.thr || 0.1) * 100) + '%'; $('micLoud').style.left = Math.min(98, Math.round((m.loud || 0.5) * 100)) + '%';
   const st = !MIC.on ? 'выключен' : MIC.err ? MIC.err : !MIC.ok ? 'включаю…' : MIC.cal > 0 ? 'тишина… калибрую' : m.shout > 0.2 ? 'КРИК!' : m.talk > 0.1 ? 'говоришь' : 'тишина'; if ($('micState').textContent !== st) $('micState').textContent = st;
 }
@@ -330,7 +347,7 @@ function prepareRound(tut = false) {
   P.ch.onCroak = null; // в игре «ква» звучит через голос (voice), мешок сам по себе не квакает
   const sp = W.spawns[MATCH.on ? (Math.max(0, myRank()) * 3) % W.spawns.length : (random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
-  W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), tut || S.studioCfg ? 0 : MATCH.on ? (MATCH.host ? Math.max(0, (S.botCount ?? 4) - (humansInRoom() - 1)) : 0) : (S.botCount ?? 4)); netPrepareMatch(scene); M.manual = tut || !!S.studioCfg; S.tut = null;
+  W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), tut || S.studioCfg || !botsEnabled() ? 0 : MATCH.on ? (MATCH.host ? Math.max(0, (S.botCount ?? 4) - (humansInRoom() - 1)) : 0) : (S.botCount ?? 4)); netPrepareMatch(scene); M.manual = tut || !!S.studioCfg; S.tut = null;
   resetCoins(!tut);
   resetScore((a, pts, at) => award(a, pts, at));
   M.onWave = null;
@@ -667,8 +684,7 @@ function shakeCam(k) { FX.shake = Math.max(FX.shake, k); }
 /* голос с микрофона: голова «говорит»/дрожит; крик пугает котов, птиц и ботов-трусов рядом */
 function voiceInput(dt) {
   if (!MIC.on) { P.ch.talk = P.ch.shout = 0; return; }
-  if (!MIC.ok && !MIC.err && !MIC.starting) { MIC.starting = true; startMic().finally(() => (MIC.starting = false)); }
-  const m = updateMic(dt, keys.KeyV); P.ch.talk = m.talk; P.ch.shout = m.shout;
+  const m = MIC; P.ch.talk = m.talk; P.ch.shout = m.shout;
   P.shoutCD = (P.shoutCD || 0) - dt;
   if (m.shout > 0.5 && P.shoutCD <= 0) { P.shoutCD = 1.2; const R = 6 + m.shout * 6;
     for (const c of W.cats) { const q = c.root.position, dx = q.x - P.pos.x, dz = q.z - P.pos.z; if (Math.hypot(dx, dz) < R) c.hit && c.hit(false, dx, dz); }
@@ -863,7 +879,7 @@ const clock = new THREE.Timer(); let t = 0,graphicsLost=false;
 let CURTAIN = null; // материал занавесок в окнах (ярче к ночи)
 const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
-  clock.update(); let dt = Math.min(0.05, clock.getDelta()); prof.frameStart();
+  clock.update(); let dt = Math.min(0.05, clock.getDelta()); prof.frameStart();updateVoice(dt);
   if(graphicsLost||document.hidden){endFrame();return;}
   if (MATCH.on && P && S.state !== 'hub' && S.state !== 'menu') netMatchTick(dt,P);
   if(netPaused()&&!['results','finale'].includes(S.state)){clearInput();if(!window.__noRender)present(scene,camera);prof.frameEnd(dt,renderer);endFrame();return;}
@@ -925,7 +941,7 @@ function frame() {
       if ((S.mmT = (S.mmT || 0) - dt) <= 0) { S.mmT = 1 / 30; const bt = bigTarget(); drawMinimap(P, M.list.filter(m => visibleTo(m, P)), S.wm && S.wm.game.target ? S.wm.game.target() : null, bt ? [{ x: bt.x, z: bt.z, color: '#ff8a1f', icon: TEXT.eventIcon[EV.big.key] }] : null, S.nav); }
       if (S.time <= 0 && !W.net?.replica) { S.time = 0; renderHud(S, P, '', 0); startFinale(); }
     }
-    if (P) { setGhost(P, P.ghost > 0); setListener(P.pos.x, P.pos.y, P.pos.z); }
+    if (P) { setGhost(P, P.ghost > 0); setListener(P.pos.x, P.pos.y+1.5, P.pos.z,camera.getWorldDirection(audioForward)); }
     // траектория броска
     let shown = 0;
     if (S.state === 'play' && P.charging && (P.held || carryK())) {
@@ -1036,7 +1052,7 @@ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();graphicsLost=t
 canvas.addEventListener('webglcontextrestored',()=>{graphicsLost=false;if(!document.hidden)roundMusic.resume();clock.reset();toast('Графика восстановлена');});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)roundMusic.pause();else if(!graphicsLost)roundMusic.resume();});
 // отладочный доступ из консоли браузера
-window.__fs = { lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: () => launchRound(MODES[0], randomMap()), launchRound, randomMap, setMode };
+window.__fs = {voiceChat, lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: () => launchRound(MODES[0], randomMap()), launchRound, randomMap, setMode };
 window.__fs.lastFaults=lastFaults;
 Object.assign(window.__fs,{scene,makeCharacter:(id)=>__mkChar(id),skinIds:()=>__skinIds,vfx:{explosion,fireworks,sparks:vfxSparks,impactBurst},menu,collection,coinState,showHub,showMenu,roundMusic,graphics,actionStats,addFists:(n=500)=>addCoins(n)});
 if(new URLSearchParams(globalThis.location?.search||'').get('dev')==='1'){const b=document.createElement('button');b.id='devFists';b.textContent='+500';b.title='Тест автомата: добавить 500 фистов';b.onclick=()=>addCoins(500);$('wallet').appendChild(b);}
@@ -1048,6 +1064,7 @@ initDevtools({ unlock: () => unlock(), info: () => { const hub = S.state === 'hu
     gpu: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), error: lastFaults?.at?.(-1)?.message || lastError || '' }; } });
 showMenu();
 loop();
+import {disposeActorDrone} from './game/drone.js';
 import {updateRadios,resetRadios,nearRadio,toggleRadio,tuneRadio} from './game/radio.js';
 import {updateSnacks} from './game/snacks.js';
 
@@ -1072,3 +1089,8 @@ window.__fs.studio = (types, cols = 8, sp = 1.15, spin = false) => {
 };
 Object.assign(window.__fs, { closeMission, closeMG: closeMission });
 window.__fs.netTestSeed=s=>{MATCH.on=true;MATCH.host=true;MATCH.seed=s;};window.__fs.MATCH=MATCH;
+
+import {initSoundSync} from './net/audio-sync.js';
+import {initVoiceChat} from './net/voice-chat.js';
+import {remoteActors} from './net/hub-sync.js';
+import {releaseDisconnected} from './game/actors.js';

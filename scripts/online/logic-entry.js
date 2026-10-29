@@ -24,3 +24,7 @@ const [net,match,items,missions,physics,ride,drone]=await Promise.all([import('.
 const world=await import('../../src/world/state.js?net-logic-test'),actors=await import('../../src/game/actors.js?net-logic-test');
 const grabs=await import('../../src/game/grab.js?net-logic-test');
 globalThis.__onlineTestModules={net,match,items,missions,physics,ride,drone,world,actors,grabs};
+
+const[audio,mic,radio,spatial]=await Promise.all([import('../../src/core/sfx.js?net-logic-test'),import('../../src/core/mic.js?net-logic-test'),import('../../src/game/radio.js?net-logic-test'),import('../../src/core/spatial-audio.js?net-logic-test')]);Object.assign(globalThis.__onlineTestModules,{audio,mic,radio,spatial});
+
+const input=await import('../../src/core/input.js?net-logic-test');Object.assign(globalThis.__onlineTestModules,{input});

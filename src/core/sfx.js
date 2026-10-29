@@ -1,8 +1,11 @@
 import { random } from './random.js';
+import { ears, spatialSource, distanceGain } from './spatial-audio.js';
 /* Ретро-звуки, синтезированные в коде (без файлов): квадрат/треугольник/шум + огибающая.
    Звук включается после первого клика (требование браузера). M — без звука. */
 let ac = null, master = null, noiseBuf = null, amb = null, muted = false;
-const mix={effects:1,ambient:.65,music:.8,radio:1},buses={};let route='effects',radioFocus=0;
+const mix={effects:1,ambient:.65,music:.8,radio:1,voice:1},buses={};let route='effects',radioFocus=0,output=null,soundRouter=null;
+export const setSoundRouter=fn=>{soundRouter=fn;};
+export const hasSound=name=>Object.hasOwn(SND,name);
 try{const saved=JSON.parse(localStorage.getItem('friendslop.audio')||'{}');for(const k in mix)if(Number.isFinite(saved[k]))mix[k]=Math.max(0,Math.min(1,saved[k]));}catch{}
 export const audioLevels=()=>({...mix});
 function mixGain(k){return mix[k]*(k==='music'?1-radioFocus*.78:1);}
@@ -25,13 +28,13 @@ function tone(f0, f1, dur, type = 'square', vol = 0.2, at = 0, pan = 0) {
   o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   let node = g; if (pan && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = pan; g.connect(p); node = p; }
-  o.connect(g); node.connect(buses[route]||master); o.start(t); o.stop(t + dur + 0.02);
+  o.connect(g); node.connect(output||buses[route]||master); o.start(t); o.stop(t + dur + 0.02);
 }
 function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   if (!ac) return; const t = ac.currentTime + at, s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
   s.buffer = noiseBuf; fl.type = type; fl.frequency.setValueAtTime(f, t); if (f1) fl.frequency.exponentialRampToValueAtTime(f1, t + dur); fl.Q.value = q;
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(fl); fl.connect(g); g.connect(buses[route]||master); s.start(t, random() * 0.5); s.stop(t + dur + 0.02);
+  s.connect(fl); fl.connect(g); g.connect(output||buses[route]||master); s.start(t, random() * 0.5); s.stop(t + dur + 0.02);
 }
 // v0.56: мультяшный «птичий» крик при залпе рогатки — пила через форманту + вибрато, голос «уи-и-и» / «я-я-я»
 function cry(pts, vol = .12, at = 0, vib = 9, depth = .06, formant = 1400) {
@@ -40,7 +43,7 @@ function cry(pts, vol = .12, at = 0, vib = 9, depth = .06, formant = 1400) {
   o.frequency.setValueAtTime(pts[0][0], t); for (const [f, k] of pts.slice(1)) o.frequency.exponentialRampToValueAtTime(f, t + k);
   const dur = pts[pts.length - 1][1]; lg.gain.value = pts[0][0] * depth; l.connect(lg); lg.connect(o.frequency);
   g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .04); g.gain.setValueAtTime(vol, t + dur * .7); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-  o.connect(fl); fl.connect(g); g.connect(buses[route] || master); o.start(t); l.start(t); o.stop(t + dur + .03); l.stop(t + dur + .03);
+  o.connect(fl); fl.connect(g); g.connect(output||buses[route]||master); o.start(t); l.start(t); o.stop(t + dur + .03); l.stop(t + dur + .03);
 }
 const CRIES = [
   () => cry([[520, 0], [1150, .35], [900, .9]], .13, 0, 11, .07, 1600),            // «уи-и-и-и!»
@@ -200,25 +203,33 @@ function frog(parts, v = 1) {
       const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q; bp.frequency.setValueAtTime(fa, t); bp.frequency.exponentialRampToValueAtTime(fb, t + Math.min(0.09, d * 0.5));
       const fg = ac.createGain(); fg.gain.value = g * 2.2; creak.connect(bp); bp.connect(fg); fg.connect(env);
     }
-    env.connect(buses.effects||master); o.start(t); lfo.start(t); o.stop(t + d + 0.03); lfo.stop(t + d + 0.03);
+    env.connect(output||buses.effects||master); o.start(t); lfo.start(t); o.stop(t + d + 0.03); lfo.stop(t + d + 0.03);
   }
 }
 // мировой звук: громкость по расстоянию до слушателя
-let listener = { x: 0, y: 0, z: 0 };
-export function setListener(x, y, z) { listener.x = x; listener.y = y; listener.z = z; }
+export function setListener(x,y,z,forward,up={x:0,y:1,z:0}) {
+  Object.assign(ears,{x,y,z});if(!ac)return;const l=ac.listener,t=ac.currentTime;
+  if(l.positionX){for(const[k,v]of Object.entries({positionX:x,positionY:y,positionZ:z}))l[k].setTargetAtTime(v,t,.02);
+    if(forward)for(const[k,v]of Object.entries({forwardX:forward.x,forwardY:forward.y,forwardZ:forward.z,upX:up.x,upY:up.y,upZ:up.z}))l[k].setTargetAtTime(v,t,.02);
+  }else{l.setPosition(x,y,z);if(forward)l.setOrientation(forward.x,forward.y,forward.z,up.x,up.y,up.z);}
+}
 /* v0.59: у каждого звука свой радиус слышимости. Мелочь — 12–20 м, обычные действия — 25–30 м, громкое — 45–70 м,
    взрывы и гром — на всю карту. Затухание плавное (без «пола» громкости). Звуки, которые миссии ботов играют
    без точки (мини-игры написаны «для игрока»), идут из точки бота — SFX_FROM (см. bot-work.js). */
 const RANGE = { step: 14, tick: 12, click: 12, hover: 10, spray: 16, squeak: 16, fabric: 14, pickup: 18, drop: 18, emote_wave: 22, emote_dance: 22, emote_laugh: 24, emote_call: 30, emote_clap: 22,
   throw: 22, jump: 18, land: 22, dive: 20, roll: 16, slip: 22, swat: 20, pillow: 22, grab: 18, door: 24, chop: 22, screw: 16, ring: 26, msg: 20, beep: 18, points: 20, done: 24, grind: 20, purr: 10, meow: 22, hiss: 22, bark: 32,
   bell: 60, alarm: 60, horn: 60, honk: 45, hydrant: 40, fire: 40, goal: 50, siren: 70, crow: 40, gull: 40, bong: 30, boom: 400, thunder: 400, fanfare: 400, podium: 400 };
-export const SFX_FROM = { at: null };
+export const SFX_FROM = { at: null, owner:null };
+export function withSoundSource(actor,fn){const old={...SFX_FROM};SFX_FROM.at=actor?.pos;SFX_FROM.owner=actor?.netKey;try{return fn();}finally{Object.assign(SFX_FROM,old);}}
 export function sfx(name, o = {}) {
-  if (!ac || muted || !SND[name]) return;
   if (!o.at && SFX_FROM.at) o = { ...o, at: SFX_FROM.at, v: (o.v ?? 1) * .8 };
-  if (o.at) { const d = Math.hypot(o.at.x - listener.x, o.at.y - listener.y, o.at.z - listener.z); const range = o.range ?? RANGE[name] ?? 30; if (d >= range) return; o.v = (o.v ?? 1) * Math.pow(1 - d / range, 1.3); }
+  if(soundRouter){o=soundRouter(name,o);if(!o)return;}
+  if (!ac || muted || !SND[name]) return;
+  const range=o.range??RANGE[name]??30;if(o.at&&!distanceGain(o.at,range))return;
   route=['wind','thunder','crow','gull','purr'].includes(name)?'ambient':'effects';
-  try{SND[name](o);}finally{route='effects';}
+  const previous=output,emitter=o.at?spatialSource(ac,buses[route]||master,range):null;
+  if(emitter){emitter.set(o.at);output=emitter.input;setTimeout(()=>emitter.dispose(),8000);}
+  try{SND[name](o);}finally{route='effects';output=previous;}
 }
 // фон: ветер и далёкий гул города (шум через низкочастотный фильтр, медленно плавает)
 export function ambience(on) {

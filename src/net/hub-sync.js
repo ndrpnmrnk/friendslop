@@ -56,15 +56,13 @@ export function updateHubSync(dt, { P, ch, mode, camera, ball, hold, launchState
   // своё состояние
   if (ch && !ch._netHook) { const f = ch.animate; ch.animate = (d, s) => { ch._netS = s; return f.call(ch, d, s); }; ch._netHook = true; }
   // звуки своего персонажа для остальных: начало эмоции, прыжок
-  if (P && ch) { const em = ch._netS?.emote || null; if (em && em !== lastEm) netSound('emote_' + em); lastEm = em;
-    if (P.vel.y > 6 && wasGround && !P.onGround) netSound('jump'); wasGround = P.onGround; }
   sendT -= dt; idleT -= dt;
   if (sendT <= 0 && P) { sendT = SEND; const s = {}, src = ch?._netS || {};
     for (const k of POSE) { const v = src[k]; if (v !== undefined && v !== null && v !== false && v !== 0) s[k] = typeof v === 'number' ? Math.round(v * 100) / 100 : v; }
     const m = { t: 'st', m: 'hub', x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), r: +(ch?.root.rotation.y || 0).toFixed(2), s, rtt: NET.rtt };
     if (session?.host && ball && others().length) m.bl = [+ball.x.toFixed(2), +ball.z.toFixed(2), +ball.vx.toFixed(2), +ball.vz.toFixed(2)];
     session?.tick(SEND,P,m);m.x=+P.pos.x.toFixed(3);m.y=+P.pos.y.toFixed(3);m.z=+P.pos.z.toFixed(3);if(session?.host&&hold){m.launchState=launchState;m.launchAt=serverNow();}
-    const key = JSON.stringify([m.x,m.y,m.z,m.r,s,m.m,m.bl,m.hs,m.slots,m.door]); if(key!==last||idleT<=0||m.hw?.full||m.hw?.rows.length||m.cmds?.length||m.c?.length||m.fix?.length||hold){if(send(m)===false)session?.unsent(m);else{session?.sent(m);last=key;idleT=IDLE;}} }
+    const key = JSON.stringify([m.x,m.y,m.z,m.r,s,m.m,m.bl,m.hs,m.slots,m.door]); if(key!==last||idleT<=0||m.hw?.full||m.hw?.rows.length||m.cmds?.length||m.c?.length||m.fix?.length||m.fx?.length||hold){if(send(m)===false)session?.unsent(m);else{session?.sent(m);last=key;idleT=IDLE;}} }
   // мяч: у гостей подтягиваем к тому, что прислал хост; у хоста друзья толкают мяч своими телами
   if (ball && ballNet && !session?.host) { const k = 1 - Math.exp(-dt * 8); ball.x += (ballNet[0] - ball.x) * k; ball.z += (ballNet[1] - ball.z) * k; ball.vx = ballNet[2]; ball.vz = ballNet[3]; }
   if (ball && NET.host) for (const r of remotes.values()) { if (r.mode !== 'hub' || !r.buf.length) continue; const dx = ball.x - r.pos.x, dz = ball.z - r.pos.z, d = Math.hypot(dx, dz), lim = (ball.r || .95) + .45;

@@ -1,3 +1,4 @@
+import {takeSounds,retrySounds,receiveSounds} from './audio-sync.js';
 import { poseGrip } from '../game/grab.js';
 import { W, withWorld } from '../world/state.js';
 import { createWorldSync } from './world-sync.js';
@@ -69,9 +70,9 @@ export function createHubSession(world,remotes,options){
      if(a.buf.length){a.buf.at(-1).x=a.pos.x;a.buf.at(-1).z=a.pos.z;}
      a.netInput={n:m.n,p:[m.x,m.y,m.z]};a.s=m.s||{};a.onGround=!m.s?.air;
      if(slots.wardrobe===a.netKey&&Number.isFinite(m.door))world.curtain(m.door);
-     for(const cmd of m.cmds||[])act(a,cmd);net.accept(m.c,a);
+     for(const cmd of m.cmds||[])act(a,cmd);net.accept(m.c,a);receiveSounds(m.fx,a);
    }else if(trusted(m)&&m.n>lastSeq){
-     lastSeq=m.n;for(const fix of m.fix||[])correct(fix);if(m.hw)net.receive(m.hw);for(const q of m.hs||[])receiveActor(q);
+     lastSeq=m.n;receiveSounds(m.fx);for(const fix of m.fix||[])correct(fix);if(m.hw)net.receive(m.hw);for(const q of m.hs||[])receiveActor(q);
      if(m.slots)Object.assign(slots,m.slots);
      if(slots.wardrobe!==key()&&Number.isFinite(m.door))world.curtain(m.door);
    }
@@ -83,11 +84,11 @@ export function createHubSession(world,remotes,options){
  });});
  onNet('join',()=>{full=0;});
  onNet('leave',id=>scope(()=>{const a=world.state.bots?.find(a=>a.id===id);net?.locally(()=>releaseDisconnected(a));for(const name of Object.keys(slots))if(slots[name]==='p'+id){slots[name]=null;if(name==='wardrobe')world.curtain(0);}full=0;}));
- return {before,sent(m){pendingPositions.set(m.n,[m.x,m.y,m.z]);if(pendingPositions.size>40)pendingPositions.delete(pendingPositions.keys().next().value);},pose(dt){for(const a of [world.state.player,...(world.state.bots||[])])if(a.holding)poseGrip(a,a.holding,dt);},unsent(m){if(m.cmds)queue.unshift(...m.cmds);net?.retryProposals();full=0;},contact(){if(net&&!options.cutscene())separateActors();},
+ return {before,sent(m){pendingPositions.set(m.n,[m.x,m.y,m.z]);if(pendingPositions.size>40)pendingPositions.delete(pendingPositions.keys().next().value);},pose(dt){for(const a of [world.state.player,...(world.state.bots||[])])if(a.holding)poseGrip(a,a.holding,dt);},unsent(m){retrySounds(m.fx);if(m.cmds)queue.unshift(...m.cmds);net?.retryProposals();full=0;},contact(){if(net&&!options.cutscene())separateActors();},
    enter(name,cb){if(!inRoom()){cb();return;}scope(()=>{ensure();if(pending||station)return;pending={name,cb};const m={kind:'station-enter',station:name};if(host)stationAct(world.state.player,m);else command(m);});},
    leave(){if(!station)return;const name=station;station=null;world.state.player.netProtected=false;if(host){slots[name]=null;if(name==='wardrobe')world.curtain(0);}else command({kind:'station-leave',station:name});},
    busy:name=>!!slots[name]&&slots[name]!==key(),
-   tick(dt,P,m){before(P);if(!net)return;m.protocol=2;m.n=++seq;
+   tick(dt,P,m){before(P);if(!net)return;m.protocol=2;m.n=++seq;m.fx=takeSounds();
      for(const a of world.state.bots){if(a.held){cargoPosition(a,a.held.pos,a.held.def.r);poseMeleeItem(a,a.held);}if(host&&!a.netProtected)bumpPushables(a,dt);}
      if(!options.cutscene())separateActors();
      net.interpolate(dt);worldT-=dt;full-=dt;

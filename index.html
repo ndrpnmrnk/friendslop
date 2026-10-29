@@ -45,12 +45,14 @@
 <div id="settings" class="screen hidden">
   <div class="sctitle">НАСТРОЙКИ</div><p class="liveMatchNotice">Матч продолжается</p><button id="studioLeave" class="pbtn alt hidden">ВЫЙТИ ИЗ СТУДИИ</button>
   <div id="setbox" class="pframe">
+    <section class="settingsGroup"><h2>ИГРА</h2><div class="srow"><span>Боты-соперники</span><button id="botsToggle" class="stog" role="switch" aria-label="Боты-соперники" aria-checked="true">ВКЛ</button></div><p class="snote" id="botsNote">Можно играть только своей компанией</p></section>
     <section class="settingsGroup graphicsSettings" aria-labelledby="graphicsTitle"><h2 id="graphicsTitle">ГРАФИКА</h2><div class="srow"><label class="sl" for="graphicsQ">Качество</label><select id="graphicsQ"><option value="low">Низкая</option><option value="medium">Средняя</option><option value="high">Высокая</option></select></div></section>
     <section class="settingsGroup audioSettings" aria-labelledby="audioTitle"><h2 id="audioTitle">ЗВУК</h2>
       <div class="srow"><label for="volEffects">Предметы и действия</label><input id="volEffects" type="range" min="0" max="100" step="1"><output for="volEffects"></output></div>
       <div class="srow"><label for="volAmbient">Окружение</label><input id="volAmbient" type="range" min="0" max="100" step="1"><output for="volAmbient"></output></div>
       <div class="srow"><label for="volMusic">Фоновая музыка</label><input id="volMusic" type="range" min="0" max="100" step="1"><output for="volMusic"></output></div>
       <div class="srow"><label for="volRadio">Бумбокс</label><input id="volRadio" type="range" min="0" max="100" step="1"><output for="volRadio"></output></div>
+      <div class="srow"><label for="volVoice">Голоса игроков</label><input id="volVoice" type="range" min="0" max="100" step="1"><output for="volVoice"></output></div>
     </section>
     <details class="settingsGroup micSettings"><summary>Микрофон</summary>
     <div class="srow"><span class="sl"><i id="micIco"></i>Микрофон</span><button class="stog" id="micOn">ВЫКЛ</button></div>
@@ -60,7 +62,8 @@
     <div class="srow"><span class="sl">Крик</span><input type="range" id="micLoudS" min="0" max="1" step="0.05"></div>
     <div class="srow"><span class="sl">Фоновый шум</span><button class="stog" id="micCal">КАЛИБРОВКА</button></div>
     <div class="srow col"><div id="micMeter"><i></i><b id="micThr"></b><b id="micLoud" class="loud"></b></div><div id="micState"></div></div>
-    <div class="snote">Помолчи 2 секунды и нажми «Калибровка» — игра запомнит шум комнаты. Белая черта — порог речи, красная — порог крика. Говоришь — персонаж «болтает», кричишь — голова трясётся, коты и птицы разбегаются. Голосовой чат появится вместе с игрой по сети.</div></details>
+    <p class="snote" id="voiceStatus" role="status"></p>
+    <div class="snote">Помолчи 2 секунды и нажми «Калибровка» — игра запомнит шум комнаты. Белая черта — порог речи, красная — порог крика. Говоришь — персонаж «болтает», кричишь — голова трясётся, коты и птицы разбегаются. В комнате тебя слышат игроки рядом. В режиме «Зажать V» голос передаётся только при удержании V.</div></details>
   </div>
   <button class="pback" id="setBack">◀ <span class="key">Esc</span></button>
 </div>

@@ -53,3 +53,16 @@ test('hub retains its own authority while the room host is playing a match',asyn
   g.send({t:'ev',e:'hub',kind:'station-result',to:o.welcome.id,granted:true});await o.next(m=>m.e==='hub'&&m.granted);
  }finally{h.ws.close(1000,'leave');g.ws.close(1000,'leave');o.ws.close(1000,'leave');}
 });
+
+test('voice signalling is addressed and bot settings belong to host and survive migration',async()=>{
+ const code='V'+Math.random().toString(36).slice(2,7).toUpperCase();
+ const h=await connect(code,'voice-host',true,'voice-bots',true),g=await connect(code,'voice-guest',false,'voice-bots'),o=await connect(code,'voice-observer',false,'voice-bots');
+ try{
+  h.send({t:'ev',e:'rtc',to:g.welcome.id,description:{type:'offer',sdp:'test-offer'},extra:'stripped'});
+  const offer=await g.next(m=>m.e==='rtc'&&m.description?.sdp==='test-offer');assert.equal(offer.id,h.welcome.id);assert.equal(offer.extra,undefined);
+  g.send({t:'ev',e:'rtc',to:h.welcome.id,candidate:{candidate:'test-ice',sdpMid:'0',sdpMLineIndex:0}});await h.next(m=>m.e==='rtc'&&m.candidate?.candidate==='test-ice');
+  g.send({t:'rules',bots:true});h.send({t:'rules',bots:false});await g.next(m=>m.t==='rules'&&m.bots===false);await o.next(m=>m.t==='rules'&&m.bots===false);
+  assert(!o.messages.some(m=>m.e==='rtc'));assert(!h.messages.some(m=>m.t==='rules'&&m.bots===true));
+  h.ws.close(1000,'leave');await g.next(m=>m.t==='upd'&&m.p.host);const newcomer=await connect(code,'voice-late-guest',false,'voice-bots');assert.equal(newcomer.welcome.bots,false);newcomer.ws.close(1000,'leave');
+ }finally{h.ws.close();g.ws.close(1000,'leave');o.ws.close(1000,'leave');}
+});

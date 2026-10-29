@@ -192,3 +192,5 @@ export function receiveNetworkCandies(rows=[]){
  const seen=new Set();for(const[id,type,x,y,z,rx,ry]of rows){seen.add(id);let m=remoteCandies.get(id);if(!m){const def=CANDY_TYPES.find(d=>d.id===type);if(!def)continue;m=candyModel(def);W.group.add(m);remoteCandies.set(id,m);}m.position.set(x,y,z);m.rotation.set(rx,ry,0);}
  for(const[id,m]of remoteCandies)if(!seen.has(id)){m.removeFromParent();remoteCandies.delete(id);}
 }
+
+export function disposeActorDrone(a){removeHeli(a.drone);removeHeli(a.returning);a.drone=a.returning=null;}
