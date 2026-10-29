@@ -1,11 +1,11 @@
-import { W } from '../world/state.js';
+import { W, withWorld } from '../world/state.js';
 import { withRandom } from '../core/random.js';
 import { V3 } from '../core/gfx.js';
-import { knockDown, shove, daze, dropHeld } from '../game/actors.js';
+import { knockDown, shove, daze, dropHeld, separateActors, releaseDisconnected } from '../game/actors.js';
 import { makePuppet } from '../game/bots.js';
 import { cargoPosition } from '../game/handheld.js';
-import { pushOut, bumpPushables } from '../world/physics.js';
-import { NET, onNet, send, inRoom, others } from './net.js';
+import { pushOut, pushActorsOut, bumpPushables } from '../world/physics.js';
+import { NET, onNet, send, inRoom, others, serverNow } from './net.js';
 import { makeTag } from './hub-sync.js';
 import { createWorldSync } from './world-sync.js';
 import { attachMissionSync } from './mission-sync.js';
@@ -15,10 +15,10 @@ import { vector, finite, sweepPosition, SNAPSHOT_INTERVAL, KEYFRAME_INTERVAL } f
 export const MATCH = { on: false, host: false, seed: 0, roster: null, scene: null, world: null, missions: null,
   sendT: 0, worldT: 0, fullT: 0, ready: new Set(), members:new Set(), paused: false, final: null, seq: 0, lastHost: 0 };
 const SEND = .1, DELAY = .12;
-const POSE = ['speed', 'air', 'vy', 'climb', 'dive', 'roll', 'slide', 'crouch', 'hold', 'stun', 'rag', 'daze', 'ride', 'rideSpeed', 'emote', 'emoteT', 'dangle', 'board', 'cyclePhase', 'fly', 'flySpin', 'zombie','zip','getup','kick','trick','rideAir','accel','charge','throwT','act','actK','missionTool'];
+const POSE = ['speed', 'air', 'vy', 'climb', 'dive', 'roll', 'slide', 'crouch', 'hold', 'stun', 'rag', 'daze', 'ride', 'rideSpeed', 'emote', 'emoteT', 'dangle', 'board', 'cyclePhase', 'fly', 'flySpin', 'zombie','zip','getup','kick','trick','rideAir','accel','charge','throwT','act','actK','missionTool','held2','restrained','payload','side','sprint','look','swat','grabbed','vy2'];
 let clock = 0, callbacks = {}, lastGuestFrame = 0;
 const pendingPositions = new Map();
-const commands = [];
+const commands = [], corrections = new Map();
 const pose = src => { const s = {}; if (!src) return s; for (const k of POSE) { const v = src[k]; if (typeof v === 'number' && finite(v)) s[k] = Math.round(v * 100) / 100; else if (typeof v === 'boolean' || typeof v === 'string' && v.length <= 24) s[k] = v; } return s; };
 const hook = ch => { if (ch && !ch._netHook) { const f = ch.animate; ch.animate = (d, s) => { ch._netS = s; return f.call(ch, d, s); }; ch._netHook = true; } };
 const myKey = () => 'p' + NET.id;
@@ -36,24 +36,27 @@ export const seededMap = (seed, fn) => withRandom(seed, fn);
 export const netMatchActive = () => MATCH.on && inRoom();
 export const humansInRoom = () => MATCH.on ? Math.max(1,MATCH.members.size) : inRoom() ? NET.players.size : 1;
 export const myRank = () => [...(MATCH.on?MATCH.members:NET.players.keys())].sort((a, b) => a - b).indexOf(NET.id);
-export const netWaiting = () => MATCH.on && MATCH.host && [...MATCH.members].some(id => NET.players.has(id)&&!MATCH.ready.has(id));
-export const netPaused = () => MATCH.on && (MATCH.paused || !MATCH.host && MATCH.lastHost && performance.now() - MATCH.lastHost > 2500 || netWaiting());
+export const netWaiting = () => MATCH.on && [...MATCH.members].some(id => NET.players.has(id)&&!MATCH.ready.has(id));
+export const netPaused = () => MATCH.on && !!MATCH.world && ((!MATCH.startAt || serverNow()<MATCH.startAt) || MATCH.paused || !MATCH.host && MATCH.lastHost && performance.now() - MATCH.lastHost > 2500 || netWaiting());
 
 export function netBeginMatch(seed) {
   netEndMatch();
   Object.assign(MATCH, { on: inRoom(), host: NET.host, seed, roster: null, scene: null, sendT: 0, worldT: 0, fullT: 0,
-    paused: false, final: null, seq: 0, lastHost: performance.now() });
-  MATCH.ready.clear(); pendingPositions.clear(); commands.length = 0; clock = 0; lastGuestFrame = 0;
+    paused: false, authority:[...NET.players.values()].find(p=>p.host)?.id, startAt:null, final: null, seq: 0, lastHost: performance.now() });
+  MATCH.ready.clear(); pendingPositions.clear(); commands.length = 0;corrections.clear(); clock = 0; lastGuestFrame = 0;
   MATCH.members=new Set(NET.players.keys());
 }
 export function netEndMatch() {
-  MATCH.missions?.dispose(); MATCH.on = false; MATCH.world = MATCH.missions = null;
-  W.net = null; W.netHit = W.netThrow = W.netTake = W.netPuppet = null;
-  for (const b of W.bots || []) if (b.tag) { b.tag.removeFromParent(); b.tag.material.map?.dispose(); b.tag.material.dispose(); b.tag = null; }
+  const state=MATCH.worldState;
+  if(state)withWorld(state,()=>{
+    MATCH.missions?.dispose();state.net=null;state.netHit=state.netThrow=state.netTake=state.netPuppet=null;
+    for(const b of state.bots||[])if(b.tag){b.tag.removeFromParent();b.tag.material.map?.dispose();b.tag.material.dispose();b.tag=null;}
+  });
+  MATCH.on=false;MATCH.worldState=null;MATCH.world=MATCH.missions=null;
 }
 export function netPrepareMatch(scene) {
   if (!MATCH.on) return;
-  MATCH.scene = scene; W.player.netKey = myKey(); clock = 0;
+  MATCH.worldState=W;MATCH.scene = scene; W.player.netKey = myKey(); clock = 0;
   for (const p of others()) if(MATCH.members.has(p.id))addHuman(p);
   if (MATCH.host) {
     const bots = W.bots.filter(b => !b.puppet);
@@ -67,8 +70,9 @@ export function netPrepareMatch(scene) {
   MATCH.missions = attachMissionSync(world, { host: MATCH.host, myKey: myKey(), actor: find, sendEvent: event, command,
     open: m => callbacks.open?.(m), abort: m => callbacks.abort?.(m), award: (a, pts, m) => callbacks.award?.(a, pts, m), now: () => clock });
   W.netPuppet = puppetStep; W.netHit = sendHit; W.netThrow = sendThrow; W.netTake = sendTake;
-  MATCH.ready.add(NET.id); event({ e: 'match-ready' }); hook(W.player.ch);
+  hook(W.player.ch);
 }
+export function netMarkReady(){if(MATCH.on&&MATCH.world&&!MATCH.ready.has(NET.id)){MATCH.ready.add(NET.id);MATCH.fullT=0;event({e:'match-ready'});}}
 function addHuman(p) {
   if (!MATCH.scene || find('p' + p.id)) return;
   const b = makePuppet(MATCH.scene, p.skin, p.name, 'p' + p.id);
@@ -95,24 +99,26 @@ function receiveActors(rows) {
 }
 export function netMatchTick(dt, P) {
   if (!MATCH.on || !MATCH.world || !P) return;
+  syncAuthority();
   clock += dt; MATCH.sendT -= dt; MATCH.worldT -= dt; MATCH.fullT -= dt;
   if (MATCH.host) P.score = callbacks.score?.() || 0;
-  MATCH.world.interpolate(dt);if(MATCH.host&&!netPaused())for(const b of W.bots)if(b.human&&!b.drone&&!b.returning&&!b.ride&&!b.grab)bumpPushables(b,dt);
+  if(callbacks.state?.()==='play')separateActors();MATCH.world.interpolate(dt);if(MATCH.host&&!netPaused())for(const b of W.bots)if(b.human&&!b.drone&&!b.returning&&!b.ride&&!b.grab)bumpPushables(b,dt);
   if (MATCH.sendT > 0) return;
   MATCH.sendT = netPaused() ? .5 : SEND; hook(P.ch);
+  if(MATCH.host&&!netWaiting()&&!MATCH.startAt)MATCH.startAt=serverNow()+300;
   const n = ++MATCH.seq;
   const m = { t: 'st', m: 'match', protocol: 2, ep: MATCH.seed, n, x: +P.pos.x.toFixed(3), y: +P.pos.y.toFixed(3), z: +P.pos.z.toFixed(3),
     r: +P.root.rotation.y.toFixed(3), s: pose(P.ch._netS), rtt: NET.rtt, dr:callbacks.droneState?.(P), v: P.hidden || P.drone || P.returning&&P.returning.t<1.25 || P.stationaryWork ? 0 : 1 };
   if (MATCH.host) {
-    m.h = [P, ...W.bots].map(actorPacket);
+    m.h = [P, ...W.bots].map(actorPacket);m.fix=[...corrections.values()];
     if (MATCH.worldT <= 0 && callbacks.state?.() !== 'results' && callbacks.state?.() !== 'finale') {
       MATCH.worldT = SNAPSHOT_INTERVAL; const full = MATCH.fullT <= 0; if (full) MATCH.fullT = KEYFRAME_INTERVAL;
       m.w = { d: MATCH.world.capture(full), missions: MATCH.missions.snapshot(), events: networkEventSnapshot(),
-        time: callbacks.time?.(), state: callbacks.state?.(), ruined:MATCH.world.destructionState?.(),candies:callbacks.candyState?.(), paused: MATCH.paused || netWaiting(), roster: MATCH.roster };
+        clock, startAt:MATCH.startAt, time: callbacks.time?.(), state: callbacks.state?.(), ruined:MATCH.world.destructionState?.(),candies:callbacks.candyState?.(), paused: MATCH.paused || netWaiting(), ready:[...MATCH.ready], roster: MATCH.roster };
     }
   } else if (MATCH.worldT <= 0 && callbacks.state?.() === 'play') { MATCH.worldT = SNAPSHOT_INTERVAL; m.c = MATCH.world.proposals(); }
   if (!MATCH.host && commands.length) m.cmds = commands.slice();
-  if (send(m) !== false) { if(m.cmds)commands.splice(0,m.cmds.length); pendingPositions.set(n, [m.x, m.y, m.z]); if (pendingPositions.size > 40) pendingPositions.delete(pendingPositions.keys().next().value); }
+  if (send(m) !== false) { if(m.cmds)commands.splice(0,m.cmds.length);if(MATCH.host)corrections.clear(); pendingPositions.set(n, [m.x, m.y, m.z]); if (pendingPositions.size > 40) pendingPositions.delete(pendingPositions.keys().next().value); }
   else if(MATCH.host)MATCH.fullT=0;else MATCH.world.retryProposals();
 }
 function push(b, x, y, z, r, s = {}, sc, v = 1) {
@@ -149,11 +155,12 @@ function guestState(m) {
     const from = b.buf.at(-1), start = [from.x, from.y, from.z];
     const elapsed = Math.min(.6, Math.max(.05, clock - (b.netAt || clock)));
     if (Math.hypot(p[0] - start[0], p[2] - start[2]) > 32 * elapsed + 2) p = start;
-    p = sweepPosition(start, p, b.r, q => pushOut(q, b.r, q.y + b.step, q.y + b.h));
-    if (Math.hypot(p[0] - m.x, p[2] - m.z) > .12) event({ e: 'correction', to: b.netKey, n: m.n, p });
+    p = sweepPosition(start, p, b.r, q => {pushOut(q,b.r,q.y+b.step,q.y+b.h);pushActorsOut(q,b);});
+    if (Math.hypot(p[0] - m.x, p[2] - m.z) > .12) corrections.set(b.netKey,{to:b.netKey,n:m.n,p});
   }
   const previous=b.buf.at(-1),elapsed=Math.max(.05,clock-(b.netAt||clock));b.netVelocity=new V3(previous?(p[0]-previous.x)/elapsed:0,previous?(p[1]-previous.y)/elapsed:0,previous?(p[2]-previous.z)/elapsed:0);
   b.netAt = clock;
+  if(b.heldBy){const dx=p[0]-b.heldBy.pos.x,dz=p[2]-b.heldBy.pos.z,d=Math.hypot(dx,dz);if(d>1.2){p[0]=b.heldBy.pos.x+dx/d*1.2;p[2]=b.heldBy.pos.z+dz/d*1.2;corrections.set(b.netKey,{to:b.netKey,n:m.n,p});}}
   callbacks.droneApply?.(b,m.dr);
   push(b, ...p, m.r, m.s || {}, b.score || 0, m.v); b.pos.fromArray(p);
   if(!MATCH.final)for(const cmd of (m.cmds||[]).slice(0,32))handleCommand(b,cmd);
@@ -173,19 +180,23 @@ export function netPublishFinal(rows, replay = null) {
 }
 export function initMatchSync(options = {}) {
   callbacks = options;
+  onNet("state",()=>{if(MATCH.on)syncAuthority();});
   onNet('st', m => {
     if (!MATCH.on || !MATCH.world || m.m !== 'match' || m.ep !== MATCH.seed || m.protocol !== 2) return;
     if (MATCH.host) { if (!trusted(m)) guestState(m); return; }
     if (!trusted(m) || (m.n | 0) <= lastGuestFrame) return;
     lastGuestFrame = m.n; MATCH.lastHost = performance.now();
     if (m.w) {
+      if(Number.isFinite(m.w.startAt))MATCH.startAt=m.w.startAt;
+      if(Number.isFinite(m.w.clock))clock=m.w.clock;
+      if(m.w.ready)MATCH.ready=new Set(m.w.ready);
       if (m.w.roster) { MATCH.roster = m.w.roster; addBotPuppets(MATCH.roster); }
       MATCH.world.receiveDestruction?.(m.w.ruined);
       MATCH.missions.receive(m.w.missions || []);
       receiveNetworkEvents(m.w.events, callbacks.eventUi);callbacks.candyApply?.(m.w.candies);
       MATCH.world.receive(m.w.d); MATCH.paused = !!m.w.paused; callbacks.setTime?.(m.w.time);
     }
-    receiveActors(m.h);
+    for(const q of m.fix||[])applyCorrection(q);receiveActors(m.h);
   });
   onNet('ev', m => {
     if (m.e === 'roster' && trusted(m) && m.ep === MATCH.seed) { MATCH.roster = m.bots; if (MATCH.scene) addBotPuppets(m.bots); return; }
@@ -200,15 +211,11 @@ export function initMatchSync(options = {}) {
     else if (m.e === 'hit' && m.to === myKey()) applyHit(W.player, m.k, m.a || []);
     else if(m.e==='effect'&&m.to===myKey())callbacks.effect?.(W.player,m.k,m.v||{});
     else if (m.e === 'host-pause') { MATCH.paused = !!m.paused; callbacks.pause?.(MATCH.paused); }
-    else if (m.e === 'correction' && m.to === myKey() && vector(m.p)) {
-      const sent = pendingPositions.get(m.n); if (!sent) return;
-      W.player.pos.x += m.p[0] - sent[0]; W.player.pos.z += m.p[2] - sent[2];
-      pushOut(W.player.pos, W.player.r, W.player.pos.y + W.player.step, W.player.pos.y + W.player.h);
-    } else if (m.e === 'final') { MATCH.final = { rows: m.rows, replay: m.replay }; callbacks.final?.(); }
+    else if (m.e === 'correction') applyCorrection(m); else if (m.e === 'final') { MATCH.final = { rows: m.rows, replay: m.replay }; callbacks.final?.(); }
   });
   onNet('leave', id => {
-    if (!MATCH.on) return; const b = find('p' + id); if (!b || !b.puppet) return;
-    if (MATCH.host) MATCH.missions?.disconnect(b.netKey);
+    if (!MATCH.on) return; MATCH.members.delete(id);MATCH.ready.delete(id);const b = find('p' + id); if (!b || !b.puppet) return;
+    MATCH.world?.locally(()=>releaseDisconnected(b));if (MATCH.host) {MATCH.missions?.disconnect(b.netKey);MATCH.fullT=0;}
     b.root.removeFromParent(); b.tag?.removeFromParent(); b.tag?.material.map?.dispose(); b.tag?.material.dispose(); W.bots.splice(W.bots.indexOf(b), 1);
   });
   document.addEventListener('visibilitychange', () => {
@@ -216,4 +223,20 @@ export function initMatchSync(options = {}) {
     MATCH.paused = document.hidden; MATCH.fullT = 0; event({ e: 'host-pause', paused: MATCH.paused });
   });
 }
+function applyCorrection(m){if(m.to!==myKey()||!vector(m.p))return;
+      const sent = pendingPositions.get(m.n); if (!sent || Math.hypot(W.player.pos.x-sent[0],W.player.pos.z-sent[2])>8 || Math.abs(W.player.pos.y-sent[1])>8) return;pendingPositions.delete(m.n);
+      W.player.pos.x += m.p[0] - sent[0]; W.player.pos.z += m.p[2] - sent[2];
+      pushOut(W.player.pos, W.player.r, W.player.pos.y + W.player.step, W.player.pos.y + W.player.h);
+    }
 function applyHit(a, k, v) { if (!a) return; if (k === 'knock') knockDown(a, v[0], v[1], v[2]); else if (k === 'shove') shove(a, v[0], v[1], v[2], v[3], !!v[4]); else if (k === 'daze') daze(a, v[0]); }
+
+function syncAuthority(){
+ const elected=[...NET.players.values()].find(p=>p.host)?.id;
+ if(!elected||MATCH.authority===elected)return;MATCH.authority=elected;
+ MATCH.host=NET.host;commands.length=0;corrections.clear();MATCH.paused=false;MATCH.lastHost=performance.now();MATCH.fullT=0;lastGuestFrame=0;
+ MATCH.world?.setHost(NET.host);MATCH.missions?.setHost(NET.host);
+ if(NET.host&&MATCH.world){
+   for(const b of W.bots)if(!b.human){b.puppet=false;b.facing=b.root.rotation.y;b.throwCD=2;b.goal=null;}
+   event({e:'roster',bots:MATCH.roster||[]});
+ }
+}

@@ -370,9 +370,9 @@ export class Builder {
       if (isFree(Math.min(X - nx * .35, X + nx * .35) - (nz ? e : .02), Math.min(Z - nz * .35, Z + nz * .35) - (nx ? e : .02), Math.max(X - nx * .35, X + nx * .35) + (nz ? e : .02), Math.max(Z - nz * .35, Z + nz * .35) + (nx ? e : .02), Y - s * .3, Y + s * .3)) return; }
     const m = this.m(G.plane, alphaMat(T.web(), { side: THREE.DoubleSide, opacity: 0.7 }), x, y, z, s, s, 1); m.rotation.y = ry; }
   // гирлянда на столбах: столбы каждые ~8 м, провод провисает между ними, лампочки висят на проводе
-  stringLights(x0, z0, x1, z1, y, colors = [0xff8a1f, 0xb18cff, 0x9be36b]) {
+  stringLights(x0, z0, x1, z1, y, colors = [0xff8a1f, 0xb18cff, 0x9be36b], options = {}) {
     const len = Math.hypot(x1 - x0, z1 - z0), spans = Math.max(1, Math.ceil(len / 8)), pole = col(0x2b2533);
-    for (let k = 0; k <= spans; k++) { const t = k / spans, px = x0 + (x1 - x0) * t, pz = z0 + (z1 - z0) * t;
+    for (let k = 0; k <= spans; k++) { if(options.endPoles&&k>0&&k<spans)continue;const t = k / spans, px = x0 + (x1 - x0) * t, pz = z0 + (z1 - z0) * t;
       // столб не ставим перед дверью (вход всегда свободен)
       if (W.doors.some(d => Math.hypot(d.x - this.X(px), d.z - this.Z(pz)) < 1.8 && Math.abs(d.y - this.Y) < 1)) continue;
       this.m(G.cyl6, pole, px, (y + 0.15) / 2, pz, 0.06, y + 0.15, 0.06); this.solid(px, pz, 0.16, 0.16, 0, y); }

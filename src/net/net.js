@@ -16,8 +16,10 @@ const listeners = {};
 export const onNet = (ev, fn) => { (listeners[ev] ??= []).push(fn); };
 const emit = (ev, ...a) => { for (const f of listeners[ev] || []) try { f(...a); } catch (e) { console.error(e); } };
 
-export const NET = { ws: null, state: 'off', code: '', id: 0, host: false, players: new Map(), rtt: 0, skin: 'cat', error: '' };
+export const NET = { ws: null, state: 'off', code: '', id: 0, host: false, players: new Map(), rtt: 0, offset:0, skin: 'cat', error: '' };
 let pingT = null, retryTimer = null, retry = 0, wantClose = false, lastCreate = false;
+export const hubHostId=()=>[...NET.players.values()].filter(p=>p.scene!=='match').sort((a,b)=>Number(b.host)-Number(a.host)||a.id-b.id)[0]?.id;
+export const serverNow=()=>Date.now()+NET.offset;
 export const inRoom = () => NET.state === 'on';
 export const me = () => NET.players.get(NET.id);
 export const others = () => [...NET.players.values()].filter(p => p.id !== NET.id);
@@ -31,7 +33,7 @@ function open(code, create) {
   let ws; try { ws = new WebSocket(serverUrl() + '/ws?room=' + code); } catch { fail('Сервер недоступен'); return; }
   NET.ws = ws;
   ws.onopen = () => { let token = SS('friendslop.tok.' + code); if (!token) { token = random().toString(36).slice(2) + Date.now().toString(36); SS('friendslop.tok.' + code, token); }
-    send({ t: 'hello', name: myName() || 'Игрок', skin: NET.skin, ver: VER, create: create ? 1 : 0, token }); };
+    send({ t: 'hello', name: myName() || 'Игрок', skin: NET.skin, ver: VER, migrate: true, create: create ? 1 : 0, token }); };
   ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch { return; } handle(m); };
   ws.onclose = () => { if (NET.ws !== ws) return; clearInterval(pingT); NET.ws = null;
     if (NET.state !== 'off' && !wantClose && retry < 4) { retry++; NET.state = 'connecting'; emit('state'); emit('toast', 'Связь пропала — переподключаюсь…'); retryTimer = setTimeout(() => {if(!wantClose)open(NET.code, false);}, 800 * retry); return; }
@@ -53,7 +55,7 @@ function handle(m) {
     case 'upd': { const p = NET.players.get(m.p.id); NET.players.set(m.p.id, { ...p, ...m.p }); if (m.p.id === NET.id) NET.host = m.p.host; emit('state'); break; }
     case 'st': emit('st', m); break;
     case 'ev': emit('ev', m); break;
-    case 'P': NET.rtt = Math.round(performance.now() - m.c); { const p = me(); if (p) p.rtt = NET.rtt; } emit('ping'); break;
+    case 'P': NET.rtt = Math.round(performance.now() - m.c);if(Number.isFinite(m.s))NET.offset=m.s+NET.rtt/2-Date.now(); { const p = me(); if (p) p.rtt = NET.rtt; } emit('ping'); break;
     case 'kicked': wantClose = true; emit('toast', 'Хост выгнал тебя из лобби'); leaveLocal(); break;
     case 'hostwait': emit('toast', 'Хост отключился — ждём его…'); break;
     case 'hostback': emit('toast', 'Хост вернулся'); break;

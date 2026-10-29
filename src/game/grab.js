@@ -11,7 +11,7 @@ import { tryGrabTarget, updateGrabTargets } from './grab-targets.js';
 /* Захват удерживает соперника за одежду на земле. Оба продолжают ходить,
    схваченный сильно замедлен и может вырваться. Подъёма и броска персонажа нет. */
 const gripFrom = new V3(), gripDir = new V3(), contact = new V3();
-const unavailable = a => a.hidden || a.drone || a.returning || a.caged || a.ride || a.swing || a.bench || a.mantle || a.hang || a.climb || a.climbing || a.zip || a.dive || a.diveT > 0 || a.netT > 0;
+const unavailable = a => a.netProtected || a.hidden || a.drone || a.returning || a.caged || a.ride || a.swing || a.bench || a.mantle || a.hang || a.climb || a.climbing || a.zip || a.dive || a.diveT > 0 || a.netT > 0;
 const handBusy = a => a.held || a.carryCrate || a.carryKitten || a.carryNet || a.missionTool || a.dogHeld || a.grab;
 
 function clearGrip(a, b) {
@@ -62,7 +62,7 @@ export function applyGripMotion(a, dt) {
   const speed=Math.hypot(a.vel.x,a.vel.z),limit=a.stun>0?0.5:1.7;
   if(speed>limit){a.vel.x*=limit/speed;a.vel.z*=limit/speed;}
 }
-function poseGrip(a,b,dt) {
+export function poseGrip(a,b,dt) {
   a.root.rotation.y=Math.atan2(b.pos.x-a.pos.x,b.pos.z-a.pos.z);
   a.root.updateMatrixWorld(true);b.root.updateMatrixWorld(true);
   // Кисти цепляются за обращённую к нам сторону корпуса, с учётом размеров обоих скинов.
@@ -83,6 +83,7 @@ export function updateGrabs(dt) {
   for(const a of list)if(a.gripSafe>0)a.gripSafe=Math.max(0,a.gripSafe-dt);
   for (const a of list) {
     const b = a.holding; if (!b) continue;
+    if(W.net?.replica){poseGrip(a,b,dt);continue;}
     a.gripT = (a.gripT || 0) + dt;
     const d = Math.hypot(b.pos.x - a.pos.x, b.pos.z - a.pos.z);
     if (b.heldBy!==a || !list.includes(b) || a.stun>0 || a.daze>0 || a.getT>0 || unavailable(a) || unavailable(b) || a.gripT>4 || d>1.95 || Math.abs(a.pos.y-b.pos.y)>0.75 || !clearGrip(a,b)) { letGo(a); continue; }

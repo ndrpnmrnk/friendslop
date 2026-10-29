@@ -1,12 +1,13 @@
 import { random } from '../core/random.js';
 import {actionEffect} from '../world/action-fx.js';
+import { pushOut } from '../world/physics.js';
 import { V3 } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { burst } from '../world/particles.js';
 
 /* Общие действия над «актёрами» (игрок и боты; потом — живые игроки по сети):
    толчок, выронить предмет из рук, сбить с ног. Логика без рендера — её можно перенести на сервер. */
-export const actors = () => { const list = [W.player, ...(W.bots || [])].filter(a => a && !a.drone && !a.returning); return W.net ? list.sort((a,b) => (a.netKey||'').localeCompare(b.netKey||'')) : list; };
+export const actors = () => { const list = [W.player, ...(W.bots || [])].filter(a => a && !a.drone && !a.returning && !a.netProtected); return W.net ? list.sort((a,b) => (a.netKey||'').localeCompare(b.netKey||'')) : list; };
 
 // выронить то, что в руках: предмет отлетает чуть вперёд и вверх
 export function dropHeld(a, vx = 0, vz = 0) {
@@ -19,7 +20,7 @@ export function dropHeld(a, vx = 0, vz = 0) {
 }
 
 // толчок без оглушения (выпад, подушка, струя): отбрасывает и выбивает предмет из рук
-export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) {
+export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) { if(a.netProtected)return;
   if (a.puppet) { W.netHit?.(a, 'shove', [dx, dz, power, up, drop ? 1 : 0]); return; }
   if (a.drone || a.returning) return;
   const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
@@ -37,7 +38,7 @@ export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) {
      предмет из рук вылетает по физике в сторону удара — его можно перехватить;
    - стан стоя (daze): звёздочки над головой, шатается, двигаться можно, но очень медленно. */
 export const GETUP = 0.7;
-export function knockDown(a, dx = 0, dz = 0, t = 1.1) {
+export function knockDown(a, dx = 0, dz = 0, t = 1.1) { if(a.netProtected)return;
   if (a.puppet) { W.netHit?.(a, 'knock', [dx, dz, t]); return; } // v0.61: удар по игроку/боту другого компьютера — шлём владельцу
   if (a.hidden || a.drone || a.returning) return;
   actionEffect('hit',{x:a.pos.x,y:a.pos.y+1,z:a.pos.z},1.4);
@@ -48,7 +49,7 @@ export function knockDown(a, dx = 0, dz = 0, t = 1.1) {
   dropHeld(a, dx * 2.2, dz * 2.2);
   if (a.holding) W.letGo && W.letGo(a);
 }
-export function daze(a, t = 1.2) { if (a.puppet) { W.netHit?.(a, 'daze', [t]); return; } if (a.hidden || a.drone || a.returning) return; a.daze = Math.max(a.daze || 0, t); }
+export function daze(a, t = 1.2) { if(a.netProtected)return; if (a.puppet) { W.netHit?.(a, 'daze', [t]); return; } if (a.hidden || a.drone || a.returning) return; a.daze = Math.max(a.daze || 0, t); }
 // 1 — лежит, 0 — стоит (плавный подъём за GETUP секунд после конца оглушения)
 export const ragK = a => a.stun > 0 ? 1 : a.getT > 0 ? a.getT / GETUP : 0;
 // тик оглушений: вызывать там, где раньше уменьшали a.stun
@@ -59,3 +60,22 @@ export function tickStun(a, dt) {
 }
 export const isActor = o => o && (o === W.player || (W.bots || []).includes(o));
 void V3;
+
+// Телесный контакт отдельно от ИИ. Реплика предсказывает только собственное тело.
+export function separateActors() {
+  const list=actors().filter(a=>(!a.puppet||a.buf?.length)&&!a.hidden&&!a.ride&&!a.holding&&!a.heldBy);
+  for(let pass=0;pass<2;pass++)for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
+    const a=list[i],b=list[j];if(Math.abs(a.pos.y-b.pos.y)>=Math.min(a.h,b.h)*.75)continue;
+    let dx=b.pos.x-a.pos.x,dz=b.pos.z-a.pos.z,d=Math.hypot(dx,dz),r=a.r+b.r;
+    if(d>=r)continue;const overlap=r-d;if(d<.0001){dx=1;dz=0;d=1;}
+    for(const [body,sign]of [[a,-1],[b,1]]){
+      if(W.net?.replica&&body!==W.player)continue;
+      const k=W.net?.replica?1:.5;body.pos.x+=sign*dx/d*overlap*k;body.pos.z+=sign*dz/d*overlap*k;
+      pushOut(body.pos,body.r,body.pos.y+body.step,body.pos.y+body.h);
+    }
+  }
+}
+export function releaseDisconnected(a) {
+  if(!a)return;dropHeld(a);if(a.holding)W.letGo?.(a);if(a.heldBy)W.letGo?.(a.heldBy);
+  if(a.ride)W.dismount?.(a);if(a.grab)W.releaseCart?.(a);
+}

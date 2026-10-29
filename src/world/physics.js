@@ -82,11 +82,22 @@ export function pushOut(p, r, yLow, yHigh) {
   return hit;
 }
 
+// Тела игроков не относятся к статическим стенам, но ограничивают каждый подшаг движения.
+export function pushActorsOut(p,body){
+  if(body.netProtected||body.holding||body.heldBy||body.ride)return;
+  for(const a of [W.player,...(W.bots||[])]){
+    if(!a||a===body||a.pos===body.pos||a.hidden||a.drone||a.returning||a.netProtected||a.ride||a.holding||a.heldBy||a.puppet&&!a.buf?.length)continue;
+    if(Math.abs(a.pos.y-p.y)>=Math.min(a.h,body.h)*.75)continue;
+    let dx=p.x-a.pos.x,dz=p.z-a.pos.z,d=Math.hypot(dx,dz),r=body.r+a.r;
+    if(d>=r)continue;if(d<.00001){dx=body.pos.x<a.pos.x?-1:1;dz=0;d=1;}
+    p.x=a.pos.x+dx/d*r;p.z=a.pos.z+dz/d*r;
+  }
+}
 // Персонаж/животное: горизонталь, затем вертикаль с землёй и потолком
 export function moveBody(b, dt, g = 22) {
   const p = b.pos, v = b.vel; _cover = !!(b.ride || b.riding);
   const steps=Math.min(64,Math.max(1,Math.ceil(Math.hypot(v.x,v.z)*dt/Math.max(.08,b.r*.45))));
-  for(let i=0;i<steps;i++){p.x+=v.x*dt/steps;p.z+=v.z*dt/steps;pushOut(p,b.r,p.y+b.step,p.y+b.h);}
+  for(let i=0;i<steps;i++){p.x+=v.x*dt/steps;p.z+=v.z*dt/steps;pushOut(p,b.r,p.y+b.step,p.y+b.h);if(b===W.player||(W.bots||[]).includes(b))pushActorsOut(p,b);}
   const oldY = p.y;
   if (!b.noGrav) v.y -= g * dt;
   // v0.60: в шахте люка спускаешься плавно, как по горке-трубе: скорость падения ограничена, без оглушения внизу

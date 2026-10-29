@@ -177,7 +177,7 @@ export function buildHub(scene){
     for(const[x,z]of[[-21,-22],[-14,-22]])b.aircon?.(x,z,9);
     b.ladder(18.4,0,'s',4.9);
     group.add(compose('hub59-roofgarden',a=>{for(const[x,z]of[[13,-8],[17.5,-8],[13,-2.5]]){a(G.box,col(0x6a4a3a),x,5.15,z,1.2,.5,.6);a(G.sph10,col(0x4f8a4a),x,5.55,z,.55,.35,.3);}a(G.box,tmat(T.wood()),15.5,5.2,-4.5,2,.08,.5);for(const s of[-.9,.9])a(G.box,col(0x2a2430),15.5+s,5.0,-4.5,.06,.3,.4);}));
-    b.stringLights(11.5,-9.6,19.2,-.4,6.2,[0xffb45a,0xff7a5a,0xffd27a]);
+    b.stringLights(11.5,-9.6,19.2,-.4,6.2,[0xffb45a,0xff7a5a,0xffd27a],{endPoles:true}); // Без центрального столба перед автоматом (15.35, -5).
   }
   // балконы с цветами и кондиционеры на домах вокруг двора — фасады живее
   group.add(compose('hub59-balconies',a=>{const rail=col(0x2a2430),slab=col(0x6a6070);

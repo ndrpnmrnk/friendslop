@@ -17,17 +17,18 @@ const transform = o => [...pos(o.position), ...o.quaternion.toArray().map(q), ..
 
 // Карта строится локально. В сети - идентификаторы, изменения состояния и позы подвижных узлов.
 // Стены/коллизии применяются сразу, картинки подвижных объектов сглаживаются отдельно.
-export function createWorldSync({ host, id, actor, command, myKey }) {
+export function createWorldSync({ host, id, actor, command, myKey, visuals = true }) {
   const objects = new Map(), seen = new WeakMap(), baseline = new Map(), visual = new Map(), scopes = new Map();
-  const textures=new WeakMap(),lastProposal=new Map();let proposalAt=0;
+  const textures=new WeakMap(),lastProposal=new Map();let proposalAt=0,initialKeys=new Set();
   const delta = new StateDelta(); let current = '', applying = false, serial = 0;
-  const keyOf = a => a === W.player ? myKey : a?.netKey || '';
+  const keyOf = a => !a?'':a===W.player?myKey:a.netKey||'';
   const localOwns = o => o?.netScope && api.ownsScope?.(o.netScope);
   function register(type, o, forced) {
     if (!o || seen.has(o)) return seen.get(o);
     const prefix = current || 'h', n = scopes.get(prefix) || 0;
     const key = forced || type + ':' + prefix + '/' + n;
     if (!forced) scopes.set(prefix, n + 1);
+    if(forced){const slash=key.lastIndexOf('/'),n=Number(key.slice(slash+1));if(slash>1&&Number.isInteger(n)){const scope=key.slice(2,slash);scopes.set(scope,Math.max(scopes.get(scope)||0,n+1));}}
     seen.set(o, key); o.netId = key; o.netScope = current; objects.set(key, { type, o });
     return key;
   }
@@ -68,8 +69,8 @@ export function createWorldSync({ host, id, actor, command, myKey }) {
         });
         if(maps.length)result.push(maps);return result;
       }
-      case 'c': return [...pos(o.root.position), q(o.root.rotation.y), o.mode || 'walk', o.state || 'idle'];
-      case 'n': return [...pos(o.g.position), q(o.g.rotation.y), q(o.stun), q(o.daze),keyOf(o.heldBy)];
+      case 'c': return [...pos(o.root.position), q(o.root.rotation.y), o.mode || 'walk', o.state || 'idle',o.target?[o.target.x,o.target.z]:null,q(o.timer)];
+      case 'n': {const node=o.g||o.root||o.mesh,p=o.pos||node?.position;if(!p||!Number.isFinite(p.x))return null;return [...pos(p),q(node?.rotation.y),q(o.stun),q(o.daze),keyOf(o.heldBy)];}
       case 't': return [o.kind,...pos(o.m.getWorldPosition(new V3())),...pos(o.v),q(o.g),q(o.life),q(o.delay),keyOf(o.owner),...o.m.quaternion.toArray().map(q),...pos(o.m.scale),o.m.visible&&o.m.parent?1:0];
       default: return null;
     }
@@ -132,9 +133,9 @@ export function createWorldSync({ host, id, actor, command, myKey }) {
           t.userData.netImage=data;const image=new Image();image.onload=()=>{if(t.userData.netImage===data){canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);t.needsUpdate=true;}};image.src=data;
         }break;
       }
-      case 'c': target(o.root, v.slice(0, 3)); o.root.rotation.y = v[3]; o.mode = v[4]; o.state = v[5]; break;
+      case 'c': target(o.root, v.slice(0, 3)); o.root.rotation.y = v[3]; o.mode = v[4]; o.state = v[5];o.target=v[6]?{x:v[6][0],z:v[6][1]}:{x:o.root.position.x,z:o.root.position.z};o.timer=v[7]||0;break;
       case 'n': {
-        target(o.g,v.slice(0,3));o.g.rotation.y=v[3];o.stun=v[4];o.daze=v[5];
+        const node=o.g||o.root||o.mesh;if(node){target(node,v.slice(0,3));node.rotation.y=v[3];}o.stun=v[4];o.daze=v[5];
         if(o.heldBy?.dogHeld===o)o.heldBy.dogHeld=null;o.heldBy=actor(v[6]);if(o.kind==='dog'&&o.heldBy)o.heldBy.dogHeld=o;break;
       }
     }
@@ -212,9 +213,15 @@ export function createWorldSync({ host, id, actor, command, myKey }) {
   }
   const api = { host, replica: !host, register, scope, runScope, tree, objects, keyOf, request, reachable, act, proposals, accept, apply,
     retryProposals(){lastProposal.clear();},
+    locally(fn){const old=applying;applying=true;try{return fn();}finally{applying=old;}},
+    setIdentity(value){myKey=value;serial=0;},
+    discover(){for(const[type,list]of Object.entries(LISTS))for(const o of W[list]||[])if(!seen.has(o))register(type,o);},
+    restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();delta.last=new Map(delta.base);delta.rev=0;serial=0;},
+    setHost(value){host=!!value;api.host=host;api.replica=!host;serial=0;},
+    resetStream(){serial=0;},
     get applying() { return applying; },
     capture(full = false) { return delta.snapshot(records(), full); },
-    baseline() { const rows = records(); delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v); },
+    baseline() { initialKeys=new Set(objects.keys());const rows = records(); delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v); },
     receive(frame) { if (!frame || frame.rev <= serial) return; serial = frame.rev; if (frame.full) apply([...baseline]); apply(frame.rows); },
     interpolate(dt) { const k = 1 - Math.exp(-dt * 22); for (const [o, v] of visual) { if (o.netScope && api.ownsScope?.(o.netScope)) { visual.delete(o); continue; } o.position.lerp(v.p, k); if (v.r) o.quaternion.slerp(v.r, k); if (v.s) o.scale.lerp(v.s, k); } },
     canSimulate(o) { if(o?.netScope?.startsWith('m'))return !!api.ownsScope?.(o.netScope); return host || !o?.netId || localOwns(o) || o.rider === W.player || o.grabbed === W.player; },
@@ -224,9 +231,9 @@ export function createWorldSync({ host, id, actor, command, myKey }) {
   W.net = api;
   for (const [type, list] of Object.entries(LISTS)) (W[list] || []).forEach((o, i) => register(type, o, type + ':' + i));
   current = 'base';
-  for (const o of W.keep || []) tree(o);
+  if(visuals)for (const o of W.keep || []) tree(o);
   for (const o of W.cats || []) tree(o.root);
-  for (const o of W.npcs || []) tree(o.g);
+  for (const o of W.npcs || []) tree(o.g||o.root||o.mesh);
   current = ''; api.baseline();
   return api;
 }

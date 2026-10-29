@@ -22,8 +22,8 @@ import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies
 import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
 import { initNetUI, beforeHub, afterHubShown } from './net/ui.js';
-import { MATCH, seededMap, netPrepareMatch, netMatchTick, netEndMatch, initMatchSync, humansInRoom, myRank, netPaused, netPublishFinal } from './net/match-sync.js';
-import { NET, onNet } from './net/net.js';
+import { MATCH, seededMap, netPrepareMatch, netMarkReady, netMatchTick, netEndMatch, initMatchSync, humansInRoom, myRank, netPaused, netPublishFinal } from './net/match-sync.js';
+import { NET, onNet, serverNow } from './net/net.js';
 import { CANDY_TYPES, applyCandy } from './game/candy.js';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
@@ -43,7 +43,7 @@ import { updateSwingers } from './world/swingers.js';
 import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
 import { netActor, shoot, resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow,releaseNet } from './game/tools.js';
-import { knockDown } from './game/actors.js';
+import { separateActors, knockDown } from './game/actors.js';
 import { resetReplay, recordReplay, replayMoment, replayClip, createReplayPlayer, encodeNetworkReplay, decodeNetworkReplay } from './game/replay.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import { mouse as M_ } from './core/input.js';
@@ -219,7 +219,7 @@ initMatchSync({
   eventUi, pause:on=>{if(on)toast('Хост свернул игру - общая пауза');},
   final:()=>{if(['play','intro'].includes(S.state))startFinale();}
 });
-onNet('state', () => { if (NET.state === 'off' && MATCH.on) { netEndMatch(); if (!['hub', 'menu'].includes(S.state)) showHub(); } });
+onNet('state', () => { if (MATCH.on&&(NET.state==='off'||NET.state==='on'&&!MATCH.members.has(NET.id))) { netEndMatch(); if (!['hub', 'menu'].includes(S.state)) showHub(); } });
 initNetUI({ currentSkin: () => collection().selected });
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
 $('modeCard').onclick = () => { requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(() => launchRound(MODES[0], randomMap()), 300); };
@@ -371,9 +371,10 @@ function crashArrival(a, prev, hit, dt) {
   impactBurst({ x: a.pos.x, y: a.pos.y + 1, z: a.pos.z }, 0xffd8a0, .7); sfx('hit', { at: a.pos, v: 1.2 }); sfx('land', { at: a.pos, v: .8 });
 }
 function startIntro() {
+  netMarkReady();
   void roundMusic.intro();
   S.state = 'intro'; $('hud').classList.add('hidden'); $('intro').classList.remove('hidden'); $('count').textContent = ''; $('dname').textContent = '';
-  S.intro = { t: 0, drop: true, landed: false, cd: 4, me: arrivalArc(P.pos), delay: .35, bots: (W.bots || []).filter(b => !b.puppet).map((b, i) => ({ b, f: arrivalArc(b.pos), delay: .1 + i * .3, landed: false })) };
+  S.intro = { t: 0, drop: true, landed: false, cd: 4, me: MATCH.on?withRandom(MATCH.seed^NET.id,()=>arrivalArc(P.pos)):arrivalArc(P.pos), delay: .35, bots: (W.bots || []).filter(b => !b.puppet).map((b, i) => ({ b, f: arrivalArc(b.pos), delay: .1 + i * .3, landed: false })) };
   takeLook(); P.frozen = true; P.root.visible = true; P.pos.copy(S.intro.me.from); P.root.position.copy(P.pos);
   for (const b of W.bots || []) if (b.puppet) { b.root.visible = false; if (b.tag) b.tag.visible = false; }
   for (const q of S.intro.bots) { q.b.root.visible = false; q.b.frozenIntro = true; }
@@ -397,7 +398,7 @@ function landArc(a, f, me) {
 function landRag(a, f) { const dx = f.to.x - f.from.x, dz = f.to.z - f.from.z, L = Math.hypot(dx, dz) || 1, sp = Math.min(9, L / f.dur * .35);
   knockDown(a, dx / L * sp, dz / L * sp, 1.7); a.vel.y = 3.2; sfx('hit', { at: a.pos, v: .8 }); }
 function updateIntro(dt) {
-  const I = S.intro; I.t += dt; const t = I.t, f = I.me;
+  const I = S.intro; if(MATCH.on&&MATCH.startAt)I.t=Math.max(0,(serverNow()-MATCH.startAt)/1000);else I.t+=dt; const t = I.t, f = I.me;
   // v0.59: приземлившиеся боты лежат «тряпичной куклой», скользят по инерции и за 3 с поднимаются
   for (const q of I.bots) { if (!q.landed || !q.rag) continue; const r = q.rag; r.t += dt; moveBody(r.body, dt); if (r.body.onGround) { q.b.vel.x *= Math.exp(-dt * 4); q.b.vel.z *= Math.exp(-dt * 4); }
     q.b.root.position.copy(q.b.pos); const k = r.t < 2.3 ? 1 : Math.max(0, 1 - (r.t - 2.3) / .7); q.b.ch.animate(dt, { t, rag: k, stun: k >= 1, air: !r.body.onGround, vy: q.b.vel.y, speed: 0 }); if (r.t > 3) { q.rag = null; q.b.stun = 0; q.b.getT = 0; } }
@@ -420,13 +421,14 @@ function updateIntro(dt) {
     sparks(innerWidth / 2, innerHeight * 0.6, ['#ff8a1f', '#f5c542', '#4fe6ff'], 18); shakeCam(0.5); resumeCamera(camera); updateCamera(camera, P, 1 / 60, false);
   }
   if (t > I.landT + .6) {
-    const left = Math.max(0, Math.ceil(I.landT + 3.6 - t)), c = $('count');
+    const left = Math.max(0, Math.ceil((MATCH.on?7:I.landT+3.6)-t)), c = $('count');
     if (left !== I.cd) { I.cd = left; c.classList.remove('tick', 'go'); void c.offsetWidth;
       if (left > 0) { c.textContent = left; sfx('count'); } else { c.textContent = TEXT.go; c.classList.add('go'); sfx('go'); for (const q of I.bots) if (!q.landed) { q.landed = true; landArc(q.b, q.f, false); q.b.root.visible = true; } goRound(); }
       c.classList.add('tick'); }
   }
 }
 function goRound() {
+  netMarkReady();
   if(!M.manual)roundMusic.gameplay();
   S.state = 'play'; P.noRun = false; S.time = CONFIG.roundTime;
   if (!M.manual && !W.net?.replica) spawnWave(P, 'calm');
@@ -995,7 +997,8 @@ function frame() {
       for (const a of [P, ...(W.bots || [])]) a.inLeaves = inC(a.pos.x, a.pos.y + 1.3, a.pos.z);
       const cp = camera.position, want = inC(cp.x, cp.y, cp.z) || P.inLeaves ? 1 : 0; S.leafVeil = (S.leafVeil || 0) + (want - (S.leafVeil || 0)) * Math.min(1, dt * 6);
       const lv = $('leafVeil'); if (lv) { lv.style.opacity = S.leafVeil.toFixed(3); lv.classList.toggle('hidden', S.leafVeil < .01); } }
-    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); if(!W.net?.replica){updateGrabs(dt,t);updateTraps(dt,t);updateTown(dt,t,P,!!EV.big);updateFun(dt,t);updatePolice(dt,t);} updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
+    if(S.state==='intro')for(const b of W.bots||[])if(b.puppet)W.netPuppet?.(b,dt,t);
+    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P);if(!MATCH.on)separateActors();updateGrabs(dt,t); if(!W.net?.replica){updateTraps(dt,t);updateTown(dt,t,P,!!EV.big);updateFun(dt,t);updatePolice(dt,t);} updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
     prof.mark('боты/события');
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' || S.state === 'finale' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);

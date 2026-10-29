@@ -47,7 +47,8 @@ try {
   const stable = h.fs.W.items.find(it=>!it.boxed&&!it.noPickup&&it.home.y<.5&&it.pos.y<1&&it.state==='rest');
   assert(!!stable, 'loose test item exists');
   const hi = stable, gi = g.match.MATCH.world.objects.get(hi.netId)?.o;
-  const setNear = (c, it) => { c.fs.P.pos.set(it.pos.x + .6, it.pos.y - it.def.r, it.pos.z); c.fs.P.vel.set(0,0,0); };
+  const place=(c,p)=>{c.fs.P.pos.copy(p);c.fs.P.vel.set(0,0,0);for(const peer of [h,g]){const a=peer.fs.W.bots.find(b=>b.netKey==='p'+c.net.NET.id);if(a){a.pos.copy(p);for(const q of a.buf){q.x=p.x;q.y=p.y;q.z=p.z;}}}};
+  const setNear = (c, it) => place(c,it.pos.clone().set(it.pos.x+.6,it.pos.y-it.def.r,it.pos.z));
   setNear(h,hi); setNear(g,gi);
   // Тестовая перестановка перед проверкой взаимодействий, без имитации телепорта по сети.
   h.fs.W.bots.find(b=>b.human).buf.length=0;
@@ -71,19 +72,23 @@ try {
   for(const b of h.fs.W.bots.filter(b=>!b.human)){b.stun=1000;b.vel.set(0,0,0);}
   for(const c of[h,g]){c.fs.P.frozen=true;if(c.fs.P.held){c.items.drop(c.fs.P.held,c.fs.P.pos.x,c.fs.P.pos.y,c.fs.P.pos.z);c.fs.P.held=null;}}
   const api=h.win.__onlineTestModules.missions;
-  const m=h.fs.M.list.find(m=>m.key==='puzzle'&&!m.busy&&!m.netLease)||api.spawnMission(h.fs.P,'puzzle');
+  for(const q of h.fs.M.list.slice())if(q.key==='puzzle')api.removeMission(q);h.fs.M.cooldown.puzzle=0;
+  const m=api.spawnMission(h.fs.P,'puzzle');
   assert(!!m,'puzzle available for remote interaction');
   h.match.MATCH.fullT=0;
   await wait(()=>g.fs.M.list.find(x=>x.id===m.id),'replicated puzzle');
-  const gm=g.fs.M.list.find(x=>x.id===m.id),front=m.obj.front();
-  for(const c of[h,g]){c.fs.P.pos.copy(front);c.fs.P.vel.set(0,0,0);}
-  h.fs.W.bots.find(b=>b.human).buf.length=0;
+  const gm=g.fs.M.list.find(x=>x.id===m.id),front=m.obj.front(),normal=front.clone().sub(m.obj.pos()).setY(0).normalize(),side=new h.fs.P.pos.constructor(normal.z,0,-normal.x).multiplyScalar(1.05);
+  const missionPlaces=()=>{place(h,front);place(g,front.clone().add(side));};
+  missionPlaces();
   await new Promise(r=>setTimeout(r,250));
+  missionPlaces();
   h.fs.openMission(m);g.fs.openMission(gm);
   await new Promise(r=>setTimeout(r,400));
+  report('Mission conflict',{lease:m.netLease,hostOpen:!!h.fs.S.mg,guestOpen:!!g.fs.S.mg,hostPos:h.fs.P.pos.toArray(),guestPos:g.fs.P.pos.toArray(),front:front.toArray(),hostFaults:h.fs.lastFaults()});
   assert(m.netLease?.actor==='p'+h.net.NET.id&&!g.fs.S.mg,'simultaneous mission start has one owner');
   h.win.document.getElementById('mgexit').click();
   await wait(()=>!gm.netLease,'release mission');
+  place(h,front.clone().add(new h.fs.P.pos.constructor(0,0,3)));place(g,front);
   g.fs.openMission(gm);try{await wait(()=>g.fs.S.mg?.m===gm,'guest mission grant',8000);}catch(e){report('Grant debug',{hostLease:m.netLease,guestLease:gm.netLease,hostBusy:m.busy,claimed:m.claimedBy?.netKey,gScore:g.fs.S.score,gPos:g.fs.P.pos.toArray(),hostSeenGuest:h.fs.W.bots.find(b=>b.human)?.pos.toArray(),front:m.obj.front().toArray(),hostState:h.fs.S.state,guestState:g.fs.S.state});throw e;}
   assert(m.netLease?.actor==='p'+g.net.NET.id,'guest receives an exclusive attempt');
   const game=g.fs.S.mg.game,board=gm.obj,scoreBefore=g.fs.S.score;
@@ -99,7 +104,7 @@ try {
   const bike=h.fs.W.pushables.find(p=>p.kind==='bike'&&!p.rider&&!p.grabbed);
   if(bike){
     const gb=g.match.MATCH.world.objects.get(bike.netId).o;
-    for(const c of[h,g]){c.fs.P.pos.set(bike.x+.6,bike.y,bike.z);c.fs.P.vel.set(0,0,0);}
+    for(const c of[h,g])place(c,new c.fs.P.pos.constructor(bike.x+.6,bike.y,bike.z));
     h.fs.W.bots.find(b=>b.human).buf.length=0;
     await new Promise(r=>setTimeout(r,250));
     g.win.__onlineTestModules.ride.mount(g.fs.P,gb);h.win.__onlineTestModules.ride.mount(h.fs.P,bike);

@@ -274,9 +274,6 @@ export function updateBots(dt, t, P) {
     if (ctrl && !(b.diveT > 0)) { b.vel.x += (ix * sp - b.vel.x) * Math.min(1, dt * k); b.vel.z += (iz * sp - b.vel.z) * Math.min(1, dt * k); }
     b.vel.x += b.push.x; b.vel.z += b.push.z; b.push.set(0, 0, 0);
     if (b.stun > 0 || b.getT > 0) { b.vel.x *= 0.9; b.vel.z *= 0.9; }
-    // толкотня с игроком
-    if (P && !P.heldBy && !b.heldBy) { const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z, d = Math.hypot(dx, dz);
-      if (d < b.r + P.r && d > 1e-3 && Math.abs(b.pos.y - P.pos.y) < 1.2) { const o = (b.r + P.r - d) / 2; b.pos.x += dx / d * o; b.pos.z += dz / d * o; P.pos.x -= dx / d * o; P.pos.z -= dz / d * o; } }
     const was = b.onGround; b.noGrav=ctrl&&(b.climbing||!!b.ladderExit);if(!ctrl){b.climbing=false;b.ladderExit=null;}
     applyGripMotion(b,dt);
     moveBody(b, dt, PC.gravity);
@@ -417,6 +414,7 @@ export function botHitHook(it, p, heavy, r) {
     if (heavy) { knockDown(a, it.vel.x * 0.4, it.vel.z * 0.4, a === W.player ? 1.2 : 1.4); voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); }
     else { a.push.set(it.vel.x * (a.bot ? 0.2 : 0.15), 0, it.vel.z * (a.bot ? 0.2 : 0.15)); if (it.type === 'balloon') { a.wetT = 4; a.slipT = 2; }
       // мяч и шарик — стан стоя (звёздочки), без падения
+      if(a.puppet)W.netHit?.(a,'shove',[it.vel.x*.15,it.vel.z*.15,Math.hypot(it.vel.x,it.vel.z)*.15,0,false]);
       daze(a,Math.min(1.8,.55+it.def.mass*it.vel.length()*.035)); }
     if (it.owner && it.owner.bot && a !== it.owner) { if (a === W.player && random() < 0.5) setTimeout(() => startEmote(it.owner, 'laugh'), 500); }
     W.onHit && W.onHit(it.owner, a, heavy ? 'heavy' : 'light');

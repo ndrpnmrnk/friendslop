@@ -1,3 +1,5 @@
+const boot=document.createElement('pre');boot.id='logic-boot';boot.textContent='Loading CPU modules';document.body.prepend(boot);
+addEventListener('error',e=>boot.textContent+='\nERROR '+e.message);
 // Только CPU-сцена теста: настоящие THREE-геометрия, raycast, физика и DOM; GPU отсутствует.
 globalThis.__fsMockRenderer = class {
   domElement = document.createElement('canvas');
@@ -13,9 +15,12 @@ globalThis.__fsMockRenderer = class {
   getContext() {return{isContextLost:()=>false,getExtension:()=>null,getParameter:()=>''};}
 };
 globalThis.__noRender=true;
-await import('../../src/main.js?net-logic-test');
+try{await import('../../src/main.js?net-logic-test');}catch(e){boot.textContent+='\nBOOT ERROR '+e.stack;throw e;}
+boot.textContent='Main ready';
 const [net,match,items,missions,physics,ride,drone]=await Promise.all([import('../../src/net/net.js?net-logic-test'),
   import('../../src/net/match-sync.js?net-logic-test'),import('../../src/game/items.js?net-logic-test'),
   import('../../src/missions/missions.js?net-logic-test'),import('../../src/world/physics.js?net-logic-test'),import('../../src/game/ride.js?net-logic-test'),import('../../src/game/drone.js?net-logic-test')
 ]);
-globalThis.__onlineTestModules={net,match,items,missions,physics,ride,drone};
+const world=await import('../../src/world/state.js?net-logic-test'),actors=await import('../../src/game/actors.js?net-logic-test');
+const grabs=await import('../../src/game/grab.js?net-logic-test');
+globalThis.__onlineTestModules={net,match,items,missions,physics,ride,drone,world,actors,grabs};

@@ -149,6 +149,7 @@ export function attachMissionSync(world, { myKey, host, actor, sendEvent, comman
     releaseBot(m,b){const q=m.netLease;if(q?.actor===world.keyOf(b)){leases.release(m.id,q.actor,q.token);m.netLease=null;m.busy=false;m.claimedBy=null;}}
   });
   return { snapshot, receive, grant, handle, observe, leases,
-    disconnect(key) { for (const m of M.list.slice()) if (m.netLease?.actor === key) { stopSpectator(m.id); removeMission(m); } },
+    setHost(value){host=!!value;if(host){for(const m of M.list.slice()){if(m.owner&&!actor(world.keyOf(m.owner))||m.netLease&&!actor(m.netLease.actor)){removeMission(m);continue;}if(m.netLease){leases.jobs.set(m.id,{...m.netLease});leases.next=Math.max(leases.next,m.netLease.token);}}}},
+    disconnect(key) { for (const m of M.list.slice()) if (m.netLease?.actor === key || m.owner&&world.keyOf(m.owner)===key) { stopSpectator(m.id); removeMission(m); } },
     dispose() { for (const id of [...spectators.keys()]) stopSpectator(id); pending.clear(); finished.clear(); leases.jobs.clear(); } };
 }
