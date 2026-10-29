@@ -78,6 +78,17 @@ export function autoMount(p) {
   }
 }
 const TRICKS = { skate: ['kickflip', 'shuvit', 'heelflip', 'tre'], scooter: ['tailwhip', 'barspin'] };
+// Network cleanup and broken/removed ride objects can otherwise leave p.ride stale.
+// Never dereference ride.seat/ride.pose on an object whose ride component is gone.
+export function clearInvalidRide(p) {
+  const b=p?.ride;
+  if(!b)return false;
+  if(!b.dead&&b.ride&&b.mesh)return false;
+  if(b.rider===p)b.rider=null;
+  p.ride=null;p.rideKick=null;p.trickK=0;p.cycleRig=null;
+  if(p.root?.rotation){p.root.rotation.x=0;p.root.rotation.z=0;}
+  return true;
+}
 export function updateRide(p, dt, t, ix, iz, ctrl) {
   const b = p.ride, R = b.ride, board = b.kind === 'skate' || b.kind === 'scooter';
   const il = Math.hypot(ix, iz);

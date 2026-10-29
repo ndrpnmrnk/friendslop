@@ -9,7 +9,7 @@ import { moveBody, zoneAt, bumpPushables, solidsNear, groundAt } from '../world/
 import { puff, burst, smoke, smokeRing, splash, ripple, decal } from '../world/particles.js';
 import { T } from '../core/textures.js';
 import { makeCharacter } from '../characters/rig.js';
-import { updateRide, autoMount, updateGrab, release } from './ride.js';
+import { updateRide, autoMount, updateGrab, release, clearInvalidRide } from './ride.js';
 import { hitBreakables } from '../world/breakables.js';
 import { bounceAt, worldHit, shake, leaveSwing, driveSwing, leaveHide, leaveBench } from './worldfx.js';
 import { isFree } from '../world/physics.js';
@@ -87,6 +87,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if(p.mantle&&(p.stun>0||p.heldBy||p.ride||p.frozen)){p.mantle=null;p.onGround=false;}
   if(p.mantle){const active=advanceMantle(p,dt);p.ch.animate(dt,{t,speed:0,climb:true,air:false,vy:2});if(active&&!p.mantle)smokeRing(p.pos.x,p.pos.y+.05,p.pos.z,4,{speed:1.2,size:.12,grow:.3,life:.4});groundBlob(p);return;}
 
+  clearInvalidRide(p);
   if (p.ride) {
     const pose = p.ride.ride.pose;
     updateRide(p, dt, t, ix, iz, ctrl);

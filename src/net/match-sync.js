@@ -1,6 +1,7 @@
 import {motionNow,sampleMotion} from './motion-buffer.js';
 import {disposeActorDrone} from '../game/drone.js';
 import {takeSounds,retrySounds,receiveSounds} from './audio-sync.js';
+import {alignMountedVisual} from './rider-visual.js';
 import { W, withWorld } from '../world/state.js';
 import { withRandom } from '../core/random.js';
 import { V3 } from '../core/gfx.js';
@@ -155,6 +156,9 @@ function puppetStep(b, dt, t) {
   if(!MATCH.host||!b.human)b.pos.set(m.x,m.y,m.z);b.root.position.set(m.x,m.y,m.z); b.onGround = !(k < .5 ? A.s : B.s).air;
   b.root.rotation.y = A.r + Math.atan2(Math.sin(B.r - A.r), Math.cos(B.r - A.r)) * k; b.root.visible = !!B.v;
   const s = k < .5 ? A.s : B.s; b.stun = s.stun ? 1 : 0; hook(b.ch); b.ch.animate(dt, { ...s, t });
+  // Vehicle visual receives a newer authoritative sample than the actor buffer.
+  // Keep the seated model on the actual rendered bicycle/cart every graphics frame.
+  alignMountedVisual(b);
   if(b.held){cargoPosition(b,b.held.pos,b.held.def.r);b.held.g.rotation.y=b.root.rotation.y;}
   if (b.tag) { b.tag.visible = b.root.visible; b.tag.position.set(b.root.position.x, b.root.position.y + (b.ch.d?.top || 1.8) + .45, b.root.position.z); }
 }
