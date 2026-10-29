@@ -4,7 +4,7 @@ import {audioBus,sfx,setRadioFocus} from '../core/sfx.js';
 import {spatialSource,distanceGain} from '../core/spatial-audio.js';
 import {serverNow} from '../net/net.js';
 import {radioState as state,changeRadio,radioPhase} from './radio-state.js';
-import {radioCorrection} from './radio-playback.js';
+import {radioCorrection,wrappedDrift} from './radio-playback.js';
 import {W} from '../world/state.js';
 import {raySolids} from '../world/physics.js';
 export const STATIONS=[{title:'Третий шоколадный',freq:'88.3',file:'chocolate'},{title:'Семейный круг',freq:'96.7',file:'family'},{title:'Мелкий',freq:'104.2',file:'little'}];
@@ -20,8 +20,7 @@ export function updateRadios(dt,listener,active){
  let audible=0;
  // Stream lifecycle is tied to a world; never keep remote maps playing through a transition.
  for(const [it,q] of radios){
-   if(it.state==='gone'||!it.g.parent){dispose(q);radios.delete(it);continue;}
-   if(q.world!==W.group){q.audio.pause();q.spatial.gain.gain.setTargetAtTime(0,q.spatial.gain.context.currentTime,.08);}
+   if(it.state==='gone'||!it.g?.parent||q.world!==W.group){dispose(q);radios.delete(it);continue;}
  }
  const now=serverNow();
  for(const it of W.items){
@@ -50,9 +49,11 @@ export function updateRadios(dt,listener,active){
          if(q.audio.paused&&!q.playing&&now>=q.tryAt){
            q.playing=true;
            const alignedKey=r.station+':'+r.since+':'+r.offset;
-           if(q.aligned!==alignedKey){
-             const phase=radioPhase(r,now,q.audio.duration);
-             if(Number.isFinite(phase))try{q.audio.currentTime=phase;q.lastSeek=now;}catch{}
+           const phase=radioPhase(r,now,q.audio.duration);
+           // Buffer interruptions are corrected while silent, before playback resumes.
+           const stalled=q.aligned===alignedKey&&Math.abs(wrappedDrift(phase,q.audio.currentTime,q.audio.duration))>.35;
+           if(q.aligned!==alignedKey||stalled){
+             if(Number.isFinite(phase)&&Number.isFinite(q.audio.duration)&&q.audio.duration>0)try{q.audio.currentTime=phase;q.lastSeek=now;}catch{}
              q.aligned=alignedKey;
            }
            q.audio.play().catch(()=>{q.tryAt=serverNow()+1500;}).finally(()=>{q.playing=false;});
