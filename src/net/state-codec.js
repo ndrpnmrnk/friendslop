@@ -1,5 +1,11 @@
 // Независимые от THREE правила протокола. В снимках только JSON, без сцен/геометрии.
 export const SNAPSHOT_INTERVAL = .2, KEYFRAME_INTERVAL = 3;
+export const MOTION_INTERVAL = .05, MOTION_DELAY = .075;
+// Реальные часы: FPS и clamp игрового dt не замедляют сетевую частоту.
+// После зависания отправляется одно актуальное состояние, без залпа старых пакетов.
+export function nextSendAt(previous, now, interval) {
+  return previous > 0 && now-previous < interval ? previous+interval : now+interval;
+}
 export const finite = (v, limit = 10000) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= limit;
 export const vector = (a, n = 3, limit = 10000) => Array.isArray(a) && a.length === n && a.every(v => finite(v, limit));
 export const round = v => Math.round((Number.isFinite(v) ? v : 0) * 1000) / 1000;
@@ -7,14 +13,13 @@ export const actorKey = (a, player, id) => !a ? '' : a === player ? 'p' + id : a
 const equal=(a,b)=>a===b||Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((v,i)=>equal(v,b[i]));
 
 export class StateDelta {
-  constructor() { this.base = new Map(); this.last = new Map(); this.rev = 0; }
-  baseline(records) { this.base = new Map(records); this.last = new Map(this.base); this.rev = 0; }
+  constructor() { this.base = new Map(); this.last = new Map(); this.visited = new Map(); this.rev = 0; }
+  baseline(records) { this.base = new Map(records); this.last = new Map(this.base); this.visited.clear(); this.rev = 0; }
   snapshot(records, full = false) {
-    const current = new Map(records), rows = [];
-    for (const [k, v] of current) if (!equal(v,(full ? this.base : this.last).get(k))) rows.push([k,v]);
-    for (const k of this.last.keys()) if (!current.has(k)) rows.push([k, null]);
-    this.last = current;
-    return { rev: ++this.rev, full, rows };
+    const rows = [], rev=++this.rev;
+    for (const [k,v] of records) { if (!equal(v,(full ? this.base : this.last).get(k))) rows.push([k,v]);this.last.set(k,v);this.visited.set(k,rev); }
+    for (const k of this.last.keys()) if (this.visited.get(k)!==rev) { rows.push([k,null]);this.last.delete(k);this.visited.delete(k); }
+    return { rev, full, rows };
   }
 }
 

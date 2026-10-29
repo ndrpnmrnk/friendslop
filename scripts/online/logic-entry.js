@@ -1,3 +1,10 @@
+// Управляемые кадры только в dev CPU-тесте: облачный браузер может душить rAF вложенных вкладок.
+if(new URLSearchParams(location.search).has('testFrames')){
+ let next=0;const callbacks=new Map();
+ globalThis.requestAnimationFrame=fn=>{callbacks.set(++next,fn);return next;};
+ globalThis.cancelAnimationFrame=id=>callbacks.delete(id);
+ globalThis.__stepTestFrame=()=>{const pending=[...callbacks.values()];callbacks.clear();for(const fn of pending)fn(performance.now());};
+}
 const boot=document.createElement('pre');boot.id='logic-boot';boot.textContent='Loading CPU modules';document.body.prepend(boot);
 addEventListener('error',e=>boot.textContent+='\nERROR '+e.message);
 // Только CPU-сцена теста: настоящие THREE-геометрия, raycast, физика и DOM; GPU отсутствует.
@@ -28,3 +35,4 @@ globalThis.__onlineTestModules={net,match,items,missions,physics,ride,drone,worl
 const[audio,mic,radio,spatial]=await Promise.all([import('../../src/core/sfx.js?net-logic-test'),import('../../src/core/mic.js?net-logic-test'),import('../../src/game/radio.js?net-logic-test'),import('../../src/core/spatial-audio.js?net-logic-test')]);Object.assign(globalThis.__onlineTestModules,{audio,mic,radio,spatial});
 
 const input=await import('../../src/core/input.js?net-logic-test');Object.assign(globalThis.__onlineTestModules,{input});
+const camera=await import('../../src/game/camera.js?net-logic-test');Object.assign(globalThis.__onlineTestModules,{camera});

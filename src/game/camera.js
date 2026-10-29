@@ -33,7 +33,7 @@ const pos = new V3(), look = new V3(), tgt = new V3(), want = new V3(), dir = ne
 const ray = new THREE.Ray();
 let following = false, orbitPitch = 0.45, orbitYaw = 0, handoff=null;
 
-function resetCamera(yaw) { cam.yaw = orbitYaw = yaw; cam.pitch = orbitPitch = 0.45; cam.curDist = cam.normal.dist; cam.aimK = 0; cam.blend = 1; following = false;handoff=null; }
+function resetCamera(yaw) { cam.pose=cam.free=cam.ret=cam.orbit=cam.dronePos=cam.retP=cam.retL=null;cam.yaw = orbitYaw = yaw; cam.pitch = orbitPitch = 0.45; cam.curDist = cam.normal.dist; cam.aimK = 0; cam.blend = 1; following = false;handoff=null; }
 
 
 // Луч по расширенным AABB = движение камеры с запасом по всем трём осям.
@@ -58,7 +58,7 @@ function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
   if (cam.free) { camera.position.copy(cam.free.p); camera.lookAt(cam.free.l); return; } // отладка: свободная камера
   const clearanceFov = cam.pose ? 105 : camera.fov;
   const radius = Math.max(0.2, camera.near * Math.hypot(1, Math.tan(clearanceFov * Math.PI / 360) * Math.hypot(camera.aspect, 1)) + 0.02);
-  if (lookDelta && !cam.pose) {
+  if (lookDelta && !cam.pose && !cam.orbit) {
     cam.yaw -= lookDelta.dx * cam.sens * (aiming ? 0.75 : 1);
     cam.pitch = clamp(cam.pitch + lookDelta.dy * cam.sens * (aiming ? 0.75 : 1), -0.75, 1.5);
   }

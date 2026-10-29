@@ -14,11 +14,10 @@ import { makeTag } from './hub-sync.js';
 import { createWorldSync } from './world-sync.js';
 import { attachMissionSync } from './mission-sync.js';
 import { networkEventSnapshot, receiveNetworkEvents } from '../game/events.js';
-import { vector, finite, sweepPosition, SNAPSHOT_INTERVAL, KEYFRAME_INTERVAL } from './state-codec.js';
+import { vector, finite, sweepPosition, SNAPSHOT_INTERVAL, KEYFRAME_INTERVAL, MOTION_INTERVAL, MOTION_DELAY, nextSendAt } from './state-codec.js';
 
 export const MATCH = { on: false, host: false, seed: 0, roster: null, scene: null, world: null, missions: null,
   sendT: 0, worldT: 0, fullT: 0, ready: new Set(), members:new Set(), paused: false, final: null, seq: 0, lastHost: 0 };
-const SEND = .1, DELAY = .12;
 const POSE = ['speed', 'air', 'vy', 'climb', 'dive', 'roll', 'slide', 'crouch', 'hold', 'stun', 'rag', 'daze', 'ride', 'rideSpeed', 'emote', 'emoteT', 'dangle', 'board', 'cyclePhase', 'fly', 'flySpin', 'zombie','zip','getup','kick','trick','rideAir','accel','charge','throwT','act','actK','missionTool','held2','restrained','payload','side','sprint','look','swat','grabbed','vy2'];
 let clock = 0, callbacks = {}, lastGuestFrame = 0;
 const pendingPositions = new Map();
@@ -119,11 +118,11 @@ export function netMatchTick(dt, P) {
   if (!MATCH.on || !MATCH.world || !P) return;
   syncAuthority();
   syncBots();
-  clock += dt; MATCH.sendT -= dt; MATCH.worldT -= dt; MATCH.fullT -= dt;
+  clock += dt; MATCH.worldT -= dt; MATCH.fullT -= dt;
   if (MATCH.host) P.score = callbacks.score?.() || 0;
   if(callbacks.state?.()==='play')separateActors();MATCH.world.interpolate(dt);if(MATCH.host&&!netPaused())for(const b of W.bots)if(b.human&&!b.drone&&!b.returning&&!b.ride&&!b.grab)bumpPushables(b,dt);
-  if (MATCH.sendT > 0) return;
-  MATCH.sendT = netPaused() ? .5 : SEND; hook(P.ch);
+  const now=motionNow();if (now < MATCH.sendT) return;
+  MATCH.sendT = nextSendAt(MATCH.sendT,now,netPaused() ? .5 : MOTION_INTERVAL); hook(P.ch);
   if(MATCH.host&&!netWaiting()&&!MATCH.startAt)MATCH.startAt=serverNow()+300;
   const n = ++MATCH.seq;
   const m = { t: 'st', m: 'match', protocol: 2, ep: MATCH.seed, n, x: +P.pos.x.toFixed(3), y: +P.pos.y.toFixed(3), z: +P.pos.z.toFixed(3),
@@ -148,7 +147,7 @@ function push(b, x, y, z, r, s = {}, sc, v = 1) {
 function puppetStep(b, dt, t) {
   const buf = b.buf;
   if (!buf.length) { b.ch.animate(dt, { t, speed: 0 }); return; }
-  const m=sampleMotion(buf,motionNow(),.1),A=m.a,B=m.b,k=m.k;
+  const m=sampleMotion(buf,motionNow(),MOTION_DELAY),A=m.a,B=m.b,k=m.k;
   b.vel.set((B.x - A.x) / Math.max(.05, B.t - A.t), (B.y - A.y) / Math.max(.05, B.t - A.t), (B.z - A.z) / Math.max(.05, B.t - A.t));
   if(MATCH.host&&b.netVelocity)b.vel.copy(b.netVelocity);
   if(!MATCH.host||!b.human)b.pos.set(m.x,m.y,m.z);b.root.position.set(m.x,m.y,m.z); b.onGround = !(k < .5 ? A.s : B.s).air;

@@ -23,7 +23,7 @@ import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
 import { initNetUI, beforeHub, afterHubShown } from './net/ui.js';
 import { MATCH, seededMap, netPrepareMatch, netMarkReady, netMatchTick, netEndMatch, initMatchSync, humansInRoom, myRank, netPaused, netPublishFinal } from './net/match-sync.js';
-import { NET, onNet, serverNow,botsEnabled,setBotsEnabled } from './net/net.js';
+import { NET, onNet, serverNow,botsEnabled,setBotsEnabled,netStats } from './net/net.js';
 import { CANDY_TYPES, applyCandy } from './game/candy.js';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
@@ -879,9 +879,9 @@ const clock = new THREE.Timer(); let t = 0,graphicsLost=false;
 let CURTAIN = null; // материал занавесок в окнах (ярче к ночи)
 const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
-  clock.update(); let dt = Math.min(0.05, clock.getDelta()); prof.frameStart();updateVoice(dt);
+  clock.update(); let dt = Math.min(0.05, clock.getDelta()); prof.frameStart();updateVoice(dt);prof.mark('голос');
   if(graphicsLost||document.hidden){endFrame();return;}
-  if (MATCH.on && P && S.state !== 'hub' && S.state !== 'menu') netMatchTick(dt,P);
+  if (MATCH.on && P && S.state !== 'hub' && S.state !== 'menu') netMatchTick(dt,P);prof.mark('сеть/снимки');
   if(netPaused()&&!['results','finale'].includes(S.state)){clearInput();if(!window.__noRender)present(scene,camera);prof.frameEnd(dt,renderer);endFrame();return;}
   if (S.studio) { S.studio.t += dt; S.studio.spin && S.studio.list.forEach((g, i) => g.rotation.y = S.studio.t * .6 + i); present(S.studio.sc, S.studio.cam); endFrame(); return; }
   if(S.settingsOpen)clearInput();
@@ -1057,7 +1057,7 @@ window.__fs.lastFaults=lastFaults;
 Object.assign(window.__fs,{scene,makeCharacter:(id)=>__mkChar(id),skinIds:()=>__skinIds,vfx:{explosion,fireworks,sparks:vfxSparks,impactBurst},menu,collection,coinState,showHub,showMenu,roundMusic,graphics,actionStats,addFists:(n=500)=>addCoins(n)});
 if(new URLSearchParams(globalThis.location?.search||'').get('dev')==='1'){const b=document.createElement('button');b.id='devFists';b.textContent='+500';b.title='Тест автомата: добавить 500 фистов';b.onclick=()=>addCoins(500);$('wallet').appendChild(b);}
 // v0.57: F3 — счётчик производительности, F8 — отчёт о баге (что сейчас происходит и где)
-initDevtools({ unlock: () => unlock(), info: () => { const hub = S.state === 'hub' || S.state === 'menu', a = hub ? menu.player : P, p = a?.pos, f = n => n.toFixed(1);
+initDevtools({ unlock: () => unlock(), network:()=>{if(NET.state!=='on')return '';const n=netStats(),w=(S.state==='hub'?menu.world.state:W).net?.stats;return `RTT до комнаты ${n.rtt} мс · отправка ${n.sendHz.toFixed(0)}/с · приём ${n.receiveHz.toFixed(0)}/с\nочередь ${(n.queue/1024).toFixed(1)} КБ · приём JS ${n.receiveMs.toFixed(2)} мс\n`+(w?`снимок ${w.captureMs.toFixed(2)} мс · изменений ${w.rows}/${w.objects}\n`:'');}, info: () => { const hub = S.state === 'hub' || S.state === 'menu', a = hub ? menu.player : P, p = a?.pos, f = n => n.toFixed(1);
   const d = p && !hub ? W.districts.find(q => p.x >= q.ox && p.x <= q.x1 && p.z >= q.oz && p.z <= q.z1) : null, gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
   return { state: S.state, mode: S.lastMode?.name, mission: S.wm?.m.key || S.mg?.m.key || null, district: hub ? 'Хаб' : d?.name || (p ? 'дорога/тоннель' : null), pos: p ? `${f(p.x)}, ${f(p.y)}, ${f(p.z)}` : null,
     cam: `${f(camera.position.x)}, ${f(camera.position.y)}, ${f(camera.position.z)}`, held: a?.held?.type || null, ride: a?.ride?.kind || null, quality: graphics.key,

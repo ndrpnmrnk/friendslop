@@ -24,7 +24,15 @@ export const inRoom = () => NET.state === 'on';
 export const me = () => NET.players.get(NET.id);
 export const others = () => [...NET.players.values()].filter(p => p.id !== NET.id);
 
-export function send(m) { if(!NET.ws||NET.ws.readyState!==1||m.t==='st'&&NET.ws.bufferedAmount>131072)return false;NET.ws.send(JSON.stringify(m));return true; }
+const traffic={at:performance.now(),tx:0,rx:0,txBytes:0,rxBytes:0,sendHz:0,receiveHz:0,outKB:0,inKB:0,receiveMs:0,dropped:0};
+function countTraffic(direction,bytes){traffic[direction]++;traffic[direction+'Bytes']+=bytes;const now=performance.now(),dt=(now-traffic.at)/1000;if(dt>=1){traffic.sendHz=traffic.tx/dt;traffic.receiveHz=traffic.rx/dt;traffic.outKB=traffic.txBytes/dt/1024;traffic.inKB=traffic.rxBytes/dt/1024;traffic.tx=traffic.rx=traffic.txBytes=traffic.rxBytes=0;traffic.at=now;}}
+export const netStats=()=>({rtt:NET.rtt,queue:NET.ws?.bufferedAmount||0,...traffic});
+export function send(m) {
+  if(!NET.ws||NET.ws.readyState!==1)return false;
+  // Не ставим новые устаревающие состояния в длинную TCP-очередь. Команды/звук повторяет вызывающий код.
+  if(m.t==='st'&&NET.ws.bufferedAmount>32768){traffic.dropped++;return false;}
+  const raw=JSON.stringify(m);NET.ws.send(raw);countTraffic('tx',raw.length);return true;
+}
 
 function open(code, create) {
   clearTimeout(retryTimer);
@@ -34,7 +42,7 @@ function open(code, create) {
   NET.ws = ws;
   ws.onopen = () => { let token = SS('friendslop.tok.' + code); if (!token) { token = random().toString(36).slice(2) + Date.now().toString(36); SS('friendslop.tok.' + code, token); }
     send({ t: 'hello', name: myName() || 'Игрок', skin: NET.skin, ver: VER, migrate: true,bots:LS('friendslop.bots')!=='0', create: create ? 1 : 0, token }); };
-  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch { return; } handle(m); };
+  ws.onmessage = e => { const start=performance.now();let m; try { m = JSON.parse(e.data); } catch { return; }countTraffic('rx',e.data.length);try{handle(m);}finally{traffic.receiveMs=Math.max(traffic.receiveMs*.9,performance.now()-start);} };
   ws.onclose = () => { if (NET.ws !== ws) return; clearInterval(pingT); NET.ws = null;
     if (NET.state !== 'off' && !wantClose && retry < 4) { retry++; NET.state = 'connecting'; emit('state'); emit('toast', 'Связь пропала — переподключаюсь…'); retryTimer = setTimeout(() => {if(!wantClose)open(NET.code, false);}, 800 * retry); return; }
     if (NET.state !== 'off') leaveLocal(); };

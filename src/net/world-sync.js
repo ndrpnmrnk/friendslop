@@ -21,7 +21,9 @@ const transform = o => [...pos(o.position), ...o.quaternion.toArray().map(q), ..
 // Стены/коллизии применяются сразу, картинки подвижных объектов сглаживаются отдельно.
 export function createWorldSync({ host, id, actor, command, myKey, visuals = true }) {
   const objects = new Map(), seen = new WeakMap(), baseline = new Map(), visual = new Map(), scopes = new Map();
-  const packedVisuals=new WeakMap();
+  const packedVisuals=new WeakMap(),packedStatic=new WeakMap();
+  // Тысячи стен/границ почти всегда неподвижны. Не создаём массивы чисел для них 5 раз/с.
+  function flat(o,fields,flag){const old=packedStatic.get(o),n=fields.length;let same=!!old;for(let i=0;same&&i<n;i++)if(old[i]!==q(o[fields[i]]))same=false;if(same&&old[n]===(o[flag]?1:0))return old;const v=fields.map(k=>q(o[k]));v.push(o[flag]?1:0);packedStatic.set(o,v);return v;}
   const textures=new WeakMap(),lastProposal=new Map();let proposalAt=0,initialKeys=new Set();
   const received=new Map(),dirty=new Set();
   const same=(a,b)=>a===b||Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((v,i)=>same(v,b[i]));
@@ -34,7 +36,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     const key = forced || type + ':' + prefix + '/' + n;
     if (!forced) scopes.set(prefix, n + 1);
     if(forced){const slash=key.lastIndexOf('/'),n=Number(key.slice(slash+1));if(slash>1&&Number.isInteger(n)){const scope=key.slice(2,slash);scopes.set(scope,Math.max(scopes.get(scope)||0,n+1));}}
-    seen.set(o, key); o.netId = key; o.netScope = current; objects.set(key, { type, o });
+    seen.set(o, key); o.netId = key; o.netScope = current; objects.set(key, { type, o, row:[key,null] });
     return key;
   }
   function tree(root) {
@@ -61,11 +63,11 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     switch (type) {
       case 'i': return [o.type, o.state, ...pos(o.pos), ...pos(o.vel), ...[o.g.rotation.x, o.g.rotation.y, o.g.rotation.z].map(q), keyOf(o.owner), o.noPickup ? 1 : 0, o.ammo || 0, o.taken ? 1 : 0, o.g.visible ? 1 : 0,q(o.cd),q(o.draw),q(o.aimT),o.perfumeEffect||'',o.mission?.id||null,o.radio?[o.radio.on?1:0,o.radio.station,o.radio.since,o.radio.offset]:null];
       case 'p': return [o.kind, q(o.x), q(o.y), q(o.z), q(o.vx), q(o.vy), q(o.vz), ...[o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z].map(q), o.dead ? 1 : 0, o.tipped ? 1 : 0, keyOf(o.rider), keyOf(o.grabbed), q(o.heading)];
-      case 's': return [...fields.map(k => q(o[k])), o.on ? 1 : 0];
+      case 's': return flat(o,fields,'on');
       case 'a': return Object.getOwnPropertyDescriptor(o,'x')?.get?null:[q(o.x),q(o.y),q(o.z),q(o.r)];
-      case 'o': return [...obbFields.map(k => q(o[k])), o.on ? 1 : 0];
+      case 'o': return flat(o,obbFields,'on');
       case 'd': return [o.open ? 1 : 0, q(o.ang), q(o.av), o.dirS ?? null, o.solid?.on ? 1 : 0];
-      case 'b': return [o.alive ? 1 : 0];
+      case 'b': {const old=packedStatic.get(o),v=o.alive?1:0;if(old?.[0]===v)return old;const row=[v];packedStatic.set(o,row);return row;}
       case 'v': {
         const old=packedVisuals.get(o),p=o.position,r=o.quaternion,s=o.scale,visible=!!(o.visible&&o.parent);
         const materials0=Array.isArray(o.material)?o.material:[o.material];let revision=0;for(const m of materials0)if(m?.map)revision+=m.map.id*1000000+m.map.version;
@@ -84,10 +86,8 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       default: return null;
     }
   }
-  function records() {
-    const rows = [];
-    for (const [key, { type, o }] of objects) { const v = pack(type, o); if (v) rows.push([key, v]); }
-    return rows;
+  function* records() {
+    for (const [key, entry] of objects) { const v=pack(entry.type,entry.o);if(v){const row=entry.row||(entry.row=[key,null]);row[1]=v;yield row;} }
   }
   function target(o, p, quaternion, scale) {
     if (o.position.distanceToSquared(new V3(...p)) > 64) o.position.fromArray(p);
@@ -228,12 +228,13 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     locally(fn){const old=applying;applying=true;try{return fn();}finally{applying=old;}},
     setIdentity(value){myKey=value;serial=0;},
     discover(){for(const[type,list]of Object.entries(LISTS))for(const o of W[list]||[])if(!seen.has(o))register(type,o);},
-    restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();received.clear();dirty.clear();delta.last=new Map(delta.base);delta.rev=0;serial=0;},
+    restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();received.clear();dirty.clear();delta.last=new Map(delta.base);delta.rev=0;delta.visited.clear();serial=0;},
     setHost(value){host=!!value;api.host=host;api.replica=!host;serial=0;},
     resetStream(){serial=0;},
     get applying() { return applying; },
-    capture(full = false) { return delta.snapshot(records(), full); },
-    baseline() { initialKeys=new Set(objects.keys());const rows = records(); delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v);received.clear();dirty.clear(); },
+    stats:{captureMs:0,rows:0,objects:0},
+    capture(full = false) {const at=performance.now(),frame=delta.snapshot(records(),full);Object.assign(api.stats,{captureMs:performance.now()-at,rows:frame.rows.length,objects:objects.size});return frame;},
+    baseline() { initialKeys=new Set(objects.keys());const rows = [...records()]; delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v);received.clear();dirty.clear(); },
     receive(frame) {
       if(!frame||frame.rev<=serial)return;serial=frame.rev;
       const rows=frame.rows||[],present=frame.full?new Set(rows.map(r=>r[0])):null,changes=[];

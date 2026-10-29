@@ -28,7 +28,8 @@ addEventListener('keydown', e => {
   handlers.key.forEach(f => f(e.code));
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.left = mouse.right = false; });
+addEventListener('blur', () => clearInput());
+document.addEventListener('pointerlockchange', () => { mouse.left=mouse.right=false;look.dx=look.dy=0; });
 export function clearInput(){for(const k in keys)keys[k]=false;pressed.clear();mouse.left=mouse.right=false;look.dx=look.dy=0;}
 export const tapped = code => pressed.has(code);
 export const endFrame = () => pressed.clear();
@@ -46,7 +47,10 @@ canvas.addEventListener('pointerdown', e => {
   try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   handlers.down.forEach(f => f(e.button));
 });
-addEventListener('pointermove', e => { if (locked()) { look.dx += e.movementX || 0; look.dy += e.movementY || 0; } setPos(e);
+// Pointer Lock гарантирует относительные mousemove. pointermove в некоторых браузерах
+// перестаёт приходить после захвата/смены фокуса; не считаем оба события дважды.
+document.addEventListener('mousemove', e => { if(locked()){if(Number.isFinite(e.movementX))look.dx+=e.movementX;if(Number.isFinite(e.movementY))look.dy+=e.movementY;} });
+addEventListener('pointermove', e => { setPos(e);
   // вторая кнопка, нажатая при уже зажатой первой («аккорд»), приходит только как pointermove — ловим её здесь
   // (например, ЛКМ во время замаха ПКМ — отмена броска)
   if ((mouse.left || mouse.right) && (e.target === canvas || locked())) { const L = (e.buttons & 1) !== 0, Rb = (e.buttons & 2) !== 0;

@@ -45,3 +45,16 @@ test('motion interpolates independently of round clock and bounds prediction dur
  assert(Math.abs(sampleMotion(b,1.15).x-.5)<1e-8);assert(Math.abs(sampleMotion(b,1.25).x-1.5)<1e-8);
  assert(Math.abs(sampleMotion(b,10).x-2)<1e-8);assert.equal(sampleMotion([],1),null);
 });
+
+test('20 Hz pacing preserves cadence at different FPS and skips backlog after a stall',async()=>{
+ const{nextSendAt,MOTION_INTERVAL,MOTION_DELAY}=await import('../../src/net/state-codec.js');
+ for(const fps of[30,60,144]){let due=0,count=0;for(let f=0;f<fps*5;f++){const t=1+f/fps;if(t+1e-10>=due){count++;due=nextSendAt(due,t,MOTION_INTERVAL);}}assert(count>=99&&count<=101,`${fps} FPS: ${count}`);}
+ assert.equal(nextSendAt(1,5,.05),5.05);assert(MOTION_DELAY<.1);
+});
+test('streamed deltas retain changes, removals and baseline recovery without rebuilding last map',()=>{
+ const d=new StateDelta();d.baseline([['a',[1]],['b',[2]]]);const last=d.last;
+ function* rows(){yield['a',[3]];yield['new',[4]];}
+ assert.deepEqual(d.snapshot(rows()).rows,[['a',[3]],['new',[4]],['b',null]]);assert.equal(d.last,last);
+ assert.deepEqual(d.snapshot(rows()).rows,[]);assert.deepEqual(d.snapshot(rows(),true).rows,[['a',[3]],['new',[4]]]);
+ assert.deepEqual(d.snapshot([['a',[1]]]).rows,[['a',[1]],['new',null]]);
+});
