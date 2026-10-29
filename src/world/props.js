@@ -210,7 +210,7 @@ export const PropMethods = {
     return g;
   },
   // Фонарь: постамент, сужающаяся опора с кольцом, изогнутый кронштейн и фонарь с колпаком
-  lamp(x, z, ry = 0) {
+  lamp(x, z, ry = 0, showVolumetricCone = true) {
     const d = col(0x2b2533), mt = tmat(T.metal());
     this.m(G.cyl8, mt, x, 0.2, z, 0.17, 0.4, 0.17); this.m(G.cyl8, d, x, 0.43, z, 0.13, 0.06, 0.13);
     this.m(TAPER_POLE, d, x, 1.9, z, 1, 3.0, 1); this.m(G.cyl8, d, x, 2.6, z, 0.08, 0.06, 0.08); this.m(G.sph, d, x, 3.42, z, 0.07, 0.07, 0.07);
@@ -228,7 +228,16 @@ export const PropMethods = {
     if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: random() * 5, on: true }); }
     W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; pool.userData.broken = true; };
     // объёмный конус света под плафоном (v0.23): аддитивный, мягкий к краям и к земле; гаснет вместе с фонарём
-    const cone = new THREE.Mesh(LAMP_CONE, LAMP_CONE_M()); cone.position.set(this.X(lx), this.Y + 1.52, this.Z(lz)); cone.renderOrder = 4; cone.userData.noOcc = true; cone.visible=false;this.g.add(cone);W.keep.push(cone);
+    let cone = null;
+    if (showVolumetricCone) {
+      cone = new THREE.Mesh(LAMP_CONE, LAMP_CONE_M());
+      cone.position.set(this.X(lx), this.Y + 1.52, this.Z(lz));
+      cone.renderOrder = 4;
+      cone.userData.noOcc = true;
+      cone.visible = false;
+      this.g.add(cone);
+      W.keep.push(cone);
+    }
     W.lamps.push({ x: this.X(x), z: this.Z(z), y: this.Y, lx: this.X(lx), lz: this.Z(lz), ry, pool, bm, bulb, cone, district: this.d });
     this.solid(x, z, 0.35, 0.35, 0, 3.4);
   },
