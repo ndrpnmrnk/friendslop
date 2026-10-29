@@ -58,12 +58,12 @@
     <div class="srow"><span class="sl"><i id="micIco"></i>Микрофон</span><button class="stog" id="micOn">ВЫКЛ</button></div>
     <div class="srow"><span class="sl">Устройство</span><select id="micDev"></select></div>
     <div class="srow"><span class="sl">Режим</span><button class="stog" id="micMode">ВСЕГДА</button></div>
-    <div class="srow"><span class="sl">Чувствительность</span><input type="range" id="micSens" min="0" max="1" step="0.05"></div>
+    <div class="srow"><label class="sl" for="micOpen">Порог открытия</label><input type="range" id="micOpen" min="0" max="0.9" step="0.01"></div>
     <div class="srow"><span class="sl">Крик</span><input type="range" id="micLoudS" min="0" max="1" step="0.05"></div>
-    <div class="srow"><span class="sl">Фоновый шум</span><button class="stog" id="micCal">КАЛИБРОВКА</button></div>
+    <div class="srow"><label class="sl" for="micClose">Порог закрытия</label><input type="range" id="micClose" min="0" max="0.9" step="0.01"></div>
     <div class="srow col"><div id="micMeter"><i></i><b id="micThr"></b><b id="micLoud" class="loud"></b></div><div id="micState"></div></div>
     <p class="snote" id="voiceStatus" role="status"></p>
-    <div class="snote">Помолчи 2 секунды и нажми «Калибровка» — игра запомнит шум комнаты. Белая черта — порог речи, красная — порог крика. Говоришь — персонаж «болтает», кричишь — голова трясётся, коты и птицы разбегаются. В комнате тебя слышат игроки рядом. В режиме «Зажать V» голос передаётся только при удержании V.</div></details>
+    <div class="snote">Открытие - громкость, при которой включается голос. Закрытие - более низкий порог, ниже которого голос выключается через 0,35 с. Порог не подстраивается автоматически. В режиме «Зажать V» громкость не отсекает речь.</div></details>
   </div>
   <button class="pback" id="setBack">◀ <span class="key">Esc</span></button>
 </div>

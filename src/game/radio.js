@@ -23,9 +23,9 @@ export function updateRadios(dt,listener,active){
  for(const it of W.items){if(it.type!=='boombox'||it.state==='gone')continue;const r=state(it),u=it.g.userData.radio;r.dial=(r.dial??r.station)+(r.station-(r.dial??r.station))*(1-Math.exp(-dt*9));u.dial.position.x=-.055+r.dial*.05;u.led.material=col(r.on?0x9bbe72:0x4c5b41);
   const volume=active&&r.on&&now>=r.since?distanceGain(it.pos,18)*.55:0;
   let q=radios.get(it);if(volume>.001){q??=stream(it);if(q){if(q.loaded!==r.station){q.audio.src=import.meta.env.BASE_URL+'audio/'+STATIONS[r.station].file+'.ogg';q.loaded=r.station;q.check=0;}
-    q.check-=dt;if(q.audio.readyState>=1&&(q.check<=0||q.audio.paused&&!q.playing)){q.check=1;const phase=radioPhase(r,now,q.audio.duration),drift=Math.abs(q.audio.currentTime-phase);if(drift>.16&&drift<q.audio.duration-.16)q.audio.currentTime=phase;}
-    if(q.audio.paused&&!q.playing){q.playing=true;q.audio.play().catch(()=>{}).finally(()=>q.playing=false);}}}
-  if(q){if(!q.audio.paused)audible=Math.max(audible,volume/.25);q.spatial.set(it.pos,volume>.001?.55:0);if(volume<=.001)q.audio.pause();}
+    if(q.audio.readyState>=1&&(now>=q.check||q.audio.paused&&!q.playing)){q.check=now+1000;const phase=radioPhase(r,now,q.audio.duration),drift=Math.abs(q.audio.currentTime-phase);const error=phase-q.audio.currentTime,wrapped=drift>q.audio.duration/2?error-Math.sign(error)*q.audio.duration:error;if(drift>1.5&&Math.abs(wrapped)>1.5){q.audio.currentTime=phase;q.audio.playbackRate=1;}else q.audio.playbackRate=Math.max(.98,Math.min(1.02,1+wrapped*.02));}
+    if(q.audio.paused&&!q.playing){q.playing=true;q.audio.play().then(()=>{const r=state(it);if(r.on&&q.audio.readyState>=1){const phase=radioPhase(r,serverNow(),q.audio.duration);if(Math.abs(q.audio.currentTime-phase)>.08)q.audio.currentTime=phase;}}).catch(()=>{}).finally(()=>q.playing=false);}}}
+  if(q){if(!q.audio.paused)audible=Math.max(audible,volume/.25);q.spatial.set(it.pos,volume>.001?.55:0);if(!active||!r.on)q.audio.pause();}
  }
  setRadioFocus(active?audible:0);
 }

@@ -209,8 +209,8 @@ function frog(parts, v = 1) {
 // мировой звук: громкость по расстоянию до слушателя
 export function setListener(x,y,z,forward,up={x:0,y:1,z:0}) {
   Object.assign(ears,{x,y,z});if(!ac)return;const l=ac.listener,t=ac.currentTime;
-  if(l.positionX){for(const[k,v]of Object.entries({positionX:x,positionY:y,positionZ:z}))l[k].setTargetAtTime(v,t,.02);
-    if(forward)for(const[k,v]of Object.entries({forwardX:forward.x,forwardY:forward.y,forwardZ:forward.z,upX:up.x,upY:up.y,upZ:up.z}))l[k].setTargetAtTime(v,t,.02);
+  if(l.positionX){for(const[k,v]of Object.entries({positionX:x,positionY:y,positionZ:z}))l[k].value=v;
+    if(forward)for(const[k,v]of Object.entries({forwardX:forward.x,forwardY:forward.y,forwardZ:forward.z,upX:up.x,upY:up.y,upZ:up.z}))l[k].value=v;
   }else{l.setPosition(x,y,z);if(forward)l.setOrientation(forward.x,forward.y,forward.z,up.x,up.y,up.z);}
 }
 /* v0.59: у каждого звука свой радиус слышимости. Мелочь — 12–20 м, обычные действия — 25–30 м, громкое — 45–70 м,

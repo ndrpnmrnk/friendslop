@@ -22,6 +22,7 @@ button.onclick=async()=>{
   if([hp(),gp()].every(p=>p?.pc.iceGatheringState==='complete'&&p.localCandidates===0)){connected=false;log('SKIP','This browser gathers no ICE candidates; real WebRTC media cannot be verified here');}else throw error;
  }
  assert([hp(),gp()].every(p=>p.pc.localDescription&&p.pc.remoteDescription&&p.pc.signalingState==='stable'),'actual SDP offer/answer negotiation completed');
+ assert([hp(),gp()].every(p=>p.pc.getTransceivers().length===1&&p.sender.track),'one bidirectional audio line with attached microphone on both peers');
  const rms=p=>{if(!p?.analyser)return 0;const b=new Float32Array(256);p.analyser.getFloatTimeDomainData(b);return Math.sqrt(b.reduce((s,n)=>s+n*n,0)/b.length);};
  for(const c of clients){const{ac}=c.m.audio.audioBus('voice'),source=ac.createMediaStreamSource(c.m.mic.micTransport()),analyser=ac.createAnalyser(),mute=ac.createGain();analyser.fftSize=256;mute.gain.value=0;source.connect(analyser);analyser.connect(mute);mute.connect(ac.destination);c.probe={analyser};}
  const incoming=()=>connected?rms(hp()):rms(g.probe);
@@ -47,7 +48,7 @@ button.onclick=async()=>{
  await wait(()=>h.m.radio.radioPlayback(box)?.currentTime>.2&&g.m.radio.radioPlayback(gb)?.currentTime>.2,'actual radio playback',30000);await wait(()=>Math.abs(h.m.radio.radioPlayback(box).currentTime-g.m.radio.radioPlayback(gb).currentTime)<.25,'aligned playhead',8000);const delta=Math.abs(h.m.radio.radioPlayback(box).currentTime-g.m.radio.radioPlayback(gb).currentTime);log('Radio drift ms',Math.round(delta*1000));assert(delta<.25,'actual radio playback stays aligned within 250 ms');
  g.scope(()=>g.m.radio.tuneRadio(gb,1));await wait(()=>box.radio.station===1&&gb.radio.station===1,'tune');assert(true,'guest changes the station for everyone');g.scope(()=>g.m.radio.toggleRadio(gb));await wait(()=>!box.radio.on&&h.m.radio.radioPlayback(box).paused&&g.m.radio.radioPlayback(gb).paused,'radio off');assert(true,'guest stops both radios');
  // Проверка кнопки и общего правила перед матчем, затем прямо во время игры.
- h.w.document.getElementById('botsToggle').click();await wait(()=>!h.m.net.botsEnabled()&&!g.m.net.botsEnabled(),'bots rule');assert(g.w.document.getElementById('botsToggle').disabled,'only host can change the shared bot switch');
+ if(h.m.net.botsEnabled())h.w.document.getElementById('botsToggle').click();await wait(()=>!h.m.net.botsEnabled()&&!g.m.net.botsEnabled(),'bots rule');assert(g.w.document.getElementById('botsToggle').disabled,'only host can change the shared bot switch');
  h.m.match.netBeginMatch(605123);g.m.match.netBeginMatch(605123);for(const c of clients){c.w.__forceDistricts=['yard','park','plaza','shops','construction','cemetery','gas','market','school'];c.fs.startRound();}
  await wait(()=>clients.every(c=>c.fs.S.state==='play'&&!c.m.match.netPaused()),'map',90000);assert(clients.every(c=>c.fs.W.bots.length===1&&c.fs.W.bots[0].human),'friends-only match has no AI opponents');
  h.w.document.getElementById('botsToggle').click();await wait(()=>clients.every(c=>c.fs.W.bots.filter(b=>!b.human).length===3),'enable bots');assert(true,'bots can be enabled during the match');

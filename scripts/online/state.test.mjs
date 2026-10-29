@@ -31,3 +31,17 @@ test('radio clock retains playhead on pause, synchronizes late listeners and res
  changeRadio(it,'toggle',10000);assert.equal(radioPhase(it.radio,12500,10),5);
  changeRadio(it,'tune',13000,-1);assert.equal(it.radio.station,2);assert.equal(radioPhase(it.radio,13650,10),0);
 });
+
+test('manual voice thresholds retain quiet syllables, never adapt and PTT bypasses amplitude',async()=>{
+ const{micGate}=await import('../../src/core/mic-gate.js');const s={},cfg={on:true,mode:'always',open:.3,close:.15};
+ assert.equal(micGate(s,.29,.02,cfg),false);assert.equal(micGate(s,.31,.02,cfg),true);
+ for(let i=0;i<10000;i++)assert.equal(micGate(s,.2,.02,cfg),true);
+ assert.equal(cfg.open,.3);assert.equal(micGate(s,0,.2,cfg),true);assert.equal(micGate(s,0,.2,cfg),false);
+ assert.equal(micGate(s,0,.02,{...cfg,mode:'ptt',pressed:true}),true);
+ assert.equal(micGate(s,1,.02,{...cfg,mode:'ptt',pressed:false}),false);
+});
+test('motion interpolates independently of round clock and bounds prediction during packet loss',async()=>{
+ const{sampleMotion}=await import('../../src/net/motion-buffer.js');const b=[{t:1,x:0,y:0,z:0},{t:1.1,x:1,y:0,z:0}];
+ assert(Math.abs(sampleMotion(b,1.15).x-.5)<1e-8);assert(Math.abs(sampleMotion(b,1.25).x-1.5)<1e-8);
+ assert(Math.abs(sampleMotion(b,10).x-2)<1e-8);assert.equal(sampleMotion([],1),null);
+});

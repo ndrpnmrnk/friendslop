@@ -79,7 +79,7 @@ import { updateTraps } from './game/traps.js';
 import { grabDog, resetTown, updateTown, TOWN } from './game/town.js';
 import { resetFun, updateFun, comboAct, onHitLeader, FUN } from './game/fun.js';
 import { LIGHTMAT } from './world/builder.js';
-import { MIC, startMic, stopMic, listMics, updateMic, saveMic, calibrateMic,micTransport } from './core/mic.js';
+import { MIC, startMic, stopMic, listMics, updateMic, saveMic,micTransport } from './core/mic.js';
 import { scareBirds } from './world/birds.js';
 import { resetSplat, updateSplat } from './world/splat.js';
 import { resetPolice, updatePolice, openCageUI, closeCageUI, POL } from './game/police.js';
@@ -247,7 +247,7 @@ $('setBtn').innerHTML = img('gear', 28); $('micIco').innerHTML = img('mic', 20);
 function showSettings() {
   if(S.state==='play'){S.settingsFrom='play';S.settingsOpen=true;setCursor(true);P.charging=false;if(P.held?.type==='bow')P.held.draw=0;S.mg?.game.up?.();S.wm?.game.up?.();clearInput();takeLook();unlock();$('settings').classList.add('in-match');$('settings').classList.remove('hidden');syncSettings();fillMics();return;}
   $('settings').classList.remove('in-match');S.settingsFrom=S.state;menu.suspend();S.state = 'settings'; menu.active = false; screen('settings'); sfx('click'); syncSettings(); fillMics(); }
-function syncSettings() {syncBotsUI(); $('graphicsQ').value=graphics.key;const levels=audioLevels();for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio',voice:'volVoice'})){const el=$(id);el.value=Math.round(levels[k]*100);el.nextElementSibling.textContent=el.value+'%';} $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micSens').value = MIC.sens; $('micLoudS').value = MIC.loudSens; }
+function syncSettings() {syncBotsUI(); $('graphicsQ').value=graphics.key;const levels=audioLevels();for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio',voice:'volVoice'})){const el=$(id);el.value=Math.round(levels[k]*100);el.nextElementSibling.textContent=el.value+'%';} $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micOpen').value=MIC.openThreshold;$('micClose').value=MIC.closeThreshold; $('micLoudS').value = MIC.loudSens; }
 async function fillMics() { const list = await listMics(), sel = $('micDev'); sel.innerHTML = '<option value="">По умолчанию</option>' + list.map((d, i) => `<option value="${d.deviceId}">${d.label || 'Микрофон ' + (i + 1)}</option>`).join(''); sel.value = MIC.device || ''; }
 $('setBtn').onclick = showSettings;
 // качество света (v0.23): переключатель в настройках; карта теней меняется сразу, остальное — каждый кадр
@@ -257,14 +257,14 @@ function backSettings(){sfx('click');if(S.settingsOpen){S.settingsOpen=false;set
 $('setBack').onclick = backSettings;
 $('micOn').onclick = async () => { MIC.on = !MIC.on; saveMic(); syncSettings(); if (MIC.on) { await startMic(); fillMics(); } else stopMic(); };
 $('micMode').onclick = () => { MIC.mode = MIC.mode === 'always' ? 'ptt' : 'always'; saveMic(); syncSettings(); sfx('click'); };
-$('micSens').oninput = e => { MIC.sens = +e.target.value; saveMic(); };
+$('micOpen').oninput=e=>{MIC.openThreshold=+e.target.value;MIC.closeThreshold=Math.min(MIC.closeThreshold,MIC.openThreshold);$('micClose').value=MIC.closeThreshold;saveMic();};
+$('micClose').oninput=e=>{MIC.closeThreshold=Math.min(+e.target.value,MIC.openThreshold);e.target.value=MIC.closeThreshold;saveMic();};
 $('micLoudS').oninput = e => { MIC.loudSens = +e.target.value; saveMic(); };
-$('micCal').onclick = () => { if (MIC.ok) { calibrateMic(); sfx('click'); } };
 $('micDev').onchange = async e => { MIC.device = e.target.value; saveMic(); if (MIC.on) await startMic(); };
 function drawMicMeter() {
   const m = MIC, i = $('micMeter').firstChild; i.style.width = `calc(${Math.round(m.level * 100)}% - 4px)`; i.className = m.shout > 0.2 ? 'shout' : m.talk > 0.1 ? 'talk' : '';
   $('micThr').style.left = Math.round((m.thr || 0.1) * 100) + '%'; $('micLoud').style.left = Math.min(98, Math.round((m.loud || 0.5) * 100)) + '%';
-  const st = !MIC.on ? 'выключен' : MIC.err ? MIC.err : !MIC.ok ? 'включаю…' : MIC.cal > 0 ? 'тишина… калибрую' : m.shout > 0.2 ? 'КРИК!' : m.talk > 0.1 ? 'говоришь' : 'тишина'; if ($('micState').textContent !== st) $('micState').textContent = st;
+  const st = !MIC.on ? 'выключен' : MIC.err ? MIC.err : !MIC.ok ? 'включаю…' : m.shout > 0.2 ? 'КРИК!' : m.talk > 0.1 ? 'говоришь' : 'тишина'; if ($('micState').textContent !== st) $('micState').textContent = st;
 }
 $('againBtn').onclick = () => { requestLock(); launchRound(S.lastMode||MODES[0], randomMap()); };
 $('menuBtn').onclick = () => { sfx('click'); showHub(); };

@@ -1,3 +1,4 @@
+import {motionNow,sampleMotion} from './motion-buffer.js';
 import { THREE, V3 } from '../core/gfx.js';
 import { createPlayer } from '../game/player.js';
 import { createHubSession } from './hub-session.js';
@@ -30,7 +31,7 @@ function spawn(p) {
   if (!scene) return; despawn(p.id);
   const ch = makeCharacter(p.skin), tag = makeTag(p.name); ch.root.visible = false; scene.add(ch.root); scene.add(tag);
   const body=createPlayer(p.skin,ch);
-  remotes.set(p.id, { ...body, netKey:"p"+p.id, puppet:true, human:true, bot:true, id: p.id, net: true, root: ch.root, ch, tag, skin: p.skin, name: p.name, buf: [], pos: ch.root.position, yaw: 0, s: {}, mode: 'hub', seen: 0, lastEm: null });
+  remotes.set(p.id, { ...body, netKey:"p"+p.id, puppet:true, human:true, bot:true, id: p.id, net: true, root: ch.root, ch, tag, skin: p.skin, name: p.name, buf: [], pos: ch.root.position.clone(), yaw: 0, s: {}, mode: 'hub', seen: 0, lastEm: null });
   if (document.fonts?.load) document.fonts.load('16px "Press Start 2P"').then(() => { const r = remotes.get(p.id); if (r) retag(r, r.name); });
 }
 function retag(r, name) { r.name = name; const { t, aspect } = nameTex(name); r.tag.material.map?.dispose(); r.tag.material.map = t; r.tag.material.needsUpdate = true; r.tag.userData.aspect = aspect; }
@@ -41,8 +42,8 @@ export function initHubSync(sc) {
   onNet('join', p => spawn(p));
   onNet('leave', id => despawn(id));
   onNet('state', () => { for (const p of others()) { const r = remotes.get(p.id); if (!r) spawn(p); else { if (r.skin !== p.skin) { spawn(p); } else if (r.name !== p.name) retag(r, p.name); } const current=remotes.get(p.id);if(current&&p.scene)current.mode=p.scene; } for (const id of [...remotes.keys()]) if (!NET.players.has(id)) despawn(id); });
-  onNet('st', m => { for(const q of (m.id===hubHostId()?m.hs:[])||[]){const a=remotes.get(q.id);if(a){a.mode='hub';a.buf.push({t:clock,x:q.x,y:q.y,z:q.z,yaw:q.r,s:q.s||{}});if(a.buf.length>30)a.buf.shift();}} if (m.bl && m.id===hubHostId() && !session?.host) ballNet = m.bl; const r = remotes.get(m.id); if (!r) return; r.mode = m.m || 'hub'; if (m.x === undefined || r.mode === 'match') return;
-    r.buf.push({ t: clock, x: m.x, y: m.y, z: m.z, yaw: m.r, s: m.s || {} }); if (r.buf.length > 30) r.buf.shift(); });
+  onNet('st', m => { for(const q of (m.id===hubHostId()?m.hs:[])||[]){const a=remotes.get(q.id);if(a){a.mode='hub';a.buf.push({t:motionNow(),x:q.x,y:q.y,z:q.z,yaw:q.r,s:q.s||{}});if(a.buf.length>30)a.buf.shift();}} if (m.bl && m.id===hubHostId() && !session?.host) ballNet = m.bl; const r = remotes.get(m.id); if (!r) return; r.mode = m.m || 'hub'; if (m.x === undefined || r.mode === 'match') return;
+    r.buf.push({ t: motionNow(), x: m.x, y: m.y, z: m.z, yaw: m.r, s: m.s || {} }); if (r.buf.length > 30) r.buf.shift(); });
   onNet('ev', m => { const r = remotes.get(m.id), p = NET.players.get(m.id); if (!r || p?.muted) return; if (m.e === 'snd' && r.mode === 'hub') sfx(m.n, { at: r.pos, v: .8 }); });
 }
 /* звук своего персонажа, который должны услышать остальные (эмоция, прыжок) */
@@ -72,13 +73,12 @@ export function updateHubSync(dt, { P, ch, mode, camera, ball, hold, launchState
   for (const r of remotes.values()) {
     const b = r.buf; if (!b.length) continue;
     if (hold) { tagFor(r, cam); continue; }
-    let i = b.findIndex(q => q.t > at); if (i < 0) i = b.length; const A = b[Math.max(0, i - 1)], B = b[Math.min(b.length - 1, i)];
-    const k = B.t > A.t ? Math.min(1, Math.max(0, (at - A.t) / (B.t - A.t))) : 1;
+    const m=sampleMotion(b,motionNow(),.1),A=m.a,B=m.b,k=m.k;
     r.s=k<.5?A.s:B.s;r.onGround=!r.s.air;r.stun=r.s.stun?1:0;r.getT=r.s.getup||0;r.daze=r.s.daze?1:0;
     r.vel.set((B.x-A.x)/Math.max(.05,B.t-A.t), (B.y-A.y)/Math.max(.05,B.t-A.t),(B.z-A.z)/Math.max(.05,B.t-A.t));
-    if(!session?.host)r.pos.set(A.x + (B.x - A.x) * k, A.y + (B.y - A.y) * k, A.z + (B.z - A.z) * k);
+    if(!session?.host)r.pos.set(m.x,m.y,m.z);
     const dy = Math.atan2(Math.sin(B.yaw - A.yaw), Math.cos(B.yaw - A.yaw)); r.yaw = A.yaw + dy * k;
-    const show = r.mode === 'hub'; r.ch.root.visible = show; r.ch.root.position.copy(r.pos); r.ch.root.rotation.y = r.yaw;
+    const show = r.mode === 'hub'; r.ch.root.visible = show; r.ch.root.position.set(m.x,m.y,m.z); r.ch.root.rotation.y = r.yaw;
     if (show) r.ch.animate(dt, { ...(k < .5 ? A.s : B.s), t: clock });
     tagFor(r, cam, show);
   }

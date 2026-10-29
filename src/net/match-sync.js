@@ -1,3 +1,4 @@
+import {motionNow,sampleMotion} from './motion-buffer.js';
 import {disposeActorDrone} from '../game/drone.js';
 import {takeSounds,retrySounds,receiveSounds} from './audio-sync.js';
 import { W, withWorld } from '../world/state.js';
@@ -79,7 +80,7 @@ export function netMarkReady(){if(MATCH.on&&MATCH.world&&!MATCH.ready.has(NET.id
 function addHuman(p) {
   if (!MATCH.scene || find('p' + p.id)) return;
   const b = makePuppet(MATCH.scene, p.skin, p.name, 'p' + p.id);
-  b.human = true; b.tag = makeTag(p.name); MATCH.scene.add(b.tag);
+  b.human = true;b.pos=b.pos.clone(); b.tag = makeTag(p.name); MATCH.scene.add(b.tag);
   b.pos.copy(W.player.pos); b.root.visible = false;
 }
 function addBotPuppets(list) {
@@ -141,22 +142,20 @@ export function netMatchTick(dt, P) {
 }
 function push(b, x, y, z, r, s = {}, sc, v = 1) {
   if (!vector([x, y, z]) || !finite(r)) return;
-  b.buf.push({ t: clock, x, y, z, r, s: pose(s), v }); if (b.buf.length > 24) b.buf.shift();
+  b.buf.push({ t: motionNow(), x, y, z, r, s: pose(s), v }); if (b.buf.length > 24) b.buf.shift();
   if (sc !== undefined) b.score = sc;
 }
 function puppetStep(b, dt, t) {
   const buf = b.buf;
   if (!buf.length) { b.ch.animate(dt, { t, speed: 0 }); return; }
-  const at = clock - (MATCH.host ? 0 : DELAY);
-  let i = buf.findIndex(q => q.t > at); if (i < 0) i = buf.length;
-  const A = buf[Math.max(0, i - 1)], B = buf[Math.min(buf.length - 1, i)], k = B.t > A.t ? Math.min(1, Math.max(0, (at - A.t) / (B.t - A.t))) : 1;
+  const m=sampleMotion(buf,motionNow(),.1),A=m.a,B=m.b,k=m.k;
   b.vel.set((B.x - A.x) / Math.max(.05, B.t - A.t), (B.y - A.y) / Math.max(.05, B.t - A.t), (B.z - A.z) / Math.max(.05, B.t - A.t));
   if(MATCH.host&&b.netVelocity)b.vel.copy(b.netVelocity);
-  b.pos.set(A.x + (B.x - A.x) * k, A.y + (B.y - A.y) * k, A.z + (B.z - A.z) * k); b.onGround = !(k < .5 ? A.s : B.s).air;
+  if(!MATCH.host||!b.human)b.pos.set(m.x,m.y,m.z);b.root.position.set(m.x,m.y,m.z); b.onGround = !(k < .5 ? A.s : B.s).air;
   b.root.rotation.y = A.r + Math.atan2(Math.sin(B.r - A.r), Math.cos(B.r - A.r)) * k; b.root.visible = !!B.v;
   const s = k < .5 ? A.s : B.s; b.stun = s.stun ? 1 : 0; hook(b.ch); b.ch.animate(dt, { ...s, t });
   if(b.held){cargoPosition(b,b.held.pos,b.held.def.r);b.held.g.rotation.y=b.root.rotation.y;}
-  if (b.tag) { b.tag.visible = b.root.visible; b.tag.position.set(b.pos.x, b.pos.y + (b.ch.d?.top || 1.8) + .45, b.pos.z); }
+  if (b.tag) { b.tag.visible = b.root.visible; b.tag.position.set(b.root.position.x, b.root.position.y + (b.ch.d?.top || 1.8) + .45, b.root.position.z); }
 }
 function sendTake(it) { if (MATCH.on && !MATCH.world.ownsScope?.(it.netScope)) MATCH.world.request('take', it); }
 function sendThrow(it, from, vel) { if (MATCH.on && !MATCH.world.ownsScope?.(it.netScope)) MATCH.world.request('throw', it, { v: vel.toArray() }); }

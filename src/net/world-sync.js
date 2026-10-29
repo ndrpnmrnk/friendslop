@@ -21,7 +21,10 @@ const transform = o => [...pos(o.position), ...o.quaternion.toArray().map(q), ..
 // Стены/коллизии применяются сразу, картинки подвижных объектов сглаживаются отдельно.
 export function createWorldSync({ host, id, actor, command, myKey, visuals = true }) {
   const objects = new Map(), seen = new WeakMap(), baseline = new Map(), visual = new Map(), scopes = new Map();
+  const packedVisuals=new WeakMap();
   const textures=new WeakMap(),lastProposal=new Map();let proposalAt=0,initialKeys=new Set();
+  const received=new Map(),dirty=new Set();
+  const same=(a,b)=>a===b||Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((v,i)=>same(v,b[i]));
   const delta = new StateDelta(); let current = '', applying = false, serial = 0;
   const keyOf = a => !a?'':a===W.player?myKey:a.netKey||'';
   const localOwns = o => o?.netScope && api.ownsScope?.(o.netScope);
@@ -64,7 +67,11 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       case 'd': return [o.open ? 1 : 0, q(o.ang), q(o.av), o.dirS ?? null, o.solid?.on ? 1 : 0];
       case 'b': return [o.alive ? 1 : 0];
       case 'v': {
+        const old=packedVisuals.get(o),p=o.position,r=o.quaternion,s=o.scale,visible=!!(o.visible&&o.parent);
+        const materials0=Array.isArray(o.material)?o.material:[o.material];let revision=0;for(const m of materials0)if(m?.map)revision+=m.map.id*1000000+m.map.version;
+        if(old&&old.revision===revision&&old.visible===visible&&old.x===p.x&&old.y===p.y&&old.z===p.z&&old.qx===r.x&&old.qy===r.y&&old.qz===r.z&&old.qw===r.w&&old.sx===s.x&&old.sy===s.y&&old.sz===s.z)return old.result;
         const result=transform(o),maps=[];
+        packedVisuals.set(o,{result,revision,visible,x:p.x,y:p.y,z:p.z,qx:r.x,qy:r.y,qz:r.z,qw:r.w,sx:s.x,sy:s.y,sz:s.z});
         const materials=Array.isArray(o.material)?o.material:[o.material];
         materials.forEach((m,index)=>{const t=m?.map,im=t?.image;if(!t?.isCanvasTexture||t.userData.netStatic||!im?.toDataURL||im.width>256||im.height>256)return;
           let state=textures.get(t);if(!state||state.version!==t.version){state={version:t.version,data:im.toDataURL('image/png')};textures.set(t,state);}maps.push([index,state.data]);
@@ -119,6 +126,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
         syncPushable(o); o.mesh.rotation.set(...v.slice(7, 10)); o.mesh.visible = !o.dead; break;
       }
       case 's': {
+        if(fields.every((k,i)=>o[k]===v[i])&&o.on===!!v[6])break;
         const p=W.player,dy=v[5]-o.y1;
         if(o.tag==='lift-floor'&&p?.onGround&&Math.abs(p.pos.y-o.y1)<.25&&p.pos.x>o.x0&&p.pos.x<o.x1&&p.pos.z>o.z0&&p.pos.z<o.z1)p.pos.y+=dy;
         moveSolid(o, ...v.slice(0, 6)); o.on = !!v[6]; break;
@@ -220,14 +228,21 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     locally(fn){const old=applying;applying=true;try{return fn();}finally{applying=old;}},
     setIdentity(value){myKey=value;serial=0;},
     discover(){for(const[type,list]of Object.entries(LISTS))for(const o of W[list]||[])if(!seen.has(o))register(type,o);},
-    restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();delta.last=new Map(delta.base);delta.rev=0;serial=0;},
+    restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();received.clear();dirty.clear();delta.last=new Map(delta.base);delta.rev=0;serial=0;},
     setHost(value){host=!!value;api.host=host;api.replica=!host;serial=0;},
     resetStream(){serial=0;},
     get applying() { return applying; },
     capture(full = false) { return delta.snapshot(records(), full); },
-    baseline() { initialKeys=new Set(objects.keys());const rows = records(); delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v); },
-    receive(frame) { if (!frame || frame.rev <= serial) return; serial = frame.rev; if (frame.full) apply([...baseline]); apply(frame.rows); },
-    interpolate(dt) { const k = 1 - Math.exp(-dt * 22); for (const [o, v] of visual) { if (o.netScope && api.ownsScope?.(o.netScope)) { visual.delete(o); continue; } o.position.lerp(v.p, k); if (v.r) o.quaternion.slerp(v.r, k); if (v.s) o.scale.lerp(v.s, k); } },
+    baseline() { initialKeys=new Set(objects.keys());const rows = records(); delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v);received.clear();dirty.clear(); },
+    receive(frame) {
+      if(!frame||frame.rev<=serial)return;serial=frame.rev;
+      const rows=frame.rows||[],present=frame.full?new Set(rows.map(r=>r[0])):null,changes=[];
+      if(present)for(const key of dirty)if(!present.has(key)&&baseline.has(key)){changes.push([key,baseline.get(key)]);dirty.delete(key);}
+      if(present)for(const[key,{type,o}]of objects)if(['i','p','d'].includes(type)&&!present.has(key)&&baseline.has(key)&&!dirty.has(key)&&!same(pack(type,o),baseline.get(key)))changes.push([key,baseline.get(key)]);
+      for(const[key,v]of rows){if(['i','p','d','c','n','t'].includes(key[0])||!same(v,received.has(key)?received.get(key):baseline.get(key)))changes.push([key,v]);if(baseline.has(key))dirty.add(key);}
+      for(const[key,v]of changes)received.set(key,v);apply(changes);
+    },
+    interpolate(dt) { const k = 1 - Math.exp(-dt * 22); for (const [o, v] of visual) { if (o.netScope && api.ownsScope?.(o.netScope)) { visual.delete(o); continue; } o.position.lerp(v.p, k); if (v.r) o.quaternion.slerp(v.r, k); if (v.s) o.scale.lerp(v.s, k);if(o.position.distanceToSquared(v.p)<1e-7&&(!v.r||o.quaternion.angleTo(v.r)<.0003)&&(!v.s||o.scale.distanceToSquared(v.s)<1e-7)){o.position.copy(v.p);if(v.r)o.quaternion.copy(v.r);if(v.s)o.scale.copy(v.s);visual.delete(o);} } },
     canSimulate(o) { if(o?.netScope?.startsWith('m'))return !!api.ownsScope?.(o.netScope); return host || !o?.netId || localOwns(o) || o.rider === W.player || o.grabbed === W.player; },
     canAnimate(f) { return f.netScope?.startsWith('m') ? !!api.ownsScope?.(f.netScope) : host; },
   };
