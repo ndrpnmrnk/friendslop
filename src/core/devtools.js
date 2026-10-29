@@ -7,9 +7,9 @@ const now = () => performance.now();
 // ---------- профилировщик кадра ----------
 const P = { on: false, t0: 0, last: 0, cur: {}, sum: {}, frames: [], n: 0, acc: 0, el: null, info: null };
 export const prof = {
-  frameStart() { const at=now();P.interval=P.previous?at-P.previous:16.67;P.previous=at;P.t0 = P.last = at; P.cur = {}; },
+  frameStart() { P.stage='начало кадра'; const at=now();P.interval=P.previous?at-P.previous:16.67;P.previous=at;P.t0 = P.last = at; P.cur = {}; },
   // время с прошлой отметки записывается на систему name
-  mark(name) { if (!P.t0) return; const t = now(); P.cur[name] = (P.cur[name] || 0) + t - P.last; P.last = t; },
+  mark(name) { if (!P.t0) return; P.stage='после '+name; const t = now(); P.cur[name] = (P.cur[name] || 0) + t - P.last; P.last = t; },
   frameEnd(dt, renderer) {
     if (!P.t0) return; if (renderer) { renderer.info.autoReset = false; const ri0 = renderer.info.render; P.calls = (P.calls || 0) + ri0.calls; P.tris = (P.tris || 0) + ri0.triangles; renderer.info.reset(); } const total = now() - P.t0; P.t0 = 0;
     P.frames.push(P.interval); if (P.frames.length > 600) P.frames.shift();
@@ -22,6 +22,7 @@ export const prof = {
       (ri ? `отрисовок ${Math.round(P.calls / P.n)}  ·  треуг. ${(P.tris / P.n / 1000).toFixed(0)}k\nшейдеров ${ri.programs?.length || 0}  ·  текстур ${ri.memory.textures}\n` : '') + networkStats() + '— по системам —\n' + rows.join('\n');
     P.acc = 0; P.sum = {}; P.n = 0; P.calls = 0; P.tris = 0;
   },
+  get stage(){return P.stage||'неизвестно';},
   get fps() { const avg = P.frames.reduce((a, b) => a + b, 0) / Math.max(1, P.frames.length); return Math.round(1000 / Math.max(1, avg)); },
   get low() { const f = P.frames.slice().sort((a, b) => b - a); return Math.round(1000 / Math.max(1, f[Math.max(0, Math.floor(f.length * .01) - 1)] || 16)); },
 };
@@ -39,7 +40,7 @@ function infoText(extra = '') {
     `Состояние: ${i.state || '?'}${i.mode ? ' · режим ' + i.mode : ''}${i.mission ? ' · миссия ' + i.mission : ''}`,
     `Район: ${i.district || '—'} · позиция ${i.pos || '—'} · камера ${i.cam || '—'}`,
     `В руках: ${i.held || '—'}${i.ride ? ' · едет: ' + i.ride : ''} · FPS ${prof.fps} (1% low ${prof.low}) · графика ${i.quality || '?'}`,
-    `GPU: ${i.gpu || '?'}`, i.error ? `Последняя ошибка: ${i.error}` : ''].filter(Boolean);
+    `GPU: ${i.gpu || '?'}`, i.error ? `Последняя ошибка: ${i.error}` : '', ...((i.fault?.stack||'').split('\n').slice(0,3).map(x=>x.slice(0,220)))].filter(Boolean);
   if(networkStats().trim())lines.push(networkStats().trim());
   if (extra) lines.push('Комментарий: ' + extra);
   return lines;
