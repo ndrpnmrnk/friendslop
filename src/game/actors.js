@@ -19,6 +19,7 @@ export function dropHeld(a, vx = 0, vz = 0) {
 
 // толчок без оглушения (выпад, подушка, струя): отбрасывает и выбивает предмет из рук
 export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) {
+  if (a.puppet) { W.netHit?.(a, 'shove', [dx, dz, power, up, drop ? 1 : 0]); return; }
   if (a.drone || a.returning) return;
   const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
   a.vel.x = dx * power; a.vel.z = dz * power; a.vel.y = Math.max(a.vel.y, up); a.onGround = false;
@@ -36,6 +37,7 @@ export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) {
    - стан стоя (daze): звёздочки над головой, шатается, двигаться можно, но очень медленно. */
 export const GETUP = 0.7;
 export function knockDown(a, dx = 0, dz = 0, t = 1.1) {
+  if (a.puppet) { W.netHit?.(a, 'knock', [dx, dz, t]); return; } // v0.61: удар по игроку/боту другого компьютера — шлём владельцу
   if (a.hidden || a.drone || a.returning) return;
   actionEffect('hit',{x:a.pos.x,y:a.pos.y+1,z:a.pos.z},1.4);
   if (a.ride && W.dismount) W.dismount(a);
@@ -45,7 +47,7 @@ export function knockDown(a, dx = 0, dz = 0, t = 1.1) {
   dropHeld(a, dx * 2.2, dz * 2.2);
   if (a.holding) W.letGo && W.letGo(a);
 }
-export function daze(a, t = 1.2) { if (a.hidden || a.drone || a.returning) return; a.daze = Math.max(a.daze || 0, t); }
+export function daze(a, t = 1.2) { if (a.puppet) { W.netHit?.(a, 'daze', [t]); return; } if (a.hidden || a.drone || a.returning) return; a.daze = Math.max(a.daze || 0, t); }
 // 1 — лежит, 0 — стоит (плавный подъём за GETUP секунд после конца оглушения)
 export const ragK = a => a.stun > 0 ? 1 : a.getT > 0 ? a.getT / GETUP : 0;
 // тик оглушений: вызывать там, где раньше уменьшали a.stun

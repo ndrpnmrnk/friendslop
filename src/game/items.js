@@ -335,7 +335,7 @@ export function nearestItem(p, r) {
   }
   return best;
 }
-export function pickUp(it) { if(it.noPickup||it.taken||it.state==='gone')return false; it.onPickup?.(); it.floatY = undefined; it.trail = 0; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
+export function pickUp(it) { if(it.noPickup||it.taken||it.state==='gone')return false; W.netTake?.(it); it.onPickup?.(); it.floatY = undefined; it.trail = 0; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
 export function drop(it, x, y, z) { if(it.taken)return;it.state = 'rest'; it.pos.set(x, y + (it.def.halfHeight??it.def.r) + 0.05, z); it.vel.set(0, 0, 0); }
 
 /* Расчёт броска по дуге к точке прицела */
@@ -356,7 +356,7 @@ export function throwVelocity(from, target, charge, def) {
   const f = k / (1 - Math.exp(-k * T)), vx = dist * f, vy = (dy + GRAV * T / k) * f - GRAV / k;
   return new V3(dx / dist * vx, vy, dz / dist * vx);
 }
-export function launch(it, from, vel) { if(it.taken)return;it.throwFrom=from.clone();it.hoopScored=false;it.throwId=(it.throwId||0)+1; it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true; }
+export function launch(it, from, vel) { if(it.taken)return;it.throwFrom=from.clone();it.hoopScored=false;it.throwId=(it.throwId||0)+1; it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true;  W.netThrow?.(it, from, vel); }
 const predicted=[];
 export function predict(from,vel,out,n,def,end){
  const p=from.clone(),v=vel.clone(),h=1/60,r=def.r,ry=def.halfHeight??r;let count=0,landed=false;if(end)end.visible=false;

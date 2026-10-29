@@ -21,6 +21,8 @@ import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies
 import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
 import { initNetUI, beforeHub, afterHubShown } from './net/ui.js';
+import { MATCH, seededMap, netPrepareMatch, netMatchTick, netEndMatch, initMatchSync, humansInRoom, myRank } from './net/match-sync.js';
+import { NET, onNet } from './net/net.js';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
@@ -144,7 +146,7 @@ function showMenu() {
   S.state = 'menu'; setCursor(true); document.body.classList.remove('playing'); menu.active = true; menu.splash(); buildLogo();
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
-function showHub(){setTimeout(afterHubShown,1500);S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
+function showHub(){setTimeout(afterHubShown,1500);if(MATCH.on)netEndMatch();S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
 // v0.53: матч стартует из хаба — доска выбрала режим, рулетка собрала карту, катапульта выстрелила
 /* v0.56: экран загрузки после залпа рогатки — тема и 9 районов карты, полоса загрузки и игроки со статусом.
    Матч стартует, только когда готовы все (сейчас участник один; список рассчитан на группу). */
@@ -204,6 +206,9 @@ addEventListener('pointerdown', () => { initAudio(); ambience(true); }, { once: 
 $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 $('playBtn').onclick = () => beforeHub(showHub);
+// v0.61: сетевой матч — синхронизация; хост закрыл лобби или выгнали посреди матча — матч заканчивается, все в хаб
+initMatchSync();
+onNet('state', () => { if (NET.state === 'off' && MATCH.on) { netEndMatch(); if (!['hub', 'menu'].includes(S.state)) showHub(); } });
 initNetUI({ currentSkin: () => collection().selected });
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
 $('modeCard').onclick = () => { requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(() => launchRound(MODES[0], randomMap()), 300); };
@@ -298,7 +303,8 @@ function prepareRound(tut = false) {
   if(S.mg)closeMission(null);if(S.wm)closeWorld(null);
   for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
   if (tut) globalThis.__forceDistricts = ['yard', 'plaza', 'park'];
-  generateMap(scene, (Math.random() * 1e9) | 0);
+  // v0.61: в сетевом матче карта у всех одинаковая — зерно от хоста и детерминированный Math.random на время постройки
+  if (MATCH.on) seededMap(MATCH.seed, () => generateMap(scene, MATCH.seed)); else generateMap(scene, (Math.random() * 1e9) | 0);
   { const wl = localLighting.rebuild(); console.info('[friendslop] свет мира:', wl.count, 'источников,', wl.ms, 'мс'); }
   if (tut) globalThis.__forceDistricts = null;
   buildLife(scene); resetSplat(); resetPolice();
@@ -311,9 +317,9 @@ function prepareRound(tut = false) {
   if (P) scene.remove(P.root);
   P = createPlayer(menu.skin()); scene.add(P.root); P.ch.onCroak = () => sfx('croak');
   P.ch.onCroak = null; // в игре «ква» звучит через голос (voice), мешок сам по себе не квакает
-  const sp = W.spawns[(Math.random() * W.spawns.length) | 0];
+  const sp = W.spawns[MATCH.on ? (Math.max(0, myRank()) * 3) % W.spawns.length : (Math.random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
-  W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), tut || S.studioCfg ? 0 : (S.botCount ?? 4)); M.manual = tut || !!S.studioCfg; S.tut = null;
+  W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), tut || S.studioCfg ? 0 : MATCH.on ? (MATCH.host ? Math.max(0, (S.botCount ?? 4) - (humansInRoom() - 1)) : 0) : (S.botCount ?? 4)); netPrepareMatch(scene); M.manual = tut || !!S.studioCfg; S.tut = null;
   resetCoins(!tut);
   resetScore((a, pts, at) => award(a, pts, at));
   M.onWave = null;
@@ -356,8 +362,9 @@ function crashArrival(a, prev, hit, dt) {
 function startIntro() {
   void roundMusic.intro();
   S.state = 'intro'; $('hud').classList.add('hidden'); $('intro').classList.remove('hidden'); $('count').textContent = ''; $('dname').textContent = '';
-  S.intro = { t: 0, drop: true, landed: false, cd: 4, me: arrivalArc(P.pos), delay: .35, bots: (W.bots || []).map((b, i) => ({ b, f: arrivalArc(b.pos), delay: .1 + i * .3, landed: false })) };
+  S.intro = { t: 0, drop: true, landed: false, cd: 4, me: arrivalArc(P.pos), delay: .35, bots: (W.bots || []).filter(b => !b.puppet).map((b, i) => ({ b, f: arrivalArc(b.pos), delay: .1 + i * .3, landed: false })) };
   takeLook(); P.frozen = true; P.root.visible = true; P.pos.copy(S.intro.me.from); P.root.position.copy(P.pos);
+  for (const b of W.bots || []) if (b.puppet) { b.root.visible = false; if (b.tag) b.tag.visible = false; }
   for (const q of S.intro.bots) { q.b.root.visible = false; q.b.frozenIntro = true; }
   document.body.classList.add('playing');
 }
@@ -835,6 +842,7 @@ const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
   clock.update(); let dt = Math.min(0.05, clock.getDelta()); prof.frameStart();
   if(graphicsLost||document.hidden){endFrame();return;}
+  if (MATCH.on && P && S.state !== 'hub' && S.state !== 'menu') netMatchTick(dt, P, S.score);
   if (S.studio) { S.studio.t += dt; S.studio.spin && S.studio.list.forEach((g, i) => g.rotation.y = S.studio.t * .6 + i); present(S.studio.sc, S.studio.cam); endFrame(); return; }
   if(S.settingsOpen)clearInput();
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
@@ -845,7 +853,7 @@ function frame() {
   if (S.state === 'results') { podium.update(dt); present(podium.scene, podium.camera); }
   else if (S.state === 'starting' || S.state === 'hub' || S.state === 'menu' || S.state === 'mode' || S.state === 'roulette' || S.state === 'settings') {
     // v0.56: пока висит экран загрузки и город уже построен, хаб не рисуем (общие материалы уже настроены под город)
-    if (S.loadingHold) {} else { menu.update(dt);const presentation=menu.claw.presentation;present(presentation?.scene||menu.scene,presentation?.camera||menu.camera,presentation?null:menu.active&&menu.hover&&!menu.choosing&&!menu.drag?menu.ch.root:null); prof.mark('хаб'); afterRender(canvas); }
+    if (S.loadingHold) {} else { menu.update(dt);const presentation=menu.claw.presentation;if(!window.__noRender)present(presentation?.scene||menu.scene,presentation?.camera||menu.camera,presentation?null:menu.active&&menu.hover&&!menu.choosing&&!menu.drag?menu.ch.root:null); prof.mark('хаб'); afterRender(canvas); }
     if (S.state === 'settings') drawMicMeter();
     // логотип: буквы по очереди подпрыгивают раз в несколько секунд
     logoT -= dt; if (logoT <= 0 && S.state === 'menu') { logoT = 4; [...$('logo').children].forEach((sp, i) => setTimeout(() => { sp.classList.remove('hop'); void sp.offsetWidth; sp.classList.add('hop'); }, i * 70)); }
@@ -1037,3 +1045,4 @@ window.__fs.studio = (types, cols = 8, sp = 1.15, spin = false) => {
   S.studio = { sc, cam, list, t: 0, spin }; $('hud').classList.add('hidden');
 };
 Object.assign(window.__fs, { closeMission, closeMG: closeMission });
+window.__fs.netTestSeed=s=>{MATCH.on=true;MATCH.host=true;MATCH.seed=s;};window.__fs.MATCH=MATCH;

@@ -28,8 +28,9 @@ import {updateTools,useTool,toolImpact,sodaBlast,releaseBow,releaseNet,vacuumFir
 import {nearestRideable,grab,release,dismount} from '../game/ride.js';
 import {updateGrabs,grabTarget,grabActor,letGo} from '../game/grab.js';
 import {knockDown} from '../game/actors.js';
-import {initHubSync,updateHubSync} from '../net/hub-sync.js';
-import {NET,setSkin} from '../net/net.js';
+import {initHubSync,updateHubSync,remoteActors} from '../net/hub-sync.js';
+import {NET,setSkin,inRoom,onNet,send} from '../net/net.js';
+import {netBeginMatch} from '../net/match-sync.js';
 import {voice} from '../game/voice.js';
 import {updateRadios,nearRadio,toggleRadio,tuneRadio} from '../game/radio.js';
 import {predictBow,predictNet} from '../game/bow.js';
@@ -116,7 +117,21 @@ export function createMenu(){
   /* запуск матча: гол в ворота режима → табло: правила (2 с) → рулетка карты → отсчёт 10 с (все на площадке — 3 с)
      → сценка с рогаткой. Новый гол до сценки меняет режим и запускает всё заново. */
   st.members=[];st.flow=null;
-  world.vote.onGoal=m=>{if(st.flow?.stage==='cutscene')return;st.flow={stage:'mode',mode:m,t:0};world.screen.showMode(m);};
+  /* v0.61: общий хаб. Хост ведёт мяч, рулетку, сбор и запуск и рассылает шаги («flow»); гости только повторяют.
+     Участники сцены запуска — все в лобби по номеру игрока (у всех одинаковый порядок). */
+  const guest=()=>inRoom()&&!NET.host,flowSend=o=>{if(inRoom()&&NET.host&&NET.players.size>1)send({t:'ev',e:'flow',...o});};
+  const syncMembers=()=>{st.members=inRoom()?[...remoteActors(),{id:NET.id,me:true}].sort((a,b)=>a.id-b.id).map(q=>q.me?st.player:q):[st.player];};
+  st.debugGoal=i=>scope(()=>world.vote.force(i)); // для проверок: гол в ворота i
+  world.vote.onGoal=m=>{if(st.flow?.stage==='cutscene')return;st.flow={stage:'mode',mode:m,t:0};world.screen.showMode(m);flowSend({s:'mode',i:world.vote.goals.findIndex(g=>g.m===m)});};
+  onNet('ev',m=>{if(m.e!=='flow'||!guest())return;scope(()=>{
+    if(m.s==='mode'){if(st.flow?.stage!=='cutscene')world.vote.force(m.i);return;}
+    if(st.flow?.stage==='cutscene')return;
+    if(!st.flow)st.flow={stage:'mode',mode:world.vote.goals[m.i??0]?.m,t:0};const f=st.flow;if(m.i!==undefined&&world.vote.goals[m.i])f.mode=world.vote.goals[m.i].m;
+    if(m.s==='map'){f.stage='map';f.t=0;f.theme=m.theme;f.ids=m.ids;world.screen.spinMap(m.ids,m.theme);}
+    else if(m.s==='gather'){f.stage='gather';f.t=0;f.wait=GATHER_WAIT;f.hold=0;f.theme=m.theme??f.theme;f.ids=m.ids||f.ids;world.sling.zone(true);sfx('click');}
+    else if(m.s==='launch'){f.theme=m.theme??f.theme;f.ids=m.ids||f.ids;netBeginMatch(m.seed);
+      if(st.mode!=='roam'||st.pause){st.claw?.close?.();st.choosing=false;st.transition=null;st.pause=false;$('hubPause').classList.remove('open');$('setBtn').classList.remove('hub-settings');roam();}
+      syncMembers();startLaunch();}});});
   scope(()=>{Object.assign(world.state,{toolImpact,sodaBlast,knockDown,letGo,dismount:a=>dismount(a,false),leaveBench,leaveHide,leaveSwing,releaseCart:a=>release(a,.3),onDrink:()=>sfx('drink')});});
   const arc=Array.from({length:11},()=>{const m=sprite(T.dot(),.13,{color:0xffb45a,depthTest:false,opacity:.95});m.renderOrder=10;m.visible=false;scene.add(m);return m;});
   const land=new THREE.Mesh(G.ring,new THREE.MeshBasicMaterial({color:0xff8a1f,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}));land.rotation.x=-Math.PI/2;land.scale.setScalar(.5);land.visible=false;scene.add(land);
@@ -161,12 +176,12 @@ export function createMenu(){
      полосы кино, все встают в линию, дают друг другу пять (один — радуется), разбегаются, сальто в кармашек,
      резинка тянется, залп со «птичьим» криком — все улетают за город, дальше экран загрузки. */
   const GATHER_WAIT=30;
-  function flowStep(dt){const f=st.flow;if(!f)return;f.t+=dt;
-    if(f.stage==='mode'&&f.t>2.4){f.stage='map';f.t=0;f.theme=pickTheme();f.ids=randomMap(f.theme);world.screen.spinMap(f.ids,f.theme);}
-    else if(f.stage==='map'&&world.screen.mapDone&&f.t>5.2){f.stage='gather';f.t=0;f.wait=GATHER_WAIT;f.hold=0;world.sling.zone(true);sfx('click');}
-    else if(f.stage==='gather'){const ready=st.members.filter(a=>world.sling.onPad(a.pos)).length,all=ready>=st.members.length;
-      f.wait-=dt;f.hold=all?f.hold+dt:0;world.screen.gather(ready,st.members.length,f.wait);world.sling.zone(true,st.t,all);
-      if(all&&f.hold<dt*1.5)sfx('pickup');if(f.hold>.9||f.wait<=0)startLaunch();}}
+  function flowStep(dt){const f=st.flow;if(!f)return;f.t+=dt;const g=guest(),mi=world.vote.goals.findIndex(q=>q.m===f.mode);
+    if(f.stage==='mode'&&f.t>2.4&&!g){f.stage='map';f.t=0;f.theme=pickTheme();f.ids=randomMap(f.theme);world.screen.spinMap(f.ids,f.theme);flowSend({s:'map',i:mi,theme:f.theme,ids:f.ids});}
+    else if(f.stage==='map'&&world.screen.mapDone&&f.t>5.2&&!g){f.stage='gather';f.t=0;f.wait=GATHER_WAIT;f.hold=0;world.sling.zone(true);sfx('click');flowSend({s:'gather',i:mi,theme:f.theme,ids:f.ids});}
+    else if(f.stage==='gather'){syncMembers();const ready=st.members.filter(a=>world.sling.onPad(a.pos)).length,all=ready>=st.members.length;
+      f.wait-=dt;f.hold=all?f.hold+dt:0;world.screen.gather(ready,st.members.length,Math.max(0,f.wait));world.sling.zone(true,st.t,all);
+      if(all&&f.hold<dt*1.5)sfx('pickup');if(!g&&(f.hold>.9||f.wait<=0)){const seed=(Math.random()*2**31)|0;netBeginMatch(seed);flowSend({s:'launch',seed,i:mi,theme:f.theme,ids:f.ids});startLaunch();}}}
   /* v0.59 — сцена запуска заново, длиннее и «киношнее» (≈14 с), монтаж из нескольких планов со склейками:
      1) все сходятся в кружок и здороваются: пары дают пять и стукаются кулаками, одиночки машут, хлопают, пританцовывают;
      2) общий прыжок «ура!» и клич «погнали!»;
@@ -243,7 +258,7 @@ export function createMenu(){
     if(P.held){cargoPosition(P,P.held.pos,P.held.def.r);P.held.g.rotation.y=P.root.rotation.y;poseMeleeItem(P,P.held);}
     if(P.charging&&(!P.held||P.stun>0))clearThrow();
     let shown=0;if(P.charging&&P.held){const tgt=aimPoint();P.aimYaw=Math.atan2(tgt.x-P.pos.x,tgt.z-P.pos.z);shown=predict(P.held.pos,throwVelocity(P.held.pos,tgt,P.charge,P.held.def),arc,arc.length,P.held.def,land);}if(P.held?.type==='net'&&(P.held.aimT||0)>0&&mouse.left){shown=predictNet(P,aimPoint(),arc,land);for(const m of arc){m.scale.setScalar(.11);m.material.depthTest=true;m.material.color.setHex(0x9be36b);}}else if(P.held?.type==='bow'&&(P.held.draw||0)>.05){shown=predictBow(P,aimPoint(),arc,land);for(const m of arc){m.scale.setScalar(.085);m.material.depthTest=true;m.material.color.setHex(0xe8dfb9);}}else for(const m of arc){m.scale.setScalar(.13);m.material.depthTest=true;m.material.color.setHex(0xffb45a);}arc.forEach((m,i)=>m.visible=i<shown);if(!shown)land.visible=false;
-    world.vote.update(dt,st.t);world.screen.update(dt);world.sling.update(dt,st.t);flowStep(dt);
+    world.vote.follow=guest();    world.vote.update(dt,st.t);world.screen.update(dt);world.sling.update(dt,st.t);flowStep(dt);
     updateCoins(dt,P);updateItems(dt,P);updatePushables(dt,P);for(const fn of world.state.animated)fn(dt,st.t);updateSwingers(dt,st.t,P);updateWorldFx(dt,st.t,P);updateTools(dt,st.t);updateGrabs(dt,st.t);updateTraps(dt,st.t);updateSnacks(P,dt);updateBreakables(dt,P);updateActionEffects(dt,P,camera);updateParticles(dt);updateVfx(dt);updateSplat(dt);
     const want=new Set();if(!P.held)for(const it of world.state.items)if(['rest','placed'].includes(it.state)&&!it.noPickup&&(!it.boxed||it.boxed.open)&&it.pos.distanceTo(P.pos)<2.2)want.add(it.outline);
     for(const q of world.state.interacts)if(q.outline&&(!q.glow||q.glow())&&(!q.enabled||q.enabled(P))&&Math.hypot(q.x-P.pos.x,q.z-P.pos.z)<q.r+.7&&Math.abs(q.y-P.pos.y)<(q.dy??.9)+.3)want.add(q.outline);
@@ -274,7 +289,7 @@ export function createMenu(){
     for(const{light}of world.lampLights)light.removeFromParent();scope(()=>{if(!localLighting.wl)localLighting.rebuild();localLighting.update(camera,dt);});
     // v0.61: друзья в хабе (онлайн) — свои движения отправляем, чужих показываем
     if(st.ch?.skinId&&st.mode==='roam'&&st.ch.skinId!==NET.skin)setSkin(st.ch.skinId);
-    updateHubSync(dt,{P:st.player,ch:st.ch,mode:st.mode,camera});
+    updateHubSync(dt,{P:st.player,ch:st.ch,mode:st.mode,camera,ball:world.vote.ball,hold:st.flow?.stage==='cutscene'});
     screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){if(st.flow?.stage==='cutscene')text='';else if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(!P.ride){const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
 
 

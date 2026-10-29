@@ -80,6 +80,9 @@ export function buildVoteArena(b, modes) {
   let picked = -1, inside = -1, flashT = 0;
   const api = {
     group, goals, ball, get picked() { return picked >= 0 ? modes[picked] : null; }, onGoal: null,
+    follow: false,
+    // v0.61: хост сообщил гол в ворота i — показываем то же самое
+    force(i) { const g = goals[i]; if (!g) return; inside = i; picked = i; flashT = 1.2; sfx('goal'); shake(.25); const p = { x: g.x, y: 1.2, z: A.z0 - .6 }; impactBurst(p, g.m.color, 1.6); sparks(p, 30, g.m.color); api.onGoal?.(g.m); },
     reset() { picked = -1; inside = -1; ball.x = cx; ball.z = cz + 1; ball.vx = ball.vz = 0; },
     update(dt, t) {
       // мяч катится: поворачиваем шар по ходу
@@ -89,6 +92,7 @@ export function buildVoteArena(b, modes) {
       // гол: мяч целиком пересёк линию в створе ворот. v0.60: мяч остаётся в воротах — видно, что выбрано;
       // выбить его обратно и забить в другие ворота можно в любой момент
       let inG = -1; for (const g of goals) if (ball.z < A.z0 - .3 && Math.abs(ball.x - g.x) < A.gw / 2 - .2) inG = g.i;
+      if (api.follow) inG = inside; // v0.61: у гостя сетевого лобби гол засчитывает только хост
       if (inG !== inside) { inside = inG; const g = goals[inG]; if (g) {
         picked = g.i; flashT = 1.2; sfx('goal'); shake(.25); ball.vx *= .2; ball.vz *= .2;
         const p = { x: g.x, y: 1.2, z: A.z0 - .6 }; impactBurst(p, g.m.color, 1.6); sparks(p, 30, g.m.color); sparks(p, 20, 0xffffff);

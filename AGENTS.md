@@ -98,6 +98,11 @@
 там же лимиты бесплатного Cloudflare (500 сборок Pages в месяц, 100 000 запросов сервера в день) и решения автора.
 
 ## 5. Сделано в последних версиях
+- v0.60.2 (`docs/UPDATE-v0.60.2.md`): пробный онлайн-матч. Хаб: хост ведёт мяч/рулетку/сбор/запуск и шлёт `ev flow`
+  (menu.js: `guest()`, `flowSend`, `syncMembers`, `vote.follow`/`force`). Матч — `src/net/match-sync.js` (`MATCH`, `seededMap`,
+  `netPrepareMatch`, `netMatchTick`): чужие люди и боты хоста — марионетки (`puppet:true`, ИИ пропускает; actors.js
+  `knockDown/shove/daze` по марионетке → `W.netHit`; items.js `launch` → `W.netThrow`, `pickUp` → `W.netTake`).
+  Новый код, который трогает ботов, должен пропускать `b.puppet`. Миссии/события/жители — у каждого свои.
 - v0.60 (`docs/UPDATE-v0.60.md`): районы 44×44 (`CONFIG.chunk = 44`; район нового формата — `size: 44`, старый 32 м
   ставится в центр клетки с бульваром `boulevard()` в world.js). Новые: yard, park, plaza, shops, construction, cemetery,
   gas, market, sewer, school. Общий «язык» — `src/world/district-kit.js` (`hazardFloor`, `warnLamp`, `climbTrim`, `path`,

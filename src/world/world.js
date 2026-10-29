@@ -2,7 +2,7 @@ import { addItem } from '../game/items.js';
 import { THREE, G, mesh, tmat, flat, paint, setParent, col, lam } from '../core/gfx.js';
 import { T, rep } from '../core/textures.js';
 import { CONFIG } from '../config.js';
-import { seed, shuffle } from '../core/rng.js';
+import { seed, shuffle, rng, mulberry32 } from '../core/rng.js';
 import { W, resetWorld } from './state.js';
 import { addSolid, isFree } from './physics.js';
 import { Builder } from './builder.js';
@@ -42,7 +42,7 @@ export function generateMap(scene, s) {
   // порт — только у реки: ставим его в нижний ряд (южный край карты), а южный край делаем набережной
   W.riverSide = null;
   const pi = picks.findIndex(d => d.id === 'port');
-  if (pi >= 0) { const row = [...Array(grid)].map((_, gx) => gx * grid + grid - 1), to = row.includes(pi) ? pi : row[(Math.random() * grid) | 0]; [picks[pi], picks[to]] = [picks[to], picks[pi]]; W.riverSide = 's'; }
+  if (pi >= 0) { const row = [...Array(grid)].map((_, gx) => gx * grid + grid - 1), to = row.includes(pi) ? pi : row[(rng.r() * grid) | 0]; [picks[pi], picks[to]] = [picks[to], picks[pi]]; W.riverSide = 's'; }
   const curb = tmat(T.concrete());
   for (let gx = 0; gx < grid; gx++) for (let gz = 0; gz < grid; gz++) {
     const d = picks[gx * grid + gz];
@@ -71,6 +71,9 @@ export function generateMap(scene, s) {
     if (gz === grid - 1) zebra(ox + chunk / 2, oz + chunk + road / 2, true);
     if (gx === grid - 1) zebra(ox + chunk + road / 2, oz + chunk / 2, false);
     W.districts.push({ id: d.id, name: d.name, ox, oz, x1: ox + chunk, z1: oz + chunk, ground: d.ground });
+    // v0.61: сетевой матч — перед каждым районом свой поток случайных чисел от зерна карты, чтобы «ленивые» кэши
+    // (материалы и т. п., создаваемые при первом использовании) не сдвигали случайность у разных игроков
+    if (globalThis.__netSeeded) Math.random = mulberry32((s ^ (gx * 7919 + gz * 104729)) >>> 0);
     d.build(new Builder(ox + inset, oz + inset, base, d.name));
     if (inset) boulevard(new Builder(ox, oz, base, d.name), chunk, inset);
     // уличный мусор (v0.21): несколько штук по тротуарам у краёв района — можно поднять и бросить

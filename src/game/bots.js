@@ -186,6 +186,7 @@ function steer(b, tx, tz, dt) {
 /* ---------- обновление ---------- */
 export function updateBots(dt, t, P) {
   for (const b of W.bots || []) {
+    if (b.puppet) { W.netPuppet?.(b, dt, t); continue; } // v0.61: живой игрок или бот хоста по сети — двигает сеть
     if (b.drone || b.returning) { if(b.work&&!b.work.world)interruptBotWork(b);continue; }
     tickStun(b, dt);
     if(b.mantle&&(b.stun>0||b.heldBy||b.ride)){b.mantle=null;b.onGround=false;}
@@ -438,4 +439,15 @@ function botDive(b, ix, iz) {
   b.nav=null;b.navCD=0;
   b.diveT = 0.35; b.diveCD = 1.4; b.vel.x = ux * 6; b.vel.z = uz * 6; b.vel.y = 1.5; b.onGround = false; sfx('dive', { at: b.pos });
   if (why !== 'glass') { slamDoor(why, ux, uz, 9); sfx('door', { at: why }); }
+}
+
+/* v0.61: «марионетка» — живой игрок или бот хоста в сетевом матче. Тот же объект, что у бота (чтобы его видели броски,
+   счёт, повтор, пьедестал), но без ИИ: положение и позу задаёт сеть (W.netPuppet). */
+export function makePuppet(scene, skin, name, key) {
+  const ch = makeCharacter(skin); ch.onCroak = () => sfx('croak', { at: ch.root.position, v: 0.6 });
+  const sp = W.spawns[(W.bots.length + 1) % W.spawns.length] || { x: 0, y: 0.15, z: 0 }; ch.root.position.set(sp.x, sp.y, sp.z); scene.add(ch.root);
+  const b = { bot: true, puppet: true, netKey: key, name, skin, mood: 'brave', ch, root: ch.root, pos: ch.root.position, vel: new V3(), push: new V3(), r: PC.radius, h: PC.height, step: PC.step,
+    onGround: true, stun: 0, score: 0, goal: null, doT: 0, think: 0, stuck: 0, last: new V3(), facing: 0, throwCD: 99, held: null, wander: null, airPeak: 0,
+    side: 1, sideT: 0, dodge: null, hideT: 0, actCD: 2, carry: null, buf: [] };
+  W.bots.push(b); statsOf(b); return b;
 }
