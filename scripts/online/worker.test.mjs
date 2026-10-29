@@ -66,3 +66,22 @@ test('voice signalling is addressed and bot settings belong to host and survive 
   h.ws.close(1000,'leave');await g.next(m=>m.t==='upd'&&m.p.host);const newcomer=await connect(code,'voice-late-guest',false,'voice-bots');assert.equal(newcomer.welcome.bots,false);newcomer.ws.close(1000,'leave');
  }finally{h.ws.close();g.ws.close(1000,'leave');o.ws.close(1000,'leave');}
 });
+
+
+test('eight-player lobby relays host packets to all seven guests and guest input to host',async()=>{
+ const chars='ABCDEFGHJKLMNPQRSTUVWXYZ',code='E'+Array.from({length:5},()=>chars[Math.random()*chars.length|0]).join('');
+ const clients=[];
+ try{
+  for(let i=0;i<8;i++)clients.push(await connect(code,'eight-'+i+'-'+code,i===0,'eight-player-test',true));
+  assert.equal(clients.length,8);
+  for(const c of clients)assert.equal(c.welcome.t,'welcome');
+  const host=clients[0];
+  host.send({t:'st',m:'hub',protocol:2,n:800,x:1,y:0,z:1});
+  await Promise.all(clients.slice(1).map(c=>c.next(m=>m.t==='st'&&m.n===800)));
+  clients[7].send({t:'st',m:'hub',protocol:2,n:801,x:2,y:0,z:2});
+  const received=await host.next(m=>m.t==='st'&&m.n===801);
+  assert.equal(received.id,clients[7].welcome.id);
+  // One packed host state is relayed; there are no per-object additional WebSockets.
+  assert(!clients[7].messages.some(m=>m.n===801&&m.id===clients[7].welcome.id));
+ }finally{for(const c of clients)c.ws.close(1000,'leave');}
+});

@@ -4,6 +4,7 @@ import {audioBus,sfx,setRadioFocus} from '../core/sfx.js';
 import {spatialSource,distanceGain} from '../core/spatial-audio.js';
 import {serverNow} from '../net/net.js';
 import {radioState as state,changeRadio,radioPhase} from './radio-state.js';
+import {radioCorrection} from './radio-playback.js';
 import {W} from '../world/state.js';
 import {raySolids} from '../world/physics.js';
 export const STATIONS=[{title:'Третий шоколадный',freq:'88.3',file:'chocolate'},{title:'Семейный круг',freq:'96.7',file:'family'},{title:'Мелкий',freq:'104.2',file:'little'}];
@@ -12,20 +13,68 @@ export function radioModel(){const g=new THREE.Group();g.name='boombox';g.add(co
 export function toggleRadio(it){if(W.net?.request('radio',it,{action:'toggle'}))return;changeRadio(it,'toggle',serverNow());sfx('click',{at:it.pos,range:8});}
 export function tuneRadio(it,d){if(W.net?.request('radio',it,{action:'tune',step:d>0?1:-1}))return;changeRadio(it,'tune',serverNow(),d);sfx('tick',{at:it.pos,range:7});}
 export function nearRadio(a,ray){let best=null,dist=2;for(const it of W.items){if(it.type!=='boombox'||!['rest','placed'].includes(it.state))continue;const d=it.pos.distanceTo(a.pos.clone().add(new V3(0,.5,0)));if(d>=dist)continue;if(ray&&ray.ray.distanceToPoint(it.pos)>.45)continue;const from=a.pos.clone().add(new V3(0,1,0)),v=it.pos.clone().sub(from),len=v.length();if(raySolids(from,v.normalize(),len)<len-.2)continue;dist=d;best=it;}return best;}
-function stream(it){let r=radios.get(it);if(r)return r;const bus=audioBus('radio');if(!bus)return null;const audio=new Audio();audio.preload='metadata';audio.loop=true;const source=bus.ac.createMediaElementSource(audio),spatial=spatialSource(bus.ac,bus.master,18);source.connect(spatial.input);r={audio,spatial,source,loaded:-1,world:W.group,check:0};radios.set(it,r);return r;}
+function stream(it){let r=radios.get(it);if(r)return r;const bus=audioBus('radio');if(!bus)return null;const audio=new Audio();audio.preload='auto';audio.loop=true;const source=bus.ac.createMediaElementSource(audio),spatial=spatialSource(bus.ac,bus.master,18);source.connect(spatial.input);r={audio,spatial,source,loaded:-1,world:W.group,check:0,tryAt:0,aligned:'',lastSeek:0,playing:false};radios.set(it,r);return r;}
 function dispose(r){r.audio.pause();r.audio.removeAttribute('src');r.audio.load();r.source.disconnect();r.spatial.dispose();}
 export function resetRadios(){setRadioFocus(0);for(const r of radios.values())dispose(r);radios.clear();}
 export function updateRadios(dt,listener,active){
  let audible=0;
- for(const[it,q]of radios)if(it.state==='gone'||!it.g.parent){dispose(q);radios.delete(it);}
- for(const q of radios.values())if(q.world!==W.group){q.audio.pause();q.spatial.gain.gain.setTargetAtTime(0,q.spatial.gain.context.currentTime,.08);}
+ // Stream lifecycle is tied to a world; never keep remote maps playing through a transition.
+ for(const [it,q] of radios){
+   if(it.state==='gone'||!it.g.parent){dispose(q);radios.delete(it);continue;}
+   if(q.world!==W.group){q.audio.pause();q.spatial.gain.gain.setTargetAtTime(0,q.spatial.gain.context.currentTime,.08);}
+ }
  const now=serverNow();
- for(const it of W.items){if(it.type!=='boombox'||it.state==='gone')continue;const r=state(it),u=it.g.userData.radio;r.dial=(r.dial??r.station)+(r.station-(r.dial??r.station))*(1-Math.exp(-dt*9));u.dial.position.x=-.055+r.dial*.05;u.led.material=col(r.on?0x9bbe72:0x4c5b41);
-  const volume=active&&r.on&&now>=r.since?distanceGain(it.pos,18)*.55:0;
-  let q=radios.get(it);if(volume>.001){q??=stream(it);if(q){if(q.loaded!==r.station){q.audio.src=import.meta.env.BASE_URL+'audio/'+STATIONS[r.station].file+'.ogg';q.loaded=r.station;q.check=0;}
-    if(q.audio.readyState>=1&&(now>=q.check||q.audio.paused&&!q.playing)){q.check=now+1000;const phase=radioPhase(r,now,q.audio.duration),drift=Math.abs(q.audio.currentTime-phase);const error=phase-q.audio.currentTime,wrapped=drift>q.audio.duration/2?error-Math.sign(error)*q.audio.duration:error;if(drift>1.5&&Math.abs(wrapped)>1.5){q.audio.currentTime=phase;q.audio.playbackRate=1;}else q.audio.playbackRate=Math.max(.98,Math.min(1.02,1+wrapped*.02));}
-    if(q.audio.paused&&!q.playing){q.playing=true;q.audio.play().then(()=>{const r=state(it);if(r.on&&q.audio.readyState>=1){const phase=radioPhase(r,serverNow(),q.audio.duration);if(Math.abs(q.audio.currentTime-phase)>.08)q.audio.currentTime=phase;}}).catch(()=>{}).finally(()=>q.playing=false);}}}
-  if(q){if(!q.audio.paused)audible=Math.max(audible,volume/.25);q.spatial.set(it.pos,volume>.001?.55:0);if(!active||!r.on)q.audio.pause();}
+ for(const it of W.items){
+   if(it.type!=='boombox'||it.state==='gone')continue;
+   const r=state(it),u=it.g.userData.radio;
+   if(u){
+     r.dial=(r.dial??r.station)+(r.station-(r.dial??r.station))*(1-Math.exp(-dt*9));
+     u.dial.position.x=-.055+r.dial*.05;
+     // Material swaps on every frame created unnecessary GC and GPU work.
+     if(u.ledOn!==r.on){u.led.material=col(r.on?0x9bbe72:0x4c5b41);u.ledOn=r.on;}
+   }
+   const volume=active&&r.on&&now>=r.since?distanceGain(it.pos,18)*.55:0;
+   let q=radios.get(it);
+   if(volume>.001){
+     q??=stream(it);
+     if(q&&q.world===W.group){
+       const station=STATIONS[r.station]||STATIONS[0];
+       if(q.loaded!==r.station){
+         q.audio.pause();q.audio.playbackRate=1;
+         q.audio.src=import.meta.env.BASE_URL+'audio/'+station.file+'.ogg';
+         q.loaded=r.station;q.check=0;q.tryAt=0;q.aligned='';q.lastSeek=0;
+       }
+       // The host sends the station and origin timestamp once. Each peer plays the
+       // audio locally; there is no audio waveform to relay via WebSocket.
+       if(q.audio.readyState>=2){
+         if(q.audio.paused&&!q.playing&&now>=q.tryAt){
+           q.playing=true;
+           const alignedKey=r.station+':'+r.since+':'+r.offset;
+           if(q.aligned!==alignedKey){
+             const phase=radioPhase(r,now,q.audio.duration);
+             if(Number.isFinite(phase))try{q.audio.currentTime=phase;q.lastSeek=now;}catch{}
+             q.aligned=alignedKey;
+           }
+           q.audio.play().catch(()=>{q.tryAt=serverNow()+1500;}).finally(()=>{q.playing=false;});
+         }else if(!q.audio.paused&&now>=q.check){
+           q.check=now+1500;
+           const phase=radioPhase(r,now,q.audio.duration);
+           const change=radioCorrection(phase,q.audio.currentTime,q.audio.duration,{secondsSinceSeek:(now-q.lastSeek)/1000});
+           if(change.seek!==null){try{q.audio.currentTime=change.seek;q.lastSeek=now;}catch{}}
+           q.audio.playbackRate=change.rate;
+         }
+       }
+     }
+   }
+   if(q){
+     if(!q.audio.paused)audible=Math.max(audible,volume/.25);
+     q.spatial.set(it.pos,volume>.001?.55:0);
+     if(!active||!r.on||volume<=.001){
+       if(!q.audio.paused)q.audio.pause();
+       q.audio.playbackRate=1;
+       q.aligned=''; // when audible again, resume at the current shared phase
+     }
+   }
  }
  setRadioFocus(active?audible:0);
 }

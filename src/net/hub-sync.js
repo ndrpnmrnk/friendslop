@@ -7,6 +7,7 @@ import { sfx } from '../core/sfx.js';
 import { NET, onNet, send, inRoom, others, hubHostId, serverNow } from './net.js';
 import { MATCH } from './match-sync.js';
 import {MOTION_INTERVAL as SEND,MOTION_DELAY,nextSendAt} from './state-codec.js';
+import {motionIntervalFor} from './cadence.js';
 
 /* Друзья в хабе: движение до 20 раз/с, снимки мира 5 раз/с, покой раз в 0.5 с.
    Короткий буфер 75 мс отделён от физической позиции и часов раунда.
@@ -59,7 +60,8 @@ export function updateHubSync(dt, { P, ch, mode, camera, ball, hold, launchState
   if (ch && !ch._netHook) { const f = ch.animate; ch.animate = (d, s) => { ch._netS = s; return f.call(ch, d, s); }; ch._netHook = true; }
   // звуки своего персонажа для остальных: начало эмоции, прыжок
   const now=motionNow();idleT -= dt;
-  if (now >= sendT && P) { const elapsed=lastHubSend?Math.min(.5,now-lastHubSend):SEND;lastHubSend=now;sendT=nextSendAt(sendT,now,SEND); const s = {}, src = ch?._netS || {};
+   const sendInterval=motionIntervalFor(NET.players.size,NET.ws?.bufferedAmount||0);NET.sendRateHz=Math.round(1/sendInterval);
+  if (now >= sendT && P) { const elapsed=lastHubSend?Math.min(.5,now-lastHubSend):SEND;lastHubSend=now;sendT=nextSendAt(sendT,now,sendInterval); const s = {}, src = ch?._netS || {};
     for (const k of POSE) { const v = src[k]; if (v !== undefined && v !== null && v !== false && v !== 0) s[k] = typeof v === 'number' ? Math.round(v * 100) / 100 : v; }
     const m = { t: 'st', m: 'hub', x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), r: +(ch?.root.rotation.y || 0).toFixed(2), s, rtt: NET.rtt };
     session?.tick(elapsed,P,m);m.x=+P.pos.x.toFixed(3);m.y=+P.pos.y.toFixed(3);m.z=+P.pos.z.toFixed(3);if(session?.host&&hold){m.launchState=launchState;m.launchAt=serverNow();}

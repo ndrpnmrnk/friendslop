@@ -285,11 +285,10 @@ export function buildSlingshot(b, x, z) {
     g.fillStyle = '#ffd27a'; for (const yy of [52, 96, 140]) { g.beginPath(); g.moveTo(w / 2 - 34, yy + 16); g.lineTo(w / 2, yy - 10); g.lineTo(w / 2 + 34, yy + 16); g.lineTo(w / 2 + 20, yy + 16); g.lineTo(w / 2, yy + 2); g.lineTo(w / 2 - 20, yy + 16); g.fill(); } });
   const zoneMat = new THREE.MeshBasicMaterial({ map: zoneTex.t, transparent: true, opacity: 0, depthWrite: false, color: 0xffd27a, fog: false });
   const zoneMesh = new THREE.Mesh(G.plane, zoneMat); zoneMesh.rotation.x = -Math.PI / 2; zoneMesh.position.set(x, .06, (PZ0 + PZ1) / 2); zoneMesh.scale.set(7.8, PZ1 - PZ0 - .2, 1); zoneMesh.renderOrder = 3; zoneMesh.userData.noBatch = true; zoneMesh.visible = false; group.add(zoneMesh);
-  const zoneBeams = [-1, 1].flatMap(sx => [-1, 1].map(sz => { const m = new THREE.Mesh(G.cyl8, new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, depthWrite: false, fog: false })); m.position.set(x + sx * 3.9, 1.6, (PZ0 + PZ1) / 2 + sz * (PZ1 - PZ0) / 2); m.scale.set(.12, 3.2, .12); m.userData.noBatch = true; m.visible = false; group.add(m); return m; }));
   return {
     st, pocket, seats,
-    zone(on, t = 0, all = false) { zoneMesh.visible = on; for (const m of zoneBeams) m.visible = on; if (!on) return; const pulse = .55 + Math.sin(t * 5) * .25, c = all ? 0x7dffa0 : 0xffd27a;
-      zoneMat.opacity = pulse; zoneMat.color.setHex(c); for (const m of zoneBeams) { m.material.opacity = pulse * .5; m.material.color.setHex(c); } },
+    zone(on, t = 0, all = false) { zoneMesh.visible = on; if(!on)return; const pulse=.55+Math.sin(t*5)*.25, c=all?0x7dffa0:0xffd27a;
+      zoneMat.opacity=pulse;zoneMat.color.setHex(c); },
     arm(riders) { st.riders = riders.slice(); st.phase = 'board'; st.t = 0; st.manual = true; },
     pull() { if (st.phase === 'board') { st.phase = 'pull'; st.t = 0; sfx('squeak'); } }, pad: { x0: x - 4, x1: x + 4, z0: PZ0, z1: PZ1 }, rest: REST,
     // точки сценария: помост, лестницы, центр сбора
@@ -298,7 +297,7 @@ export function buildSlingshot(b, x, z) {
     onPad(p) { return p.x > x - 4 && p.x < x + 4 && p.z > PZ0 && p.z < PZ1 && Math.abs(p.y) < 1; },
     seatPos(i, out = new V3()) { pocket.updateMatrixWorld(true); const s = seats[i % seats.length]; return pocket.localToWorld(out.set(s[0], -.42 * (1 - (s[0] / 1.55) ** 2) + .02, s[1])); },
     start(riders) { st.riders = riders.slice(); st.phase = 'board'; st.t = 0; },
-    reset() { st.phase = 'idle'; st.t = 0; st.riders = []; st.pull = 0; st.out = 0; st.bob = 0; st.bv = 0; st.manual = false; zoneMesh.visible = false; for (const m of zoneBeams) m.visible = false; placeBands(); },
+    reset() { st.phase = 'idle'; st.t = 0; st.riders = []; st.pull = 0; st.out = 0; st.bob = 0; st.bv = 0; st.manual = false; zoneMesh.visible = false; placeBands(); },
     update(dt, t) {
       st.t += dt;
       // кармашек пружинит, когда в него запрыгивают
