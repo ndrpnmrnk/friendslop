@@ -17,8 +17,8 @@ export const prof = {
     P.acc += P.interval/1000;if(P.acc<.5)return;
     if(!P.on){P.acc=0;P.sum={};P.n=P.calls=P.tris=0;return;}
     const f = P.frames.slice().sort((a, b) => b - a), avg = P.frames.reduce((a, b) => a + b, 0) / P.frames.length, low = f[Math.max(0, Math.floor(f.length * .01) - 1)] || avg;
-    const ri = renderer?.info, rows = Object.entries(P.sum).filter(([k]) => k !== '__cpu').sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k.padEnd(10)} ${(v / P.n).toFixed(2)} мс`);
-    P.el.textContent = `FPS ${Math.round(1000 / avg)}  ·  1% low ${Math.round(1000 / low)}\nкадр ${avg.toFixed(1)} мс  ·  JS ${(P.sum.__cpu / P.n).toFixed(2)} мс\n` +
+    const ri = renderer?.info, jsAvg=P.sum.__cpu/P.n, nonJs=Math.max(0,avg-jsAvg), rows = Object.entries(P.sum).filter(([k]) => k !== '__cpu').sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k.padEnd(10)} ${(v / P.n).toFixed(2)} мс`);
+    P.el.textContent = `FPS ${Math.round(1000 / avg)}  ·  1% low ${Math.round(1000 / low)}\nкадр ${avg.toFixed(1)} мс  ·  JS ${jsAvg.toFixed(2)} мс\nвне JS ${nonJs.toFixed(2)} мс (GPU / VSync / ожидание)\n` +
       (ri ? `отрисовок ${Math.round(P.calls / P.n)}  ·  треуг. ${(P.tris / P.n / 1000).toFixed(0)}k\nшейдеров ${ri.programs?.length || 0}  ·  текстур ${ri.memory.textures}\n` : '') + networkStats() + '— по системам —\n' + rows.join('\n');
     P.acc = 0; P.sum = {}; P.n = 0; P.calls = 0; P.tris = 0;
   },
