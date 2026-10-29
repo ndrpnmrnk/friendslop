@@ -32,4 +32,6 @@ test('radio keeps continuous playback, softly corrects drift and handles loop wr
  assert.equal(radioCorrection(2,2,10).rate,1);
  assert.equal(radioCorrection(9,1,20,{secondsSinceSeek:3}).seek,null);
  assert.equal(radioCorrection(9,1,20,{secondsSinceSeek:20}).seek,9);
+ assert(radioCorrection(2,1.8,10).rate<1.03&&radioCorrection(2,1.8,10).rate>1);
+ assert.equal(radioCorrection(2,1.95,10).seek,null);
 });
