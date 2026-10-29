@@ -1046,7 +1046,7 @@ function frame() {
 let errN = 0,lastError='',lastErrorAt=0;
 function loop() {
   requestAnimationFrame(loop);
-  try { frame(); } catch (e) { errN++;const message=String(e?.message||e),now=performance.now();if(message!==lastError||now-lastErrorAt>1000){console.error('[friendslop] кадр',e);lastError=message;lastErrorAt=now;recordFault(e,{state:S.state,mission:S.mg?.m.key||S.wm?.m.key||null,timeLeft:Math.ceil(S.time||0)});}try { endFrame(); } catch (_) {} if (errN === 1) toast('Сбой кадра — игра продолжается', 'bad'); }
+  try { frame(); } catch (e) { errN++;const message=String(e?.message||e),now=performance.now();if(message!==lastError||now-lastErrorAt>1000){console.error('[friendslop] кадр',e);lastError=message;lastErrorAt=now;recordFault(e,{state:S.state,stage:prof.stage,mission:S.mg?.m.key||S.wm?.m.key||null,timeLeft:Math.ceil(S.time||0),ride:P?.ride?.kind||null,held:P?.held?.type||null,position:P?.pos?[+P.pos.x.toFixed(1),+P.pos.y.toFixed(1),+P.pos.z.toFixed(1)]:null,online:!!MATCH.on,host:!!MATCH.host});}try { endFrame(); } catch (_) {} if (errN === 1) toast('Сбой кадра - подробности сохранены (F8)', 'bad'); }
 }
 // потеря графики (WebGL) — не падаем: ждём восстановления
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();graphicsLost=true;roundMusic.pause();updateRadios(0,P?.pos,false);recordFault('WebGL context lost',{state:S.state,timeLeft:Math.ceil(S.time||0)});toast('Графика перезапускается. Игра на паузе…','bad');});
@@ -1062,7 +1062,7 @@ initDevtools({ unlock: () => unlock(), network:()=>{if(NET.state!=='on')return '
   const d = p && !hub ? W.districts.find(q => p.x >= q.ox && p.x <= q.x1 && p.z >= q.oz && p.z <= q.z1) : null, gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
   return { state: S.state, mode: S.lastMode?.name, mission: S.wm?.m.key || S.mg?.m.key || null, district: hub ? 'Хаб' : d?.name || (p ? 'дорога/тоннель' : null), pos: p ? `${f(p.x)}, ${f(p.y)}, ${f(p.z)}` : null,
     cam: `${f(camera.position.x)}, ${f(camera.position.y)}, ${f(camera.position.z)}`, held: a?.held?.type || null, ride: a?.ride?.kind || null, quality: graphics.key,
-    gpu: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), error: lastFaults?.at?.(-1)?.message || lastError || '' }; } });
+    gpu: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), error: (lastFaults().at(-1)?.message || lastError || '') + (lastFaults().at(-1)?.stage ? ' ['+lastFaults().at(-1).stage+']' : ''),fault:lastFaults().at(-1)||null }; } });
 showMenu();
 loop();
 import {disposeActorDrone} from './game/drone.js';
