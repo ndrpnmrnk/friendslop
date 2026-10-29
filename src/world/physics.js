@@ -232,7 +232,10 @@ export function updatePushables(dt, player) {
   for (let i = 0; i < W.pushables.length; i++) for (let j = i + 1; j < W.pushables.length; j++) {
     const a = W.pushables[i], b = W.pushables[j];
     if(W.net&&(!W.net.canSimulate(a)||!W.net.canSimulate(b)))continue;
-    const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), m = a.r + b.r;
+    const dx = b.x - a.x, dz = b.z - a.z, m = a.r + b.r;
+    // Broad-phase: avoid a square root for distant pairs on the large map.
+    if(Math.abs(dx)>=m || Math.abs(dz)>=m)continue;
+    const d = Math.hypot(dx,dz);
     if (d < m && d > 1e-4 && a.y<b.y+b.h && b.y<a.y+a.h) { const closing=((a.vx-b.vx)*dx+(a.vz-b.vz)*dz)/d;if(closing>1.8){recordImpact(a,true,closing);recordImpact(b,true,closing);if(a.kind==='kart'&&b.kind==='kart'&&closing>8){for(const c of [a,b]){if(c.rider)c.rider.daze=Math.max(c.rider.daze||0,1.0);c.heading+=(c===a?1:-1)*.6;c.skid=1;c.spin=(c===a?1:-1)*2;}}const impulse=closing*.6;a.vx-=dx/d*impulse;a.vz-=dz/d*impulse;b.vx+=dx/d*impulse;b.vz+=dz/d*impulse;} const k = (m - d) / 2 / d; a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
   }
   if (player) bumpPushables(player);for(const b of W.pushables){if(b.ride?.water){constrainWaterRide(b);b.mesh.position.x=b.x;b.mesh.position.z=b.z;if(b.rider){b.rider.pos.x=b.x;b.rider.pos.z=b.z;}}if(b.solid)syncPushable(b);}
