@@ -102,7 +102,7 @@ function syncBots(){
 }
 function actorPacket(a) {
   return [a.netKey, +a.pos.x.toFixed(3), +a.pos.y.toFixed(3), +a.pos.z.toFixed(3), +a.root.rotation.y.toFixed(3),
-    pose(a.ch._netS), Math.round(a === W.player ? callbacks.score?.() || 0 : a.score || 0), a.puppet ? (a.buf.at(-1)?.v??0) : a.hidden || a.drone || a.returning&&a.returning.t<1.25 || a.stationaryWork ? 0 : 1,
+    pose(a.ch._netS), Math.round(a === W.player ? callbacks.score?.() || 0 : a.score || 0), a.puppet ? (a.buf.at(-1)?.v??0) : a.hidden || a.drone || a.returning&&a.returning.t<1.25 ? 0 : 1,
     a.st || {}, MATCH.world.keyOf(a.holding), MATCH.world.keyOf(a.heldBy),callbacks.droneState?.(a)];
 }
 function receiveActors(rows) {
@@ -120,15 +120,15 @@ export function netMatchTick(dt, P) {
   syncBots();
   clock += dt; MATCH.worldT -= dt; MATCH.fullT -= dt;
   if (MATCH.host) P.score = callbacks.score?.() || 0;
-  if(callbacks.state?.()==='play')separateActors();MATCH.world.interpolate(dt);if(MATCH.host&&!netPaused())for(const b of W.bots)if(b.human&&!b.drone&&!b.returning&&!b.ride&&!b.grab)bumpPushables(b,dt);
+  if(callbacks.state?.()==='play')separateActors();if(MATCH.host&&!netPaused())for(const b of W.bots)if(b.human&&!b.drone&&!b.returning&&!b.ride&&!b.grab)bumpPushables(b,dt);
   const now=motionNow();if (now < MATCH.sendT) return;
   MATCH.sendT = nextSendAt(MATCH.sendT,now,netPaused() ? .5 : MOTION_INTERVAL); hook(P.ch);
   if(MATCH.host&&!netWaiting()&&!MATCH.startAt)MATCH.startAt=serverNow()+300;
   const n = ++MATCH.seq;
   const m = { t: 'st', m: 'match', protocol: 2, ep: MATCH.seed, n, x: +P.pos.x.toFixed(3), y: +P.pos.y.toFixed(3), z: +P.pos.z.toFixed(3),
-    fx:takeSounds(), r: +P.root.rotation.y.toFixed(3), s: pose(P.ch._netS), rtt: NET.rtt, dr:callbacks.droneState?.(P), v: P.hidden || P.drone || P.returning&&P.returning.t<1.25 || P.stationaryWork ? 0 : 1 };
+    fx:takeSounds(), r: +P.root.rotation.y.toFixed(3), s: pose(P.ch._netS), rtt: NET.rtt, dr:callbacks.droneState?.(P), v: P.hidden || P.drone || P.returning&&P.returning.t<1.25 ? 0 : 1 };
   if (MATCH.host) {
-    m.h = [P, ...W.bots].map(actorPacket);m.fix=[...corrections.values()];
+    m.h = [P, ...W.bots].map(actorPacket);m.fix=[...corrections.values()];const pm=MATCH.world.motionEntries();if(pm.length)m.pm=pm;
     if (MATCH.worldT <= 0 && callbacks.state?.() !== 'results' && callbacks.state?.() !== 'finale') {
       MATCH.worldT = SNAPSHOT_INTERVAL; const full = MATCH.fullT <= 0; if (full) MATCH.fullT = KEYFRAME_INTERVAL;
       m.w = { d: MATCH.world.capture(full), missions: MATCH.missions.snapshot(), events: networkEventSnapshot(),
@@ -137,7 +137,7 @@ export function netMatchTick(dt, P) {
   } else if (MATCH.worldT <= 0 && callbacks.state?.() === 'play') { MATCH.worldT = SNAPSHOT_INTERVAL; m.c = MATCH.world.proposals(); }
   if (!MATCH.host && commands.length) m.cmds = commands.slice();
   if (send(m) !== false) { if(m.cmds)commands.splice(0,m.cmds.length);if(MATCH.host)corrections.clear(); pendingPositions.set(n, [m.x, m.y, m.z]); if (pendingPositions.size > 40) pendingPositions.delete(pendingPositions.keys().next().value); }
-  else {retrySounds(m.fx);if(MATCH.host)MATCH.fullT=0;else MATCH.world.retryProposals();}
+  else {retrySounds(m.fx);if(MATCH.host){MATCH.fullT=0;MATCH.world.retryMotion();}else MATCH.world.retryProposals();}
 }
 function push(b, x, y, z, r, s = {}, sc, v = 1) {
   if (!vector([x, y, z]) || !finite(r)) return;
@@ -212,6 +212,7 @@ export function initMatchSync(options = {}) {
       receiveNetworkEvents(m.w.events, callbacks.eventUi);callbacks.candyApply?.(m.w.candies);
       MATCH.world.receive(m.w.d); MATCH.paused = !!m.w.paused; callbacks.setTime?.(m.w.time);
     }
+    if(m.pm)MATCH.world.receiveMotion(m.pm);
     receiveSounds(m.fx);for(const q of m.fix||[])applyCorrection(q);receiveActors(m.h);
   });
   onNet('ev', m => {

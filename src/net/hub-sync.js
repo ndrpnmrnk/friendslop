@@ -14,7 +14,7 @@ import {MOTION_INTERVAL as SEND,MOTION_DELAY,nextSendAt} from './state-codec.js'
    (обычная проверка глубины, как у самого персонажа). */
 const IDLE = .5, POSE = ['speed', 'air', 'vy', 'climb', 'dive', 'roll', 'slide', 'crouch', 'hold', 'stun', 'getup', 'rag', 'daze', 'ride', 'rideSpeed', 'emote', 'emoteT', 'dangle', 'sit', 'board', 'cyclePhase', 'look','held2','restrained','payload','act','actK','throwT','charge','missionTool'];
 const remotes = new Map(); let session=null;
-export function configureHubSync(world,options){session=createHubSession(world,remotes,options);return session;} let ballNet = null, lastEm = null, wasGround = true, scene = null, sendT = 0, idleT = 0, last = '', clock = 0, lastHub = 0,lastHubSend=0;
+export function configureHubSync(world,options){session=createHubSession(world,remotes,options);return session;} let lastEm = null, wasGround = true, scene = null, sendT = 0, idleT = 0, last = '', clock = 0, lastHub = 0,lastHubSend=0;
 
 function nameTex(name) {
   const c = document.createElement('canvas'), g = c.getContext('2d'), F = '16px "Press Start 2P", monospace';
@@ -43,7 +43,7 @@ export function initHubSync(sc) {
   onNet('join', p => spawn(p));
   onNet('leave', id => despawn(id));
   onNet('state', () => { for (const p of others()) { const r = remotes.get(p.id); if (!r) spawn(p); else { if (r.skin !== p.skin) { spawn(p); } else if (r.name !== p.name) retag(r, p.name); } const current=remotes.get(p.id);if(current&&p.scene)current.mode=p.scene; } for (const id of [...remotes.keys()]) if (!NET.players.has(id)) despawn(id); });
-  onNet('st', m => { for(const q of (m.id===hubHostId()?m.hs:[])||[]){if(q.id===m.id)continue;const a=remotes.get(q.id);if(a){a.mode='hub';a.buf.push({t:motionNow(),x:q.x,y:q.y,z:q.z,yaw:q.r,s:q.s||{}});if(a.buf.length>30)a.buf.shift();}} if (m.bl && m.id===hubHostId() && !session?.host) ballNet = m.bl; const r = remotes.get(m.id); if (!r) return; r.mode = m.m || 'hub'; if (m.x === undefined || r.mode === 'match') return;
+  onNet('st', m => { for(const q of (m.id===hubHostId()?m.hs:[])||[]){if(q.id===m.id)continue;const a=remotes.get(q.id);if(a){a.mode='hub';a.buf.push({t:motionNow(),x:q.x,y:q.y,z:q.z,yaw:q.r,s:q.s||{}});if(a.buf.length>30)a.buf.shift();}} const r = remotes.get(m.id); if (!r) return; r.mode = m.m || 'hub'; if (m.x === undefined || r.mode === 'match') return;
     r.buf.push({ t: motionNow(), x: m.x, y: m.y, z: m.z, yaw: m.r, s: m.s || {} }); if (r.buf.length > 30) r.buf.shift(); });
   onNet('ev', m => { const r = remotes.get(m.id), p = NET.players.get(m.id); if (!r || p?.muted) return; if (m.e === 'snd' && r.mode === 'hub') sfx(m.n, { at: r.pos, v: .8 }); });
 }
@@ -62,13 +62,9 @@ export function updateHubSync(dt, { P, ch, mode, camera, ball, hold, launchState
   if (now >= sendT && P) { const elapsed=lastHubSend?Math.min(.5,now-lastHubSend):SEND;lastHubSend=now;sendT=nextSendAt(sendT,now,SEND); const s = {}, src = ch?._netS || {};
     for (const k of POSE) { const v = src[k]; if (v !== undefined && v !== null && v !== false && v !== 0) s[k] = typeof v === 'number' ? Math.round(v * 100) / 100 : v; }
     const m = { t: 'st', m: 'hub', x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), r: +(ch?.root.rotation.y || 0).toFixed(2), s, rtt: NET.rtt };
-    if (session?.host && ball && others().length) m.bl = [+ball.x.toFixed(2), +ball.z.toFixed(2), +ball.vx.toFixed(2), +ball.vz.toFixed(2)];
     session?.tick(elapsed,P,m);m.x=+P.pos.x.toFixed(3);m.y=+P.pos.y.toFixed(3);m.z=+P.pos.z.toFixed(3);if(session?.host&&hold){m.launchState=launchState;m.launchAt=serverNow();}
-    const key = JSON.stringify([m.x,m.y,m.z,m.r,s,m.m,m.bl,m.hs,m.slots,m.door]); if(key!==last||idleT<=0||m.hw?.full||m.hw?.rows.length||m.cmds?.length||m.c?.length||m.fix?.length||m.fx?.length||hold){if(send(m)===false)session?.unsent(m);else{session?.sent(m);last=key;idleT=IDLE;}} }
-  // мяч: у гостей подтягиваем к тому, что прислал хост; у хоста друзья толкают мяч своими телами
-  if (ball && ballNet && !session?.host) { const k = 1 - Math.exp(-dt * 8); ball.x += (ballNet[0] - ball.x) * k; ball.z += (ballNet[1] - ball.z) * k; ball.vx = ballNet[2]; ball.vz = ballNet[3]; }
-  if (ball && NET.host) for (const r of remotes.values()) { if (r.mode !== 'hub' || !r.buf.length) continue; const dx = ball.x - r.pos.x, dz = ball.z - r.pos.z, d = Math.hypot(dx, dz), lim = (ball.r || .95) + .45;
-    if (d < lim && d > .01 && r.pos.y < 1.5) { const q = r.buf.at(-1), p0 = r.buf.at(-2) || q, sp = Math.min(9, Math.hypot(q.x - p0.x, q.z - p0.z) / Math.max(.05, q.t - p0.t)); ball.x += dx / d * (lim - d); ball.z += dz / d * (lim - d); const v = Math.max(2.5, sp * 1.1); if (ball.vx * dx / d + ball.vz * dz / d < v) { ball.vx = dx / d * v; ball.vz = dz / d * v; } } }
+    const key = JSON.stringify([m.x,m.y,m.z,m.r,s,m.m,m.pm,m.hs,m.slots,m.door]); if(key!==last||idleT<=0||m.hw?.full||m.hw?.rows.length||m.cmds?.length||m.c?.length||m.fix?.length||m.fx?.length||hold){if(send(m)===false)session?.unsent(m);else{session?.sent(m);last=key;idleT=IDLE;}} }
+  // Мяч получает единый host-authority поток pm/hw, без второго клиентского толчка.
   // чужие: интерполяция с задержкой, поза, ник
   const cam = camera.position;
   for (const r of remotes.values()) {

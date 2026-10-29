@@ -230,7 +230,9 @@ export function updatePushables(dt, player) {
     }
   }
   for (let i = 0; i < W.pushables.length; i++) for (let j = i + 1; j < W.pushables.length; j++) {
-    const a = W.pushables[i], b = W.pushables[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), m = a.r + b.r;
+    const a = W.pushables[i], b = W.pushables[j];
+    if(W.net&&(!W.net.canSimulate(a)||!W.net.canSimulate(b)))continue;
+    const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), m = a.r + b.r;
     if (d < m && d > 1e-4 && a.y<b.y+b.h && b.y<a.y+a.h) { const closing=((a.vx-b.vx)*dx+(a.vz-b.vz)*dz)/d;if(closing>1.8){recordImpact(a,true,closing);recordImpact(b,true,closing);if(a.kind==='kart'&&b.kind==='kart'&&closing>8){for(const c of [a,b]){if(c.rider)c.rider.daze=Math.max(c.rider.daze||0,1.0);c.heading+=(c===a?1:-1)*.6;c.skid=1;c.spin=(c===a?1:-1)*2;}}const impulse=closing*.6;a.vx-=dx/d*impulse;a.vz-=dz/d*impulse;b.vx+=dx/d*impulse;b.vz+=dz/d*impulse;} const k = (m - d) / 2 / d; a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
   }
   if (player) bumpPushables(player);for(const b of W.pushables){if(b.ride?.water){constrainWaterRide(b);b.mesh.position.x=b.x;b.mesh.position.z=b.z;if(b.rider){b.rider.pos.x=b.x;b.rider.pos.z=b.z;}}if(b.solid)syncPushable(b);}
@@ -240,15 +242,18 @@ export function bumpPushables(pl) {
   const p = pl.pos;
   for (const b of W.pushables) {
     if (b.rider || b.grabbed || pl.ride) continue;
+    const passive=!!(W.net&&!W.net.canSimulate(b));
     const top = b.y + b.h;
     if (p.y > top - 0.06 || p.y + pl.h < b.y) {
       // стоит сверху — предмет стоит как вкопанный
-      if (p.y >= top - 0.06 && p.y < top + 0.08 && Math.hypot(p.x - b.x, p.z - b.z) < b.r + pl.r * 0.5) { b.vx = 0; b.vz = 0; }
+      if (p.y >= top - 0.06 && p.y < top + 0.08 && Math.hypot(p.x - b.x, p.z - b.z) < b.r + pl.r * 0.5) { if(!passive){b.vx = 0; b.vz = 0;} }
       continue;
     }
     const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz), m = b.r + pl.r;
     if (d >= m || d < 1e-4) continue;
     const nx = dx / d, nz = dz / d, over = m - d;
+    // На госте пассивный предмет не меняет свою физику, контакт отталкивает только игрока.
+    if(passive){p.x-=nx*over;p.z-=nz*over;const vn=pl.vel.x*nx+pl.vel.z*nz;if(vn>0){pl.vel.x-=nx*vn;pl.vel.z-=nz*vn;}continue;}
     // запрыгивает/цепляется выше середины — предмет не двигается, персонажа мягко сдвигает
     if (!pl.onGround && p.y > b.y + b.h * 0.45) { p.x -= nx * over; p.z -= nz * over; continue; }
     const share = 1 / (1 + b.mass);

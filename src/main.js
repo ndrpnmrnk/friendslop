@@ -587,7 +587,7 @@ function openMission(m) {
   if (P.grab) release(P, 0);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   startMissionClock(m);m.onExpire=()=>{closeMission({success:false});};
-  m.doer=P; m.busy = true;P.stationaryWork=true;P.vel.x=P.vel.z=0;P.push.x=P.push.z=0; P.root.visible = false; P.charging = false;
+  m.doer=P; m.busy = true;P.stationaryWork=true;P.vel.x=P.vel.z=0;P.push.x=P.push.z=0; P.root.visible = true; P.charging = false;
   $('mgicon').innerHTML = img(m.key, 28); $('mgtitle').textContent = (TEXT.missions[m.key] || [m.def.name])[0]; $('mgpts').textContent = `+${m.def.points}`;
   $('mghint').textContent = m.key==='fat'?'':(TEXT.missions[m.key] || ['', ''])[1]; callout('');
   $('mgpanel').classList.remove('hidden');
@@ -972,6 +972,7 @@ function frame() {
     updateItems(dt, P);S.wm?.game.afterPhysics?.();
     updateCoins(dt,S.state==='play'?P:null);
     updatePushables(dt, S.state === 'play' && !S.crane && !S.mg ? P : null);
+     W.net?.interpolate(dt);
     for (const c of W.cats) if(!W.net?.replica)updateCat(c, dt, t, S.state === 'play' ? P : null);
     if(!W.net?.replica)updateBirds(dt, t, S.state === 'play' ? P : null); prof.mark('предметы/физика');
     const lk = takeLook();

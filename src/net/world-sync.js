@@ -10,6 +10,7 @@ import { grabActor, letGo, struggleTap } from '../game/grab.js';
 import { mount, grab, dismount, release } from '../game/ride.js';
 import { cargoPosition } from '../game/handheld.js';
 import { StateDelta, round as q, vector, sweepPosition } from './state-codec.js';
+import { ActiveMotion, validMotion } from './active-motion.js';
 
 const LISTS = { i: 'items', p: 'pushables', d: 'doors', s: 'solids', o: 'obbs', b: 'breakables', c: 'cats', n: 'npcs', a: 'interacts' };
 const pos = v => [q(v.x), q(v.y), q(v.z)];
@@ -21,6 +22,7 @@ const transform = o => [...pos(o.position), ...o.quaternion.toArray().map(q), ..
 // Стены/коллизии применяются сразу, картинки подвижных объектов сглаживаются отдельно.
 export function createWorldSync({ host, id, actor, command, myKey, visuals = true }) {
   const objects = new Map(), seen = new WeakMap(), baseline = new Map(), visual = new Map(), scopes = new Map();
+  const movers = new Map(), motionView = new Map(), motionPackets = new ActiveMotion();
   const packedVisuals=new WeakMap(),packedStatic=new WeakMap();
   // Тысячи стен/границ почти всегда неподвижны. Не создаём массивы чисел для них 5 раз/с.
   function flat(o,fields,flag){const old=packedStatic.get(o),n=fields.length;let same=!!old;for(let i=0;same&&i<n;i++)if(old[i]!==q(o[fields[i]]))same=false;if(same&&old[n]===(o[flag]?1:0))return old;const v=fields.map(k=>q(o[k]));v.push(o[flag]?1:0);packedStatic.set(o,v);return v;}
@@ -36,7 +38,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     const key = forced || type + ':' + prefix + '/' + n;
     if (!forced) scopes.set(prefix, n + 1);
     if(forced){const slash=key.lastIndexOf('/'),n=Number(key.slice(slash+1));if(slash>1&&Number.isInteger(n)){const scope=key.slice(2,slash);scopes.set(scope,Math.max(scopes.get(scope)||0,n+1));}}
-    seen.set(o, key); o.netId = key; o.netScope = current; objects.set(key, { type, o, row:[key,null] });
+    seen.set(o, key); o.netId = key; o.netScope = current; objects.set(key, { type, o, row:[key,null] }); if(type==='p')movers.set(key,o);
     return key;
   }
   function tree(root) {
@@ -93,9 +95,15 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     if (o.position.distanceToSquared(new V3(...p)) > 64) o.position.fromArray(p);
     visual.set(o, { p: new V3(...p), r: quaternion && new THREE.Quaternion(...quaternion), s: scale && new V3(...scale) });
   }
+  function preserveMotionView(o,before){
+    if(host||!before)return;
+    const dx=o.x-before.x,dz=o.z-before.z;
+    if(dx*dx+dz*dz>64||Math.abs(o.y+(o.meshOffsetY||0)-before.y)>4){motionView.delete(o);return;}
+    motionView.set(o,{x:before.x,y:before.y,z:before.z,at:performance.now()});
+  }
   function applyOne(key, v, proposal = false) {
     let entry = objects.get(key), type = key[0], o = entry?.o;
-    if (!v) { if (o?.g) o.g.visible = false; if (o?.isObject3D) o.visible = false; if (o?.on !== undefined) o.on = false; objects.delete(key); return; }
+    if (!v) { if (o?.g) o.g.visible = false; if (o?.isObject3D) o.visible = false; if (o?.on !== undefined) o.on = false; objects.delete(key);movers.delete(key);motionView.delete(o);return; }
     if (!Array.isArray(v) || !['i', 'p', 's', 'o', 'd', 'b', 'v', 'c', 'n','a','t'].includes(type)) return;
     // Созданные не миссиями предметы (дождь, подарок, выпадение из шкафа).
     if (!o && type === 'i') { if (!vector(v.slice(2, 5))) return; o = addItem(v[0], v[2], v[3], v[4]); }
@@ -117,13 +125,14 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       }
       case 'p': {
         if (!proposal && (o.rider === W.player || o.grabbed === W.player) && (v[12]===myKey||v[13]===myKey)) break;
+        const before=motionView.get(o)||{x:o.mesh.position.x,y:o.mesh.position.y,z:o.mesh.position.z};
         const oldRider = o.rider, oldGrab = o.grabbed;
         o.x = v[1]; o.y = v[2]; o.z = v[3]; o.vx = v[4]; o.vy = v[5]; o.vz = v[6]; o.dead = !!v[10]; o.tipped = !!v[11]; o.heading = v[14];
         o.rider = actor(v[12]); o.grabbed = actor(v[13]);
         if (oldRider && oldRider !== o.rider && oldRider.ride === o) oldRider.ride = null;
         if (oldGrab && oldGrab !== o.grabbed && oldGrab.grab === o) oldGrab.grab = null;
         if (o.rider) o.rider.ride = o; if (o.grabbed) o.grabbed.grab = o;
-        syncPushable(o); o.mesh.rotation.set(...v.slice(7, 10)); o.mesh.visible = !o.dead; break;
+        syncPushable(o); o.mesh.rotation.set(...v.slice(7, 10)); o.mesh.visible = !o.dead; preserveMotionView(o,before); break;
       }
       case 's': {
         if(fields.every((k,i)=>o[k]===v[i])&&o.on===!!v[6])break;
@@ -228,10 +237,24 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     locally(fn){const old=applying;applying=true;try{return fn();}finally{applying=old;}},
     setIdentity(value){myKey=value;serial=0;},
     discover(){for(const[type,list]of Object.entries(LISTS))for(const o of W[list]||[])if(!seen.has(o))register(type,o);},
-    restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();received.clear();dirty.clear();delta.last=new Map(delta.base);delta.rev=0;delta.visited.clear();serial=0;},
-    setHost(value){host=!!value;api.host=host;api.replica=!host;serial=0;},
+    restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();motionView.clear();motionPackets.reset();received.clear();dirty.clear();delta.last=new Map(delta.base);delta.rev=0;delta.visited.clear();serial=0;},
+    setHost(value){host=!!value;api.host=host;api.replica=!host;serial=0;motionView.clear();motionPackets.reset();},
     resetStream(){serial=0;},
     get applying() { return applying; },
+    motionEntries(){return motionPackets.capture(movers);},
+    retryMotion(){motionPackets.retry();},
+    receiveMotion(rows){
+      if(host||!Array.isArray(rows))return;
+      for(const row of rows.slice(0,32)){
+        if(!validMotion(row))continue;
+        const entry=objects.get(row[0]);if(entry?.type!=='p')continue;
+        const o=entry.o;
+        if(o.rider===W.player||o.grabbed===W.player)continue;
+        const before=motionView.get(o)||{x:o.mesh.position.x,y:o.mesh.position.y,z:o.mesh.position.z};
+        [o.x,o.y,o.z,o.vx,o.vy,o.vz]=row.slice(1,7);
+        syncPushable(o);o.mesh.rotation.set(...row.slice(7,10));preserveMotionView(o,before);
+      }
+    },
     stats:{captureMs:0,rows:0,objects:0},
     capture(full = false) {const at=performance.now(),frame=delta.snapshot(records(),full);Object.assign(api.stats,{captureMs:performance.now()-at,rows:frame.rows.length,objects:objects.size});return frame;},
     baseline() { initialKeys=new Set(objects.keys());const rows = [...records()]; delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v);received.clear();dirty.clear(); },
@@ -243,7 +266,25 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       for(const[key,v]of rows){if(['i','p','d','c','n','t'].includes(key[0])||!same(v,received.has(key)?received.get(key):baseline.get(key)))changes.push([key,v]);if(baseline.has(key))dirty.add(key);}
       for(const[key,v]of changes)received.set(key,v);apply(changes);
     },
-    interpolate(dt) { const k = 1 - Math.exp(-dt * 22); for (const [o, v] of visual) { if (o.netScope && api.ownsScope?.(o.netScope)) { visual.delete(o); continue; } o.position.lerp(v.p, k); if (v.r) o.quaternion.slerp(v.r, k); if (v.s) o.scale.lerp(v.s, k);if(o.position.distanceToSquared(v.p)<1e-7&&(!v.r||o.quaternion.angleTo(v.r)<.0003)&&(!v.s||o.scale.distanceToSquared(v.s)<1e-7)){o.position.copy(v.p);if(v.r)o.quaternion.copy(v.r);if(v.s)o.scale.copy(v.s);visual.delete(o);} } },
+    interpolate(dt){
+      const k=1-Math.exp(-Math.min(.05,dt)*22);
+      for(const [o,v] of visual){
+        if(o.netScope&&api.ownsScope?.(o.netScope)){visual.delete(o);continue;}
+        o.position.lerp(v.p,k);if(v.r)o.quaternion.slerp(v.r,k);if(v.s)o.scale.lerp(v.s,k);
+        if(o.position.distanceToSquared(v.p)<1e-7&&(!v.r||o.quaternion.angleTo(v.r)<.0003)&&(!v.s||o.scale.distanceToSquared(v.s)<1e-7)){
+          o.position.copy(v.p);if(v.r)o.quaternion.copy(v.r);if(v.s)o.scale.copy(v.s);visual.delete(o);
+        }
+      }
+      const now=performance.now(),blend=1-Math.exp(-Math.min(.05,dt)*18);
+      for(const [o,v] of motionView){
+        if(o.netScope&&api.ownsScope?.(o.netScope)){motionView.delete(o);continue;}
+        const age=Math.min(.085,Math.max(0,(now-v.at)/1000));
+        const x=o.x+o.vx*age,z=o.z+o.vz*age,y=o.y+(o.meshOffsetY||0);
+        v.x+=(x-v.x)*blend;v.y+=(y-v.y)*blend;v.z+=(z-v.z)*blend;
+        o.mesh.position.set(v.x,v.y,v.z);
+        if(age>=.085&&Math.hypot(o.vx,o.vz)<.02&&Math.hypot(v.x-x,v.y-y,v.z-z)<.002)motionView.delete(o);
+      }
+    },
     canSimulate(o) { if(o?.netScope?.startsWith('m'))return !!api.ownsScope?.(o.netScope); return host || !o?.netId || localOwns(o) || o.rider === W.player || o.grabbed === W.player; },
     canAnimate(f) { return f.netScope?.startsWith('m') ? !!api.ownsScope?.(f.netScope) : host; },
   };

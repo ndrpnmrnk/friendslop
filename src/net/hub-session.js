@@ -72,7 +72,7 @@ export function createHubSession(world,remotes,options){
      if(slots.wardrobe===a.netKey&&Number.isFinite(m.door))world.curtain(m.door);
      for(const cmd of m.cmds||[])act(a,cmd);net.accept(m.c,a);receiveSounds(m.fx,a);
    }else if(trusted(m)&&m.n>lastSeq){
-     lastSeq=m.n;receiveSounds(m.fx);for(const fix of m.fix||[])correct(fix);if(m.hw)net.receive(m.hw);for(const q of m.hs||[])receiveActor(q);
+     lastSeq=m.n;receiveSounds(m.fx);for(const fix of m.fix||[])correct(fix);if(m.hw)net.receive(m.hw);if(m.pm)net.receiveMotion(m.pm);for(const q of m.hs||[])receiveActor(q);
      if(m.slots)Object.assign(slots,m.slots);
      if(slots.wardrobe!==key()&&Number.isFinite(m.door))world.curtain(m.door);
    }
@@ -84,15 +84,15 @@ export function createHubSession(world,remotes,options){
  });});
  onNet('join',()=>{full=0;});
  onNet('leave',id=>scope(()=>{const a=world.state.bots?.find(a=>a.id===id);net?.locally(()=>releaseDisconnected(a));for(const name of Object.keys(slots))if(slots[name]==='p'+id){slots[name]=null;if(name==='wardrobe')world.curtain(0);}full=0;}));
- return {before,sent(m){pendingPositions.set(m.n,[m.x,m.y,m.z]);if(pendingPositions.size>40)pendingPositions.delete(pendingPositions.keys().next().value);},pose(dt){for(const a of [world.state.player,...(world.state.bots||[])])if(a.holding)poseGrip(a,a.holding,dt);},unsent(m){retrySounds(m.fx);if(m.cmds)queue.unshift(...m.cmds);net?.retryProposals();full=0;},contact(){if(net&&!options.cutscene())separateActors();},
+ return {before,sent(m){pendingPositions.set(m.n,[m.x,m.y,m.z]);if(pendingPositions.size>40)pendingPositions.delete(pendingPositions.keys().next().value);},pose(dt){for(const a of [world.state.player,...(world.state.bots||[])])if(a.holding)poseGrip(a,a.holding,dt);},unsent(m){retrySounds(m.fx);if(m.cmds)queue.unshift(...m.cmds);net?.retryProposals();net?.retryMotion();full=0;},contact(){if(net&&!options.cutscene())separateActors();},
    enter(name,cb){if(!inRoom()){cb();return;}scope(()=>{ensure();if(pending||station)return;pending={name,cb};const m={kind:'station-enter',station:name};if(host)stationAct(world.state.player,m);else command(m);});},
    leave(){if(!station)return;const name=station;station=null;world.state.player.netProtected=false;if(host){slots[name]=null;if(name==='wardrobe')world.curtain(0);}else command({kind:'station-leave',station:name});},
    busy:name=>!!slots[name]&&slots[name]!==key(),
    tick(dt,P,m){before(P);if(!net)return;m.protocol=2;m.n=++seq;m.fx=takeSounds();
      for(const a of world.state.bots){if(a.held){cargoPosition(a,a.held.pos,a.held.def.r);poseMeleeItem(a,a.held);}if(host&&!a.netProtected)bumpPushables(a,dt);}
      if(!options.cutscene())separateActors();
-     net.interpolate(dt);worldT-=dt;full-=dt;
-     if(host){m.fix=[];m.hs=[P,...world.state.bots].map(packet);m.slots={...slots};m.door=world.curtainOpen;
+     worldT-=dt;full-=dt;
+     if(host){m.fix=[];m.hs=[P,...world.state.bots].map(packet);const pm=net.motionEntries();if(pm.length)m.pm=pm;m.slots={...slots};m.door=world.curtainOpen;
        for(const a of world.state.bots)if(a.netInput){const p=a.netInput.p,dx=a.pos.x-p[0],dz=a.pos.z-p[2];if(Math.hypot(dx,dz)>.015){m.fix.push({to:a.netKey,n:a.netInput.n,delta:[dx,0,dz]});a.netInput=null;}}
        if(worldT<=0){worldT=.2;m.hw=net.capture(full<=0);if(full<=0)full=3;}
      }else{m.door=world.curtainOpen;if(worldT<=0){worldT=.2;m.c=net.proposals();}if(queue.length)m.cmds=queue.splice(0);}
