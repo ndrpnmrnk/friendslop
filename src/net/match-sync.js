@@ -1,6 +1,9 @@
 import {motionNow,sampleMotion} from './motion-buffer.js';
 import {disposeActorDrone} from '../game/drone.js';
 import {takeSounds,retrySounds,receiveSounds} from './audio-sync.js';
+import {CoinAwards} from './coin-protocol.js';
+import {coinSnapshot,applyCoinSnapshot,hostTakeCoin,showCoinGrant} from '../game/coins.js';
+import {claimFistReward} from '../game/collection.js';
 import {alignMountedVisual} from './rider-visual.js';
 import { W, withWorld } from '../world/state.js';
 import { withRandom } from '../core/random.js';
@@ -23,7 +26,17 @@ export const MATCH = { on: false, host: false, seed: 0, roster: null, scene: nul
 const POSE = ['speed', 'air', 'vy', 'climb', 'dive', 'roll', 'slide', 'crouch', 'hold', 'stun', 'rag', 'daze', 'ride', 'rideSpeed', 'emote', 'emoteT', 'dangle', 'board', 'cyclePhase', 'fly', 'flySpin', 'zombie','zip','getup','kick','trick','rideAir','accel','charge','throwT','act','actK','missionTool','held2','restrained','payload','side','sprint','look','swat','grabbed','vy2'];
 let clock = 0, callbacks = {}, lastGuestFrame = 0;
 const pendingPositions = new Map();
-const commands = [], corrections = new Map();
+const commands = [], corrections = new Map(), coinAwards = new CoinAwards();
+const fistSession=()=>NET.code+':'+MATCH.seed;
+function tryCoinPickup(actor,id){
+ if(!MATCH.host||MATCH.final||callbacks.state?.()!=='play')return false;
+ const ok=hostTakeCoin(id,actor,(coin,a)=>{
+   if(a===W.player){if(claimFistReward(fistSession(),coin.id)!=='new')return false;showCoinGrant();return true;}
+   return coinAwards.grant(coin.id,a.id);
+ });
+ if(ok)MATCH.worldT=0;
+ return ok;
+}
 const pose = src => { const s = {}; if (!src) return s; for (const k of POSE) { const v = src[k]; if (typeof v === 'number' && finite(v)) s[k] = Math.round(v * 100) / 100; else if (typeof v === 'boolean' || typeof v === 'string' && v.length <= 24) s[k] = v; } return s; };
 const hook = ch => { if (ch && !ch._netHook) { const f = ch.animate; ch.animate = (d, s) => { ch._netS = s; return f.call(ch, d, s); }; ch._netHook = true; } };
 const myKey = () => 'p' + NET.id;
@@ -48,16 +61,16 @@ export function netBeginMatch(seed) {
   netEndMatch();
   Object.assign(MATCH, { on: inRoom(), host: NET.host, seed, roster: null, scene: null, sendT: 0, worldT: 0, fullT: 0,
     paused: false, authority:[...NET.players.values()].find(p=>p.host)?.id, startAt:null, final: null, seq: 0, lastHost: performance.now() });
-  MATCH.ready.clear(); pendingPositions.clear(); commands.length = 0;corrections.clear(); clock = 0; lastGuestFrame = 0;
+  MATCH.ready.clear(); pendingPositions.clear(); commands.length = 0;corrections.clear();coinAwards.clear(); clock = 0; lastGuestFrame = 0;
   MATCH.members=new Set(NET.players.keys());
 }
 export function netEndMatch() {
   const state=MATCH.worldState;
   if(state)withWorld(state,()=>{
-    MATCH.missions?.dispose();state.net=null;state.netHit=state.netThrow=state.netTake=state.netPuppet=null;
+    MATCH.missions?.dispose();state.net=null;state.netHit=state.netThrow=state.netTake=state.netPuppet=null;state.coinClaim=null;
     for(const b of state.bots||[])if(b.tag){b.tag.removeFromParent();b.tag.material.map?.dispose();b.tag.material.dispose();b.tag=null;}
   });
-  MATCH.on=false;MATCH.worldState=null;MATCH.world=MATCH.missions=null;
+  MATCH.on=false;MATCH.worldState=null;MATCH.world=MATCH.missions=null;coinAwards.clear();
 }
 export function netPrepareMatch(scene) {
   if (!MATCH.on) return;
@@ -75,6 +88,7 @@ export function netPrepareMatch(scene) {
   MATCH.missions = attachMissionSync(world, { host: MATCH.host, myKey: myKey(), actor: find, sendEvent: event, command,
     open: m => callbacks.open?.(m), abort: m => callbacks.abort?.(m), award: (a, pts, m) => callbacks.award?.(a, pts, m), now: () => clock });
   W.netPuppet = puppetStep; W.netHit = sendHit; W.netThrow = sendThrow; W.netTake = sendTake;
+   W.coinClaim=(id,player)=>MATCH.host?tryCoinPickup(player,id):(command({kind:'coin-take',coin:id}),true);
   hook(W.player.ch);
 }
 export function netMarkReady(){if(MATCH.on&&MATCH.world&&!MATCH.ready.has(NET.id)){MATCH.ready.add(NET.id);MATCH.fullT=0;event({e:'match-ready'});}}
@@ -121,7 +135,7 @@ export function netMatchTick(dt, P) {
   syncAuthority();
   syncBots();
   clock += dt; MATCH.worldT -= dt; MATCH.fullT -= dt;
-  if (MATCH.host) P.score = callbacks.score?.() || 0;
+  if (MATCH.host){P.score = callbacks.score?.() || 0;coinAwards.flush(performance.now(),(coin,to)=>event({e:'effect',to:'p'+to,k:'coin-award',v:{coin}}));}
   if(callbacks.state?.()==='play')separateActors();if(MATCH.host&&!netPaused())for(const b of W.bots)if(b.human&&!b.drone&&!b.returning&&!b.ride&&!b.grab)bumpPushables(b,dt);
   const now=motionNow();if (now < MATCH.sendT) return;
   const interval=netPaused()?.5:motionIntervalFor(NET.players.size,NET.ws?.bufferedAmount||0);
@@ -135,7 +149,7 @@ export function netMatchTick(dt, P) {
     if (MATCH.worldT <= 0 && callbacks.state?.() !== 'results' && callbacks.state?.() !== 'finale') {
       MATCH.worldT = worldIntervalFor(NET.players.size); const full = MATCH.fullT <= 0; if (full) MATCH.fullT = KEYFRAME_INTERVAL;
       m.w = { d: MATCH.world.capture(full), missions: MATCH.missions.snapshot(), events: networkEventSnapshot(),
-        clock, startAt:MATCH.startAt, time: callbacks.time?.(), state: callbacks.state?.(), ruined:MATCH.world.destructionState?.(),candies:callbacks.candyState?.(), paused: MATCH.paused || netWaiting(), ready:[...MATCH.ready], roster: MATCH.roster };
+        clock, startAt:MATCH.startAt, time: callbacks.time?.(), state: callbacks.state?.(), ruined:MATCH.world.destructionState?.(),candies:callbacks.candyState?.(),coins:coinSnapshot(), paused: MATCH.paused || netWaiting(), ready:[...MATCH.ready], roster: MATCH.roster };
     }
   } else if (MATCH.worldT <= 0 && callbacks.state?.() === 'play') { MATCH.worldT = worldIntervalFor(NET.players.size); m.c = MATCH.world.proposals(); }
   if (!MATCH.host && commands.length) m.cmds = commands.slice();
@@ -191,6 +205,8 @@ function guestState(m) {
 function handleCommand(a,m){
   if(!m||typeof m!=='object')return;
   if(m.rows)MATCH.world.accept(m.rows,a);
+  if(m.kind==='coin-ack'){if(MATCH.host)coinAwards.acknowledge(m.coin,a.id);return;}
+  if(m.kind==='coin-take'){if(MATCH.host)tryCoinPickup(a,m.coin);return;}
   if(['claim','finish','chain'].includes(m.kind))MATCH.missions.handle(a,m);
   else if(m.kind==='hit'){const target=find(m.to);if(target&&a.pos.distanceTo(target.pos)<3&&['knock','shove','daze'].includes(m.k)&&Array.isArray(m.a)&&m.a.every(v=>finite(v,30))){if(target.puppet)sendHit(target,m.k,m.a);else applyHit(target,m.k,m.a);}}
   else MATCH.world.act(a,m);
@@ -216,7 +232,7 @@ export function initMatchSync(options = {}) {
       MATCH.world.receiveDestruction?.(m.w.ruined);
       MATCH.missions.receive(m.w.missions || []);
       receiveNetworkEvents(m.w.events, callbacks.eventUi);callbacks.candyApply?.(m.w.candies);
-      MATCH.world.receive(m.w.d); MATCH.paused = !!m.w.paused; callbacks.setTime?.(m.w.time);
+      MATCH.world.receive(m.w.d);if(m.w.coins)applyCoinSnapshot(m.w.coins); MATCH.paused = !!m.w.paused; callbacks.setTime?.(m.w.time);
     }
     if(m.pm)MATCH.world.receiveMotion(m.pm);
     receiveSounds(m.fx);for(const q of m.fix||[])applyCorrection(q);receiveActors(m.h);
@@ -232,7 +248,15 @@ export function initMatchSync(options = {}) {
     if (!trusted(m)) return;
     if (m.e === 'mission-grant') MATCH.missions?.grant(m);
     else if (m.e === 'hit' && m.to === myKey()) applyHit(W.player, m.k, m.a || []);
-    else if(m.e==='effect'&&m.to===myKey())callbacks.effect?.(W.player,m.k,m.v||{});
+    else if(m.e==='effect'&&m.to===myKey()){
+      if(m.k==='coin-award'&&Number.isSafeInteger(m.v?.coin)){
+        const result=claimFistReward(fistSession(),m.v.coin);
+        if(result!=='failed'){
+          if(result==='new')showCoinGrant();
+          event({e:'cmd',kind:'coin-ack',coin:m.v.coin});
+        }
+      }else callbacks.effect?.(W.player,m.k,m.v||{});
+    }
     else if (m.e === 'host-pause') { MATCH.paused = !!m.paused; callbacks.pause?.(MATCH.paused); }
     else if (m.e === 'correction') applyCorrection(m); else if (m.e === 'final') { MATCH.final = { rows: m.rows, replay: m.replay }; callbacks.final?.(); }
   });
