@@ -28,6 +28,8 @@ import {updateTools,useTool,toolImpact,sodaBlast,releaseBow,releaseNet,vacuumFir
 import {nearestRideable,grab,release,dismount} from '../game/ride.js';
 import {updateGrabs,grabTarget,grabActor,letGo} from '../game/grab.js';
 import {knockDown} from '../game/actors.js';
+import {initHubSync,updateHubSync} from '../net/hub-sync.js';
+import {NET,setSkin} from '../net/net.js';
 import {voice} from '../game/voice.js';
 import {updateRadios,nearRadio,toggleRadio,tuneRadio} from '../game/radio.js';
 import {predictBow,predictNet} from '../game/bow.js';
@@ -47,6 +49,7 @@ const turn=(a,b,k)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*k;
 export function createMenu(){
   initCollection(SKIN_IDS);document.documentElement.style.setProperty('--fist-icon',`url("${icon('fist',3)}")`);
   const scene=new THREE.Scene(),camera=makeCamera(CONFIG.camera.fov),rig=createCameraRig();
+  initHubSync(scene);
   scene.background=new THREE.Color(SEASON.bg);scene.fog=new THREE.Fog(SEASON.fog[0],40,120);
   const hemi=new THREE.HemisphereLight(SEASON.hemi[0],SEASON.hemi[1],SEASON.hemi[2]*.62*Math.PI);scene.add(hemi);
   const moon=new THREE.DirectionalLight(SEASON.sun[0],SEASON.sun[1]*.93*Math.PI);moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);moon.shadow.bias=-.0008;moon.shadow.normalBias=.05;moon.shadow.radius=2.2;Object.assign(moon.shadow.camera,{left:-20,right:20,top:20,bottom:-20,near:1,far:160});scene.add(moon,moon.target);
@@ -269,6 +272,9 @@ export function createMenu(){
     else if(st.mode==='roam'&&!st.pause&&!st.pausedForSettings)walk(dt);else st.ch.animate(dt,{t:st.t,speed:0,ride:st.sit>.05?'sit':null,dangle:true});
     if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}sky.update(camera,st.t,dt);{const c=camera.position,inside=(c.x>-17&&c.x<-10.8&&c.z>-8.8&&c.z<-1.2)||(c.x>10.8&&c.x<19.8&&c.z>-10.2&&c.z<.2)||st.mode==='claw'||st.mode==='wardrobe';haze.set(inside?0:1);{const k0=inK;inK+=((inside?1:0)-inK)*(1-Math.exp(-dt*8));if(Math.abs(inK-k0)>1e-4||inK>.999&&k0!==1)indoor(inK>.999?1:inK<.001?0:inK);}/* v0.59: в помещениях дымки нет — она давала светлую пелену и полосы на стенах */}haze.update(st.t,camera);world.island.update(dt,st.t);world.isle2.update(dt,st.t,st.mode==='roam'?st.player:null);setListener(camera.position.x,camera.position.y,camera.position.z);
     for(const{light}of world.lampLights)light.removeFromParent();scope(()=>{if(!localLighting.wl)localLighting.rebuild();localLighting.update(camera,dt);});
+    // v0.61: друзья в хабе (онлайн) — свои движения отправляем, чужих показываем
+    if(st.ch?.skinId&&st.mode==='roam'&&st.ch.skinId!==NET.skin)setSkin(st.ch.skinId);
+    updateHubSync(dt,{P:st.player,ch:st.ch,mode:st.mode,camera});
     screenTimer-=dt;if(screenTimer<=0){screenTimer=.1;const P=st.player,on=st.mode==='roam'&&!st.pause&&!st.pausedForSettings;let text='';if(on){if(st.flow?.stage==='cutscene')text='';else if(nearFist(P))text='<b>ЛКМ</b>Схватить фист';else if(P.bench||P.swing)text='<b>E</b>Встать';else if(P.hidden)text='<b>E</b>Выскочить';else if(!P.ride){const q=hubTarget();if(q)text='<b>E</b>'+q.label;}}renderPrompt(text,$('hubPrompt'),hubHud);renderHeld(on?P:{},null,$('hubHeld'),hubHud);}
 
 

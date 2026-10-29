@@ -16,6 +16,8 @@ addEventListener('wheel', e => { if (!handlers.wheel.length) return; e.preventDe
 export const on = (ev, fn) => handlers[ev].push(fn);
 
 addEventListener('keydown', e => {
+  // v0.61: печатаешь в поле (ник, код лобби) — клавиши не уходят в игру
+  if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName || '') && e.code !== 'Escape') return;
   if (!keys[e.code]) pressed.add(e.code);
   keys[e.code] = true;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();

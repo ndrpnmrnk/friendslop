@@ -20,6 +20,7 @@ import { eliminate, updateDrones, resetDrones, droneAction, DRONE_NET_COOLDOWN }
 import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies.js';
 import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
+import { initNetUI, beforeHub, afterHubShown } from './net/ui.js';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
@@ -143,7 +144,7 @@ function showMenu() {
   S.state = 'menu'; setCursor(true); document.body.classList.remove('playing'); menu.active = true; menu.splash(); buildLogo();
   screen('menu'); $('hud').classList.add('hidden'); $('intro').classList.add('hidden'); setCursor(true); unlock();
 }
-function showHub(){S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
+function showHub(){setTimeout(afterHubShown,1500);S.settingsOpen=false;$('settings').classList.remove('in-match');roundMusic.stop();S.state='hub';menu.active=true;screen('menu');$('hud').classList.add('hidden');$('intro').classList.add('hidden');document.body.classList.remove('playing');menu.enterHub();setCursor(true);}
 // v0.53: матч стартует из хаба — доска выбрала режим, рулетка собрала карту, катапульта выстрелила
 /* v0.56: экран загрузки после залпа рогатки — тема и 9 районов карты, полоса загрузки и игроки со статусом.
    Матч стартует, только когда готовы все (сейчас участник один; список рассчитан на группу). */
@@ -202,7 +203,8 @@ for (const b of document.querySelectorAll('button')) { b.addEventListener('mouse
 addEventListener('pointerdown', () => { initAudio(); ambience(true); }, { once: true });
 $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
-$('playBtn').onclick = showHub;
+$('playBtn').onclick = () => beforeHub(showHub);
+initNetUI({ currentSkin: () => collection().selected });
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
 $('modeCard').onclick = () => { requestLock(); $('modeCard').classList.add('pressed'); sfx('pickup'); setTimeout(() => launchRound(MODES[0], randomMap()), 300); };
 $('tutBtn').onclick = () => { S.state='starting';requestLock(); sfx('click'); startTutorial(); };
