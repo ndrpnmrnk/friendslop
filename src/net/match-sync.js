@@ -32,7 +32,7 @@ function tryCoinPickup(actor,id){
  if(!MATCH.host||MATCH.final||callbacks.state?.()!=='play')return false;
  const ok=hostTakeCoin(id,actor,(coin,a)=>{
    if(a===W.player){if(claimFistReward(fistSession(),coin.id)!=='new')return false;showCoinGrant();return true;}
-   return coinAwards.grant(coin.id,a.id);
+   return coinAwards.grant(coin.id,Number(a.netKey?.slice(1)));
  });
  if(ok)MATCH.worldT=0;
  return ok;
@@ -205,7 +205,7 @@ function guestState(m) {
 function handleCommand(a,m){
   if(!m||typeof m!=='object')return;
   if(m.rows)MATCH.world.accept(m.rows,a);
-  if(m.kind==='coin-ack'){if(MATCH.host)coinAwards.acknowledge(m.coin,a.id);return;}
+  if(m.kind==='coin-ack'){if(MATCH.host)coinAwards.acknowledge(m.coin,Number(a.netKey?.slice(1)));return;}
   if(m.kind==='coin-take'){if(MATCH.host)tryCoinPickup(a,m.coin);return;}
   if(['claim','finish','chain'].includes(m.kind))MATCH.missions.handle(a,m);
   else if(m.kind==='hit'){const target=find(m.to);if(target&&a.pos.distanceTo(target.pos)<3&&['knock','shove','daze'].includes(m.k)&&Array.isArray(m.a)&&m.a.every(v=>finite(v,30))){if(target.puppet)sendHit(target,m.k,m.a);else applyHit(target,m.k,m.a);}}
