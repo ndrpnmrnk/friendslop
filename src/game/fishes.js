@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G } from '../core/gfx.js';
 import { photo } from '../core/textures.js';
 
@@ -11,16 +12,16 @@ export const SPECIES = [
   { id: 'sunfish', name: 'Рыба-луна', w: [3, 9], base: '#f0a020', belly: '#ffe0a0', dark: '#c86a10', fin: '#f5c542', stripes: false, shape: 'sun', chance: 1, rare: true },
 ];
 export function pickFish() {
-  const tot = SPECIES.reduce((s, f) => s + f.chance, 0); let r = Math.random() * tot;
+  const tot = SPECIES.reduce((s, f) => s + f.chance, 0); let r = random() * tot;
   const sp = SPECIES.find(f => (r -= f.chance) < 0) || SPECIES[0];
-  return { sp, kg: +(sp.w[0] + Math.random() * (sp.w[1] - sp.w[0])).toFixed(1) };
+  return { sp, kg: +(sp.w[0] + random() * (sp.w[1] - sp.w[0])).toFixed(1) };
 }
 const tex = sp => photo('fish' + sp.id, 48, 24, (g, W, H) => {
   // бок рыбы: тёмная спина → цветной бок → светлое брюхо, полосы, чешуйчатый шум, глаз у головы (u≈0.25)
   const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, sp.dark); gr.addColorStop(0.35, sp.base); gr.addColorStop(0.75, sp.belly); gr.addColorStop(1, sp.belly);
   g.fillStyle = gr; g.fillRect(0, 0, W, H);
   if (sp.stripes) { g.globalAlpha = 0.55; g.fillStyle = sp.dark; for (let i = 0; i < 6; i++) g.fillRect(W * (0.32 + i * 0.075), H * 0.05, W * 0.03, H * 0.55); g.globalAlpha = 1; }
-  g.globalAlpha = 0.18; for (let i = 0; i < 260; i++) { g.fillStyle = Math.random() < 0.5 ? '#ffffff' : sp.dark; g.fillRect(Math.random() * W, Math.random() * H, W / 48, H / 24); } g.globalAlpha = 1;
+  g.globalAlpha = 0.18; for (let i = 0; i < 260; i++) { g.fillStyle = random() < 0.5 ? '#ffffff' : sp.dark; g.fillRect(random() * W, random() * H, W / 48, H / 24); } g.globalAlpha = 1;
   g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(W * 0.1, H * 0.28, W * 0.8, H * 0.04);
   for (const u of [0.22, 0.72]) { g.fillStyle = '#f1e8d0'; g.beginPath(); g.arc(W * u, H * 0.42, H * 0.09, 0, 6.29); g.fill(); g.fillStyle = '#17111f'; g.beginPath(); g.arc(W * u, H * 0.42, H * 0.05, 0, 6.29); g.fill(); }
 }, 4);

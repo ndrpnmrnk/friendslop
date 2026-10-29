@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {updateVfx,resetVfx,impactBurst,sparks as vfxSparks} from '../game/vfx.js';
 import {createLocalLighting} from '../world/scene-lighting.js';
 import {updateActionEffects} from '../world/action-fx.js';
@@ -181,7 +182,7 @@ export function createMenu(){
     else if(f.stage==='map'&&world.screen.mapDone&&f.t>5.2&&!g){f.stage='gather';f.t=0;f.wait=GATHER_WAIT;f.hold=0;world.sling.zone(true);sfx('click');flowSend({s:'gather',i:mi,theme:f.theme,ids:f.ids});}
     else if(f.stage==='gather'){syncMembers();const ready=st.members.filter(a=>world.sling.onPad(a.pos)).length,all=ready>=st.members.length;
       f.wait-=dt;f.hold=all?f.hold+dt:0;world.screen.gather(ready,st.members.length,Math.max(0,f.wait));world.sling.zone(true,st.t,all);
-      if(all&&f.hold<dt*1.5)sfx('pickup');if(!g&&(f.hold>.9||f.wait<=0)){const seed=(Math.random()*2**31)|0;netBeginMatch(seed);flowSend({s:'launch',seed,i:mi,theme:f.theme,ids:f.ids});startLaunch();}}}
+      if(all&&f.hold<dt*1.5)sfx('pickup');if(!g&&(f.hold>.9||f.wait<=0)){const seed=(random()*2**31)|0;netBeginMatch(seed);flowSend({s:'launch',seed,i:mi,theme:f.theme,ids:f.ids});startLaunch();}}}
   /* v0.59 — сцена запуска заново, длиннее и «киношнее» (≈14 с), монтаж из нескольких планов со склейками:
      1) все сходятся в кружок и здороваются: пары дают пять и стукаются кулаками, одиночки машут, хлопают, пританцовывают;
      2) общий прыжок «ура!» и клич «погнали!»;
@@ -202,7 +203,7 @@ export function createMenu(){
     if(S.phase==='fly')L.ft=(L.ft||0)+dt*(S.t<.3?.3:S.t<.75?THREE.MathUtils.lerp(.3,1,(S.t-.3)/.45):1);
     const CLIMB=4.6;let seated=0;
     for(const r of L.riders){const a=r.a,o={t:st.t,speed:0};
-      if(S.phase==='fly'){if(!r.v){r.p0=a.pos.clone();r.v=new V3((r.i%3-1)*1.8+(Math.random()-.5),13+Math.random()*1.5,-27-Math.random()*3);}
+      if(S.phase==='fly'){if(!r.v){r.p0=a.pos.clone();r.v=new V3((r.i%3-1)*1.8+(random()-.5),13+random()*1.5,-27-random()*3);}
         const t=L.ft;a.pos.set(r.p0.x+r.v.x*t,r.p0.y+r.v.y*t-5*t*t,r.p0.z+r.v.z*t);a.root.position.copy(a.pos);a.root.rotation.y=Math.PI;a.ch.animate(dt,{t:st.t,fly:true,vy:r.v.y-10*t,flySpin:4.5});continue;}
       if(r.seated){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=turn(a.root.rotation.y,Math.PI,1-Math.exp(-dt*8));
         a.ch.animate(dt,{t:st.t,speed:0,crouch:S.phase==='pull',act:S.phase==='board'?'cheer':undefined});seated++;continue;}

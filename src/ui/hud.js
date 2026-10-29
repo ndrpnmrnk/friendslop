@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { M } from '../missions/missions.js';
 import { V3 } from '../core/gfx.js';
 import { cam } from '../game/camera.js';
@@ -47,7 +48,7 @@ export function resetCompass() { NAV.key = ''; }
 
 // пиксельные искры (на экране)
 export function sparks(x, y, colors = ['#ff8a1f', '#f5c542', '#9be36b'], n = 8, host = $('flyers')) {
-  for (let i = 0; i < n; i++) { const s = document.createElement('i'); s.className = 'spark'; const a = Math.random() * 6.28, d = 30 + Math.random() * 50;
+  for (let i = 0; i < n; i++) { const s = document.createElement('i'); s.className = 'spark'; const a = random() * 6.28, d = 30 + random() * 50;
     s.style.cssText = `left:${x}px;top:${y}px;background:${colors[i % colors.length]};--dx:${Math.cos(a) * d}px;--dy:${Math.sin(a) * d}px`; host.appendChild(s); setTimeout(() => s.remove(), 750); }
 }
 // «+150» вылетает из точки мира и летит в счёт
@@ -122,7 +123,7 @@ export function renderStamina(P, dt, missionTool=null) {
   if (fx !== H.gslot) { H.gslot = fx; const e3 = $('gslot'); e3.innerHTML = fx; e3.classList.toggle('hidden', !fx); }
   // конфетти перед глазами
   const bl = $('blind'), blind = P.blind > 0;
-  if (blind !== !bl.classList.contains('hidden')) { bl.classList.toggle('hidden', !blind); if (blind) { bl.innerHTML = ''; for (let i = 0; i < 70; i++) { const q = document.createElement('i'); q.style.cssText = `left:${Math.random() * 100}%;top:${Math.random() * 100}%;background:${['#ff5a6e', '#f5c542', '#9be36b', '#4ab0f0', '#b18cff'][i % 5]};transform:rotate(${Math.random() * 90}deg)`; bl.appendChild(q); } } }
+  if (blind !== !bl.classList.contains('hidden')) { bl.classList.toggle('hidden', !blind); if (blind) { bl.innerHTML = ''; for (let i = 0; i < 70; i++) { const q = document.createElement('i'); q.style.cssText = `left:${random() * 100}%;top:${random() * 100}%;background:${['#ff5a6e', '#f5c542', '#9be36b', '#4ab0f0', '#b18cff'][i % 5]};transform:rotate(${random() * 90}deg)`; bl.appendChild(q); } } }
 }
 
 // события раунда: баннер на 1,5 с, потом значок с отсчётом у таймера

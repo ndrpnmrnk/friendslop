@@ -1,3 +1,4 @@
+import { random, withRandom } from './core/random.js';
 import { updateVfx, explosion, fireworks, sparks as vfxSparks, impactBurst } from './game/vfx.js';
 import { MODES, setMode } from './game/modes.js';
 import { randomMap } from './ui/hub-launch.js';
@@ -16,13 +17,14 @@ import { updateOcclusion } from './game/occlusion.js';
 import {updateBongEffects} from './game/bong.js';
 import {recordFault,lastFaults,runtimeCheckpoint,lastRuntime} from './core/diagnostics.js';
 import {updateSmoking} from './game/smoking.js';
-import { eliminate, updateDrones, resetDrones, droneAction, DRONE_NET_COOLDOWN } from './game/drone.js';
+import { applyNetworkDroneAction, networkCandyState, receiveNetworkCandies, networkDroneState, receiveNetworkDrone, eliminate, updateDrones, resetDrones, droneAction, DRONE_NET_COOLDOWN } from './game/drone.js';
 import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies.js';
 import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
 import { initNetUI, beforeHub, afterHubShown } from './net/ui.js';
-import { MATCH, seededMap, netPrepareMatch, netMatchTick, netEndMatch, initMatchSync, humansInRoom, myRank } from './net/match-sync.js';
+import { MATCH, seededMap, netPrepareMatch, netMatchTick, netEndMatch, initMatchSync, humansInRoom, myRank, netPaused, netPublishFinal } from './net/match-sync.js';
 import { NET, onNet } from './net/net.js';
+import { CANDY_TYPES, applyCandy } from './game/candy.js';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
@@ -40,9 +42,9 @@ import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
 import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
-import { resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow,releaseNet } from './game/tools.js';
+import { netActor, shoot, resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow,releaseNet } from './game/tools.js';
 import { knockDown } from './game/actors.js';
-import { resetReplay, recordReplay, replayMoment, replayClip, createReplayPlayer } from './game/replay.js';
+import { resetReplay, recordReplay, replayMoment, replayClip, createReplayPlayer, encodeNetworkReplay, decodeNetworkReplay } from './game/replay.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import { mouse as M_ } from './core/input.js';
 import { cargoPosition,poseMeleeItem } from './game/handheld.js';
@@ -177,7 +179,7 @@ function openStudio() {
 $('hubStudio').onclick = () => { sfx('click'); openStudio(); };
 $('studioClose').onclick = () => { $('studioUI').classList.add('hidden'); };
 function studioPlace() { const m = S.studioCfg?.kind === 'mission' ? M.list.find(q => q.key === S.studioCfg.id) : null;
-  if (!m) { const sp = W.spawns[(Math.random() * W.spawns.length) | 0]; P.pos.set(sp.x, sp.y, sp.z); P.vel.set(0, 0, 0); return; }
+  if (!m) { const sp = W.spawns[(random() * W.spawns.length) | 0]; P.pos.set(sp.x, sp.y, sp.z); P.vel.set(0, 0, 0); return; }
   const q = m.obj.pos(); for (let k = 0; k < 16; k++) { const a = k * 0.785 + (k > 7 ? .4 : 0), r = k > 7 ? 3.4 : 2.3, x = q.x + Math.cos(a) * r, z = q.z + Math.sin(a) * r, y = groundAt(x, z, .3, q.y + 1.2);
     if (Number.isFinite(y) && Math.abs(y - q.y) < 1.2 && isFree(x - .35, z - .35, x + .35, z + .35, y + .1, y + 1.8)) { P.pos.set(x, y, z); P.vel.set(0, 0, 0); P.facing = P.root.rotation.y = Math.atan2(q.x - x, q.z - z); return; } }
   P.pos.set(q.x + 1.5, q.y, q.z + 1.5); }
@@ -207,7 +209,16 @@ $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 $('playBtn').onclick = () => beforeHub(showHub);
 // v0.61: сетевой матч — синхронизация; хост закрыл лобби или выгнали посреди матча — матч заканчивается, все в хаб
-initMatchSync();
+initMatchSync({
+  open: openMission,
+  abort: m => { if(S.mg?.m===m)closeMission(null); if(S.wm?.m===m)closeWorld(null); },
+  award: (a, pts, m) => { if(a===P){S.score+=pts;S.done++;scored(m,pts);}else{a.score=(a.score||0)+pts;const st=statsOf(a);st.missions++;st.mpts+=pts;missionDone(m);} },
+  score:()=>S.score, setScore:v=>{S.score=v;}, time:()=>S.time, state:()=>S.state,
+  setTime:v=>{if(Number.isFinite(v)&&S.state==='play')S.time=Math.max(0,v);},
+  droneState:networkDroneState, droneApply:receiveNetworkDrone,candyState:networkCandyState,candyApply:receiveNetworkCandies, effect:(a,k,v)=>{if(k==='eliminate')eliminate(a,Math.min(30,v.seconds||15));else if(k==='net')netActor(a,W.net.actor(v.owner));else if(k==='candy'){const def=CANDY_TYPES.find(d=>d.id===v.id);if(def)applyCandy(def,a,W.net.actor(v.owner));}},
+  eventUi, pause:on=>{if(on)toast('Хост свернул игру - общая пауза');},
+  final:()=>{if(['play','intro'].includes(S.state))startFinale();}
+});
 onNet('state', () => { if (NET.state === 'off' && MATCH.on) { netEndMatch(); if (!['hub', 'menu'].includes(S.state)) showHub(); } });
 initNetUI({ currentSkin: () => collection().selected });
 // мышь захватывается сразу по нажатию (это и есть «клик» для браузера) — в игре не нужно кликать ещё раз
@@ -246,8 +257,8 @@ $('mgexit').onclick = cancelMission;
 const snapRT = new THREE.WebGLRenderTarget(96, 96), snapCam = new THREE.PerspectiveCamera(48, 1, 0.5, 160);
 W.snapshot = () => {
   try {
-    const d = W.districts[(Math.random() * W.districts.length) | 0], a = Math.random() * 6.28, cx = (d.ox + d.x1) / 2, cz = (d.oz + d.z1) / 2;
-    snapCam.position.set(cx + Math.cos(a) * 22, 12 + Math.random() * 10, cz + Math.sin(a) * 22); snapCam.lookAt(cx, 1.5, cz);
+    const d = W.districts[(random() * W.districts.length) | 0], a = random() * 6.28, cx = (d.ox + d.x1) / 2, cz = (d.oz + d.z1) / 2;
+    snapCam.position.set(cx + Math.cos(a) * 22, 12 + random() * 10, cz + Math.sin(a) * 22); snapCam.lookAt(cx, 1.5, cz);
     renderer.setRenderTarget(snapRT); renderer.render(scene, snapCam); const px = new Uint8Array(96 * 96 * 4); renderer.readRenderTargetPixels(snapRT, 0, 0, 96, 96, px); renderer.setRenderTarget(null);
     const c = document.createElement('canvas'); c.width = c.height = 96; const g = c.getContext('2d'), im = g.createImageData(96, 96);
     for (let y = 0; y < 96; y++) im.data.set(px.subarray((95 - y) * 96 * 4, (96 - y) * 96 * 4), y * 96 * 4);
@@ -268,7 +279,7 @@ const TUT = [
   { t: 'Уличная миссия', d: 'Собери мусор в урну — бери (ЛКМ) и бросай (ПКМ)', k: ['ЛКМ', 'ПКМ'], ok: s => s.missions > 1, enter: () => { const m = spawnMission(P, 'cleanup'); if (m) { m.life = m.maxLife = 999; } } },
   { t: 'Готово!', d: 'В раунде миссии приходят волнами, соперники мешают — бей, кради, ставь ловушки. Удачи!', k: [], ok: s => s.t > 4 },
 ];
-function tutItem(type, r) { const a = Math.random() * 6.28, x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r, gy = groundAt(x, z, 0.2, P.pos.y + 1); if (CONFIG.items[type].tool) spawnTool(x, gy, z, false, type); else { const it = addItem(type, x, gy, z); it.def = { ...it.def, respawn: 0 }; } }
+function tutItem(type, r) { const a = random() * 6.28, x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r, gy = groundAt(x, z, 0.2, P.pos.y + 1); if (CONFIG.items[type].tool) spawnTool(x, gy, z, false, type); else { const it = addItem(type, x, gy, z); it.def = { ...it.def, respawn: 0 }; } }
 function startTutorial() {
   menu.active=false;
   S.state = 'roulette'; screen(null); $('fade').classList.add('on');
@@ -303,13 +314,13 @@ function prepareRound(tut = false) {
   if(S.mg)closeMission(null);if(S.wm)closeWorld(null);
   for(const m of M.list.slice())if(m.onRemove){m.onRemove();m.onRemove=null;}
   if (tut) globalThis.__forceDistricts = ['yard', 'plaza', 'park'];
-  // v0.61: в сетевом матче карта у всех одинаковая — зерно от хоста и детерминированный Math.random на время постройки
-  if (MATCH.on) seededMap(MATCH.seed, () => generateMap(scene, MATCH.seed)); else generateMap(scene, (Math.random() * 1e9) | 0);
+  // v0.61: в сетевом матче карта у всех одинаковая — зерно от хоста и детерминированный random на время постройки
+  if (MATCH.on) seededMap(MATCH.seed, () => generateMap(scene, MATCH.seed)); else generateMap(scene, (random() * 1e9) | 0);
   { const wl = localLighting.rebuild(); console.info('[friendslop] свет мира:', wl.count, 'источников,', wl.ms, 'мс'); }
   if (tut) globalThis.__forceDistricts = null;
-  buildLife(scene); resetSplat(); resetPolice();
+  withRandom(MATCH.on ? MATCH.seed ^ 0x1f123bb5 : random()*2**32,()=>buildLife(scene)); resetSplat(); resetPolice();
   registerInteracts();
-  resetTools(); resetTown(); startWeather(scene); buildReflections(); resetFun(() => S.score); hookFun(); W.toolImpact = toolImpact; W.sodaBlast = sodaBlast; W.knockDown = knockDown; W.isMissionCat = c => M.list.some(m => m.obj === c); W.letGo = letGo; W.dismount = a => dismount(a, false); W.leaveSwing = leaveSwing; W.leaveBench = leaveBench; W.leaveHide = a => { if (a.bot) a.hideT = 0; else leaveHide(a); }; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
+  withRandom(MATCH.on ? MATCH.seed ^ 0x221ab : random()*2**32,()=>resetTools()); withRandom(MATCH.on ? MATCH.seed ^ 0x7a33b9 : random()*2**32,()=>resetTown()); withRandom(MATCH.on ? MATCH.seed ^ 0x12a7 : random()*2**32,()=>startWeather(scene)); buildReflections(); resetFun(() => S.score); hookFun(); W.netDroneInput=applyNetworkDroneAction;W.netCreateShot=shoot;W.netUseTool=useTool;W.netReleaseTool=(a,it,aim)=>it.type==='bow'?releaseBow(a,it,aim):releaseNet(a,it,aim);W.netGrabDog=grabDog; W.toolImpact = toolImpact; W.sodaBlast = sodaBlast; W.knockDown = knockDown; W.isMissionCat = c => M.list.some(m => m.obj === c); W.letGo = letGo; W.dismount = a => dismount(a, false); W.leaveSwing = leaveSwing; W.leaveBench = leaveBench; W.leaveHide = a => { if (a.bot) a.hideT = 0; else leaveHide(a); }; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
   buildMinimap(DISTRICTS); CURTAIN = findMat('curtain');
   resetEvents(); resetSupplies(); resetDrones();
   resetMissions();
@@ -317,7 +328,7 @@ function prepareRound(tut = false) {
   if (P) scene.remove(P.root);
   P = createPlayer(menu.skin()); scene.add(P.root); P.ch.onCroak = () => sfx('croak');
   P.ch.onCroak = null; // в игре «ква» звучит через голос (voice), мешок сам по себе не квакает
-  const sp = W.spawns[MATCH.on ? (Math.max(0, myRank()) * 3) % W.spawns.length : (Math.random() * W.spawns.length) | 0];
+  const sp = W.spawns[MATCH.on ? (Math.max(0, myRank()) * 3) % W.spawns.length : (random() * W.spawns.length) | 0];
   P.pos.set(sp.x, sp.y, sp.z); P.root.rotation.y = Math.PI; P.facing = Math.PI;
   W.player = P; W.hitActors = [botHitHook]; createBots(scene, menu.skin(), tut || S.studioCfg ? 0 : MATCH.on ? (MATCH.host ? Math.max(0, (S.botCount ?? 4) - (humansInRoom() - 1)) : 0) : (S.botCount ?? 4)); netPrepareMatch(scene); M.manual = tut || !!S.studioCfg; S.tut = null;
   resetCoins(!tut);
@@ -325,7 +336,7 @@ function prepareRound(tut = false) {
   M.onWave = null;
   M.onPersonal = (m, outsider) => { toast(outsider ? TEXT.outsider : TEXT.personal, 'gold'); sfx('crown'); };
   Object.assign(S, { time: CONFIG.roundTime, score: 0, done: 0, mg: null, wm: null, crane: false, phase: 'calm' }); W.scoreMul = 1;
-  cam.pose = null; resetCamera(Math.random() * Math.PI * 2);
+  cam.pose = null; resetCamera(random() * Math.PI * 2);
   screen(null); $('mgpanel').classList.add('hidden'); resetHud();
   // прогрев шейдеров — в самом конце, когда на карте уже есть боты, коты, жители и все предметы (+ набор всех предметов)
   { const t0 = performance.now(), kit = prewarmKit(); scene.add(kit); try { warmup(scene, camera); } finally { scene.remove(kit); } console.info('[friendslop] шейдеры:', Math.round(performance.now() - t0), 'мс'); }
@@ -339,10 +350,10 @@ function prepareRound(tut = false) {
    лучами на уровне ног и головы: если по пути стена или дом — пробуем другой заход и высоту. Если чистой дуги нет,
    летим как есть, но по-настоящему: врезался — отскок, кувырок и падение по физике (crashArrival). */
 function arrivalArc(to) {
-  const d = Math.hypot(to.x, to.z), base = d > 4 ? Math.atan2(to.z, to.x) + (Math.random() - .5) * .5 : Math.random() * Math.PI * 2, R = W.bounds + 34;
-  const dur = 2.2 + Math.random() * .3, spin = (Math.random() < .5 ? -1 : 1) * (5 + Math.random() * 4); let f = null;
-  for (const h of [16 + Math.random() * 6, 26, 36]) for (const dA of [0, .6, -.6, 1.2, -1.2, 2, -2, Math.PI]) {
-    const ang = base + dA; f = { from: new V3(Math.cos(ang) * R, 36 + Math.random() * 8, Math.sin(ang) * R), to: to.clone(), dur, h, spin }; if (arcClear(f)) return f; }
+  const d = Math.hypot(to.x, to.z), base = d > 4 ? Math.atan2(to.z, to.x) + (random() - .5) * .5 : random() * Math.PI * 2, R = W.bounds + 34;
+  const dur = 2.2 + random() * .3, spin = (random() < .5 ? -1 : 1) * (5 + random() * 4); let f = null;
+  for (const h of [16 + random() * 6, 26, 36]) for (const dA of [0, .6, -.6, 1.2, -1.2, 2, -2, Math.PI]) {
+    const ang = base + dA; f = { from: new V3(Math.cos(ang) * R, 36 + random() * 8, Math.sin(ang) * R), to: to.clone(), dur, h, spin }; if (arcClear(f)) return f; }
   f.risky = true; return f;
 }
 const arcAt = (f, k, out) => { out.lerpVectors(f.from, f.to, k); out.y += f.h * 4 * k * (1 - k); return out; };
@@ -418,7 +429,7 @@ function updateIntro(dt) {
 function goRound() {
   if(!M.manual)roundMusic.gameplay();
   S.state = 'play'; P.noRun = false; S.time = CONFIG.roundTime;
-  if (!M.manual) spawnWave(P, 'calm');
+  if (!M.manual && !W.net?.replica) spawnWave(P, 'calm');
   const h = $('hud'); h.classList.remove('hidden'); h.classList.remove('enter'); void h.offsetWidth; h.classList.add('enter');
   $('lockhint').classList.toggle('hidden', locked()); setCursor(true);
   setTimeout(() => { if (S.state === 'play') $('intro').classList.add('hidden'); }, 900);
@@ -426,9 +437,14 @@ function goRound() {
 /* v0.58: финал матча. Свисток — стоп-кадр: мир замирает, камера облетает игрока, мультяшный штамп «ВРЕМЯ!».
    Потом, если за матч был зрелищный момент, — его повтор в том же городе (замедление в пике, камера облетает
    героя момента; ЛКМ / пробел — пропустить). Дальше — пьедестал с итогами. */
+function finalRows(){
+ const mk=a=>{const key=a.netKey,me=a===P,score=me?S.score:a.score||0;return{key,name:MATCH.on?(key?.startsWith('p')?NET.players.get(Number(key.slice(1)))?.name||a.name:a.name):me?TEXT.you:a.name,skin:me?P.ch.skinId:a.skin,score,me,st:{...statsOf(a),score}};};
+ const rows=[P,...(W.bots||[])].map(mk);if(MATCH.on)rows.sort((a,b)=>a.key.localeCompare(b.key));return assignAwards(rows);
+}
 function startFinale() {
+  if(MATCH.on){if(!MATCH.host&&!MATCH.final)return;if(MATCH.host)netPublishFinal(finalRows(),encodeNetworkReplay(replayClip()));}
   roundMusic.stop(); if (S.mg) closeMission(null); if (S.wm) closeWorld(null); if (S.crane) exitCrane(); P.charging = false;
-  S.state = 'finale'; S.fin = { t: 0, stage: 'whistle', a0: P.root.rotation.y + Math.PI * .75, clip: replayClip() };
+  S.state = 'finale'; S.fin = { t: 0, stage: 'whistle', a0: P.root.rotation.y + Math.PI * .75, clip: MATCH.on ? decodeNetworkReplay(MATCH.final?.replay,W.net.actor,key=>W.net.objects.get(key)?.o) : replayClip() };
   document.body.classList.add('cine'); $('hud').classList.add('hidden'); unlock(); setCursor(true);
   const st = $('finStamp'); st.classList.remove('hidden', 'pop'); void st.offsetWidth; st.classList.add('pop'); sfx('whistle'); sfx('boom', { v: .5 }); shakeCam(.3);
 }
@@ -439,7 +455,7 @@ function updateFinale(dt) {
     const k = Math.min(1, F.t / 1.9), a = F.a0 + k * 1.1, r = 6 - k * 1.8; _fp.copy(P.root.position);
     cam.free = { p: new V3(_fp.x + Math.sin(a) * r, _fp.y + 2.4 - k * .6, _fp.z + Math.cos(a) * r), l: new V3(_fp.x, _fp.y + 1.1, _fp.z) };
     if (F.t > 1.9) { $('finStamp').classList.add('hidden');
-      if (F.clip) { F.stage = 'replay'; F.t = 0; F.player = createReplayPlayer(F.clip); F.a0 = Math.random() * 6.28; const tag = $('replayTag'); tag.querySelector('span').textContent = F.clip.focus === P ? TEXT.you : (F.clip.focus.name || ''); tag.classList.remove('hidden'); sfx('shutter'); }
+      if (F.clip) { F.stage = 'replay'; F.t = 0; F.player = createReplayPlayer(F.clip); F.a0 = random() * 6.28; const tag = $('replayTag'); tag.querySelector('span').textContent = F.clip.focus === P ? TEXT.you : (F.clip.focus.name || ''); tag.classList.remove('hidden'); sfx('shutter'); }
       else finishFinale(); }
   } else if (F.stage === 'replay') {
     F.player.step(dt); F.player.focusPos(_fp); const a = F.a0 + F.t * .32;
@@ -467,8 +483,7 @@ function endRound() {
   $('hud').classList.add('hidden');
   screen('results'); sfx('win');
   // места и награды: у каждого — заголовок по его стилю игры, подпись и очки
-  const mk = (a, name, skin, score, me) => { const st = statsOf(a); return { name, skin, score, me, st: { ...st, score } }; };
-  const rows = assignAwards([mk(P, TEXT.you, P.ch.skinId, S.score, true), ...(W.bots || []).map(b => mk(b, b.name, b.skin, b.score, false))]);
+  const rows = MATCH.on && MATCH.final ? MATCH.final.rows.map(r=>({...r,me:r.key==='p'+NET.id,name:r.key==='p'+NET.id?TEXT.you:r.name})) : finalRows();
   $('results').classList.toggle('five',rows.length>4);$('podcards').innerHTML = ''; $('resBtns').classList.add('hidden'); $('resMe').classList.add('hidden');
   podium.start(rows, (c, pos) => {
     const r = c.r, A = AWARDS[r.award], role = r.champ && r.award === 'tourist' ? AWARDS.champ : A;
@@ -492,11 +507,12 @@ on('move', e => { const d = $('dot'); d.style.transform = `translate(${mouse.x}p
 /* Уличная миссия: игрок бегает как обычно, справа внизу панель с таймером и прогрессом */
 function cancelMission() {
   if(S.wm){closeWorld(null);return;}
-  if(S.mg){const m=S.mg.m;closeMission(null);if(m.claimedBy===P)removeMission(m);}
+  if(S.mg){const m=S.mg.m;closeMission(null);if(!W.net&&m.claimedBy===P)removeMission(m);}
 }
 function missionCountdown(n,text=''){const e=$('mgcount');e.classList.toggle('hidden',!n);e.querySelector('b').textContent=n?String(n):'';e.querySelector('small').textContent=text;}
 function openWorld(m) {
   if(m.claimedBy&&m.claimedBy!==P)return;
+  if(W.net && !W.net.claimMission(m))return;
   if (P.ride) dismount(P, false);
   if (P.held) { drop(P.held, P.pos.x, P.pos.y, P.pos.z); P.held = null; }
   startMissionClock(m);m.onExpire=()=>closeWorld({success:false});
@@ -518,7 +534,8 @@ function openWorld(m) {
   const ctx = { player: P, camera, mission: m, give: it => { pickUp(it); P.held = it; it.owner = P; it.wasHeld = true; it.mission=m; }, free: (x, z, y) => isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, y + 0.05, y + 1),
     enterCrane: () => { if (!S.crane) enterCrane(); }, exitCrane: () => { if (S.crane) exitCrane(); } };
   const before=new Set(W.items);
-  S.wm.game = WORLD_GAMES[m.def.game](m.obj, api, ctx);
+  const build=()=>WORLD_GAMES[m.def.game](m.obj,api,ctx);
+  S.wm.game=W.net?W.net.work(m,'world',build):build();
   for(const it of W.items)if(!before.has(it))it.mission=m;
   { const g = S.wm.game; m.track = g.target ? () => g.target() : null; }
 }
@@ -537,12 +554,14 @@ function closeWorld(res) {
   const { m, game } = S.wm; m.onExpire=null; S.wm = null; game.stop();missionCountdown(0); m.busy = false; m.track = null;
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
   // вторая часть миссии — мини-игра у объекта (салат: нарезка, лампочка: вкрутить)
-  if (res && res.chain) { m.def = { ...m.def, world: false, game: res.chain }; openMission(m); return; }
+  if (res && res.chain) { W.net?.chainMission(m,res.chain); m.def = { ...m.def, world: false, game: res.chain }; openMission(m); return; }
+  if(W.net?.finishMission(m,res,true))return;
   if (res && res.success) { const pts = Math.round(m.pts * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
   if (res && res.stolen) { toast(TEXT.stolenFrom(res.stolen.name || ''), 'bad'); missionDone(m); }
   removeMission(m);
 }
 function openMission(m) {
+  if(W.net && !W.net.claimMission(m))return;
   if(m.claimedBy&&m.claimedBy!==P)return;
   if (m.def.world) return openWorld(m);
   if (P.ride) dismount(P, false);
@@ -563,7 +582,8 @@ function openMission(m) {
   };
   S.mg = { m, game: null, start:P.pos.clone() };
   unlock(); $('lockhint').classList.add('hidden');
-  S.mg.game = ALL_GAMES[m.def.game](m.obj, api, { cursor:setCursor, character:P.ch,player:P,camera,mission:m });
+  const build=()=>ALL_GAMES[m.def.game](m.obj,api,{cursor:setCursor,character:P.ch,player:P,camera,mission:m});
+  S.mg.game=W.net?W.net.work(m,'panel',build):build();
   if(S.mg?.game.hint)$('mghint').textContent=S.mg.game.hint;
 }
 function closeMission(res) {
@@ -572,6 +592,7 @@ function closeMission(res) {
   game.stop();P.stationaryWork=false; S.mg = null; cam.pose = null; updateOcclusion(camera, null); m.busy = false; m.doer=null; P.root.visible = true; setCursor(true); requestLock();
   $('lockhint').classList.toggle('hidden', locked());
   $('mgpanel').classList.add('hidden'); setTimeout(() => { if (!S.mg && !S.wm) callout(''); }, 1200);
+  if(W.net?.finishMission(m,res,false))return;
   if (!res) {m.progress=0;return;}
   if (res.success) { const pts = Math.round(m.pts * res.mult * (W.scoreMul || 1)); S.score += pts; S.done++; scored(m, pts); }
   removeMission(m);
@@ -607,7 +628,7 @@ function setGhost(p, on) {
 }
 // очки за действия вне миссий (общие события, комбо, корона): игроку — «+N» летит в счёт, боту — в его копилку
 function award(a, pts, at) {
-  if (!a || !pts) return 0;
+  if (!a || !pts || W.net?.replica) return 0;
   pts = Math.round(pts * (W.scoreMul || 1));
   if (a !== P) { if (a.score !== undefined) a.score = Math.max(0, a.score + pts); return pts; }
   S.score = Math.max(0, S.score + pts); const p = at || P.pos, v = new V3(p.x, p.y + 1.2, p.z).project(camera);
@@ -842,7 +863,8 @@ const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
   clock.update(); let dt = Math.min(0.05, clock.getDelta()); prof.frameStart();
   if(graphicsLost||document.hidden){endFrame();return;}
-  if (MATCH.on && P && S.state !== 'hub' && S.state !== 'menu') netMatchTick(dt, P, S.score);
+  if (MATCH.on && P && S.state !== 'hub' && S.state !== 'menu') netMatchTick(dt,P);
+  if(netPaused()&&!['results','finale'].includes(S.state)){clearInput();if(!window.__noRender)present(scene,camera);prof.frameEnd(dt,renderer);endFrame();return;}
   if (S.studio) { S.studio.t += dt; S.studio.spin && S.studio.list.forEach((g, i) => g.rotation.y = S.studio.t * .6 + i); present(S.studio.sc, S.studio.cam); endFrame(); return; }
   if(S.settingsOpen)clearInput();
   if (FX.freeze > 0) { FX.freeze -= dt; dt *= 0.05; }
@@ -884,11 +906,11 @@ function frame() {
         S.main = best; for (const m of M.list) { const on = m === best, mk = m.marker, pop = mk.pop || 1; if (m.life > m.maxLife * 0.25) mk.bm.opacity = on ? 0.4 : 0.1; mk.sp.scale.set((on ? 1.9 : 1.15) * pop, (on ? 2.4 : 1.45) * pop, 1); mk.ring.visible = on; } }
       // ничейные предметы миссий (выронили и никто не подобрал) исчезают через 10 с
       for (const q of W.items) if (q.steal && q.state === 'rest' && q.mine !== P) { q.restT = (q.restT || 0) + dt; if (q.restT > 10) { q.state = 'gone'; q.g.visible = false; q.steal = null; } } else if (q.steal) q.restT = 0;
-      if (S.mg) S.mg.game.update(dt);
-      if (S.wm) S.wm.game.update(dt);
+      if(S.mg){const j=S.mg;if(W.net)W.net.runWork(j.m,()=>j.game.update(dt));else j.game.update(dt);}
+      if(S.wm){const j=S.wm;if(W.net)W.net.runWork(j.m,()=>j.game.update(dt));else j.game.update(dt);}
       S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText(), 0.1); S.hudT = 0.1; }
       renderStamina(P, dt, S.wm?.game);
-      if (!S.tut && !S.studioCfg) { updateEvents(dt, eventUi); updateSupplies(dt); }
+      if (!S.tut && !S.studioCfg) { updateEvents(dt, eventUi); if(!W.net?.replica)updateSupplies(dt); }
       // ритм раунда: подпись под таймером, предупреждение о событии, финальный рывок ×2
       { const ph = phaseOf(EV.t); W.scoreMul = ph === 'final' ? 2 : 1;
         if (ph === 'final' && S.phase !== 'final') { eventBanner('final', true); sfx('crown'); glitch(); }
@@ -899,7 +921,7 @@ function frame() {
       if (flash.intensity > 0) { const f = P.root.rotation.y; flash.position.set(P.pos.x, P.pos.y + 1.6, P.pos.z); flash.target.position.set(P.pos.x + Math.sin(f) * 6, P.pos.y, P.pos.z + Math.cos(f) * 6); }
       // v0.57: мини-карта 30 раз в секунду, а не каждый кадр (на 144 Гц это лишние 2D-отрисовки)
       if ((S.mmT = (S.mmT || 0) - dt) <= 0) { S.mmT = 1 / 30; const bt = bigTarget(); drawMinimap(P, M.list.filter(m => visibleTo(m, P)), S.wm && S.wm.game.target ? S.wm.game.target() : null, bt ? [{ x: bt.x, z: bt.z, color: '#ff8a1f', icon: TEXT.eventIcon[EV.big.key] }] : null, S.nav); }
-      if (S.time <= 0) { S.time = 0; renderHud(S, P, '', 0); startFinale(); }
+      if (S.time <= 0 && !W.net?.replica) { S.time = 0; renderHud(S, P, '', 0); startFinale(); }
     }
     if (P) { setGhost(P, P.ghost > 0); setListener(P.pos.x, P.pos.y, P.pos.z); }
     // траектория броска
@@ -932,8 +954,8 @@ function frame() {
     updateItems(dt, P);S.wm?.game.afterPhysics?.();
     updateCoins(dt,S.state==='play'?P:null);
     updatePushables(dt, S.state === 'play' && !S.crane && !S.mg ? P : null);
-    for (const c of W.cats) updateCat(c, dt, t, S.state === 'play' ? P : null);
-    updateBirds(dt, t, S.state === 'play' ? P : null); prof.mark('предметы/физика');
+    for (const c of W.cats) if(!W.net?.replica)updateCat(c, dt, t, S.state === 'play' ? P : null);
+    if(!W.net?.replica)updateBirds(dt, t, S.state === 'play' ? P : null); prof.mark('предметы/физика');
     const lk = takeLook();
     if (S.crane) {
       // напрямую: A/D — поворот стрелы, W/S — тележка
@@ -954,6 +976,7 @@ function frame() {
       S.nav = nt; renderNav(camera, P, nt);
     }
     for (const d of W.doors) {
+      if(W.net?.replica)continue;
       // выбитая выпадом дверь (v0.22) летит в сторону выпада по инерции, бьётся об упор и чуть отскакивает
       const want = d.open ? 1.65 * (d.dirS || d.inward) : 0;
       if (d.av) { d.ang += d.av * dt; d.av *= Math.exp(-dt * 2.2); if (Math.abs(d.ang) > 1.8) { d.ang = Math.sign(d.ang) * 1.8; d.av = -d.av * 0.3; } if (Math.abs(d.av) < 0.4) d.av = 0; }
@@ -962,7 +985,7 @@ function frame() {
       d.solid.on = !d.open && Math.abs(d.ang) < 0.5;
     }
     prof.mark('кран/двери');
-    for (const f of W.animated) f(dt, t);
+    for (const f of W.animated) if(!W.net||W.net.canAnimate(f))f(dt,t);
     updateSwingers(dt, t, S.state === 'play' ? P : null);
     sky.update(camera, t, dt, P, hemi, scene.fog);
     updateLife(dt, t, S.state === 'play' ? P : null, camera);
@@ -972,7 +995,7 @@ function frame() {
       for (const a of [P, ...(W.bots || [])]) a.inLeaves = inC(a.pos.x, a.pos.y + 1.3, a.pos.z);
       const cp = camera.position, want = inC(cp.x, cp.y, cp.z) || P.inLeaves ? 1 : 0; S.leafVeil = (S.leafVeil || 0) + (want - (S.leafVeil || 0)) * Math.min(1, dt * 6);
       const lv = $('leafVeil'); if (lv) { lv.style.opacity = S.leafVeil.toFixed(3); lv.classList.toggle('hidden', S.leafVeil < .01); } }
-    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); updateGrabs(dt, t); updateTraps(dt, t); updateTown(dt, t, P, !!EV.big); updateFun(dt, t); updatePolice(dt, t); updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
+    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P); if(!W.net?.replica){updateGrabs(dt,t);updateTraps(dt,t);updateTown(dt,t,P,!!EV.big);updateFun(dt,t);updatePolice(dt,t);} updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
     prof.mark('боты/события');
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' || S.state === 'finale' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);

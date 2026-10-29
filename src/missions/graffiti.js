@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {sprayCan} from './spray-can.js';
 import { toolHand } from '../game/handheld.js';
 import { THREE,G,V3,mesh } from '../core/gfx.js';
@@ -14,11 +15,11 @@ export function graffitiGame(o,api,ctx){
       star: () => { mg.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 10 : 25; mg.lineTo(44 + Math.cos(a) * r, 31 + Math.sin(a) * r); } mg.fill(); },
       bat: () => { mg.beginPath(); mg.ellipse(44, 32, 8, 11, 0, 0, 7); mg.fill(); mg.beginPath(); mg.moveTo(40, 28); mg.lineTo(14, 18); mg.lineTo(20, 32); mg.lineTo(26, 30); mg.lineTo(30, 40); mg.lineTo(40, 36); mg.fill(); mg.beginPath(); mg.moveTo(48, 28); mg.lineTo(74, 18); mg.lineTo(68, 32); mg.lineTo(62, 30); mg.lineTo(58, 40); mg.lineTo(48, 36); mg.fill(); },
     };
-    const keys = Object.keys(SH), shape = keys[(Math.random() * keys.length) | 0]; SH[shape]();
+    const keys = Object.keys(SH), shape = keys[(random() * keys.length) | 0]; SH[shape]();
     const mask = mg.getImageData(0, 0, CW, CH).data, inside = new Uint8Array(CW * CH); let total = 0;
     for (let i = 0; i < CW * CH; i++) if (mask[i * 4 + 3] > 128) { inside[i] = 1; total++; }
  const margin=inside.slice();for(let y=0;y<CH;y++)for(let x=0;x<CW;x++)if(inside[y*CW+x])for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++)if(dx*dx+dy*dy<=16.3&&x+dx>=0&&x+dx<CW&&y+dy>=0&&y+dy<CH)margin[(y+dy)*CW+x+dx]=1;
- const paint=new Uint8Array(CW*CH);let pin=0,pout=0,ink=total*1.85,down=false,time=75,end=-1,result=null,clock=0,pulse=0,aim=null;const capacity=ink,cv=document.createElement('canvas');cv.width=CW;cv.height=CH;const g=cv.getContext('2d'),COL=['#ff5a6e','#4ab0f0','#f5c542','#9be36b','#b18cff'][(Math.random()*5)|0],color=parseInt(COL.slice(1),16);for(let y=0;y<CH;y++)for(let x=0;x<CW;x++){const i=y*CW+x;if(inside[i]&&(!inside[i-1]||!inside[i+1]||!inside[i-CW]||!inside[i+CW])){g.fillStyle='#eee8ff';g.fillRect(x,y,1,1);}}
+ const paint=new Uint8Array(CW*CH);let pin=0,pout=0,ink=total*1.85,down=false,time=75,end=-1,result=null,clock=0,pulse=0,aim=null;const capacity=ink,cv=document.createElement('canvas');cv.width=CW;cv.height=CH;const g=cv.getContext('2d'),COL=['#ff5a6e','#4ab0f0','#f5c542','#9be36b','#b18cff'][(random()*5)|0],color=parseInt(COL.slice(1),16);for(let y=0;y<CH;y++)for(let x=0;x<CW;x++){const i=y*CW+x;if(inside[i]&&(!inside[i-1]||!inside[i+1]||!inside[i-CW]||!inside[i+CW])){g.fillStyle='#eee8ff';g.fillRect(x,y,1,1);}}
  const tx=new THREE.CanvasTexture(cv);tx.magFilter=tx.minFilter=THREE.NearestFilter;tx.generateMipmaps=false;const mat=new THREE.MeshBasicMaterial({map:tx,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}),board=mesh(G.plane,mat,mid.x,mid.y,mid.z,BW,BH,1,W.group);board.lookAt(mid.clone().add(F));board.name='graffiti-paint';W.mapResources.add(tx);W.mapResources.add(mat);
  const model=sprayCan(color),can=model.g;can.name='graffiti-can';can.rotation.y=Math.atan2(F.x,F.z);W.group.add(can);toolHand(ctx,can,.13,-.04,.02);
  const sprayMat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.16,depthWrite:false}),spray=mesh(new THREE.ConeGeometry(1,1,8,1,true),sprayMat,0,0,0,.08,1,.08,W.group);spray.visible=false;const fallback=mid.clone(),from=new V3(),to=new V3(),dir=new V3();

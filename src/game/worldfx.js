@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, V3, col, lam, glow, tmat, mesh, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -65,7 +66,7 @@ export function updateWorldFx(dt, t, P) {
     if (!h.on) continue; h.on = Math.max(0, h.on - dt); h.t -= dt;
     if (h.t <= 0) { h.t = 0.05; burst(h.x, h.y + 0.9, h.z, 3, { color: 0x9ccbec, size: 0.26, speed: 0.6, up: 9, g: 12, life: 1.1 }); }
     if (P) { const dx = P.pos.x - h.x, dz = P.pos.z - h.z, d = Math.hypot(dx, dz); if (d < 1.4 && P.pos.y < h.y + 3) { P.vel.y = Math.max(P.vel.y, 7); P.push.set(dx / (d || 1) * 3, 0, dz / (d || 1) * 3); P.wetT = 4; } }
-    for (const it of W.items) if (it.state === 'rest' && Math.hypot(it.pos.x - h.x, it.pos.z - h.z) < 1.2) { launch(it, it.pos.clone(), new V3((Math.random() - 0.5) * 3, 8, (Math.random() - 0.5) * 3)); }
+    for (const it of W.items) if (it.state === 'rest' && Math.hypot(it.pos.x - h.x, it.pos.z - h.z) < 1.2) { launch(it, it.pos.clone(), new V3((random() - 0.5) * 3, 8, (random() - 0.5) * 3)); }
     if (!h.on && h.cap) h.cap.visible = true;
   }
   // сигнализация: мигают фары (временные светящиеся кубики из пула)
@@ -165,7 +166,7 @@ export function registerInteracts() {
     W.interacts.push({ get x() { return b.x; }, get z() { return b.z; }, y: b.y, r: 1.1, label: 'Порыться в урне', outline: b.binOutline, glow: () => !b.looted, enabled: P => !P.held && !b.tipped && !b.rider && !b.looted,
     act: P => { b.looted = true; sfx('open', { at: P.pos }); burst(b.x, b.y + 1.1, b.z, 6, { color: 0x8a8d98, size: 0.14, speed: 1.5, up: 2 });
       if (W.containerLoot && W.containerLoot(new V3(b.x, b.y + 0.5, b.z))) return;
-      if (Math.random() < 0.5) { const l = ['banana', 'can', 'trash', 'litter', 'slipper', 'duck', 'cushion'], type = l[(Math.random() * l.length) | 0], it = addItem(type, b.x, b.y + 1.2, b.z); it.noHitT = 0.6; launch(it, it.pos.clone(), new V3((P.pos.x - b.x) * 1.5, 4, (P.pos.z - b.z) * 1.5)); } } }); }
+      if (random() < 0.5) { const l = ['banana', 'can', 'trash', 'litter', 'slipper', 'duck', 'cushion'], type = l[(random() * l.length) | 0], it = addItem(type, b.x, b.y + 1.2, b.z); it.noHitT = 0.6; launch(it, it.pos.clone(), new V3((P.pos.x - b.x) * 1.5, 4, (P.pos.z - b.z) * 1.5)); } } }); }
   // кот (вне миссии): E — погладить, мурлычет
   for (const c of W.cats) W.interacts.push({ get x() { return c.root.position.x; }, get z() { return c.root.position.z; }, get y() { return c.sleep ? c.sleep.y - 0.5 : c.root.position.y; }, r: 1.2, dy: 1.3, label: 'Погладить кота',
     enabled: P => !P.held && !W.wmActive && c.mode === 'walk' && !(c.purrT > 0) && !(c.flee > 0) && !(W.isMissionCat && W.isMissionCat(c)), act: () => purr(c) });
@@ -175,7 +176,7 @@ export function registerInteracts() {
       act: P => { c.open = !c.open; sfx('open', { at: P.pos });
         if (c.open && !c.looted) { c.looted = true; const at = new V3(c.x - 1.6 * Math.cos(c.ry), c.y + 1.0, c.z + 1.6 * Math.sin(c.ry));
           if (W.containerLoot && W.containerLoot(at)) c.gave = true;
-          else if (Math.random() < 0.35) { c.gave = true; const l = ['umbrella', 'extinguisher', 'ball', 'can', 'banana', 'rake', 'water'], it = addItem(l[(Math.random() * l.length) | 0], at.x, at.y, at.z); it.noHitT = 0.6; launch(it, at.clone(), new V3(-Math.cos(c.ry) * 2, 3, Math.sin(c.ry) * 2)); } } } });
+          else if (random() < 0.35) { c.gave = true; const l = ['umbrella', 'extinguisher', 'ball', 'can', 'banana', 'rake', 'water'], it = addItem(l[(random() * l.length) | 0], at.x, at.y, at.z); it.noHitT = 0.6; launch(it, at.clone(), new V3(-Math.cos(c.ry) * 2, 3, Math.sin(c.ry) * 2)); } } } });
     W.animated.push(dt => { const want = c.open ? 1 : 0; c.lidK = (c.lidK || 0) + (want - (c.lidK || 0)) * Math.min(1, dt * 8); c.lid.rotation.z = -c.lidK * 1.3; }); }
   for (const b of W.benches) W.interacts.push({ x: b.x + Math.sin(b.ry) * 0.6, z: b.z + Math.cos(b.ry) * 0.6, y: b.y, r: 1.1, label: 'Сесть на скамейку', enabled: P => !P.held && !P.holding && b.riders.length < (b.skel ? 1 : 2), act: P => sitBench(P, b) });
   for (const s of W.swingSeats) W.interacts.push({ get x() { return s.pivot.position.x; }, get z() { return s.pivot.position.z; }, y: s.pivot.position.y - 2.46, r: 0.9, label: 'Сесть на качели', enabled: P => !s.rider && !P.held, act: P => sitSwing(P, s) });

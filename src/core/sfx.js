@@ -1,3 +1,4 @@
+import { random } from './random.js';
 /* Ретро-звуки, синтезированные в коде (без файлов): квадрат/треугольник/шум + огибающая.
    Звук включается после первого клика (требование браузера). M — без звука. */
 let ac = null, master = null, noiseBuf = null, amb = null, muted = false;
@@ -14,7 +15,7 @@ export function initAudio() {
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   ac = new AC(); master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(ac.destination);
   for(const k in mix){const gain=ac.createGain();gain.gain.value=mixGain(k);if(k==='effects'){const compressor=ac.createDynamicsCompressor();compressor.threshold.value=-15;compressor.knee.value=12;compressor.ratio.value=2.5;compressor.attack.value=.004;compressor.release.value=.16;gain.connect(compressor);compressor.connect(master);}else gain.connect(master);buses[k]=gain;}
-  noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = random() * 2 - 1;
 }
 export function toggleMute() { muted = !muted; try { localStorage.setItem('friendslop.mute', muted ? '1' : '0'); } catch (_) {} if (master) master.gain.value = muted ? 0 : 0.5; return muted; }
 export function audioBus(channel){return ac&&master?{ac,master:buses[channel]||master}:null;}
@@ -30,7 +31,7 @@ function noise(dur, vol = 0.2, f = 1200, q = 1, at = 0, type = 'bandpass', f1) {
   if (!ac) return; const t = ac.currentTime + at, s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
   s.buffer = noiseBuf; fl.type = type; fl.frequency.setValueAtTime(f, t); if (f1) fl.frequency.exponentialRampToValueAtTime(f1, t + dur); fl.Q.value = q;
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(fl); fl.connect(g); g.connect(buses[route]||master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+  s.connect(fl); fl.connect(g); g.connect(buses[route]||master); s.start(t, random() * 0.5); s.stop(t + dur + 0.02);
 }
 // v0.56: мультяшный «птичий» крик при залпе рогатки — пила через форманту + вибрато, голос «уи-и-и» / «я-я-я»
 function cry(pts, vol = .12, at = 0, vib = 9, depth = .06, formant = 1400) {
@@ -49,7 +50,7 @@ const CRIES = [
   () => cry([[260, 0], [380, .3], [1200, .7], [1000, 1.0]], .12, 0, 6, .05, 1100),   // «ва-а-а-ау!»
 ];
 const SND = {
-  birdcry: s => { const k = s.k ?? (Math.random() * CRIES.length | 0); CRIES[k % CRIES.length](); noise(.5, .05, 2200, .7, .05, 'bandpass', 600); },
+  birdcry: s => { const k = s.k ?? (random() * CRIES.length | 0); CRIES[k % CRIES.length](); noise(.5, .05, 2200, .7, .05, 'bandpass', 600); },
   // v0.59: ровный металлический скрежет при катании по перилам (короткие перекрывающиеся кусочки)
   grind: s => { noise(.16, .05 * (s.v ?? 1), 3400, 6, 0, 'bandpass'); noise(.16, .025 * (s.v ?? 1), 900, 3, 0, 'bandpass'); },
   clap: s => { noise(.06, .22 * (s.v ?? 1), 2600, .9); noise(.05, .12 * (s.v ?? 1), 1200, 1.5, .01); tone(900, 500, .05, 'square', .03); },
@@ -76,13 +77,13 @@ const SND = {
     else if (m === 'dirt') noise(0.14, 0.16 * v, 300, 0.7, 0, 'lowpass');
     else if (m === 'grass') noise(0.12, 0.12 * v, 900, 0.6, 0, 'bandpass', 400);
     else if (m === 'water') { noise(0.3, 0.16 * v, 1600, 0.8, 0, 'lowpass', 300); tone(500, 900, 0.08, 'sine', 0.05 * v, 0.03); }
-    else if (m === 'glass') { for (let i = 0; i < 3; i++) tone(2600 + Math.random() * 1800, 2000, 0.09, 'triangle', 0.04 * v, i * 0.02); }
+    else if (m === 'glass') { for (let i = 0; i < 3; i++) tone(2600 + random() * 1800, 2000, 0.09, 'triangle', 0.04 * v, i * 0.02); }
     else if (m === 'cloth') noise(0.12, 0.1 * v, 600, 0.5, 0, 'lowpass');
     else { noise(0.08, 0.2 * v, 450, 1.2); tone(110, 60, 0.08, 'square', 0.07 * v); } },
   crow: () => { for (let i = 0; i < 2; i++) { noise(0.16, 0.08, 1300, 3, i * 0.22); tone(520, 380, 0.15, 'sawtooth', 0.05, i * 0.22); } },
   purr: s => { const k=Math.max(0,Math.min(1,s.p||0)),v=s.v??1;for(let i=0;i<8;i++){const at=i*(0.09-k*0.025);noise(0.065,0.07*v,140+k*35,1.5,at,'lowpass');tone(68,60,0.06,'triangle',0.018*v,at);} },
   curse: () => { [330, 280, 360, 250].forEach((f, i) => tone(f, f * 0.8, 0.07, 'square', 0.06, i * 0.07)); },
-  confetti: () => { noise(0.08, 0.2, 3000, 1); for (let i = 0; i < 5; i++) tone(1500 + Math.random() * 1500, 1200, 0.05, 'square', 0.03, 0.05 + i * 0.03); },
+  confetti: () => { noise(0.08, 0.2, 3000, 1); for (let i = 0; i < 5; i++) tone(1500 + random() * 1500, 1200, 0.05, 'square', 0.03, 0.05 + i * 0.03); },
   fizz: () => noise(0.7, 0.14, 4000, 0.6, 0, 'highpass', 1500),
   feather: () => noise(0.25, 0.08, 2500, 0.5, 0, 'bandpass', 900),
   deadline: s => tone(700 + (s.urgency || 0) * 600, 660, 0.09, 'square', 0.12),
@@ -92,7 +93,7 @@ const SND = {
   dive: () => { noise(0.18, 0.1, 2000, 0.8, 0, 'bandpass', 600); tone(300, 160, 0.15, 'triangle', 0.08); },
   throw: () => noise(0.16, 0.1, 2500, 1, 0, 'bandpass', 900),
   hit:s=>{const v=s.v??1;noise(.075,.13*v,700,1.2);tone(190,65,.12,'triangle',.10*v);tone(820,460,.035,'square',.025*v);},
-  glass: () => { for (let i = 0; i < 6; i++) tone(2400 + Math.random() * 2400, 1800, 0.12, 'triangle', 0.05, i * 0.02); noise(0.2, 0.12, 5000, 1); },
+  glass: () => { for (let i = 0; i < 6; i++) tone(2400 + random() * 2400, 1800, 0.12, 'triangle', 0.05, i * 0.02); noise(0.2, 0.12, 5000, 1); },
   wood: () => { noise(0.14, 0.2, 700, 2); tone(180, 90, 0.12, 'square', 0.06); },
   splash: () => noise(0.35, 0.16, 1400, 0.8, 0, 'lowpass', 300),
   points: () => { tone(660, 660, 0.07, 'square', 0.08); tone(990, 990, 0.1, 'square', 0.08, 0.07); },
@@ -107,7 +108,7 @@ const SND = {
   alarm: () => { for (let i = 0; i < 6; i++) tone(i % 2 ? 900 : 650, i % 2 ? 900 : 650, 0.2, 'square', 0.05, i * 0.22); },
   hydrant: () => noise(1.2, 0.12, 1800, 0.6, 0, 'bandpass', 900),
   bell: () => { tone(523, 520, 1.6, 'triangle', 0.14); tone(1046, 1040, 1.2, 'sine', 0.06); tone(1567, 1560, 0.8, 'sine', 0.04); },
-  boom: () => { noise(0.6, 0.3, 300, 0.7, 0, 'lowpass', 60); for (let i = 0; i < 6; i++) tone(1200 + Math.random() * 1600, 400, 0.15, 'triangle', 0.04, 0.1 + i * 0.05); },
+  boom: () => { noise(0.6, 0.3, 300, 0.7, 0, 'lowpass', 60); for (let i = 0; i < 6; i++) tone(1200 + random() * 1600, 400, 0.15, 'triangle', 0.04, 0.1 + i * 0.05); },
   can: () => { tone(1400, 900, 0.05, 'square', 0.06); noise(0.15, 0.08, 3000, 3, 0.05); },
   water: () => noise(0.12, 0.08, 2600, 1.5, 0, 'bandpass', 1400),
   candy: () => tone(700, 1400, 0.06, 'square', 0.06),
@@ -129,7 +130,7 @@ const SND = {
   frog_throw: s => frog([[200, 0.12], [235, 0.14, 0.15]], s.v),
   frog_dive: s => frog([[270, 0.18, 0, 0.7]], s.v),
   frog_happy: s => frog([[190, 0.12, 0, 1.05], [235, 0.12, 0.15, 1.05], [290, 0.2, 0.3, 1.1]], s.v),
-  frog_idle: s => frog(Math.random() < 0.5 ? [[165, 0.24], [150, 0.28, 0.32]] : [[180, 0.3]], s.v),
+  frog_idle: s => frog(random() < 0.5 ? [[165, 0.24], [150, 0.28, 0.32]] : [[180, 0.3]], s.v),
   fish: () => tone(500, 300, 0.1, 'triangle', 0.06),
   // инструменты
   swat: s => { noise(0.08, 0.2 * (s.v ?? 1), 2500, 1.2); tone(300, 120, 0.06, 'square', 0.06); },
@@ -177,7 +178,7 @@ const SND = {
   roll: s => noise(0.3, 0.12 * (s.v ?? 1), 200, 0.6, 0, 'lowpass', 120),
   thunder: () => { noise(1.8, 0.25, 160, 0.4, 0, 'lowpass', 50); noise(0.3, 0.15, 600, 0.5, 0.05); },
   gull: s => { tone(1400, 900, 0.18, 'triangle', 0.05 * (s.v ?? 1)); tone(1300, 900, 0.16, 'triangle', 0.04 * (s.v ?? 1), 0.2); },
-  fart: s => { const v = s.v ?? 1; for (let i = 0; i < 9; i++) tone(95 + Math.random() * 30, 70, 0.06, 'sawtooth', 0.09 * v, i * 0.045); noise(0.4, 0.05 * v, 200, 1); },
+  fart: s => { const v = s.v ?? 1; for (let i = 0; i < 9; i++) tone(95 + random() * 30, 70, 0.06, 'sawtooth', 0.09 * v, i * 0.045); noise(0.4, 0.05 * v, 200, 1); },
   open: s => { tone(260, 180, 0.12, 'square', 0.05 * (s.v ?? 1)); noise(0.1, 0.06 * (s.v ?? 1), 1200, 1); },
 };
 // кваканье: низкая пила с «дрожанием» (быстрое повторение импульсов) + немного шума
@@ -186,7 +187,7 @@ const SND = {
    parts: [высота Гц, длительность, задержка, падение высоты] */
 function frog(parts, v = 1) {
   if (!ac) return;
-  const jit = 0.94 + Math.random() * 0.12;
+  const jit = 0.94 + random() * 0.12;
   for (const [f, d, at = 0, fall = 0.8] of parts) {
     const t = ac.currentTime + at, f0 = f * jit;
     noise(0.03, 0.18 * v, 2200, 1.2, at);

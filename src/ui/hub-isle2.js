@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, V3, col, tmat, lam, glow, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -157,7 +158,7 @@ export function buildIsle2(b, group) {
         const lost = it.state === 'gone' || it.pos.y < -10, idle = it.state === 'rest' && Math.hypot(it.pos.x - h.x, it.pos.z - h.z) > 1;
         a.away = lost ? a.away + dt * 10 : idle ? a.away + dt : 0; if (a.away > 5) { a.away = 0; respawnItem(it); sfx('spring', { at: it.pos, v: .5 }); } }
       // бочки упали с арены — возвращаются
-      for (const br of barrels) if (br && br.y < -14) { br.x = A.x + (Math.random() - .5); br.z = A.z; br.y = 3; br.vx = br.vz = 0; br.vy = 0; }
+      for (const br of barrels) if (br && br.y < -14) { br.x = A.x + (random() - .5); br.z = A.z; br.y = 3; br.vx = br.vz = 0; br.vy = 0; }
       // фист и табло — раз в секунду
       slow -= dt; if (slow <= 0) { slow = 1; if (fist && fist.gone) { try { localStorage.setItem(FIST_KEY, String(Date.now())); } catch { } fist = null; } placeFist();
         const f = fist && !fist.gone ? -1 : Math.ceil(fistReadyIn() / 60000); if (f !== boardFist) { boardFist = f; drawBoard(); } }

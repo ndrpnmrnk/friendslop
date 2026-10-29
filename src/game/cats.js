@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {animalGoal,animalMove} from './animal-roam.js';
 import { hitNPC,tickNPCHit } from './impacts.js';
 import { THREE, G, V3, mesh, tmat, lam, frontBack, sprite } from '../core/gfx.js';
@@ -46,7 +47,7 @@ export function buildCat(coat) {
   root.scale.setScalar(1.25);
   let cur = 'open';
   const cat = {
-    type: 'cat', root, body, head, ears, legs, tail, tail2, stars, mode: 'walk', state: 'idle', timer: Math.random() * 2, ph: 0, ph0: Math.random() * 6,
+    type: 'cat', root, body, head, ears, legs, tail, tail2, stars, mode: 'walk', state: 'idle', timer: random() * 2, ph: 0, ph0: random() * 6,
     flee: 0, dizzy: 0, fx: 0, fz: 0, busy: false,
     face(s) { if (s !== cur) { hm.material[0] = faces[s]; cur = s; } },
     pos() { return root.position; },
@@ -60,19 +61,19 @@ export function buildCat(coat) {
 
 function freeSpot(h) {
   for (let i = 0; i < 40; i++) {
-    const pad=h.y<.5?5:0,x=h.x0-pad+Math.random()*(h.x1-h.x0+pad*2),z=h.z0-pad+Math.random()*(h.z1-h.z0+pad*2);
+    const pad=h.y<.5?5:0,x=h.x0-pad+random()*(h.x1-h.x0+pad*2),z=h.z0-pad+random()*(h.z1-h.z0+pad*2);
     if(Math.abs(groundAt(x,z,.2,h.y+.25)-h.y)>.3||W.cats.some(c=>Math.hypot(c.root.position.x-x,c.root.position.z-z)<1.2)||(W.dogs||[]).some(d=>Math.hypot(d.pos.x-x,d.pos.z-z)<1.5))continue;
     if (!solidsNear(x - 0.5, z - 0.5, x + 0.5, z + 0.5).some(s => s.on && s.y1 > h.y + 0.05 && s.y0 < h.y + 0.6 && x > s.x0 - 0.5 && x < s.x1 + 0.5 && z > s.z0 - 0.5 && z < s.z1 + 0.5)) return { x, z };
   }
   return { x: (h.x0 + h.x1) / 2, z: (h.z0 + h.z1) / 2 };
 }
 export function spawnCat(home) {
-  const c = buildCat(COATS[(Math.random() * COATS.length) | 0]); c.home = home;
-  const p = freeSpot(home); c.root.position.set(p.x, home.y, p.z); c.root.rotation.y = Math.random() * 6.28;
+  const c = buildCat(COATS[(random() * COATS.length) | 0]); c.home = home;
+  const p = freeSpot(home); c.root.position.set(p.x, home.y, p.z); c.root.rotation.y = random() * 6.28;
   W.group.add(c.root); W.cats.push(c);
   // кто-то спит на тёплом капоте или крыше машины рядом с двором
-  if (Math.random() < 0.4) { const cx = (home.x0 + home.x1) / 2, cz = (home.z0 + home.z1) / 2, car = W.cars.filter(q => Math.hypot(q.x - cx, q.z - cz) < 22 && Math.abs(q.y - home.y) < 0.5).sort(() => Math.random() - 0.5)[0];
-    if (car) { const roof = Math.random() < 0.5, lx = roof ? -0.2 : 1.35, y = car.y + (roof ? 1.47 : 0.96); c.sleep = { x: car.x + lx * Math.cos(car.ry), y, z: car.z - lx * Math.sin(car.ry), car }; c.root.position.set(c.sleep.x, y, c.sleep.z); c.root.rotation.y = car.ry + Math.PI / 2 + (Math.random() - 0.5); } }
+  if (random() < 0.4) { const cx = (home.x0 + home.x1) / 2, cz = (home.z0 + home.z1) / 2, car = W.cars.filter(q => Math.hypot(q.x - cx, q.z - cz) < 22 && Math.abs(q.y - home.y) < 0.5).sort(() => random() - 0.5)[0];
+    if (car) { const roof = random() < 0.5, lx = roof ? -0.2 : 1.35, y = car.y + (roof ? 1.47 : 0.96); c.sleep = { x: car.x + lx * Math.cos(car.ry), y, z: car.z - lx * Math.sin(car.ry), car }; c.root.position.set(c.sleep.x, y, c.sleep.z); c.root.rotation.y = car.ry + Math.PI / 2 + (random() - 0.5); } }
   return c;
 }
 
@@ -88,8 +89,8 @@ export function updateCat(c, dt, t, player) {
   if (c.mode === 'walk' && c.sleep) {
     // спит: свернулся клубком, глаза закрыты, «Zz»; будят бегущие рядом, сигнализация, удары
     const sl = c.sleep; p.set(sl.x, sl.y, sl.z); c.face('closed'); c.body.scale.y = 0.13; c.head.position.y = 0.4; c.head.rotation.x = 0.35; c.legs.forEach(l => (l.visible = false)); c.root.position.y = sl.y - 0.12;
-    c.tail.rotation.x = 1.4; c.tail.rotation.y = 1.2; c.tail2.rotation.x = 0.2; if (Math.random() < dt * 0.8) puff(p.x, p.y + 0.6, p.z, { color: 0xf1e8ff, size: 0.08, grow: 0.2, vy: 0.4, life: 1.2 });
-    if (c.purrT > 0) { c.purrT -= dt; if (Math.random() < dt * 4) puff(p.x, p.y + 0.7, p.z, { color: 0xff7aa8, size: 0.09, grow: 0, vy: 0.6, life: 0.8 }); }
+    c.tail.rotation.x = 1.4; c.tail.rotation.y = 1.2; c.tail2.rotation.x = 0.2; if (random() < dt * 0.8) puff(p.x, p.y + 0.6, p.z, { color: 0xf1e8ff, size: 0.08, grow: 0.2, vy: 0.4, life: 1.2 });
+    if (c.purrT > 0) { c.purrT -= dt; if (random() < dt * 4) puff(p.x, p.y + 0.7, p.z, { color: 0xff7aa8, size: 0.09, grow: 0, vy: 0.6, life: 0.8 }); }
     const near = [player, ...(W.bots || [])].some(a => a && Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < 3 && Math.hypot(a.vel.x, a.vel.z) > 6);
     if (near || (sl.car && sl.car.alarm > 0) || c.flee > 0 || c.dizzy > 0) { wake(c); }
     return;
@@ -106,7 +107,7 @@ export function updateCat(c, dt, t, player) {
       // уточка пищит или шуршит пакет в руках у бегущего — кот идёт посмотреть
       let lure = c.lure && c.lure.t > 0 ? c.lure : null; if (c.lure) c.lure.t -= dt;
       if (!lure) for (const a of [player, ...(W.bots || [])]) if (a && a.held && (a.held.type === 'trash' || a.held.type === 'litter') && Math.hypot(a.vel.x, a.vel.z) > 1 && Math.hypot(a.pos.x - p.x, a.pos.z - p.z) < 9) { lure = { x: a.pos.x, z: a.pos.z }; break; }
-      if (c.purrT > 0) { c.purrT -= dt; c.face('closed'); c.state = 'idle'; c.timer = Math.max(c.timer, 0.5); c.tail.rotation.x = 0; if (Math.random() < dt * 4) puff(p.x, p.y + 0.8, p.z, { color: 0xff7aa8, size: 0.09, grow: 0, vy: 0.6, life: 0.8 }); }
+      if (c.purrT > 0) { c.purrT -= dt; c.face('closed'); c.state = 'idle'; c.timer = Math.max(c.timer, 0.5); c.tail.rotation.x = 0; if (random() < dt * 4) puff(p.x, p.y + 0.8, p.z, { color: 0xff7aa8, size: 0.09, grow: 0, vy: 0.6, life: 0.8 }); }
       else if (c.flee > 0) { c.flee -= dt; c.timer=Math.max(c.timer,1); c.target = { x: p.x + c.fx * 3, z: p.z + c.fz * 3 }; c.state = 'walk'; speed = 4.5; c.face('angry'); }
       else if (lure && Math.hypot(lure.x - p.x, lure.z - p.z) > 0.9) { c.target = { x: lure.x, z: lure.z }; c.state = 'walk'; c.timer = 2; c.lured = true; speed = 3; c.face('open'); }
       else { c.lured = false; c.face('open'); }
@@ -115,7 +116,7 @@ export function updateCat(c, dt, t, player) {
       if (c.state === 'idle') { if (c.timer <= 0) { c.target = animalGoal(c); c.state = 'walk'; c.timer = 26; c.idleAct=null; } }
       else {
         const dx = c.target.x - p.x, dz = c.target.z - p.z, d = Math.hypot(dx, dz);
-        if (d < 0.3 || c.timer <= 0) { c.state = 'idle'; c.timer = 1.5 + Math.random() * 3; c.idleAct=['sniff','groom','sit','stretch'][Math.random()*4|0]; c.idleAge=0; }
+        if (d < 0.3 || c.timer <= 0) { c.state = 'idle'; c.timer = 1.5 + random() * 3; c.idleAct=['sniff','groom','sit','stretch'][random()*4|0]; c.idleAge=0; }
         else {
           const result=animalMove(c,c.target,speed,dt);
           if(result.blocked){c.timer=0;c.target=animalGoal(c,12);}walking=result.moved>.002;

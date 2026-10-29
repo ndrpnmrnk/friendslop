@@ -1,3 +1,4 @@
+import { random as gameRandom } from '../core/random.js';
 import {THREE,G,V3,mesh,col,tmat,compose} from '../core/gfx.js';
 import {T} from '../core/textures.js';
 import {W} from '../world/state.js';
@@ -8,7 +9,7 @@ import {addOutline,OUTLINE} from '../game/outline.js';
 import {makeCharacter} from '../characters/rig.js';
 import {OUTFIT_SLOTS,OUTFIT_NAMES,OUTFIT_THEMES,outfitPiece,wearOutfit,applyOutfit} from '../characters/outfits.js';
 import {photoCard} from './photo-card.js';
-const shuffled=a=>{const q=a.slice();for(let i=q.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[q[i],q[j]]=[q[j],q[i]];}return q;};
+const shuffled=a=>{const q=a.slice();for(let i=q.length-1;i>0;i--){const j=gameRandom()*(i+1)|0;[q[i],q[j]]=[q[j],q[i]];}return q;};
 function hanging(slot,v){const root=new THREE.Group();
  if(slot==='shoes'){for(const x of[-.115,.115]){const q=outfitPiece(slot,v);q.position.set(x,0,0);q.scale.setScalar(.78);root.add(q);}}
  else{const piece=outfitPiece(slot,v);root.add(piece);if(slot==='hat')piece.scale.set(.48,.65,.48);else if(slot==='top'){piece.position.y=-.85;piece.scale.set(.41,.73,.32);}else{piece.position.y=-.88;piece.scale.set(.43,.74,.32);}}
@@ -22,7 +23,7 @@ export function buildOutfit(x,y,z,f){
   for(const[v,i]of shuffled([0,1,2,3]).entries()){
    const variant=i,sx=-.72+v*.48,pivot=new THREE.Group();pivot.position.set(sx,slot==='hat'?1.273:slot==='shoes'?.433:1.70,0);pivot.rotation.y=face<0?Math.PI:0;rack.add(pivot);
    if(slot==='top'||slot==='bottom')pivot.add(compose('outfit45-hanger-'+slot,a=>{a(G.torus,metal,0,.025,0,.032,.032,.006,0,0,.3);a(G.cyl6,metal,-.065,-.06,0,.010,.15,.010,0,0,-1.0);a(G.cyl6,metal,.065,-.06,0,.010,.15,.010,0,0,1.0);a(G.cyl6,metal,0,-.10,0,.010,.26,.010,0,0,Math.PI/2);if(slot==='bottom')for(const x of[-.09,.09])a(G.box,metal,x,-.13,0,.035,.055,.025);}));
-   const model=hanging(slot,variant);pivot.add(model);const outline=addOutline(model,.014,OUTLINE.use);garments.push({slot,variant,pivot,model,outline,taken:false,angle:0,velocity:0,side:0,sv:0,phase:Math.random()*6.28,point:()=>g.localToWorld(new V3(rx+sx,0,rz-face*.00)),front:()=>g.localToWorld(new V3(rx+sx,0,rz+face*.72))});
+   const model=hanging(slot,variant);pivot.add(model);const outline=addOutline(model,.014,OUTLINE.use);garments.push({slot,variant,pivot,model,outline,taken:false,angle:0,velocity:0,side:0,sv:0,phase:gameRandom()*6.28,point:()=>g.localToWorld(new V3(rx+sx,0,rz-face*.00)),front:()=>g.localToWorld(new V3(rx+sx,0,rz+face*.72))});
   }
   g.updateMatrixWorld(true);const p=g.localToWorld(new V3(rx,0,rz)),wide=Math.abs(f[0])>.5,w=wide?.46:2.04,d=wide?2.04:.46;solids.push(addSolid(p.x-w/2,p.z-d/2,p.x+w/2,p.z+d/2,y,y+1.82));
  }
@@ -34,7 +35,7 @@ export function buildOutfit(x,y,z,f){
  };W.animated.push(animate);
  return{g,garments,solids,reach:2.2,pos:()=>g.position,front:()=>g.localToWorld(new V3(0,0,2.7)),dispose(){if(disposed)return;disposed=true;solids.forEach(s=>s.on=false);W.animated=W.animated.filter(a=>a!==animate);garments.forEach(q=>q.outline.set(false));g.removeFromParent();}};
 }
-export function outfitRecipe(previous={},random=Math.random){
+export function outfitRecipe(previous={},random=gameRandom){
  const themed=random()<.4,theme=random()*4|0,values={};for(const slot of OUTFIT_SLOTS)values[slot]=themed?theme:random()*4|0;
  let changed=OUTFIT_SLOTS.filter(s=>values[s]!==previous[s]).length;
  for(const slot of OUTFIT_SLOTS)if(changed<2&&values[slot]===previous[slot]){values[slot]=(values[slot]+1+(random()*3|0))%4;changed++;}

@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {V3} from '../core/gfx.js';
 import {W} from '../world/state.js';
 import {actors} from './actors.js';
@@ -12,5 +13,5 @@ export function mayorLife(m,route){let wait=2,index=0,react=0,probe=0;return dt=
  if(m.returnHome){walkNPC(m,m.home,1.1,dt);m.model.animate(m.t,.6);if(flat(m.pos,m.home)<.4)m.returnHome=false;return;}
  if(wait>0){wait-=dt;m.model.animate(m.t,0,index%2?'read':'idle');return;}
  const goal=m.lard?m.home:route[index%route.length];for(const d of W.doors)if(!d.open&&Math.hypot(d.x-m.pos.x,d.z-m.pos.z)<2.2&&Math.abs(d.y-m.pos.y)<1.2){d.open=true;sfx('door',{at:d,range:9,v:.4});}
- walkNPC(m,goal,m.lard?.55:1.0,dt);m.model.animate(m.t,Math.min(.8,Math.hypot(m.vel.x,m.vel.z)*.7));if(flat(m.pos,goal)<.45){index++;wait=3+Math.random()*4;m.nav=null;}
+ walkNPC(m,goal,m.lard?.55:1.0,dt);m.model.animate(m.t,Math.min(.8,Math.hypot(m.vel.x,m.vel.z)*.7));if(flat(m.pos,goal)<.45){index++;wait=3+random()*4;m.nav=null;}
  };}

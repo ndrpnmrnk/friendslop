@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {sparks,impactBurst} from '../game/vfx.js';
 import {sfx} from '../core/sfx.js';
 import {THREE} from '../core/gfx.js';
@@ -20,10 +21,10 @@ function spriteAtlas(){return pix('action-fx48',256,32,c=>{c.fillStyle='#fff';
  c.restore();}
  });}
 function state(){let s=states.get(W.group);if(!s){s={batch:new ParticleBatch(W.group,'action',224,spriteAtlas()),time:0,trail:0,last:new THREE.Vector3(),ready:false};states.set(W.group,s);}return s;}
-function add(s,p,color,tile,life,size,vx=0,vy=0,vz=0,stretch=1){s.batch.spawn({x:p.x,y:p.y,z:p.z,color,tile,life,size,scale:size,alpha:1,vx,vy,vz,g:tile===5?4:1.5,rz:Math.random()*Math.PI*2,spin:(Math.random()-.5)*7,stretch});}
+function add(s,p,color,tile,life,size,vx=0,vy=0,vz=0,stretch=1){s.batch.spawn({x:p.x,y:p.y,z:p.z,color,tile,life,size,scale:size,alpha:1,vx,vy,vz,g:tile===5?4:1.5,rz:random()*Math.PI*2,spin:(random()-.5)*7,stretch});}
 export function actionEffect(kind,p,power=1,color=null){if(!W.group||!p)return;const listener=W.player?.pos;if(listener&&Math.hypot(p.x-listener.x,p.z-listener.z)>34)return;const s=state(),success=kind==='success'||kind==='pickup',c=color??(success?0xc7ef94:kind==='glass'?0xb5e6ff:0xffdb9a),k=Math.min(1.7,Math.max(.25,power));
  add(s,p,c,success?4:0,.24,.52*k);add(s,p,c,1,.38,.4*k);if(kind==='hit'||kind==='metal')add(s,p,0xfff0c6,2,.22,.75*k);
- const count=Math.round((success?12:8)*k*graphics.current.particles);for(let i=0;i<count;i++){const a=i/count*Math.PI*2,sp=(1.4+Math.random()*2.8)*k;add(s,p,i%3?c:0xffffff,success?5:kind==='glass'?6:7,.28+Math.random()*.35,(success?.07:.035)+Math.random()*.065,Math.cos(a)*sp,(success?2:1.2)+Math.random()*2,Math.sin(a)*sp,success?1:2.2);}
+ const count=Math.round((success?12:8)*k*graphics.current.particles);for(let i=0;i<count;i++){const a=i/count*Math.PI*2,sp=(1.4+random()*2.8)*k;add(s,p,i%3?c:0xffffff,success?5:kind==='glass'?6:7,.28+random()*.35,(success?.07:.035)+random()*.065,Math.cos(a)*sp,(success?2:1.2)+random()*2,Math.sin(a)*sp,success?1:2.2);}
  if(success||kind==='land')ripple(p.x,p.y-.15,p.z,.45*k,.4,c);
  // v0.51: материалы отвечают по-своему — металл искрит, стекло и дерево сыплют осколками/щепками
  if(kind==='metal')sparks(p,Math.round(12*k));else if(kind==='glass')impactBurst(p,0xcfefff,k,[0xcfefff,0x9fd0ef,0xffffff]);else if(kind==='wood')impactBurst(p,0xffd8a0,k,[0x8a5a34,0xb07a48,0x5e3b22]);else if(kind==='hit')impactBurst(p,c,k*.9);

@@ -1,3 +1,5 @@
+import { random } from './random.js';
+import { withRandom, hashSeed } from './random.js';
 import {W} from '../world/state.js';
 import { THREE, renderer } from './gfx.js';
 import {trackTexture} from './quality.js';
@@ -29,15 +31,15 @@ function finish(c, alpha) {
 const cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 export function pix(key, w, h, draw) {
   if (C.has(key)) return C.get(key);
-  const c = cv(w, h), g = c.getContext('2d'); g.imageSmoothingEnabled = false; draw(g, w, h);
-  const t = finish(c); C.set(key, t); return t;
+  const c = cv(w, h), g = c.getContext('2d'); g.imageSmoothingEnabled = false; withRandom(hashSeed(key), () => draw(g, w, h));
+  const t = finish(c); t.userData.netStatic=true; C.set(key, t); return t;
 }
 export function photo(key, w, h, draw, s = 6) {
   if (key && C.has(key)) return C.get(key);
-  const hi = cv(w * s, h * s), g = hi.getContext('2d'); draw(g, w * s, h * s);
+  const hi = cv(w * s, h * s), g = hi.getContext('2d'); withRandom(hashSeed(key || 'transient-texture'), () => draw(g, w * s, h * s));
   const lo = cv(w, h), l = lo.getContext('2d'); l.imageSmoothingEnabled = true; l.imageSmoothingQuality = 'high';
   l.drawImage(hi, 0, 0, w, h);
-  const t = finish(lo);if(key)C.set(key,t);else{t.userData.transient=true;t.mapResources=W.mapResources;W.mapResources?.add(t);}return t;
+  const t = finish(lo);t.userData.netStatic=true;if(key)C.set(key,t);else{t.userData.transient=true;t.mapResources=W.mapResources;W.mapResources?.add(t);}return t;
 }
 export function rep(t, rx, ry) {
   const k = t.uuid + rx + 'x' + ry; if (C.has(k)) return C.get(k);
@@ -45,7 +47,7 @@ export function rep(t, rx, ry) {
 }
 
 /* ---------- рисовалки ---------- */
-const R = Math.random;
+const R = random;
 function fill(g, W, H, c) { g.fillStyle = c; g.fillRect(0, 0, W, H); }
 function blobs(g, W, H, cols, n, r0, r1, a = 0.35) {
   g.globalAlpha = a;
@@ -384,7 +386,7 @@ export const T = {
   // кусок коричневой ткани с рваным краем и строчкой (альфа — рваный низ)
   boot: () => photo('boot', 24, 24, (g, W, H) => { fill(g, W, H, '#5a3a24'); blobs(g, W, H, ['#4a2e1a', '#6a4a2e', '#3a2414'], 60, 1, 3, 0.7); g.fillStyle = '#2a1a10'; g.fillRect(0, H * 0.82, W, H * 0.18); grain(g, W, H, 14); }),
   rag: () => photo('rag', 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H); g.fillStyle = '#6a4428'; g.beginPath(); g.moveTo(0, 0); g.lineTo(W, 0);
-    for (let x = W; x >= 0; x -= W / 8) g.lineTo(x, H * (0.78 + Math.random() * 0.2)); g.closePath(); g.fill();
+    for (let x = W; x >= 0; x -= W / 8) g.lineTo(x, H * (0.78 + random() * 0.2)); g.closePath(); g.fill();
     g.globalCompositeOperation = 'source-atop'; blobs(g, W, H, ['#5a3820', '#7a5232', '#4a2e18'], 80, 1, 4, 0.7); strokes(g, W, H, ['#4a2e18', '#8a6238'], 50, 10, 1.57, 0.2, 1, 0.5);
     g.fillStyle = '#c8a070'; for (let x = 2; x < W; x += 4) g.fillRect(x, H * 0.08, 2, 1); g.globalCompositeOperation = 'source-over'; }),
   frogShirt: () => photo('frogShirt', 32, 32, (g, W, H) => { fill(g, W, H, '#9a8f5e'); blobs(g, W, H, ['#8a7f50', '#aaa06c', '#7a7046'], 120, 1, 4, 0.55);
@@ -593,7 +595,7 @@ export const T = {
   }),
   // меловая доска-штендер: тёмная доска с рамкой, слова в столбик, мелом
   chalk: text => pix('chalk' + text, 32, 48, (g, W, H) => {
-    g.fillStyle = '#1e2a24'; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(241,232,255,.12)'; for (let i = 0; i < 40; i++) g.fillRect((Math.random() * W) | 0, (Math.random() * H) | 0, 2, 1);
+    g.fillStyle = '#1e2a24'; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(241,232,255,.12)'; for (let i = 0; i < 40; i++) g.fillRect((random() * W) | 0, (random() * H) | 0, 2, 1);
     const words = text.split(' '); g.fillStyle = '#f1e8ff'; g.font = 'bold 8px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
     words.forEach((w, i) => g.fillText(w, W / 2, H / 2 + (i - (words.length - 1) / 2) * 11, W - 4));
     g.fillStyle = '#f5c542'; g.fillRect(6, H - 8, W - 12, 1); g.fillStyle = '#ff7aa8'; g.fillRect(9, 5, W - 18, 1);
@@ -685,9 +687,9 @@ export const T = {
    0 — клён (красно-оранжевый), 1 — дуб (охра и бронза), 2 — берёза/тополь (жёлтый). Низ кучки темнее. */
 T.leafCard = (kind = 0) => pix('leafCard' + kind, 64, 64, (g, W, H) => {
   const P = [['#7a1f14', '#b8321c', '#e0552a', '#f08a2c', '#ffb24a'], ['#4a3014', '#7a4a1a', '#a8682a', '#c88a3a', '#8a7a2a'], ['#6a5a14', '#a88a1c', '#d8b02a', '#f0d04a', '#c8a830']][kind % 3];
-  const rnd = (a, b) => a + Math.random() * (b - a);
+  const rnd = (a, b) => a + random() * (b - a);
   for (let i = 0; i < 320; i++) {
-    const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * W * 0.47, x = W / 2 + Math.cos(a) * r, y = H / 2 + Math.sin(a) * r * 0.86;
+    const a = random() * 6.283, r = Math.sqrt(random()) * W * 0.47, x = W / 2 + Math.cos(a) * r, y = H / 2 + Math.sin(a) * r * 0.86;
     const shadeK = Math.min(4, Math.max(0, Math.floor((1 - y / H) * 4.2 + rnd(-0.8, 0.8)))); // верх светлее
     g.fillStyle = P[shadeK]; g.save(); g.translate(x, y); g.rotate(rnd(0, 6.28));
     const l = rnd(2.2, 4.2); g.beginPath(); g.ellipse(0, 0, l, l * 0.55, 0, 0, 7); g.fill();

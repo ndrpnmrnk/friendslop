@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {THREE,G,V3,makeCamera} from '../core/gfx.js';
 import {rewardTheme} from './reward-themes.js';
 import {doll} from './claw-toys.js';
@@ -39,7 +40,7 @@ export function clawReveal(root,ui){
   preview.g.scale.setScalar(3.5*(.68+.32*k));preview.g.rotation.set(0,-.24+(1-k)*1.8+Math.sin(age*.65)*.13,0);preview.g.position.set(0,.82+Math.sin(age*2)*.018,0);
   // свой танец у каждого: прыжки, глитч, «плавание», лягушачьи скачки, топот, левитация, кружение, покачивание
   const a2=Math.max(0,age-.8),hop=Math.abs(Math.sin(a2*5));
-  if(style===0)preview.g.position.y+=hop*.12;else if(style===1){if(Math.sin(a2*23)>.92)preview.g.position.x=(Math.random()-.5)*.08;}else if(style===2){preview.g.rotation.z=Math.sin(a2*2.4)*.18;preview.g.position.x=Math.sin(a2*1.2)*.12;}
+  if(style===0)preview.g.position.y+=hop*.12;else if(style===1){if(Math.sin(a2*23)>.92)preview.g.position.x=(random()-.5)*.08;}else if(style===2){preview.g.rotation.z=Math.sin(a2*2.4)*.18;preview.g.position.x=Math.sin(a2*1.2)*.12;}
   else if(style===3)preview.g.position.y+=Math.max(0,Math.sin(a2*3.2))*.32;else if(style===4){preview.g.scale.y*=1-.08*hop;preview.g.position.y+=(1-hop)*.04;}else if(style===5)preview.g.position.y+=.12+Math.sin(a2*1.6)*.08;
   else if(style===6)preview.g.rotation.y+=a2*2.2;else preview.g.rotation.z=Math.sin(a2*3)*.12;
   preview.c.animate(dt,{t:age,speed:0,wave:age>.6&&age<2.8||style===7&&Math.sin(age*2)>0});

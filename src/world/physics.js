@@ -6,7 +6,7 @@ import { clamp } from '../core/rng.js';
    Всё, у чего верх ниже «шага», можно перешагнуть; на всё остальное — запрыгнуть или залезть. */
 export function addSolid(x0, z0, x1, z1, y0, y1, tag) {
   const s = { x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1), y0, y1, on: true, tag, _st: 0 };
-  W.solids.push(s); gridInsert(s); return s;
+  W.solids.push(s); gridInsert(s);if(W.net&&!W.net.applying)W.net.register('s',s); return s;
 }
 /* Сетка 4×4 м: каждая проверка смотрит только на твёрдые объекты рядом, а не на все тысячи сразу */
 const CELL = 4, ck = (i, j) => (i + 512) * 1024 + (j + 512);
@@ -44,7 +44,7 @@ const softHoleAt = (x, z) => { for (const h of W.holes) if (h.soft && x > h.x0 &
    Точку переводим в локальные оси коробки и проверяем как обычный AABB. */
 const _l = { x: 0, z: 0 };
 export function obbLocal(o, x, z) { const c = Math.cos(o.yaw), s = Math.sin(o.yaw), dx = x - o.cx, dz = z - o.cz; _l.x = dx * c - dz * s; _l.z = dx * s + dz * c; return _l; }
-export function addObb(o) { const b = { on: true, yaw: 0, ...o }; (W.obbs || (W.obbs = [])).push(b); return b; }
+export function addObb(o) { const b = { on: true, yaw: 0, ...o }; (W.obbs || (W.obbs = [])).push(b);if(W.net&&!W.net.applying)W.net.register('o',b); return b; }
 export let groundObb = null;
 let _selfP = null;
 export function groundAt(x, z, r, maxY) {
@@ -85,8 +85,8 @@ export function pushOut(p, r, yLow, yHigh) {
 // Персонаж/животное: горизонталь, затем вертикаль с землёй и потолком
 export function moveBody(b, dt, g = 22) {
   const p = b.pos, v = b.vel; _cover = !!(b.ride || b.riding);
-  p.x += v.x * dt; p.z += v.z * dt;
-  pushOut(p, b.r, p.y + b.step, p.y + b.h);
+  const steps=Math.min(64,Math.max(1,Math.ceil(Math.hypot(v.x,v.z)*dt/Math.max(.08,b.r*.45))));
+  for(let i=0;i<steps;i++){p.x+=v.x*dt/steps;p.z+=v.z*dt/steps;pushOut(p,b.r,p.y+b.step,p.y+b.h);}
   const oldY = p.y;
   if (!b.noGrav) v.y -= g * dt;
   // v0.60: в шахте люка спускаешься плавно, как по горке-трубе: скорость падения ограничена, без оглушения внизу
@@ -156,7 +156,7 @@ export function constrainWaterRide(b,previous={x:b.x,z:b.z}){
 }
 export function updatePushables(dt, player) {
   for (const b of W.pushables) {
-    if(b.dead)continue;
+    if(b.dead || W.net && !W.net.canSimulate(b))continue;
     if(b.solid)b.solid.on=false;
     if (b.grabbed) { b.hitSpeed = 0;if(b.solid)b.solid.on=true;syncPushable(b);continue; } // её ведёт игрок
     const op = { x: b.x, z: b.z };

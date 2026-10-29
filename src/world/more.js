@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, col, tmat, lam, glow, mesh, compose, alphaMat } from '../core/gfx.js';
 import { addSolid, addObb } from './physics.js';
 import { addSwinger } from './swingers.js';
@@ -142,12 +143,12 @@ export const MoreMethods = {
       a(G.box, dk, -1.0, 1.52, 0, 1.75, 0.06, 1.65); for (const sz of [-0.95, 0.95]) a(G.box, dk, 0.6, 0.65, sz, 3.0, 0.05, 0.05); a(G.box, dk, -2.6, 0.2, 0, 0.4, 0.6, 0.5); a(G.torus, red, 0.8, 0.75, 0.97, 0.22, 0.22, 0.22); }));
     const deck = addObb({ cx: g.position.x, cz: g.position.z, yaw: ry, lx0: -2.5, lx1: 2.5, lz0: -1.0, lz1: 1.0, y0: g.position.y - 0.4, y1: g.position.y + 0.4 });
     const cab = addObb({ cx: g.position.x, cz: g.position.z, yaw: ry, lx0: -1.8, lx1: -0.2, lz0: -0.78, lz1: 0.78, y0: g.position.y + 0.4, y1: g.position.y + 1.55 });
-    const y0 = g.position.y, ph = Math.random() * 6;
+    const y0 = g.position.y, ph = random() * 6;
     W.animated.push((dt, t) => { const b2 = Math.sin(t * 1.3 + ph) * 0.08; g.position.y = y0 + b2; g.rotation.z = Math.sin(t * 0.9 + ph) * 0.03; deck.y1 = y0 + 0.4 + b2; deck.y0 = y0 - 0.4 + b2; cab.y0 = y0 + 0.4 + b2; cab.y1 = y0 + 1.55 + b2; });
     return g;
   },
   // лодочка на воде (качается)
-  floatBoat(x, z, ry, wy) { const g = this.rowboat(x, z, ry); if (!g) return; g.position.y += wy; W.keep.push(g); const y0 = g.position.y, ph = Math.random() * 6; W.animated.push((dt, t) => { g.position.y = y0 + Math.sin(t * 1.6 + ph) * 0.06; g.rotation.z = Math.sin(t * 1.1 + ph) * 0.06; }); },
+  floatBoat(x, z, ry, wy) { const g = this.rowboat(x, z, ry); if (!g) return; g.position.y += wy; W.keep.push(g); const y0 = g.position.y, ph = random() * 6; W.animated.push((dt, t) => { g.position.y = y0 + Math.sin(t * 1.6 + ph) * 0.06; g.rotation.z = Math.sin(t * 1.1 + ph) * 0.06; }); },
   // портальный кран-погрузчик: две опоры на рельсах, балка сверху, тележка с качающимся контейнером
   gantry(x, z, span, ry = 0) {
     const yl = col(0xe0b02a), dk = col(0x2b2533), H = 8, fx = Math.cos(ry), fz = -Math.sin(ry);
@@ -182,7 +183,7 @@ export const MoreMethods = {
   flickerLamp(x, z, y) {
     const m = lam({ color: 0xd8f0ff, emissive: 0xd8f0ff, emissiveIntensity: 0.9 }); this.m(G.box, m, x, y - 0.06, z, 1.0, 0.05, 0.25);
     const pool = this.light(x, z, 1.8, y - (y % 3.4), true); pool.material = pool.material.clone(); W.keep.push(pool);
-    W.flick.push({ mats: [m], pool, t: Math.random() * 3, on: true, hospital: true });
+    W.flick.push({ mats: [m], pool, t: random() * 3, on: true, hospital: true });
   },
   // рентген-кабинет: аппарат и светящийся негатив со скелетом
   xray(x, z, ry = 0) {

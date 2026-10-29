@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, V3, mesh, col, tmat } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -85,7 +86,7 @@ export const GAMES = {
     const o = board.order; for (let i = 0; i < 9; i++) o[i] = i;
     let sel = -1, moves = 0, done = false, doneT = 0, t = 0, show = 2.2; const tv = new V3();
     api.progress(null); api.msg('Запомни картинку!');
-    const shuffle = () => { do { for (let i = 8; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } } while (o.every((v, i) => v === i)); api.msg('Выбери две плитки - поменяй местами', 'good');  };
+    const shuffle = () => { do { for (let i = 8; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } } while (o.every((v, i) => v === i)); api.msg('Выбери две плитки - поменяй местами', 'good');  };
     return {
       botStep(dt, brain) { if(!brain.ready(0.75)||show>0||done)return;const i=o.findIndex((v,i)=>v!==i);if(i<0)return;const j=o.indexOf(i);this.down(brain.hit(board.tiles[o[i]].mesh));this.down(brain.hit(board.tiles[o[j]].mesh)); },
       down(ray) {
@@ -126,10 +127,10 @@ export const GAMES = {
     }
     function botMove() {
       const empty = b.map((v, i) => v ? -1 : i).filter(i => i >= 0);
-      if (Math.random() < 0.15) return empty[Math.floor(Math.random() * empty.length)];
+      if (random() < 0.15) return empty[Math.floor(random() * empty.length)];
       for (const p of ['O', 'X']) for (const l of LINES) { const vals = l.map(i => b[i]); if (vals.filter(v => v === p).length === 2 && vals.includes('')) return l[vals.indexOf('')]; }
       if (!b[4]) return 4;
-      return empty[Math.floor(Math.random() * empty.length)];
+      return empty[Math.floor(random() * empty.length)];
     }
     function end(mult, text, cls) { const line=LINES.find(l=>b[l[0]]&&l.every(i=>b[i]===b[l[0]]));if(line)line.forEach(i=>{marks[i].visible=true;marks[i].material=col(b[i]==='X'?0x9be36b:0xd86783);});over = true; api.msg(text, cls); res = mult > 0 ? { success: true, mult } : { success: false }; endT = 1.1; }
     return {

@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { THREE, G, tmat, col, glow, lam } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
@@ -39,9 +40,9 @@ export default {
       b.sign(9.2, 2.85, 10.64, 0, 'СЕМЕЙСТВО ТЫКВИНЫХ', '#5a5466', '#17111f', 2.6, .3);
       const pr = b.m(TRI, st, 9.2, 4.12, 10.9, 5.95, .9, .8); pr.rotation.x = -Math.PI / 2;
       b.m(G.cyl12, glow(0x9a6ad8), 9.2, 4.15, 11.42, .28, .02, .28).rotation.x = Math.PI / 2;
-      for (let i = 0; i < 12; i++) b.m(G.box, col(0x3a5a2a), 3.4 + Math.random() * 9.2, .2 + Math.random() * 3, 10.62, .3 + Math.random() * .4, .1, .02); }
+      for (let i = 0; i < 12; i++) b.m(G.box, col(0x3a5a2a), 3.4 + random() * 9.2, .2 + random() * 3, 10.62, .3 + random() * .4, .1, .02); }
     // подвал и тайный ход в тоннель (под северной дорогой)
-    { const ob = tmat(T.oldBrick()), F = -4.15, e = () => .004 + Math.random() * .012;
+    { const ob = tmat(T.oldBrick()), F = -4.15, e = () => .004 + random() * .012;
       const S = (x0, z0, x1, z1, y0, y1, m) => { b.m(G.box, m, (x0 + x1) / 2, (y0 + y1) / 2 - .004, (z0 + z1) / 2, x1 - x0 - e(), y1 - y0 - e(), z1 - z0 - e()); b.solid((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, y0, y1 - y0); };
       for (const [dx, dz, w, d] of [[0, -.65, 1.4, .1], [0, .65, 1.4, .1], [-.65, 0, .1, 1.4], [.65, 0, .1, 1.4]]) b.m(G.box, dk, 5 + dx, .03, 9.8 + dz, w, .05, d);
       const lid = b.m(G.box, tmat(T.wood()), 6.1, .5, 9.8, .1, 1.0, 1.2); lid.rotation.z = .25;
@@ -73,7 +74,7 @@ export default {
 
     /* ---------- могилы и фишка «руки из могил» ---------- */
     const graves = [];
-    for (let z = 16.8; z <= 27; z += 3.2) for (let x = 8.5; x <= 36; x += 3.4) if (Math.abs(x - 22) > 2.6 && Math.random() < .86) { const gx = x + (Math.random() - .5) * .6, gz = z + (Math.random() - .5) * .4; b.graveVaried(gx, gz, (Math.random() - .5) * .25); graves.push({ x: b.X(gx), z: b.Z(gz + .9) }); }
+    for (let z = 16.8; z <= 27; z += 3.2) for (let x = 8.5; x <= 36; x += 3.4) if (Math.abs(x - 22) > 2.6 && random() < .86) { const gx = x + (random() - .5) * .6, gz = z + (random() - .5) * .4; b.graveVaried(gx, gz, (random() - .5) * .25); graves.push({ x: b.X(gx), z: b.Z(gz + .9) }); }
     for (const z of [16, 22.5, 28]) { b.graveLantern(20.3, z); b.graveLantern(23.7, z + 1.5); }
     const handM = col(0x7a9a6a), hands = [0, 1].map(() => { const g = new THREE.Group(); g.add(new THREE.Mesh(G.box, handM)); g.children[0].scale.set(.12, .5, .12); for (let i = 0; i < 3; i++) { const fi = new THREE.Mesh(G.box, handM); fi.scale.set(.03, .16, .03); fi.position.set(-.04 + i * .04, .3, 0); g.add(fi); } g.visible = false; W.group.add(g); W.keep.push(g); return g; });
     const watch = new Map(); let hold = null;
@@ -81,7 +82,7 @@ export default {
         let near = null; for (const q of graves) if (Math.hypot(a.pos.x - q.x, a.pos.z - q.z) < 1.15) { near = q; break; }
         if (!near) { watch.delete(a); continue; } const t = (watch.get(a) || 0) + dt; watch.set(a, t);
         if (t > 1.2 && t - dt <= 1.2) sfx('ghost', { at: a.pos, v: .5 });
-        if (t > 1.2 && Math.random() < dt * 14) puff(a.pos.x + (Math.random() - .5) * .8, b.Y + .05, a.pos.z + (Math.random() - .5) * .8, { color: 0x4a3a2a, size: .12, vy: .8, g: 4, life: .5 });
+        if (t > 1.2 && random() < dt * 14) puff(a.pos.x + (random() - .5) * .8, b.Y + .05, a.pos.z + (random() - .5) * .8, { color: 0x4a3a2a, size: .12, vy: .8, g: 4, life: .5 });
         if (t > 2 && !hold) { hold = { a, t: 2, x: a.pos.x, z: a.pos.z }; watch.set(a, -3); a.knockT = Math.max(a.knockT || 0, 2); sfx('grab', { at: a.pos }); burst(a.pos.x, b.Y + .1, a.pos.z, 12, { color: 0x4a3a2a, size: .14, speed: 2, up: 2 }); } }
       if (hold) { hold.t -= dt; const a = hold.a; a.pos.x = hold.x; a.pos.z = hold.z; a.vel.x = a.vel.z = 0;
         hands.forEach((h, i) => { h.visible = true; const up = Math.min(1, (2 - hold.t) * 5) * Math.min(1, hold.t * 4); h.position.set(hold.x + (i ? .25 : -.25), b.Y - .5 + up * .62, hold.z + .15); h.rotation.z = Math.sin(performance.now() * .02 + i) * .2; });

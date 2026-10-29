@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, V3, col, mesh } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { burst, smokeRing } from '../world/particles.js';
@@ -19,7 +20,7 @@ export function updateZip(a, dt, jump) {
   const k = Math.min(1, q.s / z.len), x = z.a.x + (z.b.x - z.a.x) * k, y = z.a.y + (z.b.y - z.a.y) * k, zz = z.a.z + (z.b.z - z.a.z) * k;
   a.pos.set(x, y - 2.05, zz); a.vel.set(z.dx * q.v, 0, z.dz * q.v); a.airPeak = a.pos.y; a.root.rotation.y = a.facing = Math.atan2(z.dx, z.dz);
   if (pulley) { pulley.visible = true; pulley.position.set(x, y - 0.05, zz); pulley.rotation.y = a.facing; }
-  if (Math.random() < dt * 8) sfx('zip', { at: a.pos, v: 0.4 });
+  if (random() < dt * 8) sfx('zip', { at: a.pos, v: 0.4 });
   // сбить того, кто на пути
   for (const b of actors()) { if (b === a || b.hidden || b.heldBy) continue; if (Math.hypot(b.pos.x - a.pos.x, b.pos.z - a.pos.z) < 0.95 && Math.abs(b.pos.y - a.pos.y) < 1.4) { shove(b, z.dx, z.dz, Math.max(6, q.v * 0.8), 5, true); voice(b.ch, 'hurt', b.pos); sfx('hit', { at: b.pos }); } }
   if (k >= 1 || q.s > z.len - 0.4 || jump) {

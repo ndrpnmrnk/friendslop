@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {CONFIG} from '../config.js';
 import {THREE,G,V3,mesh,col} from '../core/gfx.js';
 import {pix} from '../core/textures.js';
@@ -45,11 +46,11 @@ export function fishingGame(o,api,ctx){
    for(const f of shadows){f.a+=dt*.4;const p=water.clone().add(new V3(Math.cos(f.a)*.7,0,Math.sin(f.a)*.55));if(inWater(p)){f.m.position.copy(p);f.m.position.y=wy+.025;}f.m.rotation.z=-f.a;}
    aimRing.visible=phase==='aim';if(aim)aimRing.position.set(aim.x,wy+.04,aim.z);
    if(phase==='aim')bob.copy(o.tip());
-   if(phase==='cast'){const k=Math.min(1,t/.8);o.rod.rotation.x=.9-Math.sin(k*Math.PI)*.6;bob.lerpVectors(from,cast,k);bob.y+=Math.sin(k*Math.PI)*1.2;if(k===1){phase='wait';t=0;wait=3.2+Math.random()*2.8;splash(bob.x,wy,bob.z,.35);api.msg('Поплавок притих... жди поклёвку');}}
+   if(phase==='cast'){const k=Math.min(1,t/.8);o.rod.rotation.x=.9-Math.sin(k*Math.PI)*.6;bob.lerpVectors(from,cast,k);bob.y+=Math.sin(k*Math.PI)*1.2;if(k===1){phase='wait';t=0;wait=3.2+random()*2.8;splash(bob.x,wy,bob.z,.35);api.msg('Поплавок притих... жди поклёвку');}}
    if(phase==='wait'){bob.y=wy+.09+Math.sin(elapsed*3)*.025;if(t>wait){phase='bite';t=0;bite=1.4;hint.visible=true;api.msg('КЛЮЁТ! ЛКМ - подсечь','good');sfx('water',{at:bob});}}
-   if(phase==='bite'){bob.y=wy+.025+Math.sin(elapsed*28)*.05;hint.position.copy(bob).y+=.5;bite-=dt;if(bite<=0){phase='wait';t=0;wait=2.2+Math.random()*2;hint.visible=false;api.msg('Не успел. Жди следующую поклёвку');}}
+   if(phase==='bite'){bob.y=wy+.025+Math.sin(elapsed*28)*.05;hint.position.copy(bob).y+=.5;bite-=dt;if(bite<=0){phase='wait';t=0;wait=2.2+random()*2;hint.visible=false;api.msg('Не успел. Жди следующую поклёвку');}}
    if(phase==='reel'){
-    reelTime+=dt;pullT-=dt;if(pullT<=0){pull=!pull;pullT=pull?1.1+Math.random()*.9:2.0+Math.random()*1.4;api.msg(pull?'РЫВОК! Отпусти катушку':'Рыба поддаётся - крути по часовой стрелке',pull?'bad':'good');}
+    reelTime+=dt;pullT-=dt;if(pullT<=0){pull=!pull;pullT=pull?1.1+random()*.9:2.0+random()*1.4;api.msg(pull?'РЫВОК! Отпусти катушку':'Рыба поддаётся - крути по часовой стрелке',pull?'bad':'good');}
     tension=Math.max(0,tension+dt*(pull&&held?.20:-.28));if(pull)progress=Math.max(0,progress-dt*.015);
     const near=shore.clone().addScaledVector(F,1.05).setY(wy+.08);bob.lerpVectors(cast,near,progress);bob.y=wy+.06+(shore.y+.7-wy)*Math.pow(progress,3)+Math.sin(elapsed*(pull?26:4))*(pull?.09:.025);fish.visible=true;fish.position.copy(bob);fish.rotation.y=Math.atan2(F.x,F.z)+Math.PI/2;fish.rotation.z=Math.sin(elapsed*(pull?20:6))*.12;fish.userData.animate?.(elapsed);
     o.rod.rotation.x=.65+(pull?Math.sin(elapsed*17)*.07:.03);
@@ -58,7 +59,7 @@ export function fishingGame(o,api,ctx){
     turnHint.visible=!pull;turnHint.position.copy(reelCenter).addScaledVector(R,.16);turnHint.material.opacity=held?.25:.8;turnHint.material.rotation=-angle;
     const blend=Math.min(1,t/1.1);api.pose(overview.clone().lerp(closeP,blend),overviewLook.clone().lerp(closeL,blend));
     tensionRing.position.set(bob.x,wy+.045,bob.z);tensionRing.scale.setScalar(.34+tension*.2);tensionMat.color.setHex(pull?0xff5a6e:0xf5c542);tensionMat.opacity=pull?.5+Math.sin(elapsed*12)*.25:.7;
-    if(Math.random()<dt*(pull?7:2))ripple(bob.x,wy,bob.z,.4,.5);
+    if(random()<dt*(pull?7:2))ripple(bob.x,wy,bob.z,.4,.5);
     api.progress(progress);if(tension>=1){progress=Math.max(0,progress-.12);tension=.62;held=false;lastAngle=null;pull=true;pullT=Math.max(1.4,pullT);splash(bob.x,wy,bob.z,.35);api.msg('Рыба тянет обратно! Отпусти катушку и продолжай','bad');}else if(progress>=.995&&reelTime>=tune.minReel)end(true,`${selected.sp.name} · ${selected.kg} кг`);
    }
    if(phase==='end'){if(result?.success&&fish.visible){const show=shore.clone().addScaledVector(F,.5).add(new V3(0,1.2,0));fish.position.lerp(show,Math.min(1,dt*5));fish.rotation.y+=dt*.7;fish.rotation.z=Math.sin(elapsed*8)*.1;fish.userData.animate?.(elapsed);}endT-=dt;if(endT<=0)api.finish(result);}

@@ -26,11 +26,23 @@ export class Room extends DurableObject {
   send(ws, m) { try { ws.send(typeof m === 'string' ? m : JSON.stringify(m)); } catch { } }
   cast(m, except) { const s = JSON.stringify(m); for (const { ws } of this.players()) if (ws !== except) this.send(ws, s); }
   async webSocketMessage(ws, raw) {
+    if(typeof raw!=='string'||raw.length>262144){try{ws.close(1009,'message too large');}catch{}return;}
     let m; try { m = JSON.parse(raw); } catch { return; }
+    if(!m||typeof m!=='object'||Array.isArray(m))return;
     const a = ws.deserializeAttachment() || {};
     if (!a.id) { if (m.t === 'hello') await this.hello(ws, a, m); return; }
+    const now=Date.now();if(!a.rateAt||now-a.rateAt>=1000){a.rateAt=now;a.rateN=0;}if(++a.rateN>45)return;ws.serializeAttachment(a);
     switch (m.t) {
-      case 'st': case 'ev': m.id = a.id; if (m.t === 'st' && m.rtt !== undefined) { a.rtt = m.rtt | 0; ws.serializeAttachment(a); } this.cast(m, ws); break;
+      case 'st': case 'ev': {
+        m.id=a.id;
+        if(m.t==='st'&&m.rtt!==undefined){a.rtt=Math.max(0,Math.min(30000,m.rtt|0));ws.serializeAttachment(a);}
+        // v2: ввод/предложения гостя идут только хосту. Снимок мира и решения - только от хоста.
+        // Старый релиз 0.60.2 продолжает использовать прежнюю пересылку.
+        if(m.t==='st'&&m.protocol===2&&m.m==='match'&&!a.host){const h=this.players().find(q=>q.a.host);if(h)this.send(h.ws,m);break;}
+        if(m.t==='ev'&&['cmd','match-ready'].includes(m.e)){if(!a.host){const h=this.players().find(q=>q.a.host);if(h)this.send(h.ws,m);}break;}
+        if(!a.host&&(m.w||m.h||m.b||m.t==='ev'&&(['flow','roster','final','mission-grant','host-pause','correction','effect'].includes(m.e)||m.e==='hit'&&m.ep!==undefined)))break;
+        this.cast(m,ws);break;
+      }
       case 'p': this.send(ws, { t: 'P', c: m.c }); break;
       case 'ready': a.ready = !!m.v; ws.serializeAttachment(a); this.cast({ t: 'upd', p: this.pub(a) }); break;
       case 'skin': a.skin = clean(m.s); ws.serializeAttachment(a); this.cast({ t: 'upd', p: this.pub(a) }); break;
@@ -43,40 +55,55 @@ export class Room extends DurableObject {
     }
   }
   async hello(ws, a, m) {
-    const list = this.players(), st = this.ctx.storage;
+    let list = this.players(); const st = this.ctx.storage;
     const fail = e => { this.send(ws, { t: 'err', e }); try { ws.close(4000, e); } catch { } };
     if (!/^[A-Z0-9]{4,6}$/.test(a.code || '')) return fail('bad');
     const ver = String(m.ver || '').slice(0, 20), name = clean(m.name) || 'Игрок', token = String(m.token || '').slice(0, 40);
-    let host = false;
+    let host = false, restored = null;
     if (m.create) { if (list.length) return fail('busy'); await st.deleteAll(); await st.put({ ver, hostToken: token, next: 1 }); host = true; }
     else {
       if (!list.length) return fail('nf');
       const rv = await st.get('ver'); if (rv && rv !== ver) return fail('ver');
-      if (list.length >= MAX) return fail('full');
+      const duplicate=token&&list.find(q=>q.a.token===token);
+      const pending=token?await st.get('rejoin:'+token):null;
+      if(duplicate){restored=duplicate.a;restored={...restored};duplicate.a.id=0;duplicate.ws.serializeAttachment(duplicate.a);try{duplicate.ws.close(4003,'replaced');}catch{}list=this.players();}
+      else if(pending&&pending.until>Date.now())restored=pending;
+      const held=await st.list({prefix:'depart:'});
+      if(!restored&&list.length+held.size>=MAX)return fail('full');
+      if(restored){host=!!restored.host;await st.delete(['rejoin:'+token,'depart:'+restored.id]);}
+
       if (token && token === await st.get('hostToken') && !list.some(q => q.a.host)) { host = true; await st.delete('hostGone'); await st.deleteAlarm(); this.cast({ t: 'hostback' }); }
     }
-    const id = (await st.get('next')) || 1; await st.put('next', id + 1);
+    const id=restored?.id||(await st.get('next'))||1;if(!restored)await st.put('next',id+1);
     Object.assign(a, { id, name, skin: clean(m.skin) || 'cat', ready: false, host, muted: false, rtt: 0, token });
     ws.serializeAttachment(a);
     this.send(ws, { t: 'welcome', id, host, code: a.code, players: this.players().map(q => this.pub(q.a)) });
     this.cast({ t: 'join', p: this.pub(a) }, ws);
   }
-  async webSocketClose(ws) { await this.gone(ws); }
+  async webSocketClose(ws,code,reason) { await this.gone(ws,code,reason); }
   async webSocketError(ws) { await this.gone(ws); }
-  async gone(ws) {
+  async gone(ws,code=1006,reason='') {
     const a = ws.deserializeAttachment(); if (!a?.id) return;
     const id = a.id, wasHost = a.host; a.id = 0; ws.serializeAttachment(a);
     const rest = this.players().filter(q => q.ws !== ws);
     if (!rest.length) { await this.ctx.storage.deleteAll(); return; }
-    this.cast({ t: 'leave', id }, ws);
-    if (wasHost) { await this.ctx.storage.put('hostGone', Date.now()); await this.ctx.storage.setAlarm(Date.now() + GRACE); this.cast({ t: 'hostwait' }, ws); }
+    const intentional=code===1000&&reason==='leave',until=Date.now()+GRACE;
+    if(intentional){this.cast({t:'leave',id},ws);if(wasHost){for(const q of rest){this.send(q.ws,{t:'closed',why:'host'});try{q.ws.close(4002,'host left');}catch{}}await this.ctx.storage.deleteAll();}return;}
+    await this.ctx.storage.put({['rejoin:'+a.token]:{...a,id,until},['depart:'+id]:{id,token:a.token,until,host:wasHost}});
+    if(wasHost){await this.ctx.storage.put('hostGone',Date.now());this.cast({t:'hostwait'},ws);}
+    const alarm=await this.ctx.storage.getAlarm();if(!alarm||alarm>until)await this.ctx.storage.setAlarm(until);
   }
   async alarm() {
-    if (!(await this.ctx.storage.get('hostGone'))) return;
-    if (this.players().some(q => q.a.host)) return;
-    for (const { ws } of this.players()) { this.send(ws, { t: 'closed', why: 'host' }); try { ws.close(4002, 'host left'); } catch { } }
-    await this.ctx.storage.deleteAll();
+    const st=this.ctx.storage,now=Date.now(),gone=await st.get('hostGone');
+    if(gone&&now-gone>=GRACE&&!this.players().some(q=>q.a.host)){
+      for(const{ws}of this.players()){this.send(ws,{t:'closed',why:'host'});try{ws.close(4002,'host left');}catch{}}
+      await st.deleteAll();return;
+    }
+    const departed=await st.list({prefix:'depart:'});let next=Infinity;
+    for(const[k,q]of departed){if(q.until>now){next=Math.min(next,q.until);continue;}await st.delete([k,'rejoin:'+q.token]);this.cast({t:'leave',id:q.id});}
+    if(next<Infinity)await st.setAlarm(next);
   }
+
 }
 
 export default {

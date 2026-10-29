@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { THREE, G, tmat, smat, col, glow, lam, compose } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
@@ -64,7 +65,7 @@ export default {
         if (a.washRunT > 0) { a.washRunT -= dt; a.vel.z = 7.5; a.vel.x += (b.X(LANE) - a.pos.x) * 2 * dt; daze(a, .5); }
         for (const p of posts) { if (Math.abs(a.pos.z - p.z) > 1.1) continue;
           if (a.ride) { a.wetT = 3; continue; }
-          if (!(a.washSafe > 0)) { daze(a, 1.0); a.washSafe = 1.4; const s = a.pos.x < b.X(LANE) ? 1 : -1; a.vel.x += s * 4; a.vel.z += (Math.random() < .5 ? -1 : 1) * 3; splash(a.pos.x, a.pos.y, a.pos.z, .5); sfx('water', { at: a.pos, v: .5 }); } }
+          if (!(a.washSafe > 0)) { daze(a, 1.0); a.washSafe = 1.4; const s = a.pos.x < b.X(LANE) ? 1 : -1; a.vel.x += s * 4; a.vel.z += (random() < .5 ? -1 : 1) * 3; splash(a.pos.x, a.pos.y, a.pos.z, .5); sfx('water', { at: a.pos, v: .5 }); } }
         a.washSafe = Math.max(0, (a.washSafe || 0) - dt);
         // сушилка на выезде: транспорт выходит чистым и быстрым
         if (a.ride && Math.abs(a.pos.z - b.Z(TZ1 - 3)) < 1.2 && !(a.dryCD > 0)) { a.dryCD = 3; const v = a.ride; v.vx = (v.vx || 0) * 1.6; v.vz = (v.vz || 0) * 1.6; v.boostT = Math.max(v.boostT || 0, 1.2); a.wetT = 0; sfx('dash', { at: a.pos }); sfx('wind', { at: a.pos, v: .6 }); }

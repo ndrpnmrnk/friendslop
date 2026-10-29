@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { keys, tapped } from '../core/input.js';
 import { damp } from '../core/rng.js';
 import { W } from '../world/state.js';
@@ -23,15 +24,17 @@ export function nearestRideable(p, r = 1.6, coast = false) {
 }
 export function mount(p, b) {
   if (p.held||b.noRide||b.raceOwner&&b.raceOwner!==p) return false;
+  if (b.rider && b.rider !== p || b.grabbed && b.grabbed !== p) return false;
+  W.net?.request('mount', b);
   p.ride = b; b.rider = p; b.heading = b.mesh.rotation.y;
   b.vx += p.vel.x * 0.6; b.vz += p.vel.z * 0.6;
   b.outline && b.outline.set(false);
   return true;
 }
 /* Толкание руками */
-export function grab(p, b) { if (p.held || p.ride) return false; p.grab = b; b.grabbed = p; b.heading = p.root.rotation.y; b.outline && b.outline.set(false); return true; }
+export function grab(p, b) { if (p.held || p.ride || b.rider || b.grabbed && b.grabbed!==p) return false; W.net?.request('cart', b); p.grab = b; b.grabbed = p; b.heading = p.root.rotation.y; b.outline && b.outline.set(false); return true; }
 export function release(p, shove = 1) {
-  const b = p.grab; if (!b) return; p.grab = null; b.grabbed = null;
+  const b = p.grab; if (!b) return; W.net?.request('release', b); p.grab = null; b.grabbed = null;
   b.vx = p.vel.x * shove; b.vz = p.vel.z * shove;
 }
 // тележка едет перед игроком; если упёрлась — игрок её отпускает
@@ -44,7 +47,7 @@ export function updateGrab(p, dt) {
   if(!constrainWaterRide(b,previous)){release(p,0);syncPushable(b);return;}
   b.mesh.rotation.y=f;syncPushable(b);
   const sp = Math.hypot(p.vel.x, p.vel.z);
-  if (sp > 4 && Math.random() < dt * 6) smoke(b.x, b.y + 0.06, b.z, { dust: true });
+  if (sp > 4 && random() < dt * 6) smoke(b.x, b.y + 0.06, b.z, { dust: true });
 }
 // E на ходу: запрыгнуть в тележку, она получает скорость разбега
 export function hopIn(p) {
@@ -56,7 +59,7 @@ export function hopIn(p) {
   return true;
 }
 export function dismount(p, jump) {
-  const b = p.ride; if (!b) return;
+  const b = p.ride; if (!b) return; W.net?.request('dismount', b, { jump: !!jump });
   p.ride = null; b.rider = null; b.trick = null; b.flip = 0; b.shuv = 0; p.root.rotation.x = 0; p.root.rotation.z = 0; p.rideKick = null; p.trickK = 0;
   b.lean = 0; b.steer = 0; b.mesh.rotation.z = 0; { const u = b.mesh.children.find(q => q.userData.vehicle || q.userData.scoot)?.userData, v2 = u?.vehicle || u?.scoot; if (v2?.steerParts) for (const q of v2.steerParts) q.rotation.y = 0; }
   // сходим вбок от доски/кресла, чтобы не встать обратно на неё; какое-то время сам не садишься
@@ -91,7 +94,7 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
     if (thr > 0 && !b.air) { push = R.acc * dt;
       if (board && sp0 < R.max * 0.92) { b.kickPh = (b.kickPh || 0) + dt / 0.7; const ph = b.kickPh % 1; p.rideKick = ph; push *= ph > 0.2 && ph < 0.55 ? 2.6 : 0.12; if (ph > 0.2 && ph - dt / 0.7 <= 0.2) sfx('step', { v: 0.6 }); } else p.rideKick = null; }
     else p.rideKick = null;
-    if (thr < 0 && !b.air) { if (fwd0 > 0.3) { const k = Math.exp(-dt * 3.2); b.vx *= k; b.vz *= k; if (sp0 > 4 && Math.random() < dt * 14) smoke(b.x, b.y + 0.08, b.z, { size: 0.12, grow: 0.4, life: 0.4, color: 0xc5bacd }); }
+    if (thr < 0 && !b.air) { if (fwd0 > 0.3) { const k = Math.exp(-dt * 3.2); b.vx *= k; b.vz *= k; if (sp0 > 4 && random() < dt * 14) smoke(b.x, b.y + 0.08, b.z, { size: 0.12, grow: 0.4, life: 0.4, color: 0xc5bacd }); }
       else if (b.kind === 'bike') push = -R.acc * 0.3 * dt; }
     b.vx += Math.sin(b.heading) * push; b.vz += Math.cos(b.heading) * push;
     b.steer = (b.steer || 0) + (st - (b.steer || 0)) * Math.min(1, dt * 9);
@@ -113,8 +116,8 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   const drifting=b.kind==='kart'&&ctrl&&keys.Space&&sp0>5;
   // v0.56: дрифт копит заряд — отпустил пробел после 0.8 с заноса, карт получает ускорение (искры: жёлтые → голубые)
   if(b.kind==='kart'){if(drifting)b.driftT=(b.driftT||0)+dt;else{if((b.driftT||0)>.8){b.boostT=Math.max(b.boostT||0,b.driftT>1.6?1.2:.8);sfx('dash',{v:1.3});sfx('spring');}b.driftT=0;}
-   if(b.boostT>0){b.boostT-=dt;b.vx+=Math.sin(b.heading)*R.acc*.9*dt;b.vz+=Math.cos(b.heading)*R.acc*.9*dt;if(Math.random()<dt*30)burst(b.x-Math.sin(b.heading)*.8,b.y+.25,b.z-Math.cos(b.heading)*.8,1,{color:0xffb04a,size:.12,speed:1.5,up:.5,g:2,life:.3,grow:.4});}
-   if(drifting&&b.driftT>.8&&Math.random()<dt*24)burst(b.x-Math.sin(b.heading)*.7,b.y+.1,b.z-Math.cos(b.heading)*.7,1,{color:b.driftT>1.6?0x6ac8ff:0xffd27a,size:.06,speed:2.5,up:1.5,g:10,life:.3,grow:0});}
+   if(b.boostT>0){b.boostT-=dt;b.vx+=Math.sin(b.heading)*R.acc*.9*dt;b.vz+=Math.cos(b.heading)*R.acc*.9*dt;if(random()<dt*30)burst(b.x-Math.sin(b.heading)*.8,b.y+.25,b.z-Math.cos(b.heading)*.8,1,{color:0xffb04a,size:.12,speed:1.5,up:.5,g:2,life:.3,grow:.4});}
+   if(drifting&&b.driftT>.8&&random()<dt*24)burst(b.x-Math.sin(b.heading)*.7,b.y+.1,b.z-Math.cos(b.heading)*.7,1,{color:b.driftT>1.6?0x6ac8ff:0xffd27a,size:.06,speed:2.5,up:1.5,g:10,life:.3,grow:0});}
   // v0.60: разгон не только у карта (сушилка автомойки и т. п.)
   if(b.kind!=='kart'&&b.boostT>0){b.boostT-=dt;b.vx+=Math.sin(b.heading)*Math.max(R.acc,8)*.9*dt;b.vz+=Math.cos(b.heading)*Math.max(R.acc,8)*.9*dt;}
   b.drifting=drifting;if(b.skid>0){b.skid=Math.max(0,b.skid-dt);b.heading+=(b.spin||1.6)*dt;}else b.spin=0;
@@ -125,8 +128,8 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   if (b.kind === 'chair') b.heading += side * dt * 0.8;
   const sp = Math.hypot(b.vx, b.vz);
   const vehicle=b.mesh.children.find(q=>q.userData.vehicle)?.userData.vehicle;if(vehicle){b.pedalPhase=(b.pedalPhase||0)+fwd*dt/.32;for(const w of vehicle.wheels)w.rotation.x+=sp*dt/.32;if(vehicle.pedals)vehicle.pedals.rotation.x=b.pedalPhase;p.cyclePhase=b.pedalPhase;p.cycleRig=vehicle;}
-  if(drifting&&Math.random()<dt*18)smoke(b.x-fx*.6,b.y+.1,b.z-fz*.6,{color:0xc5bacd,size:.18,grow:.65,life:.8});
-  if (sp > 3 && Math.random() < dt * 10) smoke(b.x - fx * 0.4, b.y + 0.1, b.z - fz * 0.4, { size: 0.1, grow: 0.35, life: 0.45, vy: 0.3, vx: -fx, vz: -fz });
+  if(drifting&&random()<dt*18)smoke(b.x-fx*.6,b.y+.1,b.z-fz*.6,{color:0xc5bacd,size:.18,grow:.65,life:.8});
+  if (sp > 3 && random() < dt * 10) smoke(b.x - fx * 0.4, b.y + 0.1, b.z - fz * 0.4, { size: 0.1, grow: 0.35, life: 0.45, vy: 0.3, vx: -fx, vz: -fz });
   // тележка остановилась — сам спрыгиваешь
   if (R.coast) { b.stopT = sp < 0.7 ? (b.stopT || 0) + dt : 0; if (b.stopT > 0.4) { dismount(p, false); return 'stop'; } }
   // трюк в воздухе: доска крутится; приземлился, докрутив, — трюк засчитан, не докрутил — падаешь
@@ -149,8 +152,8 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   if(b.kind==='kart'&&b.hitSpeed>8){b.skid=.85;b.spin=2.2;b.heading+=.5;b.vx-=fx*2;b.vz-=fz*2;p.daze=Math.max(p.daze||0,1);sfx('hit');}
   if (b.kind!=='kart'&&b.hitSpeed > 6) { const v = b.hitSpeed; dismount(p, false); p.vel.set(-fx * 3, 5, -fz * 3); p.onGround = false; p.stun = 0.9; p.noMountT = 2.5; burst(b.x, b.y + 0.6, b.z, 8, { size: 0.4, speed: 3 }); return 'crash'; }
   // скейт и самокат: пробел — прыжок (олли), слезть — E
-  if (ctrl && b.kind!=='kart' && tapped('Space')) { if (board) { if (!b.air) { b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(Math.random() * L.length) | 0], t: 0, dur: 0.48 }; } return null; } dismount(p, true); return 'jump'; }
+  if (ctrl && b.kind!=='kart' && tapped('Space')) { if (board) { if (!b.air) { b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(random() * L.length) | 0], t: 0, dur: 0.48 }; } return null; } dismount(p, true); return 'jump'; }
   if (b.grind) { b.grindSnd = (b.grindSnd || 0) - dt; if (b.grindSnd <= 0) { b.grindSnd = .12; sfx('grind', { at: { x: b.x, y: b.y, z: b.z }, v: Math.min(1, Math.hypot(b.vx, b.vz) / 8) }); } }
-  if (b.grind && Math.random() < dt * 30) burst(b.x, b.y + 0.05, b.z, 1, { color: 0xffd25c, size: 0.06, speed: 2, up: 1.5, g: 12, life: 0.3, grow: 0 });
+  if (b.grind && random() < dt * 30) burst(b.x, b.y + 0.05, b.z, 1, { color: 0xffd25c, size: 0.06, speed: 2, up: 1.5, g: 12, life: 0.3, grow: 0 });
   return null;
 }

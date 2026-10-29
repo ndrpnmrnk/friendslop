@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, mesh, tmat, col, lam, glow, makeCamera, compose } from '../core/gfx.js';
 import { T, rep } from '../core/textures.js';
 import { makeCharacter } from '../characters/rig.js';
@@ -79,7 +80,7 @@ export function createPodium() {
     const order = rows.map((r, i) => i).reverse();
     order.forEach((place, k) => {
       const r = rows[place], s = SLOTS[place] || {x:-4.7,z:-1.2,h:0,c:0x80738d,n:place+1}, ch = makeCharacter(r.skin); ch.root.position.set(s.x, 12, s.z??.1); ch.root.rotation.y = 0; ch.root.visible = false; scene.add(ch.root);
-      st.chars.push({ r, ch, place, s, at: 0.6 + k * 1.15, y: 12, vy: 0, landed: false, shown: false, ph: Math.random() * 6 });
+      st.chars.push({ r, ch, place, s, at: 0.6 + k * 1.15, y: 12, vy: 0, landed: false, shown: false, ph: random() * 6 });
     });
   };
   st.update = dt => {
@@ -105,7 +106,7 @@ export function createPodium() {
     // победитель: прожектор разгорается
     const win = st.chars.find(c => c.place === 0); if (win && win.landed) { key.intensity += (90 - key.intensity) * Math.min(1, dt * 3); key.target.position.set(win.s.x, 1.8, 0); crown.visible=true;crown.position.set(win.s.x,win.s.h+(win.ch.d.top||1.7)+.45+Math.sin(t*2)*.035,0);crown.rotation.y=t*.45; }
     // конфетти
-    if (st.conf > 0) { st.conf -= dt;st.confBudget+=dt*70;const count=Math.floor(st.confBudget);st.confBudget-=count; for (let i = 0; i < count && cps.length < N; i++) cps.push({ p: new THREE.Vector3((Math.random() - 0.5) * 9, 7 + Math.random() * 2, (Math.random() - 0.5) * 3), v: new THREE.Vector3((Math.random() - 0.5) * 1.5, -1.5 - Math.random() * 1.5, 0), r: Math.random() * 6, c: CC[(Math.random() * CC.length) | 0] }); }
+    if (st.conf > 0) { st.conf -= dt;st.confBudget+=dt*70;const count=Math.floor(st.confBudget);st.confBudget-=count; for (let i = 0; i < count && cps.length < N; i++) cps.push({ p: new THREE.Vector3((random() - 0.5) * 9, 7 + random() * 2, (random() - 0.5) * 3), v: new THREE.Vector3((random() - 0.5) * 1.5, -1.5 - random() * 1.5, 0), r: random() * 6, c: CC[(random() * CC.length) | 0] }); }
     let n = 0; for (const p of cps) { p.p.addScaledVector(p.v, dt); p.p.x += Math.sin(t * 3 + p.r) * dt * 0.6; p.r += dt * 5; if (p.p.y < 0.02) p.p.y = 0.02;
       _q.setFromEuler(_e.set(p.r, p.r * 0.7, 0)); _m.compose(p.p, _q, _s); conf.setMatrixAt(n, _m); conf.instanceColor.setXYZ(n, p.c.r, p.c.g, p.c.b); n++; }
     conf.count = n; conf.instanceMatrix.needsUpdate = true; if (n) conf.instanceColor.needsUpdate = true;
@@ -115,7 +116,7 @@ export function createPodium() {
   };
   st.cardPos = c => { _v.set(c.s.x, c.s.h + (c.ch.d.top || 1.7) + 0.55, c.s.z||0); _v.project(camera); return { x: (_v.x + 1) / 2 * innerWidth, y: (1 - _v.y) / 2 * innerHeight }; };
   // пылинки при приземлении
-  const puffs = []; function puffAt(x, y) { const m = mesh(G.box, lam({ color: 0xd8d0e4, transparent: true, opacity: 0.8 }, 'podPuff'), x + (Math.random() - 0.5) * 1.4, y + 0.1, (Math.random() - 0.5) * 1.2, 0.12, 0.12, 0.12, scene); puffs.push({ m, t: 0 }); }
+  const puffs = []; function puffAt(x, y) { const m = mesh(G.box, lam({ color: 0xd8d0e4, transparent: true, opacity: 0.8 }, 'podPuff'), x + (random() - 0.5) * 1.4, y + 0.1, (random() - 0.5) * 1.2, 0.12, 0.12, 0.12, scene); puffs.push({ m, t: 0 }); }
   const upd = st.update; st.update = dt => { upd(dt); for (let i = puffs.length - 1; i >= 0; i--) { const p = puffs[i]; p.t += dt; p.m.position.y += dt * 0.6; p.m.scale.setScalar(0.12 * (1 + p.t * 2)); if (p.t > 0.6) { scene.remove(p.m); puffs.splice(i, 1); } } };
   return st;
 }

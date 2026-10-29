@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, mesh, alphaMat } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
@@ -15,7 +16,7 @@ export function buildReflections() {
   // лужи: фонари в 9 м и пара «окон»
   for (const p of W.puddles) {
     for (const L of W.lamps) if (Math.abs(L.y - p.y) < 0.5 && Math.hypot(L.lx - p.x, L.lz - p.z) < 9) add(L.lx, L.y + 2.95, L.lz, p.y + 0.03, { c: [p.x, p.z, p.r] }, 0xffd28a, false, 1, L);
-    for (let i = 0; i < 2; i++) { const a = Math.random() * 6.28, d = 5 + Math.random() * 4; add(p.x + Math.cos(a) * d, p.y + 3 + Math.random() * 5, p.z + Math.sin(a) * d, p.y + 0.03, { c: [p.x, p.z, p.r] }, Math.random() < 0.7 ? 0xffa94d : 0x9be0ff, false, 0.55); }
+    for (let i = 0; i < 2; i++) { const a = random() * 6.28, d = 5 + random() * 4; add(p.x + Math.cos(a) * d, p.y + 3 + random() * 5, p.z + Math.sin(a) * d, p.y + 0.03, { c: [p.x, p.z, p.r] }, random() < 0.7 ? 0xffa94d : 0x9be0ff, false, 0.55); }
   }
   // вода (фонтаны, пруды, канал, гавань): фонари рядом с берегом
   for (const z of W.zones) if (z.type === 'water') for (const L of W.lamps) {

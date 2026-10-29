@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { explosion } from '../game/vfx.js';
 import {demolitionBurst} from './demolition-fx.js';
 import {shake} from '../game/worldfx.js';
@@ -29,12 +30,12 @@ export function demolitionGame(o,api,ctx){
   for(let i=0;i<4;i++){const p=u.charges[i];burst(p.x,p.y+1,p.z,6,{color:0xffad51,size:.75,speed:5,up:4,life:.7,grow:1.6});smokeRing(p.x,p.y+1,p.z,4,{color:0x85746c,size:.65,speed:3,up:1.5,life:2,grow:1.5});}
   // Два ограниченных масштаба обломков. Не создаём тела физики для каждой стены.
   for(let i=0;i<20;i++){const angle=i*2.4,x=u.center.x+(i%7-3)*3.2,z=u.center.z+(Math.floor(i/7)-1.5)*4,y=u.center.y+2+(i%4)*2.5;chunk(x,y,z,[Math.cos(angle)*(3+i%4),3+i%5,Math.sin(angle)*(3+i%4)],{mat:tmat(i%3?T.concrete():T.brickWall()),size:1,sx:1.5+i%3,sy:.25+(i%3)*.4,sz:1.2+i%2,r:.4,life:3.2});}
-  for(let i=0;i<48;i++){const angle=i*2.4;chunk(u.center.x+(Math.random()-.5)*23,u.center.y+1+Math.random()*10,u.center.z+(Math.random()-.5)*17,[Math.cos(angle)*(4+i%7),3+Math.random()*7,Math.sin(angle)*(4+i%7)],{mat:col(i%3?0x9c8f7a:0x514c50),size:.10+Math.random()*.22,sy:.5,life:2.0});}
-  for(let i=0;i<16;i++){const a=i*2.4,r=2+i%12;smoke(u.center.x+Math.cos(a)*r,u.center.y+.5+Math.random()*4,u.center.z+Math.sin(a)*r*.7,{color:i%2?0x81796f:0x5b5860,size:.6+i%3*.4,grow:2.5+i%4,life:2.6+Math.random(),vx:Math.cos(a)*3,vy:1.5,vz:Math.sin(a)*3,g:-.2});}
+  for(let i=0;i<48;i++){const angle=i*2.4;chunk(u.center.x+(random()-.5)*23,u.center.y+1+random()*10,u.center.z+(random()-.5)*17,[Math.cos(angle)*(4+i%7),3+random()*7,Math.sin(angle)*(4+i%7)],{mat:col(i%3?0x9c8f7a:0x514c50),size:.10+random()*.22,sy:.5,life:2.0});}
+  for(let i=0;i<16;i++){const a=i*2.4,r=2+i%12;smoke(u.center.x+Math.cos(a)*r,u.center.y+.5+random()*4,u.center.z+Math.sin(a)*r*.7,{color:i%2?0x81796f:0x5b5860,size:.6+i%3*.4,grow:2.5+i%4,life:2.6+random(),vx:Math.cos(a)*3,vy:1.5,vz:Math.sin(a)*3,g:-.2});}
 
  }
  const tick=dt=>{if(!armed)return;t+=dt;if(!exploded){count-=dt;for(const c of charges)c.lamp.material=col(Math.sin(t*(8+(10-count)*.9))>0?0xc96143:0x665a4c);if(!dead)api.countdown?.(Math.max(1,Math.ceil(count)),'ОТБЕГАЙ ОТ ХНУРЕ');if(count<=0){if(!dead)api.countdown?.(0);explode();}}
-  else{after+=dt;if(after<1.5&&Math.random()<dt*8){const angle=after*19;smoke(u.center.x+Math.cos(angle)*8,u.center.y+.2,u.center.z+Math.sin(angle)*6,{color:0x8b8174,size:.7,grow:2.3,life:2,vy:.8});}if(after>1.6&&!finished){finished=true;const ruins=new THREE.Group();W.group.add(ruins);ruins.name='university-ruins';ruins.add(compose('demo43-ruins',a=>{const brick=tmat(T.brickWall()),concrete=tmat(T.concrete());for(let i=0;i<48;i++){const x=(i*7%25)-12,z=(i*11%17)-8,h=.2+(i%5)*.25;a(G.box,i%2?brick:concrete,x,h*.5,z,1.2+i%3,h,1.3,0,i*.41);}a(G.box,brick,-11,1.1,-7,.4,2.2,4);a(G.box,concrete,10,.7,5,3.5,1.4,.4);for(let i=0;i<8;i++)a(G.box,concrete,-9+i*2.5,.5+i%3*.2,-4,1.8,.18,2.5,0,i*.6,.1);a(G.box,tmat(T.sign('ХНУРЕ','#6c665b','#b4ab96')),2,.38,3,4,.65,.12,-.45,.25,0);}));ruins.position.copy(u.center);W.keep.push(ruins);for(let i=0;i<48;i++){const x=u.center.x+(i*7%25)-12,z=u.center.z+(i*11%17)-8,h=.2+(i%5)*.25,w=1.2+i%3;addSolid(x-w/2,z-.65,x+w/2,z+.65,u.center.y,u.center.y+h);}addSolid(u.center.x-11.2,u.center.z-9,u.center.x-10.8,u.center.z-5,u.center.y,u.center.y+2.2);addSolid(u.center.x+8.25,u.center.z+4.8,u.center.x+11.75,u.center.z+5.2,u.center.y,u.center.y+1.4);cleanup();if(!dead){api.msg(safeAtBlast?'Хнуре в руинах. Успел отбежать!':'Взрыв застал слишком близко',safeAtBlast?'good':'bad');api.finish({success:true,mult:safeAtBlast?1:.5});}}}
+  else{after+=dt;if(after<1.5&&random()<dt*8){const angle=after*19;smoke(u.center.x+Math.cos(angle)*8,u.center.y+.2,u.center.z+Math.sin(angle)*6,{color:0x8b8174,size:.7,grow:2.3,life:2,vy:.8});}if(after>1.6&&!finished){finished=true;buildDemolitionRuins(u);cleanup();if(!dead){api.msg(safeAtBlast?'Хнуре в руинах. Успел отбежать!':'Взрыв застал слишком близко',safeAtBlast?'good':'bad');api.finish({success:true,mult:safeAtBlast?1:.5});}}}
  };W.animated.push(tick);
  const commit=()=>{charges[placed].placed=true;charges[placed].g.scale.setScalar(1);diagrams[placed].visible=false;placed++;placing=null;P.missionTool=false;api.progress(placed/4*.7);sfx('pickup',{at:u.charges[placed-1],range:10});if(placed===4){armed=true;api.msg('Заряды установлены! 10 секунд на отход','bad');}else api.msg(`Установлено ${placed}/4`,'good');};
  const game={get equipped(){return !!placing;},get phase(){return armed?'countdown':placing?'assembly':'placing';},get charges(){return charges;},get installation(){return placing;},target:()=>armed?safe:u.charges[placed],botTarget:()=>armed?safe:u.charges[placed],botNear:.8,
@@ -48,4 +49,10 @@ export function demolitionGame(o,api,ctx){
   },
   stop(){dead=true;cancelPlace();api.countdown?.(0);if(!armed||finished)cleanup();}
  };return game;
+}
+
+export function buildDemolitionRuins(u){
+ if(u.netRuins)return u.netRuins;
+ const build=()=>{const ruins=new THREE.Group();W.group.add(ruins);ruins.name='university-ruins';ruins.add(compose('demo43-ruins',a=>{const brick=tmat(T.brickWall()),concrete=tmat(T.concrete());for(let i=0;i<48;i++){const x=(i*7%25)-12,z=(i*11%17)-8,h=.2+(i%5)*.25;a(G.box,i%2?brick:concrete,x,h*.5,z,1.2+i%3,h,1.3,0,i*.41);}a(G.box,brick,-11,1.1,-7,.4,2.2,4);a(G.box,concrete,10,.7,5,3.5,1.4,.4);for(let i=0;i<8;i++)a(G.box,concrete,-9+i*2.5,.5+i%3*.2,-4,1.8,.18,2.5,0,i*.6,.1);a(G.box,tmat(T.sign('ХНУРЕ','#6c665b','#b4ab96')),2,.38,3,4,.65,.12,-.45,.25,0);}));ruins.position.copy(u.center);W.keep.push(ruins);for(let i=0;i<48;i++){const x=u.center.x+(i*7%25)-12,z=u.center.z+(i*11%17)-8,h=.2+(i%5)*.25,w=1.2+i%3;addSolid(x-w/2,z-.65,x+w/2,z+.65,u.center.y,u.center.y+h);}addSolid(u.center.x-11.2,u.center.z-9,u.center.x-10.8,u.center.z-5,u.center.y,u.center.y+2.2);addSolid(u.center.x+8.25,u.center.z+4.8,u.center.x+11.75,u.center.z+5.2,u.center.y,u.center.y+1.4);u.netRuins=ruins;return ruins;};
+ return W.net?W.net.scope('university-ruins',build):build();
 }

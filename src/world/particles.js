@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {ParticleBatch} from './particle-batch.js';
 import { THREE, G, mesh, alphaMat, ps1 } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -11,10 +12,10 @@ function batch(kind){const state=particles();if(!state[kind])state[kind]=new Par
 export const resetParticles=()=>{if(!W.group)return;const state=pools.get(W.group);if(state)for(const b of Object.values(state))b.dispose();pools.delete(W.group);};
 export function particleStats(){const s=particles();return Object.fromEntries(Object.entries(s).map(([k,b])=>[k,{alive:b.records.filter(p=>p.alive).length,capacity:b.capacity,draws:b.mesh.visible?1:0}]));}
 export function ripple(x,y,z,size=1,life=.9,color=0xb3dce8){batch('ripple').spawn({x,y:y+.11,z,size,life,color,scale:.1,alpha:.8,rx:-Math.PI/2});}
-export function smoke(x,y,z,o={}){const dust=!!o.dust;batch(dust?'dust':'smoke').spawn({x,y,z,life:o.life??(dust?.35:.7),size:o.size??(dust?.05:.22),grow:o.grow??(dust?.05:.6),vx:o.vx??(Math.random()-.5)*.5,vy:o.vy??(dust?1.6+Math.random():.5),vz:o.vz??(Math.random()-.5)*.5,g:o.g??(dust?9:-.4),spinX:(Math.random()-.5)*3,spinY:(Math.random()-.5)*3,spinZ:(Math.random()-.5)*3,a0:o.opacity??(dust?.9:.8),color:o.color??(dust?0x8a7a8e:0xd6cfe2),rx:Math.random()*3,ry:Math.random()*3,rz:Math.random()*3,scale:o.size??.2,alpha:o.opacity??.8});}
-export function smokeRing(x,y,z,n,o={}){for(let i=0;i<n;i++){const a=i/n*6.28+Math.random()*.5,sp=(o.speed??2)*(.6+Math.random()*.5);smoke(x+Math.cos(a)*.2,y,z+Math.sin(a)*.2,{vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:o.up??.4,size:o.size??.18,grow:o.grow??.5,life:o.life??.6,g:-.2,color:o.color});}}
-export function puff(x,y,z,o={}){batch('puff').spawn({x,y,z,life:o.life??.7,size:o.size??.6,grow:o.grow??1.6,vx:o.vx??(Math.random()-.5)*.4,vy:o.vy??.7,vz:o.vz??(Math.random()-.5)*.4,g:o.g??0,color:o.color??0xd8d0e4,a0:o.opacity??.85,scale:o.size??.6,alpha:o.opacity??.85});}
-export function burst(x,y,z,n,o={}){for(let i=0;i<n;i++){const a=Math.random()*6.28,sp=(o.speed??3)*(.4+Math.random()*.6);puff(x,y,z,{...o,vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:(o.up??2)*(.5+Math.random()),g:o.g??9,grow:o.grow??.3,life:o.life??.6});}}
+export function smoke(x,y,z,o={}){const dust=!!o.dust;batch(dust?'dust':'smoke').spawn({x,y,z,life:o.life??(dust?.35:.7),size:o.size??(dust?.05:.22),grow:o.grow??(dust?.05:.6),vx:o.vx??(random()-.5)*.5,vy:o.vy??(dust?1.6+random():.5),vz:o.vz??(random()-.5)*.5,g:o.g??(dust?9:-.4),spinX:(random()-.5)*3,spinY:(random()-.5)*3,spinZ:(random()-.5)*3,a0:o.opacity??(dust?.9:.8),color:o.color??(dust?0x8a7a8e:0xd6cfe2),rx:random()*3,ry:random()*3,rz:random()*3,scale:o.size??.2,alpha:o.opacity??.8});}
+export function smokeRing(x,y,z,n,o={}){for(let i=0;i<n;i++){const a=i/n*6.28+random()*.5,sp=(o.speed??2)*(.6+random()*.5);smoke(x+Math.cos(a)*.2,y,z+Math.sin(a)*.2,{vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:o.up??.4,size:o.size??.18,grow:o.grow??.5,life:o.life??.6,g:-.2,color:o.color});}}
+export function puff(x,y,z,o={}){batch('puff').spawn({x,y,z,life:o.life??.7,size:o.size??.6,grow:o.grow??1.6,vx:o.vx??(random()-.5)*.4,vy:o.vy??.7,vz:o.vz??(random()-.5)*.4,g:o.g??0,color:o.color??0xd8d0e4,a0:o.opacity??.85,scale:o.size??.6,alpha:o.opacity??.85});}
+export function burst(x,y,z,n,o={}){for(let i=0;i<n;i++){const a=random()*6.28,sp=(o.speed??3)*(.4+random()*.6);puff(x,y,z,{...o,vx:Math.cos(a)*sp,vz:Math.sin(a)*sp,vy:(o.up??2)*(.5+random()),g:o.g??9,grow:o.grow??.3,life:o.life??.6});}}
 export function splash(x,y,z,power=1){burst(x,y+.1,z,Math.round(6+8*power),{color:0x9ccbec,size:.16+.08*power,speed:1.2+1.6*power,up:2+2*power,g:12,life:.6});for(let i=0;i<Math.min(10,4+Math.round(power*4));i++){const a=i*2.4;smoke(x,y+.12,z,{dust:true,color:0x9ccbec,size:.045+power*.025,grow:.02,vx:Math.cos(a)*(1+power),vz:Math.sin(a)*(1+power),vy:2+power,g:12,life:.45,opacity:.85});}ripple(x,y,z,1+power*1.2,.8+power*.4);if(power>.6)ripple(x,y,z,.6+power,.6);}
 
 /* Обломки: тыквы, кирпичи, стены */
@@ -22,15 +23,15 @@ export function chunk(x, y, z, vel, o = {}) {
   if(W.debris.length>=160){const q=W.debris.shift();q.m.removeFromParent();}
   const s = o.size ?? 0.18;
   const m = mesh(o.geo || G.box, o.mat, x, y, z, s * (o.sx ?? 1), s * (o.sy ?? 1), s * (o.sz ?? 1), W.group);
-  m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-  W.debris.push({ m, v: vel.slice(), spin: [(Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10], life: Math.min(10, (o.life ?? 3) * 2.5), r: o.r ?? s * 0.5, s0: m.scale.clone() });
+  m.rotation.set(random() * 3, random() * 3, random() * 3);
+  W.debris.push({ m, v: vel.slice(), spin: [(random() - 0.5) * 10, (random() - 0.5) * 10, (random() - 0.5) * 10], life: Math.min(10, (o.life ?? 3) * 2.5), r: o.r ?? s * 0.5, s0: m.scale.clone() });
   return m;
 }
 
 /* Наклейки на земле: брызги помидора, лужи */
 export function decal(tex, x, y, z, size, life, color) {
   const m = mesh(G.plane, alphaMat(tex, { color: color ?? 0xffffff, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }), x, y + 0.02, z, size, size, 1, W.group);
-  m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6.28;
+  m.rotation.x = -Math.PI / 2; m.rotation.z = random() * 6.28;
   W.mapResources.add(m.material);
   W.decals.push({ m, life, t: 0 }); return m;
 }

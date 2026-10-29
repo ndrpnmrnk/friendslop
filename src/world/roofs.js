@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, mesh, col, tmat, lam, compose, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from './state.js';
@@ -7,7 +8,7 @@ import { CONFIG } from '../config.js';
 /* v0.51: крыши больше не пустые плиты. После генерации района каждая большая плоская крыша
    получает бортик-парапет и «крышный хлам»: кондиционеры, вентиляцию, люк, трубы, бак, слуховые окна.
    Всё стоит на крыше (с коллизией, на них можно запрыгнуть) и только там, где свободно. */
-const rnd = (a, b) => a + Math.random() * (b - a);
+const rnd = (a, b) => a + random() * (b - a);
 function acUnit() { return compose('roof51-ac', a => {
   const m = tmat(T.paintMetal(0x9a9aa4)), d = col(0x2a2830), f = col(0x55525e);
   a(G.box, m, 0, 0.42, 0, 1.2, 0.68, 0.85); a(G.box, d, 0, 0.04, 0, 1.0, 0.08, 0.7);
@@ -52,10 +53,10 @@ export function dressRoofs() {
     // хлам: число по площади, только на свободных местах
     const area = w * d, n = Math.min(7, Math.floor(area / 28) + 1);
     const kinds = [['ac', 1.3, 0.95, 0.85, acUnit], ['ac', 1.3, 0.95, 0.85, acUnit], ['vent', 0.4, 0.4, 1.1, vent], ['vent', 0.4, 0.4, 1.1, vent], ['hatch', 1.1, 1.1, 0.6, hatch], ['sky', 1.7, 1.2, 0.45, skylight]];
-    if (area > 140 && Math.random() < 0.6) kinds.push(['tank', 2.2, 2.2, 3.1, tank]);
+    if (area > 140 && random() < 0.6) kinds.push(['tank', 2.2, 2.2, 3.1, tank]);
     for (let i = 0, tries = 0; i < n && tries < n * 8; tries++) {
-      const [kind, fw, fd, fh, model] = kinds[(Math.random() * kinds.length) | 0];
-      const rot = Math.random() < 0.5 ? 0 : Math.PI / 2, ex = rot ? fd : fw, ez = rot ? fw : fd;
+      const [kind, fw, fd, fh, model] = kinds[(random() * kinds.length) | 0];
+      const rot = random() < 0.5 ? 0 : Math.PI / 2, ex = rot ? fd : fw, ez = rot ? fw : fd;
       const x = rnd(s.x0 + 0.6 + ex / 2, s.x1 - 0.6 - ex / 2), z = rnd(s.z0 + 0.6 + ez / 2, s.z1 - 0.6 - ez / 2);
       if (!isFree(x - ex / 2 - 0.35, z - ez / 2 - 0.35, x + ex / 2 + 0.35, z + ez / 2 + 0.35, y + 0.02, y + 2.4)) continue;
       const o = model(); o.position.set(x, y, z); o.rotation.y = rot; g.add(o);
@@ -63,7 +64,7 @@ export function dressRoofs() {
       i++;
     }
     // трубы вдоль края крыши
-    if (Math.random() < 0.6) { const along = w > d, len = (along ? w : d) * rnd(0.4, 0.8), pm = tmat(T.paintMetal(0x6a6e78));
+    if (random() < 0.6) { const along = w > d, len = (along ? w : d) * rnd(0.4, 0.8), pm = tmat(T.paintMetal(0x6a6e78));
       const p = mesh(G.cyl6, pm, along ? (s.x0 + s.x1) / 2 : s.x0 + 0.45, y + 0.16, along ? s.z0 + 0.45 : (s.z0 + s.z1) / 2, 0.06, len, 0.06, g); p.rotation[along ? 'z' : 'x'] = Math.PI / 2; }
   }
   return done;
@@ -123,7 +124,7 @@ export function roofAccess(roofs, Builder) {
   for (const s of top) {
     const y = s.y1; if (y - base < 2.8 || y - base > 15) continue;
     if (W.ladders.some(l => l.x1 > s.x0 - 1.5 && l.x0 < s.x1 + 1.5 && l.z1 > s.z0 - 1.5 && l.z0 < s.z1 + 1.5 && l.y1 > y - .5)) continue;
-    const walls = [['e', s.x1, null], ['w', s.x0, null], ['s', null, s.z1], ['n', null, s.z0]].sort(() => Math.random() - .5);
+    const walls = [['e', s.x1, null], ['w', s.x0, null], ['s', null, s.z1], ['n', null, s.z0]].sort(() => random() - .5);
     let ok = false;
     for (const [side, wx, wz] of walls) { if (ok) break;
       for (const t of [.5, .3, .7, .15, .85]) {

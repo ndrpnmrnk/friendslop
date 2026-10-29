@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { storageBay, pipeCradle } from '../storage.js';
 import { THREE, G, V3, tmat, smat, col, glow, lam } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
@@ -67,7 +68,7 @@ export default {
       else if (S.state === 'warn') { const k = Math.min(1, S.t / 2); shadow.material.opacity = .55 * k; shadow.scale.set(.5 + k * 4.2, .5 + k * 1.6, 1); siren.set(Math.sin(S.t * 16) > 0 ? 1 : .2);
         if (S.t > 2) { S.state = 'swing'; S.t = 0; sfx('wind', { at: P, range: 40 }); } }
       else if (S.state === 'swing') { S.th = -AMP * Math.cos(w * S.t); siren.set(Math.sin(S.t * 16) > 0 ? 1 : .2); shadow.material.opacity = .45 * Math.max(0, 1 - Math.abs(S.th) / AMP * 1.6);
-        if (S.t > 4 * Math.PI / w) { S.state = 'idle'; S.t = 0; S.th = -AMP; S.next = 20 + Math.random() * 10; shadow.material.opacity = 0; siren.set(0); sfx('bonk', { at: pos }); } }
+        if (S.t > 4 * Math.PI / w) { S.state = 'idle'; S.t = 0; S.th = -AMP; S.next = 20 + random() * 10; shadow.material.opacity = 0; siren.set(0); sfx('bonk', { at: pos }); } }
       place(S.th); vel.subVectors(pos, S.prev).divideScalar(Math.max(dt, 1e-3)); S.prev.copy(pos);
       const sp = vel.length(); if (sp < 3) return;
       // удар: люди, ящики, кирпичные стенки, тележки
@@ -75,7 +76,7 @@ export default {
         if (Math.hypot(a.pos.x - pos.x, cy - pos.y, a.pos.z - pos.z) < BR + .5) { const d = Math.sign(vel.x) || 1; knockDown(a, d * 11, (a.pos.z - pos.z) * 3, 1.6); a.vel.y = 7; sfx('hit', { at: a.pos }); burst(a.pos.x, a.pos.y + 1, a.pos.z, 12, { color: 0xd8d0c0, size: .14, speed: 4 }); } }
       if (hitBreakables(pos, BR, [vel.x, vel.y, vel.z], 30)) sfx('wood', { at: pos });
       impulsePushables(pos.x, pos.z, BR + .4, 9);
-      for (const it of W.items) if (it.state === 'rest' && it.pos.distanceTo(pos) < BR + .4) { it.state = 'fly'; it.vel.set(vel.x * .8, 5, (Math.random() - .5) * 3); } });
+      for (const it of W.items) if (it.state === 'rest' && it.pos.distanceTo(pos) < BR + .4) { it.state = 'fly'; it.vel.set(vel.x * .8, 5, (random() - .5) * 3); } });
     // в зоне удара — ящики и кирпичная стенка (их сносит)
     b.brickWall(PX + 2.5, PZ, 2.8, 1.4, 'z'); b.crate(PX - 2.2, PZ + .9, 1); b.crate(PX - 2.2, PZ - .4, .9);
 

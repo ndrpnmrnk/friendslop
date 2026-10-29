@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import {routeLight} from '../wayfinding.js';
 import {medicalChart,medicalTray} from '../medical-props.js';
 import { THREE, G, tmat, col, glow, lam } from '../../core/gfx.js';
@@ -56,7 +57,7 @@ export default {
         f.sign(15, 2.5, south + 0.08, 0, k ? 'ПАЛАТЫ · ПЕРСОНАЛ' : 'РЕНТГЕН · РЕГИСТРАТУРА', '#2a5a4a', '#d8f0e0', 2.8, 0.35);
       } });
     // хлопающие двери: сами открываются и закрываются, когда кто-то рядом
-    for (const d of W.doors) if (d.haunted) { let t = 2 + Math.random() * 4; W.animated.push(dt => { t -= dt; if (t > 0) return; t = 1.5 + Math.random() * 5; const P = W.player; if (!P || Math.hypot(P.pos.x - d.x, P.pos.z - d.z) > 14) return; d.open = !d.open; d.slam = 0.6; sfx('door', { at: d, v: 0.6 }); }); }
+    for (const d of W.doors) if (d.haunted) { let t = 2 + random() * 4; W.animated.push(dt => { t -= dt; if (t > 0) return; t = 1.5 + random() * 5; const P = W.player; if (!P || Math.hypot(P.pos.x - d.x, P.pos.z - d.z) > 14) return; d.open = !d.open; d.slam = 0.6; sfx('door', { at: d, v: 0.6 }); }); }
     // двор: скорая, сломанный забор, заросли, мёртвые деревья
     b.car(22.5, 23.5, Math.PI / 2, 0xe8e4ec, 'van');
     b.m(G.box, tmat(T.sign('СКОРАЯ', '#f1e8ff', '#d8243a')), 22.5, 0.9, 25.53, 1.4, 0.3, 0.02);

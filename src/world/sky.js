@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE } from '../core/gfx.js';
 import { pix, T } from '../core/textures.js';
 import { SEASON, HW } from '../config.js';
@@ -6,7 +7,7 @@ import { W } from './state.js';
 /* Небо: купол с градиентом (тёплый горизонт → сливовый зенит), луна с ореолом, мерцающие звёзды,
    медленные облака и силуэт далёкого города по кругу. Всё без тумана, ездит вместе с камерой.
    Плюс оттенок района: свет и туман плавно подкрашиваются там, где стоит игрок. */
-const R = Math.random;
+const R = random;
 function canvasTex(key, w, h, draw) { return pix(key, w, h, draw); }
 
 export function createSky(scene, {moonDirection, skyline = true} = {}) {
@@ -68,7 +69,7 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
       // туман ползёт, мигающие фонари и вывески
       const mt = T.mist(); mt.offset.x += dt * 0.012; mt.offset.y += dt * 0.006;
       for (const f of W.flick) {
-        f.t -= dt; if (f.t <= 0) { f.on = !f.on; f.t = f.period ? f.period : f.on ? (Math.random() < 0.3 ? 0.08 : 1 + Math.random() * 5) : 0.04 + Math.random() * 0.18; }
+        f.t -= dt; if (f.t <= 0) { f.on = !f.on; f.t = f.period ? f.period : f.on ? (random() < 0.3 ? 0.08 : 1 + random() * 5) : 0.04 + random() * 0.18; }
         const k = f.on ? 1 : (f.sign ? 0.3 : f.period ? 0.15 : 0.08);
         for (const m of f.mats) { if (m.emissive) m.emissiveIntensity = 0.9 * k; else m.color.setScalar(k); }
         if (f.pool) f.pool.visible = f.on && !f.pool.userData.broken && dim < 0.3;

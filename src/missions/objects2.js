@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, V3, mesh, col, tmat, smat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -83,5 +84,5 @@ export function buildCleanup(x, y, z, f) {
   return { type: 'cleanup', g, ring, solid: s, litter: [], pos: () => g.position, reach: 2.0,
     dispose() { W.group.remove(g); s.on = false; for (const it of this.litter) { it.state = 'gone'; it.g.visible = false; } } };
 }
-export function spawnLitter(x, y, z) { return addItem('litter', x, y, z, Math.random() * 6); }
+export function spawnLitter(x, y, z) { return addItem('litter', x, y, z, random() * 6); }
 export { glow, lam };

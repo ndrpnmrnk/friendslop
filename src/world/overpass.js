@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, col, tmat, lam } from '../core/gfx.js';
 import { T, rep } from '../core/textures.js';
 import { CONFIG, HW } from '../config.js';
@@ -51,7 +52,7 @@ export function buildOverpasses(half) {
     const sides = { n: [cx, z0, w, 'x'], s: [cx, z1, w, 'x'], w: [x0, cz, d, 'z'], e: [x1, cz, d, 'z'] };
     for (const [k, [px, pz, len, ax]] of Object.entries(sides)) if (k !== q.open && k !== q.dir) truss(px, pz, len, ax, paint);
     // паутина — только на стороне с фермой (там, где есть к чему крепиться)
-    const ws = ['w', 'e'].filter(k => k !== q.open && k !== q.dir); if (HW && ws.length && Math.random() < .5) { const sd = ws[Math.random() * ws.length | 0] === 'w' ? -1 : 1; b.web(cx + sd * (w / 2 - .1), H + .7, cz, Math.PI / 2, .8); }
+    const ws = ['w', 'e'].filter(k => k !== q.open && k !== q.dir); if (HW && ws.length && random() < .5) { const sd = ws[random() * ws.length | 0] === 'w' ? -1 : 1; b.web(cx + sd * (w / 2 - .1), H + .7, cz, Math.PI / 2, .8); }
     (W.lightSources ??= []).push({ x: cx, y: H - .8, z: cz, color: 0xffd8a0, strength: 1.6, range: 5 });
   }
   function stairsUp(q, paint) {
@@ -78,7 +79,7 @@ export function buildOverpasses(half) {
       const lo = new THREE.Vector3(cx + ox + far[0] * len / 2, base + 1.0, cz + oz + far[1] * len / 2), hi = new THREE.Vector3(cx + ox - far[0] * len / 2, H + 1.0, cz + oz - far[1] * len / 2);
       const m = new THREE.Mesh(G.box, pm); m.position.copy(lo).add(hi).multiplyScalar(.5); m.scale.set(.07, .07, lo.distanceTo(hi)); m.lookAt(hi); W.group.add(m);
       for (let k = 0; k <= 3; k++) { const p = lo.clone().lerp(hi, k / 3); b.box(p.x, p.z, .06, .06, 1.0, pm, { y: p.y - 1.0 - base, solid: false }); } }
-    if (HW && Math.random() < .6) b.pumpkin(cx + far[0] * (len / 2 + .5) + (along ? w / 2 + .3 : 0), cz + far[1] * (len / 2 + .5) + (along ? 0 : w / 2 + .3), .35);
+    if (HW && random() < .6) b.pumpkin(cx + far[0] * (len / 2 + .5) + (along ? w / 2 + .3 : 0), cz + far[1] * (len / 2 + .5) + (along ? 0 : w / 2 + .3), .35);
   }
   function deck(ax, a, bq, c, paint) {
     const len = Math.abs(bq - a), m = (a + bq) / 2, cx = ax === 'x' ? m : c, cz = ax === 'x' ? c : m, w = ax === 'x' ? len : BW, d = ax === 'x' ? BW : len;
@@ -107,7 +108,7 @@ export function buildOverpasses(half) {
   const roads = [];
   for (let gx = 0; gx < grid - 1; gx++) for (let gz = 0; gz < grid; gz++) roads.push(['x', gx, gz]);
   for (let gz = 0; gz < grid - 1; gz++) for (let gx = 0; gx < grid; gx++) roads.push(['z', gx, gz]);
-  roads.sort(() => Math.random() - .5);
+  roads.sort(() => random() - .5);
   for (const r of roads) { if (made.length >= 5) break; tryRoad(...r); }
   return made;
 }

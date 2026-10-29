@@ -1,3 +1,4 @@
+import { random as gameRandom } from '../core/random.js';
 import {THREE,V3} from '../core/gfx.js';
 import {SHAKIR_SPOTS} from './shakir-diorama.js';
 const surfaces=new WeakMap(),CELL=.12;
@@ -22,7 +23,7 @@ function footprintHeight(market,x,z,r){const grid=surfaces.get(market)||indexSur
   for(const p of poly)height=Math.max(height,p[1]);
  }return height;
 }
-export function chooseAntPlace(market,ant,random=Math.random){
+export function chooseAntPlace(market,ant,random=gameRandom){
  ant.updateWorldMatrix(true,true);const box=new THREE.Box3().setFromObject(ant),radius=Math.max(Math.abs(box.min.x),Math.abs(box.max.x),Math.abs(box.min.z),Math.abs(box.max.z))+.004;const ray=new THREE.Raycaster(),points=[];
  // Чуть сдвинутые точки на крышах и дорожках дают разные места даже у той же диорамы.
  for(const p of SHAKIR_SPOTS)points.push({x:p[0]+(random()-.5)*.045,z:p[1]+(random()-.5)*.035});

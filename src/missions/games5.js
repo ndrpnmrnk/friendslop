@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {addOutline} from '../game/outline.js';
 import {CONFIG} from '../config.js';
 import {cameraModel,tripodModel} from './camera-model.js';
@@ -35,7 +36,7 @@ const ring = (color = 0x9be36b) => { const r = mesh(G.ring, new THREE.MeshBasicM
 // свободная точка «пола» на расстоянии [a..b] (той же высоты), иначе — ближайшая достижимая
 function farFloor(p, a, b) {
   const zs = (W.missionZones || []).filter(z => z.type === 'floor' && Math.abs(z.y - p.y) < 0.4);
-  for (let i = 0; i < 260 && zs.length; i++) { const z = zs[(Math.random() * zs.length) | 0], x = z.x0 + 0.5 + Math.random() * Math.max(0, z.x1 - z.x0 - 1), zz = z.z0 + 0.5 + Math.random() * Math.max(0, z.z1 - z.z0 - 1), d = Math.hypot(x - p.x, zz - p.z);
+  for (let i = 0; i < 260 && zs.length; i++) { const z = zs[(random() * zs.length) | 0], x = z.x0 + 0.5 + random() * Math.max(0, z.x1 - z.x0 - 1), zz = z.z0 + 0.5 + random() * Math.max(0, z.z1 - z.z0 - 1), d = Math.hypot(x - p.x, zz - p.z);
     if (d < a || d > b || !isFree(x - 0.4, zz - 0.4, x + 0.4, zz + 0.4, z.y + 0.05, z.y + 2)) continue; if (Math.abs(groundAt(x, zz, 0.2, z.y + 0.3) - z.y) > 0.15) continue; return new V3(x, z.y, zz); }
   return nearbyItemPoint(p);
 }
@@ -153,7 +154,7 @@ export const WORLD5 = {
         time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false });
         if (can.state === 'gone') return api.finish({ success: false });
         // скелет крутит головой: смотрит перед собой, иногда резко оборачивается
-        nextT -= dt; if (nextT <= 0) { nextT = 1.2 + Math.random() * 2; want = yaw0 + (Math.random() < 0.55 ? 0 : (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random() * 1.6)); }
+        nextT -= dt; if (nextT <= 0) { nextT = 1.2 + random() * 2; want = yaw0 + (random() < 0.55 ? 0 : (random() < 0.5 ? -1 : 1) * (1.2 + random() * 1.6)); }
         look += (want - look) * Math.min(1, dt * 3); sk.body.rotation.y = look - yaw0; cone.rotation.y = look; hold += dt; sk.arms[1].rotation.x = -1.6 + Math.sin(hold * 1.3) * 0.5;
         rg.visible = P.held !== can; rg.position.set(can.pos.x, can.pos.y - 0.08, can.pos.z);
         grace-=dt;recovery-=dt;if(P.held===can)attempted=true;
@@ -217,7 +218,7 @@ export const WORLD5 = {
         cooldown=Math.max(0,cooldown-dt);if(!this.equipped)swing=0;else if(swing>0)swing=Math.max(0,swing-dt);net.visible=this.equipped;P.missionTool=this.equipped;P.carryNet=this.equipped;pose();
         const running=Math.hypot(P.vel.x,P.vel.z)>5.2&&flat(P.pos,lc)<4;if(running&&flee<=0){flee=1.5;api.msg('Спугнул! Подходи шагом','bad');}flee=Math.max(0,flee-dt);
         for(const m of moths){m.wings.forEach((w,i)=>w.rotation.z=(i?-1:1)*(0.25+Math.sin(elapsed*48+m.a)*0.9));if(m.got)continue;
-          m.turn-=dt;if(m.turn<=0){m.turn=0.12+Math.random()*0.26;m.want.set((Math.random()-0.5)*1.2,(Math.random()-0.5)*0.7,(Math.random()-0.5)*1.2);}m.jitter.lerp(m.want,Math.min(1,dt*13));m.a+=dt*m.sp*(flee>0?1.6:1);
+          m.turn-=dt;if(m.turn<=0){m.turn=0.12+random()*0.26;m.want.set((random()-0.5)*1.2,(random()-0.5)*0.7,(random()-0.5)*1.2);}m.jitter.lerp(m.want,Math.min(1,dt*13));m.a+=dt*m.sp*(flee>0?1.6:1);
           const radius=m.r+(flee>0?1.2:0);m.g.position.set(lc.x+Math.cos(m.a)*radius+m.jitter.x,lc.y+m.h+(flee>0?.42:0)+m.jitter.y+Math.sin(elapsed*3.8+m.a)*.12,lc.z+Math.sin(m.a*1.14)*radius+m.jitter.z);m.g.rotation.y=-m.a+Math.sin(elapsed*8+m.a)*0.3;
         }
         if(swing>0&&swing<0.27&&!hitSwing)hitSwing=catchOne();previous.copy(head());
@@ -266,7 +267,7 @@ export const WORLD5 = {
     api.feedback?.();
     const P = ctx.player, c = o.pos(), COL = [[0xd8243a, 'красный'], [0x2a6ad8, 'синий'], [0x3a9a4a, 'зелёный']]; let time=150,k=0,letter=null;
     const destinations=[];let previous=c;for(let i=0;i<3;i++){let best=null,bestScore=-1;for(let j=0;j<32;j++){const q=farFloor(previous,i?20:30,i?40:55),min=Math.min(flat(q,c),...destinations.map(v=>flat(v,q)));if(min>bestScore){best=q;bestScore=min;}if(min>18)break;}destinations.push(best);previous=best;}
-    const boxes = COL.map(([cc], i) => { const p=destinations[i],g = new THREE.Group(); g.position.copy(p); g.rotation.y = Math.random() * 6; W.group.add(g);
+    const boxes = COL.map(([cc], i) => { const p=destinations[i],g = new THREE.Group(); g.position.copy(p); g.rotation.y = random() * 6; W.group.add(g);
       g.add(compose('m5mbox' + cc, a => { const m = lam({ map: T.paintMetal(cc) }, 'm5mb' + cc); a(G.box, col(0x2b2533), 0, 0.5, 0, 0.08, 1.0, 0.08); a(G.box, m, 0, 1.15, 0, 0.42, 0.34, 0.5); a(G.cyl8, m, 0, 1.32, 0, 0.21, 0.5, 0.21, Math.PI / 2); a(G.box, col(0x17111f), 0, 1.22, 0.255, 0.26, 0.04, 0.01); }));
       const sg = sprite(numTex(i + 1, cc), 0.5); sg.position.y = 1.9; g.add(sg); const flag=new THREE.Group();flag.name='mail-flag';flag.position.set(0.23,1.13,0);g.add(flag);flag.rotation.x=Math.PI/2;
       mesh(G.box,col(0xe8dfc8),0,0.17,0,0.025,0.34,0.025,flag);mesh(G.box,col(cc),0,0.29,0.065,0.035,0.12,0.15,flag);
@@ -308,7 +309,7 @@ export const WORLD5 = {
     return{get phase(){return phase;},botTarget:()=>goal,botStep(dt,brain){if(flat(P.pos,goal)<.8&&phase==='search'&&brain.ready(1))this.interact();},target:()=>null,prompt:()=>phase==='search'&&flat(P.pos,c)<16?'<b>E</b>Копать':'',
       interact(){if(phase!=='search'||flat(P.pos,c)>16)return false;phase='dig';digT=tune.digTime;digAt=P.pos.clone();const f=P.root.rotation.y;hole=mesh(G.disc,new THREE.MeshBasicMaterial({color:0x2a1e18}),digAt.x+Math.sin(f)*.48,digAt.y+.022,digAt.z+Math.cos(f)*.48,.08,.08,1,W.group);hole.rotation.x=-Math.PI/2;holes.push(hole);api.msg('Копаем...');return true;},
       update(dt){time-=dt;api.timer(time);if(time<=0)return api.finish({success:false});followHand(P,detector,Math.sin(time*4)*.07);detector.visible=phase==='search';shovel.visible=phase==='dig';
-       if(phase==='dig'){digT-=dt;const k=1-digT/tune.digTime,stroke=Math.sin(k*Math.PI*4);followHand(P,shovel,-.45+stroke*.65);shovel.position.y-=Math.max(0,stroke)*.2;hole.scale.setScalar(.08+k*(tune.holeRadius-.08));if(stroke>.8&&Math.random()<dt*30){puff(hole.position.x,hole.position.y+.08,hole.position.z,{color:0x60432d,size:.10,vx:(Math.random()-.5)*2,vy:2.5,vz:(Math.random()-.5)*2,g:9,life:.5});sfx('imp',{at:hole.position,m:'dirt',v:.3});}if(digT<=0){shovel.visible=false;find();}}
+       if(phase==='dig'){digT-=dt;const k=1-digT/tune.digTime,stroke=Math.sin(k*Math.PI*4);followHand(P,shovel,-.45+stroke*.65);shovel.position.y-=Math.max(0,stroke)*.2;hole.scale.setScalar(.08+k*(tune.holeRadius-.08));if(stroke>.8&&random()<dt*30){puff(hole.position.x,hole.position.y+.08,hole.position.z,{color:0x60432d,size:.10,vx:(random()-.5)*2,vy:2.5,vz:(random()-.5)*2,g:9,life:.5});sfx('imp',{at:hole.position,m:'dirt',v:.3});}if(digT<=0){shovel.visible=false;find();}}
        if(phase==='found'){found-=dt;if(found<=0)return api.finish({success:true,mult:1});}
        const d=Math.min(...[goal,...decoy.filter(q=>!dug.has(q))].map(q=>flat(P.pos,q))),k=Math.max(0,Math.min(1,1-d/tune.range));const interval=tune.farPulse-k*(tune.farPulse-tune.nearPulse);pulse+=dt/interval;
        if(pulse>=1){pulse%=1;if(phase==='search')sfx('beep',{at:P.pos,range:10,p:k,v:.65});}
@@ -360,7 +361,7 @@ export const WORLD5 = {
     const focus=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color:0xf5c542});focus.name='ghost-focus';focus.visible=false;W.group.add(focus);
     for(const sx of [-1,1])for(const sy of [-1,1]){mesh(G.box,mat,sx*.48,sy*.6,0,.2,.035,.025,focus);mesh(G.box,mat,sx*.56,sy*.52,0,.035,.2,.025,focus);}
     const framed=()=>{if(show<=0)return false;const v=gs.position.clone().sub(cam.position),d=v.length(),dir=cam.getWorldDirection(new V3());return d<20&&dir.dot(v.normalize())>.975&&los(cam.position,gs.position);};
-    const disappear=()=>{show=0;gs.visible=false;focus.visible=false;gt=1.7+Math.random()*1.8;};
+    const disappear=()=>{show=0;gs.visible=false;focus.visible=false;gt=1.7+random()*1.8;};
     api.msg('Поймай призрака в зелёную рамку. ЛКМ - снимок (нужно 3)');
     return{get equipped(){return !P.held&&!P.holding&&!P.grab&&!P.heldBy;},toolName:'Фотокамера',toolIcon:'ghost',get toolAction(){return `Снять · ${shots}/3`;},get photos(){return shots;},get ghost(){return gs;},target:()=>null,prompt:()=>'',
       botStep(dt,brain){if(show>0){cam.position.copy(P.pos).y+=1.4;cam.lookAt(gs.position);cam.updateMatrixWorld(true);if(brain.ready(.8))this.down();}},
@@ -400,7 +401,7 @@ export const WORLD5 = {
         if (!fly && (noisy || thrown || (d < 4 && sp > 4.6) || d < 0.6)) { fly = { from: g.position.clone(), to: farFloor(g.position, 4, 8), t: 0 }; sfx('feather',{at:g.position}); api.msg(noisy?'Голубь услышал голос. Тише!':thrown?'Предмет спугнул голубя!':'Спугнул! Подкрадывайся тише', 'bad'); }
         if (fly) { fly.t += dt / 0.8; const k = Math.min(1, fly.t); g.position.lerpVectors(fly.from, fly.to, k); g.position.y += Math.sin(k * Math.PI) * 1.6; g.rotation.y = Math.atan2(fly.to.x - fly.from.x, fly.to.z - fly.from.z); if (k >= 1) { fly = null; wp.copy(g.position); } return; }
         // клюёт и семенит
-        wt -= dt; if (wt <= 0) { wt = 1 + Math.random() * 2; const a = Math.random() * 6.28; wp.set(g.position.x + Math.cos(a) * 0.8, g.position.y, g.position.z + Math.sin(a) * 0.8); if (!isFree(wp.x - 0.15, wp.z - 0.15, wp.x + 0.15, wp.z + 0.15, wp.y + 0.05, wp.y + 0.4)) wp.copy(g.position); }
+        wt -= dt; if (wt <= 0) { wt = 1 + random() * 2; const a = random() * 6.28; wp.set(g.position.x + Math.cos(a) * 0.8, g.position.y, g.position.z + Math.sin(a) * 0.8); if (!isFree(wp.x - 0.15, wp.z - 0.15, wp.x + 0.15, wp.z + 0.15, wp.y + 0.05, wp.y + 0.4)) wp.copy(g.position); }
         const dx = wp.x - g.position.x, dz2 = wp.z - g.position.z, l = Math.hypot(dx, dz2); hop += dt * 10;
         if (l > 0.05) { g.position.x += dx / l * Math.min(l, dt * 0.7); g.position.z += dz2 / l * Math.min(l, dt * 0.7); g.rotation.y = Math.atan2(dx, dz2); g.position.y = wp.y + Math.abs(Math.sin(hop)) * 0.03; }
         g.children[0].rotation.x = l < 0.05 ? Math.max(0, Math.sin(hop * 0.5)) * 0.4 : 0;
@@ -444,7 +445,7 @@ export const PANEL5 = {
         spatula.visible=false;for (const p of P3) { if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) reset(p); continue; }
           p.b += dt; shade(p.b, p.bot.material); shade(p.a, p.top.material);
           if (p.flipT > 0) { p.flipT -= dt; const k = 1 - p.flipT / 0.35; spatula.visible=true;spatula.position.set(p.g.position.x,0.04+Math.sin(k*Math.PI)*0.08,0.1);spatula.rotation.x=-Math.sin(k*Math.PI)*0.5; p.g.position.y = 0.07 + Math.sin(k * Math.PI) * 0.12; p.g.rotation.x = k * Math.PI; if (p.flipT <= 0) p.g.rotation.x = 0; }
-          if (Math.random() < dt * (p.b > 6.5 ? 14 : 3)) { const w = new V3(); p.g.getWorldPosition(w); puff(w.x, w.y + 0.05, w.z, { color: p.b > 6.5 ? 0x2a2230 : 0xd8d0e4, size: 0.06, vy: 0.6, life: 0.6 }); }
+          if (random() < dt * (p.b > 6.5 ? 14 : 3)) { const w = new V3(); p.g.getWorldPosition(w); puff(w.x, w.y + 0.05, w.z, { color: p.b > 6.5 ? 0x2a2230 : 0xd8d0e4, size: 0.06, vy: 0.6, life: 0.6 }); }
           if (p.b > 8.5) { p.dead = 1; p.g.visible = false; api.msg('Сгорела! Новая котлета', 'bad'); sfx('bonk'); } }
       },
       stop() { W.group.remove(grp); },
@@ -505,7 +506,7 @@ export const PANEL5 = {
     api.pose(c.clone().addScaledVector(F, 3.6).add(new V3(0, 1.6, 0)), c.clone().add(new V3(0, 2.0, 0)));
     const gs = mkGhost(); gs.position.copy(c).add(new V3(0, 3.1, 0.3)); let round = 0, seq = [], shown = 0, showT = 1.2, mode = 'show', inp = 0, errs = 0, endT = -1, pebbles = [];
     const ring2 = i => { const b = o.bells[i]; b.sw = 1; const w = new V3(); b.b.getWorldPosition(w);sfx('bellN',{n:i,at:w,range:17,v:.65}); burst(w.x, w.y - 0.2, w.z, 5, { color: 0xf5c542, size: 0.06, speed: 1 }); };
-    const next = () => { round++; seq = []; for (let i = 0; i < round + 2; i++) seq.push((Math.random() * 4) | 0); shown = 0; showT = 1.0; mode = 'show'; inp = 0; api.msg(`Раунд ${round}: смотри и слушай`); };
+    const next = () => { round++; seq = []; for (let i = 0; i < round + 2; i++) seq.push((random() * 4) | 0); shown = 0; showT = 1.0; mode = 'show'; inp = 0; api.msg(`Раунд ${round}: смотри и слушай`); };
     next();
     return {
       botStep(dt, brain) { if(mode==='input'&&endT<0&&inp<seq.length&&brain.ready(0.7))this.down(brain.hit(o.bells[seq[inp]].b)); },
@@ -534,7 +535,7 @@ export const PANEL5 = {
     const cv=document.createElement('canvas');cv.width=CW;cv.height=CH;const g=cv.getContext('2d'),tex=new THREE.CanvasTexture(cv);tex.magFilter=tex.minFilter=THREE.NearestFilter;tex.generateMipmaps=false;
     const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1});
     const geo=new THREE.PlaneGeometry(width,height),layer=mesh(geo,mat,center.x,center.y,center.z,1,1,1,W.group);layer.lookAt(center.clone().add(side));
-    const mask=Array.from({length:CW*CH},(_,i)=>{const x=i%CW,y=Math.floor(i/CW);return (x>3&&x<CW-4&&y>0&&y<CH-1&&Math.random()<0.87)?1:0}),amount=new Float32Array(mask.length);let count=mask.reduce((a,b)=>a+b,0);
+    const mask=Array.from({length:CW*CH},(_,i)=>{const x=i%CW,y=Math.floor(i/CW);return (x>3&&x<CW-4&&y>0&&y<CH-1&&random()<0.87)?1:0}),amount=new Float32Array(mask.length);let count=mask.reduce((a,b)=>a+b,0);
     const sponge=compose('m24sponge',a=>{a(G.box,tmat(T.foam()),0,0,0,0.32,0.17,0.13);a(G.box,col(0xe8bd40),0,0,0.06,0.31,0.15,0.03);for(const [x,y]of[[-0.09,0.04],[0.04,-0.03],[0.1,0.02]])a(G.box,col(0x9a7a2a),x,y,0.079,0.025,0.018,0.006);});W.group.add(sponge);
     const nozzle=compose('m24hose',a=>{a(G.cyl8,col(0x4a6a4a),0,-0.12,0,0.035,0.28,0.035);a(G.cyl8,tmat(T.metal()),0,0,0.06,0.055,0.22,0.055,Math.PI/2);a(G.box,col(0xd8a030),0.06,-0.05,0.02,0.04,0.1,0.1);});W.group.add(nozzle);
     const waterMat=new THREE.MeshBasicMaterial({color:0x9ccbec,transparent:true,opacity:0.65,depthWrite:false}),stream=mesh(G.box,waterMat,0,0,0,0.025,0.025,0.35,W.group);
@@ -570,17 +571,17 @@ export const PANEL5 = {
     api.feedback?.();
     const A = o.ant, c = o.pos(), yaw = o.g.rotation.y, F = new V3(Math.sin(yaw), 0, Math.cos(yaw)), R = new V3(F.z, 0, -F.x);
     api.pose(c.clone().addScaledVector(F, 2.3).addScaledVector(R, 0.45).add(new V3(0, 1.75, 0)), c.clone().addScaledVector(R, 0.45).add(new V3(0, 1.0, 0)));
-    const ty = (Math.random() - 0.5) * 2.2, tp = 0.15 + Math.random() * 0.5; let hy = (Math.random() < 0.5 ? -1 : 1) * 1.2, hp = 0.9, drag = false, last = null, good = 0, endT = -1, nt = 0;
+    const ty = (random() - 0.5) * 2.2, tp = 0.15 + random() * 0.5; let hy = (random() < 0.5 ? -1 : 1) * 1.2, hp = 0.9, drag = false, last = null, good = 0, endT = -1, nt = 0;
     const g = A.tvc.getContext('2d'); api.progress(0); api.msg('Тяни мышью — крути тарелку, лови сигнал');
     const signal = () => Math.max(0, 1 - Math.hypot(hy - ty, (hp - tp) * 1.4) / 1.4);
     return {
       botStep(dt, brain) { hy+=(ty-hy)*Math.min(1,dt*0.65);hp+=(tp-hp)*Math.min(1,dt*0.65); },
       down(ray) { drag = true; last = { x: ray.ray.direction.x, y: ray.ray.direction.y, z: ray.ray.direction.z }; }, up() { drag = false; },
       move(ray) { if (!drag || endT > 0) return; const d = ray.ray.direction, dx = (d.x - last.x) * R.x + (d.z - last.z) * R.z, dy = d.y - last.y; last = { x: d.x, y: d.y, z: d.z };
-        hy = Math.max(-1.6, Math.min(1.6, hy + dx * 4)); hp = Math.max(-0.2, Math.min(1.1, hp + dy * 4)); if (Math.random() < 0.3) sfx('tick'); },
+        hy = Math.max(-1.6, Math.min(1.6, hy + dx * 4)); hp = Math.max(-0.2, Math.min(1.1, hp + dy * 4)); if (random() < 0.3) sfx('tick'); },
       update(dt) {
         A.head.rotation.set(-hp, hy, 0); const s = signal(); A.leds.forEach((l, i) => l.material.emissive.setHex(s > (i + 0.5) / 5.5 ? (i < 2 ? 0xd8243a : i < 4 ? 0xf5c542 : 0x9be36b) : 0x000000));
-        nt -= dt; if (nt <= 0) { nt = 0.08; const id = g.createImageData(32, 24); for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() * 255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; } g.putImageData(id, 0, 0);
+        nt -= dt; if (nt <= 0) { nt = 0.08; const id = g.createImageData(32, 24); for (let i = 0; i < id.data.length; i += 4) { const v = random() * 255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; } g.putImageData(id, 0, 0);
           g.globalAlpha = s; g.fillStyle = '#4ab0f0'; g.fillRect(0, 0, 32, 24); g.fillStyle = '#ff8a1f'; g.beginPath(); g.arc(16, 12, 7, 0, 7); g.fill(); g.fillStyle = '#17111f'; g.fillRect(12, 9, 2, 2); g.fillRect(18, 9, 2, 2); g.fillRect(13, 14, 6, 2); g.globalAlpha = 1; A.tvt.needsUpdate = true; }
         if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); return; }
         if (s > 0.9) { good += dt; if (good > 1.5) { endT = 1; sfx('done'); api.msg('Картинка есть! Бабушка довольна', 'good'); } } else good = Math.max(0, good - dt);

@@ -1,12 +1,13 @@
 {
   "name": "friendslop",
   "private": true,
-  "version": "0.60.2",
+  "version": "0.60.3",
   "type": "module",
   "scripts": {
     "dev": "node scripts/prepare-audio.mjs && vite",
     "build": "node scripts/prepare-audio.mjs && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:online": "node scripts/online/run-worker-tests.mjs"
   },
   "dependencies": {
     "@fontsource/press-start-2p": "^5.3.0",

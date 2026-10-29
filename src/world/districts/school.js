@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { buildHoop } from '../basketball.js';
 import { THREE, G, tmat, col, paint, glow, compose } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
@@ -46,17 +47,17 @@ export default {
     const bellLamp = b.warnLamp(22, 3.4, 14.25, 0xffd060, .3);
     const kidM = [0x4ab0f0, 0xd8243a, 0x9be36b, 0xf5c542, 0xb18cff, 0xff8a1f].map(c => col(c)), skin = col(0xe8c0a0), bag = col(0x2b2533);
     const kids = Array.from({ length: 12 }, (_, i) => { const g = compose('kid60-' + (i % 6), a => { a(G.box, kidM[i % 6], 0, .62, 0, .42, .5, .26); a(G.sph, skin, 0, 1.05, 0, .2, .2, .2); a(G.box, bag, 0, .7, -.18, .32, .36, .12);
-      for (const s of [-1, 1]) a(G.box, col(0x3a3a5a), s * .1, .2, 0, .14, .4, .14); a(G.box, kidM[(i + 2) % 6], 0, 1.2, 0, .24, .06, .24); }); g.visible = false; W.group.add(g); W.keep.push(g); return { g, x: 0, z: 0, d: 0, v: 7 + Math.random() * 2 }; });
-    const C = { state: 'calm', t: 0, next: 30 + Math.random() * 20 };
+      for (const s of [-1, 1]) a(G.box, col(0x3a3a5a), s * .1, .2, 0, .14, .4, .14); a(G.box, kidM[(i + 2) % 6], 0, 1.2, 0, .24, .06, .24); }); g.visible = false; W.group.add(g); W.keep.push(g); return { g, x: 0, z: 0, d: 0, v: 7 + random() * 2 }; });
+    const C = { state: 'calm', t: 0, next: 30 + random() * 20 };
     W.animated.push(dt => { C.t += dt;
       if (C.state === 'calm' && C.t > C.next) { C.state = 'bell'; C.t = 0; sfx('bell', { at: { x: b.X(22.5), y: b.Y + 3, z: b.Z(14) }, range: 60 }); sfx('bell', { at: { x: b.X(22.5), y: b.Y + 3, z: b.Z(14) }, range: 60, v: .7 }); }
-      else if (C.state === 'bell') { bellLamp.set(Math.sin(C.t * 14) > 0 ? 1 : .2); if (C.t > 2) { C.state = 'run'; C.t = 0; kids.forEach((k, i) => { k.x = b.X(RX0 + .7 + (i % 4) * 1.5 + Math.random() * .3); k.z = b.Z(14.6) - Math.floor(i / 4) * 1.2; k.d = Math.floor(i / 4) * .25; k.g.visible = false; }); sfx('event', { at: { x: b.X(22.5), y: b.Y + 1, z: b.Z(15) }, range: 40 }); } }
+      else if (C.state === 'bell') { bellLamp.set(Math.sin(C.t * 14) > 0 ? 1 : .2); if (C.t > 2) { C.state = 'run'; C.t = 0; kids.forEach((k, i) => { k.x = b.X(RX0 + .7 + (i % 4) * 1.5 + random() * .3); k.z = b.Z(14.6) - Math.floor(i / 4) * 1.2; k.d = Math.floor(i / 4) * .25; k.g.visible = false; }); sfx('event', { at: { x: b.X(22.5), y: b.Y + 1, z: b.Z(15) }, range: 40 }); } }
       else if (C.state === 'run') { bellLamp.set(0); let any = false;
         for (const k of kids) { if (C.t < k.d) { any = true; continue; } k.g.visible = true; k.z += k.v * dt; if (k.z < b.Z(46.5)) any = true; else k.g.visible = false;
           const bob = Math.abs(Math.sin((C.t + k.d) * 14)) * .12; k.g.position.set(k.x + Math.sin(C.t * 9 + k.v) * .08, b.Y + bob, k.z); k.g.rotation.y = 0; k.g.updateMatrix();
-          if (Math.random() < dt * 3) smoke(k.x, b.Y + .1, k.z - .3, { color: 0xb8b0a8, size: .1, vy: .3, life: .4 });
+          if (random() < dt * 3) smoke(k.x, b.Y + .1, k.z - .3, { color: 0xb8b0a8, size: .1, vy: .3, life: .4 });
           for (const a of actors()) if (!a.hidden && !a.drone && Math.abs(a.pos.x - k.x) < .6 && a.pos.z > k.z - .2 && a.pos.z < k.z + .8 && a.pos.y < b.Y + 1.2 && !(a.stun > 0)) { const s = a.pos.x < b.X(22.5) ? -1 : 1; knockDown(a, s * 5, 6, 1.1); sfx('hit', { at: a.pos, v: .6 }); } }
-        if (!any) { C.state = 'calm'; C.t = 0; C.next = 45 + Math.random() * 20; for (const k of kids) k.g.visible = false; } } });
+        if (!any) { C.state = 'calm'; C.t = 0; C.next = 45 + random() * 20; for (const k of kids) k.g.visible = false; } } });
     b.hazard({ x0: RX0, z0: 14, x1: RX1, z1: 44, active: () => C.state !== 'calm' });
 
     /* ---------- стадион с беговой дорожкой (ЮЗ) ---------- */

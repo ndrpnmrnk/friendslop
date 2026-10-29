@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import * as THREE from 'three';
 import { ps1 } from '../core/gfx.js';
 import { graphics } from '../core/quality.js';
@@ -52,7 +53,7 @@ function pool(kind) {
 const density = () => graphics.current.particles ?? 1;
 function add(kind, o) {
   const p = pool(kind); if (p.list.length >= p.cap) p.list.shift();
-  o.age = 0; o.vx ??= 0; o.vy ??= 0; o.vz ??= 0; o.g ??= 0; o.drag ??= 0; o.spin ??= 0; o.rot ??= Math.random() * 6.28;
+  o.age = 0; o.vx ??= 0; o.vy ??= 0; o.vz ??= 0; o.g ??= 0; o.drag ??= 0; o.spin ??= 0; o.rot ??= random() * 6.28;
   o.c0 = new THREE.Color(o.color ?? 0xffffff); o.c1 = o.color2 != null ? new THREE.Color(o.color2) : null;
   p.list.push(o); return o;
 }
@@ -98,8 +99,8 @@ export function updateVfx(dt) {
 }
 export function resetVfx() { const st = W.group && pools.get(W.group); if (st) for (const p of Object.values(st)) p.list.length = 0; }
 
-const rnd = (a, b) => a + Math.random() * (b - a);
-const dirRand = (up = 0) => { const a = Math.random() * 6.283, z = rnd(-1 + up, 1), r = Math.sqrt(1 - z * z); return [Math.cos(a) * r, z, Math.sin(a) * r]; };
+const rnd = (a, b) => a + random() * (b - a);
+const dirRand = (up = 0) => { const a = random() * 6.283, z = rnd(-1 + up, 1), r = Math.sqrt(1 - z * z); return [Math.cos(a) * r, z, Math.sin(a) * r]; };
 function floorAt(x, y, z) { try { return groundAt(x, z, 0.05, y + 0.5); } catch { return y - 0.5; } }
 // тряска и стоп-кадр с учётом расстояния до игрока
 function feel(p, strength) {
@@ -142,7 +143,7 @@ const FW = [0xff4d6d, 0xffd34d, 0x6dff8a, 0x4dc3ff, 0xc77dff, 0xff9a3d];
 export function fireworks(p, n = 5) {
   const d = density();
   for (let r = 0; r < n; r++) {
-    const delay = r * 0.16 + Math.random() * 0.1, h = rnd(7, 12), ang = Math.random() * 6.28, lean = rnd(0.5, 2.2), color = FW[(r + (Math.random() * FW.length | 0)) % FW.length], color2 = FW[(r * 3 + 1) % FW.length];
+    const delay = r * 0.16 + random() * 0.1, h = rnd(7, 12), ang = random() * 6.28, lean = rnd(0.5, 2.2), color = FW[(r + (random() * FW.length | 0)) % FW.length], color2 = FW[(r * 3 + 1) % FW.length];
     const rocket = { x: p.x, y: p.y + 0.3, z: p.z, t: -delay, h, vx: Math.cos(ang) * lean, vz: Math.sin(ang) * lean, vy: h * 1.25, color, color2, burst: false };
     W.animated.push(function tick(dt) {
       rocket.t += dt; if (rocket.t < 0) return;
@@ -150,7 +151,7 @@ export function fireworks(p, n = 5) {
       add('spark', { x: rocket.x, y: rocket.y, z: rocket.z, vx: rnd(-0.4, 0.4), vy: rnd(-1.5, -0.5), vz: rnd(-0.4, 0.4), g: 2, size: 0.9, len: 0.12, life: 0.35, color: 0xffe0a0, color2: 0xff7a30 });
       if (rocket.vy > 1.2 && rocket.t < 1.6) return;
       W.animated = W.animated.filter(f => f !== tick);
-      const big = Math.random() < 0.35, cnt = Math.round((big ? 90 : 60) * d), sp = big ? 9 : 7;
+      const big = random() < 0.35, cnt = Math.round((big ? 90 : 60) * d), sp = big ? 9 : 7;
       for (let i = 0; i < cnt; i++) { const [dx, dy, dz] = dirRand(); const v = sp * rnd(0.85, 1.05);
         add('spark', { x: rocket.x, y: rocket.y, z: rocket.z, vx: dx * v, vy: dy * v + 1, vz: dz * v, g: 3.2, drag: 1.9, size: rnd(0.9, 1.3), len: 0.06, life: rnd(1.2, 1.9), twinkle: i % 3 === 0, color: i % 4 ? rocket.color : rocket.color2, color2: 0x301010 }); }
       add('fire', { x: rocket.x, y: rocket.y, z: rocket.z, size: big ? 1.3 : 0.9, grow: 1.5, life: 0.22, color: 0xffffff, color2: rocket.color });
@@ -176,6 +177,6 @@ export function impactBurst(p, color = 0xfff0d0, k = 1, chips = null) {
 }
 // Огонь на месте (горящая урна, факел): вызывать каждый кадр с dt
 export function fireTick(p, dt, k = 1) {
-  if (Math.random() < dt * 22 * k * density()) add('fire', { x: p.x + rnd(-0.2, 0.2) * k, y: p.y, z: p.z + rnd(-0.2, 0.2) * k, vy: rnd(1.5, 2.6), vx: rnd(-0.2, 0.2), vz: rnd(-0.2, 0.2), size: rnd(0.16, 0.28) * k, grow: 1.2, life: rnd(0.4, 0.7), color: 0xffd36a, color2: 0xff3a10 });
-  if (Math.random() < dt * 5 * k * density()) add('smoke', { x: p.x, y: p.y + 0.6 * k, z: p.z, vy: rnd(1, 1.8), vx: rnd(-0.2, 0.2), vz: rnd(-0.2, 0.2), size: 0.2 * k, grow: 2.5, life: rnd(1.4, 2), color: 0x2e282c, alpha: 0.7 });
+  if (random() < dt * 22 * k * density()) add('fire', { x: p.x + rnd(-0.2, 0.2) * k, y: p.y, z: p.z + rnd(-0.2, 0.2) * k, vy: rnd(1.5, 2.6), vx: rnd(-0.2, 0.2), vz: rnd(-0.2, 0.2), size: rnd(0.16, 0.28) * k, grow: 1.2, life: rnd(0.4, 0.7), color: 0xffd36a, color2: 0xff3a10 });
+  if (random() < dt * 5 * k * density()) add('smoke', { x: p.x, y: p.y + 0.6 * k, z: p.z, vy: rnd(1, 1.8), vx: rnd(-0.2, 0.2), vz: rnd(-0.2, 0.2), size: 0.2 * k, grow: 2.5, life: rnd(1.4, 2), color: 0x2e282c, alpha: 0.7 });
 }

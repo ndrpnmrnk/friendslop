@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, mesh, tmat, smat, col, glow, flat, alphaMat } from '../core/gfx.js';
 import { T, rep } from '../core/textures.js';
 import { rand, shuffle } from '../core/rng.js';
@@ -62,7 +63,7 @@ function floorPiece(x0, z0, x1, z1, conc) {
 function wallPiece(x0, z0, x1, z1, mat) {
   if (x1 - x0 < 0.01 || z1 - z0 < 0.01) return;
   // v0.22: каждая стенка чуть «ужата» на свой случайный миллиметр — на углах и стыках грани не совпадают и не рябят
-  const e = () => 0.004 + Math.random() * 0.012;
+  const e = () => 0.004 + random() * 0.012;
   mesh(G.box, mat, (x0 + x1) / 2, (UG.floor + UG.ceil) / 2, (z0 + z1) / 2, x1 - x0 - e(), UG.ceil - UG.floor - e(), z1 - z0 - e(), W.group);
   addSolid(x0, z0, x1, z1, UG.floor, UG.ceil);
 }

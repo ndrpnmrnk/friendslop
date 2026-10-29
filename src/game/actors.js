@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {actionEffect} from '../world/action-fx.js';
 import { V3 } from '../core/gfx.js';
 import { W } from '../world/state.js';
@@ -5,7 +6,7 @@ import { burst } from '../world/particles.js';
 
 /* Общие действия над «актёрами» (игрок и боты; потом — живые игроки по сети):
    толчок, выронить предмет из рук, сбить с ног. Логика без рендера — её можно перенести на сервер. */
-export const actors = () => [W.player, ...(W.bots || [])].filter(a => a && !a.drone && !a.returning);
+export const actors = () => { const list = [W.player, ...(W.bots || [])].filter(a => a && !a.drone && !a.returning); return W.net ? list.sort((a,b) => (a.netKey||'').localeCompare(b.netKey||'')) : list; };
 
 // выронить то, что в руках: предмет отлетает чуть вперёд и вверх
 export function dropHeld(a, vx = 0, vz = 0) {
@@ -13,7 +14,7 @@ export function dropHeld(a, vx = 0, vz = 0) {
   a.held = null; if (a.charging) a.charging = false;
   if (it.lit !== undefined) it.thrownLit = true;
   it.state = 'fly'; it.owner = a; it.noHitT = 0.25;
-  it.pos.set(a.pos.x, a.pos.y + 1.2, a.pos.z); it.vel.set(vx * 0.4 + (Math.random() - 0.5) * 2, 3.5, vz * 0.4 + (Math.random() - 0.5) * 2); it.g.visible = true;
+  it.pos.set(a.pos.x, a.pos.y + 1.2, a.pos.z); it.vel.set(vx * 0.4 + (random() - 0.5) * 2, 3.5, vz * 0.4 + (random() - 0.5) * 2); it.g.visible = true;
   return it;
 }
 

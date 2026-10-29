@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {bicycleModel,kartModel,scooterModel} from './vehicles.js';
 import { splatter } from './splat.js';
 import { THREE, G, mesh, col, tmat, compose, lam, glow } from '../core/gfx.js';
@@ -40,7 +41,7 @@ export function addPushable(b, kind, x, z, y = 0) {
     const shape=sackGeometry||(sackGeometry=new THREE.LatheGeometry([[0,0],[.22,.025],[.34,.12],[.35,.28],[.29,.46],[.12,.57],[.10,.65],[.16,.72],[0,.70]].map(([r,y])=>new THREE.Vector2(r,y)),12));
     const pos=shape.attributes.position;if(!shape.userData.folded){shape.userData.folded=true;for(let i=0;i<pos.count;i++){const y=pos.getY(i),a=Math.atan2(pos.getZ(i),pos.getX(i)),k=1+Math.sin(a*6+y*9)*.035;pos.setX(i,pos.getX(i)*k);pos.setZ(i,pos.getZ(i)*k);}shape.computeVertexNormals();}
     g.add(compose('sack43',a=>{const cloth=tmat(T.burlap());a(shape,cloth,0,0,0,1,1,1);a(new THREE.TorusGeometry(.105,.014,4,12),col(0x5f4f38),0,.63,0,1,1,1,Math.PI/2);a(G.box,tmat(T.sign('ЗЕРНО','#b59b70','#514735')),0,.29,.359,.22,.12,.012);for(let i=0;i<5;i++)a(G.box,col(0xc6af80),-.22,.16+i*.055,.255,.025,.012,.015);}));
-    g.rotation.y = Math.random() * 6; r = 0.32;
+    g.rotation.y = random() * 6; r = 0.32;
   }
   // стол из квартиры/кафе/офиса (v0.19): можно толкать, на него можно запрыгнуть
   else if (kind === 'table') { g.add(compose('ptable', a => { const w = tmat(T.wood()), dk = col(0x2b2533); a(G.box, w, 0, 0.76, 0, 1.12, 0.08, 0.72); a(G.box, dk, 0, 0.71, 0, 1.0, 0.04, 0.6);
@@ -110,7 +111,7 @@ export function addPushable(b, kind, x, z, y = 0) {
   const h = { voteBall:1.9, bike:1.0,kart:.65, table: 0.8, sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
   const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y + y, vx: 0, vz: 0, r, mass, h, ride: RIDE[kind] || null, heading: 0 };
   if (p.ride) p.outline = addOutline(g, 0.04);
-  g.position.set(p.x, p.y, p.z); W.pushables.push(p); return p;
+  g.position.set(p.x, p.y, p.z); W.pushables.push(p);if(W.net&&!W.net.applying)W.net.register('p',p); return p;
 }
 
 /* Урна опрокидывается от сильного удара или тарана на бегу: ложится набок, мусор высыпается */
@@ -122,7 +123,7 @@ export function tipBin(b, dx = 0, dz = 1) {
   const l = Math.hypot(dx, dz) || 1;
   for (const a of [W.player, ...(W.bots || [])]) if (a && a.hidden && a.hidden.pb === b) { a.hidden = null; a.root.visible = true; a.pos.set(b.x + dx / l * 0.6, b.y + 0.3, b.z + dz / l * 0.6); W.knockDown && W.knockDown(a, dx / l * 6, dz / l * 6, 1.4); }
   const cols = [0xd8d0c0, 0x8a8d98, 0xc83a3a, 0x6aa84f];
-  for (let i = 0; i < 8; i++) chunk(b.x, b.y + 0.6, b.z, [dx * 3 + (Math.random() - 0.5) * 3, 1 + Math.random() * 2, dz * 3 + (Math.random() - 0.5) * 3], { mat: col(cols[i % 4]), size: 0.1, sy: 0.4, life: 6 });
+  for (let i = 0; i < 8; i++) chunk(b.x, b.y + 0.6, b.z, [dx * 3 + (random() - 0.5) * 3, 1 + random() * 2, dz * 3 + (random() - 0.5) * 3], { mat: col(cols[i % 4]), size: 0.1, sy: 0.4, life: 6 });
   splatter({ x: b.x + dx * 0.8, y: b.y + 0.4, z: b.z + dz * 0.8 }, null, 0x3a3020, 16, 0.6, { flat: true });
   burst(b.x, b.y + 0.4, b.z, 4, { color: 0x6a6a5a, size: 0.3, speed: 1.2, up: 0.8, g: 2, life: 0.6 });
 }

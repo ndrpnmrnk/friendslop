@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 /* Сеть Friendslop: подключение к серверу комнат (worker/), список игроков, отправка/приём сообщений.
    Сервер только пересылает — кто что делает, решают клиенты (в хабе каждый отвечает за себя).
    Адрес сервера: NET_URL ниже; для проверок можно подменить ?server=ws://127.0.0.1:8787 (запоминается в браузере). */
@@ -9,34 +10,35 @@ const SS = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(
 export const serverUrl = () => LS('friendslop.server') || NET_URL;
 export const myName = (v) => v === undefined ? (LS('friendslop.nick') || '') : LS('friendslop.nick', v);
 const CODE_CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const newCode = () => Array.from({ length: 4 }, () => CODE_CH[Math.random() * CODE_CH.length | 0]).join('');
+const newCode = () => Array.from({ length: 4 }, () => CODE_CH[random() * CODE_CH.length | 0]).join('');
 
 const listeners = {};
 export const onNet = (ev, fn) => { (listeners[ev] ??= []).push(fn); };
 const emit = (ev, ...a) => { for (const f of listeners[ev] || []) try { f(...a); } catch (e) { console.error(e); } };
 
 export const NET = { ws: null, state: 'off', code: '', id: 0, host: false, players: new Map(), rtt: 0, skin: 'cat', error: '' };
-let pingT = null, retry = 0, wantClose = false, lastCreate = false;
+let pingT = null, retryTimer = null, retry = 0, wantClose = false, lastCreate = false;
 export const inRoom = () => NET.state === 'on';
 export const me = () => NET.players.get(NET.id);
 export const others = () => [...NET.players.values()].filter(p => p.id !== NET.id);
 
-export function send(m) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(m)); }
+export function send(m) { if(!NET.ws||NET.ws.readyState!==1||m.t==='st'&&NET.ws.bufferedAmount>131072)return false;NET.ws.send(JSON.stringify(m));return true; }
 
 function open(code, create) {
+  clearTimeout(retryTimer);
   if (NET.ws) { wantClose = true; try { NET.ws.close(); } catch { } }
   wantClose = false; lastCreate = create; NET.code = code; NET.state = 'connecting'; NET.error = ''; emit('state');
   let ws; try { ws = new WebSocket(serverUrl() + '/ws?room=' + code); } catch { fail('Сервер недоступен'); return; }
   NET.ws = ws;
-  ws.onopen = () => { let token = SS('friendslop.tok.' + code); if (!token) { token = Math.random().toString(36).slice(2) + Date.now().toString(36); SS('friendslop.tok.' + code, token); }
+  ws.onopen = () => { let token = SS('friendslop.tok.' + code); if (!token) { token = random().toString(36).slice(2) + Date.now().toString(36); SS('friendslop.tok.' + code, token); }
     send({ t: 'hello', name: myName() || 'Игрок', skin: NET.skin, ver: VER, create: create ? 1 : 0, token }); };
   ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch { return; } handle(m); };
   ws.onclose = () => { if (NET.ws !== ws) return; clearInterval(pingT); NET.ws = null;
-    if (NET.state === 'on' && !wantClose && retry < 4) { retry++; NET.state = 'connecting'; emit('state'); emit('toast', 'Связь пропала — переподключаюсь…'); setTimeout(() => open(NET.code, false), 800 * retry); return; }
+    if (NET.state !== 'off' && !wantClose && retry < 4) { retry++; NET.state = 'connecting'; emit('state'); emit('toast', 'Связь пропала — переподключаюсь…'); retryTimer = setTimeout(() => {if(!wantClose)open(NET.code, false);}, 800 * retry); return; }
     if (NET.state !== 'off') leaveLocal(); };
 }
 function fail(msg) { NET.error = msg; emit('toast', msg); leaveLocal(); }
-function leaveLocal() { clearInterval(pingT); NET.state = 'off'; NET.id = 0; NET.host = false; const was = [...NET.players.keys()]; NET.players.clear(); for (const id of was) emit('leave', id); emit('state'); setInviteUrl(''); }
+function leaveLocal() { clearTimeout(retryTimer); clearInterval(pingT); NET.state = 'off'; NET.id = 0; NET.host = false; const was = [...NET.players.keys()]; NET.players.clear(); for (const id of was) emit('leave', id); emit('state'); setInviteUrl(''); }
 function setInviteUrl(code) { try { const u = new URL(location.href); if (code) u.searchParams.set('room', code); else u.searchParams.delete('room'); history.replaceState(null, '', u); } catch { } }
 
 function handle(m) {

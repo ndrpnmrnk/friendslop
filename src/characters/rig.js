@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {meleeHand} from './melee-pose.js';
 import { THREE, G, sprite , jellify } from '../core/gfx.js';
 import {makeSpeechMouth,animateSpeech} from './speech.js';
@@ -222,7 +223,7 @@ function animate(c, dt, s) {
   } else if (s.act === 'special') {
     if (c.skinId === 'shark') { setHand(c.handL, -hx * 0.9, d.top - 0.25, 0, f); setHand(c.handR, hx * 0.9, d.top - 0.25, 0, f); c.body.rotation.z = Math.sin(t * 8) * 0.12; }
     else if (c.skinId === 'frog') { const tg = c.head.userData.tongue, k = Math.sin(Math.min(1, s.actK) * Math.PI * 3); if (tg) { tg.visible = k > 0.2; tg.scale.z = 0.3 + Math.max(0, k) * 0.5; tg.position.z = 0.44 + Math.max(0, k) * 0.25; } setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx, hy - fl, hz, f); }
-    else if (c.skinId === 'tv') { setHand(c.handL, -hx, hy, hz, f); setHand(c.handR, hx, hy, hz, f); c.body.position.x = (Math.random() - 0.5) * 0.03; c.body.rotation.z = (Math.random() - 0.5) * 0.06; }
+    else if (c.skinId === 'tv') { setHand(c.handL, -hx, hy, hz, f); setHand(c.handR, hx, hy, hz, f); c.body.position.x = (random() - 0.5) * 0.03; c.body.rotation.z = (random() - 0.5) * 0.06; }
     else { setHand(c.handL, -hx, hy + fl, hz, f); setHand(c.handR, hx * 0.3, d.top - 0.45 + Math.sin(t * 12) * 0.05, 0.35, f); c.body.rotation.x = 0.12; }
   } else if (s.zip) {
     // висит на ролике зиплайна: руки вверх, ноги болтаются
@@ -306,7 +307,7 @@ function animate(c, dt, s) {
   const tk = c.talk || 0, sh = c.shout || 0;
   if (tk > 0.02 || sh > 0.02 || c.head.scale.x !== 1) {
     c.head.rotation.x += Math.sin(t * 24) * 0.07 * tk; c.head.position.y = Math.abs(Math.sin(t * 18)) * 0.03 * tk;
-    c.head.position.x = sh > 0.02 ? (Math.random() - 0.5) * 0.06 * sh : 0; c.head.rotation.z += sh > 0.02 ? (Math.random() - 0.5) * 0.12 * sh : 0;
+    c.head.position.x = sh > 0.02 ? (random() - 0.5) * 0.06 * sh : 0; c.head.rotation.z += sh > 0.02 ? (random() - 0.5) * 0.12 * sh : 0;
     const hs = 1 + 0.18 * sh; c.head.scale.setScalar(Math.abs(hs - 1) < 0.005 ? 1 : hs);
   }
   // горловой мешок лягушки: надувается на «ква»
@@ -316,6 +317,6 @@ function animate(c, dt, s) {
   c.blinkT -= dt;
   let e = s.stun || s.daze ? 'dizzy' : s.air || s.grabbed || s.emote === 'laugh' || s.emote === 'call' || s.emote === 'clap' ? 'wow' : 'idle';
   if (e === 'idle' && c.blinkT < 0.12) e = 'blink';
-  if (c.blinkT < 0) c.blinkT = 2 + Math.random() * 3;
+  if (c.blinkT < 0) c.blinkT = 2 + random() * 3;
   if (e !== c.expr) { c.expr = e; c.skin.face && c.skin.face(c, e); }
 }

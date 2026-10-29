@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {W} from '../world/state.js';
 import {groundAt,isFree,zoneAt} from '../world/physics.js';
 // Короткие безопасные маршруты. Двери/стекло остаются препятствиями, вода и
@@ -31,17 +32,17 @@ function path(from,to){
 export function animalGoal(a,radius=26){
  const p=position(a),near=(W.districts||[]).filter(d=>Math.hypot((d.ox+d.x1)/2-p.x,(d.oz+d.z1)/2-p.z)<radius+24);
  for(let i=0;i<36;i++){
-  let x,z;if(i<20&&near.length){const d=near[Math.random()*near.length|0],edge=Math.random()*4|0,S=d.x1-d.ox,t=2+Math.random()*(S-4);x=d.ox+(edge===0?-.7:edge===1?S+.7:t);z=d.oz+(edge===2?-.7:edge===3?S+.7:t);}
-  else{const angle=Math.random()*Math.PI*2,d=3+Math.random()*radius;x=p.x+Math.cos(angle)*d;z=p.z+Math.sin(angle)*d;}
+  let x,z;if(i<20&&near.length){const d=near[random()*near.length|0],edge=random()*4|0,S=d.x1-d.ox,t=2+random()*(S-4);x=d.ox+(edge===0?-.7:edge===1?S+.7:t);z=d.oz+(edge===2?-.7:edge===3?S+.7:t);}
+  else{const angle=random()*Math.PI*2,d=3+random()*radius;x=p.x+Math.cos(angle)*d;z=p.z+Math.sin(angle)*d;}
   const distance=Math.hypot(x-p.x,z-p.z);if(distance<3||distance>radius+12)continue;const q=floorPoint(x,z,p.y);if(q)return q;
  }
  return{x:p.x,y:p.y,z:p.z};
 }
 export function animalMove(a,goal,speed,dt,stop=.25){
- const p=position(a);let nav=routes.get(a);if(!nav||nav.world!==W.group){nav={world:W.group,path:[],ttl:0,x:Infinity,z:Infinity,speed:0,blocked:0,side:Math.random()<.5?-1:1};routes.set(a,nav);}
+ const p=position(a);let nav=routes.get(a);if(!nav||nav.world!==W.group){nav={world:W.group,path:[],ttl:0,x:Infinity,z:Infinity,speed:0,blocked:0,side:random()<.5?-1:1};routes.set(a,nav);}
  const distance=Math.hypot(goal.x-p.x,goal.z-p.z);nav.ttl-=dt;
  if(distance<=stop){nav.speed*=Math.exp(-dt*12);if(a.vel)a.vel.set(0,0,0);return{moved:0,distance,arrived:true,blocked:false};}
- if(nav.ttl<=0&&(!nav.path.length||nav.blocked>.1)||nav.ttl<=.35&&Math.hypot(nav.x-goal.x,nav.z-goal.z)>2.4){nav.path=path(p,goal);nav.ttl=1.1+Math.random()*.3;nav.x=goal.x;nav.z=goal.z;}
+ if(nav.ttl<=0&&(!nav.path.length||nav.blocked>.1)||nav.ttl<=.35&&Math.hypot(nav.x-goal.x,nav.z-goal.z)>2.4){nav.path=path(p,goal);nav.ttl=1.1+random()*.3;nav.x=goal.x;nav.z=goal.z;}
  while(nav.path.length&&Math.hypot(nav.path[0].x-p.x,nav.path[0].z-p.z)<.28)nav.path.shift();
  const target=nav.path[0]||goal,dx=target.x-p.x,dz=target.z-p.z,len=Math.hypot(dx,dz)||1,angle=Math.atan2(dx,dz),ox=p.x,oz=p.z;
  nav.speed+=(speed-nav.speed)*(1-Math.exp(-dt*7));const steps=Math.max(1,Math.ceil(nav.speed*dt/.10)),move=nav.speed*dt/steps;

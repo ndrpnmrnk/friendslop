@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { THREE, G, tmat, smat, col, lam, glow } from '../../core/gfx.js';
 import { addSwinger } from '../swingers.js';
 import { T } from '../../core/textures.js';
@@ -78,7 +79,7 @@ export default {
     /* ---------- мусорный бак — цель для захвата ---------- */
     const lid = b.dumpster(33, 36.5); W.keep.push(lid); const lidY = lid.position.y; let bounce = 0;
     b.grabTarget({ x: 33, z: 37.7, r: 1.3, kind: 'stash', t: 3, at: { x: 33, y: .5, z: 36.5 }, label: 'бак', onUse: () => { bounce = 3; } });
-    W.animated.push(dt => { if (bounce <= 0) { if (lid.position.y !== lidY) lid.position.y = lidY; return; } bounce -= dt; const k = Math.abs(Math.sin(bounce * 11)) * .18 * Math.min(1, bounce); lid.position.y = lidY + k; lid.rotation.x = -k * .8; lid.updateMatrix(); if (Math.random() < dt * 4) sfx('bonk', { at: lid.position, v: .4 }); });
+    W.animated.push(dt => { if (bounce <= 0) { if (lid.position.y !== lidY) lid.position.y = lidY; return; } bounce -= dt; const k = Math.abs(Math.sin(bounce * 11)) * .18 * Math.min(1, bounce); lid.position.y = lidY + k; lid.rotation.x = -k * .8; lid.updateMatrix(); if (random() < dt * 4) sfx('bonk', { at: lid.position, v: .4 }); });
     b.trashBags(35.5, 37, 3); b.bin(31, 38.6);
 
     /* ---------- юг и запад: сарай, бельё, лавки, клумбы ---------- */

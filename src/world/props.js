@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {buildClockTower} from './plaza-landmarks.js';
 import { THREE, G, mesh, compose, col, tmat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -169,22 +170,22 @@ export const PropMethods = {
     if (kind === 'tree') { this.tree(x, z, 0.75, top); return; }
     if (kind === 'shrub') {
       const n = Math.max(2, Math.round(iw * id * 1.2)), lm = tmat(T.bush());
-      for (let i = 0; i < n; i++) { const s = 0.35 + Math.random() * 0.25; const o = this.m(G.ico, lm, x + (Math.random() - 0.5) * iw, top + s * 0.6, z + (Math.random() - 0.5) * id, s, s * 0.85, s); o.rotation.y = Math.random() * 3; }
+      for (let i = 0; i < n; i++) { const s = 0.35 + random() * 0.25; const o = this.m(G.ico, lm, x + (random() - 0.5) * iw, top + s * 0.6, z + (random() - 0.5) * id, s, s * 0.85, s); o.rotation.y = random() * 3; }
     }
     if (kind === 'grass') {
       const gm = col(0x6a7a3a), gm2 = col(0x8a8a4a);
-      for (let i = 0; i < iw * id * 30; i++) { const b2 = this.m(G.box, i % 2 ? gm : gm2, x + (Math.random() - 0.5) * iw, top + 0.25, z + (Math.random() - 0.5) * id, 0.025, 0.5 + Math.random() * 0.25, 0.025); b2.rotation.set((Math.random() - 0.5) * 0.6, Math.random() * 3, (Math.random() - 0.5) * 0.6); }
+      for (let i = 0; i < iw * id * 30; i++) { const b2 = this.m(G.box, i % 2 ? gm : gm2, x + (random() - 0.5) * iw, top + 0.25, z + (random() - 0.5) * id, 0.025, 0.5 + random() * 0.25, 0.025); b2.rotation.set((random() - 0.5) * 0.6, random() * 3, (random() - 0.5) * 0.6); }
     }
     if (kind === 'flowers' || kind === 'shrub') {
       const n = Math.round(iw * id * (kind === 'flowers' ? 9 : 3)), leaf = tmat(T.leaves(2)), stem = col(0x3a5a2a);
       for (let i = 0; i < n; i++) {
-        const fx = x + (Math.random() - 0.5) * iw, fz = z + (Math.random() - 0.5) * id, hh = 0.18 + Math.random() * 0.18;
-        if (kind === 'flowers') { const l = this.m(G.ico, leaf, fx, top + 0.06, fz, 0.13, 0.07, 0.13); l.rotation.y = Math.random() * 3; }
-        const c = FLOWERS[(Math.random() * FLOWERS.length) | 0];
+        const fx = x + (random() - 0.5) * iw, fz = z + (random() - 0.5) * id, hh = 0.18 + random() * 0.18;
+        if (kind === 'flowers') { const l = this.m(G.ico, leaf, fx, top + 0.06, fz, 0.13, 0.07, 0.13); l.rotation.y = random() * 3; }
+        const c = FLOWERS[(random() * FLOWERS.length) | 0];
         // цветы клумбы — живые (их можно примять, бабушка их выхаживает): рисуются одним инстанс-мешем (game/town.js)
-        if (kind === 'flowers') { W.flowers.push({ x: this.X(fx), y: this.Y + top, z: this.Z(fz), hh, c, k: 0, w: 0, ph: Math.random() * 6.28, bed: W.flowerbeds[W.flowerbeds.length - 1] }); continue; }
+        if (kind === 'flowers') { W.flowers.push({ x: this.X(fx), y: this.Y + top, z: this.Z(fz), hh, c, k: 0, w: 0, ph: random() * 6.28, bed: W.flowerbeds[W.flowerbeds.length - 1] }); continue; }
         this.m(G.box, stem, fx, top + hh / 2, fz, 0.015, hh, 0.015);
-        const bl = this.m(G.ico, col(c), fx, top + hh + 0.03, fz, 0.055, 0.04, 0.055); bl.rotation.y = Math.random() * 3;
+        const bl = this.m(G.ico, col(c), fx, top + hh + 0.03, fz, 0.055, 0.04, 0.055); bl.rotation.y = random() * 3;
       }
     }
   },
@@ -201,11 +202,11 @@ export const PropMethods = {
       s(G.cyl8, 0, 0.66, 0.24, 0.045, 0.06, 0.045, Math.PI / 2); s(G.box, 0, 0.02, 0.24, 0.12, 0.04, 0.12); s(G.box, 0, 0.02, -0.38, 0.12, 0.04, 0.12);
     }
     // Хэллоуин: изредка на скамейке сидит весёлый скелет (машет, нога на ногу, держит тыкву; бывает в шляпе или шарфе)
-    const skel = HW && Math.random() < (globalThis.__skel ?? 0); // v0.19: на лавочках почти не сидят — по городу ходят скелеты-NPC
-    if (skel) skeleton(g, ['wave', 'cross', 'pumpkin'][(Math.random() * 3) | 0], Math.random() < 0.5 ? (Math.random() < 0.5 ? 'hat' : 'scarf') : null, Math.random() < 0.5 ? -0.4 : 0.4);
+    const skel = HW && random() < (globalThis.__skel ?? 0); // v0.19: на лавочках почти не сидят — по городу ходят скелеты-NPC
+    if (skel) skeleton(g, ['wave', 'cross', 'pumpkin'][(random() * 3) | 0], random() < 0.5 ? (random() < 0.5 ? 'hat' : 'scarf') : null, random() < 0.5 ? -0.4 : 0.4);
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.6 : 2, q ? 2 : 0.6, 0, 0.55);
     W.benches.push({ x: this.X(x), y: this.Y, z: this.Z(z), ry: g.rotation.y, skel, riders: [] });
-    if (Math.random() < 0.1 && this.Y > -1) this.cushion(x + (q ? 0 : 0.5), z + (q ? 0.5 : 0), 0.55);
+    if (random() < 0.1 && this.Y > -1) this.cushion(x + (q ? 0 : 0.5), z + (q ? 0.5 : 0), 0.55);
     return g;
   },
   // Фонарь: постамент, сужающаяся опора с кольцом, изогнутый кронштейн и фонарь с колпаком
@@ -222,9 +223,9 @@ export const PropMethods = {
     this.m(G.box, d, lx, 2.98, lz, 0.26, 0.04, 0.26);
     // плафон бьётся от брошенного предмета — фонарь гаснет
     // часть фонарей мигает: у них свой материал плафона и пятна света
-    const fl = Math.random() < 0.15, bm = fl ? lam({ color: 0xfff0c8, emissive: 0xfff0c8, emissiveIntensity: 0.9 }) : glow(0xfff0c8);
+    const fl = random() < 0.15, bm = fl ? lam({ color: 0xfff0c8, emissive: 0xfff0c8, emissiveIntensity: 0.9 }) : glow(0xfff0c8);
     const bulb = breakBox(this.X(lx), this.Y + 3.0, this.Z(lz), 0.22, 0.2, 0.22, 'bulb', bm), pool = this.light(lx, lz, 3.2);
-    if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: Math.random() * 5, on: true }); }
+    if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: random() * 5, on: true }); }
     W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; pool.userData.broken = true; };
     // объёмный конус света под плафоном (v0.23): аддитивный, мягкий к краям и к земле; гаснет вместе с фонарём
     const cone = new THREE.Mesh(LAMP_CONE, LAMP_CONE_M()); cone.position.set(this.X(lx), this.Y + 1.52, this.Z(lz)); cone.renderOrder = 4; cone.userData.noOcc = true; cone.visible=false;this.g.add(cone);W.keep.push(cone);
@@ -238,7 +239,7 @@ export const PropMethods = {
   },
   // Мешки с мусором у стены: это предметы — можно взять и бросить, рвутся при ударе
   trashBags(x, z, n = 3) {
-    for (let i = 0; i < n; i++) this.item('trash', x + (i - (n - 1) / 2) * 0.55, z + (Math.random() - 0.5) * 0.2, 0, Math.random() * 3);
+    for (let i = 0; i < n; i++) this.item('trash', x + (i - (n - 1) / 2) * 0.55, z + (random() - 0.5) * 0.2, 0, random() * 3);
   },
   // Велосипед у стойки (декор): колёса-кольца, рама, седло, руль
   bicycle(x,z,ry=0,c=0x3a7ac8){return this.ride('bike',x,z,ry).mesh;},
@@ -248,7 +249,7 @@ export const PropMethods = {
     for (let i = 0; i < n; i++) {
       const o = (i - (n - 1) / 2) * 0.8, px = x + (along ? o : 0), pz = z + (along ? 0 : o);
       const t = this.m(new THREE.TorusGeometry(1, 0.08, 4, 10, Math.PI), mt, px, 0, pz, 0.38, 0.75, 0.38); t.rotation.y = along ? Math.PI / 2 : 0;
-      if (i % 2 === 0 && Math.random() < 0.8) this.bicycle(px + (along ? 0.18 : 0.1), pz + (along ? 0.1 : 0.18), along ? 0 : Math.PI / 2, [0x3a7ac8, 0xd8243a, 0xf5c542, 0x6aa84f][i % 4]);
+      if (i % 2 === 0 && random() < 0.8) this.bicycle(px + (along ? 0.18 : 0.1), pz + (along ? 0.1 : 0.18), along ? 0 : Math.PI / 2, [0x3a7ac8, 0xd8243a, 0xf5c542, 0x6aa84f][i % 4]);
     }
     this.solid(x, z, along ? n * 0.8 : 0.3, along ? 0.3 : n * 0.8, 0, 0.8);
   },
@@ -329,12 +330,12 @@ export const PropMethods = {
   // Поддон с мешками цемента
   cementPallet(x, z) {
     this.pallet(x, z, 1.4, 1.1); const bm = tmat(T.cementBag());
-    for (let l = 0; l < 3; l++) for (let i = 0; i < 2; i++) { const bg = this.m(G.box, bm, x + (i - 0.5) * 0.65, 0.26 + l * 0.18, z + (l % 2 ? 0.1 : -0.1), 0.62, 0.17, 0.9); bg.rotation.y = (Math.random() - 0.5) * 0.1; }
+    for (let l = 0; l < 3; l++) for (let i = 0; i < 2; i++) { const bg = this.m(G.box, bm, x + (i - 0.5) * 0.65, 0.26 + l * 0.18, z + (l % 2 ? 0.1 : -0.1), 0.62, 0.17, 0.9); bg.rotation.y = (random() - 0.5) * 0.1; }
     this.solid(x, z, 1.4, 1.1, 0.18, 0.55);
   },
   // Шины: стоят рядом, от толчка раскатываются в стороны
   tires(x, z, n = 4) {
-    for (let i = 0; i < n; i++) { const p = this.ride('tire', x + (i % 2) * 0.5 - 0.25, z + Math.floor(i / 2) * 0.8 - 0.4 + (i % 2) * 0.15, Math.random() * 0.4 - 0.2); p.mesh.rotation.y = Math.PI / 2 + (Math.random() - 0.5) * 0.4; }
+    for (let i = 0; i < n; i++) { const p = this.ride('tire', x + (i % 2) * 0.5 - 0.25, z + Math.floor(i / 2) * 0.8 - 0.4 + (i % 2) * 0.15, random() * 0.4 - 0.2); p.mesh.rotation.y = Math.PI / 2 + (random() - 0.5) * 0.4; }
   },
   // Погрузчик (декор, на вилы можно запрыгнуть)
   forklift(x, z, ry = 0) {
@@ -449,11 +450,11 @@ export const PropMethods = {
     this.solid(x, z, 0.8, 0.8, 0, 1.9);
   },
   // Граффити на стене (наклейка, чуть отступя от стены)
-  graffiti(x, y, z, ry, w = 3, i = (Math.random() * 6) | 0) { const m = this.m(G.plane, lam({ map: T.graffiti(i), alphaTest: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'graf' + i, true), x, y, z, w, w / 2, 1); m.rotation.y = ry; },
+  graffiti(x, y, z, ry, w = 3, i = (random() * 6) | 0) { const m = this.m(G.plane, lam({ map: T.graffiti(i), alphaTest: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'graf' + i, true), x, y, z, w, w / 2, 1); m.rotation.y = ry; },
   // Лужа: отражает свет, на ней чуть скользко
   puddle(x, z, r = 1) {
     const m = this.m(G.plane, lam({ map: T.puddle(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, emissive: 0x1a2a40, emissiveIntensity: 1 }, 'puddle'), x, 0.025, z, r * 2, r * 2, 1);
-    m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6;
+    m.rotation.x = -Math.PI / 2; m.rotation.z = random() * 6;
     addZone('puddle', { c: [this.X(x), this.Z(z), r * 0.7] }, this.Y);
     W.puddles.push({ x: this.X(x), z: this.Z(z), y: this.Y, r: r * 0.85 });
   },
@@ -579,9 +580,9 @@ export const PropMethods = {
   leafPile(x, z, r = 1) {
     // большой холм листвы (в него можно спрятаться целиком) + разлетевшиеся по земле листья
     r *= 2.25;
-    const lm = tmat(T.leaves(0)), g = this.m(G.sph10, lm, x, 0.02, z, r * 0.62, r * 0.42, r * 0.55); g.rotation.y = Math.random() * 3;
-    for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + Math.random(), d = r * 0.38; const k = this.m(G.sph, lm, x + Math.cos(a) * d, 0.02, z + Math.sin(a) * d, r * 0.34, r * 0.24, r * 0.3); k.rotation.y = a; }
-    const lit = this.m(G.plane, lam({ map: T.leafLitter(), alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'leafLitter', true), x, 0.03, z, r * 2.1, r * 2.1, 1); lit.rotation.x = -Math.PI / 2; lit.rotation.z = Math.random() * 6;
+    const lm = tmat(T.leaves(0)), g = this.m(G.sph10, lm, x, 0.02, z, r * 0.62, r * 0.42, r * 0.55); g.rotation.y = random() * 3;
+    for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + random(), d = r * 0.38; const k = this.m(G.sph, lm, x + Math.cos(a) * d, 0.02, z + Math.sin(a) * d, r * 0.34, r * 0.24, r * 0.3); k.rotation.y = a; }
+    const lit = this.m(G.plane, lam({ map: T.leafLitter(), alphaTest: 0.5, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'leafLitter', true), x, 0.03, z, r * 2.1, r * 2.1, 1); lit.rotation.x = -Math.PI / 2; lit.rotation.z = random() * 6;
     addZone('leaves', { c: [this.X(x), this.Z(z), r * 0.6] }, this.Y);
     W.hides.push({ x: this.X(x), y: this.Y, z: this.Z(z), r: r * 0.6 + 0.4, kind: 'leaves', out: [0, 0] });
   },
@@ -594,7 +595,7 @@ export const PropMethods = {
     this.solid(x, z, 0.5, 0.5, 0, 1.0);
     const fx = Math.sin(ry), fz = Math.cos(ry), wx = this.X(x + fx * 0.05), wz = this.Z(z + fz * 0.05), wy = this.Y + 1.2;
     W.interacts.push({ x: this.X(x + fx * 0.7), z: this.Z(z + fz * 0.7), y: this.Y, r: 1.1, label: 'Попить', enabled: P => !P.held,
-      act: P => { P.stamina = 1; P.exhausted = false; P.drinkT = 1.2; for (let i = 0; i < 8; i++) puff(wx, wy, wz, { color: 0x9ccbec, size: 0.1, vx: fx * 0.4 + (Math.random() - 0.5) * 0.3, vy: 1.4, vz: fz * 0.4 + (Math.random() - 0.5) * 0.3, g: 9, life: 0.5, grow: 0.1 }); W.onDrink && W.onDrink(P); } });
+      act: P => { P.stamina = 1; P.exhausted = false; P.drinkT = 1.2; for (let i = 0; i < 8; i++) puff(wx, wy, wz, { color: 0x9ccbec, size: 0.1, vx: fx * 0.4 + (random() - 0.5) * 0.3, vy: 1.4, vz: fz * 0.4 + (random() - 0.5) * 0.3, g: 9, life: 0.5, grow: 0.1 }); W.onDrink && W.onDrink(P); } });
   },
   // Деревянный причал над водой
   pier(x0, z0, x1, z1, y = 0.35) {
@@ -613,7 +614,7 @@ export const PropMethods = {
   pumpkinPatch(x, z, w, d, n = 4) {
     this.ground(x - w / 2, z - d / 2, x + w / 2, z + d / 2, T.dirt(), 2);
     const vm = tmat(T.leaves(2));
-    for (let i = 0; i < w * d * 1.2; i++) { const o = this.m(G.ico, vm, x + (Math.random() - 0.5) * w, 0.12, z + (Math.random() - 0.5) * d, 0.3, 0.12, 0.3); o.rotation.y = Math.random() * 3; }
+    for (let i = 0; i < w * d * 1.2; i++) { const o = this.m(G.ico, vm, x + (random() - 0.5) * w, 0.12, z + (random() - 0.5) * d, 0.3, 0.12, 0.3); o.rotation.y = random() * 3; }
     for (let i = 0; i < n; i++) this.item('pumpkin', x + ((i % 3) - 1) * w * 0.3, z + (Math.floor(i / 3) - 0.5) * d * 0.45);
     for (const s2 of [-1, 1]) this.box(x, z + s2 * (d / 2 + 0.05), w + 0.2, 0.1, 0.25, tmat(T.wood()), { solid: false });
   },
@@ -651,7 +652,7 @@ function skeleton(g, pose, acc, off) {
     // машущая рука: плечо — точка вращения
     const arm = new THREE.Group(); arm.position.set(0.18, 0.92, -0.1); sk.add(arm);
     arm.add(compose('skelArm', a => { const bone2 = col(0xe8e0d0); a(G.cyl5, bone2, 0.04, 0.12, 0, 0.022, 0.28, 0.022, 0, 0, -0.3); a(G.cyl5, bone2, 0.1, 0.38, 0, 0.02, 0.26, 0.02); for (let i = 0; i < 4; i++) a(G.box, bone2, 0.06 + i * 0.025, 0.55, 0, 0.012, 0.08, 0.012); }));
-    W.keep.push(arm); const ph = Math.random() * 6; W.animated.push((dt, t) => { arm.rotation.z = Math.sin(t * 5 + ph) * 0.35 - 0.1; });
+    W.keep.push(arm); const ph = random() * 6; W.animated.push((dt, t) => { arm.rotation.z = Math.sin(t * 5 + ph) * 0.35 - 0.1; });
   }
 }
 

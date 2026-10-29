@@ -14,6 +14,7 @@ import { cargoPosition } from '../game/handheld.js';
 // получают самостоятельный ввод и камеру, не меняя интерфейс/камеру игрока.
 export function beginBotWork(b, m) {
   if (!M.list.includes(m) || (m.claimedBy && m.claimedBy !== b) || (m.doer && m.doer !== b) || m.busy) return false;
+  if(W.net&&!W.net.claimBot(m,b))return false;
   startMissionClock(m);
   if (b.held) dropHeld(b);
   if (m.def.world) m.claimedBy = b;
@@ -35,7 +36,8 @@ export function beginBotWork(b, m) {
     free:()=>true};
   eye.copy(b.pos).y+=1.4;
   const before=new Set(W.items);
-  job.game=(job.world?WORLD_GAMES:ALL_GAMES)[m.def.game](m.obj,api,ctx);
+  const build=()=>(job.world?WORLD_GAMES:ALL_GAMES)[m.def.game](m.obj,api,ctx);
+  job.game=W.net?W.net.work(m,job.world?'world':'panel',build):build();
   for(const it of W.items)if(!before.has(it))it.mission=m;
   const ui=document.getElementById(['fuse','phone','keypad','lockpick','pipes'].includes(m.def.game)?({fuse:'wireui',phone:'phoneui',keypad:'keyui',lockpick:'lockui',pipes:'pipeui'}[m.def.game])+'-bot-'+m.id:'');
   if(ui&&job.look){
@@ -53,6 +55,7 @@ export function stopBotWork(b) {
   if(job.m.doer===b)job.m.doer=null;
   if(job.grip && b.holding===job.grip)letGo(b);
   b.stationaryWork=false;b.work=null;b.goal=null;b.aimAt=null;b.think=0.6;b.missionTool=false;
+  W.net?.releaseBot(job.m,b);
 }
 export function interruptBotWork(b) {
   const job=b.work;if(!job||job.world)return null;
@@ -129,7 +132,7 @@ function tickBotWork0(b,dt) {
     if(!job.recover&&!job.grip)game.botStep?.(dt,brain);
   }
   // Уличный таймер не замирает в захвате; накопленные этапы и предметы не пересоздаются.
-  game.update?.(dt);
+  if(game.update){if(W.net)W.net.runWork(m,()=>game.update(dt));else game.update(dt);}
   const display=job.display;if(display){display.t-=dt;if(display.t<=0){display.t=0.1;const g=display.cv.getContext('2d'),source=display.ui.querySelector('canvas');g.imageSmoothingEnabled=false;
     if(source)g.drawImage(source,0,0,64,64);else{g.fillStyle='#221b30';g.fillRect(0,0,64,64);g.fillStyle='#9be36b';g.font='bold 10px monospace';g.fillText(m.def.game==='phone'?'ГУЛЯТЬ?':(m.obj.code||[]).join(' '),5,15);for(let i=0;i<3;i++){g.fillStyle=i/3<(m.progress||0)?'#9be36b':'#4b405e';g.fillRect(6,23+i*12,52,8);}}display.tx.needsUpdate=true;}
     if(!brain.workPoint)brain.workPoint=job.look;

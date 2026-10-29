@@ -8,7 +8,7 @@ export let W = {
 };
 export function resetWorld(group) {
   for(const r of W.mapResources||[])r.dispose();W.mapResources=new Set();
-  W.group = group;
+  W.group = group; W.net = null; W.netPuppet = W.netHit = W.netThrow = W.netTake = null;
   W.factorySite=W.salonSite=W.mayor=W.university=W.cinemaSite=null;
   W.fatDone=false;
   for (const k of ['grabTargets','hazards','surfaces','dressings','lightSources','hoops','foodSpots','solids', 'canopies', 'crowns', 'zones', 'doors', 'ladders', 'pushables', 'items', 'occluders', 'birds', 'cats', 'npcs', 'catHomes', 'missionZones', 'spawns', 'debris', 'decals', 'animated', 'districts', 'breakables', 'holes', 'tunnelOpenings', 'keep', 'swingers', 'swingSeats', 'cars', 'vendings', 'flick', 'manholes', 'chimneys', 'interacts', 'elevators', 'bouncers', 'hydrants', 'bells', 'dropLadders', 'carousels', 'hides', 'benches', 'flowers']) W[k] = [];

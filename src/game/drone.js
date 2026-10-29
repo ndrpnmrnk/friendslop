@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, V3, G, mesh, col, lam, tmat } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { keys } from '../core/input.js';
@@ -13,7 +14,7 @@ import { cam } from './camera.js';
 import {recordFault} from '../core/diagnostics.js';
 
 export const DRONE_NET_COOLDOWN=10;
-const candies = [], flyOff = [];
+const candies = [], flyOff = [],remoteCandies=new Map();let candySerial=0;
 /* Вертушка выбывшего (v0.21): маленький пиксельный «телевизор» с мордочкой на экране, антенны-усики,
    сверху мачта с двухлопастным пропеллером (лопасти + полупрозрачный «смаз» вращения), снизу люк и полозья,
    сбоку сетемёт. В полёте наклоняется по инерции (крен/тангаж), покачивается. */
@@ -54,6 +55,7 @@ const setHatch = (d, k) => { d.hatch = k; d.flaps.forEach((f, i) => (f.rotation.
 function removeHeli(d){if(!d||d.disposed)return;d.disposed=true;d.g.removeFromParent();W.keep=W.keep.filter(q=>q!==d.g);d.screen.dispose();d.tex.dispose();d.blur.material.dispose();}
 export function eliminate(a, seconds) {
   if (!a || a.drone || a.returning) return;
+  if(a.puppet&&W.net){W.net.effect(a,'eliminate',{seconds});return;}
   a.hazeT=0;a.bongUse=null;a.frozen=false;a.noRun=false;a.stationaryWork=false;a.bus=null;a.roofSeat=null;a.dive=null;a.slideT=0;a.rollT=0;a.climbing=false;
   a.droneCauseSnapshot={at:Date.now(),pos:a.pos.toArray(),work:a.work?.m?.key||null};
   W.onEliminate && W.onEliminate(a);
@@ -68,6 +70,7 @@ export function eliminate(a, seconds) {
 }
 export function droneAction(a, button, direction) {
   const d = a.drone; if (!d) return;
+  if(W.net?.replica){if(!(d.intro>0)&&!(d.tumble>0)&&((button===0&&d.cd<=0)||(button===2&&d.candy))){W.net.request('drone-action','',{button,direction:direction.toArray()});if(button===0)d.cd=DRONE_NET_COOLDOWN;else d.candy=false;}return;}
   if(button===0&&d.cd<=0&&!(d.intro>0)&&!(d.tumble>0)){
     d.cd=DRONE_NET_COOLDOWN;const from=d.muzzle.getWorldPosition(new V3());shoot('net',from,direction.clone().normalize(),22,0,a);sfx('throw',{at:a.pos});
   }
@@ -75,8 +78,8 @@ export function droneAction(a, button, direction) {
 }
 function dropCandy(a){
   const d=a.drone;if(!d||!d.candy)return;d.candy=false;d.hatchT=0.8;
-  const def=CANDY_TYPES[(Math.random()*CANDY_TYPES.length)|0],m=candyModel(def);m.position.copy(a.pos).add(new V3(0,-0.5,0));W.group.add(m);
-  if(candies.length>=12)candies.shift().m.removeFromParent();candies.push({m,def,owner:a,v:0,life:18,landed:false});sfx('drop',{at:a.pos});
+  const def=CANDY_TYPES[(random()*CANDY_TYPES.length)|0],m=candyModel(def);m.position.copy(a.pos).add(new V3(0,-0.5,0));W.group.add(m);
+  if(candies.length>=12)candies.shift().m.removeFromParent();candies.push({netId:++candySerial,m,def,owner:a,v:0,life:18,landed:false});sfx('drop',{at:a.pos});
 }
 function returnStart(a) {
   const d = a.drone, candidates = W.spawns.filter(p => isFree(p.x - 0.5, p.z - 0.5, p.x + 0.5, p.z + 0.5, p.y + 0.1, p.y + 10));
@@ -87,6 +90,7 @@ function returnStart(a) {
 export function updateDrones(dt,t){
   if(!Number.isFinite(dt)||dt<=0)return;dt=Math.min(.05,dt);
   for (const a of [W.player, ...(W.bots || [])].filter(Boolean)) {
+    if(a.puppet)continue;
     const d = a.drone;
     if(d&&(![a.pos.x,a.pos.y,a.pos.z,d.v.x,d.v.y,d.v.z].every(Number.isFinite))){recordFault('Non-finite drone state',{actor:a===W.player?'player':'bot'});a.pos.copy(d.home);a.pos.y=Math.max(4,a.pos.y);d.v.set(0,0,0);}
     if (d) {
@@ -155,10 +159,36 @@ export function updateDrones(dt,t){
 }
 
 export const droneState=()=>({candies:candies.length,departing:flyOff.length,active:[W.player,...W.bots||[]].filter(a=>a?.drone||a?.returning).length});
-export function resetDrones() {
+export function resetDrones() { for(const m of remoteCandies.values())m.removeFromParent();remoteCandies.clear();candySerial=0;
   for (const a of [W.player, ...(W.bots || [])].filter(Boolean)) { const d = a.drone || a.returning; if (d) removeHeli(d); a.drone = a.returning = null; a.marked = 0; }
   cam.ret = null;
   for (const c of candies) W.group.remove(c.m);
   for (const f of flyOff) removeHeli(f.g); flyOff.length = 0;
   candies.length = 0; cam.free = null;
+}
+
+// Марионетка не управляет вертушкой: только показывает модель владельца.
+export function networkDroneState(a){
+ const d=a.drone||a.returning;if(!d)return null;
+ return{mode:a.drone?'drone':'return',cd:d.cd||0,candy:!!d.candy,intro:d.intro||0,tumble:d.tumble||0,left:d.left||0,t:d.t||0,p:d.g.position.toArray(),yaw:d.g.rotation.y,bx:d.body.rotation.x,bz:d.body.rotation.z,rotor:d.rotor.rotation.y,hatch:d.hatch||0,rope:[d.rope.visible?1:0,d.rope.scale.y,d.rope.position.y]};
+}
+export function receiveNetworkDrone(a,data){
+ if(!a?.puppet)return;
+ const old=a.drone||a.returning;
+ if(!data){if(old?.replica)removeHeli(old);a.drone=a.returning=null;return;}
+ const d=old?.replica?old:{...helicopter(a),replica:true};if(!old){a.netDroneShotAt=-1e9;a.netDroneCandyUsed=false;}
+ d.left=data.left;d.cd=data.cd;d.candy=data.candy;d.intro=data.intro;d.tumble=data.tumble;d.t=data.t;d.g.position.fromArray(data.p);d.g.rotation.y=data.yaw;d.body.rotation.x=data.bx;d.body.rotation.z=data.bz;d.rotor.rotation.y=data.rotor;setHatch(d,data.hatch);
+ d.rope.visible=!!data.rope[0];d.rope.scale.y=data.rope[1];d.rope.position.y=data.rope[2];
+ a.drone=data.mode==='drone'?d:null;a.returning=data.mode==='return'?d:null;
+}
+
+export function applyNetworkDroneAction(a,button,direction){
+ const d=a.drone;if(!d||d.intro>0||d.tumble>0)return;
+ if(button===0&&(W.time||0)-(a.netDroneShotAt??-1e9)>=DRONE_NET_COOLDOWN){a.netDroneShotAt=W.time||0;shoot('net',d.muzzle.getWorldPosition(new V3()),direction.clone().normalize(),22,0,a);}
+ if(button===2&&!a.netDroneCandyUsed){a.netDroneCandyUsed=true;d.candy=true;dropCandy(a);}
+}
+export const networkCandyState=()=>candies.map(c=>[c.netId,c.def.id,...c.m.position.toArray(),c.m.rotation.x,c.m.rotation.y]);
+export function receiveNetworkCandies(rows=[]){
+ const seen=new Set();for(const[id,type,x,y,z,rx,ry]of rows){seen.add(id);let m=remoteCandies.get(id);if(!m){const def=CANDY_TYPES.find(d=>d.id===type);if(!def)continue;m=candyModel(def);W.group.add(m);remoteCandies.set(id,m);}m.position.set(x,y,z);m.rotation.set(rx,ry,0);}
+ for(const[id,m]of remoteCandies)if(!seen.has(id)){m.removeFromParent();remoteCandies.delete(id);}
 }

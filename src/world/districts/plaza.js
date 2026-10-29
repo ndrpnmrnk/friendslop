@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { buildPlazaFountain } from '../plaza-landmarks.js';
 import { THREE, G, tmat, smat, col, lam } from '../../core/gfx.js';
 import { T, rep } from '../../core/textures.js';
@@ -37,12 +38,12 @@ export default {
     { let cur = 0, wait = 1.5; const WARN = 1, FIRE = .7;
       W.animated.push(dt => { wait -= dt; if (wait <= 0 && jets[cur].state === 'idle') { jets[cur].state = 'warn'; jets[cur].t = 0; sfx('water', { at: { x: jets[cur].x, y: b.Y, z: jets[cur].z }, v: .6 }); cur = (cur + 1) % jets.length; wait = 2.1; }
         for (const j of jets) { if (j.state === 'idle') continue; j.t += dt;
-          if (j.state === 'warn') { j.m.emissiveIntensity = .6 + Math.abs(Math.sin(j.t * 18)) * 1.4; if (Math.random() < dt * 25) puff(j.x + (Math.random() - .5) * .5, b.Y + .1, j.z + (Math.random() - .5) * .5, { color: 0xbfe4ff, size: .1, vy: 1.4, g: 4, life: .4 });
+          if (j.state === 'warn') { j.m.emissiveIntensity = .6 + Math.abs(Math.sin(j.t * 18)) * 1.4; if (random() < dt * 25) puff(j.x + (random() - .5) * .5, b.Y + .1, j.z + (random() - .5) * .5, { color: 0xbfe4ff, size: .1, vy: 1.4, g: 4, life: .4 });
             if (j.t > WARN) { j.state = 'fire'; j.t = 0; j.c.visible = true; sfx('hydrant', { at: { x: j.x, y: b.Y, z: j.z } });
               for (const a of actors()) if (Math.hypot(a.pos.x - j.x, a.pos.z - j.z) < .95 && a.pos.y < b.Y + 1.2 && !a.hidden && !a.drone) { if (a.ride && W.dismount) W.dismount(a); a.vel.y = 15.5; a.vel.x *= .3; a.vel.z *= .3; a.onGround = false; a.airPeak = a.pos.y; a.climb = null; }
-              for (const it of W.items) if (it.state === 'rest' && Math.hypot(it.pos.x - j.x, it.pos.z - j.z) < .9) { it.state = 'fly'; it.vel.set((Math.random() - .5) * 2, 12, (Math.random() - .5) * 2); } } }
+              for (const it of W.items) if (it.state === 'rest' && Math.hypot(it.pos.x - j.x, it.pos.z - j.z) < .9) { it.state = 'fly'; it.vel.set((random() - .5) * 2, 12, (random() - .5) * 2); } } }
           else { const k = j.t / FIRE, hgt = 5.2 * Math.sin(Math.min(1, k) * Math.PI); j.c.scale.set(.42, Math.max(.01, hgt), .42); j.c.position.y = b.Y + hgt / 2; j.c.updateMatrix(); j.m.emissiveIntensity = 2;
-            if (Math.random() < dt * 30) burst(j.x, b.Y + hgt, j.z, 2, { color: 0xbfe4ff, size: .12, speed: 2, up: 1, life: .5 });
+            if (random() < dt * 30) burst(j.x, b.Y + hgt, j.z, 2, { color: 0xbfe4ff, size: .12, speed: 2, up: 1, life: .5 });
             if (j.t > FIRE) { j.state = 'idle'; j.c.visible = false; j.m.emissiveIntensity = 0; } } } }); }
 
     /* ---------- кафе с балконом (СЗ) ---------- */

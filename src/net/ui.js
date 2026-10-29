@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { NET, onNet, inRoom, me, myName, createRoom, joinRoom, leaveRoom, setReady, setName, kick, mute, inviteLink, roomFromUrl } from './net.js';
 import { remoteMode } from './hub-sync.js';
 import { SKINS } from '../characters/skins.js';
@@ -79,7 +80,7 @@ export function initNetUI({ currentSkin }) {
   $('lobbyPanel').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'lbCode') act('join'); });
   $('nickInput').addEventListener('input', () => { renderPreview(); sfx('tick', { v: .4 }); });
   $('nickInput').addEventListener('keydown', e => { if (e.key === 'Enter') closeNick(true); if (e.key === 'Escape' && myName()) closeNick(false); e.stopPropagation(); });
-  $('nickDice').onclick = () => { $('nickInput').value = NAMES1[Math.random() * NAMES1.length | 0] + ' ' + NAMES2[Math.random() * NAMES2.length | 0]; renderPreview(); sfx('pop'); };
+  $('nickDice').onclick = () => { $('nickInput').value = NAMES1[random() * NAMES1.length | 0] + ' ' + NAMES2[random() * NAMES2.length | 0]; renderPreview(); sfx('pop'); };
   $('nickGo').onclick = () => closeNick(true);
   $('nickCancel').onclick = () => closeNick(false);
   onNet('state', renderLobby); onNet('ping', () => { if ($('hubPause').classList.contains('open')) renderLobby(); }); onNet('toast', toast);

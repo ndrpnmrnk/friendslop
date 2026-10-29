@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {drawIngredient} from './perfume-icons.js';
 import {perfumeCabinet,ingredientBottle,PERFUME_INGREDIENTS} from './perfume-cabinet.js';
 import {addOutline} from '../game/outline.js';
@@ -18,11 +19,11 @@ export function buildPerfume(x,y,z,f){
  body(0,.44,0,2.4,.89,.85);body(0,1.62,-.40,2.26,1.50,.09);for(const a of[-1,1])body(a*1.13,1.61,-.09,.12,1.50,.67);
  return{g,f,stock,solid:solids[0],solids,pos:()=>g.position,front:()=>g.localToWorld(new V3(0,0,1.2)),dispose(){g.removeFromParent();solids.forEach(s=>s.on=false);}};
 }
-const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
 const liquidTexture=()=>pix('perfumeLiquid31',16,16,c=>{c.fillStyle='#c0bdca';c.fillRect(0,0,16,16);for(let y=0;y<16;y++)for(let x=0;x<16;x++){c.fillStyle=(x*7+y*13)%5?'#e1dce9':'#a6a2b3';c.fillRect(x,y,1,1);}});
 export function perfumeGame(o,api,ctx){
  api.feedback?.();ctx.cursor(true);const pool=PERFUME_INGREDIENTS.slice(),m=ctx.mission||{};o.stock.visible=false;
- if(!m.perfumeRecipe){const ingredients=shuffle(pool).slice(0,6),need=Array(6).fill(0);for(const i of shuffle([0,1,2,3,4,5]).slice(0,2+(Math.random()*5|0)))need[i]=1+(Math.random()*3|0);m.perfumeRecipe={ingredients,need,effect:Math.random()<.5?'haste':'gas'};}
+ if(!m.perfumeRecipe){const ingredients=shuffle(pool).slice(0,6),need=Array(6).fill(0);for(const i of shuffle([0,1,2,3,4,5]).slice(0,2+(random()*5|0)))need[i]=1+(random()*3|0);m.perfumeRecipe={ingredients,need,effect:random()<.5?'haste':'gas'};}
  const{ingredients,need,effect}=m.perfumeRecipe,got=Array(6).fill(0),required=need.reduce((a,b)=>a+b,0),capacity=Math.max(required+3,12),g=new THREE.Group();g.name='perfume-workbench';o.g.add(g);
  const bottles=ingredients.map(([name,color],i)=>{const b=ingredientBottle(name,color,i);g.add(b);return b;});
  const bottle=new THREE.Group();bottle.name='mixing-bottle';bottle.position.set(0,.89,.25);g.add(bottle);const glassMat=lam({color:0xdedbe9,transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide});mesh(G.cyl8,glassMat,0,.18,0,.16,.34,.16,bottle);mesh(G.cyl8,glassMat,0,.385,0,.058,.09,.058,bottle);mesh(G.cyl8,col(0x887b92),0,.435,0,.061,.018,.061,bottle);

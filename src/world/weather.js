@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {ParticleBatch} from './particle-batch.js';
 import {graphics} from '../core/quality.js';
 import { THREE, G, V3, mesh, alphaMat } from '../core/gfx.js';
@@ -20,14 +21,14 @@ let rain = null, halos = [],haloBatch=null, gustT = 6, base = null;
 export function startWeather(scene, kind) {
   stopWeather(scene);
   const kinds = ['rain', 'wind', 'fog', 'clear'];
-  WX.kind = kind || globalThis.__forceWeather || kinds[(Math.random() * kinds.length) | 0];
-  WX.wet = WX.kind === 'rain' ? 1 : 0; const a = Math.random() * 6.28; WX.wind = { x: Math.cos(a), z: Math.sin(a), k: WX.kind === 'wind' ? 1 : WX.kind === 'rain' ? 0.35 : 0.1 }; WX.gust = 0; gustT = 5;
+  WX.kind = kind || globalThis.__forceWeather || kinds[(random() * kinds.length) | 0];
+  WX.wet = WX.kind === 'rain' ? 1 : 0; const a = random() * 6.28; WX.wind = { x: Math.cos(a), z: Math.sin(a), k: WX.kind === 'wind' ? 1 : WX.kind === 'rain' ? 0.35 : 0.1 }; WX.gust = 0; gustT = 5;
   base = { near: SEASON.fog[1], far: SEASON.fog[2] };
   if (WX.kind === 'rain') {
     // капли: отрезки линий, которые падают в коробке вокруг камеры
     const pos = new Float32Array(N * 6), geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     rain = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xb8c8f0, transparent: true, opacity: 0.45, depthWrite: false })); rain.frustumCulled = false; scene.add(rain);
-    rain.userData.p = Array.from({ length: N }, () => new V3((Math.random() - 0.5) * 44, Math.random() * 22, (Math.random() - 0.5) * 44));
+    rain.userData.p = Array.from({ length: N }, () => new V3((random() - 0.5) * 44, random() * 22, (random() - 0.5) * 44));
     rainLoop(true);
   }
   if(WX.kind==='fog'){
@@ -54,17 +55,17 @@ export function updateWeather(dt, t, camera, P, scene, roundK) {
     const p = rain.geometry.attributes.position.array, ps = rain.userData.p, wx = WX.wind.x * 3 * WX.wind.k, wz = WX.wind.z * 3 * WX.wind.k, cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
     const count=Math.round(N*(graphics.key==='high'?1:graphics.key==='low'?.4:.7));rain.geometry.setDrawRange(0,count*2);
     for (let i = 0; i < count; i++) { const q = ps[i]; q.y -= dt * 16; q.x += wx * dt; q.z += wz * dt;
-      if (q.y < -6) { q.y = 14 + Math.random() * 4; q.x = (Math.random() - 0.5) * 44; q.z = (Math.random() - 0.5) * 44; }
+      if (q.y < -6) { q.y = 14 + random() * 4; q.x = (random() - 0.5) * 44; q.z = (random() - 0.5) * 44; }
       if (q.x > 22) q.x -= 44; if (q.x < -22) q.x += 44; if (q.z > 22) q.z -= 44; if (q.z < -22) q.z += 44;
       const x = cx + q.x, y = cy + q.y - 6, z = cz + q.z, k = i * 6; p[k] = x; p[k + 1] = y; p[k + 2] = z; p[k + 3] = x - wx * 0.04; p[k + 4] = y - 0.55; p[k + 5] = z - wz * 0.04; }
     rain.geometry.attributes.position.needsUpdate = true;
     // круги на лужах и на воде рядом
-    if (P) for (const pd of W.puddles) if (Math.abs(pd.x - P.pos.x) < 20 && Math.abs(pd.z - P.pos.z) < 20 && Math.random() < dt * 4) ripple(pd.x + (Math.random() - 0.5) * pd.r * 1.4, pd.y, pd.z + (Math.random() - 0.5) * pd.r * 1.4, 0.35, 0.6);
-    if (P && Math.random() < dt * 0.04) sfx('thunder');
+    if (P) for (const pd of W.puddles) if (Math.abs(pd.x - P.pos.x) < 20 && Math.abs(pd.z - P.pos.z) < 20 && random() < dt * 4) ripple(pd.x + (random() - 0.5) * pd.r * 1.4, pd.y, pd.z + (random() - 0.5) * pd.r * 1.4, 0.35, 0.6);
+    if (P && random() < dt * 0.04) sfx('thunder');
   }
   // ветер: порывы
   if (WX.kind === 'wind' && P) {
-    gustT -= dt; if (gustT <= 0) { gustT = 6 + Math.random() * 6; WX.gust = 2.2; sfx('wind'); const a = Math.atan2(WX.wind.z, WX.wind.x) + (Math.random() - 0.5) * 0.6; WX.wind.x = Math.cos(a); WX.wind.z = Math.sin(a); }
+    gustT -= dt; if (gustT <= 0) { gustT = 6 + random() * 6; WX.gust = 2.2; sfx('wind'); const a = Math.atan2(WX.wind.z, WX.wind.x) + (random() - 0.5) * 0.6; WX.wind.x = Math.cos(a); WX.wind.z = Math.sin(a); }
     if (WX.gust > 0) { WX.gust -= dt; gust(dt, P, 1); }
   }
   WX.windNow = WX.wind.k * (0.35 + (WX.gust > 0 ? 1 : 0));
@@ -75,9 +76,9 @@ export function updateWeather(dt, t, camera, P, scene, roundK) {
 // порыв: лёгкие предметы катятся и взлетают, персонажей подталкивает, птицы взлетают
 export function gust(dt, P, k = 1) {
   const wx = WX.wind.x, wz = WX.wind.z;
-  for (const it of W.items) if (it.state === 'rest' && it.def.mass < 0.7 && Math.abs(it.pos.x - P.pos.x) < 30 && Math.abs(it.pos.z - P.pos.z) < 30) { it.vel.x += wx * 9 * dt * k / it.def.mass; it.vel.z += wz * 9 * dt * k / it.def.mass; if (Math.random() < dt * 2) it.vel.y += 2; }
+  for (const it of W.items) if (it.state === 'rest' && it.def.mass < 0.7 && Math.abs(it.pos.x - P.pos.x) < 30 && Math.abs(it.pos.z - P.pos.z) < 30) { it.vel.x += wx * 9 * dt * k / it.def.mass; it.vel.z += wz * 9 * dt * k / it.def.mass; if (random() < dt * 2) it.vel.y += 2; }
   for (const a of [P, ...(W.bots || [])]) if (a && !a.hidden && !a.stationaryWork) { a.vel.x += wx * 4 * dt * k; a.vel.z += wz * 4 * dt * k; }
-  if (Math.random() < dt * 6) { const ax = P.pos.x - wx * 8 + (Math.random() - 0.5) * 10, az = P.pos.z - wz * 8 + (Math.random() - 0.5) * 10; puff(ax, P.pos.y + 0.3 + Math.random() * 2, az, { color: [0xc96a25, 0xa8452a, 0xe0902e][(Math.random() * 3) | 0], size: 0.12, vx: wx * 9, vy: 0.5, vz: wz * 9, g: 0, life: 1.5, grow: 0 }); }
-  if (Math.random() < dt) scareBirds(P.pos.x + wx * 5, P.pos.z + wz * 5, 8);
+  if (random() < dt * 6) { const ax = P.pos.x - wx * 8 + (random() - 0.5) * 10, az = P.pos.z - wz * 8 + (random() - 0.5) * 10; puff(ax, P.pos.y + 0.3 + random() * 2, az, { color: [0xc96a25, 0xa8452a, 0xe0902e][(random() * 3) | 0], size: 0.12, vx: wx * 9, vy: 0.5, vz: wz * 9, g: 0, life: 1.5, grow: 0 }); }
+  if (random() < dt) scareBirds(P.pos.x + wx * 5, P.pos.z + wz * 5, 8);
 }
 void G; void mesh; void burst;

@@ -62,3 +62,15 @@ export function createReplayPlayer(clip) {
     restore() { for (const [o, s] of rest) { if (s.kind === 'a') { o.root.position.copy(s.p); o.root.rotation.copy(s.r); o.root.visible = s.v; } else if (s.kind === 'i') { o.g.position.copy(s.p); o.g.quaternion.copy(s.q); o.g.visible = s.v; } else { o.mesh.position.copy(s.p); o.mesh.rotation.copy(s.r); } } },
   };
 }
+
+// Общий повтор: объекты заменяются стабильными ids, 10 кадров/с с интерполяцией.
+export function encodeNetworkReplay(clip) {
+ if(!clip)return null;
+ const rows=(list,max)=>list.slice(0,max).map(([o,...v])=>[o.netKey||o.netId,...v.map(x=>typeof x==='number'?Math.round(x*100)/100:x)]).filter(q=>q[0]);
+ return{focus:clip.focus.netKey,at:clip.at,score:clip.score,frames:clip.frames.filter((_,i)=>i%2===0).map(f=>({t:f.t,a:rows(f.a,8),i:rows(f.i,16),p:rows(f.p,12)}))};
+}
+export function decodeNetworkReplay(clip,findActor,findEntity){
+ if(!clip?.frames?.length)return null;const focus=findActor(clip.focus);if(!focus)return null;
+ const rows=(list,find)=>list.map(([key,...v])=>[find(key),...v]).filter(q=>q[0]);
+ return{...clip,focus,frames:clip.frames.map(f=>({t:f.t,a:rows(f.a,findActor),i:rows(f.i,findEntity),p:rows(f.p,findEntity)}))};
+}

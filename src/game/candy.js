@@ -40,6 +40,7 @@ export function candyModel(def) {
 }
 export function applyCandy(def,a,owner,impact=a?.pos) {
   if(!a||a.hidden||a.caged||a.drone||a.returning)return;
+  if(a.puppet&&W.net&&['energy','stamina','slow'].includes(def.id))W.net.effect(a,'candy',{id:def.id,owner:W.net.keyOf(owner)});
   if(def.id==='energy'){a.energy=Math.max(a.energy||0,5);a.tired=0;}
   else if(def.id==='stamina'){a.stamina=1;a.exhausted=false;a.stDelay=0;a.tired=0;}
   else if(def.id==='stun'){daze(a,1.5);W.onHit?.(owner,a,'light');}

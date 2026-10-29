@@ -27,21 +27,23 @@ export function cosmoGame(o,api,ctx){
  const cameraPoint=look.clone().addScaledVector(front,1.65).addScaledVector(right,.58).add(new V3(0,.15,0));
  for(const angle of [0,.7,-.7,1.4,-1.4,Math.PI]){const direction=front.clone().applyAxisAngle(new V3(0,1,0),angle),p=look.clone().addScaledVector(direction,1.9).add(new V3(0,.2,0));if(isFree(p.x-.2,p.z-.2,p.x+.2,p.z+.2,p.y-.2,p.y+.2)&&visible(look,p)){cameraPoint.copy(p);break;}}
  const viewDirection=cameraPoint.clone().sub(look).normalize(),cameraHome=ctx.camera.position.clone(),eye=cameraHome.clone(),viewLook=look.clone();if(eye.distanceTo(look)>12){eye.copy(look).addScaledVector(front,-5).y+=1.3;cameraHome.copy(eye);}let returnEye=null,returnLook=null;
+ const netModels=W.net?Array.from({length:5},(_,i)=>{const m=littleNPC(i,true);m.root.visible=false;W.group.add(m.root);return m;}):null;
  api.msg('Поднимаешь бонг. Держи ЛКМ - вдох');
  const ease=k=>{k=Math.max(0,Math.min(1,k));return k*k*(3-2*k);};
  function poseModel(){const near=['pickup','inhale','exhale','return'].includes(phase);bongPose(P,model,near);if(phase==='pickup'){const k=ease(stageT/.7);model.position.lerpVectors(pickupP,model.position,k);model.quaternion.slerpQuaternions(pickupQ,model.quaternion.clone(),k);model.updateMatrixWorld(true);for(const[h,x,y]of [[P.ch.handR,.08,-.04],[P.ch.handL,-.09,-.16]])h.position.copy(P.root.worldToLocal(model.localToWorld(new V3(x,y,0))));}}
  function poseCamera(dt){if(ctx.bot)return;const stationary=['pickup','inhale','exhale'].includes(phase);if(stationary){const target=mouthPosition(P),dist=phase==='pickup'?2.1:phase==='inhale'?1.9-fill*.62:1.28+exhale*.20,want=target.clone().addScaledVector(viewDirection,dist).add(new V3(0,.12,0)),k=1-Math.exp(-dt*5);eye.lerp(want,k);viewLook.lerp(target,k);api.pose(eye,viewLook);}else if(phase==='return'){const k=ease(stageT/.9);eye.lerpVectors(returnEye,cameraHome,k);viewLook.lerpVectors(returnLook,initial.clone().add(new V3(0,1.1,0)),k);api.pose(eye,viewLook);}}
  const releaseGrip=()=>{for(const a of aliens)if(a.holding===P){letGo(a);a.holding=null;}if(P.heldBy&&aliens.includes(P.heldBy))P.heldBy=null;};
  function puffOut(){exhaleSmoke(P);}
+ const netUfo=W.net?ufoModel():null;let netBeam=null;if(netUfo){netUfo.visible=false;W.group.add(netUfo);const mat=lam({color:0xc5ed98,transparent:true,opacity:.14,depthWrite:false,side:THREE.DoubleSide},'ufo34-beam');netBeam=mesh(new THREE.CylinderGeometry(.8,1.25,1,12,1,true),mat,0,0,0,1,6.5,1,W.group);netBeam.visible=false;}
  function arrive(){
   if(!beamSite){api.finish({success:false});return;}
-  phase='arrive';stageT=0;P.stationaryWork=false;P.hazeT=CONFIG.encounters.bongEffect;if(!ctx.bot)api.pose(null);ufo=ufoModel();ufo.position.copy(beamSite).add(new V3(12,14,-10));W.group.add(ufo);
-  const mat=lam({color:0xc5ed98,transparent:true,opacity:.14,depthWrite:false,side:THREE.DoubleSide},'ufo34-beam');beam=mesh(new THREE.CylinderGeometry(.8,1.25,1,12,1,true),mat,beamSite.x,beamSite.y+3.6,beamSite.z,1,6.5,1,W.group);beam.visible=false;
+  phase='arrive';stageT=0;P.stationaryWork=false;P.hazeT=CONFIG.encounters.bongEffect;if(!ctx.bot)api.pose(null);ufo=netUfo||ufoModel();ufo.visible=true;ufo.position.copy(beamSite).add(new V3(12,14,-10));W.group.add(ufo);
+  const mat=lam({color:0xc5ed98,transparent:true,opacity:.14,depthWrite:false,side:THREE.DoubleSide},'ufo34-beam');beam=netBeam||mesh(new THREE.CylinderGeometry(.8,1.25,1,12,1,true),mat,beamSite.x,beamSite.y+3.6,beamSite.z,1,6.5,1,W.group);beam.position.set(beamSite.x,beamSite.y+3.6,beamSite.z);beam.visible=false;
   api.msg('Что это над головой?..');sfx('ufoArrive',{at:P.pos,range:25});
  }
  function spawnAliens(){for(let i=0;i<5;i++){
   let p=null;for(let n=0;n<20&&!p;n++){const q=freeSpot(beamSite,2,4);if(q&&!aliens.some(a=>flat(a.landing,q)<.75))p=q;}if(!p){api.finish({success:false});return false;}
-  const m=littleNPC(i,true),a=npcBody(m);a.landing=p;a.pos.copy(beamSite).y+=5.8;a.probe.copy(p);a.hp=2;a.cd=1.4+i*.3;a.wind=0;a.holding=null;a.stun=0;a.id=i;a.deployed=false;aliens.push(a);W.group.add(a.root);
+  const m=netModels?netModels[i]:littleNPC(i,true),a=npcBody(m);m.root.visible=true;a.landing=p;a.pos.copy(beamSite).y+=5.8;a.probe.copy(p);a.hp=2;a.cd=1.4+i*.3;a.wind=0;a.holding=null;a.stun=0;a.id=i;a.deployed=false;aliens.push(a);W.group.add(a.root);
  }return true;}
  function shoot(ray){
   if(phase!=='combat'||cd>0||P.heldBy||P.daze>0||P.stun>0||shots.length>=12)return;
@@ -110,6 +112,6 @@ export function cosmoGame(o,api,ctx){
    }
    if(aliens.length===5&&aliens.every(a=>a.hp<=0)){releaseGrip();phase='fold';stageT=0;api.msg('Чисто! Бластер складывается обратно в бонг','good');}
   },
-  stop(){dead=true;releaseGrip();setBreath(P,0);P.stationaryWork=false;P.missionTool=false;P.charging=false;if(!ctx.bot)api.pose(null);disposeBong(model);model.removeFromParent();for(const a of aliens)a.root.removeFromParent();for(const s of shots)s.g.removeFromParent();ufo?.removeFromParent();if(beam){beam.geometry.dispose();beam.removeFromParent();}o.prop.visible=true;if(captured)P.hazeT=0;}
+  stop(){dead=true;releaseGrip();setBreath(P,0);P.stationaryWork=false;P.missionTool=false;P.charging=false;if(!ctx.bot)api.pose(null);disposeBong(model);model.removeFromParent();for(const a of aliens)a.root.removeFromParent();for(const m of netModels||[])m.root.removeFromParent();netUfo?.removeFromParent();netBeam?.removeFromParent();for(const s of shots)s.g.removeFromParent();ufo?.removeFromParent();if(beam){beam.geometry.dispose();beam.removeFromParent();}o.prop.visible=true;if(captured)P.hazeT=0;}
  };return game;
 }

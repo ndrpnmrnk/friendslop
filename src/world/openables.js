@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {CONFIG} from '../config.js';
 import { THREE, G, col, tmat, lam, glow, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -41,8 +42,8 @@ export const OpenMethods = {
     const front = new THREE.Vector3(0, y, d / 2 + 0.75); g.localToWorld(front);
     const inside = new THREE.Vector3(0, y + h * 0.5, d / 2 + 0.35); g.localToWorld(inside); const out = new THREE.Vector3(0, 0, 1).applyQuaternion(g.quaternion);
     // лут лежит внутри с самого начала — на случайной полке или на дне
-    if (Math.random() < chance) { const l=LOOT[kind].filter(type=>(CONFIG.items[type].r*2)<Math.min(w-.12,d-.12)),type=l[(Math.random()*l.length)|0]||'can', lv = [t, ...shelves.map(q => q + 0.01)], yy = lv[(Math.random() * lv.length) | 0];
-      const at = new THREE.Vector3((Math.random() - 0.5) * 0.1, y + yy + 0.005, -0.02); g.localToWorld(at); const it = addItem(type, at.x, at.y, at.z, g.rotation.y); restOnSurface(it);it.boxed=o;it.shelfHome={x:at.x,y:at.y,z:at.z};(W.dressings??=[]).push({kind:'shelf-item',item:it,surface:at.y,container:kind});o.gave=true; }
+    if (random() < chance) { const l=LOOT[kind].filter(type=>(CONFIG.items[type].r*2)<Math.min(w-.12,d-.12)),type=l[(random()*l.length)|0]||'can', lv = [t, ...shelves.map(q => q + 0.01)], yy = lv[(random() * lv.length) | 0];
+      const at = new THREE.Vector3((random() - 0.5) * 0.1, y + yy + 0.005, -0.02); g.localToWorld(at); const it = addItem(type, at.x, at.y, at.z, g.rotation.y); restOnSurface(it);it.boxed=o;it.shelfHome={x:at.x,y:at.y,z:at.z};(W.dressings??=[]).push({kind:'shelf-item',item:it,surface:at.y,container:kind});o.gave=true; }
     const ol = addOutline(door, 0.025, OUTLINE.use);
     W.interacts.push({ x: front.x, z: front.z, y: g.position.y, r: 1.1, dy: 1.2, outline: ol, glow: () => !o.looted, get label() { const n = { fridge: 'холодильник', locker: 'шкафчик', cupboard: 'шкаф' }[kind] || ''; return o.open ? `Закрыть ${n}${o.looted && !o.gave ? ' · пусто' : ''}` : `Открыть ${n}`; }, enabled: P => !P.held,
       act: () => { o.open = !o.open; doorS.on = !o.open; sfx('open', { at: inside });

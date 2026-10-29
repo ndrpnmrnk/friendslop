@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, V3, col, tmat, lam, compose, mesh } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -62,7 +63,7 @@ export function updateTraps(dt, t) {
       if (q.sq > 0) { q.sq -= dt; q.g.scale.set(1 + q.sq, 1 - q.sq * 1.5, 1 + q.sq); } else q.g.scale.set(1, 1, 1);
       if (q.cd > 0) continue;
       for (const a of actors()) { if (a.hidden) continue; if (Math.hypot(a.pos.x - q.x, a.pos.z - q.z) < 0.45 && a.pos.y - q.y < 0.25 && a.pos.y - q.y > -0.3 && (a.landed || a.landedNow || a.onGround)) {
-        q.cd = 1.5; q.sq = 0.5; sfx('fart', { at: q }); a.vel.y = 7.5; a.onGround = false; a.knockT = 0.3; for (let i = 0; i < 6; i++) puff(q.x, q.y + 0.2, q.z, { color: 0x9be36b, size: 0.35, vx: (Math.random() - 0.5) * 1.5, vy: 0.6, vz: (Math.random() - 0.5) * 1.5, life: 1.2, grow: 1.5, opacity: 0.5 });
+        q.cd = 1.5; q.sq = 0.5; sfx('fart', { at: q }); a.vel.y = 7.5; a.onGround = false; a.knockT = 0.3; for (let i = 0; i < 6; i++) puff(q.x, q.y + 0.2, q.z, { color: 0x9be36b, size: 0.35, vx: (random() - 0.5) * 1.5, vy: 0.6, vz: (random() - 0.5) * 1.5, life: 1.2, grow: 1.5, opacity: 0.5 });
         voice(a.ch, 'happy', a === W.player ? undefined : a.pos); W.onFunny && W.onFunny(a, 'cushion', q.owner); break; } }
     } else if (q.kind === 'seesaw') {
       const want = q.side * 0.32; q.plank.rotation.x += (want - q.plank.rotation.x) * Math.min(1, dt * 14);

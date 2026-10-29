@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { routeLight } from '../wayfinding.js';
 import { storageBay, pipeCradle } from '../storage.js';
 import { THREE, G, tmat, smat, col, glow, lam } from '../../core/gfx.js';
@@ -35,12 +36,12 @@ export default {
     // мост через канал и рыбацкий мостик
     b.box(22, 21.5, 12, 3, .25, conc, { y: -.1 });
     for (const z of [20.1, 22.9]) { b.m(G.box, dk, 22, .75, z, 8.2, .06, .06); for (let x = CX0 + .3; x < CX1; x += 1) b.m(G.box, dk, x, .45, z, .05, .6, .05); b.solid(22, z, 8.2, .1, .15, .8); }
-    for (let i = 0; i < 14; i++) { const x = CX0 + .6 + Math.random() * 6.8, z = i % 2 ? 20.05 : 22.95; b.m(G.box, col([0xd8243a, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff][i % 5]), x, .66, z, .08, .1, .05); }
+    for (let i = 0; i < 14; i++) { const x = CX0 + .6 + random() * 6.8, z = i % 2 ? 20.05 : 22.95; b.m(G.box, col([0xd8243a, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff][i % 5]), x, .66, z, .08, .1, .05); }
     b.box(22, 6, 3.8, 2.6, .18, tmat(T.wood()), { y: -.03 }); for (const x of [20.3, 23.7]) b.box(x, 6, .12, .12, 4, dk, { y: -4 }); b.plank(CX0, 6, 20.2, 6, .15, 1.2);
     W.spots.fish.push({ x: b.X(22), z: b.Z(6.9), y: b.Y + .15, f: [0, 1], wx: b.X(22), wz: b.Z(9), wy: b.Y + FLOOR + .25, cx: b.X(22), cz: b.Z(8.7), R: 2.0, camP: [b.X(22), b.Y + 3.8, b.Z(3.7)], camL: [b.X(22), b.Y - 1.2, b.Z(8.5)], district: 'Коллектор', label: 'рыбацкий мостик' });
     // трубы в стенах, из них течёт вода
     for (const [x, z, s] of [[CX0 - .3, 14, 1], [CX1 + .3, 8, -1], [CX0 - .3, 40, 1]]) { const p = b.m(G.pipe, tmat(T.rust()), x + s * .2, -1.6, z, .55, .8, .55); p.rotation.z = Math.PI / 2;
-      b.m(G.pipeRim, tmat(T.metal()), x + s * .61, -1.6, z, .55, .55, 1).rotation.y = s * Math.PI / 2; const wx = b.X(x + s * .6), wz = b.Z(z), wy = b.Y - 1.6; let ft = Math.random();
+      b.m(G.pipeRim, tmat(T.metal()), x + s * .61, -1.6, z, .55, .55, 1).rotation.y = s * Math.PI / 2; const wx = b.X(x + s * .6), wz = b.Z(z), wy = b.Y - 1.6; let ft = random();
       W.animated.push(dt => { ft -= dt; if (ft <= 0) { ft = .1; burst(wx, wy, wz, 2, { color: 0x6a90b0, size: .2, speed: .6, up: -.5, g: 9, life: .7 }); } }); }
     for (let z = 3; z < 44; z += 6) { b.m(G.box, glow(0xffc070), CX0 + .15, -1.2, z, .12, .2, .3); b.light(CX0 + 1, z, 1.6, LEDGE - .15 + .03); }
 
@@ -49,17 +50,17 @@ export default {
     const foam = lam({ color: 0xe8f4ff, emissive: 0x6a9ac0, emissiveIntensity: .4, transparent: true, opacity: .8, depthWrite: false }, 'sewer60-wave');
     const wave = new THREE.Group(); W.group.add(wave); W.keep.push(wave);
     for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(G.box, foam); m.scale.set(CX1 - CX0 - .2, 1.9 - i * .5, .7 + i * .6); m.position.set(0, (1.9 - i * .5) / 2, -i * .5); wave.add(m); } wave.visible = false;
-    const WV = { state: 'calm', t: 0, z: -2, next: 55 + Math.random() * 25 };
+    const WV = { state: 'calm', t: 0, z: -2, next: 55 + random() * 25 };
     const inCanal = a => a.pos.x > b.X(CX0) && a.pos.x < b.X(CX1) && a.pos.y < b.Y - .8;
     W.animated.push(dt => { WV.t += dt;
       if (WV.state === 'calm' && WV.t > WV.next) { WV.state = 'warn'; WV.t = 0; sfx('thunder', { at: { x: b.X(22), y: b.Y - 2, z: b.Z(22) }, range: 70, v: .8 }); }
       else if (WV.state === 'warn') { for (const l of lamps) l.set(Math.sin(WV.t * 12) > 0 ? 1 : .15); if (WV.t > 3) { WV.state = 'wave'; WV.t = 0; WV.z = -2; wave.visible = true; sfx('water', { at: { x: b.X(22), y: b.Y - 2, z: b.Z(0) }, range: 60 }); } }
       else if (WV.state === 'wave') { WV.z += 11 * dt; wave.position.set(b.X(22), b.Y + FLOOR + .2, b.Z(WV.z)); wave.updateMatrixWorld(true);
         for (const l of lamps) l.set(Math.sin(WV.t * 12) > 0 ? 1 : .15);
-        const wz = b.Z(WV.z); if (Math.random() < dt * 30) burst(b.X(CX0 + 1 + Math.random() * 6), b.Y + FLOOR + 1.8, wz, 2, { color: 0xe8f4ff, size: .16, speed: 2, up: 2, life: .5 });
+        const wz = b.Z(WV.z); if (random() < dt * 30) burst(b.X(CX0 + 1 + random() * 6), b.Y + FLOOR + 1.8, wz, 2, { color: 0xe8f4ff, size: .16, speed: 2, up: 2, life: .5 });
         for (const a of actors()) if (!a.hidden && !a.drone && inCanal(a) && a.pos.z < wz + .6 && a.pos.z > wz - 3) { if (a.ride && W.dismount) W.dismount(a); if (!(a.stun > 0)) knockDown(a, 0, 11, 1.4); a.vel.z = 11.5; a.pos.z = Math.max(a.pos.z, wz + .3); a.wetT = 3; }
         for (const it of W.items) if (it.state !== 'held' && it.state !== 'gone' && it.pos.x > b.X(CX0) && it.pos.x < b.X(CX1) && it.pos.y < b.Y - .8 && it.pos.z < wz + .6 && it.pos.z > wz - 3) { it.state = 'fly'; it.vel.set(0, 2, 11); }
-        if (WV.z > 50) { WV.state = 'calm'; WV.t = 0; WV.next = 60 + Math.random() * 20; wave.visible = false; for (const l of lamps) l.set(0); } } });
+        if (WV.z > 50) { WV.state = 'calm'; WV.t = 0; WV.next = 60 + random() * 20; wave.visible = false; for (const l of lamps) l.set(0); } } });
     b.hazard({ x0: CX0, z0: 0, x1: CX1, z1: 44, y1: -.8, active: () => WV.state !== 'calm' });
     b.grabTarget({ x: CX0 - .9, z: 28, r: 1.0, y: 0, kind: 'dunk', t: 1.4, dir: [1, 0], label: 'край' });
     b.grabTarget({ x: CX1 + .9, z: 12, r: 1.0, y: 0, kind: 'dunk', t: 1.4, dir: [-1, 0], label: 'край', ring: false });

@@ -1,3 +1,4 @@
+import { random, withRandom } from '../core/random.js';
 import {buildOutfit,outfitGame} from './outfit.js';
 import {busPlaces,buildBus,busGame} from './bus.js';
 import {buildPerfume,perfumeGame} from './perfume.js';
@@ -30,7 +31,7 @@ const WV = () => CONFIG.wave;
 
 export function resetMissions() {
   for (const m of M.list.slice()) removeMission(m, true);
-  W.paintSites=[];M.list = []; M.cooldown = {}; M.waveT = 0; M.wave = 0; M.burnt = 0; M.done = 0;M.mammothShown=false;M.introShown={};
+  W.paintSites=[];M.list = []; M.id = 0; M.cooldown = {}; M.waveT = 0; M.wave = 0; M.burnt = 0; M.done = 0;M.mammothShown=false;M.introShown={};
   // фонари для миссии «Лампочка»: стоять под плафоном, со стороны кронштейна
   W.spots.bulb = (W.lamps || []).map(L => { const dx = Math.sin(L.ry), dz = Math.cos(L.ry); return { x: L.lx + dx * 1.35, z: L.lz + dz * 1.35, y: L.y, f: [-dx, -dz], lamp: L, district: L.district, label: 'фонарь' }; });
 }
@@ -73,16 +74,16 @@ const FACINGS = [[0, 1], [1, 0], [0, -1], [-1, 0]];
 function findPlace(def, from, others) {
   let zones = W.missionZones.filter(z => def.zones.includes(z.type));
   // родной район — чаще, но не всегда
-  if (def.home && Math.random() < 0.6) { const hz = zones.filter(z => { const d = districtAt((z.x0 + z.x1) / 2, (z.z0 + z.z1) / 2); return d && d.id === def.home; }); if (hz.length) zones = hz; }
+  if (def.home && random() < 0.6) { const hz = zones.filter(z => { const d = districtAt((z.x0 + z.x1) / 2, (z.z0 + z.z1) / 2); return d && d.id === def.home; }); if (hz.length) zones = hz; }
   if (!zones.length) return null;
   const [fw, fd] = def.foot, spread = WV().spread;
   for (let tr = 0; tr < 140; tr++) {
-    const zn = zones[(Math.random() * zones.length) | 0];
-    const fs = FACINGS.slice().sort(() => Math.random() - 0.5);
+    const zn = zones[(random() * zones.length) | 0];
+    const fs = FACINGS.slice().sort(() => random() - 0.5);
     for (const f of fs) {
       const along = f[0] === 0, w = along ? fw : fd, d = along ? fd : fw;
       if (zn.x1 - zn.x0 < w || zn.z1 - zn.z0 < d) continue;
-      const x = zn.x0 + w / 2 + Math.random() * (zn.x1 - zn.x0 - w), z = zn.z0 + d / 2 + Math.random() * (zn.z1 - zn.z0 - d), y = zn.y;
+      const x = zn.x0 + w / 2 + random() * (zn.x1 - zn.x0 - w), z = zn.z0 + d / 2 + random() * (zn.z1 - zn.z0 - d), y = zn.y;
       if(def.game==='perfume'&&W.pushables.some(p=>Math.hypot(p.x-x,p.z-z)<2.6&&Math.abs(p.y-y)<1.4))continue;
       if (tr < 80 && Math.hypot(x - from.x, z - from.z) < 9) continue;
       if (others.some(o => Math.hypot(o.x - x, o.z - z) < (tr < 100 ? spread : 4))) continue;
@@ -137,44 +138,81 @@ export function spawnWave(player, phase = 'calm') {
   return k;
 }
 /* создать миссию; opts: owner — личная (видит только он), mult — множитель очков (аутсайдер), final — короче таймер */
+// Рецепт содержит выбранное место, а не повторный поиск у гостя.
+// Зерно модели отдельно от выбора миссии и от прогретых кешей THREE.
+const BUILDERS = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox,
+  leaves: buildLeafPile, lockpick: buildChest, pipes: buildValve, outfit: buildOutfit, shakir: buildShakir,
+  perfume: buildPerfume, mammoth: buildMammoth, steal: buildSkelBench, generator: buildGenerator,
+  bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart,
+  ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag };
+function missionObject(r) {
+  const { key, p = [0, 0, 0], f = [0, 1] } = r, [x, y, z] = p, def = CONFIG.missions[key];
+  if (key === 'cat') return W.cats[r.ref];
+  if (key === 'graffiti') return buildGraffitiWall(x, y, z, f, { solid: W.solids[r.ref] });
+  if (key === 'doorbell') return buildDoor((W.net?.buildings||W.buildings)[r.ref]);
+  if (key === 'intercom') { const g = (W.net?.buildings||W.buildings)[r.ref], q = g.intercom, o = buildIntercom(q.x, q.y, q.z, q.f); o.entrance = g; return o; }
+  if (key === 'bus') return buildBus(r.place?{...r.place,path:r.place.path.map(p=>new V3(...p)),stops:r.place.stops.map(p=>new V3(...p))}:busPlaces()[r.ref]);
+  if (key === 'van') return buildVan(r.place);
+  if (key === 'fat') return buildFat();
+  if (key === 'demolition') return buildDemolition();
+  if (def.spot) {
+    const sp = (W.net?.spots||W.spots)[def.spot][r.ref];
+    const o = key === 'fish' ? buildFishing(sp) : key === 'phone' ? buildPhone(sp) : key === 'firebin' ? buildFire(sp) : key === 'bulb' ? buildDeadLamp(sp) : buildSpot(sp);
+    o.spot = sp; return o;
+  }
+  if (key === 'cosmo') return buildCosmo(x, y, z, f);
+  if (key === 'targets') return buildTargets(x + f[0] * 3, y, z + f[1] * 3, f);
+  return BUILDERS[key](x, y, z, f);
+}
+export function restoreMission(r, owner = null) {
+  const def = CONFIG.missions[r.key]; if (!def) return null;
+  const build = () => withRandom(r.seed, () => missionObject(r));
+  const obj = W.net?.scope ? W.net.scope('m' + r.id + '/build', build) : build();
+  if (!obj) return null;
+  const mult = r.mult || 1, life = r.life;
+  const m = { id: r.id, key: r.key, def, obj, where: r.where, life, maxLife: life, busy: false, owner,
+    outsider: mult > 1, mult, pts: Math.round(def.points * mult), marker: marker(def, r.key), netRecipe: r };
+  M.id = Math.max(M.id, r.id); drawPlate(m, 1); M.list.push(m);
+  if (r.key === 'mammoth') M.mammothShown = true;
+  if (['shakir', 'fat', 'demolition', 'van', 'cosmo'].includes(r.key)) M.introShown[r.key] = true;
+  return m;
+}
 export function spawnMission(player, only = null, opts = {}) {
+  if (W.net?.replica) return null;
   const keys = Object.keys(CONFIG.missions).filter(k => (!only || k === only) && canSpawn(k, CONFIG.missions[k]));
-  for(let i=keys.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[keys[i],keys[j]]=[keys[j],keys[i]];}
-  const others = M.list.map(m => m.obj.pos());
+  for (let i = keys.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [keys[i], keys[j]] = [keys[j], keys[i]]; }
+  const other = M.list.map(m => m.obj.pos());
   for (const key of keys) {
-    const def = CONFIG.missions[key];
-    let obj, where = '';
+    const def = CONFIG.missions[key], r = { key, id: M.id + 1, seed: random() * 2 ** 32 >>> 0, mult: opts.mult || 1 };
+    let where = '', p;
     if (key === 'cat') {
-      const free = W.cats.filter(c => !M.list.some(m => m.obj === c));
-      free.sort((a, b) => minDist(b.root.position, others) - minDist(a.root.position, others));
-      obj = free[0]; if (!obj) continue; where = obj.home.district;
-    } else if(key==='graffiti'){const list=graffitiPlaces(),q=list[Math.random()*list.length|0];if(!q)continue;obj=buildGraffitiWall(q.x,q.y,q.z,q.f,q);where='Стена города';
-    } else if(key==='doorbell'){const list=entrances('doorbell'),g=list[(Math.random()*list.length)|0];if(!g)continue;obj=buildDoor(g);where=g.name+' · входная дверь';
-    } else if (key === 'intercom') {
-      const list=entrances(); const g=list[(Math.random()*list.length)|0]; if(!g)continue; const p=g.intercom;
-      obj=buildIntercom(p.x,p.y,p.z,p.f); obj.entrance=g; where=g.name+' · у входа';
-    } else if(key==='bus'){const places=busPlaces();if(!places.length)continue;obj=buildBus(places[Math.random()*places.length|0]);where='Маршрут 63';
-    } else if(key==='van'){const places=vanPlaces();if(!places.length)continue;const q=places[Math.random()*places.length|0];obj=buildVan(q);where='Город · дорога';
-    } else if(key==='fat'){obj=buildFat();where='Жировой завод → Мэрия';
-    } else if(key==='demolition'){obj=buildDemolition();where='Университет Хнуре';
+      const c = W.cats.filter(c => !M.list.some(m => m.obj === c)).sort((a, b) => minDist(b.root.position, other) - minDist(a.root.position, other))[0];
+      if (!c) continue; r.ref = W.cats.indexOf(c); p = c.root.position; where = c.home.district;
+    } else if (key === 'graffiti') {
+      const a = graffitiPlaces(), q = a[random() * a.length | 0]; if (!q) continue;
+      r.p = [q.x, q.y, q.z]; r.f = q.f; r.ref = W.solids.indexOf(q.solid); p = q; where = 'Стена города';
+    } else if (key === 'intercom' || key === 'doorbell') {
+      const a = entrances(key), g = a[random() * a.length | 0]; if (!g) continue;
+      r.ref = (W.net?.buildings||W.buildings).indexOf(g); p = g.intercom; where = g.name + ' · входная дверь';
+    } else if (key === 'bus') {
+      const a = busPlaces(); if (!a.length) continue; r.ref = random() * a.length | 0; p = a[r.ref];r.place={...p,path:p.path.map(v=>v.toArray()),stops:p.stops.map(v=>v.toArray())}; where = 'Маршрут 63';
+    } else if (key === 'van') {
+      const a = vanPlaces(); if (!a.length) continue; p = r.place = a[random() * a.length | 0]; where = 'Город · дорога';
+    } else if (key === 'fat' || key === 'demolition') {
+      p = key === 'fat' ? W.factorySite : W.university; p = p?.pos || p?.g?.position || p;
+      if (!p || !Number.isFinite(p.x)) p = player.pos;
+      where = key === 'fat' ? 'Жировой завод → Мэрия' : 'Университет Хнуре';
     } else if (def.spot) {
-      // место подальше от других миссий волны
-      const list = freeSpots(def.spot).sort((a, b) => minDist(b, others) - minDist(a, others) + (Math.random() - 0.5) * 8);
-      const sp = list[(Math.random() * Math.min(3, list.length)) | 0]; if (!sp) continue;
-      obj = key === 'fish' ? buildFishing(sp) : key === 'phone' ? buildPhone(sp) : key === 'firebin' ? buildFire(sp) : key === 'bulb' ? buildDeadLamp(sp) : buildSpot(sp); obj.spot = sp;
-      where = sp.district + (sp.label ? ' · ' + sp.label : '');
+      const a = freeSpots(def.spot).sort((a, b) => minDist(b, other) - minDist(a, other) + (random() - .5) * 8);
+      const q = a[random() * Math.min(3, a.length) | 0]; if (!q) continue;
+      r.ref = (W.net?.spots||W.spots)[def.spot].indexOf(q); p = q; where = q.district + (q.label ? ' · ' + q.label : '');
     } else {
-      const pl = findPlace(def, player.pos, others);
-      if (!pl) continue;
-      const B = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox, leaves: buildLeafPile, graffiti: buildGraffitiWall, intercom: buildIntercom, lockpick: buildChest, pipes: buildValve,
-        outfit:buildOutfit,shakir:buildShakir,perfume:buildPerfume,mammoth:buildMammoth,doorbell: buildDoor, steal: buildSkelBench, generator: buildGenerator, bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart, ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag }[key];
-      obj = key==='cosmo'?buildCosmo(pl.x,pl.y,pl.z,pl.f):key === 'targets' ? buildTargets(pl.x + pl.f[0] * 3, pl.y, pl.z + pl.f[1] * 3, pl.f) : B(pl.x, pl.y, pl.z, pl.f);
-      where = pl.zone.district + (ZONE_RU[pl.zone.type] ? ' · ' + ZONE_RU[pl.zone.type] : '');
+      const q = findPlace(def, player.pos, other); if (!q) continue;
+      r.p = [q.x, q.y, q.z]; r.f = q.f; p = q;
+      where = q.zone.district + (ZONE_RU[q.zone.type] ? ' · ' + ZONE_RU[q.zone.type] : '');
     }
-    const p = obj.pos(); where = locationLabel(p) || where; const life = lifeFor(p, opts.final), mult = opts.mult || 1;
-    const m = { id: ++M.id, key, def, obj, where, life, maxLife: life, busy: false, owner: opts.owner || null, outsider: mult > 1, mult, pts: Math.round(def.points * mult), marker: marker(def, key) };
-    drawPlate(m, 1); M.list.push(m);if(key==='mammoth')M.mammothShown=true;if(['shakir','fat','demolition','van','cosmo'].includes(key))M.introShown[key]=true;
-    return m;
+    r.where = locationLabel(p) || where; r.life = lifeFor(p, opts.final);
+    return restoreMission(r, opts.owner || null);
   }
   return null;
 }
@@ -194,7 +232,7 @@ const shared = () => M.list.filter(m => !m.owner);
 
 /* opts: phase ('calm' | 'event' | 'final'), t — сколько прошло с начала раунда */
 export function updateMissions(dt, t, player, opts = {}) {
-  const phase = opts.phase || 'calm'; if (phase === 'event') dt = 0;
+  const visualDt=dt; const phase = opts.phase || 'calm'; if (phase === 'event' || W.net?.replica) dt = 0;
   for (const k in M.cooldown) M.cooldown[k] -= dt;
   for (const m of M.list.slice()) {
     const p = (m.key==='cleanup'&&m.busy&&m.track?.())||m.obj.pos(), mk = m.marker; mk.g.position.set(p.x, p.y, p.z);
@@ -205,17 +243,17 @@ export function updateMissions(dt, t, player, opts = {}) {
       if (m.life <= 0) { if (!m.owner) M.burnt++; removeMission(m); continue; }
     }
     const k = m.activeLeft==null?m.life/m.maxLife:m.activeLeft/m.activeMax;
-    mk.drawT -= dt; if (mk.drawT <= 0) { mk.drawT = 0.25; drawPlate(m, k); }
+    mk.drawT -= visualDt; if (mk.drawT <= 0) { mk.drawT = 0.25; drawPlate(m, k); }
     // появление: плашка «выпрыгивает», по земле расходится кольцо
-    mk.born += dt; const b = mk.born;
+    mk.born += visualDt; const b = mk.born;
     const pop = b < 0.5 ? 1 + Math.sin(b / 0.5 * Math.PI) * 0.6 : 1;
     mk.pop = pop; mk.sp.position.y = 4.4 + Math.sin(t * 3 + m.id) * 0.2 + (b < 0.35 ? (0.35 - b) * 8 : 0);
     mk.wave.visible = b < 1.2; if (mk.wave.visible) { mk.wave.scale.setScalar(1 + b * 9); mk.wm.opacity = Math.max(0, 1 - b / 1.2); }
     mk.bm.opacity = k < 0.25 ? (Math.sin(t * 12) > 0 ? 0.45 : 0.1) : mk.bm.opacity;
   }
-  if(!M.manual&&shared().length<waveSize(phase)){
-    if(M.waveT<=0)M.waveT=1.5+Math.random()*2;
-    M.waveT-=dt;if(M.waveT<=0){spawnMission(player,null,{final:phase==='final'});M.waveT=1.5+Math.random()*2;extras(player,opts);}
+  if(!W.net?.replica&&!M.manual&&shared().length<waveSize(phase)){
+    if(M.waveT<=0)M.waveT=1.5+random()*2;
+    M.waveT-=dt;if(M.waveT<=0){spawnMission(player,null,{final:phase==='final'});M.waveT=1.5+random()*2;extras(player,opts);}
   }
 
 }
@@ -227,8 +265,8 @@ function extras(player, opts) {
     for (const a of acts) { if (M.list.some(m => m.owner === a)) continue;
       if (score(a) < lead * WV().outsiderK || score(a) < 60) { const m = spawnMission(player, null, { owner: a, mult: WV().outsiderMul, final: opts.phase === 'final' }); if (m && a === W.player && M.onPersonal) M.onPersonal(m, true); } }
   }
-  if (Math.random() < WV().personal) {
-    const a = acts[(Math.random() * acts.length) | 0];
+  if (random() < WV().personal) {
+    const a = acts[(random() * acts.length) | 0];
     if (a && !M.list.some(m => m.owner === a)) { const m = spawnMission(player, null, { owner: a, final: opts.phase === 'final' }); if (m && a === W.player && M.onPersonal) M.onPersonal(m, false); }
   }
 }

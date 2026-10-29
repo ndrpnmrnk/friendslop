@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {actionEffect} from '../world/action-fx.js';
 import {placeArcDots} from './trajectory.js';
 import {basketCrossing} from '../world/basketball.js';
@@ -61,7 +62,7 @@ function build(type) {
     mesh(G.box, tmat(T.brickItem()), 0, 0, 0, 0.42, 0.18, 0.22, g);
     mesh(G.box, col(0x6a2a1c), 0, 0.091, 0, 0.24, 0.005, 0.1, g);
   } else if (type === 'trash') g.add(trashModel());
-  else if (type === 'litter') g.add(litterModel((Math.random() * 5) | 0));
+  else if (type === 'litter') g.add(litterModel((random() * 5) | 0));
   else if(type==='missioncrate')g.add(compose('missionCrate25',a=>{const m=tmat(T.crate());a(G.box,m,0,0,0,0.9,0.7,0.9);for(const x of [-0.38,0.38])a(G.box,tmat(T.wood()),x,0,0.46,0.08,0.7,0.025);a(G.box,col(0x6a5638),0,0,0.475,0.9,0.06,0.025,0,0,0.55);}));
   else if (type === 'canister') { const r = lam({ map: T.paintMetal(0xc8243a) }, 'canisterB'); mesh(G.box, r, 0, 0, 0, 0.3, 0.38, 0.16, g); mesh(G.box, col(0x2b2533), 0, 0.22, -0.04, 0.06, 0.06, 0.06, g); mesh(G.box, r, 0.06, 0.21, 0.0, 0.16, 0.04, 0.05, g); mesh(G.cyl6, col(0xf5c542), -0.08, 0.22, 0.04, 0.025, 0.08, 0.025, g); }
   else if (type === 'letter') { const c = it_letterC(); mesh(G.box, col(0xf1e8ff), 0, 0, 0, 0.3, 0.02, 0.2, g); mesh(G.box, col(c), 0, 0.012, 0, 0.3, 0.005, 0.06, g); mesh(G.box, col(c), 0.1, 0.012, 0.05, 0.05, 0.006, 0.05, g); }
@@ -70,8 +71,8 @@ function build(type) {
   else if (type === 'monitor') { const dk = col(0x2b2533); mesh(G.box, dk, 0, 0.06, 0, 0.56, 0.36, 0.05, g); mesh(G.box, tmat(T.screen()), 0, 0.06, 0.027, 0.5, 0.3, 0.005, g); mesh(G.box, dk, 0, -0.16, -0.02, 0.06, 0.12, 0.05, g); mesh(G.box, dk, 0, -0.22, 0, 0.26, 0.02, 0.16, g); }
   else if (type === 'pc') { mesh(G.box, col(0xd8d0c0), 0, 0, 0, 0.2, 0.44, 0.42, g); mesh(G.box, col(0x3a3440), 0.101, 0.1, 0.08, 0.005, 0.12, 0.2, g); mesh(G.box, glow(0x9be36b), 0.102, -0.12, 0.15, 0.005, 0.02, 0.02, g); mesh(G.box, col(0x6a6d78), 0.102, 0.02, 0, 0.005, 0.02, 0.3, g); }
   else if (type === 'keyboard') { mesh(G.box, col(0xd8d0c0), 0, 0, 0, 0.44, 0.03, 0.15, g); for (let i = 0; i < 3; i++) mesh(G.box, col(0x9a9da8), 0, 0.017, -0.045 + i * 0.045, 0.4, 0.008, 0.03, g); }
-  else if (type === 'mug') { const c = [0xd8243a, 0xf1e8ff, 0x4ab0f0, 0xf5c542][(Math.random() * 4) | 0]; mesh(G.cyl8, col(c), 0, 0, 0, 0.07, 0.16, 0.07, g); mesh(G.cyl8, col(0x3a2418), 0, 0.075, 0, 0.06, 0.01, 0.06, g); mesh(G.torus, col(c), 0.08, 0, 0, 0.04, 0.04, 0.04, g).rotation.x = Math.PI / 2; }
-  else if (type === 'books') { const cs = [0x7b4bc4, 0xd8243a, 0x4a8ac8, 0x6aa84f]; for (let i = 0; i < 3; i++) { const b = mesh(G.box, col(cs[(i + (Math.random() * 4 | 0)) % 4]), (Math.random() - 0.5) * 0.03, -0.08 + i * 0.07, 0, 0.3, 0.06, 0.22, g); b.rotation.y = (Math.random() - 0.5) * 0.4; mesh(G.box, col(0xf1e8ff), 0.151, -0.08 + i * 0.07, 0, 0.004, 0.05, 0.2, g).rotation.y = b.rotation.y; } }
+  else if (type === 'mug') { const c = [0xd8243a, 0xf1e8ff, 0x4ab0f0, 0xf5c542][(random() * 4) | 0]; mesh(G.cyl8, col(c), 0, 0, 0, 0.07, 0.16, 0.07, g); mesh(G.cyl8, col(0x3a2418), 0, 0.075, 0, 0.06, 0.01, 0.06, g); mesh(G.torus, col(c), 0.08, 0, 0, 0.04, 0.04, 0.04, g).rotation.x = Math.PI / 2; }
+  else if (type === 'books') { const cs = [0x7b4bc4, 0xd8243a, 0x4a8ac8, 0x6aa84f]; for (let i = 0; i < 3; i++) { const b = mesh(G.box, col(cs[(i + (random() * 4 | 0)) % 4]), (random() - 0.5) * 0.03, -0.08 + i * 0.07, 0, 0.3, 0.06, 0.22, g); b.rotation.y = (random() - 0.5) * 0.4; mesh(G.box, col(0xf1e8ff), 0.151, -0.08 + i * 0.07, 0, 0.004, 0.05, 0.2, g).rotation.y = b.rotation.y; } }
   else if (type === 'dlamp') { const c = col(0x3a6a4a); mesh(G.cyl8, c, 0, -0.15, 0, 0.1, 0.03, 0.1, g); mesh(G.cyl6, c, 0, -0.02, 0, 0.015, 0.26, 0.015, g); mesh(G.cone8, lam({ color: 0x4a8a5a, emissive: 0x1a2a1a }, 'lampShade'), 0, 0.14, 0, 0.13, 0.14, 0.13, g); mesh(G.sph, glow(0xfff0c0), 0, 0.08, 0, 0.04, 0.04, 0.04, g); }
   else if (type === 'pot') { mesh(G.cyl8, col(0xc8643a), 0, -0.08, 0, 0.13, 0.2, 0.1, g); mesh(G.cyl8, col(0x3a2418), 0, 0.02, 0, 0.12, 0.01, 0.12, g); for (let i = 0; i < 5; i++) { const l = mesh(G.ico, tmat(T.leaves(2)), Math.cos(i * 1.3) * 0.06, 0.12 + i * 0.03, Math.sin(i * 1.3) * 0.06, 0.09, 0.07, 0.09, g); l.rotation.y = i; } }
   else if (type === 'chair') g.add(chairModel());
@@ -154,7 +155,7 @@ export function addItem(type, x, y, z, ry = 0) {
   const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z, ry }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g, 0.045, OUTLINE[rarityOf(type)]), rarity: rarityOf(type), ammo: def.ammo || 0, cd: 0 };
   g.rotation.y = ry;
   it.pos.set(x, y + (def.halfHeight??def.r), z);
-  W.items.push(it); return it;
+  W.items.push(it); if (W.net && !W.net.applying) W.net.register('i', it); return it;
 }
 // Модель опирается на физическое дно предмета; используется только для выкладки.
 export function restOnSurface(it){
@@ -187,7 +188,7 @@ function impact(it, n, speed) {
   const p = it.pos, t = it.type, gy = groundAt(p.x, p.z, 0.1, p.y + 0.3);
   // хрупкая мелочь: сильный удар — разбилось (осколки, звон), до конца раунда
   if (it.def.breaks && speed > it.def.breaks) { const glass = t === 'monitor' || t === 'dlamp' || t === 'mug';
-    for (let i = 0; i < 9; i++) chunk(p.x, p.y + 0.1, p.z, [(Math.random() - 0.5) * 4, 2 + Math.random() * 2, (Math.random() - 0.5) * 4], { mat: col([0x2b2533, 0x9a9da8, t === 'pot' ? 0xc8643a : 0xd8d0c0, 0x3a3440][i % 4]), size: 0.07, sy: 0.6, life: 5 });
+    for (let i = 0; i < 9; i++) chunk(p.x, p.y + 0.1, p.z, [(random() - 0.5) * 4, 2 + random() * 2, (random() - 0.5) * 4], { mat: col([0x2b2533, 0x9a9da8, t === 'pot' ? 0xc8643a : 0xd8d0c0, 0x3a3440][i % 4]), size: 0.07, sy: 0.6, life: 5 });
     if (glass) burst(p.x, p.y + 0.2, p.z, 8, { color: 0xc8e8ff, size: 0.08, speed: 3, up: 2 }); if (t === 'pot') burst(p.x, p.y, p.z, 8, { color: 0x6a4a2a, size: 0.12, speed: 2, up: 1.5 });
     sfx(glass ? 'glass' : 'wood', { at: p }); for (const h of W.hitHooks.slice()) h(it, p); hitActors(it,p,heavyHit(it,speed)); vanish(it); return; }
   for (const h of W.hitHooks.slice()) h(it, p);
@@ -224,26 +225,26 @@ function impact(it, n, speed) {
     vanish(it);
   } else if (t === 'pumpkin') {
     const m = tmat(T.pumpkin());
-    for (let i = 0; i < 9; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5 + it.vel.x * 0.15, 2 + Math.random() * 3, (Math.random() - 0.5) * 5 + it.vel.z * 0.15], { mat: m, size: 0.18 + Math.random() * 0.1, life: 2.5 });
+    for (let i = 0; i < 9; i++) chunk(p.x, p.y, p.z, [(random() - 0.5) * 5 + it.vel.x * 0.15, 2 + random() * 3, (random() - 0.5) * 5 + it.vel.z * 0.15], { mat: m, size: 0.18 + random() * 0.1, life: 2.5 });
     burst(p.x, p.y, p.z, 6, { color: 0xffd25c, size: 0.2, speed: 2 });
     splatter(p, it.vel, 0xe8731a, 20, 0.9, { owner: it.owner });
     vanish(it);
   } else if (t === 'trash' && speed > 6) {
     // пакет рвётся: бумажки, банки, пятно
     const cols = [0xd8d0c0, 0x8a8d98, 0xc83a3a, 0x6aa84f, 0xf5c542];
-    for (let i = 0; i < 10; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5 + it.vel.x * 0.2, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 5 + it.vel.z * 0.2], { mat: col(cols[i % cols.length]), size: 0.1 + Math.random() * 0.06, sy: 0.4, life: 5 });
-    for (let i = 0; i < 3; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3], { mat: tmat(T.trashBag()), size: 0.22, sy: 0.15, life: 5 });
+    for (let i = 0; i < 10; i++) chunk(p.x, p.y, p.z, [(random() - 0.5) * 5 + it.vel.x * 0.2, 1.5 + random() * 3, (random() - 0.5) * 5 + it.vel.z * 0.2], { mat: col(cols[i % cols.length]), size: 0.1 + random() * 0.06, sy: 0.4, life: 5 });
+    for (let i = 0; i < 3; i++) chunk(p.x, p.y, p.z, [(random() - 0.5) * 3, 1 + random() * 2, (random() - 0.5) * 3], { mat: tmat(T.trashBag()), size: 0.22, sy: 0.15, life: 5 });
     splatter(p, it.vel, 0x3a3020, 18, 0.8, { owner: it.owner });
     burst(p.x, p.y, p.z, 5, { color: 0x6a6a5a, size: 0.35, speed: 1.6, up: 1, g: 2, grow: 1.2, life: 0.8 });
     vanish(it);
   } else if (t === 'chair' && speed > 9) {
     const m = tmat(T.wood());
-    for (let i = 0; i < 6; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 5, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 5], { mat: m, size: 0.14, sx: 3, sy: 0.4, sz: 0.8, life: 2.5 });
+    for (let i = 0; i < 6; i++) chunk(p.x, p.y, p.z, [(random() - 0.5) * 5, 1.5 + random() * 3, (random() - 0.5) * 5], { mat: m, size: 0.14, sx: 3, sy: 0.4, sz: 0.8, life: 2.5 });
     burst(p.pos ? p.x : p.x, p.y, p.z, 5, { color: 0x8a6a4a, size: 0.35, speed: 1.5 });
     vanish(it);
   } else if (t === 'brick' && speed > 12) {
     const m = tmat(T.brickItem());
-    for (let i = 0; i < 6; i++) chunk(p.x, p.y, p.z, [(Math.random() - 0.5) * 4, 1.5 + Math.random() * 2, (Math.random() - 0.5) * 4], { mat: m, size: 0.1 + Math.random() * 0.06, life: 2 });
+    for (let i = 0; i < 6; i++) chunk(p.x, p.y, p.z, [(random() - 0.5) * 4, 1.5 + random() * 2, (random() - 0.5) * 4], { mat: m, size: 0.1 + random() * 0.06, life: 2 });
     burst(p.x, p.y, p.z, 6, { color: 0xa06a5a, size: 0.25, speed: 1.5 });
     vanish(it);
   } else {
@@ -296,15 +297,16 @@ function simulate(it, dt, flying) {
 
 export function updateItems(dt, pl) {
   for (const it of W.items) {
+    if (W.net && !W.net.canSimulate(it)) continue;
     if (it.state === 'gone' || it.state === 'placed') continue;
     if (it.state === 'held') continue;
     if (it.state === 'fly') { if (it.noHitT > 0) it.noHitT -= dt; simulate(it, dt, true); continue; }
-    if (it.state === 'sink') { it.sinkT -= dt; it.pos.y -= dt * 0.5; it.g.rotation.x += dt; if (Math.random() < dt * 4) ripple(it.pos.x, it.pos.y + 0.4, it.pos.z, 0.4, 0.6); if (it.sinkT <= 0) vanish(it); continue; }
+    if (it.state === 'sink') { it.sinkT -= dt; it.pos.y -= dt * 0.5; it.g.rotation.x += dt; if (random() < dt * 4) ripple(it.pos.x, it.pos.y + 0.4, it.pos.z, 0.4, 0.6); if (it.sinkT <= 0) vanish(it); continue; }
     // плавает: покачивается и медленно дрейфует
     if (it.floatY !== undefined && it.state === 'rest') {
       if (zoneAt(it.pos.x, it.pos.z, it.floatY, 'water')) { it.pos.y = it.floatY + it.def.r * 0.6 + Math.sin(performance.now() * 0.003 + it.home.x) * 0.04; it.g.rotation.z = Math.sin(performance.now() * 0.002 + it.home.z) * 0.15;
         it.pos.x += (it.vel.x + Math.sin(performance.now() * 0.0005 + it.home.x) * 0.15) * dt; it.pos.z += (it.vel.z + Math.cos(performance.now() * 0.0004) * 0.15) * dt; it.vel.multiplyScalar(Math.exp(-dt));
-        if (Math.random() < dt * 0.6) ripple(it.pos.x, it.floatY, it.pos.z, 0.5, 1); continue; }
+        if (random() < dt * 0.6) ripple(it.pos.x, it.floatY, it.pos.z, 0.5, 1); continue; }
       it.floatY = undefined;
     }
     // лежит: мяч и упавшие предметы живут по физике
@@ -336,7 +338,7 @@ export function nearestItem(p, r) {
   return best;
 }
 export function pickUp(it) { if(it.noPickup||it.taken||it.state==='gone')return false; W.netTake?.(it); it.onPickup?.(); it.floatY = undefined; it.trail = 0; it.state = 'held'; it.vel.set(0, 0, 0); it.g.rotation.set(0, 0, 0); }
-export function drop(it, x, y, z) { if(it.taken)return;it.state = 'rest'; it.pos.set(x, y + (it.def.halfHeight??it.def.r) + 0.05, z); it.vel.set(0, 0, 0); }
+export function drop(it, x, y, z) { if(it.taken)return; W.net?.request('drop', it);it.state = 'rest'; it.pos.set(x, y + (it.def.halfHeight??it.def.r) + 0.05, z); it.vel.set(0, 0, 0); }
 
 /* Расчёт броска по дуге к точке прицела */
 export function throwVelocity(from, target, charge, def) {

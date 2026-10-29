@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { V3 } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { smokeRing } from '../world/particles.js';
@@ -29,13 +30,14 @@ export function grabTarget(a, r = 1.35) {
 }
 export function grabActor(a, b) {
   if (!b || a === b || handBusy(a) || unavailable(a) || unavailable(b) || a.stun > 0 || a.daze > 0 || a.getT > 0 || a.holding || a.heldBy || b.heldBy || b.holding || b.gripSafe > 0 || !a.onGround || !b.onGround || Math.abs(a.pos.y - b.pos.y) > 0.7 || a.pos.distanceTo(b.pos) > 1.6 || !clearGrip(a, b)) return false;
+  if (W.net?.request('grip', b.netKey || W.net.keyOf(b))) return true;
   a.holding = b; a.gripT = 0; b.heldBy = a; b.struggle = 0; b.emote = null;
   dropHeld(b); b.charging = false; a.charging = false;
   sfx('grab', { at: b.pos }); voice(b.ch, 'hurt', b.pos); W.onHit && W.onHit(a, b, 'melee'); return true;
 }
 // Отпускаем без импульса: ни один вызывающий код не может бросить персонажа.
 export function letGo(a) {
-  const b = a.holding; if (!b) return;
+  const b = a.holding; if (!b) return; if(W.net?.request('letgo', ''))return;
   a.holding = null; a.gripT = 0; if (b.heldBy === a) b.heldBy = null; b.struggle = 0; b.thrown = false; b.gripSafe = 0.8; a.charging = false;
 }
 function breakFree(b) {
@@ -43,7 +45,7 @@ function breakFree(b) {
   letGo(a); a.knockT = Math.max(a.knockT || 0, 0.18);
   smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1 }); sfx('grab', { at: b.pos }); if (b.bot) b.revenge = 5;
 }
-export function struggleTap(b) { if (!b.heldBy || b.stun > 0) return; b.struggle += 0.15; if (b.struggle >= 1) breakFree(b); }
+export function struggleTap(b) { if (W.net?.request('struggle', '')) return; if (!b.heldBy || b.stun > 0) return; b.struggle += 0.15; if (b.struggle >= 1) breakFree(b); }
 // После ввода, ДО moveBody: тяга не стирается управлением следующего кадра.
 // Меняем только горизонтальную скорость; стены, ступени и высоту решает физика.
 export function applyGripMotion(a, dt) {
@@ -84,7 +86,7 @@ export function updateGrabs(dt) {
     a.gripT = (a.gripT || 0) + dt;
     const d = Math.hypot(b.pos.x - a.pos.x, b.pos.z - a.pos.z);
     if (b.heldBy!==a || !list.includes(b) || a.stun>0 || a.daze>0 || a.getT>0 || unavailable(a) || unavailable(b) || a.gripT>4 || d>1.95 || Math.abs(a.pos.y-b.pos.y)>0.75 || !clearGrip(a,b)) { letGo(a); continue; }
-    if (b.bot && !(b.stun > 0)) b.struggle += dt * 0.42;
+    if (b.bot && !b.human && !(b.stun > 0)) b.struggle += dt * 0.42;
     if (b.struggle >= 1) { breakFree(b); continue; }
     poseGrip(a,b,dt);
     if (tryGrabTarget(a, b)) letGo(a); // v0.60: дотащил до цели района (бак, вода, маты…)
@@ -106,6 +108,6 @@ export function updateEmote(a, dt, moving) {
   a.emoteT += dt;
   if (moving || a.emoteT > a.emoteDur || !a.onGround || a.stun > 0 || a.heldBy) a.emote = null;
   else if (a.emote === 'clap') { const n = Math.floor(a.emoteT * 3.2 + 0.25); if (n !== a.clapN && a.emoteT > 0.1) { a.clapN = n; sfx('clap', { at: a.pos, v: a === W.player ? 0.8 : 0.5 }); } }
-  else if (a.emote === 'dance' && a.ch.skinId === 'frog' && Math.random() < dt * 0.9) voice(a.ch, 'jump', a === W.player ? undefined : a.pos);
+  else if (a.emote === 'dance' && a.ch.skinId === 'frog' && random() < dt * 0.9) voice(a.ch, 'jump', a === W.player ? undefined : a.pos);
 }
 void V3;

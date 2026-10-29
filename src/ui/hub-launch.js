@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose, jellify } from '../core/gfx.js';
 import { T, pix } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -121,13 +122,13 @@ export const THEMES = [
   { name: 'Вечерний город', ids: ['cinema', 'shops', 'townhall'], c: '#c08bff' },
   { name: 'Старые дворы', ids: ['yard', 'cemetery', 'market'], c: '#ffb06a' },
 ];
-export const pickTheme = () => THEMES[(Math.random() * THEMES.length) | 0];
+export const pickTheme = () => THEMES[(random() * THEMES.length) | 0];
 // карта: 9 разных районов (районы темы обязательно); порт — только в южном ряду (как в генераторе)
 export function randomMap(theme = null, n = CONFIG.grid) {
   const must = theme ? theme.ids.filter(id => DISTRICTS.some(d => d.id === id)) : [];
-  const rest = DISTRICTS.map(d => d.id).filter(id => !must.includes(id)).sort(() => Math.random() - .5);
-  const ids = must.concat(rest).slice(0, n * n).sort(() => Math.random() - .5), pi = ids.indexOf('port');
-  if (pi >= 0) { const row = [...Array(n)].map((_, gx) => gx * n + n - 1); if (!row.includes(pi)) { const to = row[(Math.random() * n) | 0]; [ids[pi], ids[to]] = [ids[to], ids[pi]]; } }
+  const rest = DISTRICTS.map(d => d.id).filter(id => !must.includes(id)).sort(() => random() - .5);
+  const ids = must.concat(rest).slice(0, n * n).sort(() => random() - .5), pi = ids.indexOf('port');
+  if (pi >= 0) { const row = [...Array(n)].map((_, gx) => gx * n + n - 1); if (!row.includes(pi)) { const to = row[(random() * n) | 0]; [ids[pi], ids[to]] = [ids[to], ids[pi]]; } }
   return ids;
 }
 /* ---------- табло ---------- */
@@ -198,8 +199,8 @@ export function buildScreen(b, x, y, z, modes) {
     idle() { st.kind = 'idle'; st.dirty = true; },
     showMode(m) { st.kind = 'mode'; st.mode = m; st.t = 0; st.dirty = true; },
     spinMap(ids, theme) { st.kind = 'map'; st.ids = ids; st.t = 0; st.theme = theme || THEMES[0];
-      const ti = THEMES.indexOf(st.theme), tf = Math.random() * THEMES.length; st.treel = { from: tf, to: Math.ceil(tf) + THEMES.length * 2 + ((ti - Math.ceil(tf)) % THEMES.length + THEMES.length) % THEMES.length, pos: tf, dur: 1.5, stopped: false };
-      st.reel = ids.map((id, k) => { const idx = DISTRICTS.findIndex(d => d.id === id), from = Math.random() * DISTRICTS.length, to = Math.ceil(from) + DISTRICTS.length * 3 + ((idx - Math.ceil(from)) % DISTRICTS.length + DISTRICTS.length) % DISTRICTS.length;
+      const ti = THEMES.indexOf(st.theme), tf = random() * THEMES.length; st.treel = { from: tf, to: Math.ceil(tf) + THEMES.length * 2 + ((ti - Math.ceil(tf)) % THEMES.length + THEMES.length) % THEMES.length, pos: tf, dur: 1.5, stopped: false };
+      st.reel = ids.map((id, k) => { const idx = DISTRICTS.findIndex(d => d.id === id), from = random() * DISTRICTS.length, to = Math.ceil(from) + DISTRICTS.length * 3 + ((idx - Math.ceil(from)) % DISTRICTS.length + DISTRICTS.length) % DISTRICTS.length;
         return { from, to, pos: from, start: 1.8, dur: 1.5 + k * .2, stopped: false, flash: 0, must: st.theme.ids.includes(id) }; }); st.dirty = true; },
     get mapDone() { return st.reel && st.reel.every(r => r.stopped); },
     gather(ready, total, wait) { if (st.kind !== 'gather' || ready !== st.ready || Math.ceil(wait) !== Math.ceil(st.wait)) st.dirty = true; st.kind = 'gather'; st.ready = ready; st.total = total; st.wait = wait; },
@@ -304,7 +305,7 @@ export function buildSlingshot(b, x, z) {
       st.bv += -st.bob * 90 * dt; st.bv *= Math.exp(-dt * 5); st.bob += st.bv * dt;
       if (st.phase === 'idle') { st.pull += (Math.sin(t * 1.5) * .02 - st.pull) * Math.min(1, dt * 4); }
       else if (st.phase === 'board') { if (!st.manual && st.t > .9 + st.riders.length * .2) { st.phase = 'pull'; st.t = 0; sfx('squeak'); } }
-      else if (st.phase === 'pull') { st.pull = Math.min(1, st.pull + dt / 2.2); if (Math.random() < dt * 5) sfx('squeak', { v: .3 }); if (Math.random() < dt * 9) sfx('tick', { v: .5 }); if (st.t > 2.9) { st.phase = 'fire'; st.t = 0; sfx('spring'); sfx('dash', { v: 1.4 }); sfx('birdcry'); shake(.5); } }
+      else if (st.phase === 'pull') { st.pull = Math.min(1, st.pull + dt / 2.2); if (random() < dt * 5) sfx('squeak', { v: .3 }); if (random() < dt * 9) sfx('tick', { v: .5 }); if (st.t > 2.9) { st.phase = 'fire'; st.t = 0; sfx('spring'); sfx('dash', { v: 1.4 }); sfx('birdcry'); shake(.5); } }
       else if (st.phase === 'fire') { const k = Math.min(1, st.t / .16); st.pull = 1 - k; st.out = Math.sin(k * Math.PI) * .9; if (k >= 1) { st.phase = 'fly'; st.t = 0; st.pull = 0; st.out = 0; sparks({ x: REST.x, y: REST.y + 1, z: REST.z }, 30, 0xffd27a); } }
       else if (st.phase === 'fly') { st.pull = Math.sin(st.t * 18) * .12 * Math.max(0, 1 - st.t * 1.5); }
       placeBands();

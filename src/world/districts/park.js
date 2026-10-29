@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { G, tmat, smat, col, compose } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { W } from '../state.js';
@@ -40,7 +41,7 @@ export default {
     const ducks = [[PX - 4.6, 21], [PX - 3.2, 28.6], [PX + 3.6, 20.4], [PX + 4.6, 28.2]].map(([x, z], i) => b.ride('duck', x, z, i * 1.7, .02));
     // таран: разогнанная уточка врезалась в другую — седок той летит в воду
     { let quack = 0; W.animated.push(dt => { quack -= dt;
-      for (const a of ducks) { const va = Math.hypot(a.vx || 0, a.vz || 0); if (va > 6.5 && a.rider && quack <= 0 && Math.random() < dt * 2) { quack = 1.2; sfx('squeak', { at: { x: a.x, y: a.y, z: a.z }, v: .6 }); }
+      for (const a of ducks) { const va = Math.hypot(a.vx || 0, a.vz || 0); if (va > 6.5 && a.rider && quack <= 0 && random() < dt * 2) { quack = 1.2; sfx('squeak', { at: { x: a.x, y: a.y, z: a.z }, v: .6 }); }
         for (const c of ducks) { if (c === a) continue; const dx = c.x - a.x, dz = c.z - a.z, d = Math.hypot(dx, dz); if (d > a.r + c.r + .1 || d < .01) continue;
           const rel = ((a.vx || 0) - (c.vx || 0)) * dx / d + ((a.vz || 0) - (c.vz || 0)) * dz / d; if (rel < 4.5) continue;
           c.vx = (c.vx || 0) + dx / d * rel * .8; c.vz = (c.vz || 0) + dz / d * rel * .8; a.vx *= .4; a.vz *= .4;

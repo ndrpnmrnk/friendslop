@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { impactBurst, sparks } from '../game/vfx.js';
 import { THREE, G, mesh, tmat, col, lam } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -53,6 +54,7 @@ let _plank;
 const PLANK = () => _plank || (_plank = tmat(T.wood()));
 export function breakPiece(p, vel = [0, 0, 0]) {
   if (!p.alive) return;
+  if (W.net?.request('break', p, { v: vel })) return;
   p.alive = false;if(p.motion){const b=p.motion;b.dead=true;if(b.grabbed){b.grabbed.grab=null;b.grabbed=null;}W.pushables=W.pushables.filter(q=>q!==b);} if (p.solid) p.solid.on = false;
   const m = p.mesh; m.parent && m.parent.remove(m);
   if (p.inst) for (const q of p.inst) { q.im.setMatrixAt(q.i, ZERO); q.im.instanceMatrix.needsUpdate = true; }
@@ -64,32 +66,32 @@ export function breakPiece(p, vel = [0, 0, 0]) {
   if (p.kind === 'crate') {
     crateCoins(p);
     // ящик разлетается на доски и щепки
-    const [w, h, d] = p.size, n = 7 + ((Math.random() * 4) | 0);
+    const [w, h, d] = p.size, n = 7 + ((random() * 4) | 0);
     for (let i = 0; i < n; i++) {
-      const long = Math.max(w, d) * (0.55 + Math.random() * 0.4), a = Math.random() * 6.28, sp = 2 + Math.random() * 3;
-      chunk(pos.x + (Math.random() - 0.5) * w * 0.7, pos.y + (Math.random() - 0.5) * h * 0.7, pos.z + (Math.random() - 0.5) * d * 0.7,
-        [vel[0] * 0.4 + Math.cos(a) * sp, 2 + Math.random() * 3.5, vel[2] * 0.4 + Math.sin(a) * sp], { mat: PLANK(), size: 1, sx: long, sy: 0.035, sz: 0.1 + Math.random() * 0.05, r: 0.05, life: 4 });
+      const long = Math.max(w, d) * (0.55 + random() * 0.4), a = random() * 6.28, sp = 2 + random() * 3;
+      chunk(pos.x + (random() - 0.5) * w * 0.7, pos.y + (random() - 0.5) * h * 0.7, pos.z + (random() - 0.5) * d * 0.7,
+        [vel[0] * 0.4 + Math.cos(a) * sp, 2 + random() * 3.5, vel[2] * 0.4 + Math.sin(a) * sp], { mat: PLANK(), size: 1, sx: long, sy: 0.035, sz: 0.1 + random() * 0.05, r: 0.05, life: 4 });
     }
-    for (let i = 0; i < 8; i++) chunk(pos.x, pos.y, pos.z, [(Math.random() - 0.5) * 6, 1 + Math.random() * 4, (Math.random() - 0.5) * 6], { mat: PLANK(), size: 1, sx: 0.04, sy: 0.04, sz: 0.18, r: 0.03, life: 2.5 });
+    for (let i = 0; i < 8; i++) chunk(pos.x, pos.y, pos.z, [(random() - 0.5) * 6, 1 + random() * 4, (random() - 0.5) * 6], { mat: PLANK(), size: 1, sx: 0.04, sy: 0.04, sz: 0.18, r: 0.03, life: 2.5 });
     burst(pos.x, pos.y, pos.z, 5, { color: 0x9a7a52, size: 0.4, speed: 1.6, up: 1, g: 2, grow: 1.2, life: 0.8 });
     p.respawnT = 0; if (W.crateHook) W.crateHook(pos.clone(), p);
   } else if (p.kind === 'pot') {
     const [w, h] = p.size;
-    for (let i = 0; i < 7; i++) chunk(pos.x, pos.y + 0.2, pos.z, [(Math.random() - 0.5) * 4 + vel[0] * 0.3, 1 + Math.random() * 3, (Math.random() - 0.5) * 4 + vel[2] * 0.3], { mat: col(0xb05a3a), size: 0.08 + Math.random() * 0.06, sy: 0.4, life: 3 });
-    for (let i = 0; i < 4; i++) chunk(pos.x, pos.y + h * 0.4, pos.z, [(Math.random() - 0.5) * 3, 1 + Math.random() * 2, (Math.random() - 0.5) * 3], { mat: tmat(T.leaves(2)), geo: G.ico, size: 0.14, life: 3 });
+    for (let i = 0; i < 7; i++) chunk(pos.x, pos.y + 0.2, pos.z, [(random() - 0.5) * 4 + vel[0] * 0.3, 1 + random() * 3, (random() - 0.5) * 4 + vel[2] * 0.3], { mat: col(0xb05a3a), size: 0.08 + random() * 0.06, sy: 0.4, life: 3 });
+    for (let i = 0; i < 4; i++) chunk(pos.x, pos.y + h * 0.4, pos.z, [(random() - 0.5) * 3, 1 + random() * 2, (random() - 0.5) * 3], { mat: tmat(T.leaves(2)), geo: G.ico, size: 0.14, life: 3 });
     burst(pos.x, pos.y + 0.2, pos.z, 5, { color: 0x4a3424, size: 0.3, speed: 1.4, up: 1, g: 4, life: 0.7 });
     void w;
   } else if (p.kind === 'bottle' || p.kind === 'bulb') {
-    for (let i = 0; i < 6; i++) chunk(pos.x, pos.y, pos.z, [(Math.random() - 0.5) * 3, Math.random() * 2.5, (Math.random() - 0.5) * 3], { mat: p.kind === 'bulb' ? GLASS() : m.material, size: 0.05 + Math.random() * 0.04, sy: 0.3, life: 1.5 });
+    for (let i = 0; i < 6; i++) chunk(pos.x, pos.y, pos.z, [(random() - 0.5) * 3, random() * 2.5, (random() - 0.5) * 3], { mat: p.kind === 'bulb' ? GLASS() : m.material, size: 0.05 + random() * 0.04, sy: 0.3, life: 1.5 });
     burst(pos.x, pos.y, pos.z, p.kind === 'bulb' ? 8 : 3, { color: p.kind === 'bulb' ? 0xffe0a0 : 0xd8f0ff, size: 0.12, speed: 2, up: 1, g: 9, life: 0.5 });
   } else if (p.kind === 'glass') {
-    for (let i = 0; i < 10; i++) chunk(pos.x + (Math.random() - 0.5) * sc.x, pos.y + (Math.random() - 0.5) * sc.y, pos.z + (Math.random() - 0.5) * sc.z,
-      [vel[0] * 0.4 + (Math.random() - 0.5) * 3, Math.random() * 3, vel[2] * 0.4 + (Math.random() - 0.5) * 3], { mat: GLASS(), size: 0.12 + Math.random() * 0.1, sy: 1.4, sz: 0.2, life: 1.6 });
+    for (let i = 0; i < 10; i++) chunk(pos.x + (random() - 0.5) * sc.x, pos.y + (random() - 0.5) * sc.y, pos.z + (random() - 0.5) * sc.z,
+      [vel[0] * 0.4 + (random() - 0.5) * 3, random() * 3, vel[2] * 0.4 + (random() - 0.5) * 3], { mat: GLASS(), size: 0.12 + random() * 0.1, sy: 1.4, sz: 0.2, life: 1.6 });
     burst(pos.x, pos.y, pos.z, 6, { color: 0xd8f0ff, size: 0.15, speed: 2.5 });
   } else {
     const n = p.kind === 'brick' ? 3 : 4, mat = m.material;
-    for (let i = 0; i < n; i++) chunk(pos.x + (Math.random() - 0.5) * sc.x * 0.6, pos.y + (Math.random() - 0.5) * sc.y * 0.5, pos.z + (Math.random() - 0.5) * sc.z * 0.6,
-      [vel[0] * 0.5 + (Math.random() - 0.5) * 3, Math.random() * 3 + Math.abs(vel[1]) * 0.2, vel[2] * 0.5 + (Math.random() - 0.5) * 3],
+    for (let i = 0; i < n; i++) chunk(pos.x + (random() - 0.5) * sc.x * 0.6, pos.y + (random() - 0.5) * sc.y * 0.5, pos.z + (random() - 0.5) * sc.z * 0.6,
+      [vel[0] * 0.5 + (random() - 0.5) * 3, random() * 3 + Math.abs(vel[1]) * 0.2, vel[2] * 0.5 + (random() - 0.5) * 3],
       { mat, size: Math.max(0.12, Math.min(sc.x, sc.y, sc.z) * (p.kind === 'wood' ? 0.9 : 0.75)), sx: p.kind === 'wood' ? 2.5 : 1.2, sy: 0.8, sz: 0.6, life: 3.5 });
     burst(pos.x, pos.y, pos.z, 4, { color: p.kind === 'brick' ? 0xa08a7a : 0x8a6a4a, size: 0.45, speed: 1.5, up: 1, g: 2, grow: 1.2, life: 0.8 });
   }
@@ -114,7 +116,7 @@ export function hitBreakables(pos, r, vel, mass, kinds = null) {
 
 export function updateBreakables(dt, player) {
   for (const p of W.breakables) {
-    if (p.alive && p.fall > 0) { p.fall -= dt; if (p.fall <= 0) breakPiece(p, [(Math.random() - 0.5), 0, (Math.random() - 0.5)]); }
+    if (p.alive && p.fall > 0) { p.fall -= dt; if (p.fall <= 0) breakPiece(p, [(random() - 0.5), 0, (random() - 0.5)]); }
     // ящики появляются снова на своём месте (если там никто не стоит)
     if (!p.alive && p.respawnT > 0) { p.respawnT -= dt; if (p.respawnT <= 0) {
       const s = p.solid; if (player && player.pos.x > s.x0 - 0.5 && player.pos.x < s.x1 + 0.5 && player.pos.z > s.z0 - 0.5 && player.pos.z < s.z1 + 0.5) { p.respawnT = 2; continue; }

@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { G, tmat, smat, col, lam } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
 import { HW } from '../../config.js';
@@ -44,13 +45,13 @@ export default {
       shutters.push({ sh, lamp, sol, y0: b.Y + 2.45, x: b.X(dx), z: b.Z(dz) });
     });
     // звонок → 1.5 с мигают лампы → ставни вниз (0.5 с) → 5 с закрыто → вверх
-    const S = { state: 'open', t: 0, next: 35 + Math.random() * 15 };
+    const S = { state: 'open', t: 0, next: 35 + random() * 15 };
     W.animated.push(dt => { S.t += dt; const k = S.state === 'down' ? Math.min(1, S.t / .5) : S.state === 'closed' ? 1 : S.state === 'up' ? 1 - Math.min(1, S.t / .8) : 0;
       if (S.state === 'open' && S.t > S.next) { S.state = 'warn'; S.t = 0; sfx('bell', { at: { x: b.X(22), y: b.Y + 3, z: b.Z(22) }, range: 60 }); }
       else if (S.state === 'warn' && S.t > 1.5) { S.state = 'down'; S.t = 0; sfx('shutter', { at: { x: b.X(22), y: b.Y + 2, z: b.Z(22) }, range: 40 }); }
       else if (S.state === 'down' && S.t > .5) { S.state = 'closed'; S.t = 0; }
       else if (S.state === 'closed' && S.t > 5) { S.state = 'up'; S.t = 0; sfx('shutter', { at: { x: b.X(22), y: b.Y + 2, z: b.Z(22) }, range: 40 }); }
-      else if (S.state === 'up' && S.t > .8) { S.state = 'open'; S.t = 0; S.next = 40 + Math.random() * 20; }
+      else if (S.state === 'up' && S.t > .8) { S.state = 'open'; S.t = 0; S.next = 40 + random() * 20; }
       for (const q of shutters) { const h = Math.max(.1, 2.4 * k); q.sh.scale.y = h; q.sh.position.y = q.y0 - h / 2 + .05; q.sh.updateMatrix();
         q.lamp.set(S.state === 'warn' ? (Math.sin(S.t * 14) > 0 ? 1 : .1) : S.state === 'down' || S.state === 'closed' ? .4 : 0);
         const was = q.sol.on; q.sol.on = k > .6; if (q.sol.on && !was) for (const a of actors()) if (Math.abs(a.pos.x - q.x) < .5 && Math.abs(a.pos.z - q.z) < 1.2) a.pos.x += a.pos.x < q.x ? -.5 : .5; } });

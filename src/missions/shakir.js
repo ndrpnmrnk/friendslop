@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {THREE,G,V3,mesh,col,tmat,compose} from '../core/gfx.js';
 import {T} from '../core/textures.js';
 import {mouse} from '../core/input.js';
@@ -11,10 +12,10 @@ import {chooseAntPlace,marketSurface} from './shakir-placement.js';
 import {photoCard,renderPhoto} from './photo-card.js';
 const RIM=new THREE.TorusGeometry(.204,.018,6,40),TRIM=new THREE.TorusGeometry(.187,.0035,4,40),GLASS=new THREE.CircleGeometry(.185,48);
 export function buildShakir(x,y,z,f){
- const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=Math.atan2(f[0],f[1]);W.group.add(g);const wood=tmat(T.wood()),pattern=Math.random()*4|0;
+ const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=Math.atan2(f[0],f[1]);W.group.add(g);const wood=tmat(T.wood()),pattern=random()*4|0;
  g.add(compose('shakir44-table',a=>{a(G.box,wood,0,.83,0,2.7,.12,1.8);for(const sx of[-1.13,1.13])for(const sz of[-.66,.66])a(G.box,col(0x514434),sx,.40,sz,.095,.80,.095);a(G.box,col(0x635c4f),0,.91,0,2.5,.06,1.6);a(G.box,tmat(T.sign('БЛОШИНЫЙ РЫНОК','#4e574b','#dbd4b1')),0,.69,.911,1.6,.20,.015);}));
  const market=new THREE.Group();market.position.y=.95;g.add(market);market.add(marketMiniature(pattern));
- const pose=Math.random()*4|0,ant=shakirAnt(pose);ant.isShakir=true;ant.scale.setScalar(.27);ant.rotation.y=Math.random()*Math.PI*2;const placement=chooseAntPlace(market,ant);market.add(ant);
+ const pose=random()*4|0,ant=shakirAnt(pose);ant.isShakir=true;ant.scale.setScalar(.27);ant.rotation.y=random()*Math.PI*2;const placement=chooseAntPlace(market,ant);market.add(ant);
  const wide=Math.abs(f[0])>.5,rx=wide?.9:1.35,rz=wide?1.35:.9,solid=addSolid(x-rx,z-rz,x+rx,z+rz,y+.77,y+.91);
  return{g,market,ant,pose,placement,solid,pos:()=>g.position,world:(x,y,z)=>g.localToWorld(new V3(x,y,z)),front:()=>g.localToWorld(new V3(0,0,1.7)),dispose(){solid.on=false;g.removeFromParent();}};
 }

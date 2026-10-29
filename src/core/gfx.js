@@ -1,3 +1,5 @@
+import { random } from './random.js';
+import { withRandom, hashSeed, randomSource } from './random.js';
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 import {graphics,onGraphics} from './quality.js';
@@ -223,8 +225,9 @@ function gradTex(hex) {
   const base = new THREE.Color(hex), hi = base.clone().lerp(new THREE.Color(1, .93, .82), .28), lo = base.clone().multiplyScalar(.62); const hsl = {}; lo.getHSL(hsl); lo.setHSL((hsl.h + .97) % 1, Math.min(1, hsl.s * 1.25), hsl.l);
   const gr = g.createLinearGradient(0, 0, 0, 32); gr.addColorStop(0, '#' + hi.getHexString()); gr.addColorStop(.55, '#' + base.getHexString()); gr.addColorStop(1, '#' + lo.getHexString());
   g.fillStyle = gr; g.fillRect(0, 0, 16, 32);
-  const im = g.getImageData(0, 0, 16, 32); for (let i = 0; i < im.data.length; i += 4) { const n = (Math.random() - .5) * 26; im.data[i] += n; im.data[i + 1] += n; im.data[i + 2] += n; } g.putImageData(im, 0, 0);
-  t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.NoColorSpace; GT.set(hex, t); return t;
+  const noise=randomSource(hashSeed('gradient:'+hex));
+  const im = g.getImageData(0, 0, 16, 32); for (let i = 0; i < im.data.length; i += 4) { const n = (noise() - .5) * 26; im.data[i] += n; im.data[i + 1] += n; im.data[i + 2] += n; } g.putImageData(im, 0, 0);
+  t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.NoColorSpace; t.userData.netStatic=true;GT.set(hex, t); return t;
 }
 export function jellyMat(m, k = 0.8, grad = false) {
   if (!m || Array.isArray(m) || !m.isMeshLambertMaterial || m.userData.jelly) return m;
@@ -285,14 +288,14 @@ export function compose(key, fn) {
   let parts = COMP.get(key);
   if (!parts) {
     const by = new Map();
-    fn((geo, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) => {
+    withRandom(hashSeed(key), () => fn((geo, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) => {
       let g = geo.index ? geo.toNonIndexed() : geo.clone();
       for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k);
       g.clearGroups();
       _m4.compose(_p4.set(x, y, z), _q4.setFromEuler(_e4.set(rx, ry, rz)), _s4.set(sx, sy, sz)); g.applyMatrix4(_m4);
       if (sx * sy * sz < 0) { const a = g.attributes; for (const k of ['position', 'normal', 'uv']) { const at = a[k], it = at.itemSize, arr = at.array; for (let i = 0; i < at.count; i += 3) for (let j = 0; j < it; j++) { const t = arr[(i + 1) * it + j]; arr[(i + 1) * it + j] = arr[(i + 2) * it + j]; arr[(i + 2) * it + j] = t; } } }
       let l = by.get(mat); if (!l) by.set(mat, l = []); l.push(g);
-    });
+    }));
     parts = [...by].map(([mat, list]) => ({ mat, geo: mergeGeometries(list, false) }));
     COMP.set(key, parts);
   }

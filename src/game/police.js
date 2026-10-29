@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, V3, col, lam, glow, compose } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { T } from '../core/textures.js';
@@ -27,11 +28,11 @@ W.badgeLand = (at, owner) => {
   const list = actors().filter(q => q !== owner && !q.caged && !q.hidden && !q.drone && !q.returning).sort((p, q) => Math.hypot(p.pos.x - at.x, p.pos.z - at.z) - Math.hypot(q.pos.x - at.x, q.pos.z - at.z));
   const tg = list[0]; smokeRing(at.x, at.y, at.z, 10, { speed: 2.5 }); sfx('whistle', { at }); setTimeout(() => sfx('alarm', { v: 0.4 }), 300);
   for (let i = 0; i < 2; i++) { const g = copModel(), x = at.x + (i ? 0.6 : -0.6), z = at.z; g.position.set(x, groundAt(x, z, 0.2, at.y + 1), z); W.group.add(g); W.keep.push(g);
-    POL.cops.push({ g, pos: g.position, owner, mode: tg ? 'chase' : 'leave', t: tg ? 14 : 2, ph: Math.random() * 6, side: i ? 1 : -1, target: tg || null }); }
+    POL.cops.push({ g, pos: g.position, owner, mode: tg ? 'chase' : 'leave', t: tg ? 14 : 2, ph: random() * 6, side: i ? 1 : -1, target: tg || null }); }
 };
 export function callPolice(owner) {
-  for (let i = 0; i < 2; i++) { const g = copModel(); const a = Math.random() * 6.28, x = owner.pos.x + Math.cos(a) * 6, z = owner.pos.z + Math.sin(a) * 6; g.position.set(x, groundAt(x, z, 0.2, owner.pos.y + 1), z); W.group.add(g); W.keep.push(g);
-    POL.cops.push({ g, pos: g.position, owner, mode: 'follow', t: 25, ph: Math.random() * 6, side: i ? 1 : -1, target: null });
+  for (let i = 0; i < 2; i++) { const g = copModel(); const a = random() * 6.28, x = owner.pos.x + Math.cos(a) * 6, z = owner.pos.z + Math.sin(a) * 6; g.position.set(x, groundAt(x, z, 0.2, owner.pos.y + 1), z); W.group.add(g); W.keep.push(g);
+    POL.cops.push({ g, pos: g.position, owner, mode: 'follow', t: 25, ph: random() * 6, side: i ? 1 : -1, target: null });
     smokeRing(x, g.position.y + 0.1, z, 8, { speed: 2 }); }
   sfx('whistle'); setTimeout(() => sfx('alarm', { v: 0.4 }), 300);
 }
@@ -74,7 +75,7 @@ export function updatePolice(dt, t) {
     k.t-=dt;const prev=k.y;k.vy-=22*dt;k.y=Math.max(k.floor,k.y+k.vy*dt);if(k.y<=k.floor)k.vy=0;k.g.position.y=k.y;for(const s of k.solids){s.y0+=k.y-prev;s.y1+=k.y-prev;}
     k.a.pos.set(k.x,k.y+.08,k.z);k.a.root.position.copy(k.a.pos);k.a.vel.set(0,0,0);
     // бот иногда сам вскрывает замок
-    if (k.a.bot && k.t < 12 && Math.random() < dt * 0.08) k.t = 0;
+    if (k.a.bot && k.t < 12 && random() < dt * 0.08) k.t = 0;
     if (k.t <= 0) release(k);
   }
   if (POL.ui) drawCageUI();
@@ -86,7 +87,7 @@ const SEQ = ['▲', '▼', '◀', '▶'];
 export function openCageUI() {
   if (POL.ui || !W.player.caged) return;
   const ui = document.createElement('div'); ui.id = 'cageui'; ui.className = 'mgui'; document.body.appendChild(ui);
-  POL.ui = { ui, seq: [...Array(6)].map(() => SEQ[(Math.random() * 4) | 0]), i: 0, onKey: null };
+  POL.ui = { ui, seq: [...Array(6)].map(() => SEQ[(random() * 4) | 0]), i: 0, onKey: null };
   POL.ui.onKey = e => { const v = AR[e.code]; if (!v || !POL.ui) return; const u = POL.ui;
     if (v === u.seq[u.i]) { u.i++; sfx('click'); if (u.i >= u.seq.length) { const k = W.player.caged; sfx('done'); if (k) release(k); } }
     else { u.i = 0; sfx('alarm', { v: 0.3 }); ui.classList.remove('shake'); void ui.offsetWidth; ui.classList.add('shake'); }

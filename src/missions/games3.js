@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { buildLampRepair,screwBulb } from './bulb.js';
 import { cargoPosition } from '../game/handheld.js';
 import { nearbyItemPoint } from './location.js';
@@ -32,7 +33,7 @@ const farPoint = p => nearbyItemPoint(p);
 export function buildPhone(sp) {
   const g = new THREE.Group(); g.position.set(sp.bx, sp.by, sp.bz); g.rotation.y = Math.atan2(sp.f[0], sp.f[1]); W.group.add(g);
   const ph = compose('deskPhone', a => { a(G.box, col(0x2b2533), 0, 0.03, 0, 0.16, 0.02, 0.3); a(G.box, lam({ color: 0x9be0ff, emissive: 0x4a90c0, emissiveIntensity: 0.8 }, 'phoneScreen'), 0, 0.045, 0, 0.13, 0.005, 0.25); }); g.add(ph);
-  let t = 0; const tick = dt => { t += dt; ph.position.x = Math.sin(t * 60) * 0.012 * (Math.sin(t * 2) > 0 ? 1 : 0); ph.rotation.y = ph.position.x * 2; if (Math.sin(t * 2) > 0 && Math.random() < dt * 2) { const P = W.player; if (P && Math.hypot(P.pos.x - sp.x, P.pos.z - sp.z) < 14) sfx('ring', { at: { x: sp.bx, y: sp.by, z: sp.bz }, v: 0.6 }); } };
+  let t = 0; const tick = dt => { t += dt; ph.position.x = Math.sin(t * 60) * 0.012 * (Math.sin(t * 2) > 0 ? 1 : 0); ph.rotation.y = ph.position.x * 2; if (Math.sin(t * 2) > 0 && random() < dt * 2) { const P = W.player; if (P && Math.hypot(P.pos.x - sp.x, P.pos.z - sp.z) < 14) sfx('ring', { at: { x: sp.bx, y: sp.by, z: sp.bz }, v: 0.6 }); } };
   W.animated.push(tick);
   return { type: 'phone', g, ph, spot: sp, f: sp.f, pos: () => new V3(sp.x, sp.y, sp.z), dispose() { W.group.remove(g); const i = W.animated.indexOf(tick); if (i >= 0) W.animated.splice(i, 1); } };
 }
@@ -44,10 +45,10 @@ export function buildFire(sp) {
   const at = () => bin ? new V3(bin.x, bin.y, bin.z) : new V3(sp.x, sp.y, sp.z);
   const f = { x: sp.x, y: sp.y, z: sp.z, hp: 1 }; W.fires.push(f);
   let t = 0; const tick = dt => { const p = at(); f.x = p.x; f.z = p.z; if (f.hp <= 0) return; t -= dt;
-    if (t <= 0) { const k=Math.max(0.08,Math.min(1,f.hp));t=0.05+(1-k)*0.12; puff(p.x + (Math.random() - 0.5) * 0.4, p.y + 0.95, p.z + (Math.random() - 0.5) * 0.4, { color: Math.random() < 0.5 ? 0xff8a1f : 0xf5c542, size: 0.16+0.12*k, vy: 0.35+1.85*k, vx: 0, vz: 0, life: 0.5, grow: -0.3, g: 0, opacity: 0.95 });
-      if (Math.random() < 0.3*k) puff(p.x, p.y + 1.2+0.4*k, p.z, { color: 0x3a3440, size: 0.4, vy: 1.4, life: 1.4, grow: 1.2, opacity: 0.5 }); }
+    if (t <= 0) { const k=Math.max(0.08,Math.min(1,f.hp));t=0.05+(1-k)*0.12; puff(p.x + (random() - 0.5) * 0.4, p.y + 0.95, p.z + (random() - 0.5) * 0.4, { color: random() < 0.5 ? 0xff8a1f : 0xf5c542, size: 0.16+0.12*k, vy: 0.35+1.85*k, vx: 0, vz: 0, life: 0.5, grow: -0.3, g: 0, opacity: 0.95 });
+      if (random() < 0.3*k) puff(p.x, p.y + 1.2+0.4*k, p.z, { color: 0x3a3440, size: 0.4, vy: 1.4, life: 1.4, grow: 1.2, opacity: 0.5 }); }
     const P = W.player; if (P && Math.hypot(P.pos.x - p.x, P.pos.z - p.z) < 0.9 && Math.abs(P.pos.y - p.y) < 1.5) { const dx = P.pos.x - p.x, dz = P.pos.z - p.z, d = Math.hypot(dx, dz) || 1; P.push.set(dx / d * 2.5, 0, dz / d * 2.5); }
-    if (Math.random() < dt * 1.5) sfx('fire', { at: p, v: 0.6 }); };
+    if (random() < dt * 1.5) sfx('fire', { at: p, v: 0.6 }); };
   W.animated.push(tick);
   return { type: 'fire', fire: f, spot: sp, f: [0, 1], pos: at, reach: 2.4,
     dispose() { const i = W.animated.indexOf(tick); if (i >= 0) W.animated.splice(i, 1); W.fires.splice(W.fires.indexOf(f), 1); if (can) { W.group.remove(can); sol.on = false; } } };
@@ -102,7 +103,7 @@ export const PANEL3 = {
     const local = ray => { const p = onPlane(ray, new V3(0, 1, 0), new V3(0, top + 0.05, 0)); return p ? grp.worldToLocal(p) : null; };
     // нарезанное — в сторону (назад по доске), потом всё ссыпается в миску
     const park = () => { for (const g of meshes) { const st = g.position.clone(), tg = new V3(st.x, st.y, -0.15); g.userData.anim = { st, tg, t: 0 }; done.push(g); } meshes = []; };
-    const toBowl = () => { let k = 0; for (const g of done) { g.userData.anim = { st: g.position.clone(), tg: new V3(BX + (Math.random() - 0.5) * 0.14, 0.11 + k * 0.004, (Math.random() - 0.5) * 0.14), t: -0.12 * k, arc: 0.14 }; k++; } };
+    const toBowl = () => { let k = 0; for (const g of done) { g.userData.anim = { st: g.position.clone(), tg: new V3(BX + (random() - 0.5) * 0.14, 0.11 + k * 0.004, (random() - 0.5) * 0.14), t: -0.12 * k, arc: 0.14 }; k++; } };
     const angleOf = ray => { const p = local(ray); return p ? Math.atan2(p.z, p.x - BX) : null; };
     return {
       botStep(dt, brain) { const a=brain.time*3;let q;if(phase==='cut'){q=new V3(-0.12+Math.sin(a)*0.32,0.05,0);grp.localToWorld(q);}else if(phase==='spin'){q=new V3(BX+Math.cos(a)*0.12,0.05,Math.sin(a)*0.12);grp.localToWorld(q);}else q=grp.localToWorld(new V3(0,0.05,0));const ray=brain.rayTo(q);if(!drag)this.down(ray);this.move(ray);if(phase==='bowl')this.down(ray); },
@@ -161,7 +162,7 @@ export const PANEL3 = {
     });
     if (!friends.length) endT = 0.5;
     return {
-      botStep(dt, brain) { if(!brain.ready(0.65)||endT>0)return;const f=friends.find(q=>!q.sent);if(f){f.sent=STICK[(Math.random()*STICK.length)|0];render();api.progress(friends.filter(q=>q.sent).length/friends.length);sfx('msg',{at:ctx.player.pos});}if(friends.every(q=>q.sent))endT=1.2; },
+      botStep(dt, brain) { if(!brain.ready(0.65)||endT>0)return;const f=friends.find(q=>!q.sent);if(f){f.sent=STICK[(random()*STICK.length)|0];render();api.progress(friends.filter(q=>q.sent).length/friends.length);sfx('msg',{at:ctx.player.pos});}if(friends.every(q=>q.sent))endT=1.2; },
       update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } },
       stop() { ui.remove(); },
     };
@@ -178,7 +179,7 @@ export const WORLD3 = {
   salad(o, api, ctx) {
     api.feedback?.();
     const s = o.spot, home = new V3(s.x, s.y, s.z), P = ctx.player, from = home;
-    const items = ['cucumber', 'tomato'].map(k => { const p = farPoint(from, 4, 22); const it = addItem(k, p.x, p.y, p.z, Math.random() * 6); it.def = { ...it.def, respawn: 0 }; it.ring = ringMark(); return it; });
+    const items = ['cucumber', 'tomato'].map(k => { const p = farPoint(from, 4, 22); const it = addItem(k, p.x, p.y, p.z, random() * 6); it.def = { ...it.def, respawn: 0 }; it.ring = ringMark(); return it; });
     let time = 112, hint = '';
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
     const atHome = it => Math.hypot(it.pos.x - home.x, it.pos.z - home.z) < 1.8 && Math.abs(it.pos.y - home.y) < 1.6;
@@ -225,9 +226,9 @@ export const WORLD3 = {
   catbox(o, api, ctx) {
     api.feedback?.();
     const c = o.pos(), P = ctx.player, G2 = 22;
-    o.kittens = [0, 1].map(i => { const k = buildCat(COATS[(Math.random() * COATS.length) | 0]); k.root.scale.setScalar(0.85); const a = Math.random() * 6.28, r = 5 + Math.random() * 2.5;
+    o.kittens = [0, 1].map(i => { const k = buildCat(COATS[(random() * COATS.length) | 0]); k.root.scale.setScalar(0.85); const a = random() * 6.28, r = 5 + random() * 2.5;
       let x = c.x + Math.cos(a) * r, z = c.z + Math.sin(a) * r; if (!isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, c.y + 0.05, c.y + 0.8)) { x = c.x + Math.cos(a) * 3; z = c.z + Math.sin(a) * 3; }
-      k.root.position.set(x, c.y, z); W.group.add(k.root); return { root: k.root, cat: k, vx: 0, vz: 0, vy: 0, wt: 0, wx: 0, wz: 0, st: 'run', dash: 0, rest: 0, holdT: 0, ph: Math.random() * 6 }; });
+      k.root.position.set(x, c.y, z); W.group.add(k.root); return { root: k.root, cat: k, vx: 0, vz: 0, vy: 0, wt: 0, wx: 0, wz: 0, st: 'run', dash: 0, rest: 0, holdT: 0, ph: random() * 6 }; });
     let time = 90, got = 0, held = null;
     api.msg('Лови котят — в коробку!');
     const toBox = k => { k.st = 'box'; got++; sfx('candy'); burst(c.x, c.y + 0.8, c.z, 10, { color: 0xc8a070, size: 0.14, speed: 1.5, up: 2 }); api.msg(got < 2 ? 'Один в коробке!' : 'Оба котёнка дома!', 'good'); };
@@ -241,7 +242,7 @@ export const WORLD3 = {
         if (held) { if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.6) { const k = held; held = null; toBox(k); } else { const f = P.root.rotation.y; release(held, Math.sin(f) * 2, 2, Math.cos(f) * 2); } return true; }
         return false;
       },
-      down(){if(held||P.stun>0||P.getT>0||P.heldBy)return false;const k = near(); if (catchable(k)) { k.st = 'held'; k.holdT = 2.2 + Math.random() * 1.2; held = k; sfx('meow', { at: k.root.position }); k.cat.face('angry'); return true; }
+      down(){if(held||P.stun>0||P.getT>0||P.heldBy)return false;const k = near(); if (catchable(k)) { k.st = 'held'; k.holdT = 2.2 + random() * 1.2; held = k; sfx('meow', { at: k.root.position }); k.cat.face('angry'); return true; }
         return false;
       },
       botStep(dt,brain){if(!held&&brain.ready(.20))this.down();},
@@ -258,7 +259,7 @@ export const WORLD3 = {
             k.holdT -= dt; cargoPosition(P,p,0.42); p.y -= 0.3; k.root.rotation.y = P.root.rotation.y + Math.PI/2 + Math.sin(performance.now() * 0.03) * (k.holdT < 0.8 ? 0.6 : 0.2);
             const sw = Math.sin(performance.now() * 0.03) * 0.9; k.cat.legs.forEach((l, i) => (l.rotation.x = i % 2 ? sw : -sw));
             if (Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.1) { held = null; toBox(k); continue; }
-            if (k.holdT <= 0 || P.stun > 0 || P.heldBy) { const a = Math.random() * 6.28; release(k, Math.cos(a) * 4, 4, Math.sin(a) * 4); sfx('meow', { at: p }); api.msg('Вырвался!', 'bad'); }
+            if (k.holdT <= 0 || P.stun > 0 || P.heldBy) { const a = random() * 6.28; release(k, Math.cos(a) * 4, 4, Math.sin(a) * 4); sfx('meow', { at: p }); api.msg('Вырвался!', 'bad'); }
             continue;
           }
           if (k.st === 'fly') {
@@ -273,10 +274,10 @@ export const WORLD3 = {
           let ax = 0, az = 0, sp = 1.2;
           const dx = p.x - P.pos.x, dz = p.z - P.pos.z, d = Math.hypot(dx, dz);
           if (k.dash > 0) k.dash -= dt; else if (k.rest > 0) k.rest -= dt;
-          if (d < 6 && d > 0.01) { ax += dx / d * (6 - d) * 2.2; az += dz / d * (6 - d) * 2.2; if (k.dash <= 0 && k.rest <= 0) { k.dash = 1.1 + Math.random() * 0.6; k.rest = 0.7 + Math.random() * 0.5; }
+          if (d < 6 && d > 0.01) { ax += dx / d * (6 - d) * 2.2; az += dz / d * (6 - d) * 2.2; if (k.dash <= 0 && k.rest <= 0) { k.dash = 1.1 + random() * 0.6; k.rest = 0.7 + random() * 0.5; }
             sp = k.dash > 0 ? 9 : 4.5; k.cat.face('angry'); } else k.cat.face('open');
           if (W.lure && W.lure.t > 0) { const lx = W.lure.x - p.x, lz = W.lure.z - p.z, ld = Math.hypot(lx, lz); if (ld < 12 && ld > 0.3) { ax += lx / ld * 4; az += lz / ld * 4; sp = Math.min(sp, 3); } }
-          k.wt -= dt; if (k.wt <= 0) { const a = Math.random() * 6.28; k.wx = Math.cos(a); k.wz = Math.sin(a); k.wt = 1 + Math.random() * 2; }
+          k.wt -= dt; if (k.wt <= 0) { const a = random() * 6.28; k.wx = Math.cos(a); k.wz = Math.sin(a); k.wt = 1 + random() * 2; }
           ax += k.wx * 0.8; az += k.wz * 0.8;
           // не убегать далеко от коробки
           const cx = c.x - p.x, cz = c.z - p.z, cd = Math.hypot(cx, cz); if (cd > 9) { ax += cx / cd * (cd - 9) * 1.5; az += cz / cd * (cd - 9) * 1.5; }

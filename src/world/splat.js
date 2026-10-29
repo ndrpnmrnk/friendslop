@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, V3 } from '../core/gfx.js';
 import { W } from './state.js';
 import { groundAt, solidHit } from './physics.js';
@@ -32,11 +33,11 @@ export function splatter(p, v, color, n = 20, power = 1, opts = {}) {
   const vx = v ? v.x * 0.25 : 0, vz = v ? v.z * 0.25 : 0;
   for (let i = 0; i < n; i++) {
     if (splatState().drops.length >= MAXD) splatState().drops.shift();
-    const a = Math.random() * 6.28, sp = (1.5 + Math.random() * 4.5) * power, up = (1 + Math.random() * 4) * power * (opts.flat ? 0.3 : 1);
-    splatState().drops.push({ p: new V3(p.x, p.y + 0.05, p.z), v: new V3(Math.cos(a) * sp + vx, up, Math.sin(a) * sp + vz), c: jitter(color), s: 0.05 + Math.random() * 0.07, t: 0, owner: opts.owner || null, big: 0.12 + Math.random() * 0.14 });
+    const a = random() * 6.28, sp = (1.5 + random() * 4.5) * power, up = (1 + random() * 4) * power * (opts.flat ? 0.3 : 1);
+    splatState().drops.push({ p: new V3(p.x, p.y + 0.05, p.z), v: new V3(Math.cos(a) * sp + vx, up, Math.sin(a) * sp + vz), c: jitter(color), s: 0.05 + random() * 0.07, t: 0, owner: opts.owner || null, big: 0.12 + random() * 0.14 });
   }
 }
-const jitter = c => { _c.set(c); const k = 0.85 + Math.random() * 0.3; return [Math.min(1, _c.r * k), Math.min(1, _c.g * k), Math.min(1, _c.b * k)]; };
+const jitter = c => { _c.set(c); const k = 0.85 + random() * 0.3; return [Math.min(1, _c.r * k), Math.min(1, _c.g * k), Math.min(1, _c.b * k)]; };
 
 // след на поверхности: точка, нормаль, размер, цвет
 function stain(x, y, z, n, size, rgb, solid) {
@@ -45,7 +46,7 @@ function stain(x, y, z, n, size, rgb, solid) {
     if (Math.abs(n[1]) > 0.5) { x = clampIn(x, solid.x0 + h, solid.x1 - h); z = clampIn(z, solid.z0 + h, solid.z1 - h); }
     else { y = clampIn(y, solid.y0 + h, solid.y1 - h); if (Math.abs(n[0]) > 0.5) z = clampIn(z, solid.z0 + h, solid.z1 - h); else x = clampIn(x, solid.x0 + h, solid.x1 - h); } }
   const i = splatState().head; splatState().head = (splatState().head + 1) % MAXS;
-  splatState().stains[i] = { x: x + n[0] * 0.012, y: y + n[1] * 0.012, z: z + n[2] * 0.012, n: n.slice(), size, rot: Math.floor(Math.random() * 4) * Math.PI / 2, t: 0 };
+  splatState().stains[i] = { x: x + n[0] * 0.012, y: y + n[1] * 0.012, z: z + n[2] * 0.012, n: n.slice(), size, rot: Math.floor(random() * 4) * Math.PI / 2, t: 0 };
   splatState().sMesh.instanceColor.setXYZ(i, rgb[0], rgb[1], rgb[2]); splatState().sMesh.instanceColor.needsUpdate = true;
   splatState().sMesh.count = Math.max(splatState().sMesh.count, i + 1);
 }
@@ -63,7 +64,7 @@ function actorDot(a, d) {
   const m = new THREE.Mesh(splatState().dMesh.geometry, new THREE.MeshBasicMaterial({ color: new THREE.Color(d.c[0], d.c[1], d.c[2]) }));
   const dx = d.p.x - a.pos.x, dz = d.p.z - a.pos.z, L = Math.hypot(dx, dz) || 1, r = 0.36;
   const ry = a.root.rotation.y, lx = (dx / L) * r, lz = (dz / L) * r, c = Math.cos(-ry), s = Math.sin(-ry);
-  m.position.set(lx * c + lz * s, Math.min(1.5, d.p.y - a.pos.y), -lx * s + lz * c); m.scale.setScalar(0.08 + Math.random() * 0.05);
+  m.position.set(lx * c + lz * s, Math.min(1.5, d.p.y - a.pos.y), -lx * s + lz * c); m.scale.setScalar(0.08 + random() * 0.05);
   a.root.add(m); splatState().actorDots.push({ m, t: 0 });
 }
 

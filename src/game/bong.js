@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {THREE,G,V3,mesh,col,lam,tmat,compose} from '../core/gfx.js';
 import {T,photo} from '../core/textures.js';
 import {actors} from './actors.js';
@@ -27,7 +28,7 @@ export function bongPose(a,g,near=false){
 }
 export function setBreath(a,k){const c=a.ch;let u=c.breathCheeks;if(!u){const tones={cat:0xdca86e,tv:0xa79baf,shark:0x8aabc7,frog:0x92b56f,caveman:0xc99873,smoky:0xe4dbc6,latte:0xc7a787},w=c.skinId==='smoky'?.10:.19,p=c.speechMouth.position;u=c.breathCheeks=[-1,1].map(s=>{const m=mesh(G.sphL,col(tones[c.skinId]||0xcba78b),s*w,p.y+.02,p.z-.005,.025,.045,.018,c.head);m.name='breath-cheek';return m;});}c.breath=k;for(const m of u){m.visible=k>.015;m.scale.set(.025+k*.033,.045+k*.025,.018+k*.025);}}
 export function inhaleSmoke(a,g,dt){const u=g.userData.bong;u.breathClock-=dt;if(u.breathClock>0)return;u.breathClock=.075;const to=mouthPosition(a),from=g.localToWorld(new V3(0,.335,.025)),v=to.clone().sub(from).multiplyScalar(5);for(let i=0;i<2;i++)smoke(from.x+(i-.5)*.016,from.y,from.z,{dust:true,color:0xe7e0ce,size:.018+i*.005,grow:.012,vx:v.x,vy:v.y,vz:v.z,g:0,life:.20,opacity:.6});}
-export function exhaleSmoke(a){const p=mouthPosition(a),q=a.ch.head.getWorldQuaternion(new THREE.Quaternion()),f=new V3(0,0,1).applyQuaternion(q);for(let i=0;i<5;i++)smoke(p.x+f.x*.035,p.y+(i%2)*.015,p.z+f.z*.035,{dust:i%2===0,color:i%2?0xd2cadd:0xe7e0d1,size:.025+i*.008,grow:.11+i*.025,vx:f.x*(1.8+i*.22)+(Math.random()-.5)*.14,vy:f.y*2+.15,vz:f.z*(1.8+i*.22)+(Math.random()-.5)*.14,g:0,life:.7+i*.04,opacity:.65});}
+export function exhaleSmoke(a){const p=mouthPosition(a),q=a.ch.head.getWorldQuaternion(new THREE.Quaternion()),f=new V3(0,0,1).applyQuaternion(q);for(let i=0;i<5;i++)smoke(p.x+f.x*.035,p.y+(i%2)*.015,p.z+f.z*.035,{dust:i%2===0,color:i%2?0xd2cadd:0xe7e0d1,size:.025+i*.008,grow:.11+i*.025,vx:f.x*(1.8+i*.22)+(random()-.5)*.14,vy:f.y*2+.15,vz:f.z*(1.8+i*.22)+(random()-.5)*.14,g:0,life:.7+i*.04,opacity:.65});}
 export function useBong(a,it){if(a.bongUse||a.hazeT>1||it.cd>0||a.daze>0||a.stun>0)return;it.cd=CONFIG.encounters.bongEffect+3;a.bongUse={it,t:0,puff:0};sfx('bongBubble',{at:a.pos,range:12});}
 export function updateBongEffects(dt,t){
  for(const a of actors()){

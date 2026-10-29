@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {findMantle,beginMantle,advanceMantle} from '../world/traversal.js';
 import { THREE,V3 } from '../core/gfx.js';
 import { CONFIG } from '../config.js';
@@ -65,7 +66,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   // эмоции 1–5
   if (ctrl) for (let i = 0; i < 5; i++) if (tapped('Digit' + (i + 1))) startEmote(p, EMOTES[i]);
   // F — «ква» (V оставлена под голосовой ввод)
-  if (ctrl && tapped('KeyF')) voice(p.ch, ['idle', 'happy', 'jump'][(Math.random() * 3) | 0], undefined, true);
+  if (ctrl && tapped('KeyF')) voice(p.ch, ['idle', 'happy', 'jump'][(random() * 3) | 0], undefined, true);
   updateEmote(p, dt, il > 0 || tapped('Space'));
   // в укрытии: стоим невидимыми, выскочить — E (в main) или пробел
   if (p.hidden) { p.stamina = Math.min(1, p.stamina + PC.stamina.regen * dt); if (ctrl && tapped('Space')) leaveHide(p); else { groundBlob(p); return; } }
@@ -149,7 +150,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     p.slideT -= dt; p.slideV = Math.max(3, p.slideV - 11 * dt);
     if (il) { const a = Math.atan2(p.slideDir[0], p.slideDir[1]); let d = Math.atan2(ix, iz) - a; d = Math.atan2(Math.sin(d), Math.cos(d)); const na = a + Math.max(-1.2 * dt, Math.min(1.2 * dt, d)); p.slideDir = [Math.sin(na), Math.cos(na)]; }
     p.vel.x = p.slideDir[0] * p.slideV; p.vel.z = p.slideDir[1] * p.slideV;
-    if (Math.random() < dt * 22) smoke(p.pos.x - p.slideDir[0] * 0.3, p.pos.y + 0.12, p.pos.z - p.slideDir[1] * 0.3, { size: 0.16, grow: 0.55, life: 0.55, vy: 0.5, vx: -p.slideDir[0] * 1.2 + (Math.random() - 0.5), vz: -p.slideDir[1] * 1.2 + (Math.random() - 0.5) });
+    if (random() < dt * 22) smoke(p.pos.x - p.slideDir[0] * 0.3, p.pos.y + 0.12, p.pos.z - p.slideDir[1] * 0.3, { size: 0.16, grow: 0.55, life: 0.55, vy: 0.5, vx: -p.slideDir[0] * 1.2 + (random() - 0.5), vz: -p.slideDir[1] * 1.2 + (random() - 0.5) });
   } else if (p.dive === 'air') { /* в выпаде управление не действует */ }
   else if (p.dive === 'roll') { p.rollT -= dt; p.vel.x *= Math.exp(-dt * 2); p.vel.z *= Math.exp(-dt * 2); if (p.rollT <= 0) p.dive = null; }
   else { p.vel.x += (ix * top - p.vel.x) * damp(acc, dt); p.vel.z += (iz * top - p.vel.z) * damp(acc, dt); }
@@ -181,7 +182,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
         // упёрся головой (потолок/люк) — не висим: чуть отталкивает от стены, чтобы выйти на площадку или слезть
         if (dir > 0 && wasClimb === l && p.pos.y - (p.lastClimbY ?? -99) < 0.002) { p.climbStuck = (p.climbStuck || 0) + dt; if (p.climbStuck > 0.3) { p.vel.x -= l.nx * 3; p.vel.z -= l.nz * 3; p.climbStuck = 0; } } else p.climbStuck = 0;
         p.lastClimbY = p.pos.y;
-        if (dir < 0 && shift && Math.random() < dt * 20) puff(p.pos.x, p.pos.y + 0.5, p.pos.z, { size: 0.08, life: 0.25, color: 0xd8d0e4 });
+        if (dir < 0 && shift && random() < dt * 20) puff(p.pos.x, p.pos.y + 0.5, p.pos.z, { size: 0.08, life: 0.25, color: 0xd8d0e4 });
       }
       break;
     }
@@ -193,7 +194,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   if (ctrl && !p.holding && !p.heldBy && p.jumpBuf > 0 && (p.onGround || p.coyote > 0 || p.climb) && !p.dive) {
     p.jumpBuf = 0; p.coyote = 0; p.jumpHeld = true;
     if (p.slideT > 0) { p.slideT = 0; }
-    p.vel.y = PC.jump * (water ? 0.75 : 1); sfx('jump'); if (Math.random() < 0.35) voice(p.ch, 'jump');
+    p.vel.y = PC.jump * (water ? 0.75 : 1); sfx('jump'); if (random() < 0.35) voice(p.ch, 'jump');
     // с лестницы: назад от стены + вбок по нажатой стрелке
     if (p.climb) { const l = p.climb, tx = -l.nz, tz = l.nx, side = ix * tx + iz * tz; p.vel.x = l.nx * 4.5 + tx * side * 4; p.vel.z = l.nz * 4.5 + tz * side * 4; p.vel.y = PC.jump * 0.8; p.climb = null; p.ladderCD = 0.4; }
     smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 5, { speed: 1.6, size: 0.14, grow: 0.42, life: 0.5 });
@@ -273,22 +274,22 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     if (water) { p.smokeT = running ? 0.12 : 0.22; splash(p.pos.x, p.pos.y, p.pos.z, running ? 0.45 : 0.2); }
     else if (running) {
       p.smokeT = 0.055;
-      const n = Math.random() < 0.35 ? 2 : 1;
-      for (let i = 0; i < n; i++) smoke(p.pos.x + bx * 0.45 + (Math.random() - 0.5) * 0.35, p.pos.y + 0.12 + Math.random() * 0.1, p.pos.z + bz * 0.45 + (Math.random() - 0.5) * 0.35,
-        { size: 0.12 + Math.random() * 0.06, grow: 0.45 + Math.random() * 0.25, life: 0.55 + Math.random() * 0.25, vx: bx * 1.4 + (Math.random() - 0.5) * 0.6, vz: bz * 1.4 + (Math.random() - 0.5) * 0.6, vy: 0.35 + Math.random() * 0.4 });
-    } else { p.smokeT = 0.22 + Math.random() * 0.2; smoke(p.pos.x + bx * 0.3, p.pos.y + 0.04, p.pos.z + bz * 0.3, { dust: true, vx: bx * 0.8 + (Math.random() - 0.5) * 0.6, vz: bz * 0.8 + (Math.random() - 0.5) * 0.6 }); }
+      const n = random() < 0.35 ? 2 : 1;
+      for (let i = 0; i < n; i++) smoke(p.pos.x + bx * 0.45 + (random() - 0.5) * 0.35, p.pos.y + 0.12 + random() * 0.1, p.pos.z + bz * 0.45 + (random() - 0.5) * 0.35,
+        { size: 0.12 + random() * 0.06, grow: 0.45 + random() * 0.25, life: 0.55 + random() * 0.25, vx: bx * 1.4 + (random() - 0.5) * 0.6, vz: bz * 1.4 + (random() - 0.5) * 0.6, vy: 0.35 + random() * 0.4 });
+    } else { p.smokeT = 0.22 + random() * 0.2; smoke(p.pos.x + bx * 0.3, p.pos.y + 0.04, p.pos.z + bz * 0.3, { dust: true, vx: bx * 0.8 + (random() - 0.5) * 0.6, vz: bz * 0.8 + (random() - 0.5) * 0.6 }); }
   }
   // шаги: звук зависит от поверхности
   if (p.onGround && spd > 2 && !p.crouch) { p.stepSnd = (p.stepSnd || 0) - dt * spd; if (p.stepSnd <= 0) { p.stepSnd = 2.4; sfx('step', { surf: water || wading || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle') ? 'water' : zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves') ? 'grass' : 'stone', v: 0.6 + spd / 22 }); } }
-  if (spd < 0.5 && p.onGround) { p.idleV = (p.idleV ?? 6) - dt; if (p.idleV <= 0) { p.idleV = 6 + Math.random() * 8; voice(p.ch, 'idle'); } } else p.idleV = Math.max(p.idleV ?? 6, 3);
+  if (spd < 0.5 && p.onGround) { p.idleV = (p.idleV ?? 6) - dt; if (p.idleV <= 0) { p.idleV = 6 + random() * 8; voice(p.ch, 'idle'); } } else p.idleV = Math.max(p.idleV ?? 6, 3);
   if (p.throwT > 0) p.throwT -= dt;
   if (p.pushing > 0) p.pushing -= dt;
   if (p.slipT > 0) p.slipT -= dt;
   // куча листьев: пробежал — разлетелись
-  if (spd > 3 && p.onGround && Math.random() < dt * 12 && zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves')) burst(p.pos.x, p.pos.y + 0.2, p.pos.z, 3, { color: [0xc96a25, 0xa8452a, 0xe0902e][(Math.random() * 3) | 0], size: 0.14, speed: 2.2, up: 2.5, g: 5, life: 1.0, grow: 0.1 });
+  if (spd > 3 && p.onGround && random() < dt * 12 && zoneAt(p.pos.x, p.pos.z, p.pos.y, 'leaves')) burst(p.pos.x, p.pos.y + 0.2, p.pos.z, 3, { color: [0xc96a25, 0xa8452a, 0xe0902e][(random() * 3) | 0], size: 0.14, speed: 2.2, up: 2.5, g: 5, life: 1.0, grow: 0.1 });
   // вода: стоишь — расходятся круги; приземлился — всплеск; вышел — мокрые следы
   // лужа: брызги под ногами, мокрые следы ~5 с (скользко — см. slick)
-  if (!water && p.onGround && (wading || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle'))) { p.wetT = 5; if (spd > 1.5 && Math.random() < dt * 10) burst(p.pos.x, p.pos.y + 0.05, p.pos.z, 2, { color: 0x9ccbec, size: 0.08, speed: 1.2 + spd * 0.15, up: 1.6 }); if (p.landedNow) splash(p.pos.x, p.pos.y, p.pos.z, 0.6); }
+  if (!water && p.onGround && (wading || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle'))) { p.wetT = 5; if (spd > 1.5 && random() < dt * 10) burst(p.pos.x, p.pos.y + 0.05, p.pos.z, 2, { color: 0x9ccbec, size: 0.08, speed: 1.2 + spd * 0.15, up: 1.6 }); if (p.landedNow) splash(p.pos.x, p.pos.y, p.pos.z, 0.6); }
   if (water) { p.wetT = 3; p.ripT = (p.ripT || 0) - dt; if (p.ripT <= 0) { p.ripT = 0.7; ripple(p.pos.x, p.pos.y, p.pos.z, 0.8, 1.2); } if (p.landedNow) splash(p.pos.x, p.pos.y, p.pos.z, 1); }
   else if (p.wetT > 0 && p.onGround) { p.wetT -= dt; p.stepT = (p.stepT || 0) - dt;
     if (p.stepT <= 0 && spd > 1.5) { p.stepT = 0.32; p.stepS = -(p.stepS || 1); const f = p.root.rotation.y, sx = Math.cos(f) * 0.14 * p.stepS, sz = -Math.sin(f) * 0.14 * p.stepS;
@@ -304,5 +305,6 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
 
 // выбить дверь выпадом (v0.22): дверь распахивается в сторону выпада и летит по инерции (игрок и боты)
 export function slamDoor(d, ux, uz, speed = 8) {
+  if(W.net?.request('slam',d,{ux,uz,speed}))return;
   const sg = d.axis === 'x' ? -Math.sign(uz || 1) : Math.sign(ux || 1); d.open = true; d.slam = 1; d.dirS = sg; d.av = sg * Math.max(7, speed * 1.4);
 }

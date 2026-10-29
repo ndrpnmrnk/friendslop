@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {leafHeap} from './leaf-heap.js';
 import { graffitiGame } from './graffiti.js';
 import { nearbyItemPoint } from './location.js';
@@ -90,9 +91,9 @@ export const PANEL4 = {
     const grp = new THREE.Group(); grp.position.copy(c); W.group.add(grp);
     const JUNK = [['носок', 0xf1e8ff], ['жёлудь', 0x8a5a2a], ['банка', 0xc83a3a], ['пуговица', 0x4ab0f0], ['фантик', 0x9be36b]];
     const finds = [];
-    const spot = () => { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 1.05; return [Math.cos(a) * r, Math.sin(a) * r]; };
-    for (const [name, cl] of JUNK) { const [x, z] = spot(); const m = mesh(G.box, col(cl), x, 0.03, z, 0.14, 0.05, 0.1, grp); m.rotation.y = Math.random() * 3; finds.push({ m, name, x, z }); }
-    { const [x, z] = spot(); const m = mesh(G.box, lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.6 }, 'ticket'), x, 0.03, z, 0.2, 0.02, 0.11, grp); m.rotation.y = Math.random() * 3; finds.push({ m, name: 'БИЛЕТ', x, z, gold: true }); }
+    const spot = () => { const a = random() * 6.28, r = Math.sqrt(random()) * 1.05; return [Math.cos(a) * r, Math.sin(a) * r]; };
+    for (const [name, cl] of JUNK) { const [x, z] = spot(); const m = mesh(G.box, col(cl), x, 0.03, z, 0.14, 0.05, 0.1, grp); m.rotation.y = random() * 3; finds.push({ m, name, x, z }); }
+    { const [x, z] = spot(); const m = mesh(G.box, lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.6 }, 'ticket'), x, 0.03, z, 0.2, 0.02, 0.11, grp); m.rotation.y = random() * 3; finds.push({ m, name: 'БИЛЕТ', x, z, gold: true }); }
     const heap=leafHeap(860,1.3,.75),leaves=heap.leaves;grp.add(heap.g);
     let down = false, time = 55, endT = -1, rust = 0;
     api.progress(0); api.msg('Разгребай! Клик по находке');
@@ -104,7 +105,7 @@ export const PANEL4 = {
         else { api.msg(`Это ${f.name}…`, 'bad'); sfx('drop'); f.m.position.y = 0.5; f.m.visible = false; } } } },
       up() { down = false; },
       move(ray) { if (!down) return; const p = onPlaneY(ray, c.y + 0.2); if (!p) return; const lx = p.x - c.x, lz = p.z - c.z;
-        let cleared = 0; for (const l of heap.order) { if (l.v || cleared >= 7) continue; const dx = l.m.position.x - lx, dz = l.m.position.z - lz, d = Math.hypot(dx, dz); if (d < 0.25) { cleared++; l.v = new V3(dx / (d || 1) * (2 + Math.random() * 2), 2 + Math.random() * 2, dz / (d || 1) * (2 + Math.random() * 2)); rust -= 1; } }
+        let cleared = 0; for (const l of heap.order) { if (l.v || cleared >= 7) continue; const dx = l.m.position.x - lx, dz = l.m.position.z - lz, d = Math.hypot(dx, dz); if (d < 0.25) { cleared++; l.v = new V3(dx / (d || 1) * (2 + random() * 2), 2 + random() * 2, dz / (d || 1) * (2 + random() * 2)); rust -= 1; } }
         if (rust < 0) { rust = 6; sfx('step', { surf: 'grass', v: 0.8 }); } },
       update(dt) {
         time -= dt; if (endT < 0 && time <= 0) return api.finish({ success: false });
@@ -139,14 +140,14 @@ export const PANEL4 = {
     api.feedback?.();
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.1).add(new V3(0, 1.0, 0)), c.clone().add(new V3(0, 0.4, 0)));
     const { ui, cv, g } = overlay('lockui', 'ОТМЫЧКА', 'Води мышью — ищи точку. Зажми ЛКМ — проворачивай. Замок упёрся — отпусти, иначе сломаешь', 300, 220);if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
-    const sweet = (Math.random() * 140 - 70) * Math.PI / 180, WIN = 7 * Math.PI / 180, ZONE = 40 * Math.PI / 180;
+    const sweet = (random() * 140 - 70) * Math.PI / 180, WIN = 7 * Math.PI / 180, ZONE = 40 * Math.PI / 180;
     let pick = 0, turn = 0, holding = false, strain = 0, picks = 3, endT = -1, shake = 0;
     const draw = () => {
       g.fillStyle = '#17111f'; g.fillRect(0, 0, 300, 220); const cx = 150, cy = 130;
       g.fillStyle = '#6a4a1a'; g.beginPath(); g.arc(cx, cy, 78, 0, 7); g.fill(); g.fillStyle = '#d8a030'; g.beginPath(); g.arc(cx, cy, 70, 0, 7); g.fill();
       g.fillStyle = '#b8862a'; g.beginPath(); g.arc(cx, cy, 44, 0, 7); g.fill();
       g.save(); g.translate(cx, cy); g.rotate(turn); g.fillStyle = '#17111f'; g.fillRect(-5, -26, 10, 34); g.beginPath(); g.arc(0, -26, 9, 0, 7); g.fill(); g.restore();
-      const sh = holding && strain > 0 ? (Math.random() - 0.5) * 0.06 : 0;
+      const sh = holding && strain > 0 ? (random() - 0.5) * 0.06 : 0;
       g.save(); g.translate(cx, cy); g.rotate(pick + sh - Math.PI / 2); g.fillStyle = '#c8c8d8'; g.fillRect(0, -2, 110, 4); g.fillStyle = '#8a8d98'; g.fillRect(100, -5, 12, 10); g.restore();
       g.font = '10px "Press Start 2P", monospace'; g.fillStyle = '#f1e8ff'; g.fillText('ОТМЫЧКИ', 10, 20); for (let i = 0; i < 3; i++) { g.fillStyle = i < picks ? '#c8c8d8' : '#3a3046'; g.fillRect(10 + i * 18, 30, 12, 4); }
     };
@@ -159,7 +160,7 @@ export const PANEL4 = {
       update(dt) {
         if (endT > 0) { endT -= dt; draw(); if (endT <= 0) api.finish({ success: true, mult: 0.6 + picks * 0.15 }); return; }
         const off = Math.abs(pick - sweet), maxT = off < WIN ? Math.PI / 2 : Math.max(0, 1 - (off - WIN) / ZONE) * Math.PI / 2 * 0.85;
-        if (holding) { turn = Math.min(maxT, turn + dt * 2.2); if (turn >= maxT - 0.01 && maxT < Math.PI / 2) { strain += dt; if (Math.random() < dt * 8) sfx('screw', { v: 0.3 }); } else strain = Math.max(0, strain - dt); }
+        if (holding) { turn = Math.min(maxT, turn + dt * 2.2); if (turn >= maxT - 0.01 && maxT < Math.PI / 2) { strain += dt; if (random() < dt * 8) sfx('screw', { v: 0.3 }); } else strain = Math.max(0, strain - dt); }
         else { turn = Math.max(0, turn - dt * 3); strain = Math.max(0, strain - dt * 2); }
         if (strain > 1.1) { picks--; strain = 0; turn = 0; holding = false; sfx('glass', { v: 0.5 }); api.msg(picks ? 'Хрусть! Отмычка сломалась' : 'Все отмычки сломаны', 'bad'); if (!picks) return api.finish({ success: false }); }
         api.progress(turn / (Math.PI / 2));
@@ -176,17 +177,17 @@ export const PANEL4 = {
     const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.3).add(new V3(0, 1.1, 0)), c.clone().add(new V3(0, 0.6, 0)));
     const N = 3, { ui, cv, g } = overlay('pipeui', 'ТРУБЫ', 'Клик: поворот на 90°. Соедини синий вход слева с зелёным выходом справа'), CS = 300 / N;if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
     // биты выходов: 1 — верх, 2 — право, 4 — низ, 8 — лево
-    const rot = m => ((m << 1) | (m >> 3)) & 15, grid = [], sy = (Math.random() * N) | 0;
+    const rot = m => ((m << 1) | (m >> 3)) & 15, grid = [], sy = (random() * N) | 0;
     // Монотонный путь: 3–5 клеток, всегда выходит справа, без тупика генератора.
-    const ey0 = (sy + 1 + ((Math.random() * 2) | 0)) % N;
+    const ey0 = (sy + 1 + ((random() * 2) | 0)) % N;
     const path = [[0, sy], [1, sy]];
     for (let y = sy; y !== ey0;) { y += Math.sign(ey0 - y); path.push([1, y]); }
     path.push([2, ey0]);
     const dirBit = (a, b) => b[0] > a[0] ? 2 : b[0] < a[0] ? 8 : b[1] > a[1] ? 4 : 1, opp = b => ({ 1: 4, 4: 1, 2: 8, 8: 2 })[b];
-    for (let y = 0; y < N; y++) { grid.push([]); for (let x = 0; x < N; x++) grid[y].push([3, 5, 7, 6, 11][(Math.random() * 5) | 0]); }
+    for (let y = 0; y < N; y++) { grid.push([]); for (let x = 0; x < N; x++) grid[y].push([3, 5, 7, 6, 11][(random() * 5) | 0]); }
     path.forEach((p, i) => { let m = 0; m |= i === 0 ? 8 : opp(dirBit(path[i - 1], p)); m |= i === path.length - 1 ? 2 : dirBit(p, path[i + 1]); grid[p[1]][p[0]] = m; });
     const solved=grid.map(row=>row.slice());
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const r = (Math.random() * 4) | 0; for (let k = 0; k < r; k++) grid[y][x] = rot(grid[y][x]); }
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const r = (random() * 4) | 0; for (let k = 0; k < r; k++) grid[y][x] = rot(grid[y][x]); }
     const ey = path[path.length - 1][1]; let wet = new Set(), endT = -1;
     const flow = () => { wet = new Set(); if (!(grid[sy][0] & 8)) return false; const st = [[0, sy]]; wet.add('0,' + sy);
       while (st.length) { const [x, y] = st.pop(), m = grid[y][x]; for (const [b, dx, dy] of [[1, 0, -1], [2, 1, 0], [4, 0, 1], [8, -1, 0]]) { if (!(m & b)) continue; const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue; if (!(grid[ny][nx] & opp(b))) continue; const k = nx + ',' + ny; if (!wet.has(k)) { wet.add(k); st.push([nx, ny]); } } }
@@ -211,12 +212,12 @@ export const PANEL4 = {
 export const WORLD4 = {
   intercom(o, api, ctx) {
     api.feedback?.();
-    const P = ctx.player, c = o.pos(); o.code = [0, 0, 0].map(() => (Math.random() * 10) | 0);
+    const P = ctx.player, c = o.pos(); o.code = [0, 0, 0].map(() => (random() * 10) | 0);
     const used=[];
     const plates = o.code.map((d,i)=>{
       let p;for(let n=0;n<20;n++){p=nearbyItemPoint(o.front());if(used.every(q=>q.distanceTo(p)>1.8))break;}used.push(p.clone());
       const cv=document.createElement('canvas');cv.width=96;cv.height=64;const g=cv.getContext('2d');
-      g.fillStyle='#d8ccb0';g.fillRect(0,0,96,64);g.fillStyle='#b8aa90';for(let n=0;n<100;n++)g.fillRect(Math.random()*96,Math.random()*64,1,1);
+      g.fillStyle='#d8ccb0';g.fillRect(0,0,96,64);g.fillStyle='#b8aa90';for(let n=0;n<100;n++)g.fillRect(random()*96,random()*64,1,1);
       g.fillStyle='#342c30';g.font='bold 10px monospace';g.fillText('КОД ПОДЪЕЗДА',6,13);g.font='10px monospace';g.fillText('ЦИФРА '+(i+1)+' / 3',6,26);g.font='bold 30px monospace';g.fillText(String(d),39,54);
       g.strokeStyle='#8a785c';g.strokeRect(2,2,91,59);g.fillStyle='#a86a40';g.fillRect(7,3,20,5);g.fillRect(70,55,19,5);
       const tex=new THREE.CanvasTexture(cv);tex.magFilter=tex.minFilter=THREE.NearestFilter;tex.generateMipmaps=false;

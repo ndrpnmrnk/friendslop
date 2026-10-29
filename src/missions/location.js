@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { V3 } from '../core/gfx.js';
 import { W } from '../world/state.js';
 import { isFree, groundAt } from '../world/physics.js';
@@ -30,7 +31,7 @@ export function nearbyItemPoint(p) {
     if (d >= (g ? 2 : 6)) choices.push(new V3(x, y, z));
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const key = `${ix + dx},${iz + dz}`; if (seen.has(key)) continue; seen.add(key); const nx = x + dx * step, nz = z + dz * step; if (valid(nx, nz) && valid((x + nx) / 2, (z + nz) / 2)) queue.push([nx, nz, ix + dx, iz + dz]); }
   }
-  if (choices.length) return choices[(Math.random() * choices.length) | 0];
+  if (choices.length) return choices[(random() * choices.length) | 0];
   if (queue.length) { const q = queue[queue.length - 1]; return new V3(q[0], y, q[1]); }
   // Точка взаимодействия уже проверена генератором миссии; не бросаем предмет за стену.
   return new V3(p.x, y, p.z);

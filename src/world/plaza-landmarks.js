@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {THREE,G,tmat,col,lam,smat} from '../core/gfx.js';
 import {T,pix} from '../core/textures.js';
 import {W} from './state.js';
@@ -38,6 +39,6 @@ export function buildPlazaFountain(b,cx,cz,R=3.8){
  let elapsed=0;W.animated.push(dt=>{elapsed+=dt;if(elapsed<.10)return;elapsed=0;if(W.player&&Math.hypot(W.player.pos.x-b.X(cx),W.player.pos.z-b.Z(cz))>52)return;
   puff(b.X(cx),b.Y+2.86,b.Z(cz),{color:0x9ccbec,size:.12,vy:2.15,g:7,life:.65,grow:.10});
   for(let i=0;i<4;i++){const a=i*Math.PI/2+Math.PI/4;puff(b.X(cx+Math.cos(a)*1.04),b.Y+1.72,b.Z(cz+Math.sin(a)*1.04),{color:0x8ac0e8,size:.10,vx:Math.cos(a)*1.3,vy:1.1,vz:Math.sin(a)*1.3,g:7,life:.48,grow:.15,opacity:.7});}
-  if(Math.random()<.2)ripple(b.X(cx+(Math.random()-.5)*3),b.Y+.1,b.Z(cz+(Math.random()-.5)*3),.5,.8);
+  if(random()<.2)ripple(b.X(cx+(random()-.5)*3),b.Y+.1,b.Z(cz+(random()-.5)*3),.5,.8);
  });
 }

@@ -1,9 +1,10 @@
+import { random } from '../core/random.js';
 import { W } from './state.js';
 
 /* Подвешенное (качели, бельё, вывески на цепях): маятник вокруг оси X своей группы.
    Пробежал рядом / задел / попал броском — раскачивается и плавно затухает. */
 export function addSwinger(pivot, o = {}) {
-  const s = { pivot, ang: 0, vel: 0, len: o.len ?? 1.5, damp: o.damp ?? 0.6, max: o.max ?? 1.1, r: o.r ?? 0.6, idle: o.idle ?? 0, ph: Math.random() * 6, seat: o.seat || null };
+  const s = { pivot, ang: 0, vel: 0, len: o.len ?? 1.5, damp: o.damp ?? 0.6, max: o.max ?? 1.1, r: o.r ?? 0.6, idle: o.idle ?? 0, ph: random() * 6, seat: o.seat || null };
   pivot.rotation.order = 'YXZ'; W.keep.push(pivot); (W.swingers || (W.swingers = [])).push(s); return s;
 }
 const G = 22;

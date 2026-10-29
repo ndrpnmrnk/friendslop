@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import { restOnSurface, addItem } from '../../game/items.js';
 import { addCanopy } from '../canopies.js';
 import { addPushable } from '../pushables.js';
@@ -49,7 +50,7 @@ export default {
       for (const [x, z] of [[-.5, .4], [.45, .6], [0, 1.6], [-.5, 2.0], [.5, 1.9]]) add(G.sph10, col(0xff8a1f), x, 1.05, z, .38, .32, .38); }));
     const beams = new THREE.Mesh(G.box, new THREE.MeshBasicMaterial({ color: 0xfff1c0, transparent: true, opacity: .0, depthWrite: false })); beams.scale.set(2.2, .05, 8); beams.position.set(0, .6, -6.6); truck.add(beams);
     const solids = [b.solid(LX, BAY - 1.6, 2.1, 1.9, 0, 1.4), b.solid(LX, BAY + 1.0, 2.2, 3.2, 0, .82)];
-    const T0 = { state: 'parked', t: 0, z: BAY, next: 28 + Math.random() * 10, rider: null, dropped: 0 };
+    const T0 = { state: 'parked', t: 0, z: BAY, next: 28 + random() * 10, rider: null, dropped: 0 };
     const set = z => { truck.position.set(b.X(LX), b.Y, b.Z(z)); truck.updateMatrix(); for (const s of solids) s.on = T0.state === 'parked'; };
     set(BAY);
     W.animated.push(dt => { T0.t += dt;
@@ -57,13 +58,13 @@ export default {
       else if (T0.state === 'honk') { beams.material.opacity = Math.sin(T0.t * 12) > 0 ? .25 : .08; if (T0.t > 2) { T0.state = 'go'; T0.t = 0; sfx('honk', { at: truck.position }); T0.dropped = 0; } }
       else if (T0.state === 'go' || T0.state === 'back') { const north = T0.state === 'go', v = north ? 12 : 4.5; T0.z += (north ? -v : -v) * dt;
         if (north && T0.z < -8) { T0.state = 'back'; T0.t = 0; T0.z = 52; if (T0.rider) { const a = T0.rider; a.pos.set(b.X(LX + 3.6), b.Y, b.Z(-1.6)); a.vel.set(2, 6, -3); a.stun = .4; a.root.visible = true; T0.rider = null; } }
-        if (!north && T0.z <= BAY) { T0.z = BAY; T0.state = 'parked'; T0.t = 0; T0.next = 50 + Math.random() * 20; beams.material.opacity = 0; }
+        if (!north && T0.z <= BAY) { T0.z = BAY; T0.state = 'parked'; T0.t = 0; T0.next = 50 + random() * 20; beams.material.opacity = 0; }
         set(T0.z); const wz = truck.position.z, fz = north ? -1 : -1;
         // удар: кто на проезде перед кабиной — летит в сторону
         for (const a of actors()) { if (a === T0.rider || a.hidden || a.drone) continue; if (Math.abs(a.pos.x - truck.position.x) < 1.5 && a.pos.z > wz - 2.9 && a.pos.z < wz + 2.8 && a.pos.y < b.Y + 1.6) {
           const s = a.pos.x < truck.position.x ? -1 : 1; knockDown(a, s * 9, fz * v * .6, 1.4); a.vel.y = 6; a.pos.x = truck.position.x + s * 1.6; sfx('hit', { at: a.pos }); burst(a.pos.x, a.pos.y + 1, a.pos.z, 10, { color: 0xff8a1f, size: .14, speed: 3 }); } }
         impulsePushables(truck.position.x, wz - 2, 1.6, 8);
-        if (north && T0.dropped < 2 && T0.z < 30 - T0.dropped * 14 && W.items.filter(i => i.type === 'pumpkin' && i.state !== 'gone').length < 14) { T0.dropped++; const it = addItem('pumpkin', truck.position.x + (Math.random() - .5), b.Y + 1.2, wz + 2.8); it.state = 'fly'; it.vel.set((Math.random() - .5) * 3, 2, 2.5); sfx('drop', { at: truck.position }); }
+        if (north && T0.dropped < 2 && T0.z < 30 - T0.dropped * 14 && W.items.filter(i => i.type === 'pumpkin' && i.state !== 'gone').length < 14) { T0.dropped++; const it = addItem('pumpkin', truck.position.x + (random() - .5), b.Y + 1.2, wz + 2.8); it.state = 'fly'; it.vel.set((random() - .5) * 3, 2, 2.5); sfx('drop', { at: truck.position }); }
         if (T0.rider) { T0.rider.pos.set(truck.position.x, b.Y + .85, wz + 1.2); T0.rider.vel.set(0, 0, 0); } }
       beams.visible = T0.state !== 'parked'; });
     b.hazard({ x0: LX - 3, z0: 0, x1: LX + 3, z1: 44, active: () => T0.state === 'honk' || T0.state === 'go' || T0.state === 'back' });

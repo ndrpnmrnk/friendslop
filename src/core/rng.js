@@ -1,3 +1,4 @@
+import { random } from './random.js';
 export function mulberry32(a) {
   return function () {
     a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -7,7 +8,7 @@ export function mulberry32(a) {
   };
 }
 // Генератор карты (детерминированный по seed) — отдельно от игровой случайности
-export const rng = { r: Math.random };
+export const rng = { r: random };
 export const seed = s => { rng.r = mulberry32(s); };
 export const rand = () => rng.r();
 export const range = (a, b) => a + (b - a) * rng.r();
@@ -19,4 +20,4 @@ export function shuffle(arr) {
 export const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const damp = (k, dt) => 1 - Math.exp(-k * dt);
-export const rpick = arr => arr[Math.floor(Math.random() * arr.length)];
+export const rpick = arr => arr[Math.floor(random() * arr.length)];

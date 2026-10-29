@@ -1,3 +1,4 @@
+import { random } from '../../core/random.js';
 import {addCanopy} from '../canopies.js';
 import { THREE, G, tmat, col, glow, lam } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
@@ -28,7 +29,7 @@ export default {
             f.sign(r.x1 - 0.02, 1.9, z, -Math.PI / 2, 'МЕНЮ · КОМБО · НАПИТКИ', '#17111f', '#f1e8ff', 2.8, 0.4);
             W.spots.pickup.push({ x: f.X(r.x1 - 1.6), z: f.Z(z), y: f.Y, f: [1, 0], district: 'Фудкорт', label: nm.toLowerCase() });
           });
-          for (const [x, z] of [[23.5, 14], [23.5, 18.5], [23.5, 23], [26.2, 27.5]]) { f.ptable(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); f.item(Math.random() < 0.5 ? 'mug' : 'books', x + 0.25, z, 0.85); }
+          for (const [x, z] of [[23.5, 14], [23.5, 18.5], [23.5, 23], [26.2, 27.5]]) { f.ptable(x, z, 0.8); f.chair(x - 0.8, z, Math.PI / 2); f.chair(x + 0.8, z, -Math.PI / 2); f.item(random() < 0.5 ? 'mug' : 'books', x + 0.25, z, 0.85); }
           f.plantPot(21.3, 29.5, 1.2); f.vending(21.4, 13.3);
           // центр зала: островок с растением и указателем, навесные баннеры; проход от дверей свободен
           f.box(27.4, 16.2, 1.6, 1.6, 0.5, tmat(T.planter())); f.m(G.ico, tmat(T.bush()), 27.4, 1.0, 16.2, 0.7, 0.6, 0.7);

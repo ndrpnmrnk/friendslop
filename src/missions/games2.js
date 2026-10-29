@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import {fishingGame} from './fishing.js';
 import {wiringGame} from './wiring.js';
 import { nearbyItemPoint, routeTo } from './location.js';
@@ -23,7 +24,7 @@ export const PANEL_GAMES = {
   shells(o, api) {
     api.feedback?.();
     api.pose(o.world(0, 2.7, 1.9), o.world(0, 0.9, -0.05));
-    const slot = [-0.45, 0, 0.45]; let pos = [0, 1, 2], ball = (Math.random() * 3) | 0, phase = 'show', t = 0, swaps = 0, total = 7, sw = null, endT = -1, res = null;
+    const slot = [-0.45, 0, 0.45]; let pos = [0, 1, 2], ball = (random() * 3) | 0, phase = 'show', t = 0, swaps = 0, total = 7, sw = null, endT = -1, res = null;
     const cupAt = (c, x, lift) => { o.cups[c].position.set(x, 0.99 + lift, o.cups[c].position.z); };
     api.progress(null); api.msg('Запомни, где тыковка');
     return {
@@ -41,7 +42,7 @@ export const PANEL_GAMES = {
         if (phase === 'show') { for (let c = 0; c < 3; c++) cupAt(c, slot[pos[c]], c === ball ? Math.min(0.3, Math.sin(Math.min(t, 1.2) / 1.2 * Math.PI) * 0.35) : 0); if (t > 1.6) { phase = 'shuffle'; t = 0; api.msg('Следи...'); } }
         else if (phase === 'shuffle') {
           const dur = Math.max(0.22, 0.55 - swaps * 0.05);
-          if (!sw) { const a = (Math.random() * 3) | 0; let b = (Math.random() * 2) | 0; if (b >= a) b++; sw = { a, b, t: 0 }; }
+          if (!sw) { const a = (random() * 3) | 0; let b = (random() * 2) | 0; if (b >= a) b++; sw = { a, b, t: 0 }; }
           sw.t += dt / dur; const k = Math.min(1, sw.t), ca = pos.indexOf(sw.a), cb = pos.indexOf(sw.b);
           const xa = slot[sw.a] + (slot[sw.b] - slot[sw.a]) * k, xb = slot[sw.b] + (slot[sw.a] - slot[sw.b]) * k;
           cupAt(ca, xa, 0); cupAt(cb, xb, 0); o.cups[ca].position.z = Math.sin(k * Math.PI) * 0.25; o.cups[cb].position.z = -Math.sin(k * Math.PI) * 0.25;
@@ -58,7 +59,7 @@ export const PANEL_GAMES = {
   /* Щиток — «Проводка»: на сетке пары цветных клемм. Веди провод мышью по клеткам от клеммы к клемме того же
      цвета; провода не пересекаются и не проходят через чужие клеммы. Уровень строится от готового решения
      (случайная «змейка» через всю сетку режется на куски), поэтому решить можно всегда. */
-  fuse(o,api,ctx){return wiringGame(o,api,ctx,flowLevel(5,4+(Math.random()<.5?1:0)));},
+  fuse(o,api,ctx){return wiringGame(o,api,ctx,flowLevel(5,4+(random()<.5?1:0)));},
 
   // Сейф: крути диск (зажми ЛКМ и веди мышь), на нужной цифре щёлкает — нажми на ручку. Три цифры.
   safe(o, api) {
@@ -74,7 +75,7 @@ export const PANEL_GAMES = {
     mesh(G.box, col(0xff5a6e), 0, 0.2, 0.03, 0.02, 0.04, 0.01, grp);
     const handle = mesh(G.box, col(0x9a9da8), 0.3, 0, 0.05, 0.06, 0.22, 0.06, grp);
     const leds = [0, 1, 2].map(i => mesh(G.box, col(0x2a2232), -0.25 + i * 0.07, -0.22, 0.02, 0.04, 0.04, 0.02, grp));
-    const code = [0, 1, 2].map(() => (Math.random() * 40) | 0), N = 40;
+    const code = [0, 1, 2].map(() => (random() * 40) | 0), N = 40;
     let ang = 0, step = 0, drag = false, lastA = null, clickT = 0, endT = -1, lastN = -1;
     const num = () => ((Math.round(-ang / (Math.PI * 2) * N) % N) + N) % N;
     api.progress(0); api.msg('Крути диск — лови «щёлк»');
@@ -183,7 +184,7 @@ export const WORLD_GAMES = {
 
 function deliveryCore(o, api, ctx, kind) {
     const P = ctx.player, from = o.pos(), dests = W.spots.deliver.filter(d => Math.hypot(d.x - from.x, d.z - from.z) > 14);
-    const pool = dests.length ? dests : W.spots.deliver, dest = pool[(Math.random() * pool.length) | 0], g = dest.guide;
+    const pool = dests.length ? dests : W.spots.deliver, dest = pool[(random() * pool.length) | 0], g = dest.guide;
     const parcel = addItem(kind, from.x, from.y + 0.2, from.z, 0); parcel.def = { ...parcel.def, respawn: 0 };
     // Выронил - соперник может унести заказ, но очки остаются только исполнителю.
     parcel.mission = ctx.mission; parcel.mine = P;
@@ -225,13 +226,13 @@ function flowLevel(N, K, tries = 0) {
   let path = []; for (let y = 0; y < N; y++) for (let i = 0; i < N; i++) path.push([y % 2 ? N - 1 - i : i, y]);
   const nb = ([x, y]) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].filter(([a, b]) => a >= 0 && b >= 0 && a < N && b < N);
   for (let it = 0; it < N * N * 40; it++) {
-    if (Math.random() < 0.5) path.reverse();
-    const end = path[path.length - 1], ns = nb(end), q = ns[(Math.random() * ns.length) | 0];
+    if (random() < 0.5) path.reverse();
+    const end = path[path.length - 1], ns = nb(end), q = ns[(random() * ns.length) | 0];
     const i = path.findIndex(p => p[0] === q[0] && p[1] === q[1]); if (i < 0 || i === path.length - 2) continue;
     path = path.slice(0, i + 1).concat(path.slice(i + 1).reverse());
   }
   const L = path.length, cuts = new Set();
-  while (cuts.size < K - 1) { const c = 3 + ((Math.random() * (L - 6)) | 0); if ([...cuts].every(o => Math.abs(o - c) >= 3)) cuts.add(c); }
+  while (cuts.size < K - 1) { const c = 3 + ((random() * (L - 6)) | 0); if ([...cuts].every(o => Math.abs(o - c) >= 3)) cuts.add(c); }
   const routes = []; const cs = [0, ...[...cuts].sort((a, b) => a - b), L], pairs = [];
   for (let k = 0; k < K; k++) { const seg = path.slice(cs[k], cs[k + 1]); pairs.push([seg[0], seg[seg.length - 1]]); routes.push(seg); }
   // клеммы вплотную друг к другу — слишком просто, строим заново

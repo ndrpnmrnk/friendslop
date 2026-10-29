@@ -1,6 +1,7 @@
+import { random } from '../core/random.js';
 /* Пиксель-арт для карточек режима и рулетки: рисуется кодом в маленький canvas,
    растягивается без сглаживания — в стиле игры. */
-const R = (a, b) => a + Math.random() * (b - a);
+const R = (a, b) => a + random() * (b - a);
 export function drawCard(cv, kind, seed = 0) {
   const g = cv.getContext('2d'), W = cv.width, H = cv.height;
   g.imageSmoothingEnabled = false;
@@ -16,8 +17,8 @@ export function drawCard(cv, kind, seed = 0) {
   g.fillStyle = '#f4eedc'; g.beginPath(); g.arc(W * 0.78, H * 0.16, W * 0.07, 0, 7); g.fill();
   // дома с окнами
   let x = -2;
-  while (x < W) { const w = R(8, 16) | 0, h = R(H * 0.25, H * 0.55) | 0; g.fillStyle = ['#3a2e52', '#2e2440', '#46365e'][(Math.random() * 3) | 0]; g.fillRect(x, H * 0.72 - h, w, h);
-    for (let yy = H * 0.72 - h + 3; yy < H * 0.7 - 2; yy += 4) for (let xx = x + 2; xx < x + w - 2; xx += 3) if (Math.random() < 0.4) { g.fillStyle = Math.random() < 0.85 ? '#ffb35c' : '#9be0ff'; g.fillRect(xx, yy | 0, 1, 2); }
+  while (x < W) { const w = R(8, 16) | 0, h = R(H * 0.25, H * 0.55) | 0; g.fillStyle = ['#3a2e52', '#2e2440', '#46365e'][(random() * 3) | 0]; g.fillRect(x, H * 0.72 - h, w, h);
+    for (let yy = H * 0.72 - h + 3; yy < H * 0.7 - 2; yy += 4) for (let xx = x + 2; xx < x + w - 2; xx += 3) if (random() < 0.4) { g.fillStyle = random() < 0.85 ? '#ffb35c' : '#9be0ff'; g.fillRect(xx, yy | 0, 1, 2); }
     x += w; }
   // улица, фонарь, тыквы
   g.fillStyle = '#2b2733'; g.fillRect(0, H * 0.72, W, H); g.fillStyle = '#4a4258'; g.fillRect(0, H * 0.72, W, 3);

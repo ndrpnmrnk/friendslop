@@ -1,3 +1,4 @@
+import { random, withRandom } from '../core/random.js';
 import {pantsTexture} from '../characters/mammoth.js';
 import {spawnCoin} from './coins.js';
 import {raceEvent} from './race.js';
@@ -36,15 +37,15 @@ const DUR = 20;
 let ctx = null;
 export function initEvents(c) { ctx = c; }
 // v0.53: режим задаёт ритм — «Хаос-ночь» включает малые события, «Марафон» ставит общие события подряд
-export function resetEvents() { if (EV.cur) stopEvent(); if (EV.big) stopBig(); EV.t = 0; EV.next = isMode('chaos') ? 25 : 1e9; EV.cur = null; EV.bigAt = isMode('marathon') ? 25 : PHASE.event; EV.bigDone = false; EV.lastBig = null; W.eventBot = null; }
+export function resetEvents() { if (EV.cur) stopEvent(); if (EV.big) stopBig(); EV.t = 0; EV.next = isMode('chaos') ? 25 : 1e9; EV.cur = null; EV.bigAt = isMode('marathon') ? 25 : PHASE.event; EV.bigDone = false; EV.lastBig = null; EV.netSerial = 0; W.eventBot = null; }
 
 const EVENTS = {
   pumpkins: { title: 'ТЫКВЕННЫЙ ДОЖДЬ', sub: 'С неба падают тыквы!',
     start(s) { s.spawnT = 0; s.items = []; },
     update(s, dt) {
-      s.spawnT -= dt; if (s.spawnT > 0 || s.items.length > 14) return; s.spawnT = 0.9 + Math.random() * 0.6;
-      const P = ctx.player(), a = Math.random() * 6.28, r = 3 + Math.random() * 11, x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r;
-      const it = addItem('pumpkin', x, P.pos.y + 16, z, 0); it.def = { ...it.def, respawn: 0 }; launch(it, new V3(x, P.pos.y + 16, z), new V3((Math.random() - 0.5) * 2, -4, (Math.random() - 0.5) * 2));
+      s.spawnT -= dt; if (s.spawnT > 0 || s.items.length > 14) return; s.spawnT = 0.9 + random() * 0.6;
+      const P = ctx.player(), a = random() * 6.28, r = 3 + random() * 11, x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r;
+      const it = addItem('pumpkin', x, P.pos.y + 16, z, 0); it.def = { ...it.def, respawn: 0 }; launch(it, new V3(x, P.pos.y + 16, z), new V3((random() - 0.5) * 2, -4, (random() - 0.5) * 2));
       s.items.push(it);
     },
     stop(s) { for (const it of s.items) if (it.state === 'rest') { it.state = 'gone'; it.g.visible = false; } },
@@ -76,7 +77,7 @@ const BIG = {
       // крыша, на которую ведёт лестница снаружи (чтобы добраться могли все, и боты тоже)
       const reach = z => W.ladders.some(l => Math.abs(l.y1 - 0.12 - z.y) < 0.7 && Math.hypot((l.x0 + l.x1) / 2 - (z.x0 + z.x1) / 2, (l.z0 + l.z1) / 2 - (z.z0 + z.z1) / 2) < 14 && l.y0 < 1);
       const P = ctx.player(), all = W.missionZones.filter(z => z.type === 'roof' && z.x1 - z.x0 > 2.5 && z.z1 - z.z0 > 1.5), ok = all.filter(reach), zs = (ok.length ? ok : all).sort((a, b) => dist(a, P) - dist(b, P));
-      const z = zs[Math.min(zs.length - 1, 1 + ((Math.random() * 3) | 0))] || W.missionZones[0];
+      const z = zs[Math.min(zs.length - 1, 1 + ((random() * 3) | 0))] || W.missionZones[0];
       s.x = (z.x0 + z.x1) / 2; s.z = (z.z0 + z.z1) / 2; s.y = z.y; s.r = Math.min(2.4, (z.x1 - z.x0) / 2, (z.z1 - z.z0) / 2 + 0.3);
       s.g = new THREE.Group(); s.g.position.set(s.x, s.y, s.z); W.group.add(s.g);
       s.ring = mesh(new THREE.RingGeometry(0.92, 1, 32), new THREE.MeshBasicMaterial({ color: 0xf5c542, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }), 0, 0.05, 0, s.r, s.r, 1, s.g); s.ring.rotation.x = -Math.PI / 2;
@@ -93,10 +94,10 @@ const BIG = {
         const v = (s.acc.get(a) || 0) + dt; s.acc.set(a, v); king = king || a;
         if (Math.floor(v) > Math.floor(v - dt)) { award(a, 10, a.pos); if (a === ctx.player()) sfx('hill'); } } }
       s.disc.material.color.setHex(king ? (king === ctx.player() ? 0x9be36b : 0xff5a6e) : 0xf5c542);
-      if (s.tick <= 0) { s.tick = 0.15; puff(s.x + (Math.random() - 0.5) * s.r * 2, s.y + 0.2, s.z + (Math.random() - 0.5) * s.r * 2, { color: 0xf5c542, size: 0.15, vy: 1.6, life: 0.8, grow: 0 }); }
+      if (s.tick <= 0) { s.tick = 0.15; puff(s.x + (random() - 0.5) * s.r * 2, s.y + 0.2, s.z + (random() - 0.5) * s.r * 2, { color: 0xf5c542, size: 0.15, vy: 1.6, life: 0.8, grow: 0 }); }
       return null;
     },
-    bot(s, b) { return { x: s.x + (Math.random() - 0.5) * s.r, y: s.y, z: s.z + (Math.random() - 0.5) * s.r, kind: 'event', near: s.r * 0.6 }; },
+    bot(s, b) { return { x: s.x + (random() - 0.5) * s.r, y: s.y, z: s.z + (random() - 0.5) * s.r, kind: 'event', near: s.r * 0.6 }; },
     stop(s) { W.group.remove(s.g); },
     info: s => { const v = s.acc.get(ctx.player()) || 0; return `${Math.floor(v) * 10}`; },
   },
@@ -125,7 +126,7 @@ const BIG = {
       if (s.dead) { s.g.position.y -= dt * 6; s.g.rotation.z += dt * 6; s.hpS.visible = false; if (s.g.position.y < s.c.y) { burst(s.g.position.x, s.c.y + 0.5, s.g.position.z, 24, { color: 0xb8a890, size: 0.3, speed: 4, up: 3 }); smokeRing(s.g.position.x, s.c.y + 0.1, s.g.position.z, 12, { speed: 3 }); shake(0.3); return 'end'; } return null; }
       if (!s.dive) { s.ang += dt * 0.5; const R = 7; const tx = s.c.x + Math.cos(s.ang) * R, tz = s.c.z + Math.sin(s.ang) * R, ty = s.y + Math.sin(t * 1.3) * 0.8;
         s.g.position.x += (tx - s.g.position.x) * Math.min(1, dt * 2); s.g.position.z += (tz - s.g.position.z) * Math.min(1, dt * 2); s.g.position.y += (ty - s.g.position.y) * Math.min(1, dt * 2);
-        s.diveT -= dt; if (s.diveT <= 0) { const list = actors().filter(a => !a.hidden && Math.hypot(a.pos.x - s.c.x, a.pos.z - s.c.z) < 16); const v = list[(Math.random() * list.length) | 0]; if (v) { s.dive = { v, t: 0, from: s.g.position.clone() }; sfx('moth', { at: s.g.position }); } s.diveT = 4 + Math.random() * 3; } }
+        s.diveT -= dt; if (s.diveT <= 0) { const list = actors().filter(a => !a.hidden && Math.hypot(a.pos.x - s.c.x, a.pos.z - s.c.z) < 16); const v = list[(random() * list.length) | 0]; if (v) { s.dive = { v, t: 0, from: s.g.position.clone() }; sfx('moth', { at: s.g.position }); } s.diveT = 4 + random() * 3; } }
       else { const d = s.dive; d.t += dt; const tgt = d.v.pos.clone().setY(d.v.pos.y + 1.0), k = Math.min(1, d.t / 1.1);
         if (k < 1) s.g.position.lerpVectors(d.from, tgt, k * k);
         else { s.g.position.y += dt * 8; if (d.t > 2.0) s.dive = null; }
@@ -135,8 +136,8 @@ const BIG = {
       const flap = Math.sin(t * (s.dive ? 22 : 12)) * 0.7; s.wings[0].rotation.z = flap; s.wings[1].rotation.z = -flap;s.wings[0].rotation.y=.15+Math.cos(t*12)*.06;s.wings[1].rotation.y=-.15-Math.cos(t*12)*.06;
       s.hpS.position.copy(s.g.position).add(new V3(0, 2.0, 0));
       // тапки падают с неба вокруг
-      s.slipT -= dt; if (s.slipT <= 0) { s.slipT = 1.0 + Math.random() * 0.6; const P = ctx.player(), a = Math.random() * 6.28, r = 2 + Math.random() * 8;
-        const x = (Math.random() < 0.6 ? P.pos.x : s.c.x) + Math.cos(a) * r, z = (Math.random() < 0.6 ? P.pos.z : s.c.z) + Math.sin(a) * r, gy = groundAt(x, z, 0.2, P.pos.y + 3);
+      s.slipT -= dt; if (s.slipT <= 0) { s.slipT = 1.0 + random() * 0.6; const P = ctx.player(), a = random() * 6.28, r = 2 + random() * 8;
+        const x = (random() < 0.6 ? P.pos.x : s.c.x) + Math.cos(a) * r, z = (random() < 0.6 ? P.pos.z : s.c.z) + Math.sin(a) * r, gy = groundAt(x, z, 0.2, P.pos.y + 3);
         if (Math.abs(gy - P.pos.y) < 4) { const it = spawnTool(x, gy + 12, z, false, 'slipper'); it.vel.set(0, -8, 0); } }
       // попадания брошенным
       for (const it of W.items) { if (it.state !== 'fly' || it.mothHit) continue; if (it.pos.distanceTo(s.g.position) < 1.5) { it.mothHit = true; hitMoth(s, it.pos, it.type === 'slipper' ? 1 : 0.5, it.owner); it.vel.multiplyScalar(-0.3); } }
@@ -158,7 +159,7 @@ const BIG = {
   /* Зомби-заражение (как в Move or Die): один — зомби, касанием заражает. Люди отбиваются: попал предметом
      или ударом — зомби на 2 с падает. Зомби — +30 за заражение; кто дожил человеком до конца — +120. */
   zombie: { dur: 40,
-    start(s) { const all = actors(); s.z = new Set([all[(Math.random() * all.length) | 0]]); s.first = [...s.z][0]; s.cd = new Map(); s.marks = new Map(); s.puffT = 0; for (const a of s.z) infect(s, a, null); },
+    start(s) { const all = actors(); s.z = new Set([all[(random() * all.length) | 0]]); s.first = [...s.z][0]; s.cd = new Map(); s.marks = new Map(); s.puffT = 0; for (const a of s.z) infect(s, a, null); },
     target(s) { const P = ctx.player(), me = s.z.has(P), list = actors().filter(a => a !== P && s.z.has(a) !== me); list.sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos)); return (list[0] || P).pos; },
     update(s, dt, t) {
       for (const [a, v] of s.cd) s.cd.set(a, v - dt);
@@ -180,7 +181,7 @@ const BIG = {
   /* Горячая картошка: тыква-бомба с фитилём; передай касанием (или выпадом). Взорвалась в руках — −60. */
   potato: { dur: 40,
     start(s) { s.bomb = compose('potatoBomb', a => { a(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.28, 0.32); a(G.cyl6, col(0x2b2533), 0, 0.3, 0, 0.03, 0.18, 0.03); a(G.sph, lam({ color: 0xffd25c, emissive: 0xff8a1f, emissiveIntensity: 1 }, 'fuseSpark'), 0, 0.42, 0, 0.06, 0.06, 0.06); });
-      W.group.add(s.bomb); W.keep.push(s.bomb); s.cd = 0; s.boom = 0; give(s, actors()[(Math.random() * actors().length) | 0], true); },
+      W.group.add(s.bomb); W.keep.push(s.bomb); s.cd = 0; s.boom = 0; give(s, actors()[(random() * actors().length) | 0], true); },
     target(s) { if (s.flight) return s.bomb.position; const P = ctx.player(); if (s.h !== P) return s.h?.pos || P.pos; return (actors().filter(a => a !== P).sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos))[0] || P).pos; },
     update(s, dt, t) {
       s.cd -= dt; s.left -= dt;
@@ -198,12 +199,12 @@ const BIG = {
       { const k0 = Math.max(0, s.left / s.T), jit = (1 - k0) * 0.12;
         if (s.flight) { s.bomb.rotation.x += dt * 9; s.bomb.rotation.z += dt * 5; }
         else if (s.h) s.bomb.rotation.set(Math.sin(t * 31) * jit, s.h.root.rotation.y + Math.sin(t * 23) * jit, Math.cos(t * 27) * jit);
-        if (Math.random() < dt * (14 + 30 * (1 - k0))) { const q = s.bomb.localToWorld(new V3(0, 0.44, 0)); vfxSparks(q, 2, 0xffd25c, { x: 0, y: 1, z: 0 }); } }
+        if (random() < dt * (14 + 30 * (1 - k0))) { const q = s.bomb.localToWorld(new V3(0, 0.44, 0)); vfxSparks(q, 2, 0xffd25c, { x: 0, y: 1, z: 0 }); } }
       const k = Math.max(0, s.left / s.T); s.tick -= dt; if (s.tick <= 0) { s.tick = 0.15 + k * 0.6; sfx('tick', { at: s.bomb.position, v: 0.7 }); puff(s.bomb.position.x, s.bomb.position.y + 0.45, s.bomb.position.z, { color: 0xffd25c, size: 0.08, vy: 1, life: 0.3 }); }
       if (s.left <= 0) {
         const victim = s.flight ? s.flight.by : s.h, p = s.bomb.position.clone(); p.y = groundAt(p.x, p.z, 0.2, p.y) + 0.3;
         explode(p, null, 'bomb'); if (victim) { award(victim, -60, victim.pos); eliminate(victim, 25); } s.boom++;
-        const others = actors(); if (!others.length) return 'end'; give(s, others[(Math.random() * others.length) | 0], true);
+        const others = actors(); if (!others.length) return 'end'; give(s, others[(random() * others.length) | 0], true);
       }
       return null;
     },
@@ -223,8 +224,8 @@ const BIG = {
     start(s) { s.fallen=new Set(); s.lavaT = 0; s.base = CONFIG.base; s.level = UG.floor-s.base-.3; s.stage = 0; s.T = 0;
       const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
       g.fillStyle = '#c8320a'; g.fillRect(0, 0, 64, 64);
-      for (let i = 0; i < 70; i++) { g.fillStyle = ['#ff6a1a', '#ff8a1f', '#ffd25c', '#8a1a08'][i % 4]; const x = Math.random() * 64, y = Math.random() * 64, r = 2 + Math.random() * 6; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill(); }
-      for (let i = 0; i < 26; i++) { g.fillStyle = 'rgba(40,10,6,.55)'; g.fillRect((Math.random() * 64) | 0, (Math.random() * 64) | 0, 3 + ((Math.random() * 6) | 0), 2); }
+      for (let i = 0; i < 70; i++) { g.fillStyle = ['#ff6a1a', '#ff8a1f', '#ffd25c', '#8a1a08'][i % 4]; const x = random() * 64, y = random() * 64, r = 2 + random() * 6; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill(); }
+      for (let i = 0; i < 26; i++) { g.fillStyle = 'rgba(40,10,6,.55)'; g.fillRect((random() * 64) | 0, (random() * 64) | 0, 3 + ((random() * 6) | 0), 2); }
       s.tex = new THREE.CanvasTexture(c); s.tex.magFilter = s.tex.minFilter = THREE.NearestFilter; s.tex.wrapS = s.tex.wrapT = THREE.RepeatWrapping; s.tex.repeat.set(70, 70);
       s.mat = new THREE.MeshBasicMaterial({ map: s.tex, fog: true });
       s.sheet = mesh(G.plane, s.mat, 0, s.base - 0.4, 0, 420, 420, 1); s.sheet.rotation.x = -Math.PI / 2; s.sheet.renderOrder = 1;
@@ -237,7 +238,7 @@ const BIG = {
       s.level=want;s.stage=s.T>11?2:s.T>5?1:0;s.sheet.position.y=s.base+s.level;
       s.tex.offset.x = t * 0.04; s.tex.offset.y = Math.sin(t * 0.7) * 0.05; s.mat.color.setHSL(0.03, 1, 0.55 + Math.sin(t * 4) * 0.05);
       const P = ctx.player(), top = s.base + s.level;
-      s.lavaT -= dt; if (s.lavaT <= 0 && s.level > 0 && P) { s.lavaT = 0.08; const a = Math.random() * 6.28, d = 2 + Math.random() * 12; burst(P.pos.x + Math.cos(a) * d, top + 0.02, P.pos.z + Math.sin(a) * d, 2, { color: 0xffd25c, size: 0.12, speed: 1, up: 3, g: 6, life: 0.6 }); }
+      s.lavaT -= dt; if (s.lavaT <= 0 && s.level > 0 && P) { s.lavaT = 0.08; const a = random() * 6.28, d = 2 + random() * 12; burst(P.pos.x + Math.cos(a) * d, top + 0.02, P.pos.z + Math.sin(a) * d, 2, { color: 0xffd25c, size: 0.12, speed: 1, up: 3, g: 6, life: 0.6 }); }
       for(const a of actors())if(a.pos.y<=top+.02&&a.pos.y>UG.floor-2&&(a.burnCD||0)<=(W.time||0)){s.fallen.add(a);const at=a.pos.clone();eliminate(a,15);burst(at.x,Math.max(at.y,top)+.2,at.z,10,{color:0xff8a1f,size:.2,speed:2,up:3});sfx('hit',{at});}
       return null;
     },
@@ -260,7 +261,7 @@ const BIG = {
     // красить можно где угодно — отдельной метки нет (раньше метка прыгала по ближайшим чужим клеткам и мелькала по всей карте)
     target() { return null; },
     update(s, dt) { for (const a of actors()) if (a.onGround && !a.hidden) paintCell(s, a, Math.floor(a.pos.x), Math.floor(a.pos.z), a.pos.y); return null; },
-    bot(s, b) { if (!b.paintGoal || Math.hypot(b.paintGoal.x - b.pos.x, b.paintGoal.z - b.pos.z) < 1.5 || Math.random() < 0.005) { const a = Math.random() * 6.28, r = 6 + Math.random() * 10; b.paintGoal = { x: b.pos.x + Math.cos(a) * r, y: b.pos.y, z: b.pos.z + Math.sin(a) * r, kind: 'event', near: 1 }; } return b.paintGoal; },
+    bot(s, b) { if (!b.paintGoal || Math.hypot(b.paintGoal.x - b.pos.x, b.paintGoal.z - b.pos.z) < 1.5 || random() < 0.005) { const a = random() * 6.28, r = 6 + random() * 10; b.paintGoal = { x: b.pos.x + Math.cos(a) * r, y: b.pos.y, z: b.pos.z + Math.sin(a) * r, kind: 'event', near: 1 }; } return b.paintGoal; },
     stop(s) { W.hitHooks.splice(W.hitHooks.indexOf(s.hook), 1); W.group.remove(s.inst); for (const a of actors()) { const n = s.own.get(a) || 0; if (n) award(a, Math.min(200, n * 2), a.pos); a.paintGoal = null; } },
     info: s => `клеток ${s.own.get(ctx.player()) || 0}`,
   },
@@ -276,7 +277,7 @@ function give(s, a, fresh = false) {
   if(!a||a.drone||a.returning)return;
   if (s.h) s.h.hotPotato = false; s.h = a; s.flight = null; a.hotPotato=true;dropHeld(a);s.cd=1.35;
   a.daze = Math.max(a.daze || 0, 1); a.vel.x = a.vel.z = 0;
-  if (fresh) { s.T = s.left = 10 + Math.random() * 5; s.tick = 0; }
+  if (fresh) { s.T = s.left = 10 + random() * 5; s.tick = 0; }
 }
 export function throwPotato(a,direction,contact=false){
   const b = EV.big; if (!b || b.key !== 'potato' || b.s.h !== a || b.s.cd > 0 || a.stun > 0) return false;
@@ -298,7 +299,7 @@ function hitMoth(s, p, dmg, owner) {
   if (s.dead || s.hitCD > 0) return; s.hitCD = 0.12; s.hp -= dmg; drawBar(s); hitFreeze(0.05); sfx('bonk', { at: p });
   burst(p.x, p.y, p.z, 8, { color: 0xb8a890, size: 0.2, speed: 2.5, up: 1.5 });
   if (owner) award(owner, dmg >= 1 ? 25 : 12, p);
-  if (s.hp <= 0) { s.dead = true; if (owner) award(owner, 150, p);for(let i=0;i<2+(Math.random()*3|0);i++)spawnCoin(p.x+(Math.random()-.5)*.8,p.y,p.z+(Math.random()-.5)*.8,true);sfx('goal'); }
+  if (s.hp <= 0) { s.dead = true; if (owner) award(owner, 150, p);for(let i=0;i<2+(random()*3|0);i++)spawnCoin(p.x+(random()-.5)*.8,p.y,p.z+(random()-.5)*.8,true);sfx('goal'); }
 }
 // временное поле, если стадиона на карте нет: площадка-пол побольше и двое ворот-рамок
 function makePitch(s) {
@@ -311,6 +312,11 @@ function makePitch(s) {
 }
 
 export function updateEvents(dt, ui) {
+  if (W.net?.replica) {
+    const B = EV.big || EV.cur;
+    if (B) ui.tick(B.key, Math.ceil(EV.big ? B.left : EV.left), B.def.info ? B.def.info(B.s) : '');
+    return;
+  }
   EV.t += dt;
   // общее событие — один раз, около середины раунда
   if (!EV.big && !EV.bigDone && EV.t >= EV.bigAt && !EV.cur) startBig(ui);
@@ -318,20 +324,20 @@ export function updateEvents(dt, ui) {
     if (B.left <= 0 || r === 'end' || (!isMode('marathon') && EV.t >= PHASE.resume)) { stopBig(); ui.end();
       if (isMode('marathon') && EV.t < CONFIG.roundTime - 45) { EV.bigDone = false; EV.bigAt = EV.t + 12; } } return; }
   if (!EV.cur && EV.t >= EV.next && EV.t < (isMode('chaos') ? CONFIG.roundTime - 25 : 170)) {
-    const keys = Object.keys(EVENTS).filter(k => k !== EV.last), key = keys[(Math.random() * keys.length) | 0];
-    EV.cur = { key, def: EVENTS[key], s: {} }; EV.left = DUR; EV.last = key; EV.cur.def.start(EV.cur.s);
+    const keys = Object.keys(EVENTS).filter(k => k !== EV.last), key = keys[(random() * keys.length) | 0];
+    EV.cur = { key, def: EVENTS[key], s: {} }; EV.left = DUR; EV.last = key; startNetworkEvent(EV.cur);
     ui.start(key);
   }
   if (EV.cur) {
     EV.cur.def.update(EV.cur.s, dt); EV.left -= dt;
     ui.tick(EV.cur.key, Math.ceil(EV.left));
-    if (EV.left <= 0) { stopEvent(); EV.next = EV.t + (isMode('chaos') ? 15 + Math.random() * 8 : 40 + Math.random() * 20); ui.end(); if (!EV.bigDone && EV.bigAt < EV.t + 8) EV.bigAt = EV.t + 8; }
+    if (EV.left <= 0) { stopEvent(); EV.next = EV.t + (isMode('chaos') ? 15 + random() * 8 : 40 + random() * 20); ui.end(); if (!EV.bigDone && EV.bigAt < EV.t + 8) EV.bigAt = EV.t + 8; }
   }
 }
 function startBig(ui) {
-  const keys = Object.keys(BIG).filter(k => k !== EV.lastBig), key = globalThis.__forceBig || keys[(Math.random() * keys.length) | 0];
+  const keys = Object.keys(BIG).filter(k => k !== EV.lastBig), key = globalThis.__forceBig || keys[(random() * keys.length) | 0];
   const until = isMode('marathon') ? Math.min(45, CONFIG.roundTime - 15 - EV.t) : PHASE.resume - EV.t;
-  EV.big = { key, def: BIG[key], s: {}, left:key==='lava'?Math.min(24,Math.max(0,until)):Math.max(0,until) }; EV.bigDone = true; EV.lastBig = key; EV.big.def.start(EV.big.s);
+  EV.big = { key, def: BIG[key], s: {}, left:key==='lava'?Math.min(24,Math.max(0,until)):Math.max(0,until) }; EV.bigDone = true; EV.lastBig = key; startNetworkEvent(EV.big);
   W.eventBot = b => EV.big ? EV.big.def.bot(EV.big.s, b) : null;
   ui.start(key, true);
 }
@@ -339,3 +345,58 @@ function stopBig() { if (!EV.big) return; EV.big.def.stop(EV.big.s); EV.big = nu
 export const bigTarget = () => EV.big ? EV.big.def.target(EV.big.s) : null;
 export function stopEvent() { if (EV.cur) { EV.cur.def.stop(EV.cur.s); EV.cur = null; } stopBig(); }
 void alphaMat; void tmat; void isFree; void puff;
+
+// Создание события одинаково у всех; расчёт столкновений/победителей - только у хоста.
+function startNetworkEvent(event, recipe = null) {
+  event.net = recipe || { serial: ++EV.netSerial, seed: random() * 2 ** 32 >>> 0, origin: W.net?.keyOf(ctx.player()) || '' };
+  const run = () => withRandom(event.net.seed, () => event.def.start(event.s));
+  const old = ctx, origin = W.net?.actor?.(event.net.origin);
+  if (origin) ctx = { ...ctx, player: () => origin };
+  try { if (W.net) W.net.scope('ev' + event.net.serial, run); else run(); }
+  finally { ctx = old; }
+}
+function encodeEvent(value, seen = new Set(), depth = 0) {
+  if (value == null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : 0;
+  if (typeof value !== 'object' || depth > 4 || value.isObject3D || value.isMaterial || value.isTexture) return undefined;
+  if (value.netKey) return { actor: value.netKey };
+  if (value.netId) return { entity: value.netId };
+  if (value.isVector3) return { vector: value.toArray() };
+  if (seen.has(value)) return undefined; seen.add(value);
+  if (value instanceof Map) return { map: [...value].map(([k, v]) => [encodeEvent(k, seen, depth + 1), encodeEvent(v, seen, depth + 1)]) };
+  if (Array.isArray(value)) return value.slice(0, 128).map(v => encodeEvent(v, seen, depth + 1));
+  const out = {};
+  for (const [k, v] of Object.entries(value)) { const next = encodeEvent(v, seen, depth + 1); if (next !== undefined) out[k] = next; }
+  return out;
+}
+function decodeEvent(value, old) {
+  if (!value || typeof value !== 'object') return value;
+  if (value.actor) return W.net.actor(value.actor);
+  if (value.entity) return W.net.objects.get(value.entity)?.o;
+  if (value.vector) { const v = old?.isVector3 ? old : new V3(); return v.fromArray(value.vector); }
+  if (value.map) return new Map(value.map.map(([k, v]) => [decodeEvent(k), decodeEvent(v)]));
+  if (Array.isArray(value)) return value.map((v, i) => decodeEvent(v, old?.[i]));
+  const target = old && typeof old === 'object' ? old : {};
+  for (const [k, v] of Object.entries(value)) target[k] = decodeEvent(v, target[k]);
+  return target;
+}
+export function networkEventSnapshot() {
+  const pack = e => e ? { key: e.key, net: e.net, left: e.left, s: encodeEvent(e.s) } : null;
+  return { t: EV.t, left: EV.left, done: EV.bigDone, big: pack(EV.big), cur: pack(EV.cur) };
+}
+export function receiveNetworkEvents(data, ui) {
+  if (!data || !W.net?.replica) return;
+  EV.t = data.t; EV.left = data.left; EV.bigDone = data.done;
+  for (const [field, defs] of [['big', BIG], ['cur', EVENTS]]) {
+    const next = data[field], old = EV[field];
+    if (!next || old?.net?.serial !== next.net.serial || old?.key !== next.key) {
+      if (old) { old.def.stop(old.s); ui.end(); }
+      EV[field] = null;
+      if (next && defs[next.key]) {
+        EV[field] = { key: next.key, def: defs[next.key], s: {}, left: next.left };
+        startNetworkEvent(EV[field], next.net); ui.start(next.key, field === 'big');
+      }
+    }
+    if (EV[field] && next) { EV[field].left = next.left; decodeEvent(next.s, EV[field].s); }
+  }
+}

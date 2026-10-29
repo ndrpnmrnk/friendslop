@@ -1,3 +1,4 @@
+import { random } from '../core/random.js';
 import { THREE, G, col, tmat, glow, own, lam, flat } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { HW } from '../config.js';
@@ -25,7 +26,7 @@ export const TowerMethods = {
     const hsteps = Math.max(2, Math.round(fh / 2 / 0.28)), rise = fh / 2 / hsteps, Lh = hsteps * run;
     const ix0 = x + t, iz0 = z + t, ix1 = x + w - t, iz1 = z + d - t;
     const sx0 = o.stairX ?? ix0, sz0 = iz0, f0 = sx0 + EL, f1 = f0 + Lh, sx1 = hasStairs ? f1 + ML : sx0, sz1 = hasStairs ? sz0 + lane * 2 : sz0;
-    const dw = o.doorW ?? 2.0, dh = 2.35, plain = col(base), inner = o.inner || T.wallIn([0xc8b8d8, 0xd8c8a8, 0xa8c0d0, 0xd0b0b0, 0xb8d0b0][(Math.random() * 5) | 0], Math.random() < 0.5 ? 'wallpaper_g' : 'wallpaper2_g');
+    const dw = o.doorW ?? 2.0, dh = 2.35, plain = col(base), inner = o.inner || T.wallIn([0xc8b8d8, 0xd8c8a8, 0xa8c0d0, 0xd0b0b0, 0xb8d0b0][(random() * 5) | 0], random() < 0.5 ? 'wallpaper_g' : 'wallpaper2_g');
     const doors = o.doors || (o.door ? [o.door] : []);
     // пожарная лестница (только на боковых стенах e/w): площадки на каждом этаже «ёлочкой», марши между ними,
     // снизу — красная откидная секция, сверху — лестница на крышу
@@ -101,7 +102,7 @@ export const TowerMethods = {
         this.vitrine(cx, cz, WW, WH, ax ? 'x' : 'z', h.y0);
         this.m(G.box, sill, cx + nrm[0] * 0.12, h.y0 - 0.04, cz + nrm[1] * 0.12, ax ? WW + 0.2 : 0.22, 0.08, ax ? 0.22 : WW + 0.2);
         this.m(G.box, frame, cx, h.y1 - 0.03, cz, ax ? WW : 0.08, 0.06, ax ? 0.08 : WW);
-        const litW = Math.random() < lit * 0.6;
+        const litW = random() < lit * 0.6;
         if (litW) for (const s2 of [-1, 1]) {
           const ox = ax ? s2 * (WW / 2 - 0.16) : 0, oz = ax ? 0 : s2 * (WW / 2 - 0.16);
           this.m(G.box, curtain, cx + ox - nrm[0] * 0.2, cy, cz + oz - nrm[1] * 0.2, ax ? 0.3 : 0.03, WH, ax ? 0.03 : 0.3);
@@ -110,7 +111,7 @@ export const TowerMethods = {
         if (litW && h.f === 0 && o.windowPools !== false) this.light(cx + nrm[0] * 1.1, cz + nrm[1] * 1.1, 1.1, 0, true);
         // снаружи: редкий балкон; оборудование перенесено на крышу (на него можно выпрыгнуть)
         if (h.f >= 1 && o.facadeProps !== false) {
-          const r = Math.random();
+          const r = random();
           if (k === 's' && r < 0.14 && !(o.ladder && o.ladder.side === 's')) {
             const by = h.f * fh, bm = col(0x3a3046);
             this.box(cx + nrm[0] * 0.55, cz + nrm[1] * 0.55, ax ? WW + 0.5 : 0.9, ax ? 0.9 : WW + 0.5, 0.1, tmat(T.concrete()), { y: by - 0.1 });
@@ -132,7 +133,7 @@ export const TowerMethods = {
           this.m(G.box, col(0x2b2533), cx + nrm[0] * 0.78, dh + 0.36, cz + nrm[1] * 0.78, ax ? dw + 1 : 1.3, 0.12, ax ? 1.3 : dw + 1);
           this.m(G.box, glow(0xffd8a0), cx + nrm[0] * 0.78, dh + 0.27, cz + nrm[1] * 0.78, 0.3, 0.05, 0.3); this.light(cx + nrm[0] * 1.2, cz + nrm[1] * 1.2, 1.6);
         }
-        if (HW && o.canopy !== false) { for (const s3 of [-1, 1]) if (Math.random() < 0.7) { const px = cx + nrm[0] * 0.7 + (ax ? s3 * (dw / 2 + 0.45) : 0), pz = cz + nrm[1] * 0.7 + (ax ? 0 : s3 * (dw / 2 + 0.45)); this.pumpkin(px, pz, 0.32); } }
+        if (HW && o.canopy !== false) { for (const s3 of [-1, 1]) if (random() < 0.7) { const px = cx + nrm[0] * 0.7 + (ax ? s3 * (dw / 2 + 0.45) : 0), pz = cz + nrm[1] * 0.7 + (ax ? 0 : s3 * (dw / 2 + 0.45)); this.pumpkin(px, pz, 0.32); } }
         if (dr.sign) this.sign(cx + nrm[0] * (t / 2 + 0.03), dh + 0.78, cz + nrm[1] * (t / 2 + 0.03), { s: 0, n: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 }[k], ...dr.sign, Math.max(2.4, Math.min(dw + 1.2, dr.sign[0].length * 0.24)), 0.55);
       }
     }
@@ -171,7 +172,7 @@ export const TowerMethods = {
     if (o.roof !== false && o.facadeProps !== false && n >= 1) {
       this.aircon(x + w - 1.5, z + d - 1.4, H);
       this.m(G.cyl5, col(0x2b2533), x + 1.0, H + 1.2, z + d - 1.0, 0.03, 2.4, 0.03); for (const yy of [1.6, 2.1]) this.m(G.box, col(0x2b2533), x + 1.0, H + yy, z + d - 1.0, 0.7, 0.03, 0.03);
-      if (Math.random() < 0.5) { const dsh = this.m(G.sph, col(0xd8d8e0), x + 1.0, H + 0.5, z + d - 1.6, 0.35, 0.35, 0.12); dsh.rotation.x = 0.5; }
+      if (random() < 0.5) { const dsh = this.m(G.sph, col(0xd8d8e0), x + 1.0, H + 0.5, z + d - 1.6, 0.35, 0.35, 0.12); dsh.rotation.x = 0.5; }
     }
     // перекрытия с проёмом над пролётом, который пришёл снизу
     const floorTex = o.floor || T.floorWood(), ceil = tmat(T.plaster());
@@ -250,7 +251,7 @@ export const TowerMethods = {
       this.m(G.box, dk, x + w / 2, sy, z + d + 0.08, sw + 0.16, 0.86, 0.14); for (const s2 of [-1, 1]) this.m(G.box, dk, x + w / 2 + s2 * sw * 0.4, sy + 0.5, z + d + 0.05, 0.05, 0.16, 0.1);
       const sm = this.sign(x + w / 2, sy, z + d + 0.162, 0, ...o.sign, sw, 0.7); sm.material = new THREE.MeshBasicMaterial({ map: sm.material.map, color: 0xb8b0c8 });
       this.m(G.box, glow(0xffe0b0), x + w / 2, sy - 0.47, z + d + 0.12, sw, 0.03, 0.03); this.light(x + w / 2, z + d + 0.9, 1.4, 0, true);
-      if (Math.random() < 0.4) W.flick.push({ mats: [sm.material], sign: true, t: Math.random() * 4, on: true }); }
+      if (random() < 0.4) W.flick.push({ mats: [sm.material], sign: true, t: random() * 4, on: true }); }
     // Настоящие полки и предметы перед фасадом вместо наложенных 2D картинок.
     if(o.sign){const door=(o.doors||(o.door?[o.door]:[])).find(q=>q.side==='s'),dx=door?x+door.at*w:x+w/2,side=dx-x>w/2?1:-1,vx=side>0?x+w*.23:x+w*.77;
       this.shelf(vx,z+d+.42,Math.min(2.4,w*.32),0,true);
@@ -289,7 +290,7 @@ export const TowerMethods = {
     }
   },
   sofa(x, z, ry = 0, c = 0x6a3a5a) {
-    const cl = T.cloth(c, Math.random() < 0.5 ? 'velvet_g' : 'leather_g'), g = this.prop(x, z, ry), m = cl ? tmat(cl) : col(c), m2 = cl ? tmat(T.cloth(c - 0x101010 > 0 ? c - 0x101010 : c, 'fabric_g')) : col(c - 0x101010 > 0 ? c - 0x101010 : c);
+    const cl = T.cloth(c, random() < 0.5 ? 'velvet_g' : 'leather_g'), g = this.prop(x, z, ry), m = cl ? tmat(cl) : col(c), m2 = cl ? tmat(T.cloth(c - 0x101010 > 0 ? c - 0x101010 : c, 'fabric_g')) : col(c - 0x101010 > 0 ? c - 0x101010 : c);
     const a = (px, py, pz, sx, sy, sz, mm = m) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
     a(0, 0.22, 0.05, 1.9, 0.3, 0.8, m2); for (const xx of [-0.45, 0.45]) a(xx, 0.42, 0.08, 0.88, 0.14, 0.7); a(0, 0.65, -0.3, 1.9, 0.6, 0.22);
     for (const s of [-1, 1]) a(s * 0.92, 0.5, 0.05, 0.16, 0.42, 0.8, m2);
@@ -323,10 +324,10 @@ export const TowerMethods = {
     const g = this.prop(x, z, ry), wd = tmat(T.wood()), dk = col(0x2b2533);
     const a = (px, py, pz, sx, sy, sz, mm) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
     a(0, 0.74, 0, 1.4, 0.05, 0.7, wd); for (const xx of [-0.66, 0.66]) a(xx, 0.37, 0, 0.05, 0.74, 0.66, dk); a(0.45, 0.45, 0, 0.42, 0.5, 0.6, tmat(T.cabinet(0x6a6d78)));
-    if (pc && Math.random() < 0.35) this.phoneSpot(x, z, [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))]);
+    if (pc && random() < 0.35) this.phoneSpot(x, z, [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))]);
     const deskSurface=this.surface(x,z,1.4,.7,.765,ry,'desk');g.surface=deskSurface;
     // компьютер, клавиатура и мелочь на столе — настоящие предметы: взять, бросить, разбить (v0.19)
-    if(pc){deskSurface.put('monitor',-.1,-.15);if(Math.random()<.5)deskSurface.put('keyboard',-.1,.18);if(Math.random()<.5){const v=g.localToWorld(new THREE.Vector3(-.90,0,.05));addItem('pc',v.x,v.y,v.z,ry);}if(Math.random()<.45)deskSurface.put(['mug','dlamp','books','pot'][Math.random()*4|0],.5,-.12);}
+    if(pc){deskSurface.put('monitor',-.1,-.15);if(random()<.5)deskSurface.put('keyboard',-.1,.18);if(random()<.5){const v=g.localToWorld(new THREE.Vector3(-.90,0,.05));addItem('pc',v.x,v.y,v.z,ry);}if(random()<.45)deskSurface.put(['mug','dlamp','books','pot'][random()*4|0],.5,-.12);}
 
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.7 : 1.4, q ? 1.4 : 0.7, 0, 0.765);return g;
   },
@@ -336,7 +337,7 @@ export const TowerMethods = {
   // бутылки на столе/стойке — бьются
   bottles(x, y, z, n = 3) {
     const cols = [0x2a7a3a, 0x6a3a1a, 0x3a6a9a];
-    for (let i = 0; i < n; i++) { const p = breakBox(this.X(x + (i - (n - 1) / 2) * 0.14), this.Y + y, this.Z(z + (Math.random() - 0.5) * 0.1), 0.07, 0.28, 0.07, 'bottle', bottleMat(cols[i % 3])); p.mesh.geometry = G.cyl8; p.mesh.scale.x = p.mesh.scale.z = 0.035; }
+    for (let i = 0; i < n; i++) { const p = breakBox(this.X(x + (i - (n - 1) / 2) * 0.14), this.Y + y, this.Z(z + (random() - 0.5) * 0.1), 0.07, 0.28, 0.07, 'bottle', bottleMat(cols[i % 3])); p.mesh.geometry = G.cyl8; p.mesh.scale.x = p.mesh.scale.z = 0.035; }
   },
   // сейф (для миссии «Взломай сейф»): тяжёлый ящик с диском, ry — куда смотрит дверца
   safe(x, z, ry = 0) {

@@ -1,3 +1,5 @@
+import { random } from '../core/random.js';
+import { withRandom } from '../core/random.js';
 import { addItem } from '../game/items.js';
 import { THREE, G, mesh, tmat, flat, paint, setParent, col, lam } from '../core/gfx.js';
 import { T, rep } from '../core/textures.js';
@@ -73,13 +75,12 @@ export function generateMap(scene, s) {
     W.districts.push({ id: d.id, name: d.name, ox, oz, x1: ox + chunk, z1: oz + chunk, ground: d.ground });
     // v0.61: сетевой матч — перед каждым районом свой поток случайных чисел от зерна карты, чтобы «ленивые» кэши
     // (материалы и т. п., создаваемые при первом использовании) не сдвигали случайность у разных игроков
-    if (globalThis.__netSeeded) Math.random = mulberry32((s ^ (gx * 7919 + gz * 104729)) >>> 0);
-    d.build(new Builder(ox + inset, oz + inset, base, d.name));
+    withRandom((s ^ (gx * 7919 + gz * 104729)) >>> 0, () => d.build(new Builder(ox + inset, oz + inset, base, d.name)));
     if (inset) boulevard(new Builder(ox, oz, base, d.name), chunk, inset);
     // уличный мусор (v0.21): несколько штук по тротуарам у краёв района — можно поднять и бросить
-    for (let i = 0, n = 0; i < 40 && n < 5; i++) { const e = Math.random() * 4 | 0, t = 1 + Math.random() * (chunk - 2), w0 = 0.4 + Math.random() * 1.2;
+    for (let i = 0, n = 0; i < 40 && n < 5; i++) { const e = random() * 4 | 0, t = 1 + random() * (chunk - 2), w0 = 0.4 + random() * 1.2;
       const x = e === 0 ? ox + t : e === 1 ? ox + t : e === 2 ? ox + w0 : ox + chunk - w0, z = e === 0 ? oz + w0 : e === 1 ? oz + chunk - w0 : oz + t;
-      if (!isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, base + 0.02, base + 1)) continue; addItem('litter', x, base + 0.1, z, Math.random() * 6); n++; }
+      if (!isFree(x - 0.3, z - 0.3, x + 0.3, z + 0.3, base + 0.02, base + 1)) continue; addItem('litter', x, base + 0.1, z, random() * 6); n++; }
   }
   buildRoadsAndTunnels(half);
   streetFurniture(half);
@@ -124,7 +125,7 @@ function streetFurniture(half) {
   // провода через дороги: столбы у середины сторон районов, по одному пролёту на несколько улиц
   let n = 0;
   for (let i = 1; i < grid && n < 6; i++) for (let j = 0; j < grid && n < 6; j++) {
-    if (Math.random() < 0.4) continue;
+    if (random() < 0.4) continue;
     const x = c(i), z = (c(j) + c(j + 1)) / 2 + 5;
     const a = [x - road / 2 - 0.5, z], bq = [x + road / 2 + 0.5, z];
     if (![a, bq].every(([px, pz]) => isFree(px - 0.3, pz - 0.3, px + 0.3, pz + 0.3, base + 0.1, base + 6))) continue;
