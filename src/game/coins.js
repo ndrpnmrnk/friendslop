@@ -81,7 +81,10 @@ export function nearFist(P){
  if(!P||P.drone||P.returning||P.hidden||P.stun>0||P.getT>0)return null;
  let best=null,bd=1.8;
  for(const c of current().coins){
-  if(c.gone||c.take||c.requested)continue;
+  if(c.gone||c.take)continue;
+  // A denied or delayed pickup request can be attempted again after a short cooldown.
+  if(c.requested&&performance.now()-(c.requestedAt||0)<1100)continue;
+  c.requested=false;
   const d=Math.hypot(P.pos.x-c.pos.x,P.pos.z-c.pos.z);
   if(d>=bd||c.pos.y<P.pos.y-.3||c.pos.y>P.pos.y+1.7)continue;
   const eye=P.pos.clone().add(new V3(0,.7,0));ray.copy(c.pos).y+=.2;ray.sub(eye);const len=ray.length();
@@ -94,7 +97,7 @@ export function grabFist(P){
  const c=nearFist(P);if(!c)return false;
  if(W.net){
   if(!W.coinClaim?.(c.id,P))return false;
-  if(W.net.replica)c.requested=true;
+  if(W.net.replica){c.requested=true;c.requestedAt=performance.now();}
   return true;
  }
  if(!addCoins(1))return false;
