@@ -15,6 +15,7 @@ import { createWorldSync } from './world-sync.js';
 import { attachMissionSync } from './mission-sync.js';
 import { networkEventSnapshot, receiveNetworkEvents } from '../game/events.js';
 import { vector, finite, sweepPosition, SNAPSHOT_INTERVAL, KEYFRAME_INTERVAL, MOTION_INTERVAL, MOTION_DELAY, nextSendAt } from './state-codec.js';
+import { motionIntervalFor, worldIntervalFor } from './cadence.js';
 
 export const MATCH = { on: false, host: false, seed: 0, roster: null, scene: null, world: null, missions: null,
   sendT: 0, worldT: 0, fullT: 0, ready: new Set(), members:new Set(), paused: false, final: null, seq: 0, lastHost: 0 };
@@ -122,7 +123,8 @@ export function netMatchTick(dt, P) {
   if (MATCH.host) P.score = callbacks.score?.() || 0;
   if(callbacks.state?.()==='play')separateActors();if(MATCH.host&&!netPaused())for(const b of W.bots)if(b.human&&!b.drone&&!b.returning&&!b.ride&&!b.grab)bumpPushables(b,dt);
   const now=motionNow();if (now < MATCH.sendT) return;
-  MATCH.sendT = nextSendAt(MATCH.sendT,now,netPaused() ? .5 : MOTION_INTERVAL); hook(P.ch);
+  const interval=netPaused()?.5:motionIntervalFor(NET.players.size,NET.ws?.bufferedAmount||0);
+   MATCH.sendT = nextSendAt(MATCH.sendT,now,interval);NET.sendRateHz=Math.round(1/interval);hook(P.ch);
   if(MATCH.host&&!netWaiting()&&!MATCH.startAt)MATCH.startAt=serverNow()+300;
   const n = ++MATCH.seq;
   const m = { t: 'st', m: 'match', protocol: 2, ep: MATCH.seed, n, x: +P.pos.x.toFixed(3), y: +P.pos.y.toFixed(3), z: +P.pos.z.toFixed(3),
@@ -130,11 +132,11 @@ export function netMatchTick(dt, P) {
   if (MATCH.host) {
     m.h = [P, ...W.bots].map(actorPacket);m.fix=[...corrections.values()];const pm=MATCH.world.motionEntries();if(pm.length)m.pm=pm;
     if (MATCH.worldT <= 0 && callbacks.state?.() !== 'results' && callbacks.state?.() !== 'finale') {
-      MATCH.worldT = SNAPSHOT_INTERVAL; const full = MATCH.fullT <= 0; if (full) MATCH.fullT = KEYFRAME_INTERVAL;
+      MATCH.worldT = worldIntervalFor(NET.players.size); const full = MATCH.fullT <= 0; if (full) MATCH.fullT = KEYFRAME_INTERVAL;
       m.w = { d: MATCH.world.capture(full), missions: MATCH.missions.snapshot(), events: networkEventSnapshot(),
         clock, startAt:MATCH.startAt, time: callbacks.time?.(), state: callbacks.state?.(), ruined:MATCH.world.destructionState?.(),candies:callbacks.candyState?.(), paused: MATCH.paused || netWaiting(), ready:[...MATCH.ready], roster: MATCH.roster };
     }
-  } else if (MATCH.worldT <= 0 && callbacks.state?.() === 'play') { MATCH.worldT = SNAPSHOT_INTERVAL; m.c = MATCH.world.proposals(); }
+  } else if (MATCH.worldT <= 0 && callbacks.state?.() === 'play') { MATCH.worldT = worldIntervalFor(NET.players.size); m.c = MATCH.world.proposals(); }
   if (!MATCH.host && commands.length) m.cmds = commands.slice();
   if (send(m) !== false) { if(m.cmds)commands.splice(0,m.cmds.length);if(MATCH.host)corrections.clear(); pendingPositions.set(n, [m.x, m.y, m.z]); if (pendingPositions.size > 40) pendingPositions.delete(pendingPositions.keys().next().value); }
   else {retrySounds(m.fx);if(MATCH.host){MATCH.fullT=0;MATCH.world.retryMotion();}else MATCH.world.retryProposals();}
