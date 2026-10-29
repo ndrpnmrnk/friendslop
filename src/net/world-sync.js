@@ -103,7 +103,15 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
   }
   function applyOne(key, v, proposal = false) {
     let entry = objects.get(key), type = key[0], o = entry?.o;
-    if (!v) { if (o?.g) o.g.visible = false; if (o?.isObject3D) o.visible = false; if (o?.on !== undefined) o.on = false; objects.delete(key);movers.delete(key);motionView.delete(o);return; }
+    if (!v) {
+      if(o?.rider?.ride===o)o.rider.ride=null;
+      if(o?.grabbed?.grab===o)o.grabbed.grab=null;
+      if(o){o.rider=null;o.grabbed=null;}
+      if(o?.g)o.g.visible=false;
+      if(o?.isObject3D)o.visible=false;
+      if(o?.on!==undefined)o.on=false;
+      objects.delete(key);movers.delete(key);motionView.delete(o);return;
+    }
     if (!Array.isArray(v) || !['i', 'p', 's', 'o', 'd', 'b', 'v', 'c', 'n','a','t'].includes(type)) return;
     // Созданные не миссиями предметы (дождь, подарок, выпадение из шкафа).
     if (!o && type === 'i') { if (!vector(v.slice(2, 5))) return; o = addItem(v[0], v[2], v[3], v[4]); }
