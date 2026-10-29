@@ -23,3 +23,16 @@ export function beginClaw(){if(!data||data.pending||data.coins<50||ids.every(own
 export function reserveClaw(id){if(!data?.pending||!ids.includes(id)||owns(id))return false;return commit({...data,pending:{reward:id}});}
 export function finishClaw(){if(!data?.pending?.reward)return null;const id=data.pending.reward;if(!commit({...data,unlocked:[...new Set([...data.unlocked,id])],selected:id,pending:null}))return null;try{localStorage.setItem('friendslop.skin',id);}catch{}return id;}
 export function refundClaw(){if(!data?.pending||data.pending.reward)return false;return commit({...data,coins:data.coins+50,pending:null});}
+
+// A network FIST grant must be idempotent across packet retries and page reloads.
+// Local balances remain personal; the host only approves the world pickup.
+export function claimFistReward(session,id){
+ if(!data||typeof session!=='string'||session.length<2||session.length>70||!Number.isSafeInteger(id)||id<1||id>=1000000)return 'failed';
+ const ledger=data.fistClaims||{},previous=ledger[session]||[];
+ if(previous.includes(id))return 'duplicate';
+ if(data.coins>=Number.MAX_SAFE_INTEGER)return 'failed';
+ const next={...ledger,[session]:[...previous,id]};
+ // Only current sessions can still retry grants; bound profile growth.
+ const keys=Object.keys(next);for(const key of keys.slice(0,Math.max(0,keys.length-128)))delete next[key];
+ return commit({...data,coins:data.coins+1,fistClaims:next})?'new':'failed';
+}
