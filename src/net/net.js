@@ -1,4 +1,5 @@
 import { random } from '../core/random.js';
+import { smoothClockOffset } from './cadence.js';
 /* Сеть Friendslop: подключение к серверу комнат (worker/), список игроков, отправка/приём сообщений.
    Сервер только пересылает — кто что делает, решают клиенты (в хабе каждый отвечает за себя).
    Адрес сервера: NET_URL ниже; для проверок можно подменить ?server=ws://127.0.0.1:8787 (запоминается в браузере). */
@@ -16,8 +17,8 @@ const listeners = {};
 export const onNet = (ev, fn) => { (listeners[ev] ??= []).push(fn); };
 const emit = (ev, ...a) => { for (const f of listeners[ev] || []) try { f(...a); } catch (e) { console.error(e); } };
 
-export const NET = { ws: null, state: 'off', code: '', id: 0, host: false, players: new Map(), rtt: 0, offset:0, skin: 'cat', error: '',botsEnabled:true };
-let pingT = null, retryTimer = null, retry = 0, wantClose = false, lastCreate = false;
+export const NET = { ws: null, state: 'off', code: '', id: 0, host: false, players: new Map(), rtt: 0, offset:0, skin: 'cat', error: '',botsEnabled:true,sendRateHz:20 };
+let pingT = null, retryTimer = null, retry = 0, wantClose = false, lastCreate = false, clockSynced = false;
 export const hubHostId=()=>[...NET.players.values()].filter(p=>p.scene!=='match').sort((a,b)=>Number(b.host)-Number(a.host)||a.id-b.id)[0]?.id;
 export const serverNow=()=>Date.now()+NET.offset;
 export const inRoom = () => NET.state === 'on';
@@ -26,7 +27,7 @@ export const others = () => [...NET.players.values()].filter(p => p.id !== NET.i
 
 const traffic={at:performance.now(),tx:0,rx:0,txBytes:0,rxBytes:0,sendHz:0,receiveHz:0,outKB:0,inKB:0,receiveMs:0,dropped:0};
 function countTraffic(direction,bytes){traffic[direction]++;traffic[direction+'Bytes']+=bytes;const now=performance.now(),dt=(now-traffic.at)/1000;if(dt>=1){traffic.sendHz=traffic.tx/dt;traffic.receiveHz=traffic.rx/dt;traffic.outKB=traffic.txBytes/dt/1024;traffic.inKB=traffic.rxBytes/dt/1024;traffic.tx=traffic.rx=traffic.txBytes=traffic.rxBytes=0;traffic.at=now;}}
-export const netStats=()=>({rtt:NET.rtt,queue:NET.ws?.bufferedAmount||0,...traffic});
+export const netStats=()=>({rtt:NET.rtt,queue:NET.ws?.bufferedAmount||0,players:NET.players.size,targetHz:NET.sendRateHz,...traffic});
 export function send(m) {
   if(!NET.ws||NET.ws.readyState!==1)return false;
   // Не ставим новые устаревающие состояния в длинную TCP-очередь. Команды/звук повторяет вызывающий код.
@@ -48,7 +49,7 @@ function open(code, create) {
     if (NET.state !== 'off') leaveLocal(); };
 }
 function fail(msg) { NET.error = msg; emit('toast', msg); leaveLocal(); }
-function leaveLocal() { clearTimeout(retryTimer); clearInterval(pingT); NET.state = 'off'; NET.id = 0; NET.host = false; const was = [...NET.players.keys()]; NET.players.clear(); for (const id of was) emit('leave', id); emit('state'); setInviteUrl(''); }
+function leaveLocal() { clearTimeout(retryTimer); clearInterval(pingT); NET.state = 'off'; NET.id = 0; NET.host = false; const was = [...NET.players.keys()]; NET.players.clear(); clockSynced=false; for (const id of was) emit('leave', id); emit('state'); setInviteUrl(''); }
 function setInviteUrl(code) { try { const u = new URL(location.href); if (code) u.searchParams.set('room', code); else u.searchParams.delete('room'); history.replaceState(null, '', u); } catch { } }
 
 function handle(m) {
@@ -64,7 +65,7 @@ function handle(m) {
     case 'upd': { const p = NET.players.get(m.p.id); NET.players.set(m.p.id, { ...p, ...m.p }); if (m.p.id === NET.id) NET.host = m.p.host; emit('state'); break; }
     case 'st': emit('st', m); break;
     case 'ev': emit('ev', m); break;
-    case 'P': NET.rtt = Math.round(performance.now() - m.c);if(Number.isFinite(m.s))NET.offset=m.s+NET.rtt/2-Date.now(); { const p = me(); if (p) p.rtt = NET.rtt; } emit('ping'); break;
+    case 'P': NET.rtt = Math.round(performance.now() - m.c);if(Number.isFinite(m.s)){NET.offset=smoothClockOffset(NET.offset,m.s+NET.rtt/2-Date.now(),!clockSynced);clockSynced=true;} { const p = me(); if (p) p.rtt = NET.rtt; } emit('ping'); break;
     case 'kicked': wantClose = true; emit('toast', 'Хост выгнал тебя из лобби'); leaveLocal(); break;
     case 'hostwait': emit('toast', 'Хост отключился — ждём его…'); break;
     case 'hostback': emit('toast', 'Хост вернулся'); break;
