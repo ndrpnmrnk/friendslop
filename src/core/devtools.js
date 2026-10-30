@@ -1,3 +1,5 @@
+import {telemetry} from '../net/telemetry.js';
+import {NET} from '../net/net.js';
 /* v0.57 — инструменты для тестов автора.
    F3 — счётчик производительности: FPS, 1% low (худший 1% кадров), время кадра по системам, вызовы отрисовки.
    F8 — отчёт о баге: скриншот + место на карте, район, версия, состояние, FPS — одной картинкой (PNG скачивается,
@@ -13,6 +15,7 @@ export const prof = {
   frameEnd(dt, renderer) {
     if (!P.t0) return; if (renderer) { renderer.info.autoReset = false; const ri0 = renderer.info.render; P.calls = (P.calls || 0) + ri0.calls; P.tris = (P.tris || 0) + ri0.triangles; renderer.info.reset(); } const total = now() - P.t0; P.t0 = 0;
     P.frames.push(P.interval); if (P.frames.length > 600) P.frames.shift();
+     telemetry.frame(P.interval,!document.hidden);telemetry.assess(now(),NET.state==='on',!document.hidden);
     for (const k in P.cur) P.sum[k] = (P.sum[k] || 0) + P.cur[k]; P.sum.__cpu = (P.sum.__cpu || 0) + total; P.n++;
     P.acc += P.interval/1000;if(P.acc<.5)return;
     if(!P.on){P.acc=0;P.sum={};P.n=P.calls=P.tris=0;return;}
