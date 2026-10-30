@@ -24,7 +24,7 @@ function buildBowl(b){
  }
  for(let i=0;i<k+1;i++)for(let j=0;j<n;j++){
   const a=i*n+j,bb=i*n+(j+1)%n,c=(i+1)*n+j,d=(i+1)*n+(j+1)%n;
-  indexes.push(a,c,bb,bb,c,d);
+  indexes.push(a,bb,c,bb,d,c);
  }
  const geo=new THREE.BufferGeometry();
  geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
@@ -75,10 +75,14 @@ function rental(b){
  b.box(x,z-d/2+.10,w,.20,h,brick);
  for(const side of[-1,1]){
   const sx=x+side*(w/2-.10);
-  b.box(sx,z,.20,d,h,brick);
-  // Side windows do not erase the structural wall; visual panes are inset.
-  b.m(G.box,glass,sx-side*.115,1.83,z, .025,1.38,2.55);
-  b.m(G.box,frame,sx-side*.125,1.83,z,.04,1.45,.07);
+  // Real side glass: brick below/above the windows, structural end posts,
+  // clear panes and an actual window collision volume, not fake glass on brick.
+  b.box(sx,z,.20,d,.60,brick);
+  b.box(sx,z,.20,d,.30,brick,{y:h-.30});
+  for(const end of [-1,1])b.box(sx,z+end*(d/2-.39),.20,.80,h,brick);
+  b.m(G.box,glass,sx-side*.115,1.78,z,.035,1.95,d-1.65);
+  b.solid(sx,z,.07,d-1.65,.60,1.95);
+  b.m(G.box,frame,sx-side*.14,1.78,z,.055,2.0,.06);
  }
  // Front is two fixed glazed wall portions and a 2.15 metre clear doorway.
  const front=z+d/2-.1,sideWidth=(w-entryWidth)/2;
