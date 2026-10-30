@@ -145,10 +145,14 @@ export function netMatchTick(dt, P) {
   const m = { t: 'st', m: 'match', protocol: 2, ep: MATCH.seed, n, x: +P.pos.x.toFixed(3), y: +P.pos.y.toFixed(3), z: +P.pos.z.toFixed(3),
     fx:takeSounds(), r: +P.root.rotation.y.toFixed(3), s: pose(P.ch._netS), rtt: NET.rtt, dr:callbacks.droneState?.(P), v: P.hidden || P.drone || P.returning&&P.returning.t<1.25 ? 0 : 1 };
   if (MATCH.host) {
-    m.h = [P, ...W.bots].map(actorPacket);m.fix=[...corrections.values()];const pm=MATCH.world.motionEntries();if(pm.length)m.pm=pm;
+    // One broadcast state is received by every guest. Use ALL active human
+    // player positions for the shared priority set; not only the host.
+    const interest={viewers:[P,...W.bots.filter(b=>b.human&&!b.returning)],
+      queued:NET.ws?.bufferedAmount||0,now:performance.now()};
+    m.h = [P, ...W.bots].map(actorPacket);m.fix=[...corrections.values()];const pm=MATCH.world.motionEntries(interest);if(pm.length)m.pm=pm;
     if (MATCH.worldT <= 0 && callbacks.state?.() !== 'results' && callbacks.state?.() !== 'finale') {
       MATCH.worldT = worldIntervalFor(NET.players.size); const full = MATCH.fullT <= 0; if (full) MATCH.fullT = KEYFRAME_INTERVAL;
-      m.w = { d: MATCH.world.capture(full), missions: MATCH.missions.snapshot(), events: networkEventSnapshot(),
+      m.w = { d: MATCH.world.capture(full,interest), missions: MATCH.missions.snapshot(), events: networkEventSnapshot(),
         clock, startAt:MATCH.startAt, time: callbacks.time?.(), state: callbacks.state?.(), ruined:MATCH.world.destructionState?.(),candies:callbacks.candyState?.(),coins:coinSnapshot(), paused: MATCH.paused || netWaiting(), ready:[...MATCH.ready], roster: MATCH.roster };
     }
   } else if (MATCH.worldT <= 0 && callbacks.state?.() === 'play') { MATCH.worldT = worldIntervalFor(NET.players.size); m.c = MATCH.world.proposals(); }
