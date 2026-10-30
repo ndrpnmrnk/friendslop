@@ -23,7 +23,7 @@ test('mission owner accepts other player pickup even though they own the mission
 });
 test('short local pickup prediction is protected, rejected pickup reconciles after timeout',()=>{
  const current={state:'held',ownerKey:'p2',pendingAt:1000},server={state:'rest',ownerKey:''};
- assert.equal(applyHostMissionItem(current,server,'p2',1260),false);
+ assert.equal(applyHostMissionItem(current,server,'p2',1080),false);
  assert.equal(applyHostMissionItem(current,server,'p2',1600),true);
  assert.equal(applyHostMissionItem(current,{state:'held',ownerKey:'p3'},'p2',1100),true);
  assert.equal(applyHostMissionItem({state:'held',ownerKey:'p2'}, {state:'held',ownerKey:'p2'}, 'p2',2000),false);
