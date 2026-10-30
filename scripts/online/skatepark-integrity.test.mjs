@@ -12,7 +12,7 @@ test('deep bowl is ONE continuous rendered height field, same as physical ground
  assert(scene.includes('if(j===rings)continue'),'rim normals must not be averaged with street deck');
  assert(scene.includes('geo.computeVertexNormals()'));
  assert(scene.includes('holes:[[L.bowl.x-L.bowl.patchHalf'));
- assert(scene.includes('j===rings+1?patchHalf/Math.max'));
+ assert(scene.includes('j===rings+2?patchHalf/Math.max'),'square patch must use the outermost deck ring');
  assert(!scene.includes('b.ground(1.6,1.6,42.4,42.4,T.concrete(),4)'));
  assert(read('src/world/world.js').includes('for (const h of holes) W.holes.push'));
  assert(scene.includes('W.skateBowl={...L.bowl'));
