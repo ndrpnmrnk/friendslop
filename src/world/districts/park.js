@@ -4,6 +4,7 @@ import { T } from '../../core/textures.js';
 import { W } from '../state.js';
 import { sfx } from '../../core/sfx.js';
 import { knockDown } from '../../game/actors.js';
+import { duckRamEvents } from '../duck-ram.js';
 
 /* Парк (v0.60, 44×44 по схеме): извилистая аллея с севера на юг, большой пруд с островком и беседкой.
    Фишка — ЛОДКИ-УТОЧКИ: запрыгни в уточку (E) и катайся по пруду; разогнался и врезался в чужую лодку — её седок
@@ -39,14 +40,33 @@ export default {
     b.sign(20.95, 1.75, 21.2, -Math.PI / 2, 'УТОЧКИ', '#f5c542', '#2a1f3d', 1.5, .45); b.m(G.box, col(0x2b2533), 21.05, .8, 21.2, .08, 1.6, .08); b.solid(21.05, 21.2, .15, .15, 0, 1.6);
     // лодки-уточки
     const ducks = [[PX - 4.6, 21], [PX - 3.2, 28.6], [PX + 3.6, 20.4], [PX + 4.6, 28.2]].map(([x, z], i) => b.ride('duck', x, z, i * 1.7, .02));
-    // таран: разогнанная уточка врезалась в другую — седок той летит в воду
-    { let quack = 0; W.animated.push(dt => { quack -= dt;
-      for (const a of ducks) { const va = Math.hypot(a.vx || 0, a.vz || 0); if (va > 6.5 && a.rider && quack <= 0 && random() < dt * 2) { quack = 1.2; sfx('squeak', { at: { x: a.x, y: a.y, z: a.z }, v: .6 }); }
-        for (const c of ducks) { if (c === a) continue; const dx = c.x - a.x, dz = c.z - a.z, d = Math.hypot(dx, dz); if (d > a.r + c.r + .1 || d < .01) continue;
-          const rel = ((a.vx || 0) - (c.vx || 0)) * dx / d + ((a.vz || 0) - (c.vz || 0)) * dz / d; if (rel < 4.5) continue;
-          c.vx = (c.vx || 0) + dx / d * rel * .8; c.vz = (c.vz || 0) + dz / d * rel * .8; a.vx *= .4; a.vz *= .4;
-          const r = c.rider; if (r) { W.dismount && W.dismount(r); knockDown(r, dx / d * 4, dz / d * 4, 1.6); sfx('splash', { at: r.pos }); }
-          sfx('bonk', { at: { x: c.x, y: c.y, z: c.z } }); } } }); }
+    // Only the authoritative room simulation runs this effect.
+    // Every pair is checked once, with a cooldown and one victim per ram.
+    // knockDown already handles dismounting (including network ownership).
+    { let quack=0,elapsed=0;const lastHits=new Map();
+      W.animated.push(dt=>{
+        elapsed+=Math.max(0,dt);quack-=dt;
+        for(const a of ducks){
+          const speed=Math.hypot(a.vx||0,a.vz||0);
+          if(speed>6.5&&a.rider&&quack<=0&&random()<dt*2){
+            quack=1.2;sfx('squeak',{at:{x:a.x,y:a.y,z:a.z},v:.6});
+          }
+        }
+        for(const {a,b:other,nx,nz,closing,victim} of duckRamEvents(ducks,elapsed,lastHits)){
+          // Limited impulse; do not re-apply collision damage every frame.
+          const kick=Math.min(9,closing)*.45;
+          a.vx=(a.vx||0)-nx*kick*.35;a.vz=(a.vz||0)-nz*kick*.35;
+          other.vx=(other.vx||0)+nx*kick*.65;other.vz=(other.vz||0)+nz*kick*.65;
+          if(victim.rider){
+            const rider=victim.rider;
+            // Calling W.dismount here as well would dismount twice.
+            knockDown(rider,(victim===other?nx:-nx)*4,(victim===other?nz:-nz)*4,1.6);
+            if(rider.pos)sfx('splash',{at:rider.pos});
+          }
+          sfx('bonk',{at:{x:victim.x,y:victim.y,z:victim.z}});
+        }
+      });
+    }
     // край пруда — цель для захвата
     b.grabTarget({ x: PX - PR - .6, z: 29, r: 1.3, kind: 'dunk', t: 2, dir: [1, 0], label: 'пруд' });
 

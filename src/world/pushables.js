@@ -107,9 +107,16 @@ export function addPushable(b, kind, x, z, y = 0) {
     r = 0.5;
   }
   // mass: тележка катится легко, урна потяжелее, бочка тяжёлая
-  const mass = { voteBall:1.1, bike:.8,kart:2.2, table: 2.4, sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, gurney: 1.4 }[kind];
-  const h = { voteBall:1.9, bike:1.0,kart:.65, table: 0.8, sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, gurney: 0.9 }[kind];
-  const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y + y, vx: 0, vz: 0, r, mass, h, ride: RIDE[kind] || null, heading: 0 };
+  const mass = { voteBall:1.1, bike:.8,kart:2.2, table: 2.4, sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, duck: 1.35, gurney: 1.4 }[kind];
+  const h = { voteBall:1.9, bike:1.0,kart:.65, table: 0.8, sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, duck: 0.85, gurney: 0.9 }[kind];
+  // Never let a newly added prop with missing dimensions poison positions
+  // with NaN when a player bumps it or an explosion applies an impulse.
+  // The duck has explicit tuned values above; these defaults are a last
+  // resort for other, future props rather than a crash at map generation.
+  const physicalMass=Number.isFinite(mass)&&mass>0?mass:4;
+  const physicalHeight=Number.isFinite(h)&&h>0?h:.85;
+  const physicalRadius=Number.isFinite(r)&&r>0?r:.5;
+  const p = { kind, mesh: g, roller, x: b.X(x), z: b.Z(z), y: b.Y + y, vx: 0, vz: 0, r:physicalRadius, mass:physicalMass, h:physicalHeight, ride: RIDE[kind] || null, heading: 0 };
   if (p.ride) p.outline = addOutline(g, 0.04);
   g.position.set(p.x, p.y, p.z); W.pushables.push(p);if(W.net&&!W.net.applying)W.net.register('p',p); return p;
 }
