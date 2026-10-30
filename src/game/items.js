@@ -1,3 +1,4 @@
+import {popcornModel,scatterPopcorn} from '../world/popcorn.js';
 import {dropHeld,daze} from './actors.js';
 import { random } from '../core/random.js';
 import {actionEffect} from '../world/action-fx.js';
@@ -31,6 +32,7 @@ function integrateProjectile(p,v,dt,drag=0){const k=Math.max(0,drag);if(k<1e-5){
 function boundaryHit(old,p,r){const B=W.bounds-r;let t=1,n=null;for(const a of['x','z'])if(Math.abs(p[a])>B){const edge=Math.sign(p[a])*B,u=(edge-old[a])/(p[a]-old[a]);if(u<t){t=Math.max(0,u);n=a==='x'?[-Math.sign(p.x),0,0]:[0,0,-Math.sign(p.z)];}}if(n)p.lerpVectors(old,p,t);return n;}
 
 function build(type) {
+  if(type==='popcorn')return popcornModel();
   if(type==='coal')return compose('hot-coal-0622',a=>{a(G.ico,col(0x342a27),0,0,0,.17,.13,.16);for(const x of[-.08,.03,.09])a(G.box,glow(0xe76e28),x,.10,.02,.025,.025,.17);});
   if(type==='fatcan')return fatCanModel();
   if(SNACKS[type])return snackModel(type);
@@ -188,6 +190,7 @@ function impact(it, n, speed) {
   // жетон (v0.23): упал — из точки выбегает наряд и ловит ближайшего к ней соперника
   if (it.type === 'badge' && it.owner && !it.badgeDone) { it.badgeDone = true; it.state = 'gone'; it.g.visible = false; W.badgeLand && W.badgeLand(it.pos.clone(), it.owner); return; }
   const p = it.pos, t = it.type, gy = groundAt(p.x, p.z, 0.1, p.y + 0.3);
+  if(t==='popcorn'){hitActors(it,p,false);scatterPopcorn(p);vanish(it);return;}
   // хрупкая мелочь: сильный удар — разбилось (осколки, звон), до конца раунда
   if (it.def.breaks && speed > it.def.breaks) { const glass = t === 'monitor' || t === 'dlamp' || t === 'mug';
     for (let i = 0; i < 9; i++) chunk(p.x, p.y + 0.1, p.z, [(random() - 0.5) * 4, 2 + random() * 2, (random() - 0.5) * 4], { mat: col([0x2b2533, 0x9a9da8, t === 'pot' ? 0xc8643a : 0xd8d0c0, 0x3a3440][i % 4]), size: 0.07, sy: 0.6, life: 5 });

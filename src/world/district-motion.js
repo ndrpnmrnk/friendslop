@@ -1,5 +1,5 @@
 import {THREE,G,V3,col,tmat,compose,mesh} from '../core/gfx.js';
-import {T} from '../core/textures.js';
+import {T,pix} from '../core/textures.js';
 import {W} from './state.js';
 import {moveSolid,pushOut} from './physics.js';
 import {actors,knockDown} from '../game/actors.js';
@@ -24,11 +24,14 @@ export function movingDeck(b,{name,x,z,w=3,d=2,h=.22,route,color=0x66807c,rails=
  };
  update(0);localAnimation(update,g);(W.districtMechanics??=[]).push(state);return state;
 }
-export function conveyor(b,x,z,w,d,{speed=2,axis='z',y=.65}={}){
- const mat=tmat(T.grate()).clone();mat.map=mat.map.clone();mat.map.needsUpdate=true;mat.map.userData.netStatic=true;W.mapResources.add(mat);W.mapResources.add(mat.map);
- b.box(x,z,w,d,y,col(0x465a50));const belt=b.m(G.box,mat,x,y+.025,z,w-.12,.05,d-.1);b.climbTrim(x,z,w,d,y+.05);
- localAnimation(dt=>{mat.map.offset.y=(districtClock()*speed*.16)%1;for(const a of localActors())if(Math.abs(a.pos.y-(b.Y+y+.05))<.2&&Math.abs(a.pos.x-b.X(x))<w/2&&Math.abs(a.pos.z-b.Z(z))<d/2){a.pos[axis]+=speed*dt;pushOut(a.pos,a.r,a.pos.y+a.step,a.pos.y+a.h);}for(const it of W.items)if((!W.net||W.net.canSimulate(it))&&it.state==='rest'&&Math.abs(it.pos.y-it.def.r-(b.Y+y+.05))<.25&&Math.abs(it.pos.x-b.X(x))<w/2&&Math.abs(it.pos.z-b.Z(z))<d/2)it.pos[axis]+=speed*dt;},belt);
- return {x:b.X(x),z:b.Z(z),y:b.Y+y+.05,w,d};
+export function conveyor(b,x,z,w,d,{speed=2,axis='z',y=.65,enabled=()=>true}={}){
+ const tex=pix('rubber-belt-0623',64,64,c=>{c.fillStyle='#343b3b';c.fillRect(0,0,64,64);for(let y=0;y<64;y+=4){c.fillStyle=y%8?'#394342':'#2d3435';c.fillRect(0,y,64,1);}for(const y of[0,32]){c.fillStyle='#77837d';c.fillRect(0,y,64,2);c.fillStyle='#202728';c.fillRect(0,y+2,64,2);}for(const x of[4,59]){c.fillStyle='#a8a38c';for(const y of[8,24,40,56])c.fillRect(x,y,2,2);}});
+ const mat=tmat(tex).clone();mat.map=tex.clone();mat.map.repeat.set(axis==='x'?d/2:w/2,(axis==='x'?w:d)/2);mat.map.needsUpdate=true;mat.map.userData.netStatic=true;W.mapResources.add(mat);W.mapResources.add(mat.map);
+ b.box(x,z,w,d,y,col(0x465a50));const belt=b.m(G.box,mat,x,y+.025,z,axis==='x'?d-.1:w-.12,.05,axis==='x'?w-.12:d-.1);if(axis==='x')belt.rotation.y=Math.PI/2;
+ let travel=0;localAnimation(dt=>{const v=enabled()?speed:0;travel+=v*dt;mat.map.offset.y=travel/2;
+ for(const a of localActors())if(Math.abs(a.pos.y-(b.Y+y+.05))<.2&&Math.abs(a.pos.x-b.X(x))<w/2&&Math.abs(a.pos.z-b.Z(z))<d/2){a.pos[axis]+=v*dt;pushOut(a.pos,a.r,a.pos.y+a.step,a.pos.y+a.h);}
+ for(const it of W.items)if((!W.net||W.net.canSimulate(it))&&it.state==='rest'&&Math.abs(it.pos.y-it.def.r-(b.Y+y+.05))<.25&&Math.abs(it.pos.x-b.X(x))<w/2&&Math.abs(it.pos.z-b.Z(z))<d/2)it.pos[axis]+=v*dt;
+ },belt);return {x:b.X(x),z:b.Z(z),y:b.Y+y+.05,w,d,belt,material:mat};
 }
 export function warningHazard(b,{name,x,z,w,d,y=0,period=40,warning=2,active=3,hit,visual,enabled=()=>true}){
  const lamp=b.warnLamp(x,y+2.3,z,0xff6b35,.25),cool=new WeakMap();

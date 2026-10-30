@@ -36,3 +36,5 @@ export function claimFistReward(session,id){
  const keys=Object.keys(next);for(const key of keys.slice(0,Math.max(0,keys.length-128)))delete next[key];
  return commit({...data,coins:data.coins+1,fistClaims:next})?'new':'failed';
 }
+
+export function spendCoins(n){if(!data||!Number.isSafeInteger(n)||n<1||data.coins<n)return false;return commit({...data,coins:data.coins-n});}

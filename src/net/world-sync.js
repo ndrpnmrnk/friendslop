@@ -1,3 +1,4 @@
+import {scatterPopcorn} from '../world/popcorn.js';
 import {toggleRadio,tuneRadio} from '../game/radio.js';
 import {withSoundSource,sfx} from '../core/sfx.js';
 import { W } from '../world/state.js';
@@ -144,6 +145,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     }
     switch (type) {
       case 'i': {
+        if(o.type==='popcorn'&&o.state==='fly'&&v[1]==='gone')scatterPopcorn(new V3(v[2],v[3],v[4]));
         const owner=actor(v[11]),oldOwner=o.owner,oldState=o.state;
         // When a different player lifts a placed crate, update its mission
         // stack on the original worker's client too; merely moving the mesh

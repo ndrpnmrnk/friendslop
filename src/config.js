@@ -107,6 +107,7 @@ export const CONFIG = {
   missionCooldown: 6,
   // предметы для броска
   items: {
+    popcorn:{name:'Попкорн',r:.22,mass:.2,drag:.5,bounce:.1,respawn:0},
     coal:{name:'Горячий уголёк',r:.16,mass:.55,drag:.15,bounce:.3,respawn:0},
     bao:{name:'Паровые булочки',tool:true,r:.24,mass:.3,drag:.2,bounce:.15,respawn:0},
     taco:{name:'Тако',tool:true,r:.22,mass:.2,drag:.2,bounce:.15,respawn:0},

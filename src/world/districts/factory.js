@@ -1,3 +1,4 @@
+import {factoryControls} from '../factory-controls.js';
 import {THREE,G,col,tmat,glow,compose} from '../../core/gfx.js';
 import {T} from '../../core/textures.js';
 import {W} from '../state.js';
@@ -10,7 +11,7 @@ export default{id:'factory',name:'Жировой завод',ground:'pave',size:
  const paint=tmat(T.paintMetal(0x65786d)),steel=tmat(T.metal()),dark=col(0x30393a),brick=tmat(T.brickWall());
  b.tower({x:3,z:3,w:38,d:27,floors:1,fh:7,stairs:false,wall:0x807562,facadeProps:false,canopy:false,sill:3.8,winStep:4,doorW:2.6,doors:[{side:'s',at:.3,style:'metal'},{side:'w',at:.72,style:'metal'}],passages:[{side:'s',at:.75,y:0,w:4.5,h:4.4}],floor:T.concrete(),ladder:{side:'w',at:.2},interior(f){
   // One fast central line, with clear walking lanes on both sides.
-  conveyor(f,21,17,23,3.2,{axis:'x',speed:4.4,y:.32});
+  const controls=factoryControls(f);conveyor(f,21,17,23,3.2,{axis:'x',speed:4.4,y:.32,enabled:controls.running});
   for(let x=10;x<32;x+=1.3)for(const z of[15.2,18.8]){f.m(G.cyl8,steel,x,.27,z,.12,.25,.12).rotation.z=Math.PI/2;}
   // Raised intake and two counter-rotating cutter shafts on the right.
   for(const z of[14.5,19.5]){f.box(35,z,5.5,.3,2.5,paint);f.m(G.box,steel,35,2.55,z,5.8,.12,.45);}
