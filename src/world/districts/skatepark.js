@@ -12,7 +12,7 @@ import {moveSolid} from '../physics.js';
 // adjustments beyond the isolated W.skateBowl height-field hook.
 const metal=()=>tmat(T.paintMetal(0x6c7785));
 function deepBowl(b){
- const {x,z,patchHalf}=L.bowl;
+ const {x,z,outerRadius,patchHalf}=L.bowl;
  // True 3.05m-deep recess; one continuous floor/curved-wall mesh plus a
  // square outer patch covering the exact hole in the world ground slab.
  const sides=64,rings=32,positions=[],uv=[],indices=[];
