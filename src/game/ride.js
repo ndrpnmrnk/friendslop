@@ -180,7 +180,7 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   b.lean = (b.lean || 0) + (leanT - (b.lean || 0)) * Math.min(1, dt * 7);
   if (classic) { const sv = (b.steer || 0) * (b.kind === 'skate' ? 0 : 0.42), veh = b.mesh.children.find(q => q.userData.vehicle || q.userData.scoot)?.userData; const v2 = veh?.vehicle || veh?.scoot;
     if (v2?.steerParts) for (const q of v2.steerParts) { q.rotation.order = 'YXZ'; q.rotation.y = -sv; } }
-  p.root.rotation.order = 'YXZ'; p.root.rotation.y = b.heading; p.facing = b.heading; p.root.rotation.x = board ? -(b.pitch || 0) * 0.85 : 0; p.root.rotation.z = ((b.lean || 0)+(b.bowlBank || 0))*0.9;
+  p.root.rotation.order = 'YXZ'; p.root.rotation.y = b.heading; p.facing = b.heading; p.root.rotation.x = board ? -(b.pitch || 0) : 0; p.root.rotation.z = (b.lean || 0) + (b.bowlBank || 0);
   // наехал на кого-то — тот отлетает
   if (sp > 4) for (const o of actors()) { if (o === p || o.hidden || o.heldBy || o.ride) continue; if (Math.hypot(o.pos.x - b.x, o.pos.z - b.z) < b.r + 0.45 && Math.abs(o.pos.y - b.y) < 1.2 && !(o.diveHitT > 0)) { shove(o, b.vx, b.vz, sp * 0.8, 4, true); o.diveHitT = 0.6; sfx(b.kind === 'kidcar' ? 'honk' : 'hit', { at: o.pos }); } }
   // врезался
