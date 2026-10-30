@@ -179,8 +179,9 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
     if (!b.air && tr.t > 0.12) { b.trick = null; b.flip = 0; b.shuv = 0; p.trickK = 0;
       if (k >= 0.8) { W.onTrick && W.onTrick(p, tr.kind); burst(b.x, b.y + 0.2, b.z, 8, { color: 0xf5c542, size: 0.12, speed: 2.5, up: 2 }); sfx('land', { v: 1.2 }); }
       else if(tr.manual){ dismount(p, false); p.vel.set(b.vx * 0.5, 4, b.vz * 0.5); p.onGround = false; p.stun = 0.7; p.noMountT = 2.5; sfx('hit'); return 'crash'; }
-      // Uncommanded animations (e.g. NPC tricks) must never eject the
-      // rider on a perfectly ordinary early landing. } }
+      // Uncommanded animations must not eject riders on ordinary landings.
+    }
+  }
   p.pos.set(b.x, b.y + R.seat, b.z); p.vel.set(b.vx, 0, b.vz); p.onGround = !b.air; p.speed = sp;
   // наклон в повороте: сильнее на скорости; руль и переднее колесо поворачиваются
   const leanMax = b.kind === 'bike' ? 0.34 : b.kind === 'skate' ? 0.24 : b.kind === 'scooter' ? 0.2 : 0, leanT = classic && !b.air ? (b.steer || 0) * leanMax * Math.min(1, sp / 5) : 0;
