@@ -3,7 +3,7 @@ import {T} from '../../core/textures.js';
 import {W} from '../state.js';
 import {localActors,districtFrame} from '../district-motion.js';
 import {SKATE_LAYOUT as L,skateSection,rentalRideClear} from '../skate-layout.js';
-import {bowlHeight} from '../skate-bowl.js';
+import {bowlVisualHeight} from '../skate-bowl.js';
 import {skateBotController} from '../skate-bots.js';
 import {breakBox} from '../breakables.js';
 import {moveSolid} from '../physics.js';
@@ -13,22 +13,26 @@ import {moveSolid} from '../physics.js';
 const metal=()=>tmat(T.paintMetal(0x6c7785));
 function deepBowl(b){
  const {x,z,outerRadius,patchHalf}=L.bowl;
- // True 3.05m-deep recess; one continuous floor/curved-wall mesh plus a
- // square outer patch covering the exact hole in the world ground slab.
+ // Sharp visual corner at the coping, but a separate smooth analytic
+ // contact surface handles wheels/avatars. No solid rim can snag a rider.
  const sides=112,rings=96,positions=[],uv=[],indices=[];
- for(let j=0;j<=rings+1;j++){
+ for(let j=0;j<=rings+2;j++){
   for(let i=0;i<=sides;i++){
    const angle=i/sides*Math.PI*2,c=Math.cos(angle),s=Math.sin(angle);
-   // Last ring hits the square cutout edges, covering every corner without
-   // another flat overlay that could flicker against the recessed surface.
-   const rad=j===rings+1?patchHalf/Math.max(Math.abs(c),Math.abs(s)):outerRadius*j/rings;
-   const px=c*rad,pz=s*rad,ht=j===rings+1?0:bowlHeight(rad,L.bowl);
+   // Duplicate the rim ring so deck and ramp have independent normals.
+   // Without the split, averaged normals make the edge look rounded.
+   const rad=j===rings+2?patchHalf/Math.max(Math.abs(c),Math.abs(s)):
+      j===rings+1?outerRadius:outerRadius*j/rings;
+   const px=c*rad,pz=s*rad,ht=j>=rings+1?0:bowlVisualHeight(rad,L.bowl);
    positions.push(px,ht+.002,pz);uv.push((px+outerRadius)/3,(pz+outerRadius)/3);
   }
  }
- for(let j=0;j<rings+1;j++)for(let i=0;i<sides;i++){
-  const a=j*(sides+1)+i,c=a+sides+1;
-  indices.push(a,a+1,c,a+1,c+1,c);
+ for(let j=0;j<=rings+1;j++){
+  if(j===rings)continue; // split the coincident rings, never shade across the sharp edge
+  for(let i=0;i<sides;i++){
+   const a=j*(sides+1)+i,c=a+sides+1;
+   indices.push(a,a+1,c,a+1,c+1,c);
+  }
  }
  const geo=new THREE.BufferGeometry();
  geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
@@ -36,12 +40,11 @@ function deepBowl(b){
  geo.setIndex(indices);geo.computeVertexNormals();
  const root=b.prop(x,z),surface=new THREE.Mesh(geo,lam({map:T.concrete(),side:THREE.DoubleSide},'deepSkateBowl'));
  root.add(surface);
- // One solid coping loop, without the old coplanar white floor ring.
  const coping=new THREE.Mesh(new THREE.TorusGeometry(L.bowl.rimRadius,.016,5,112),metal());
- coping.rotation.x=Math.PI/2;coping.position.y=.006;root.add(coping); // flush visual detail, no blocking rim collider
- // Keep only clean metal coping: no stray orange dashes around the bowl.
+ coping.rotation.x=Math.PI/2;coping.position.y=.006;root.add(coping);
  W.skateBowl={...L.bowl,x:b.X(x),z:b.Z(z),baseY:b.Y};
 }
+
 function halfpipe(b){
  const h=L.halfpipe,metalMat=metal(),dark=col(0x333943);
  b.ground(4.1,3.7,15,15.4,T.concrete(),2.5,.024);
@@ -81,19 +84,12 @@ function halfpipe(b){
  b.grindRail(15.9,4.6,15.9,11.3,.58);
 }
 function closedWedge(b,x,z,w,len,h,ry){
+ // b.wedge already extrudes a CLOSED triangular prism with side faces
+ // and a full back face. Extra side skins and back cap were coplanar
+ // with those faces (z-fighting: the reported black barcode streaks).
  b.wedge(x,z,w,len,h,ry);
- // Closed back and triangular side skirts: the underside is not hollow.
- const back=b.prop(x,z,ry),sideMat=tmat(T.concrete());
- const shape=new THREE.Shape();
- shape.moveTo(0,0);shape.lineTo(len,0);shape.lineTo(len,h);shape.closePath();
- const sideGeo=new THREE.ShapeGeometry(shape);
- for(const sx of[-1,1]){
-  const side=new THREE.Mesh(sideGeo,lam({map:T.concrete(),side:THREE.DoubleSide},'skateWedgeSide'));
-  side.rotation.y=-Math.PI/2;side.position.x=sx*w/2;back.add(side);
- }
- const cap=new THREE.Mesh(G.box,sideMat);
- cap.position.set(0,h/2,len+.045);cap.scale.set(w,h,.11);back.add(cap);
 }
+
 function rental(b){
  const {x,z,w,d,doorWidth}=L.rental;
  const brick=tmat(T.brickWall()),roof=tmat(T.roof()),wood=tmat(T.wood()),mt=metal();

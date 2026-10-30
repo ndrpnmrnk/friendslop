@@ -13,6 +13,15 @@ export function bowlHeight(r,b=BOWL_DEFAULT){
  if(!Number.isFinite(r)||r<0)return 0;
  return -b.depth*(1-smooth5(norm(r,b)));
 }
+// Rendering only: the upper rim ends in a visibly sharp concrete edge.
+// The playable collision remains continuous, without a hard physical ledge.
+// The tiny inset never exceeds 6 cm, so wheels stay visually on the ramp.
+export function bowlVisualHeight(r,b=BOWL_DEFAULT){
+ const physical=bowlHeight(r,b);
+ if(r<=b.rimRadius-.65||r>=b.rimRadius)return physical;
+ const u=(r-(b.rimRadius-.65))/.65;
+ return physical-.45*u*u*u*(1-u);
+}
 export function bowlSlope(r,b=BOWL_DEFAULT){
  if(!Number.isFinite(r)||r<=b.flatRadius||r>=b.rimRadius)return 0;
  const u=norm(r,b);

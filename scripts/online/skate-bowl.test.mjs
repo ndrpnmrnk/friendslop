@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {BOWL_DEFAULT as B,bowlHeight,bowlSlope,bowlGround,moveBowlBoard,bowlLipLaunch,bowlContact,constrainBowlWalker,bowlWalkLimit,constrainBowlWheel} from '../../src/world/skate-bowl.js';
+import {BOWL_DEFAULT as B,bowlHeight,bowlVisualHeight,bowlSlope,bowlGround,moveBowlBoard,bowlLipLaunch,bowlContact,constrainBowlWalker,bowlWalkLimit,constrainBowlWheel} from '../../src/world/skate-bowl.js';
 const close=(a,b,t=.025)=>assert(Math.abs(a-b)<=t,`expected ${a} ~ ${b}`);
 const board=(x,z,vx,vz)=>({kind:'skate',rider:{},x,z,y:0,vx,vz,vy:0,heading:Math.PI/4,air:false});
 
@@ -21,6 +21,14 @@ test('C2 skate bowl joins both floor and coping without a slope discontinuity',(
  assert(largestSlope>1.05,'deep bowl must still offer a useful transition');
  close(bowlHeight(B.rimRadius-.01,B),0,.001);
  close(bowlSlope(B.rimRadius-.01,B),0,.002);
+});
+test('visual rim is a sharp corner, while physical contact stays smooth',()=>{
+ const r=B.rimRadius;
+ close(bowlVisualHeight(r),bowlHeight(r),.0001);
+ assert(bowlVisualHeight(r-.15)<bowlHeight(r-.15),'rendered lip has crisp edge');
+ const slopeNear=(bowlVisualHeight(r)-bowlVisualHeight(r-.001))/.001;
+ assert(slopeNear>.55,'visual edge must retain a real hard angle');
+ assert(bowlSlope(r)===0,'physical contact stays non-blocking');
 });
 test('bowl sampler is continuous even as a rolling actor crosses the cutout',()=>{
  const bowl={...B,x:100,z:200,baseY:1.2};

@@ -46,7 +46,7 @@ export function mount(p, b) {
   p.ride=b;b.rider=p;b.heading=b.mesh.rotation.y;
   // Never replay an impact recorded on the previous rider.
   b.hitSpeed=0;b.impactSpeed=0;b.impactContact=false;b.mountGrace=.4;
-  b.skid=0;b.spin=0;b.stopT=0;b.trick=null;b.flip=0;b.shuv=0;
+  b.skid=0;b.spin=0;b.stopT=0;b.trick=null;b.flip=0;b.shuv=0;b.grind=null;b.grindPose=0;
   p.cyclePhase=b.pedalPhase||0;
   b.vx += p.vel.x * 0.6; b.vz += p.vel.z * 0.6;
   b.outline && b.outline.set(false);
@@ -82,6 +82,7 @@ export function hopIn(p) {
 export function dismount(p, jump) {
   const b = p.ride; if (!b) return; W.net?.request('dismount', b, { jump: !!jump });
   p.ride = null; b.rider = null; b.trick = null; b.flip = 0; b.shuv = 0; p.root.rotation.x = 0; p.root.rotation.z = 0; p.rideKick = null; p.trickK = 0;
+  b.grind=null;b.grindPose=0;b.grindSnd=0;b.grindCooldown=.6;
   b.lean = 0; b.steer = 0; b.mesh.rotation.z = 0;b.hitSpeed=0;b.impactSpeed=0;b.impactContact=false;b.mountGrace=0; { const u = b.mesh.children.find(q => q.userData.vehicle || q.userData.scoot)?.userData, v2 = u?.vehicle || u?.scoot; if (v2?.steerParts) for (const q of v2.steerParts) q.rotation.y = 0; }
   // сходим вбок от доски/кресла, чтобы не встать обратно на неё; какое-то время сам не садишься
   const f = b.heading || 0, sx = Math.cos(f), sz = -Math.sin(f);
@@ -120,7 +121,11 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
      сдаёт назад), A/D — руль. Раньше «поворачивался туда, куда жмёшь относительно камеры» — S разворачивал. */
   const classic = b.kind === 'bike' || board || isMotorCar(b.kind);
   const thr = ctrl ? ((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0) : 0, st = ctrl ? ((keys.KeyD || keys.ArrowRight) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft) ? 1 : 0) : 0;
-  if (classic) {
+  if (b.grind) {
+    // Fixed heading and momentum along the rail; no kick-step or steering
+    // animation can fight the grind pose until the board leaves the rail.
+    p.rideKick=null;
+  } else if (classic) {
     const fwd0=b.vx*Math.sin(b.heading)+b.vz*Math.cos(b.heading),car=isMotorCar(b.kind);
     const factor=car?(.5+.5*Math.min(1,sp0/7)):(.35+.65*Math.min(1,sp0/4));
     const turn=R.turn*factor*(b.air?.3:1);
@@ -168,7 +173,7 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   // тележка остановилась — сам спрыгиваешь
   if (R.coast) { b.stopT = sp < 0.7 ? (b.stopT || 0) + dt : 0; if (b.stopT > 0.4) { dismount(p, false); return 'stop'; } }
   // трюк в воздухе: доска крутится; приземлился, докрутив, — трюк засчитан, не докрутил — падаешь
-  if (b.trick) { const tr = b.trick; tr.t += dt; const k = Math.min(1, tr.t / tr.dur), e = k * k * (3 - 2 * k); p.trickK = Math.sin(k * Math.PI);
+  if (b.trick && !b.grind) { const tr = b.trick; tr.t += dt; const k = Math.min(1, tr.t / tr.dur), e = k * k * (3 - 2 * k); p.trickK = Math.sin(k * Math.PI);
     b.flip = tr.kind === 'kickflip' || tr.kind === 'tre' ? e * Math.PI * 2 : tr.kind === 'heelflip' ? -e * Math.PI * 2 : 0;
     b.shuv = tr.kind === 'shuvit' ? e * Math.PI : tr.kind === 'tre' || tr.kind === 'tailwhip' || tr.kind === 'barspin' ? e * Math.PI * 2 : 0;
     if (!b.air && tr.t > 0.12) { b.trick = null; b.flip = 0; b.shuv = 0; p.trickK = 0;
@@ -180,15 +185,18 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   b.lean = (b.lean || 0) + (leanT - (b.lean || 0)) * Math.min(1, dt * 7);
   if (classic) { const sv = (b.steer || 0) * (b.kind === 'skate' ? 0 : 0.42), veh = b.mesh.children.find(q => q.userData.vehicle || q.userData.scoot)?.userData; const v2 = veh?.vehicle || veh?.scoot;
     if (v2?.steerParts) for (const q of v2.steerParts) { q.rotation.order = 'YXZ'; q.rotation.y = -sv; } }
-  p.root.rotation.order = 'YXZ'; p.root.rotation.y = b.heading; p.facing = b.heading; p.root.rotation.x = board ? -(b.pitch || 0) : 0; p.root.rotation.z = (b.lean || 0) + (b.bowlBank || 0);
+  b.grindPose=(b.grindPose||0)+((b.grind?1:0)-(b.grindPose||0))*Math.min(1,dt*11);
+  p.root.rotation.order = 'YXZ'; p.root.rotation.y = b.heading; p.facing = b.heading;
+  p.root.rotation.x = board ? -(b.pitch || 0)-b.grindPose*.07 : 0;
+  p.root.rotation.z = (b.lean || 0) + (b.bowlBank || 0)+b.grindPose*.10;
   // наехал на кого-то — тот отлетает
   if (sp > 4) for (const o of actors()) { if (o === p || o.hidden || o.heldBy || o.ride) continue; if (Math.hypot(o.pos.x - b.x, o.pos.z - b.z) < b.r + 0.45 && Math.abs(o.pos.y - b.y) < 1.2 && !(o.diveHitT > 0)) { shove(o, b.vx, b.vz, sp * 0.8, 4, true); o.diveHitT = 0.6; sfx(b.kind === 'kidcar' ? 'honk' : 'hit', { at: o.pos }); } }
   // врезался
   if(isMotorCar(b.kind)&&isCrashImpact(b.hitSpeed,b.mountGrace,8)){b.skid=.85;b.spin=2.2;b.heading+=.5;b.vx-=fx*2;b.vz-=fz*2;p.daze=Math.max(p.daze||0,1);sfx('hit');}
   if (!isMotorCar(b.kind)&&isCrashImpact(b.hitSpeed,b.mountGrace,6)) { const v = b.hitSpeed; dismount(p, false); p.vel.set(-fx * 3, 5, -fz * 3); p.onGround = false; p.stun = 0.9; p.noMountT = 2.5; burst(b.x, b.y + 0.6, b.z, 8, { size: 0.4, speed: 3 }); return 'crash'; }
   // скейт и самокат: пробел — прыжок (олли), слезть — E
-  if (ctrl && !isMotorCar(b.kind) && tapped('Space')) { if (board) { if (!b.air) { b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(random() * L.length) | 0], t: 0, dur: 0.48 }; } return null; } dismount(p, true); return 'jump'; }
-  if (b.grind) { b.grindSnd = (b.grindSnd || 0) - dt; if (b.grindSnd <= 0) { b.grindSnd = .12; sfx('grind', { at: { x: b.x, y: b.y, z: b.z }, v: Math.min(1, Math.hypot(b.vx, b.vz) / 8) }); } }
-  if (b.grind && random() < dt * 30) burst(b.x, b.y + 0.05, b.z, 1, { color: 0xffd25c, size: 0.06, speed: 2, up: 1.5, g: 12, life: 0.3, grow: 0 });
+  if (ctrl && !isMotorCar(b.kind) && tapped('Space')) { if (board) { if (!b.air) { if(b.grind){b.grind=null;b.grindCooldown=.6;b.grindSnd=0;} b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(random() * L.length) | 0], t: 0, dur: 0.48 }; } return null; } dismount(p, true); return 'jump'; }
+  if (b.grind) { b.grindSnd = (b.grindSnd || 0) - dt; if (b.grindSnd <= 0) { b.grindSnd = .30; sfx('grind', { at: { x: b.x, y: b.y, z: b.z }, v: Math.min(1, Math.hypot(b.vx, b.vz) / 8) }); } }
+  if (b.grind && random() < dt * 14) burst(b.x, b.y + 0.05, b.z, 1, { color: 0xffd25c, size: 0.06, speed: 2, up: 1.5, g: 12, life: 0.3, grow: 0 });
   return null;
 }

@@ -65,7 +65,7 @@ export const MoreMethods = {
     const g = this.prop(x, z, ry), sg = new THREE.Shape(); sg.moveTo(0, 0); sg.lineTo(len, hgt); sg.lineTo(len, 0); sg.lineTo(0, 0);
     const ex = new THREE.Mesh(new THREE.ExtrudeGeometry(sg, { depth: w, bevelEnabled: false }), lam({ map: rep(T.concrete(), 1, 1) }, 'wedge')); ex.rotation.y = -Math.PI / 2; ex.position.x = w / 2; g.add(ex);
     const fx = Math.sin(ry), fz = Math.cos(ry), q = Math.abs(fx) > 0.5, n = Math.ceil(len / 0.2);
-    for (let i = 0; i < n; i++) { const u0 = i * len / n, u1 = (i + 1) * len / n; this.solid(x + fx * (u0 + u1) / 2, z + fz * (u0 + u1) / 2, q ? u1 - u0 : w, q ? w : u1 - u0, 0, hgt * u1 / len); }
+    for (let i = 0; i < n; i++) { const u0 = i * len / n, u1 = (i + 1) * len / n; this.solid(x + fx * (u0 + u1) / 2, z + fz * (u0 + u1) / 2, q ? u1 - u0 : w, q ? w : u1 - u0, 0, hgt * u1 / len).oneWay=true; }
   },
   // перила для скольжения (grind): труба на стойках; скейт/самокат «садится» на неё после прыжка
   grindRail(x0, z0, x1, z1, y = 0.45) {

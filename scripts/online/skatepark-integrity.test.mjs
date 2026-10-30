@@ -6,9 +6,10 @@ import {SKATE_LAYOUT as L,rentalRideClear} from '../../src/world/skate-layout.js
 const read=path=>readFileSync(new URL('../../'+path,import.meta.url),'utf8');
 test('deep bowl is ONE continuous rendered height field, same as physical ground',()=>{
  const scene=read('src/world/districts/skatepark.js'),physics=read('src/world/physics.js');
- assert(scene.includes('bowlHeight(rad,L.bowl)'));
+ assert(scene.includes('bowlVisualHeight(rad,L.bowl)'));
  assert(scene.includes('rings=96'));
  assert(scene.includes('new THREE.BufferGeometry()'));
+ assert(scene.includes('if(j===rings)continue'),'rim normals must not be averaged with street deck');
  assert(scene.includes('geo.computeVertexNormals()'));
  assert(scene.includes('holes:[[L.bowl.x-L.bowl.patchHalf'));
  assert(scene.includes('j===rings+1?patchHalf/Math.max'));
@@ -28,8 +29,8 @@ test('halfpipe and small wedges remain rideable, but wedge back and sides are cl
  assert(scene.includes('b.quarterPipe(h.x,h.back'));
  assert(scene.includes('closedWedge(b,36'));
  assert(scene.includes('closedWedge(b,8.2'));
- assert(scene.includes('new THREE.ShapeGeometry(shape)'));
- assert(scene.includes('cap.scale.set(w,h,.11)'));
+ assert(!scene.includes('new THREE.ShapeGeometry(shape)'),'duplicate wedge side skins cause z-fighting');
+ assert(!scene.includes('cap.scale.set(w,h,.11)'),'overlapping rear cap must be removed');
  assert(ramps.includes('const support=this.solid(x + fx * uc'),'halfpipe slopes retain walkable support');
  assert(ramps.includes('support.oneWay=true'),'halfpipe must not create blocking step walls');
  assert(read('src/world/physics.js').includes('ignoreOneWay && s.oneWay'),'wheel probes must ignore ramp one-way support blockers');
@@ -93,12 +94,12 @@ test('studio actually constructs the entire bowl mesh without undefined geometry
  };
  const W={skateBowl:null};
  const b={prop(){return {add(m){meshes.push(m);}}},X:v=>v,Z:v=>v,Y:0};
- const {bowlHeight}=await import('../../src/world/skate-bowl.js');
- const env={THREE,G:{},b,W,L,bowlHeight,metal:()=>({}),lam:()=>({}),T:{concrete:()=>({})}};
+ const {bowlVisualHeight}=await import('../../src/world/skate-bowl.js');
+ const env={THREE,G:{},b,W,L,bowlVisualHeight,metal:()=>({}),lam:()=>({}),T:{concrete:()=>({})}};
  assert.doesNotThrow(()=>runInNewContext(build+'\ndeepBowl(b);',env,{timeout:3000}));
  assert.equal(meshes.length,2,'one bowl and one coping ring expected');
  assert(meshes[0].geometry.normalsComputed);
- assert.equal(meshes[0].geometry.position.data.length,(96+2)*(112+1)*3);
+ assert.equal(meshes[0].geometry.position.data.length,(96+3)*(112+1)*3);
  assert.equal(W.skateBowl.outerRadius,L.bowl.outerRadius);
 });
 
@@ -110,6 +111,7 @@ test('airtime is integrated under gravity and not snapped to the next ground sur
  const air=physics.slice(start,end);
  assert(air.includes('const nextY=previousY+b.vy*dt'));
  assert(air.includes('b.vy<=0&&nextY<=gy'),'landing only while falling');
+ assert(air.includes('bowlY!==null'),'bowl floor must catch missed descending crossings');
  assert(air.includes('b.y=nextY;b.air=true'),'while rising we must stay airborne');
  assert(air.includes('constrainBowlWheel(')||physics.includes('constrainBowlWheel(W.skateBowl,b,dt)'));
  assert(!air.includes('rise / dt * 0.85'),'surface cannot inject upward velocity on ground');

@@ -2,6 +2,7 @@ import { tipBin, animateTip } from './pushables.js';
 import { W } from './state.js';
 import { clamp } from '../core/rng.js';
 import {bowlGround,moveBowlBoard,bowlLipLaunch,bowlContact,constrainBowlWheel,constrainBowlWalker} from './skate-bowl.js';
+import {findRailLanding,startRailGrind,maintainRailGrind,finishRailGrind} from './skate-grind.js';
 
 /* Твёрдые объекты — AABB с высотой: {x0,x1,z0,z1,y0,y1,on}.
    Всё, у чего верх ниже «шага», можно перешагнуть; на всё остальное — запрыгнуть или залезть. */
@@ -186,6 +187,7 @@ export function updatePushables(dt, player) {
     if(b.solid)b.solid.on=false;
     if (b.grabbed) { b.hitSpeed = 0;if(b.solid)b.solid.on=true;syncPushable(b);continue; } // её ведёт игрок
     const op = { x: b.x, z: b.z };
+    b.grindCooldown=Math.max(0,(b.grindCooldown||0)-dt);
     // Bowl forces and contact will be integrated together in movement substeps.
     b.hitSpeed = 0;
     // v0.56: движение по шагам не длиннее половины радиуса — быстрые машинки и карты больше не проскакивают сквозь стены
@@ -198,12 +200,12 @@ export function updatePushables(dt, player) {
     const p={x:b.x,z:b.z};let hit=null;
     for(let i=0;i<n;i++){
       const ox=p.x,oz=p.z;
-      if(board)moveBowlBoard(b,dt/n,bowl);
+      if(board&&!b.grind)moveBowlBoard(b,dt/n,bowl);
       p.x+=b.vx*dt/n;p.z+=b.vz*dt/n;
       const h=pushOut(p,b.r,b.y+(b.ride ? .18 : .2),b.y+Math.max(1,b.h));
       if(h){hit=h;break;}
       b.x=p.x;b.z=p.z;
-      if(board&&!b.air&&bowl){
+      if(board&&!b.air&&!b.grind&&bowl){
         const radius=Math.hypot(b.x-bowl.x,b.z-bowl.z);
         if(radius<bowl.rimRadius){
           // Contact at EACH substep, never a metre-high final-frame snap.
@@ -228,33 +230,56 @@ export function updatePushables(dt, player) {
     // one tick due to the ground height being treated as a step.
     // v0.61.8: no position snapping by the old radial wheel clamp.
     // The continuous curved surface is now the single source of contact.
-    if(!b.air)constrainBowlWheel(W.skateBowl,b,dt);
+    if(!b.air&&!b.grind)constrainBowlWheel(W.skateBowl,b,dt);
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: .45, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
     // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
     if (b.ride && b.kind !== 'ring') {
       _selfP = b; _cover = !!b.ride; let gy = groundAt(b.x, b.z, b.r * 0.4, b.y + 0.35); _cover = false; _selfP = null; b.vy = b.vy || 0;
-      if (W.rails && (b.kind === 'skate' || b.kind === 'scooter')) for (const r of W.rails) {
-        const ex = r.x1 - r.x0, ez = r.z1 - r.z0, L2 = ex * ex + ez * ez, u = ((b.x - r.x0) * ex + (b.z - r.z0) * ez) / L2; if (u < 0 || u > 1) continue;
-        const qx = r.x0 + ex * u, qz = r.z0 + ez * u; if (Math.hypot(b.x - qx, b.z - qz) > 0.35 || b.y < r.y - 0.25 || b.y > r.y + 0.7 || b.vy > 0.5) continue;
-        gy = Math.max(gy, r.y); if (!b.grind) { b.grind = r; const now = performance.now(); if (b.lastRail !== r || now - (b.grindEnd || 0) > 400) W.onGrind && W.onGrind(b); b.lastRail = r; } // v0.59: одно касание перил = одно событие (раньше дребезг давал звук комбо каждый кадр) const L = Math.sqrt(L2), tx = ex / L, tz = ez / L, v = b.vx * tx + b.vz * tz; b.vx = tx * v; b.vz = tz * v; b.x = qx; b.z = qz;
+      const canGrind=(b.kind==='skate'||b.kind==='scooter')&&!!b.rider;
+      const bowlY=canGrind?bowlGround(W.skateBowl,b.x,b.z):null;
+      // Ground sampling normally applies a +.35 step filter; in a deep
+      // bowl that filter can lose a falling wheel after a fast lip exit.
+      // The bowl's actual floor is authoritative even if the wheel is
+      // already slightly below it. No false airborne -60m ground.
+      if(bowlY!==null)gy=Math.max(gy,bowlY);
+      if(canGrind&&b.grind){
+        if(maintainRailGrind(b,dt)){
+          gy=Math.max(gy,b.grind.y);
+        }else{
+          // End the chain exactly once. The existing W.onGrind scoring
+          // hook enforces per-rail cooldown and the global bonus cap.
+          if((b.grindElapsed||0)>=.28&&(b.grindDistance||0)>=1.6)
+            W.onGrind?.(b);
+          finishRailGrind(b);
+        }
       }
-      if (b.grind && Math.abs(b.y - b.grind.y) > 0.05) { b.grind = null; b.grindEnd = performance.now(); }
+      if(canGrind&&!b.grind&&b.air){
+        const nextY=b.y+((b.vy||0)-22*dt)*dt;
+        const candidate=findRailLanding(b,W.rails,nextY);
+        if(candidate){startRailGrind(b,candidate);gy=Math.max(gy,b.grind.y);}
+      }
       const board = b.kind === 'skate' || b.kind === 'scooter';
       const bowlContactNow=board&&!b.air?bowlContact(W.skateBowl,b.x,b.z,b.heading||0):null;
       // Follow continuous *grounded* bowl slope while rolling, not the
       // jumping/landing branch. A real jump or coping launch sets b.air
       // before we enter here and is always integrated ballistically.
-      if(board&&!b.air&&W.skateBowl&&
+      if(board&&!b.air&&!b.grind&&W.skateBowl&&
          Math.hypot(b.x-W.skateBowl.x,b.z-W.skateBowl.z)<W.skateBowl.rimRadius&&
          Math.abs(b.y-gy)<.45){b.y=gy;b.vy=0;}
-      if (b.air || b.y > gy + 0.02) {
+      if(b.grind){
+        // Locked to the physical rail, not to a staircase/ground collider.
+        b.y=b.grind.y;b.vy=0;b.air=false;b.pitch=0;
+      }else if (b.air || b.y > gy + 0.02) {
         // True ballistic integration. Rising skaters NEVER snap to the next
         // platform. Landing requires downward motion and crossing the ground.
         const previousY=b.y;
         b.vy-=22*dt;
         const nextY=previousY+b.vy*dt;
-        const landing=b.vy<=0&&nextY<=gy&&previousY>=gy-.12;
+        const landing=b.vy<=0&&nextY<=gy&&
+          (previousY>=gy-.12||bowlY!==null);
+        // If the board missed a floor crossing in a previous step, never
+        // allow it to keep falling through the bowl visual surface.
         if(landing){
           if(b.vy< -7&&b.rider)b.hardLand=-b.vy;
           b.y=gy;b.vy=0;b.air=false;b.bowlTakeoff=false;
@@ -284,6 +309,12 @@ export function updatePushables(dt, player) {
           const k=Math.max(.7,1-rise*.6);b.vx*=k;b.vz*=k;
         }
         b.y=gy;b.air=false;
+      }
+      // Swept recovery for an already-penetrating skate bowl floor.
+      // The guard is confined to the bowl and only corrects a downward
+      // penetration, so ollies/legitimate upward flight stay ballistic.
+      if(canGrind&&!b.grind&&bowlY!==null&&b.y<bowlY-.09&&b.vy<=0){
+        b.y=bowlY;b.vy=0;b.air=false;b.bowlTakeoff=false;
       }
     }
     if(b.kind==='crate'){_selfP=b;const gy=groundAt(b.x,b.z,b.r*.7,b.y+.04);_selfP=null;b.vy-=22*dt;b.y=Math.max(gy,b.y+b.vy*dt);if(b.y<=gy)b.vy=0;}
