@@ -18,7 +18,7 @@ export const applyHostMissionItem=(current,next,localKey,now=0)=>{
  if(current.state===next.state&&existingOwner===nextOwner)return false;
  // Permit a short one-way travel time for a legitimate pending request.
  // Never hide an item taken by somebody else behind the local prediction.
- if(current.pendingAt>0&&now-current.pendingAt<550&&current.state==='held'&&
+ if(current.pendingAt>0&&now-current.pendingAt<140&&current.state==='held'&&
     existingOwner===localKey&&next.state!=='held'&&!nextOwner)return false;
  return true;
 };
