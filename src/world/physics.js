@@ -206,7 +206,9 @@ export function updatePushables(dt, player) {
         b.vy=launch;b.air=true;b.bowlLaunchCooldown=.9;
         if(!b.trick)b.trick={kind:b.kind==='scooter'?'barspin':'kickflip',t:0,dur:.48};
       }
-      b.bank=bowlBank(newBowl,b.heading||0);
+      // Once airborne the wall no longer supplies a contact normal. Restore
+      // upright lean gradually instead of keeping a wall roll in mid-air.
+      b.bank=b.air?(b.bank||0)*Math.exp(-dt*9):bowlBank(newBowl,b.heading||0);
     }else b.bank=0;
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: .45, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
