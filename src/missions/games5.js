@@ -288,7 +288,13 @@ export const WORLD5 = {
         if (letter && (letter.state === 'fly' || letter.state === 'rest') && letter.pos.distanceTo(slot(k)) < 0.7) return deliver();
         // не в тот ящик — письмо отскакивает
         for (let i = 0; i < 3; i++) if (i !== k && letter && letter.state === 'fly' && letter.pos.distanceTo(slot(i)) < 0.6) { letter.vel.multiplyScalar(-0.4); api.msg('Не тот ящик!', 'bad'); }
-        if (letter && letter.state === 'gone') give();
+        // A missing envelope is not evidence of delivery. Do not silently
+        // create the next one or advance the mission without the player's
+        // interaction with the correct mailbox.
+        if(letter && letter.state==='gone'){
+          api.msg('Письмо потеряно - доставка не засчитана','bad');
+          return api.finish({success:false});
+        }
       },
       stop() { for (const b of boxes) { W.group.remove(b.g); b.s.on = false; } if (letter && letter.state !== 'gone') { if (P.held === letter) P.held = null; letter.state = 'gone'; letter.g.visible = false; } },
     };

@@ -148,10 +148,17 @@ export const WORLD_GAMES = {
       return near?.pos||c;
     };
     const syncMarkers=()=>{for(const it of o.litter){if(!it.ring)continue;const show=!it.taken&&it.state!=='gone'&&it.state!=='held';it.ring.visible=show;if(show){it.ring.position.copy(it.pos);it.ring.position.y-=it.def.r-.035;it.ring.scale.setScalar(1+Math.sin(time*5)*.12);}it.outline.set(show);}};
+    const shown=new Set();
+    const showCollected=it=>{
+      if(shown.has(it))return;
+      const index=shown.size;shown.add(it);
+      const packed=it.g.clone(true);packed.position.set(Math.sin(index*2.4)*.14,.94+index*.025,Math.cos(index*2.4)*.13);
+      packed.scale.setScalar(.65);packed.rotation.set(.2,index*2.4,.3);packed.visible=true;pile.add(packed);
+      it.outline.set(false);removeRing(it);
+    };
     const take=it=>{
       if(it.taken)return;it.taken=true;it.noPickup=true;it.vel.set(0,0,0);it.floatY=undefined;
-      const packed=it.g.clone(true);packed.position.set(Math.sin(got*2.4)*.14,.94+got*.025,Math.cos(got*2.4)*.13);packed.scale.setScalar(.65);packed.rotation.set(.2,got*2.4,.3);packed.visible=true;pile.add(packed);
-      it.state='gone';it.g.visible=false;it.outline.set(false);removeRing(it);got++;
+      it.state='gone';it.g.visible=false;showCollected(it);got=o.litter.filter(q=>q.taken).length;
       sfx('imp',{at:c,m:'metal',v:.3});smokeRing(c.x,c.y+.9,c.z,5,{speed:1,size:.1});api.msg(got<N?`В урне ${got} из ${N}`:'Чисто!','good');
     };
     const hook=(it,p)=>{if(!it.taken&&it.state!=='held'&&o.litter.includes(it)&&Math.hypot(p.x-c.x,p.z-c.z)<.9&&Math.abs(p.y-c.y)<1.5)take(it);};
@@ -167,6 +174,11 @@ export const WORLD_GAMES = {
           // Потерянный в провале несобранный мусор возвращаем в доступную область.
           else if(it.state==='gone'||it.pos.y<c.y-6){const p=nearbyItemPoint(c);it.pos.set(p.x,groundAt(p.x,p.z,.12,p.y+.25)+it.def.r,p.z);it.vel.set(0,0,0);it.state='rest';it.g.visible=true;it.floatY=undefined;}
         }
+        // Litter deposited by *another* player is confirmed by the shared
+        // item snapshot. Reconcile the count and appearance from authoritative
+        // taken flags instead of only incrementing our local onImpact hook.
+        for(const it of o.litter)if(it.taken)showCollected(it);
+        got=o.litter.filter(it=>it.taken).length;
         syncMarkers();o.ring.material.opacity=.45+Math.sin(time*5)*.15;api.progress(got/N);
         if(got>=N)return api.finish({success:true,mult:1});if(time<=0)return api.finish({success:false});
       },

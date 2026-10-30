@@ -12,6 +12,7 @@ import { cargoPosition } from '../game/handheld.js';
 import { StateDelta, round as q, vector, sweepPosition } from './state-codec.js';
 import { ActiveMotion, validMotion } from './active-motion.js';
 import {telemetry} from './telemetry.js';
+import {canHostAcceptMissionItem,applyHostMissionItem,remotePickup} from './mission-item-authority.js';
 
 const LISTS = { i: 'items', p: 'pushables', d: 'doors', s: 'solids', o: 'obbs', b: 'breakables', c: 'cats', n: 'npcs', a: 'interacts' };
 const pos = v => [q(v.x), q(v.y), q(v.z)];
@@ -39,7 +40,12 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     const key = forced || type + ':' + prefix + '/' + n;
     if (!forced) scopes.set(prefix, n + 1);
     if(forced){const slash=key.lastIndexOf('/'),n=Number(key.slice(slash+1));if(slash>1&&Number.isInteger(n)){const scope=key.slice(2,slash);scopes.set(scope,Math.max(scopes.get(scope)||0,n+1));}}
-    seen.set(o, key); o.netId = key; o.netScope = current; objects.set(key, { type, o, row:[key,null] }); if(type==='p')movers.set(key,o);
+    seen.set(o, key);o.netId=key;o.netScope=current;
+    // Tag *all* mission-created items, not just manually tagged ones.
+    // Otherwise cleanup/throw targets/temporary items survive mission removal.
+    const missionId=type==='i'?Number(/^m(\d+)\//.exec(current)?.[1]):0;
+    if(missionId&&!o.mission)o.mission=api.getMission?.(missionId)||null;
+    objects.set(key,{type,o,row:[key,null]});if(type==='p')movers.set(key,o);
     return key;
   }
   function tree(root) {
@@ -123,11 +129,26 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     if(!o&&type==='t'&&['arrow','net','water','candy','web','bubble','perfume','firework'].includes(v[0]))o=W.netCreateShot?.(v[0],new V3(...v.slice(1,4)),new V3(0,0,1),0,0,actor(v[10]));
     if (!o) return;
     if (!entry) { register(type, o, key); entry = objects.get(key); }
-    if(!proposal&&localOwns(o)&&!(type==='i'&&v[1]==='held'&&v[11]!==myKey))return;
+    if(!proposal&&localOwns(o)){
+      if(type!=='i')return;
+      // Local scope ownership is NOT permission to ignore an authoritative
+      // pickup, drop or removal involving another player.
+      const currentOwner=keyOf(o.owner);
+      const desiredOwner=v[11]||'';
+      if(!applyHostMissionItem({state:o.state,ownerKey:currentOwner,pendingAt:o.netPendingTakeAt||0},
+        {state:v[1],ownerKey:desiredOwner},myKey,performance.now()))return;
+    }
     switch (type) {
       case 'i': {
-        const owner = actor(v[11]);
-        if (o.owner?.held === o && (v[1] !== 'held' || owner !== o.owner)) o.owner.held = null;
+        const owner=actor(v[11]),oldOwner=o.owner,oldState=o.state;
+        // When a different player lifts a placed crate, update its mission
+        // stack on the original worker's client too; merely moving the mesh
+        // leaves the mission believing the stair is still present.
+        if(!proposal&&remotePickup(oldState,v[1],keyOf(oldOwner),v[11])){
+          o.onPickup?.();
+        }
+        if(oldOwner?.held===o&&(v[1]!=='held'||owner!==oldOwner))oldOwner.held=null;
+        if(owner===W.player&&v[1]==='held')o.netPendingTakeAt=0;
         o.state = v[1]; o.owner = owner; o.vel.fromArray(v.slice(5, 8)); o.noPickup = !!v[12]; o.ammo = v[13]; o.taken = !!v[14]; o.g.visible = !!v[15];o.cd=v[16]||0;if(owner!==W.player){o.draw=v[17]||0;o.aimT=v[18]||0;}o.perfumeEffect=v[19]||undefined;o.mission=v[20]?api.getMission?.(v[20]):null;if(o.type==='boombox'){const r=v[21]||[0,0,0,0];Object.assign(o.radio||(o.radio={}),{on:!!r[0],station:r[1],since:r[2],offset:r[3]});}
         if (o.state === 'held' && owner) { visual.delete(o.g);owner.held = o; if (owner !== W.player) cargoPosition(owner, o.pos, o.def.r); }
         else target(o.g, v.slice(2, 5));
@@ -230,7 +251,11 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     for (const [key, value] of (rows || []).slice(0, 3000)) {
       if (typeof key !== 'string' || !Array.isArray(value)) continue;
       const entry = objects.get(key);
-      if(api.remoteOwns?.(key,a)){if(entry?.type==='i'&&entry.o.state==='held'&&entry.o.owner&&entry.o.owner!==a)continue;accepted.push([key,value]);continue;}
+      if(api.remoteOwns?.(key,a)){
+        if((entry?.type==='i'||key.startsWith('i:'))&&
+          !canHostAcceptMissionItem(entry?.o,value,keyOf(a),keyOf(entry?.o?.owner)))continue;
+        accepted.push([key,value]);continue;
+      }
       if (entry?.type === 'p' && (entry.o.rider === a || entry.o.grabbed === a) && vector(value.slice(1, 7), 6)) {
         const b = entry.o, was = b.solid?.on; if (b.solid) b.solid.on = false;
         try {
