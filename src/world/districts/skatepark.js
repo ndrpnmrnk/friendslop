@@ -10,18 +10,21 @@ import {skateBotController} from '../skate-bots.js';
 // adjustments beyond the isolated W.skateBowl height-field hook.
 const metal=()=>tmat(T.paintMetal(0x6c7785));
 function deepBowl(b){
- const {x,z,flatRadius,rimRadius,outerRadius,depth}=L.bowl;
- // One connected, smooth, low-poly height field: no overlapping quarterpipe
- // steps, coplanar rings, transparent seams or physics-only invisible walls.
- const sides=64,rings=24,positions=[],uv=[],indices=[];
- for(let j=0;j<=rings;j++){
-  const rad=outerRadius*j/rings,ht=bowlHeight(rad,L.bowl)+.055;
+ const {x,z,outerRadius,patchHalf}=L.bowl;
+ // True 3.05m-deep recess; one continuous floor/curved-wall mesh plus a
+ // square outer patch covering the exact hole in the world ground slab.
+ const sides=64,rings=32,positions=[],uv=[],indices=[];
+ for(let j=0;j<=rings+1;j++){
   for(let i=0;i<=sides;i++){
-   const angle=i/sides*Math.PI*2,px=Math.cos(angle)*rad,pz=Math.sin(angle)*rad;
-   positions.push(px,ht,pz);uv.push((px+outerRadius)/3,(pz+outerRadius)/3);
+   const angle=i/sides*Math.PI*2,c=Math.cos(angle),s=Math.sin(angle);
+   // Last ring hits the square cutout edges, covering every corner without
+   // another flat overlay that could flicker against the recessed surface.
+   const rad=j===rings+1?patchHalf/Math.max(Math.abs(c),Math.abs(s)):outerRadius*j/rings;
+   const px=c*rad,pz=s*rad,ht=j===rings+1?0:bowlHeight(rad,L.bowl);
+   positions.push(px,ht+.002,pz);uv.push((px+outerRadius)/3,(pz+outerRadius)/3);
   }
  }
- for(let j=0;j<rings;j++)for(let i=0;i<sides;i++){
+ for(let j=0;j<rings+1;j++)for(let i=0;i<sides;i++){
   const a=j*(sides+1)+i,c=a+sides+1;
   indices.push(a,a+1,c,a+1,c+1,c);
  }
@@ -32,10 +35,10 @@ function deepBowl(b){
  const root=b.prop(x,z),surface=new THREE.Mesh(geo,lam({map:T.concrete(),side:THREE.DoubleSide},'deepSkateBowl'));
  root.add(surface);
  // One solid coping loop, without the old coplanar white floor ring.
- const coping=new THREE.Mesh(new THREE.TorusGeometry(rimRadius,.065,6,64),metal());
- coping.rotation.x=Math.PI/2;coping.position.y=depth+.075;root.add(coping);
+ const coping=new THREE.Mesh(new THREE.TorusGeometry(L.bowl.rimRadius,.065,6,64),metal());
+ coping.rotation.x=Math.PI/2;coping.position.y=.095;root.add(coping);
  for(let i=0;i<12;i++){
-  const a=i*Math.PI/6,r=outerRadius+.34;
+  const a=i*Math.PI/6,r=outerRadius+.50;
   const dash=b.m(G.box,col(0xc78a58),x+Math.cos(a)*r,.04,z+Math.sin(a)*r,.62,.07,.12);
   dash.rotation.y=-a;
  }
@@ -148,8 +151,16 @@ function skateRideBonus(b){
 }
 export default {
  id:'skatepark',name:'Скейт-парк',ground:'asphalt',size:44,
+ holes:[[L.bowl.x-L.bowl.patchHalf,L.bowl.z-L.bowl.patchHalf,
+         L.bowl.x+L.bowl.patchHalf,L.bowl.z+L.bowl.patchHalf]],
  build(b){
-  b.ground(1.6,1.6,42.4,42.4,T.concrete(),4);
+  const q=L.bowl,h=q.patchHalf;
+  // No ground mesh over the hole! The bowl itself covers the square cutout
+  // down to its actual playable floor below the district deck.
+  b.ground(1.6,1.6,q.x-h,42.4,T.concrete(),4);
+  b.ground(q.x+h,1.6,42.4,42.4,T.concrete(),4);
+  b.ground(q.x-h,1.6,q.x+h,q.z-h,T.concrete(),4);
+  b.ground(q.x-h,q.z+h,q.x+h,42.4,T.concrete(),4);
   b.box(22,1,38,.3,2.95,tmat(T.brickWall()));
   for(const[x,i]of[[10,1],[22,3],[34,5]])b.graffiti(x,1.42,1.20,0,3.2,i);
 
