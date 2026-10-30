@@ -15,9 +15,16 @@ const equal=(a,b)=>a===b||Array.isArray(a)&&Array.isArray(b)&&a.length===b.lengt
 export class StateDelta {
   constructor() { this.base = new Map(); this.last = new Map(); this.visited = new Map(); this.rev = 0; }
   baseline(records) { this.base = new Map(records); this.last = new Map(this.base); this.visited.clear(); this.rev = 0; }
-  snapshot(records, full = false) {
+  snapshot(records, full = false, accept = null) {
     const rows = [], rev=++this.rev;
-    for (const [k,v] of records) { if (!equal(v,(full ? this.base : this.last).get(k))) rows.push([k,v]);this.last.set(k,v);this.visited.set(k,rev); }
+    for(const [k,v] of records){
+      const before=(full?this.base:this.last).get(k),changed=!equal(v,before);
+      const send=!changed||full||!accept||accept(k,this.last.get(k),v);
+      if(changed&&send)rows.push([k,v]);
+      // Crucial: a throttled update must remain pending for later snapshots.
+      if(send)this.last.set(k,v);
+      this.visited.set(k,rev);
+    }
     for (const k of this.last.keys()) if (this.visited.get(k)!==rev) { rows.push([k,null]);this.last.delete(k);this.visited.delete(k); }
     return { rev, full, rows };
   }
