@@ -1,5 +1,6 @@
 import { random } from '../core/random.js';
 import { smoothClockOffset } from './cadence.js';
+import {telemetry} from './telemetry.js';
 /* Сеть Friendslop: подключение к серверу комнат (worker/), список игроков, отправка/приём сообщений.
    Сервер только пересылает — кто что делает, решают клиенты (в хабе каждый отвечает за себя).
    Адрес сервера: NET_URL ниже; для проверок можно подменить ?server=ws://127.0.0.1:8787 (запоминается в браузере). */
@@ -27,15 +28,16 @@ export const others = () => [...NET.players.values()].filter(p => p.id !== NET.i
 
 const traffic={at:performance.now(),tx:0,rx:0,txBytes:0,rxBytes:0,sendHz:0,receiveHz:0,outKB:0,inKB:0,receiveMs:0,dropped:0};
 function countTraffic(direction,bytes){traffic[direction]++;traffic[direction+'Bytes']+=bytes;const now=performance.now(),dt=(now-traffic.at)/1000;if(dt>=1){traffic.sendHz=traffic.tx/dt;traffic.receiveHz=traffic.rx/dt;traffic.outKB=traffic.txBytes/dt/1024;traffic.inKB=traffic.rxBytes/dt/1024;traffic.tx=traffic.rx=traffic.txBytes=traffic.rxBytes=0;traffic.at=now;}}
-export const netStats=()=>({rtt:NET.rtt,queue:NET.ws?.bufferedAmount||0,players:NET.players.size,targetHz:NET.sendRateHz,...traffic});
+export const netStats=()=>({rtt:NET.rtt,queue:NET.ws?.bufferedAmount||0,players:NET.players.size,targetHz:NET.sendRateHz,...traffic,diagnostics:telemetry.snapshot()});
 export function send(m) {
   if(!NET.ws||NET.ws.readyState!==1)return false;
   // Не ставим новые устаревающие состояния в длинную TCP-очередь. Команды/звук повторяет вызывающий код.
-  if(m.t==='st'&&NET.ws.bufferedAmount>32768){traffic.dropped++;return false;}
-  const raw=JSON.stringify(m);NET.ws.send(raw);countTraffic('tx',raw.length);return true;
+  if(m.t==='st'&&NET.ws.bufferedAmount>32768){traffic.dropped++;telemetry.outgoing(NET.ws.bufferedAmount,true);return false;}
+  const raw=JSON.stringify(m);NET.ws.send(raw);countTraffic('tx',raw.length);telemetry.outgoing(NET.ws.bufferedAmount);return true;
 }
 
 function open(code, create) {
+  if(code!==NET.code||NET.state==='off')telemetry.reset();
   clearTimeout(retryTimer);
   if (NET.ws) { wantClose = true; try { NET.ws.close(); } catch { } }
   wantClose = false; lastCreate = create; NET.code = code; NET.state = 'connecting'; NET.error = ''; emit('state');
@@ -43,7 +45,7 @@ function open(code, create) {
   NET.ws = ws;
   ws.onopen = () => { let token = SS('friendslop.tok.' + code); if (!token) { token = random().toString(36).slice(2) + Date.now().toString(36); SS('friendslop.tok.' + code, token); }
     send({ t: 'hello', name: myName() || 'Игрок', skin: NET.skin, ver: VER, migrate: true,bots:LS('friendslop.bots')!=='0', create: create ? 1 : 0, token }); };
-  ws.onmessage = e => { const start=performance.now();let m; try { m = JSON.parse(e.data); } catch { return; }countTraffic('rx',e.data.length);try{handle(m);}finally{traffic.receiveMs=Math.max(traffic.receiveMs*.9,performance.now()-start);} };
+  ws.onmessage = e => { const start=performance.now();let m; try { m = JSON.parse(e.data); } catch { return; }countTraffic('rx',e.data.length);try{handle(m);}finally{const ms=performance.now()-start;traffic.receiveMs=Math.max(traffic.receiveMs*.9,ms);telemetry.incoming(e.data.length,ms);} };
   ws.onclose = () => { if (NET.ws !== ws) return; clearInterval(pingT); NET.ws = null;
     if (NET.state !== 'off' && !wantClose && retry < 4) { retry++; NET.state = 'connecting'; emit('state'); emit('toast', 'Связь пропала — переподключаюсь…'); retryTimer = setTimeout(() => {if(!wantClose)open(NET.code, false);}, 800 * retry); return; }
     if (NET.state !== 'off') leaveLocal(); };
@@ -63,9 +65,9 @@ function handle(m) {
     case 'join': NET.players.set(m.p.id, m.p); emit('join', m.p); emit('toast', m.p.name + ' в лобби'); emit('state'); break;
     case 'leave': { const p = NET.players.get(m.id); NET.players.delete(m.id); emit('leave', m.id); if (p) emit('toast', p.name + ' вышел'); emit('state'); break; }
     case 'upd': { const p = NET.players.get(m.p.id); NET.players.set(m.p.id, { ...p, ...m.p }); if (m.p.id === NET.id) NET.host = m.p.host; emit('state'); break; }
-    case 'st': emit('st', m); break;
+    case 'st': if(m.id!==NET.id)telemetry.state(m.id,m.m,m.n,performance.now(),m.ep??'');emit('st', m); break;
     case 'ev': emit('ev', m); break;
-    case 'P': NET.rtt = Math.round(performance.now() - m.c);if(Number.isFinite(m.s)){NET.offset=smoothClockOffset(NET.offset,m.s+NET.rtt/2-Date.now(),!clockSynced);clockSynced=true;} { const p = me(); if (p) p.rtt = NET.rtt; } emit('ping'); break;
+    case 'P': NET.rtt = Math.round(performance.now() - m.c);telemetry.ping(NET.rtt);if(Number.isFinite(m.s)){NET.offset=smoothClockOffset(NET.offset,m.s+NET.rtt/2-Date.now(),!clockSynced);clockSynced=true;} { const p = me(); if (p) p.rtt = NET.rtt; } emit('ping'); break;
     case 'kicked': wantClose = true; emit('toast', 'Хост выгнал тебя из лобби'); leaveLocal(); break;
     case 'hostwait': emit('toast', 'Хост отключился — ждём его…'); break;
     case 'hostback': emit('toast', 'Хост вернулся'); break;
