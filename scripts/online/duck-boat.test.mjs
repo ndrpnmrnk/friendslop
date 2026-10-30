@@ -15,7 +15,9 @@ test('park duck boat has real finite mass, height and radius for all player coll
  assert(Number.isFinite(h)&&h>.2&&h<2);
  const radius=.85,share=1/(1+m),force=6/m;
  assert(Number.isFinite(radius+share+force),'collision / impulse must never be NaN');
- assert(s.includes('if(!Number.isFinite(mass)||mass<=0||!Number.isFinite(h)'));
+ assert(s.includes('const physicalMass=Number.isFinite(mass)&&mass>0?mass:4'));
+ assert(s.includes('const physicalHeight=Number.isFinite(h)&&h>0?h:.85'));
+ assert(s.includes('const physicalRadius=Number.isFinite(r)&&r>0?r:.5'));
 });
 const duck=(x,vx,withRider=true,z=0)=>({kind:'duck',x,z,r:.85,vx,vz:0,rider:withRider?{pos:{x,y:0,z}}:null});
 test('approaching boats generate exactly one authoritative collision with correct victim',()=>{
