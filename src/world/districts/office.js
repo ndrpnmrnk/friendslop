@@ -5,7 +5,10 @@ export default{id:'office',name:'Бизнес-центр',ground:'pave',size:44,
  const N=6,FH=3.8,H=N*FH;
  b.tower({x:10,z:2,w:24,d:20,floors:N,fh:FH,wall:0x56647e,brick:false,facadeProps:false,windowPools:false,doorW:3,elevator:{x0:26,z0:2.4,x1:29.4,z1:5.8},fireEscape:{side:'w',at:.48},door:{side:'s',at:.5,style:'glass',sign:['ПОЛНОЛУНИЕ','#2c2a3d','#e1cba2']},floor:T.carpet(),interior(f,k,r){
   const back=r.z1-1,front=r.z0+1.5;
-  const wall=tmat(T.plaster());f.box(30.7,5.9,.18,7,3.1,wall);f.box(26.8,9.35,7.8,.18,3.1,wall);f.box(22.9,4,.18,3,3.1,wall);f.box(22.9,8.65,.18,1.3,3.1,wall);f.sign(25.5,2.5,9.46,0,'ЛИФТ','#333343','#e3cca1',2,.35);
+  const wall=tmat(T.plaster()),trim=col(0x7c7c88);f.box(30.7,5.9,.2,7,FH,wall);f.box(22.9,5.9,.2,7,FH,wall);
+  for(const [x,w]of[[24.65,3.5],[29.85,1.7]])f.box(x,9.35,w,.2,FH,wall);f.box(27.7,9.35,2.6,.2,FH-2.5,wall,{y:2.5});
+  f.m(G.box,trim,26.8,FH-.18,9.46,7.8,.12,.06);f.sign(27.7,2.8,9.48,0,'ЛИФТ','#333343','#e3cca1',2,.3);f.rug(27.7,7.7,3,2,'#60566a','#c5b49a');
+
 
   if(!k){f.counter(22,12,4,1,1.05,tmat(T.wood())).surface.put('monitor',0,0);f.sofa(13,back,Math.PI);f.sofa(31,back,Math.PI);f.rug(22,17,4,2.5);f.waterCooler(32.8,10);f.plantPot(11.2,back);return;}
   if(k===N-1){f.kitchen(33.3,14,3,-Math.PI/2);for(const x of[15,22,29])for(const z of[13,18]){f.ptable(x,z,.9);f.chair(x,z+1,Math.PI);}return;}
@@ -13,7 +16,6 @@ export default{id:'office',name:'Бизнес-центр',ground:'pave',size:44,
   f.vitrine(29,15,6.4,2.2,'x',.2);f.ptable(29,18,1.3);for(const x of[27.5,30.5])f.chair(x,18,x<29?Math.PI/2:-Math.PI/2);f.whiteboard(33.6,1.7,18,-Math.PI/2,2.4);
   f.shelf(25,back,2.5,Math.PI,'office');f.ride('chair',23,13,0);if(k%2)f.safe(11,back,Math.PI/2);
  }});
- const ring=b.m(new THREE.RingGeometry(2.8,3,24),lam({color:0xd6c99d}),22,H+.03,13);ring.rotation.x=-Math.PI/2;
  b.marking(22,28,8,.15,0xb8a282);for(const x of[13,31]){b.aircon(x,5,H);b.planter(x,29,3,1.5,.5,'flowers');b.bench(x,33,Math.PI);}
  b.box(30,12,2,2,.6,tmat(T.metal()),{y:H});b.climbTrim(22,12,24,20,H);
  // Люлька с открытыми торцами: посадка с тротуара, высадка на крышу.

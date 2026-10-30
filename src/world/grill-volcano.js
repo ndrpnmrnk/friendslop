@@ -1,19 +1,26 @@
-import {G,col,tmat,glow} from '../core/gfx.js';
+import {THREE,G,V3,col,tmat,glow} from '../core/gfx.js';
 import {T} from '../core/textures.js';
 import {W} from './state.js';
-import {localAnimation,localActors,districtClock} from './district-motion.js';
-import {knockDown} from '../game/actors.js';
+import {localAnimation,districtClock} from './district-motion.js';
+import {addItem,launch} from '../game/items.js';
+import {actors} from '../game/actors.js';
 import {sfx} from '../core/sfx.js';
-// Fixed pool and shared clock: bounded cost, identical projectile paths on peers.
+// Fixed, pre-registered inventory: the host launches real shared items, never visual copies.
 export function grillVolcano(b,x,z){
- const steel=tmat(T.metal()),dark=col(0x302a32);b.m(G.sph10,dark,x,.95,z,1.25,.7,1.1);b.solid(x,z,2.5,2.2,.45,1.1);
- for(const sx of[-.85,.85])for(const sz of[-.65,.65])b.box(x+sx,z+sz,.1,.1,.8,steel);
- for(let i=0;i<11;i++)b.m(G.box,steel,x-.95+i*.19,1.15,z,.04,.035,1.7);
- b.m(G.box,glow(0xf28d42),x,1,z,1.8,.03,1.4);b.box(x,z-1,.16,.16,2.4,steel);
- const shots=Array.from({length:8},(_,i)=>{const g=b.m(G.sph10,col(i%2?0xb66a36:0x8e4634),x,1.3,z,.22,.14,.2);g.visible=false;return g;});
- const state={values:[-1,1]};W.districtStates.push(state);W.fires.push({x:b.X(x),y:b.Y+1,z:b.Z(z),get hp(){return state.values[1];},set hp(v){state.values[1]=Math.max(0,v);}});
- let cycle=-1;const hit=new WeakMap();localAnimation(()=>{const now=districtClock(),c=Math.floor(now/31),phase=now%31;if(c!==cycle){cycle=c;}if(state.values[0]!==c)state.values=[c,1];
- for(let i=0;i<shots.length;i++){const g=shots[i],t=phase-(4+(Math.sin(c*31)*.5+.5)*10)-i*.17,hash=Math.sin(c*17+i*37)*.5+.5,tx=4+hash*36,tz=4+(Math.sin(c*11+i*19)*.5+.5)*36;g.visible=state.values[1]>0&&t>=0&&t<2.6;if(!g.visible)continue;const k=t/2.6;g.position.set(b.X(x+(tx-x)*k),b.Y+1.3+12*4*k*(1-k)-1.15*k,b.Z(z+(tz-z)*k));g.rotation.x=t*5;g.rotation.z=t*3;
- if(k>.9)for(const a of localActors())if(hit.get(a)!==c&&Math.hypot(a.pos.x-g.position.x,a.pos.z-g.position.z)<a.r+.3&&Math.abs(a.pos.y-g.position.y)<1.8){hit.set(a,c);knockDown(a,1,3,1.2);sfx('hiss',{at:g.position,range:12});}}
- },...shots);return state;
+ const steel=tmat(T.metal()),dark=col(0x302a32),paint=tmat(T.paintMetal(0x5d584e));
+ b.m(G.sph10,dark,x,.8,z,1.25,.65,1);b.solid(x,z,2.5,2,.3,.85);
+ for(const sx of[-.85,.85])for(const sz of[-.65,.65]){b.box(x+sx,z+sz,.09,.09,.7,steel);b.m(G.cyl8,dark,x+sx,.15,z+sz,.15,.1,.15).rotation.z=Math.PI/2;}
+ for(let i=0;i<11;i++)b.m(G.box,steel,x-.95+i*.19,1.05,z,.035,.035,1.6);
+ b.m(G.box,glow(0xe87627),x,.94,z,1.8,.03,1.25);b.m(G.box,paint,x,1.05,z-1,.5,.2,.18);b.m(G.cyl8,steel,x,1.65,z-1,.13,1.1,.13);
+ const lid=new THREE.Group();lid.name='grill-hinged-lid';lid.position.set(b.X(x),b.Y+1.08,b.Z(z-.85));b.g.add(lid);
+ const shell=new THREE.Mesh(new THREE.SphereGeometry(1,12,6,0,Math.PI*2,0,Math.PI/2),paint);shell.scale.set(1.25,.7,1);shell.position.z=.85;lid.add(shell);
+ const handle=new THREE.Mesh(G.box,steel);handle.position.set(0,.2,1.8);handle.scale.set(.65,.08,.09);lid.add(handle);
+ const pool=Array.from({length:12},(_,i)=>{const it=addItem(['coal','burger','tomato','cucumber'][i%4],b.X(x),b.Y+1.2,b.Z(z));it.state='gone';it.g.visible=false;return it;});
+ const state={values:[-1]};W.districtStates.push(state);const age=new Map();
+ localAnimation(()=>{const t=districtClock()%30,open=t<2?t/2:t<5?1:t<7?1-(t-5)/2:0;lid.rotation.x=-open*1.55;},lid);
+ const emitAt=now=>{if(W.net?.replica)return;const cycle=Math.floor(now/30),phase=now%30;if(phase<2||phase>5||state.values[0]===cycle)return;state.values[0]=cycle;
+  let n=0;for(const it of pool){if(n>=6)break;const available=it.state==='gone'||it.state==='rest'&&now-(age.get(it)||now)>40&&actors().every(a=>a.pos.distanceTo(it.pos)>8);if(!available)continue;
+   const angle=(Math.sin(cycle*17+n*37)*.5+.5)*Math.PI*2,range=3+(Math.sin(cycle*31+n*11)*.5+.5)*8,flight=1.4,from=new V3(b.X(x),b.Y+1.3,b.Z(z));it.g.visible=true;it.floatY=undefined;it.taken=false;it.owner=null;it.thrownBy=null;it.noHit=0;it.vel.set(0,0,0);launch(it,from,new V3(Math.cos(angle)*range/flight,14.6,Math.sin(angle)*range/flight));age.set(it,now);n++;}
+  if(n)sfx('hiss',{at:lid.position,range:25,v:.65});
+ };const emit=()=>emitAt(districtClock());W.animated.push(emit);return {state,pool,lid,emit,emitAt};
 }

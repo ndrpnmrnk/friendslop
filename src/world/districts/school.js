@@ -62,7 +62,6 @@ export default {
 
     /* ---------- стадион с беговой дорожкой (ЮЗ) ---------- */
     b.ground(3.5, 19.5, 17.5, 38.5, T.court(), 3); b.ground(5.5, 21.5, 15.5, 36.5, T.grass(), 3, .016);
-    const ring = b.m(new THREE.RingGeometry(1.45, 1.63, 20), paint(0xe5ddcf), 10.5, .035, 29, 1, 1, 1); ring.rotation.x = -Math.PI / 2;
     for (const x of [4.3, 16.7]) b.marking(x, 29, .14, 18); b.marking(10.5, 29, 10, .14);
     b.goal(10.5, 22.2, 0, 4, 2.2); b.goal(10.5, 35.8, Math.PI, 4, 2.2);
     b.item('ball', 8, 27); b.item('ball', 13, 31);

@@ -9,8 +9,7 @@ import { addGrabTarget, addHazard } from '../game/grab-targets.js';
    - цель для захвата — сиреневое кольцо на земле (grabTarget);
    - опасная зона для ботов (hazard). Все координаты — локальные, как у остальных методов конструктора. */
 const stripes = () => pix('kit60-hazard', 32, 32, g => { g.fillStyle = '#1a1018'; g.fillRect(0, 0, 32, 32); g.fillStyle = '#e2454f'; for (let i = -32; i < 64; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 8, 0); g.lineTo(i + 40, 32); g.lineTo(i + 32, 32); g.fill(); } });
-const ringTex = () => pix('kit60-ring', 64, 64, g => { g.clearRect(0, 0, 64, 64); g.strokeStyle = 'rgba(200,170,255,.9)'; g.lineWidth = 3; g.setLineDash([7, 5]); g.beginPath(); g.arc(32, 32, 28, 0, 7); g.stroke(); });
-let _hz, _ring, _trim;
+let _hz, _trim;
 export const KitMethods = {
   hazardFloor(x, z, w, d, y = 0) {
     return null; // Автор убрал разметку опасности во всех районах.
@@ -28,7 +27,7 @@ export const KitMethods = {
   grabTarget(o) {
     const t = { ...o, x: this.X(o.x), z: this.Z(o.z), y: this.Y + (o.y || 0) };
     if (o.at) t.at = { x: this.X(o.at.x), y: this.Y + o.at.y, z: this.Z(o.at.z) };
-    if (o.ring !== false) { _ring ??= ringTex(); const m = this.m(G.plane, lam({ map: _ring, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }, 'kit60-ring'), o.x, (o.y || 0) + .03, o.z, (o.r || 1.2) * 2, (o.r || 1.2) * 2, 1); m.rotation.x = -Math.PI / 2; }
+
     return addGrabTarget(t);
   },
   // дорожка-полоса по точкам (ломаная): каждый отрезок чуть выше предыдущего — стыки не мерцают

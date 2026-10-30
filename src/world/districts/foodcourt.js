@@ -18,7 +18,6 @@ export default{id:'foodcourt',name:'Фудкорт',ground:'pave',size:44,build(
  for(const[x,z]of[[32,23],[37,32],[29,37]]){b.table(x,z,1);b.chair(x-1.2,z,Math.PI/2);b.chair(x+1.2,z,-Math.PI/2);b.m(G.cyl6,col(0x393342),x,1.9,z,.04,3.8,.04);b.solid(x,z,.12,.12,0,3.8);addCanopy(b,x,z,{w:3.5,edge:3.35,rise:.5,colors:['#875568','#eadbc1']});}
  b.surface(9.6,24.3,3,.4,1.23).put('taco',.4,0);b.surface(9.6,35.3,3,.4,1.23).put('burger',.4,0);
  grillVolcano(b,22,28);
- b.item('extinguisher',18.3,28);b.m(G.box,tmat(T.sign('ОГНЕТУШИТЕЛЬ','#6b3239','#f2d7bc')),18.3,1.5,27.4,.7,.5,.06);
  b.grabTarget({x:5,z:29,r:1.1,kind:'slow',t:4,label:'мешки муки'});b.trashBags(4,28,2);b.bin(40,20);b.bin(14,39);
  districtFrame(b,'foodcourt');b.zone('floor',20,20,26,35);b.hw(()=>{b.stringLights(5,19,39,19,3.3);b.pumpkin(39,38);});
 }};

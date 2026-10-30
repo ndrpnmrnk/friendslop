@@ -1,3 +1,4 @@
+import {dropHeld,daze} from './actors.js';
 import { random } from '../core/random.js';
 import {actionEffect} from '../world/action-fx.js';
 import {placeArcDots} from './trajectory.js';
@@ -30,6 +31,7 @@ function integrateProjectile(p,v,dt,drag=0){const k=Math.max(0,drag);if(k<1e-5){
 function boundaryHit(old,p,r){const B=W.bounds-r;let t=1,n=null;for(const a of['x','z'])if(Math.abs(p[a])>B){const edge=Math.sign(p[a])*B,u=(edge-old[a])/(p[a]-old[a]);if(u<t){t=Math.max(0,u);n=a==='x'?[-Math.sign(p.x),0,0]:[0,0,-Math.sign(p.z)];}}if(n)p.lerpVectors(old,p,t);return n;}
 
 function build(type) {
+  if(type==='coal')return compose('hot-coal-0622',a=>{a(G.ico,col(0x342a27),0,0,0,.17,.13,.16);for(const x of[-.08,.03,.09])a(G.box,glow(0xe76e28),x,.10,.02,.025,.025,.17);});
   if(type==='fatcan')return fatCanModel();
   if(SNACKS[type])return snackModel(type);
   if(type==='boombox')return radioModel();
@@ -296,6 +298,8 @@ function simulate(it, dt, flying) {
 }
 
 export function updateItems(dt, pl) {
+  for(const a of [pl,...(!W.net?.replica?W.bots||[]:[])].filter(a=>a&&!a.puppet)){if(a.held?.type==='coal'&&!a.netProtected){a.coalHeat=(a.coalHeat||0)+dt;if(a.coalHeat>1.8){a.coalHeat=0;daze(a,.65);const hot=a.held;if(a===pl&&W.net?.replica)W.net.request('drop',hot);if(a.held===hot)dropHeld(a);sfx('hiss',{at:a.pos,range:8,v:.4});}}else a.coalHeat=0;}
+
   for (const it of W.items) {
     if (W.net && !W.net.canSimulate(it)) continue;
     if (it.state === 'gone' || it.state === 'placed') continue;
