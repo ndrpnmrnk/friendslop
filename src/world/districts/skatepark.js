@@ -15,7 +15,7 @@ function deepBowl(b){
  const {x,z,outerRadius,patchHalf}=L.bowl;
  // True 3.05m-deep recess; one continuous floor/curved-wall mesh plus a
  // square outer patch covering the exact hole in the world ground slab.
- const sides=80,rings=48,positions=[],uv=[],indices=[];
+ const sides=80,rings=64,positions=[],uv=[],indices=[];
  for(let j=0;j<=rings+1;j++){
   for(let i=0;i<=sides;i++){
    const angle=i/sides*Math.PI*2,c=Math.cos(angle),s=Math.sin(angle);
