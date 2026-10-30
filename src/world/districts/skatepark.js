@@ -124,7 +124,7 @@ export default {
   // Открытый южный коридор для начала миссий «сбей мишени»
   // и обычного безопасного появления игроков.
   districtFrame(b,'skatepark',{spawn:L.spawn,floor:L.missionFloor,catArea:[2,39.2,10,42.2]});
-  b.zone('floor',15.5,35,27.8,41.5);
+  b.zone('floor',33.0,19.0,40.0,27.0);
   b.hw(()=>{b.pumpkin(41,27);b.pumpkin(3,29);});
   skateRideBonus(b);
  }
