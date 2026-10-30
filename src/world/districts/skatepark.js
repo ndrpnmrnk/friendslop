@@ -128,7 +128,7 @@ export default {
   b.zone('floor',33.0,19.0,40.0,27.0);
   b.hw(()=>{b.pumpkin(41,27);b.pumpkin(3,29);});
   skateRideBonus(b);
-  W.skateOriginX=b.ox;W.skateOriginZ=b.oz;
+  W.skateOriginX=b.ox;W.skateOriginZ=b.oz;W.skateBaseY=b.Y;
   W.skateAI=skateBotController();
  }
 };
