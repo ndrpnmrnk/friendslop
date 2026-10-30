@@ -29,9 +29,11 @@ export function bowlAt(b,x,z){
 // The same deterministic height function is sampled by the renderer and by
 // groundAt on host and guest. No special moving collision or network traffic.
 export function bowlGround(b,x,z,maxY){
- const c=bowlAt(b,x,z);
- const y=c?b.baseY+c.height:null;
- return y!=null&&y<=maxY+.18?y:null;
+ if(!b)return null;
+ const r=Math.hypot(x-b.x,z-b.z);
+ if(r>b.outerRadius)return null;
+ const y=b.baseY+bowlHeight(r,b);
+ return y<=maxY+.18?y:null;
 }
 export function moveBowlBoard(board,dt,b){
  if(!board||!['skate','scooter'].includes(board.kind)||!board.rider||!b){
