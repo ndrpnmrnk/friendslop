@@ -439,23 +439,23 @@ export class Builder {
     const pivot = new THREE.Group(); pivot.position.set(this.X(hx), this.Y + y, this.Z(hz)); this.g.add(pivot);
     const wood = tmat(T.wood()), dk = col(0x3a2418);
     const px = axis === 'x' ? w / 2 : 0, pz = axis === 'x' ? 0 : w / 2;
-    if (style === 'glass') {
-      // стеклянная дверь торгового центра: металлическая рама, стекло, поручень, наклейка «ВХОД»
+    if (style === 'glass' || style === 'glass-clear') {
+      // Стекло с рамой и поручнями. Для чистого входа кинотеатра - без наклейки и средней стойки.
       const fr = col(0x3a3440), gl = lam({ color: 0xbfe8ff, emissive: 0x1a3040, transparent: true, opacity: 0.35, depthWrite: false }, 'mallGlass'), ch = col(0xd8d8e0);
       const B = (x0, y0, z0, sx, sy, sz, m) => mesh(G.box, m, axis === 'x' ? x0 : 0, y0, axis === 'x' ? 0 : z0, axis === 'x' ? sx : sz, sy, axis === 'x' ? sz : sx, pivot);
       B(px, h / 2, pz, w - 0.1, h - 0.1, 0.03, gl); B(px, h - 0.04, pz, w, 0.08, 0.1, fr); B(px, 0.04, pz, w, 0.08, 0.1, fr);
-      for (const e of [0.04, w - 0.04, w / 2]) B(e, h / 2, e, 0.08, h, 0.1, fr);
+      for (const e of (style === 'glass-clear' ? [0.04, w - 0.04] : [0.04, w - 0.04, w / 2])) B(e, h / 2, e, 0.08, h, 0.1, fr);
       for (const sd of [-1, 1]) B(px, 1.05, pz + 0, w * 0.7, 0.05, 0.05, ch).position[axis === 'x' ? 'z' : 'x'] = sd * 0.08;
-      B(px, 1.5, pz, 0.6, 0.18, 0.035, tmat(T.sign('ВХОД', '#2a1f3d', '#b18cff')));
+      if(style === 'glass') B(px, 1.5, pz, 0.6, 0.18, 0.035, tmat(T.sign('ВХОД', '#2a1f3d', '#b18cff')));
     } else if(style==='metal'){
       const iron=tmat(T.corrugated(0x6d8179)),frame=col(0x455553);mesh(G.box,iron,px,h/2,pz,axis==='x'?w:.10,h,axis==='x'?.10:w,pivot);
       for(const y of[.12,h-.12])mesh(G.box,frame,px,y,pz,axis==='x'?w+.04:.14,.12,axis==='x'?.14:w+.04,pivot);
     } else
     mesh(G.box, [dk, dk, dk, dk, wood, wood], px, h / 2, pz, axis === 'x' ? w : 0.08, h, axis === 'x' ? 0.08 : w, pivot);
-    if (style !== 'glass') { mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : 0.07, 1.05, axis === 'x' ? 0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);
+    if (style !== 'glass' && style !== 'glass-clear') { mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : 0.07, 1.05, axis === 'x' ? 0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);
       mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : -0.07, 1.05, axis === 'x' ? -0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot); }
     const s = axis === 'x' ? this.solid(hx + w / 2, hz, w, 0.16, y, h) : this.solid(hx, hz + w / 2, 0.16, w, y, h);
-    const d = { pivot, solid: s, open: false, ang: 0, inward, axis, x: this.X(hx + px), z: this.Z(hz + pz), y: this.Y + y, outline: addOutline(pivot, 0.04), automatic:style==='glass' };
+    const d = { pivot, solid: s, open: false, ang: 0, inward, axis, x: this.X(hx + px), z: this.Z(hz + pz), y: this.Y + y, outline: addOutline(pivot, 0.04), automatic:style==='glass'||style==='glass-clear' };
     W.doors.push(d); return d;
   }
 

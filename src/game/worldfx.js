@@ -132,12 +132,12 @@ export function leaveSwing(P, jump) {
 }
 /* Скамейка (v0.18): E — сесть (болтает ногами, осматривается, выносливость восстанавливается быстрее); E/пробел/WASD — встать */
 export function sitBench(P, b) {
-  const used = b.riders.map(r => r.side), side = [-0.45, 0.45].find(x => !used.includes(x)); if (side === undefined) return;
+  const used = b.riders.map(r => r.side), side = (b.seats||[-0.45, 0.45]).find(x => !used.includes(x)); if (side === undefined) return;
   b.riders.push({ a: P, side }); P.bench = { b, side }; P.vel.set(0, 0, 0); sfx('hide', { at: P.pos, v: 0.4 });
 }
 export function leaveBench(P) {
   const st = P.bench; if (!st) return; P.bench = null; st.b.riders = st.b.riders.filter(r => r.a !== P);
-  P.pos.set(st.b.x + Math.sin(st.b.ry) * 0.7 + Math.cos(st.b.ry) * st.side, st.b.y, st.b.z + Math.cos(st.b.ry) * 0.7 - Math.sin(st.b.ry) * st.side); P.onGround = true;
+  P.pos.set(st.b.x + Math.sin(st.b.ry) * (st.b.exitOffset??.7) + Math.cos(st.b.ry) * st.side, st.b.y, st.b.z + Math.cos(st.b.ry) * (st.b.exitOffset??.7) - Math.sin(st.b.ry) * st.side); P.onGround = true;
 }
 export function driveSwing(P, iz, dt) {
   const s = P.swing; if (!s) return;
@@ -178,6 +178,6 @@ export function registerInteracts() {
           if (W.containerLoot && W.containerLoot(at)) c.gave = true;
           else if (random() < 0.35) { c.gave = true; const l = ['umbrella', 'extinguisher', 'ball', 'can', 'banana', 'rake', 'water'], it = addItem(l[(random() * l.length) | 0], at.x, at.y, at.z); it.noHitT = 0.6; launch(it, at.clone(), new V3(-Math.cos(c.ry) * 2, 3, Math.sin(c.ry) * 2)); } } } });
     W.animated.push(dt => { const want = c.open ? 1 : 0; c.lidK = (c.lidK || 0) + (want - (c.lidK || 0)) * Math.min(1, dt * 8); c.lid.rotation.z = -c.lidK * 1.3; }); }
-  for (const b of W.benches) W.interacts.push({ x: b.x + Math.sin(b.ry) * 0.6, z: b.z + Math.cos(b.ry) * 0.6, y: b.y, r: 1.1, label: 'Сесть на скамейку', enabled: P => !P.held && !P.holding && b.riders.length < (b.skel ? 1 : 2), act: P => sitBench(P, b) });
+  for (const b of W.benches) W.interacts.push({ x: b.x + Math.sin(b.ry) * 0.6, z: b.z + Math.cos(b.ry) * 0.6, y: b.y, r: 1.1, label: 'Сесть на скамейку', enabled: P => !P.held && !P.holding && b.riders.length < (b.skel ? 1 : (b.seats?.length||2)), act: P => sitBench(P, b) });
   for (const s of W.swingSeats) W.interacts.push({ get x() { return s.pivot.position.x; }, get z() { return s.pivot.position.z; }, y: s.pivot.position.y - 2.46, r: 0.9, label: 'Сесть на качели', enabled: P => !s.rider && !P.held, act: P => sitSwing(P, s) });
 }

@@ -69,7 +69,7 @@ import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
 import {resetCoins,updateCoins,coinState,grabFist,nearFist} from './game/coins.js';
 import {telemetry,diagnosticsText} from './net/telemetry.js';
-import {collection,addCoins,spendCoins} from './game/collection.js';
+import {collection,addCoins} from './game/collection.js';
 import { createPodium, assignAwards, AWARDS, skinName } from './ui/podium.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
 import { throwPotato, initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget, PHASE, phaseOf } from './game/events.js';
@@ -216,7 +216,7 @@ initMatchSync({
   award: (a, pts, m) => { if(a===P){S.score+=pts;S.done++;scored(m,pts);}else{a.score=(a.score||0)+pts;const st=statsOf(a);st.missions++;st.mpts+=pts;missionDone(m);} },
   botCount:()=>S.botCount??4,score:()=>S.score, setScore:v=>{S.score=v;}, time:()=>S.time, state:()=>S.state,
   setTime:v=>{if(Number.isFinite(v)&&S.state==='play')S.time=Math.max(0,v);},
-  droneState:networkDroneState, droneApply:receiveNetworkDrone,candyState:networkCandyState,candyApply:receiveNetworkCandies, effect:(a,k,v)=>{if(k==='cinema-charge')spendCoins(1);else if(k==='eliminate')eliminate(a,Math.min(30,v.seconds||15));else if(k==='net')netActor(a,W.net.actor(v.owner));else if(k==='candy'){const def=CANDY_TYPES.find(d=>d.id===v.id);if(def)applyCandy(def,a,W.net.actor(v.owner));}},
+  droneState:networkDroneState, droneApply:receiveNetworkDrone,candyState:networkCandyState,candyApply:receiveNetworkCandies, effect:(a,k,v)=>{if(k==='eliminate')eliminate(a,Math.min(30,v.seconds||15));else if(k==='net')netActor(a,W.net.actor(v.owner));else if(k==='candy'){const def=CANDY_TYPES.find(d=>d.id===v.id);if(def)applyCandy(def,a,W.net.actor(v.owner));}},
   eventUi, pause:on=>{if(on)toast('Хост свернул игру - общая пауза');},
   final:()=>{if(['play','intro'].includes(S.state))startFinale();}
 });
