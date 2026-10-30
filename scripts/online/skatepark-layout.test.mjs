@@ -26,7 +26,7 @@ test('natural fleet uses real spaced outdoor skates and scooters without entranc
  assert(!rentalRideClear({x:22,z:23}));
 });
 test('skate line only activates on real curved surfaces',()=>{
- assert.equal(skateSection(22,15.9,2.2),'bowl');
+ assert.equal(skateSection(22,15.9,-1.9),'bowl');
  assert.equal(skateSection(9.5,6.2,.5),'halfpipe');
  assert.equal(skateSection(22,23,0),null);
  assert.equal(skateSection(9.5,9.4,0),null);

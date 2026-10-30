@@ -8,6 +8,10 @@ test('deep bowl is ONE continuous rendered height field, same as physical ground
  assert(scene.includes('bowlHeight(rad,L.bowl)'));
  assert(scene.includes('new THREE.BufferGeometry()'));
  assert(scene.includes('geo.computeVertexNormals()'));
+ assert(scene.includes('holes:[[L.bowl.x-L.bowl.patchHalf'));
+ assert(scene.includes('j===rings+1?patchHalf/Math.max'));
+ assert(!scene.includes('b.ground(1.6,1.6,42.4,42.4,T.concrete(),4)'));
+ assert(read('src/world/world.js').includes('for (const h of holes) W.holes.push'));
  assert(scene.includes('W.skateBowl={...L.bowl'));
  assert(!scene.includes('b.quarterPipe(x,z-inner'),'no four disconnected segments');
  assert(physics.includes('bowlGround(W.skateBowl,x,z,maxY)'));
