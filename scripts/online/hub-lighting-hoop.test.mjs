@@ -27,6 +27,6 @@ test('hoop faces the paved central pathway away from the western building',()=>{
  assert(Math.abs(forward.z)<1e-10);
  // Scoring and collisions derive from the same root transform.
  assert.match(hoop,/const center=root\.localToWorld/);
- assert.match(hoop,/const pole=root\.localToWorld/);
+ assert.match(hoop,/\bpole=root\.localToWorld/);
  assert.match(hoop,/const boardCenter=root\.localToWorld/);
 });
