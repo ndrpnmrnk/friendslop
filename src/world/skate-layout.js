@@ -11,7 +11,7 @@ export const SKATE_LAYOUT=Object.freeze({
  rentalRides:[
   {kind:'skate',x:28.5,z:39.9,ry:1.3},
   {kind:'scooter',x:38.7,z:40.5,ry:-.75},
-  {kind:'skate',x:28.3,z:33.0,ry:-1.1},
+  {kind:'skate',x:27.2,z:34.7,ry:-1.1},
   {kind:'scooter',x:40.7,z:27.2,ry:2.2},
   {kind:'skate',x:15.1,z:36.0,ry:.4}
  ],
