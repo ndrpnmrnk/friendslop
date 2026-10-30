@@ -220,6 +220,8 @@ export function updateBots(dt, t, P) {
         b.bus = null; b.roofSeat = null; if (b.bench && W.leaveBench) W.leaveBench(b); if (b.swing && W.leaveSwing) W.leaveSwing(b, false); b.goal = null; b.nav = null; b.think = 0; b.avoid = null; b.vel.y = Math.max(b.vel.y, 5); b.onGround = false; } }
     if(W.race&&b.ride?.kind==='kart'){W.race.drive(b,dt,t);progBar(b);continue;}
     tickBotWork(b,dt);
+    // Idle skatepark bots use the same board physics, never simulated by guests.
+    if(W.skateAI?.tick(b,dt,t)){blob(b);progBar(b);continue;}
     if(b.bus){b.ch.animate(dt,{t,speed:0,ride:'sit'});continue;}
     const ctrl = !b.heldBy && b.stun <= 0 && !(b.getT > 0) && !(b.knockT > 0) && !(b.floatT > 0) && !(b.netT > 0);
     let ix = 0, iz = 0, run = 1;
@@ -329,6 +331,8 @@ function decide(b, P) {
     if (!b.held && random() < 0.6) { const it = nearestItem(b.pos, 9); if (it && it.state === 'rest' && !it.def.sinks) { b.goal = { x: it.pos.x, y: it.pos.y - it.def.r, z: it.pos.z, kind: 'fetch', it, near: 1.1 }; return; } }
     b.goal = { who: v, kind: 'fight', t: 6 }; return; } }
   const m = pickMission(b); if (m && random() < (mood === 'worker' ? 0.95 : 0.8)) { b.goal = m; return; }
+  // Only free bots near the rental occasionally choose a skating route.
+  if(!b.work&&r<.32){const skate=W.skateAI?.goal(b);if(skate){b.goal=skate;return;}}
   b.goal = wanderGoal();
 }
 // пришёл к цели
