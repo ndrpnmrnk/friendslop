@@ -1,83 +1,135 @@
-import {THREE,G,col,tmat,paint} from '../../core/gfx.js';
+import {THREE,G,col,tmat,paint,lam} from '../../core/gfx.js';
 import {T} from '../../core/textures.js';
 import {W} from '../state.js';
 import {localActors,districtFrame} from '../district-motion.js';
 import {SKATE_LAYOUT as L,skateSection,rentalRideClear} from '../skate-layout.js';
+import {bowlHeight} from '../skate-bowl.js';
 import {skateBotController} from '../skate-bots.js';
 
-/* v0.61.2 - скейт-парк 44 × 44, восстановлен строго по схеме:
-    СЗ: хафпайп    СВ: перила
-       центральная большая чаша
-    ЮЗ: перила     ЮВ: декоративный прокат и парковка досок
-   Никакого футбола. Только игровые, доступные для езды рампы и рейлы.
-   Вся статическая геометрия использует существующие материалы и batch world.
-*/
+// v0.61.3 - ONLY this district was rebuilt. No football or generic physics
+// adjustments beyond the isolated W.skateBowl height-field hook.
 const metal=()=>tmat(T.paintMetal(0x6c7785));
-function bowl(b){
- const {x,z,inner,width,radius,deck}=L.bowl;
- // Большая четырёхсторонняя «чаша» - непрерывный плоский разгон внутри,
- // четыре реально проезжаемых радиусных борта с физикой quarterPipe.
- // Визуальные круги показывают геометрию чаши; они не добавляют препятствий.
- const bottom=b.m(new THREE.CircleGeometry(inner-.45,40),tmat(T.concrete()),x,.021,z);
- bottom.rotation.x=-Math.PI/2;
- const line=b.m(new THREE.RingGeometry(inner-.53,inner-.44,48),paint(0xdac7ac),x,.037,z);
- line.rotation.x=-Math.PI/2;
- b.quarterPipe(x,z-inner,width,radius,Math.PI,deck);
- b.quarterPipe(x,z+inner,width,radius,0,deck);
- b.quarterPipe(x-inner,z,width,radius,-Math.PI/2,deck);
- b.quarterPipe(x+inner,z,width,radius,Math.PI/2,deck);
- // Восемь коротких меток на внешней линии: без дополнительных коллизий.
- for(let i=0;i<8;i++){
-  const a=i*Math.PI/4,r=inner+2.75;
-  const m=b.m(G.box,col(0xde834f),x+Math.cos(a)*r,.035,z+Math.sin(a)*r,.64,.07,.10);
-  m.rotation.y=-a;
+function deepBowl(b){
+ const {x,z,flatRadius,rimRadius,outerRadius,depth}=L.bowl;
+ // One connected, smooth, low-poly height field: no overlapping quarterpipe
+ // steps, coplanar rings, transparent seams or physics-only invisible walls.
+ const sides=64,rings=24,positions=[],uv=[],indices=[];
+ for(let j=0;j<=rings;j++){
+  const rad=outerRadius*j/rings,ht=bowlHeight(rad,L.bowl)+.055;
+  for(let i=0;i<=sides;i++){
+   const angle=i/sides*Math.PI*2,px=Math.cos(angle)*rad,pz=Math.sin(angle)*rad;
+   positions.push(px,ht,pz);uv.push((px+outerRadius)/3,(pz+outerRadius)/3);
+  }
  }
+ for(let j=0;j<rings;j++)for(let i=0;i<sides;i++){
+  const a=j*(sides+1)+i,c=a+sides+1;
+  indices.push(a,a+1,c,a+1,c+1,c);
+ }
+ const geo=new THREE.BufferGeometry();
+ geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+ geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+ geo.setIndex(indices);geo.computeVertexNormals();
+ const root=b.prop(x,z),surface=new THREE.Mesh(geo,lam({map:T.concrete(),side:THREE.DoubleSide},'deepSkateBowl'));
+ root.add(surface);
+ // One solid coping loop, without the old coplanar white floor ring.
+ const coping=new THREE.Mesh(new THREE.TorusGeometry(rimRadius,.065,6,64),metal());
+ coping.rotation.x=Math.PI/2;coping.position.y=depth+.075;root.add(coping);
+ for(let i=0;i<12;i++){
+  const a=i*Math.PI/6,r=outerRadius+.34;
+  const dash=b.m(G.box,col(0xc78a58),x+Math.cos(a)*r,.04,z+Math.sin(a)*r,.62,.07,.12);
+  dash.rotation.y=-a;
+ }
+ W.skateBowl={...L.bowl,x:b.X(x),z:b.Z(z),baseY:b.Y};
 }
 function halfpipe(b){
  const h=L.halfpipe;
  b.ground(4.1,3.7,15,15.4,T.concrete(),2.5,.024);
  b.quarterPipe(h.x,h.front,h.width,h.radius,Math.PI,.8);
  b.quarterPipe(h.x,h.back,h.width,h.radius,0,.8);
- b.marking(h.x,9.4,8.2,.12,0xf2cf8b);
  b.sign(h.x,2.6,3.25,0,'ХАФПАЙП','#312539','#f8c36e',3.4,.62);
 }
-function rails(b,rows){
- for(const [x0,z0,x1,z1,y]of rows)b.grindRail(x0,z0,x1,z1,y);
+function closedWedge(b,x,z,w,len,h,ry){
+ b.wedge(x,z,w,len,h,ry);
+ // Closed back and triangular side skirts: the underside is not hollow.
+ const back=b.prop(x,z,ry),sideMat=tmat(T.concrete());
+ const shape=new THREE.Shape();
+ shape.moveTo(0,0);shape.lineTo(len,0);shape.lineTo(len,h);shape.closePath();
+ const sideGeo=new THREE.ShapeGeometry(shape);
+ for(const sx of[-1,1]){
+  const side=new THREE.Mesh(sideGeo,lam({map:T.concrete(),side:THREE.DoubleSide},'skateWedgeSide'));
+  side.rotation.y=-Math.PI/2;side.position.x=sx*w/2;back.add(side);
+ }
+ const cap=new THREE.Mesh(G.box,sideMat);
+ cap.position.set(0,h/2,len+.045);cap.scale.set(w,h,.11);back.add(cap);
 }
 function rental(b){
- const {x,z,w,d}=L.rental;
- const brick=tmat(T.brickWall()),roof=tmat(T.roof()),trim=metal();
- b.box(x,z,w,d,2.65,brick);
- b.box(x,z,w+.35,d+.35,.18,roof,{y:2.65,solid:false});
- // Витрина и прилавок с южной стороны. Прокат декоративный,
- // для подбора транспорта используется штатная клавиша E.
- b.m(G.box,col(0x27263b),x-1.25,1.58,z+d/2+.025,1.45,1.05,.035);
- b.m(G.box,col(0x7cc9c4),x-1.25,1.58,z+d/2+.049,1.22,.79,.015);
- b.m(G.box,trim,x+1.75,1.28,z+d/2+.045,1.20,2.32,.06);
- b.box(x,z+d/2+.46,w-.25,.67,.14,trim,{y:1.92,solid:false});
- b.sign(x,2.98,z+d/2+.35,0,'ПРОКАТ СКЕЙТОВ','#252235','#f5c46e',4.9,.68);
- b.sign(x,1.22,z+d/2+.11,0,'СКЕЙТЫ · САМОКАТЫ','#382b48','#f6e2cb',3.0,.42);
- // Четыре отдельных открытых парковочных места в юго-восточной четверти.
+ const {x,z,w,d,doorWidth}=L.rental;
+ const brick=tmat(T.brickWall()),roof=tmat(T.roof()),wood=tmat(T.wood()),mt=metal();
+ const glass=lam({color:0x8dc6d6,transparent:true,opacity:.38,depthWrite:false,side:THREE.DoubleSide},'skateRentalGlass');
+ const frame=col(0x303946),inside=col(0x454758),accent=col(0xe2a36a);
+ const front=z+d/2,back=z-d/2,H=3.45,wall=.22;
+ // Hollow building: four separate walls, genuinely open entrance, not a
+ // single solid box hiding an inaccessible interior.
+ b.ground(x-w/2+.1,z-d/2+.1,x+w/2-.1,z+d/2-.1,T.wood(),1.6,.055);
+ b.box(x,back,w,wall,H,brick);
+ for(const sx of[-1,1])b.box(x+sx*w/2,z,wall,d,H,brick);
+ const paneW=(w-doorWidth)/2;
+ for(const sx of[-1,1]){
+  const px=x+sx*(doorWidth/2+paneW/2);
+  b.box(px,front,paneW,.12,2.6,glass);
+  b.box(px,front+.09,paneW,.075,.18,frame,{y:.1,solid:false});
+  b.box(px,front+.09,paneW,.075,.18,frame,{y:2.43,solid:false});
+  b.box(px+sx*(paneW/2-.07),front+.09,.12,.12,2.5,mt,{solid:false});
+ }
+ b.box(x,front,w,.18,.86,brick,{y:2.6});
+ b.box(x,z,w+.45,d+.45,.22,roof,{y:H,solid:true});
+ b.box(x,front+.50,w+.2,.92,.13,mt,{y:2.73,solid:false});
+ b.sign(x,H+.37,front+.12,0,'ПРОКАТ','#29283b','#f5c46e',4.2,.65);
+ // Sliding transparent double doors are cosmetic and open automatically;
+ // the 2.35 m passage itself has no collision, so E/ride never gets stuck.
+ const left=b.m(G.box,glass,x-.58,1.35,front+.12,1.13,2.5,.055);
+ const right=b.m(G.box,glass,x+.58,1.35,front+.12,1.13,2.5,.055);
+ for(const m of[left,right]){
+  const h=b.m(G.box,mt,x,1.2,front+.164,.045,1.4,.04);
+  m.userData.rentalDoor=true;h.userData.rentalHandle=true;
+ }
+ const cx=b.X(x),cz=b.Z(front),leftX=b.X(x-.60),rightX=b.X(x+.60);
+ let open=0;
+ W.animated.push(dt=>{
+  let close=false;
+  for(const a of localActors())if(a.pos&&Math.hypot(a.pos.x-cx,a.pos.z-cz)<3.15&&Math.abs(a.pos.y-b.Y)<3.3){close=true;break;}
+  open+=(Number(close)-open)*Math.min(1,dt*6);
+  left.position.x=leftX-open*1.14;
+  right.position.x=rightX+open*1.14;
+ });
+ // Large readable interior, open central walkway, service counter, displays.
+ b.box(x,back+1.2,3.75,.85,1.05,wood);
+ b.box(x,back+1.2,3.75,.085,.18,mt,{y:1.04,solid:false});
+ for(const sx of[-1,1]){
+  const shelfX=x+sx*(w/2-.76);
+  b.box(shelfX,z-.52,.9,2.35,.94,inside,{y:.12});
+  b.box(shelfX,z-.52,1.02,2.47,.10,wood,{y:1.04,solid:false});
+  for(let i=0;i<3;i++){
+   b.m(G.box,accent,shelfX,1.18+i*.45,z-.9,.38,.045,.78).rotation.y=i*.16;
+  }
+ }
+ b.box(x,back+.13,2.8,.05,.18,accent,{y:2.08,solid:false});
+ b.m(G.box,accent,x,3.04,z,2.1,.09,.34);
+ // Natural placements, including several scattered outside the rental.
  for(const ride of L.rentalRides){
   if(!rentalRideClear(ride))throw new Error('Unsafe skate rental vehicle spawn');
-  b.marking(ride.x,ride.z,1.5,.07,0xd7ac76);
   const p=b.ride(ride.kind,ride.x,ride.z,ride.ry);
-  p.districtRental='skatepark'; // можно взять и кататься как обычно
+  p.districtRental='skatepark';
  }
 }
 function skateRideBonus(b){
  const run=new WeakMap();
- // Не начисляем очки каждую секунду. Только завершённый проезд
- // по чаше / хафпайпу на скейте или самокате. Трюки Space и grind
- // уже имеют единую бонусную систему W.onTrick/W.onGrind с лимитом.
  W.animated.push(()=>{
   if(!W.onTrick)return;
   const now=performance.now()/1000;
   for(const a of localActors()){
    const ride=a.ride;
-   if(!ride||ride.rider!==a||!['skate','scooter'].includes(ride.kind)){
-    run.delete(a);continue;
-   }
+   if(!ride||ride.rider!==a||!['skate','scooter'].includes(ride.kind)){run.delete(a);continue;}
    const speed=Math.hypot(ride.vx||0,ride.vz||0);
    const section=skateSection(ride.x-b.ox,ride.z-b.oz,ride.y-b.Y);
    const r=run.get(a)||{section:null,entered:0,x:0,z:0,last:-100};
@@ -85,8 +137,7 @@ function skateRideBonus(b){
     r.section=section;r.entered=now;r.x=ride.x;r.z=ride.z;
    }else if(!section&&r.section){
     if(now-r.entered>.38&&now-r.entered<9&&speed>4.6&&
-       Math.hypot(ride.x-r.x,ride.z-r.z)>2.0&&now-r.last>9){
-      // The existing capped trick bonus is the only source of points.
+       Math.hypot(ride.x-r.x,ride.z-r.z)>2&&now-r.last>9){
       W.onTrick(a,'skate-line-'+r.section);r.last=now;
     }
     r.section=null;
@@ -99,33 +150,26 @@ export default {
  id:'skatepark',name:'Скейт-парк',ground:'asphalt',size:44,
  build(b){
   b.ground(1.6,1.6,42.4,42.4,T.concrete(),4);
-  // Декоративный граффити-бэкборд: реальная высокая коллизия для
-  // существующей миссии «граффити по трафарету».
   b.box(22,1,38,.3,2.95,tmat(T.brickWall()));
-  for(const [x,i]of[[10,1],[22,3],[34,5]])b.graffiti(x,1.42,1.20,0,3.2,i);
+  for(const[x,i]of[[10,1],[22,3],[34,5]])b.graffiti(x,1.42,1.20,0,3.2,i);
 
-  bowl(b);halfpipe(b);
-  rails(b,L.railsNE);rails(b,L.railsSW);
-  // Небольшие заходы на перила; не пересекаются с чашей и коридорами.
-  b.wedge(36,14.1,3.2,2.5,.57,Math.PI);
-  b.wedge(8.2,27,3.2,2.5,.53,0);
+  deepBowl(b);halfpipe(b);
+  for(const [x0,z0,x1,z1,y]of [...L.railsNE,...L.railsSW])b.grindRail(x0,z0,x1,z1,y);
+  closedWedge(b,36,14.1,3.2,2.5,.57,Math.PI);
+  closedWedge(b,8.2,27,3.2,2.5,.53,0);
   rental(b);
 
-  // Атмосфера: низкие ограждения, свет, места отдыха. Главные
-  // линии катания и проход между югом и чашей остаются свободными.
   b.fence(2.2,5,2.2,26,1.25,'mesh');
   b.fence(41.8,5,41.8,23.5,1.25,'mesh');
   b.bench(5.4,24.5,Math.PI/2);
   b.bench(12,40,-Math.PI/2);
-  b.bin(40.5,29);
+  b.bin(3.2,30.2);
   b.lamp(3.1,14,Math.PI/2);
   b.lamp(40.8,17,-Math.PI/2);
   b.sign(35.8,2.45,2.8,0,'SKATE PARK','#302537','#f5c46e',4.2,.7);
   b.grabTarget({x:5.4,z:28.4,r:1.2,kind:'bounce',label:'рампа'});
-  // Открытый южный коридор для начала миссий «сбей мишени»
-  // и обычного безопасного появления игроков.
   districtFrame(b,'skatepark',{spawn:L.spawn,floor:L.missionFloor,catArea:[2,39.2,10,42.2]});
-  b.zone('floor',33.0,19.0,40.0,27.0);
+  b.zone('floor',35.8,18.2,40.5,26.0);
   b.hw(()=>{b.pumpkin(41,27);b.pumpkin(3,29);});
   skateRideBonus(b);
   W.skateOriginX=b.ox;W.skateOriginZ=b.oz;W.skateBaseY=b.Y;
