@@ -33,39 +33,64 @@ export function bowlGround(b,x,z,maxY){
  // allow the analytic contact to catch up without treating it as a ceiling.
  return y<=maxY+1.12?y:null;
 }
+// A single sampled contact frame controls deck pitch, lateral roll and rider
+// posture. No separate "sticky" rotation that can flip a board on a steep lip.
+export function bowlContact(b,x,z,heading=0){
+ const c=bowlAt(b,x,z);
+ if(!c?.onWall)return null;
+ const slope=Math.min(2.05,c.slope);
+ const fx=Math.sin(heading),fz=Math.cos(heading);
+ const rightX=Math.cos(heading),rightZ=-Math.sin(heading);
+ return { ...c, pitch:Math.atan(slope*(c.nx*fx+c.nz*fz)),
+   roll:Math.atan(slope*(c.nx*rightX+c.nz*rightZ)),
+   steep:c.slope>2.05 };
+}
+export function bowlLipLaunch(board,oldX,oldZ,b){
+ if(!b||!board?.rider||board.air||(board.bowlFlightCooldown||0)>0||
+ !['skate','scooter'].includes(board.kind))return false;
+ const before=bowlAt(b,oldX,oldZ),afterRadius=Math.hypot(board.x-b.x,board.z-b.z);
+ if(!before?.onWall||before.r<b.rimRadius-.72||afterRadius<b.rimRadius-.18)return false;
+ const nx=(board.x-b.x)/(afterRadius||1),nz=(board.z-b.z)/(afterRadius||1);
+ const radial=board.vx*nx+board.vz*nz,sp=Math.hypot(board.vx,board.vz);
+ if(radial<5.5||sp<10.5||board.y<b.baseY-1.5)return false;
+ board.vy=Math.max(board.vy||0,Math.min(7.5,3.7+(radial-5.5)*.38));
+ board.y=Math.max(board.y,b.baseY+.12);
+ board.air=true;board.bowlFlightCooldown=1.5;board.bowlTakeoff=true;
+ board.trick??={kind:board.kind==='scooter'?'barspin':'kickflip',t:0,dur:.48};
+ return true;
+}
 export function moveBowlBoard(board,dt,b){
- if(!board||!['skate','scooter'].includes(board.kind)||!board.rider||!b){
-  if(board)board.bowlBank=(board.bowlBank||0)*Math.exp(-dt*9);
-  return false;
- }
- const c=bowlAt(b,board.x,board.z),speed=Math.hypot(board.vx||0,board.vz||0);
+ if(!board)return false;
  board.bowlFlightCooldown=Math.max(0,(board.bowlFlightCooldown||0)-dt);
- if(!c||!c.onWall||board.air||board.y<b.baseY-b.depth-.18){
-  board.bowlBank=(board.bowlBank||0)*Math.exp(-dt*8);
+ const boardRide=['skate','scooter'].includes(board.kind)&&!!board.rider;
+ const contact=boardRide&&!board.air?bowlContact(b,board.x,board.z,board.heading||0):null;
+ const ease=1-Math.exp(-dt*12);
+ const speed=Math.hypot(board.vx||0,board.vz||0);
+ if(!contact||board.y<b.baseY-b.depth-.18){
+  board.bowlBank=(board.bowlBank||0)*Math.exp(-dt*9);
+  board.bowlPitch=(board.bowlPitch||0)*Math.exp(-dt*9);
+  board.bowlSteep=false;
   return false;
  }
- const radial=board.vx*c.nx+board.vz*c.nz;
- const tangential=-board.vx*c.nz+board.vz*c.nx;
- // Slow riders roll toward the bowl floor; fast carving supplies a bounded
- // outwards banking force. Contact depends on velocity, not an invisible wall.
- const down=16*Math.max(0,c.slope)/Math.sqrt(1+c.slope*c.slope);
- const support=Math.min(14,tangential*tangential/Math.max(3,c.r));
- const force=clamp(support-down,-13,8);
- board.vx+=c.nx*force*dt;board.vz+=c.nz*force*dt;
- const h=board.heading||0,rightX=Math.cos(h),rightZ=-Math.sin(h);
- const side=c.nx*rightX+c.nz*rightZ;
- const target=clamp(-Math.atan(c.slope)*side*.72*Math.min(1,speed/6),-.65,.65);
- board.bowlBank=(board.bowlBank||0)+(target-(board.bowlBank||0))*Math.min(1,dt*10);
- // Physically leave the upper rim with enough *outward* momentum, not
- // whenever the model is simply near the bowl. Standard airborne trick
- // animation and landing/scoring still handle the rest.
- if(c.r>=b.rimRadius-.09&&radial>6&&speed>10.5&&
-    board.y>=b.baseY-.72&&board.bowlFlightCooldown<=0){
-  board.vy=Math.max(board.vy||0,Math.min(8,3.9+(radial-6)*.45));
-  board.y=Math.max(board.y,b.baseY+.10);
-  board.air=true;board.bowlFlightCooldown=1.6;
-  board.trick={kind:board.kind==='scooter'?'barspin':'kickflip',t:0,dur:.36};
-  return true;
+ // Gravity points down the curved surface. Centripetal support grows with
+ // tangential speed; slow skaters cannot park on near-vertical walls.
+ const radial=board.vx*contact.nx+board.vz*contact.nz;
+ const tangent=-board.vx*contact.nz+board.vz*contact.nx;
+ const downhill=18*contact.slope/Math.sqrt(1+contact.slope*contact.slope);
+ const support=Math.min(13,tangent*tangent/Math.max(3.2,contact.r));
+ const force=Math.max(-18,Math.min(7,support-downhill));
+ board.vx+=contact.nx*force*dt;board.vz+=contact.nz*force*dt;
+ if(contact.steep&&speed<9){
+  board.vx-=contact.nx*(5.5+(9-speed)*.75)*dt;
+  board.vz-=contact.nz*(5.5+(9-speed)*.75)*dt;
  }
+ // The board and the avatar use exactly this pitch/roll, not mismatched
+ // estimates from different sampled points. The clamp keeps a believable
+ // upright rider pose near the nearly-vertical coping.
+ board.bowlPitch=Number.isFinite(board.bowlPitch)?board.bowlPitch:0;
+ board.bowlBank=Number.isFinite(board.bowlBank)?board.bowlBank:0;
+ board.bowlPitch+=(Math.max(-1.05,Math.min(1.05,contact.pitch))-board.bowlPitch)*ease;
+ board.bowlBank+=(Math.max(-1.05,Math.min(1.05,contact.roll))-board.bowlBank)*ease;
+ board.bowlSteep=contact.steep;
  return false;
 }

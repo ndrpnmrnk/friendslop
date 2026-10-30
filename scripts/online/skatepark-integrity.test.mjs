@@ -35,8 +35,14 @@ test('rental is a walk-in building with glass fronts and doors that slide aside'
  assert(s.includes('const paneW=(w-doorWidth)/2'));
  assert(s.includes('transparent:true,opacity:.38'));
  assert(s.includes('W.animated.push(dt=>'));
- assert(s.includes('left.position.x=leftX-open*1.14'));
- assert(s.includes('right.position.x=rightX+open*1.14'));
+ assert(s.includes('breakBox(startX,doorY,doorZ,doorW,2.45'));
+ assert(s.includes('piece.dynamic=true'));
+ assert(s.includes('moveSolid(piece.solid'));
+ assert(s.includes('piece.solid.on=open<.38'));
+ assert(s.includes('breakBox(b.X(px),b.Y,b.Z(front)'));
+ assert(!s.includes('const dash=b.m(G.box,col(0xc78a58)'));
+ assert(!s.includes('b.box(x,front+.50,w+.2,.92,.13,mt'));
+ assert(read('src/world/breakables.js').includes('p.dynamic'));
  assert(!s.includes('b.box(x,z,w,d,2.65,brick)'),'must not recreate full solid kiosk');
  assert(!s.includes("'СКЕЙТЫ · САМОКАТЫ'"));
  assert(!s.includes("b.marking(ride.x"),'no parking stripes');

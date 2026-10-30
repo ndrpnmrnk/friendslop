@@ -1,7 +1,7 @@
 import { tipBin, animateTip } from './pushables.js';
 import { W } from './state.js';
 import { clamp } from '../core/rng.js';
-import {bowlGround,moveBowlBoard} from './skate-bowl.js';
+import {bowlGround,moveBowlBoard,bowlLipLaunch,bowlContact} from './skate-bowl.js';
 
 /* Твёрдые объекты — AABB с высотой: {x0,x1,z0,z1,y0,y1,on}.
    Всё, у чего верх ниже «шага», можно перешагнуть; на всё остальное — запрыгнуть или залезть. */
@@ -189,6 +189,10 @@ export function updatePushables(dt, player) {
     recordImpact(b,hit,Math.hypot(b.vx,b.vz));
     if (hit) { b.hitSpeed = Math.hypot(b.vx, b.vz); const k = b.kind === 'voteBall' ? -0.7 : -0.3; b.vx *= k; b.vz *= k; }
     b.x = p.x; b.z = p.z;constrainWaterRide(b,op);
+    // Check the whole rim crossing, not just the old location. The existing
+    // board now enters a genuine ballistic state instead of snapping to
+    // street height at the first frame outside the bowl.
+    if(!hit)bowlLipLaunch(b,op.x,op.z,W.skateBowl);
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: .45, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
     // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
@@ -201,6 +205,7 @@ export function updatePushables(dt, player) {
       }
       if (b.grind && Math.abs(b.y - b.grind.y) > 0.05) { b.grind = null; b.grindEnd = performance.now(); }
       const board = b.kind === 'skate' || b.kind === 'scooter';
+      const bowlContactNow=board&&!b.air?bowlContact(W.skateBowl,b.x,b.z,b.heading||0):null;
       if (b.y > gy + 0.02) { b.vy -= 22 * dt; b.y = Math.max(gy, b.y + b.vy * dt); if (b.y <= gy) { if (b.vy < -7 && b.rider) b.hardLand = -b.vy; b.vy = 0; } b.air = b.y > gy; if (board) b.pitch = (b.pitch || 0) * Math.exp(-dt * 3); }
       else {
         const rise = gy - b.y; b.vy = rise > 0.005 ? Math.min(8, rise / dt * 0.85) : 0;
@@ -214,6 +219,9 @@ export function updatePushables(dt, player) {
           if (b.vy > 0) b.vy *= 0.8;
         } else if (rise > 0.01) { const k = Math.max(0.7, 1 - rise * 0.6); b.vx *= k; b.vz *= k; }
         b.y = gy; b.air = false;
+        // The deck's orientation comes from the exact collision surface,
+        // matching the rider instead of two conflicting tangent estimates.
+        if(bowlContactNow){b.pitch=b.bowlPitch||0;}
       }
     }
     if(b.kind==='crate'){_selfP=b;const gy=groundAt(b.x,b.z,b.r*.7,b.y+.04);_selfP=null;b.vy-=22*dt;b.y=Math.max(gy,b.y+b.vy*dt);if(b.y<=gy)b.vy=0;}

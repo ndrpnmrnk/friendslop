@@ -132,7 +132,7 @@ export function bakeBreakables(group) {
   const by = new Map();
   group.updateMatrixWorld(true);
   for (const p of W.breakables) {
-    if (!p.alive || !p.mesh.parent) continue;
+    if (!p.alive || !p.mesh.parent || p.dynamic) continue;
     const list = []; p.mesh.traverse(o => { if (o.isMesh) list.push(o); });
     if (!list.length || list.some(o => Array.isArray(o.material))) continue;
     p.inst = [];
