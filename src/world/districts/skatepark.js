@@ -15,7 +15,7 @@ function deepBowl(b){
  const {x,z,outerRadius,patchHalf}=L.bowl;
  // True 3.05m-deep recess; one continuous floor/curved-wall mesh plus a
  // square outer patch covering the exact hole in the world ground slab.
- const sides=64,rings=32,positions=[],uv=[],indices=[];
+ const sides=80,rings=64,positions=[],uv=[],indices=[];
  for(let j=0;j<=rings+1;j++){
   for(let i=0;i<=sides;i++){
    const angle=i/sides*Math.PI*2,c=Math.cos(angle),s=Math.sin(angle);
@@ -37,17 +37,37 @@ function deepBowl(b){
  const root=b.prop(x,z),surface=new THREE.Mesh(geo,lam({map:T.concrete(),side:THREE.DoubleSide},'deepSkateBowl'));
  root.add(surface);
  // One solid coping loop, without the old coplanar white floor ring.
- const coping=new THREE.Mesh(new THREE.TorusGeometry(L.bowl.rimRadius,.065,6,64),metal());
- coping.rotation.x=Math.PI/2;coping.position.y=.095;root.add(coping);
+ const coping=new THREE.Mesh(new THREE.TorusGeometry(L.bowl.rimRadius,.028,6,80),metal());
+ coping.rotation.x=Math.PI/2;coping.position.y=.014;root.add(coping); // flush visual detail, no blocking rim collider
  // Keep only clean metal coping: no stray orange dashes around the bowl.
  W.skateBowl={...L.bowl,x:b.X(x),z:b.Z(z),baseY:b.Y};
 }
 function halfpipe(b){
- const h=L.halfpipe;
+ const h=L.halfpipe,metalMat=metal(),dark=col(0x333943);
  b.ground(4.1,3.7,15,15.4,T.concrete(),2.5,.024);
- b.quarterPipe(h.x,h.front,h.width,h.radius,Math.PI,.8);
- b.quarterPipe(h.x,h.back,h.width,h.radius,0,.8);
- b.sign(h.x,2.6,3.25,0,'ХАФПАЙП','#312539','#f8c36e',3.4,.62);
+ const first=b.quarterPipe(h.x,h.front,h.width,h.radius,Math.PI,.8);
+ const second=b.quarterPipe(h.x,h.back,h.width,h.radius,0,.8);
+ // Close visible undersides and give the halfpipe proper metal kick plates,
+ // coping and deck edge guards. No floating label above the transition.
+ const U=h.radius*.78,deck=.8;
+ for(const [z,dir]of[[h.front,-1],[h.back,1]]){
+  const back=z+dir*(U+deck*.92);
+  b.box(h.x,back,h.width,.15,first, tmat(T.concrete()));
+  b.box(h.x,z+dir*(U+.08),h.width+.08,.1,.20,metalMat,{y:first-.12,solid:false});
+  for(const side of[-1,1]){
+   b.box(h.x+side*(h.width/2-.07),z+dir*(U+.28),.09,.92,first,dark,{solid:false});
+   b.box(h.x+side*(h.width/2-.11),z+dir*(U+.22),.11,.32,.12,metalMat,{y:first,solid:false});
+  }
+ }
+ // Flat central section, side landing platforms and industrial-looking
+ // dark metal detailing - no raised invisible wall in the travel lane.
+ for(const x of [h.x-h.width/2+.24,h.x+h.width/2-.24]){
+  for(const z of [h.front-1.3,h.back+1.3])
+   b.m(G.box,metalMat,x,.06,z,.18,.10,.6);
+ }
+ // Separate playable grind bars next to the halfpipe, not across its mouth.
+ b.grindRail(3.7,17.3,11.0,17.3,.53);
+ b.grindRail(15.9,4.6,15.9,11.3,.58);
 }
 function closedWedge(b,x,z,w,len,h,ry){
  b.wedge(x,z,w,len,h,ry);
@@ -86,7 +106,8 @@ function rental(b){
  b.box(x,front,w,.18,.86,brick,{y:2.6});
  b.box(x,z,w+.45,d+.45,.22,roof,{y:H,solid:true});
  // Removed the three-strip canopy in front of the entrance.
- b.sign(x,H+.37,front+.12,0,'ПРОКАТ','#29283b','#f5c46e',4.2,.65);
+ // Mounted against the real storefront fascia, not floating over the roof.
+ b.sign(x,3.06,front+.20,0,'ПРОКАТ','#29283b','#f5c46e',3.95,.43);
  // Sliding transparent double doors are cosmetic and open automatically;
  // the 2.35 m passage itself has no collision, so E/ride never gets stuck.
  // Two independent breakable sliding leaves, not a fake solid front.
@@ -114,19 +135,49 @@ function rental(b){
    piece.solid.on=open<.38;
   }
  });
- // Large readable interior, open central walkway, service counter, displays.
- b.box(x,back+1.2,3.75,.85,1.05,wood);
- b.box(x,back+1.2,3.75,.085,.18,mt,{y:1.04,solid:false});
- for(const sx of[-1,1]){
-  const shelfX=x+sx*(w/2-.76);
-  b.box(shelfX,z-.52,.9,2.35,.94,inside,{y:.12});
-  b.box(shelfX,z-.52,1.02,2.47,.10,wood,{y:1.04,solid:false});
+ // Functional rental interior. All racks are wall-mounted and the central
+ // ~2.35m doorway/walkway remains entirely unobstructed.
+ const counterZ=back+1.05;
+ b.box(x,counterZ,3.0,.74,.91,wood);
+ b.box(x,counterZ,3.06,.82,.075,mt,{y:.91,solid:false});
+ // Checkout terminal, keyboard, small money drawer and paper labels.
+ b.m(G.box,frame,x+.75,1.26,counterZ-.07,.48,.55,.10).rotation.x=-.12;
+ b.m(G.box,col(0x87b3c7),x+.75,1.26,counterZ-.007,.39,.42,.012);
+ b.m(G.box,inside,x+.75,.99,counterZ+.16,.64,.04,.21);
+ b.m(G.box,frame,x-.55,1.0,counterZ,.52,.13,.44);
+ b.m(G.box,accent,x-.55,1.09,counterZ-.20,.22,.022,.13);
+ // Display decks along side walls (clear of customer entrance).
+ for(const side of[-1,1]){
+  const bx=x+side*(w/2-.30);
+  const stand=col(side>0?0x6f88a3:0x985f70);
   for(let i=0;i<3;i++){
-   b.m(G.box,accent,shelfX,1.18+i*.45,z-.9,.38,.045,.78).rotation.y=i*.16;
+   const zz=back+1.42+i*.92;
+   b.m(G.box,wood,bx,1.42,zz,.075,1.60,.08);
+   b.m(G.box,stand,bx-side*.11,1.34,zz,.12,.16,.63);
+   for(const e of[-1,1])b.m(G.cyl8,frame,bx-side*.17,1.30,zz+e*.23,.065,.06,.065);
+   b.m(G.box,mt,bx-side*.14,1.46,zz,.09,.04,.62);
+  }
+  // Helmet hooks on the rear half of the wall, away from collisions.
+  for(let i=0;i<2;i++){
+   const zz=front-1.1-i*.62;
+   b.m(G.box,mt,bx-side*.12,1.83,zz,.16,.08,.13);
+   b.m(G.sph10,col(i?0xe09a59:0x6e9db0),bx-side*.23,1.67,zz,.27,.21,.23);
+   b.m(G.box,frame,bx-side*.23,1.50,zz,.22,.04,.09);
   }
  }
- b.box(x,back+.13,2.8,.05,.18,accent,{y:2.08,solid:false});
- b.m(G.box,accent,x,3.04,z,2.1,.09,.34);
+ // Low bench and repair tools in rear corners; no strange large shelves.
+ for(const side of[-1,1]){
+  const bx=x+side*(w/2-.80);
+  b.box(bx,back+.92,1.20,.44,.43,wood);
+  b.box(bx,back+.92,1.16,.41,.06,mt,{y:.43,solid:false});
+  for(let j=0;j<2;j++)b.m(G.box,frame,bx+side*.37,1.36,back+.55+j*.34,.06,.52,.06);
+ }
+ // Center ceiling fixture + existing lightweight district light pool:
+ // adds brightness without a new real-time shadow-casting point light.
+ b.m(G.box,frame,x,3.24,z,.55,.10,.55);
+ b.m(G.cyl8,mt,x,3.05,z,.28,.27,.28);
+ b.m(G.sph10,lam({color:0xffe2a2,emissive:0xffbb66,emissiveIntensity:.85},'skateShopBulb'),x,2.90,z,.18,.17,.18);
+ b.light(x,z,2.3,.035,true);
  // Natural placements, including several scattered outside the rental.
  for(const ride of L.rentalRides){
   if(!rentalRideClear(ride))throw new Error('Unsafe skate rental vehicle spawn');
@@ -174,7 +225,16 @@ export default {
   for(const[x,i]of[[10,1],[22,3],[34,5]])b.graffiti(x,1.42,1.20,0,3.2,i);
 
   deepBowl(b);halfpipe(b);
-  for(const [x0,z0,x1,z1,y]of [...L.railsNE,...L.railsSW])b.grindRail(x0,z0,x1,z1,y);
+  for(const [x0,z0,x1,z1,y]of [...L.railsNE,...L.railsSW,...L.railsExtra])b.grindRail(x0,z0,x1,z1,y);
+  // Low metal grind benches and reinforced curb islands in open corners.
+  for(const [x,z,len,rot]of[[6.8,30.7,3.8,0],[36.4,20.4,3.6,Math.PI/2],[33.5,14.8,3.2,0]]){
+   const q=Math.abs(Math.sin(rot))>.5;
+   b.box(x,z,q?.66:len,q?len:.66,.31,tmat(T.concrete()));
+   b.box(x,z,q?.75:len+.08,q?len+.08:.75,.065,metal(),{y:.32,solid:false});
+   for(const side of[-1,1])b.m(G.box,col(0x3a4551),
+     x+(q?side*.30:0),.17,z+(q?0:side*.30),
+     q?.07:len,.34,q?len:.07);
+  }
   closedWedge(b,36,14.1,3.2,2.5,.57,Math.PI);
   closedWedge(b,8.2,27,3.2,2.5,.53,0);
   rental(b);
@@ -186,7 +246,6 @@ export default {
   b.bin(3.2,30.2);
   b.lamp(3.1,14,Math.PI/2);
   b.lamp(40.8,17,-Math.PI/2);
-  b.sign(35.8,2.45,2.8,0,'SKATE PARK','#302537','#f5c46e',4.2,.7);
   b.grabTarget({x:5.4,z:28.4,r:1.2,kind:'bounce',label:'рампа'});
   districtFrame(b,'skatepark',{spawn:L.spawn,floor:L.missionFloor,catArea:[2,39.2,10,42.2]});
   b.zone('floor',35.8,18.2,40.5,26.0);

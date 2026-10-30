@@ -38,7 +38,7 @@ export const MoreMethods = {
   /* ---------- скейт-парк ---------- */
   // четвертная рампа: изгиб растёт к +z (ry поворачивает), ширина w, радиус R; на верху — площадка с копингом
   quarterPipe(x, z, w, R, ry = 0, deck = 1.2) {
-    const g = this.prop(x, z, ry), N = 10, U = R * 0.78, h = u => R - Math.sqrt(R * R - u * u), wd = tmat(T.wood());
+    const g = this.prop(x, z, ry), N = 20, U = R * 0.78, h = u => R - Math.sqrt(R * R - u * u), wd = tmat(T.wood());
     // гладкая поверхность изгиба
     const geo = new THREE.PlaneGeometry(w, 1, 1, N), pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) { const v = pos.getY(i) + 0.5, u = v * U; pos.setXYZ(i, pos.getX(i), h(u) + 0.01, u); }

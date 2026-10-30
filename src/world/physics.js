@@ -116,7 +116,13 @@ export function moveBody(b, dt, g = 22) {
   for(const s of solidsNear(p.x-b.r*.5,p.z-b.r*.5,p.x+b.r*.5,p.z+b.r*.5))if(s.on&&s.roof&&overlapXZ(s,p.x,p.z,b.r*.5)&&oldY<s.y0-.1&&p.y+b.h>s.y0&&p.y<s.y0){p.y=s.y0-b.h-.015;v.y=Math.min(0,v.y);s.roofTouch=true;}
   const gy = groundAt(p.x, p.z, b.r * 0.6, Math.max(oldY, p.y) + b.step); b.groundObb = groundObb;
   b.landed = false;
-  if (p.y <= gy) { if (v.y < -0.5 && !b.onGround) b.landed = true; p.y = gy; v.y = Math.max(0, v.y); b.onGround = true; }
+  // Continuous shallow bowl contact while walking; prevent alternating
+  // grounded/airborne states every time the ramp slopes down a few cm.
+  const bowl=W.skateBowl,rad=bowl?Math.hypot(p.x-bowl.x,p.z-bowl.z):Infinity;
+  const walkFollow=!!(bowl&&wasGrounded&&!_cover&&rad<bowl.rimRadius&&
+    v.y<=0&&Math.abs(gy-oldY)<.34);
+  if(walkFollow){p.y=gy;v.y=0;b.onGround=true;}
+  else if (p.y <= gy) { if (v.y < -0.5 && !b.onGround) b.landed = true; p.y = gy; v.y = Math.max(0, v.y); b.onGround = true; }
   else b.onGround = false;
   if (v.y > 0) for (const s of solidsNear(p.x - b.r, p.z - b.r, p.x + b.r, p.z + b.r)) {
     if (s.on && !s.oneWay && overlapXZ(s, p.x, p.z, b.r * 0.6) && s.y0 >= oldY + b.h - 0.02 && s.y0 < p.y + b.h) { p.y = s.y0 - b.h; v.y = 0; }
@@ -199,6 +205,8 @@ export function updatePushables(dt, player) {
     if(!hit)bowlLipLaunch(b,op.x,op.z,W.skateBowl);
     // A skate/scooter cannot climb multiple vertical metres of bowl wall in
     // one tick due to the ground height being treated as a step.
+    // v0.61.8: no position snapping by the old radial wheel clamp.
+    // The continuous curved surface is now the single source of contact.
     if(!b.air)constrainBowlWheel(W.skateBowl,b,dt);
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: .45, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
@@ -213,6 +221,12 @@ export function updatePushables(dt, player) {
       if (b.grind && Math.abs(b.y - b.grind.y) > 0.05) { b.grind = null; b.grindEnd = performance.now(); }
       const board = b.kind === 'skate' || b.kind === 'scooter';
       const bowlContactNow=board&&!b.air?bowlContact(W.skateBowl,b.x,b.z,b.heading||0):null;
+      // Follow continuous *grounded* bowl slope while rolling, not the
+      // jumping/landing branch. A real jump or coping launch sets b.air
+      // before we enter here and is always integrated ballistically.
+      if(board&&!b.air&&W.skateBowl&&
+         Math.hypot(b.x-W.skateBowl.x,b.z-W.skateBowl.z)<W.skateBowl.rimRadius&&
+         Math.abs(b.y-gy)<.45){b.y=gy;b.vy=0;}
       if (b.air || b.y > gy + 0.02) {
         // True ballistic integration. Rising skaters NEVER snap to the next
         // platform. Landing requires downward motion and crossing the ground.
