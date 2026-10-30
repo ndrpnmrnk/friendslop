@@ -121,7 +121,7 @@ export default {
   b.lamp(3.1,14,Math.PI/2);
   b.lamp(40.8,17,-Math.PI/2);
   b.sign(35.8,2.45,2.8,0,'SKATE PARK','#302537','#f5c46e',4.2,.7);
-  b.grabTarget({x:5.4,z:28.4,r:1.2,kind:'bounce',label:'рампa'});
+  b.grabTarget({x:5.4,z:28.4,r:1.2,kind:'bounce',label:'рампа'});
   // Открытый южный коридор для начала миссий «сбей мишени»
   // и обычного безопасного появления игроков.
   districtFrame(b,'skatepark',{spawn:L.spawn,floor:L.missionFloor,catArea:[2,39.2,10,42.2]});
