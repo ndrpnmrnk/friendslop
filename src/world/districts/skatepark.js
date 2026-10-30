@@ -5,12 +5,14 @@ import {localActors,districtFrame} from '../district-motion.js';
 import {SKATE_LAYOUT as L,skateSection,rentalRideClear} from '../skate-layout.js';
 import {bowlHeight} from '../skate-bowl.js';
 import {skateBotController} from '../skate-bots.js';
+import {breakBox} from '../breakables.js';
+import {moveSolid} from '../physics.js';
 
 // v0.61.3 - ONLY this district was rebuilt. No football or generic physics
 // adjustments beyond the isolated W.skateBowl height-field hook.
 const metal=()=>tmat(T.paintMetal(0x6c7785));
 function deepBowl(b){
- const {x,z,outerRadius,patchHalf}=L.bowl;
+ const {x,z,patchHalf}=L.bowl;
  // True 3.05m-deep recess; one continuous floor/curved-wall mesh plus a
  // square outer patch covering the exact hole in the world ground slab.
  const sides=64,rings=32,positions=[],uv=[],indices=[];
@@ -37,11 +39,7 @@ function deepBowl(b){
  // One solid coping loop, without the old coplanar white floor ring.
  const coping=new THREE.Mesh(new THREE.TorusGeometry(L.bowl.rimRadius,.065,6,64),metal());
  coping.rotation.x=Math.PI/2;coping.position.y=.095;root.add(coping);
- for(let i=0;i<12;i++){
-  const a=i*Math.PI/6,r=outerRadius+.50;
-  const dash=b.m(G.box,col(0xc78a58),x+Math.cos(a)*r,.04,z+Math.sin(a)*r,.62,.07,.12);
-  dash.rotation.y=-a;
- }
+ // Keep only clean metal coping: no stray orange dashes around the bowl.
  W.skateBowl={...L.bowl,x:b.X(x),z:b.Z(z),baseY:b.Y};
 }
 function halfpipe(b){
@@ -79,31 +77,41 @@ function rental(b){
  const paneW=(w-doorWidth)/2;
  for(const sx of[-1,1]){
   const px=x+sx*(doorWidth/2+paneW/2);
-  b.box(px,front,paneW,.12,2.6,glass);
-  b.box(px,front+.09,paneW,.075,.18,frame,{y:.1,solid:false});
+  // Every storefront window is a genuine shared breakable glass panel.
+  breakBox(b.X(px),b.Y,b.Z(front),paneW-.09,2.52,.09,'glass',glass);
+  // No horizontal bars across the glass or entrance.
   b.box(px,front+.09,paneW,.075,.18,frame,{y:2.43,solid:false});
   b.box(px+sx*(paneW/2-.07),front+.09,.12,.12,2.5,mt,{solid:false});
  }
  b.box(x,front,w,.18,.86,brick,{y:2.6});
  b.box(x,z,w+.45,d+.45,.22,roof,{y:H,solid:true});
- b.box(x,front+.50,w+.2,.92,.13,mt,{y:2.73,solid:false});
+ // Removed the three-strip canopy in front of the entrance.
  b.sign(x,H+.37,front+.12,0,'ПРОКАТ','#29283b','#f5c46e',4.2,.65);
  // Sliding transparent double doors are cosmetic and open automatically;
  // the 2.35 m passage itself has no collision, so E/ride never gets stuck.
- const left=b.m(G.box,glass,x-.58,1.35,front+.12,1.13,2.5,.055);
- const right=b.m(G.box,glass,x+.58,1.35,front+.12,1.13,2.5,.055);
- for(const m of[left,right]){
-  const h=b.m(G.box,mt,x,1.2,front+.164,.045,1.4,.04);
-  m.userData.rentalDoor=true;h.userData.rentalHandle=true;
- }
- const cx=b.X(x),cz=b.Z(front),leftX=b.X(x-.60),rightX=b.X(x+.60);
- let open=0;
+ // Two independent breakable sliding leaves, not a fake solid front.
+ // Dynamic breakables bypass static instancing so door translation remains real.
+ const doorZ=b.Z(front+.12),doorY=b.Y+.10,doorW=(doorWidth-.07)/2;
+ const leaves=[-1,1].map(side=>{
+  const startX=b.X(x+side*doorWidth/4);
+  const piece=breakBox(startX,doorY,doorZ,doorW,2.45,.055,'glass',glass);
+  piece.dynamic=true;
+  piece.mesh.userData.noNet=true; // replicate alive via breakable state only
+  return {side,startX,piece};
+ });
+ const cx=b.X(x),cz=b.Z(front);let open=0;
  W.animated.push(dt=>{
-  let close=false;
-  for(const a of localActors())if(a.pos&&Math.hypot(a.pos.x-cx,a.pos.z-cz)<3.15&&Math.abs(a.pos.y-b.Y)<3.3){close=true;break;}
-  open+=(Number(close)-open)*Math.min(1,dt*6);
-  left.position.x=leftX-open*1.14;
-  right.position.x=rightX+open*1.14;
+  let near=false;
+  for(const a of localActors())if(a.pos&&Math.hypot(a.pos.x-cx,a.pos.z-cz)<3.4&&Math.abs(a.pos.y-b.Y)<3.2){near=true;break;}
+  open+=(Number(near)-open)*Math.min(1,dt*7);
+  for(const {side,startX,piece}of leaves){
+   if(!piece.alive)continue;
+   const nx=startX+side*open*doorW;
+   piece.mesh.position.x=nx;
+   // Collision moves with each door and disappears when the entrance opens.
+   moveSolid(piece.solid,nx-doorW/2,doorZ-.028,nx+doorW/2,doorZ+.028,doorY,doorY+2.45);
+   piece.solid.on=open<.38;
+  }
  });
  // Large readable interior, open central walkway, service counter, displays.
  b.box(x,back+1.2,3.75,.85,1.05,wood);
