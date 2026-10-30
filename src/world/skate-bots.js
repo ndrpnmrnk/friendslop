@@ -49,7 +49,7 @@ export function skateBotController(b){
        // first; the next frame releases it if ownership changes.
        b.rider=actor;actor.ride=b;b.mountGrace=.4;
        b.hitSpeed=0;b.impactContact=false;b.heading=b.mesh.rotation.y;
-       job={board:b,way:0,t:0};active.set(actor,job);
+       job={board:b,way:0,t:0,trickCd:6,tricks:0};active.set(actor,job);
        actor.goal=null;actor.nav=null;
      }
    }
@@ -66,6 +66,15 @@ export function skateBotController(b){
    const vel=sp+(aimSpeed-sp)*Math.min(1,dt*3);
    board.vx=Math.sin(board.heading)*vel;board.vz=Math.cos(board.heading)*vel;
    // The same real vehicle physics/animation is used for human riders.
+   // A real ollie + short rotation on an open stretch. Use the same trick
+   // state as human skaters, so landing/points go through the normal cap.
+   job.trickCd-=dt;
+   if(job.trickCd<=0&&!board.air&&vel>4.5&&
+      Math.abs(board.y-(W.skateBaseY||0))<.22){
+     board.vy=6.8;board.y+=.05;board.air=true;
+     board.trick={kind:board.kind==='scooter'?'barspin':'kickflip',t:0,dur:.48};
+     job.trickCd=8;job.tricks++;
+   }
    updateRide(actor,dt,t,0,0,false);
    if(!actor.ride){active.delete(actor);return false;}
    actor.ch.animate(dt,{t,speed:Math.min(1,vel/8),ride:board.kind,air:!!board.air,stun:false});
