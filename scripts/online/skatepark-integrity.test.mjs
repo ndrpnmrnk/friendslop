@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
-import {SKATE_LAYOUT as L} from '../../src/world/skate-layout.js';
+import {SKATE_LAYOUT as L,rentalRideClear} from '../../src/world/skate-layout.js';
 const read=path=>readFileSync(new URL('../../'+path,import.meta.url),'utf8');
 test('deep bowl is ONE continuous rendered height field, same as physical ground',()=>{
  const scene=read('src/world/districts/skatepark.js'),physics=read('src/world/physics.js');
@@ -140,4 +140,37 @@ test('grounded riders and walkers do not alternate ground-air each downhill fram
  assert(code.includes('const bowlContactNow='));
  assert(code.includes('Math.abs(b.y-gy)<.45){b.y=gy;b.vy=0;}'));
  assert(code.includes('if (b.air || b.y > gy + 0.02)'));
+});
+
+test('studio can build detailed halfpipe and entire rental interior without missing runtime symbols',()=>{
+ const scene=read('src/world/districts/skatepark.js');
+ const h0=scene.indexOf('function halfpipe(b){'),h1=scene.indexOf('function closedWedge(',h0);
+ const r0=scene.indexOf('function rental(b){'),r1=scene.indexOf('function skateRideBonus(',r0);
+ assert(h0>=0&&h1>h0&&r0>h1&&r1>r0);
+ const counts={ride:0,rail:0,light:0,box:0,sign:0,glass:0};
+ const obj=()=>({rotation:{},position:{},userData:{},scale:{}});
+ const W={keep:[],animated:[]};
+ const b={
+  Y:0,X:x=>x,Z:z=>z,
+  ground:()=>obj(),m:()=>obj(),box:()=>{counts.box++;return obj();},
+  sign:()=>{counts.sign++;},light:()=>{counts.light++;},
+  quarterPipe:()=>.88,grindRail:()=>{counts.rail++;},
+  ride:()=>{counts.ride++;return{};}
+ };
+ const T=new Proxy({},{get(){return()=>({});}});
+ const env={b,W,L,G:{box:'box',cyl8:'cyl8',sph10:'sph10'},
+  THREE:{DoubleSide:2},T,
+  col:()=>({}),tmat:()=>({}),lam:()=>({}),metal:()=>({}),
+  localActors:()=>[],rentalRideClear,
+  breakBox:()=>{counts.glass++;return{alive:true,mesh:obj(),solid:{on:true}};},
+  moveSolid:()=>{}
+ };
+ // Execute the real scene functions, not a string grep. Previous map-loading
+ // crash was a missing variable in a function never called by unit tests.
+ assert.doesNotThrow(()=>runInNewContext(
+   scene.slice(h0,h1)+'\n'+scene.slice(r0,r1)+'\nhalfpipe(b);rental(b);W.animated[0](.016);',
+   env,{timeout:3000}));
+ assert.equal(counts.ride,5);assert(counts.rail>=2);
+ assert.equal(counts.light,1);assert.equal(counts.sign,1);
+ assert(counts.glass>=4);assert(counts.box>=15);
 });
