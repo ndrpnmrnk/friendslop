@@ -185,6 +185,9 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   b.lean = (b.lean || 0) + (leanT - (b.lean || 0)) * Math.min(1, dt * 7);
   if (classic) { const sv = (b.steer || 0) * (b.kind === 'skate' ? 0 : 0.42), veh = b.mesh.children.find(q => q.userData.vehicle || q.userData.scoot)?.userData; const v2 = veh?.vehicle || veh?.scoot;
     if (v2?.steerParts) for (const q of v2.steerParts) { q.rotation.order = 'YXZ'; q.rotation.y = -sv; } }
+  // A flip interrupted by a successful rail catch must not leave the feet
+  // frozen in the trick pose after the board has finished grinding.
+  if(b.grind){p.trickK=0;b.flip=0;b.shuv=0;}
   b.grindPose=(b.grindPose||0)+((b.grind?1:0)-(b.grindPose||0))*Math.min(1,dt*11);
   p.root.rotation.order = 'YXZ'; p.root.rotation.y = b.heading; p.facing = b.heading;
   p.root.rotation.x = board ? -(b.pitch || 0)-b.grindPose*.07 : 0;
