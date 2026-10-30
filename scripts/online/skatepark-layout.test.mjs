@@ -9,6 +9,7 @@ test('44m skating: central deep bowl, northwest halfpipe, two rails zones, south
  assert(L.bowl.depth>=2.5&&L.bowl.rimRadius>L.bowl.flatRadius+3);
  assert(L.halfpipe.x<22&&L.halfpipe.z<23);
  assert(L.railsNE.every(r=>r[0]>22&&r[1]<23));
+ assert.equal(L.railsExtra.length,3);
  assert(L.railsSW.every(r=>r[0]<22&&r[1]>23));
  assert(L.rental.x>22&&L.rental.z>23&&L.rental.d>=6.5);
  assert(L.rental.doorWidth>=2);
