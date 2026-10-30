@@ -6,6 +6,7 @@ import { T } from '../core/textures.js';
 import { clamp, damp } from '../core/rng.js';
 import { SKINS } from './skins.js';
 import {prepareOutfits,updateOutfit} from './outfits.js';
+import {pedalFoot} from '../game/vehicle-stability.js';
 
 /* Общая структура персонажа для всех скинов:
    root
@@ -74,8 +75,10 @@ function animateRide(c, dt, s) {
   c.stars.visible = false; c.body.scale.set(1, 1, 1); c.body.rotation.y += (0 - c.body.rotation.y) * f;
   if(s.ride==='cycle'){const ph=s.cyclePhase||0;c.body.position.set(0,-.35+Math.sin(ph*2)*.012*sp,-.20);c.body.rotation.x=.14;c.body.rotation.z=Math.sin(ph)*.022*sp;
     setHand(c.handL,-.26,.15,.42,f);setHand(c.handR,.26,.15,.42,f);
-    setHand(c.footL,-.16,-.48+Math.cos(ph)*.24,-.08+Math.sin(ph)*.24,f);
-    setHand(c.footR,.16,-.48-Math.cos(ph)*.24,-.08-Math.sin(ph)*.24,f);
+    // Both feet lock to the physical left/right crank positions, no visual interpolation delay.
+    const left=pedalFoot(ph,-1),right=pedalFoot(ph,1);
+    setHand(c.footL,left.x,left.y,left.z,1);
+    setHand(c.footR,right.x,right.y,right.z,1);
   }else if(s.ride==='kart'){c.body.position.y=-.40;c.body.rotation.x=-.1;c.body.rotation.z=0;setHand(c.handL,-.18,.26,.28,1);setHand(c.handR,.18,.26,.28,1);setHand(c.footL,-.18,-.13,.65,1);setHand(c.footR,.18,-.13,.65,1);
   }else if (s.ride === 'stand') {
     /* стоит на доске боком: передняя нога на носу, задняя на хвосте; руки у тела для равновесия.
