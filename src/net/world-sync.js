@@ -12,6 +12,7 @@ import { cargoPosition } from '../game/handheld.js';
 import { StateDelta, round as q, vector, sweepPosition } from './state-codec.js';
 import { ActiveMotion, validMotion } from './active-motion.js';
 import {telemetry} from './telemetry.js';
+import {replicationTier,movementIntervalMs,criticalStateChange} from './replication-priority.js';
 import {canHostAcceptMissionItem,applyHostMissionItem,remotePickup} from './mission-item-authority.js';
 
 const LISTS = { i: 'items', p: 'pushables', d: 'doors', s: 'solids', o: 'obbs', b: 'breakables', c: 'cats', n: 'npcs', a: 'interacts' };
@@ -29,7 +30,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
   // Тысячи стен/границ почти всегда неподвижны. Не создаём массивы чисел для них 5 раз/с.
   function flat(o,fields,flag){const old=packedStatic.get(o),n=fields.length;let same=!!old;for(let i=0;same&&i<n;i++)if(old[i]!==q(o[fields[i]]))same=false;if(same&&old[n]===(o[flag]?1:0))return old;const v=fields.map(k=>q(o[k]));v.push(o[flag]?1:0);packedStatic.set(o,v);return v;}
   const textures=new WeakMap(),lastProposal=new Map();let proposalAt=0,initialKeys=new Set();
-  const received=new Map(),dirty=new Set();
+  const received=new Map(),dirty=new Set(),worldSentAt=new Map();
   const same=(a,b)=>a===b||Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((v,i)=>same(v,b[i]));
   const delta = new StateDelta(); let current = '', applying = false, serial = 0;
   const keyOf = a => !a?'':a===W.player?myKey:a.netKey||'';
@@ -118,7 +119,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       if(o?.g)o.g.visible=false;
       if(o?.isObject3D)o.visible=false;
       if(o?.on!==undefined)o.on=false;
-      objects.delete(key);movers.delete(key);motionView.delete(o);return;
+      objects.delete(key);movers.delete(key);motionView.delete(o);worldSentAt.delete(key);return;
     }
     if (!Array.isArray(v) || !['i', 'p', 's', 'o', 'd', 'b', 'v', 'c', 'n','a','t'].includes(type)) return;
     // Созданные не миссиями предметы (дождь, подарок, выпадение из шкафа).
@@ -272,11 +273,11 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     locally(fn){const old=applying;applying=true;try{return fn();}finally{applying=old;}},
     setIdentity(value){myKey=value;serial=0;},
     discover(){for(const[type,list]of Object.entries(LISTS))for(const o of W[list]||[])if(!seen.has(o))register(type,o);},
-    restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();motionView.clear();motionPackets.reset();received.clear();dirty.clear();delta.last=new Map(delta.base);delta.rev=0;delta.visited.clear();serial=0;},
-    setHost(value){host=!!value;api.host=host;api.replica=!host;serial=0;motionView.clear();motionPackets.reset();},
+    restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();motionView.clear();motionPackets.reset();received.clear();dirty.clear();worldSentAt.clear();delta.last=new Map(delta.base);delta.rev=0;delta.visited.clear();serial=0;},
+    setHost(value){host=!!value;api.host=host;api.replica=!host;serial=0;worldSentAt.clear();motionView.clear();motionPackets.reset();},
     resetStream(){serial=0;},
     get applying() { return applying; },
-    motionEntries(){return motionPackets.capture(movers);},
+    motionEntries(options){return motionPackets.capture(movers,32,8192,options);},
     retryMotion(){motionPackets.retry();},
     receiveMotion(rows){
       if(host||!Array.isArray(rows))return;
@@ -291,8 +292,24 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       }
     },
     stats:{captureMs:0,rows:0,objects:0},
-    capture(full = false) {const at=performance.now(),frame=delta.snapshot(records(),full);Object.assign(api.stats,{captureMs:performance.now()-at,rows:frame.rows.length,objects:objects.size});return frame;},
-    baseline() { initialKeys=new Set(objects.keys());const rows = [...records()]; delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v);received.clear();dirty.clear(); },
+    capture(full=false,options={}){
+      const at=performance.now(),now=options.now??at,viewers=options.viewers||[],queued=options.queued||0;
+      const frame=delta.snapshot(records(),full,(key,previous,next)=>{
+        const entry=objects.get(key);
+        if(!entry||!['p','i'].includes(entry.type))return true;
+        // The event-like bits of the snapshot are never slowed: pickup,
+        // drop, placement, item collected, mounting, collisions and death.
+        if(criticalStateChange(entry.type,previous,next)){worldSentAt.set(key,now);return true;}
+        const due=movementIntervalMs(replicationTier(entry.o,viewers),queued);
+        const last=worldSentAt.get(key);
+        if(!due||last==null||now-last>=due){worldSentAt.set(key,now);return true;}
+        return false;
+      });
+      if(full)for(const [key] of frame.rows)if(['i','p'].includes(key[0]))worldSentAt.set(key,now);
+      Object.assign(api.stats,{captureMs:performance.now()-at,rows:frame.rows.length,objects:objects.size});
+      return frame;
+    },
+    baseline() { initialKeys=new Set(objects.keys());const rows = [...records()]; delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v);received.clear();dirty.clear();worldSentAt.clear(); },
     receive(frame) {
       if(!frame||frame.rev<=serial)return;
       const started=performance.now();serial=frame.rev;
