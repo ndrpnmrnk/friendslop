@@ -132,8 +132,7 @@ export function eventChip(key, sec, info = '') { const c = $('evchip'); if (!key
 
 export function renderHeld(P,missionTool=null,host=$('held'),state=H){
   let held = '';
-  if(P.hang)held='<span class="key">ПРОБЕЛ / E</span>Подтянуться <span class="key">C / S</span>Отпустить';
-  else if(P.tugItem||P.held?.tug)held='<span class="key">ЛКМ</span>Держи хват <span class="key">WASD</span>Тяни предмет';
+  if(P.tugItem||P.held?.tug)held='<span class="key">ЛКМ</span>Держи хват <span class="key">WASD</span>Тяни предмет';
   else if(P.grab?.holdOnly)held='';
   else if(P.grab?.dragOnly)held='Ящик <span class="key">ЛКМ</span>Отпустить';
   else if (P.grab) held = `${img('cart', 22)}${TEXT.grab[P.grab.kind] || ''} <span class="key">E</span>${TEXT.keys.hop}`;

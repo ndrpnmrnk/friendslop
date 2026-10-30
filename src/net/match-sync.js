@@ -23,7 +23,7 @@ import { motionIntervalFor, worldIntervalFor } from './cadence.js';
 
 export const MATCH = { on: false, host: false, seed: 0, roster: null, scene: null, world: null, missions: null,
   sendT: 0, worldT: 0, fullT: 0, ready: new Set(), members:new Set(), paused: false, final: null, seq: 0, lastHost: 0 };
-const POSE = ['speed', 'air', 'vy', 'hang', 'climb', 'dive', 'roll', 'slide', 'crouch', 'hold', 'stun', 'rag', 'daze', 'ride', 'rideSpeed', 'emote', 'emoteT', 'dangle', 'board', 'cyclePhase', 'fly', 'flySpin', 'zombie','zip','getup','kick','trick','rideAir','accel','charge','throwT','act','actK','missionTool','held2','restrained','payload','side','sprint','look','swat','grabbed','vy2'];
+const POSE = ['speed', 'air', 'vy', 'climb', 'dive', 'roll', 'slide', 'crouch', 'hold', 'stun', 'rag', 'daze', 'ride', 'rideSpeed', 'emote', 'emoteT', 'dangle', 'board', 'cyclePhase', 'fly', 'flySpin', 'zombie','zip','getup','kick','trick','rideAir','accel','charge','throwT','act','actK','missionTool','held2','restrained','payload','side','sprint','look','swat','grabbed','vy2'];
 let clock = 0, callbacks = {}, lastGuestFrame = 0;
 const pendingPositions = new Map();
 const commands = [], corrections = new Map(), coinAwards = new CoinAwards();

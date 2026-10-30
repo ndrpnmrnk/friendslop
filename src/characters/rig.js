@@ -146,7 +146,6 @@ function setHand(h, x, y, z, k) { h.position.x += (x - h.position.x) * k; h.posi
 function animate(c, dt, s) {
   if (c.handOff) { c.handL.position.y += c.handOff; c.handR.position.y += c.handOff; c.handOff = 0; }
   const d = c.d, t = s.t, k = clamp(s.speed || 0, 0, 1), run = !s.air && !s.climb && k > 0.05;
-  if(s.hang){const f=damp(18,dt);c.body.rotation.x=0;c.body.rotation.z=Math.sin(t*2)*.025;c.body.position.y=0;c.body.scale.set(1,1,1);setHand(c.handL,-.25,s.hang,.42,f);setHand(c.handR,.25,s.hang,.42,f);setHand(c.footL,-d.footX,d.footY,.1,f);setHand(c.footR,d.footX,d.footY,.1,f);return;}
   if (s.rag > 0.001) return animateRag(c, dt, s);
   if (s.ride) return animateRide(c, dt, s);
   if (s.fly) return animateFly(c, dt, s);

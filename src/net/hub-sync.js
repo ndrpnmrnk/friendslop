@@ -14,7 +14,7 @@ import {motionIntervalFor} from './cadence.js';
    Короткий буфер 75 мс отделён от физической позиции и часов раунда.
    Над чужими персонажами — пиксельный ник: ближе — крупнее и ярче, дальше 24 м — не видно; стены его закрывают
    (обычная проверка глубины, как у самого персонажа). */
-const IDLE = .5, POSE = ['speed', 'air', 'vy', 'hang', 'climb', 'dive', 'roll', 'slide', 'crouch', 'hold', 'stun', 'getup', 'rag', 'daze', 'ride', 'rideSpeed', 'emote', 'emoteT', 'dangle', 'sit', 'board', 'cyclePhase', 'look','held2','restrained','payload','act','actK','throwT','charge','missionTool'];
+const IDLE = .5, POSE = ['speed', 'air', 'vy', 'climb', 'dive', 'roll', 'slide', 'crouch', 'hold', 'stun', 'getup', 'rag', 'daze', 'ride', 'rideSpeed', 'emote', 'emoteT', 'dangle', 'sit', 'board', 'cyclePhase', 'look','held2','restrained','payload','act','actK','throwT','charge','missionTool'];
 const remotes = new Map(); let session=null;
 export function configureHubSync(world,options){session=createHubSession(world,remotes,options);return session;} let lastEm = null, wasGround = true, scene = null, sendT = 0, idleT = 0, last = '', clock = 0, lastHub = 0,lastHubSend=0;
 

@@ -1,5 +1,5 @@
 import { random } from '../core/random.js';
-import {findMantle,beginMantle,advanceMantle,catchLedge,advanceHang} from '../world/traversal.js';
+import {findMantle,beginMantle,advanceMantle} from '../world/traversal.js';
 import { THREE,V3 } from '../core/gfx.js';
 import { CONFIG } from '../config.js';
 import { keys, tapped } from '../core/input.js';
@@ -83,8 +83,6 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     if (ctrl && tapped('Space')) leaveSwing(p, true);
     else { driveSwing(p, ctrl && (keys.KeyW || keys.KeyS || keys.ArrowUp || keys.ArrowDown), dt); p.ch.animate(dt, { t, speed: 0, ride: 'sit', rideSpeed: 0, hold: true, dangle: true }); groundBlob(p); return; }
   }
-  p.hangCooldown=Math.max(0,(p.hangCooldown||0)-dt);
-  if(p.hang){advanceHang(p,dt,actors(),{pull:ctrl&&(tapped('Space')||tapped('KeyE')),drop:ctrl&&(keys.KeyC||keys.KeyS)});p.ch.animate(dt,{t,speed:0,hang:p.hang?.handHeight||0,air:!!p.hang});groundBlob(p);return;}
   // Проверенный маршрут подтягивания: от края вверх, затем на опору.
   if(p.mantle&&(p.stun>0||p.heldBy||p.ride||p.frozen)){p.mantle=null;p.onGround=false;}
   if(p.mantle){const active=advanceMantle(p,dt);p.ch.animate(dt,{t,speed:0,climb:true,air:false,vy:2});if(active&&!p.mantle)smokeRing(p.pos.x,p.pos.y+.05,p.pos.z,4,{speed:1.2,size:.12,grow:.3,life:.4});groundBlob(p);return;}
@@ -240,7 +238,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     sfx('bounce'); voice(p.ch, 'happy'); smokeRing(p.pos.x, p.pos.y + 0.05, p.pos.z, 6, { speed: 2, size: 0.14, grow: 0.4, life: 0.4 }); worldHit({ x: p.pos.x, y: p.pos.y - 0.4, z: p.pos.z }, 1.2, p.vel); shake(0.08); } }
   // Любой плоский уступ: геометрия края, опора стоп и свободная траектория тела.
   p.mantleProbe=Math.max(0,(p.mantleProbe||0)-dt);
-  if(!p.onGround&&il>.1&&p.vel.y<3&&!p.climb&&!p.dive&&!p.held&&!p.heldBy&&!p.holding&&!p.grab&&!p.ride&&p.mantleProbe<=0&&!(p.hangCooldown>0)){p.mantleProbe=.06;const target=findMantle(p,ix,iz);if(target){catchLedge(p,target);sfx('mantle');}}
+  if(!p.onGround&&il>.1&&p.vel.y<3&&!p.climb&&!p.dive&&!p.held&&!p.heldBy&&!p.holding&&!p.grab&&!p.ride&&p.mantleProbe<=0){p.mantleProbe=.06;const target=findMantle(p,ix,iz);if(target){beginMantle(p,target);sfx('mantle');}}
 
   if (p.grab && (p.stun > 0 || p.climb || p.dive || !p.onGround && p.vel.y > 1)) release(p, 0.5);
   updateGrab(p, dt);
