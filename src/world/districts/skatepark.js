@@ -96,6 +96,7 @@ function rental(b){
   const startX=b.X(x+side*doorWidth/4);
   const piece=breakBox(startX,doorY,doorZ,doorW,2.45,.055,'glass',glass);
   piece.dynamic=true;
+  W.keep.push(piece.mesh); // dynamic pane must survive the static world bake
   piece.mesh.userData.noNet=true; // replicate alive via breakable state only
   return {side,startX,piece};
  });
