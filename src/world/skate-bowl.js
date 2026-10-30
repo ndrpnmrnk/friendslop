@@ -52,7 +52,7 @@ export function bowlLipLaunch(board,oldX,oldZ,b){
  if(!before?.onWall||before.r<b.rimRadius-.72||afterRadius<b.rimRadius-.18)return false;
  const nx=(board.x-b.x)/(afterRadius||1),nz=(board.z-b.z)/(afterRadius||1);
  const radial=board.vx*nx+board.vz*nz,sp=Math.hypot(board.vx,board.vz);
- if(radial<5.5||sp<10.5||board.y<b.baseY-1.05)return false;
+ if(radial<5.5||sp<10.5||board.y<b.baseY-1.5)return false;
  board.vy=Math.max(board.vy||0,Math.min(7.5,3.7+(radial-5.5)*.38));
  board.y=Math.max(board.y,b.baseY+.12);
  board.air=true;board.bowlFlightCooldown=1.5;board.bowlTakeoff=true;
