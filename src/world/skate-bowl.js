@@ -52,9 +52,13 @@ export function bowlLipLaunch(board,oldX,oldZ,b){
  if(!before?.onWall||before.r<b.rimRadius-.72||afterRadius<b.rimRadius-.18)return false;
  const nx=(board.x-b.x)/(afterRadius||1),nz=(board.z-b.z)/(afterRadius||1);
  const radial=board.vx*nx+board.vz*nz,sp=Math.hypot(board.vx,board.vz);
- if(radial<5.5||sp<10.5||board.y<b.baseY-1.5)return false;
+ // The board must actually reach the lip. Crossing its XZ radius while
+ // still deep below the coping is a collision, never a teleporting launch.
+ const expected=bowlHeight(before.r,b)+b.baseY;
+ if(radial<5.5||sp<10.5||board.y<b.baseY-.48||
+    board.y<expected-.32)return false;
  board.vy=Math.max(board.vy||0,Math.min(7.5,3.7+(radial-5.5)*.38));
- board.y=Math.max(board.y,b.baseY+.12);
+ board.y=Math.max(board.y,b.baseY-.08);
  board.air=true;board.bowlFlightCooldown=1.5;board.bowlTakeoff=true;
  board.trick??={kind:board.kind==='scooter'?'barspin':'kickflip',t:0,dur:.48};
  return true;
@@ -77,8 +81,10 @@ export function moveBowlBoard(board,dt,b){
  const radial=board.vx*contact.nx+board.vz*contact.nz;
  const tangent=-board.vx*contact.nz+board.vz*contact.nx;
  const downhill=18*contact.slope/Math.sqrt(1+contact.slope*contact.slope);
- const support=Math.min(13,tangent*tangent/Math.max(3.2,contact.r));
- const force=Math.max(-18,Math.min(7,support-downhill));
+ // A curved wall must NEVER supply free uphill propulsion. Turning
+ // speed may reduce the downhill loss, but cannot reverse gravity.
+ const support=Math.min(downhill*.38,tangent*tangent/Math.max(3.2,contact.r)*.14);
+ const force=-Math.min(18,Math.max(0,downhill-support));
  board.vx+=contact.nx*force*dt;board.vz+=contact.nz*force*dt;
  if(contact.steep&&speed<9){
   board.vx-=contact.nx*(5.5+(9-speed)*.75)*dt;
@@ -93,4 +99,65 @@ export function moveBowlBoard(board,dt,b){
  board.bowlBank+=(Math.max(-1.05,Math.min(1.05,contact.roll))-board.bowlBank)*ease;
  board.bowlSteep=contact.steep;
  return false;
+}
+
+// Steep walls are not walkable floors. Characters may jump or mantle over
+// the coping, but normal WASD cannot climb a near-vertical bowl wall.
+// A character already on a steep part is carried toward the low center.
+export function bowlWalkLimit(b,maxSlope=.95){
+ if(!b)return Infinity;
+ let a=b.flatRadius,z=b.rimRadius;
+ for(let i=0;i<20;i++){
+  const mid=(a+z)*.5;
+  if(bowlSlope(mid,b)>maxSlope)z=mid;
+  else a=mid;
+ }
+ return a;
+}
+export function constrainBowlWalker(b,p,v,oldX,oldZ,dt,wasGrounded){
+ if(!b||!wasGrounded||p.y>b.baseY+.28||
+    p.y<b.baseY-b.depth-.45)return false;
+ const ox=oldX-b.x,oz=oldZ-b.z,from=Math.hypot(ox,oz);
+ const dx=p.x-b.x,dz=p.z-b.z,to=Math.hypot(dx,dz);
+ if(to<.01||Math.min(from,to)>b.rimRadius+.12)return false;
+ const limit=bowlWalkLimit(b);
+ if(to<=limit+.01&&from<=limit+.01)return false;
+ // Walking from the top deck inward is allowed. Descending a steep
+ // wall naturally becomes a slide; climbing it from below is blocked.
+ if(from>b.rimRadius+.12&&to<from)return false;
+ const outward=to>from+.001;
+ if(!outward&&from<=limit+.01)return false;
+ const target=from<=limit+.01?limit:
+    Math.max(limit,Math.min(to,from)-Math.min(.28,dt*4.6));
+ if(outward||from>limit+.01){
+  const r=Math.min(to,target),nx=dx/to,nz=dz/to;
+  p.x=b.x+nx*r;p.z=b.z+nz*r;
+  const radial=v.x*nx+v.z*nz;
+  if(radial>0){v.x-=radial*nx;v.z-=radial*nz;}
+  return true;
+ }
+ return false;
+}
+// Surface following is only permitted within the wheel's continuous
+// vertical travel budget. Prevent abrupt gy - y snapping at the coping.
+export function constrainBowlWheel(b,board,dt){
+ if(!b||!board?.rider||board.air||
+    !['skate','scooter'].includes(board.kind))return false;
+ const c=bowlAt(b,board.x,board.z);
+ if(!c?.onWall)return false;
+ const ground=b.baseY+c.height,rise=ground-board.y;
+ if(rise<=.12)return false;
+ const outward=Math.max(0,board.vx*c.nx+board.vz*c.nz);
+ const maxRise=.09+outward*Math.min(1,c.slope/Math.sqrt(1+c.slope*c.slope))*dt;
+ if(rise<=maxRise)return false;
+ // Invert the analytic bowl profile: find the furthest radius the wheels
+ // can physically reach this frame without being lifted through the wall.
+ const targetHeight=Math.max(-b.depth,Math.min(0,board.y-b.baseY+maxRise));
+ const u=Math.sqrt(Math.max(0,1-(targetHeight/b.depth)**2));
+ const radius=b.flatRadius+(b.rimRadius-b.flatRadius)*u;
+ if(c.r<=radius)return false;
+ board.x=b.x+c.nx*radius;board.z=b.z+c.nz*radius;
+ const radial=board.vx*c.nx+board.vz*c.nz;
+ if(radial>0){board.vx-=radial*c.nx*.78;board.vz-=radial*c.nz*.78;}
+ return true;
 }
