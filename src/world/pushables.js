@@ -13,7 +13,7 @@ import { chunk, decal, burst } from './particles.js';
    max — максимальная скорость, acc — разгон, turn — поворот, fric — трение */
 export const RIDE = {
   bike:{seat:.88,pose:'cycle',max:14,acc:10,turn:2.8,fric:.35},
-  kart:{seat:.34,pose:'kart',max:21,acc:16,turn:2.7,fric:.25},
+  kart:{seat:.34,pose:'kart',max:27,acc:29,turn:3.25,fric:.20},
   skate:  { seat: 0.16, pose: 'stand', max: 13, acc: 9, turn: 3.2, fric: 0.25 },
   chair:  { seat: 0.55, pose: 'sit', max: 6.5, acc: 6, turn: 4.5, fric: 1.0 },
   // тележку и тачку нельзя «завести» на месте: сначала разгоняешь её руками, потом запрыгиваешь (coast)
@@ -21,7 +21,7 @@ export const RIDE = {
   barrow: { seat: 0.62, pose: 'sit', max: 11, acc: 0, turn: 1.2, fric: 0.55, coast: true },
   // самокат: стоя, быстрый разгон; детская машинка: сидя, медленная; надувной круг — по воде (на суше еле ползёт)
   scooter: { seat: 0.2, pose: 'stand', max: 12, acc: 11, turn: 3.6, fric: 0.45 },
-  kidcar: { seat: 0.32, pose: 'sit', max: 7.5, acc: 8, turn: 3.0, fric: 1.4 },
+  kidcar: { seat: 0.32, pose: 'kart', max: 17, acc: 24, turn: 3.65, fric: 0.36 },
   ring:   { seat: 0.05, pose: 'sit', max: 8, acc: 8, turn: 3.2, fric: 0.8, water: true },
   // v0.60: лодка-уточка в парке — только по воде, можно таранить другие лодки
   duck:   { seat: 0.32, pose: 'sit', max: 9.5, acc: 9, turn: 2.6, fric: 0.6, water: true },
