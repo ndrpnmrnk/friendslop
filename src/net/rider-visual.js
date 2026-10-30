@@ -8,6 +8,12 @@ export function mountedVisualPose(actor){
   return {x:p.x,y:p.y-offset+seat,z:p.z,
     yaw:Number.isFinite(vehicle.mesh.rotation?.y)?vehicle.mesh.rotation.y:actor.root?.rotation.y||0};
 }
+export function alignBikePedals(actor,state){
+  const b=actor?.ride;
+  if(b?.kind!=='bike'||b.rider!==actor||!Number.isFinite(state?.cyclePhase))return;
+  const vehicle=b.mesh?.children?.find(q=>q.userData?.vehicle?.pedals)?.userData.vehicle;
+  if(vehicle?.pedals)vehicle.pedals.rotation.x=state.cyclePhase;
+}
 export function alignMountedVisual(actor){
   const pose=mountedVisualPose(actor);
   if(!pose||!actor?.root?.position)return false;
