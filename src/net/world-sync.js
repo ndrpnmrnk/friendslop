@@ -11,6 +11,7 @@ import { mount, grab, dismount, release } from '../game/ride.js';
 import { cargoPosition } from '../game/handheld.js';
 import { StateDelta, round as q, vector, sweepPosition } from './state-codec.js';
 import { ActiveMotion, validMotion } from './active-motion.js';
+import {telemetry} from './telemetry.js';
 
 const LISTS = { i: 'items', p: 'pushables', d: 'doors', s: 'solids', o: 'obbs', b: 'breakables', c: 'cats', n: 'npcs', a: 'interacts' };
 const pos = v => [q(v.x), q(v.y), q(v.z)];
@@ -98,6 +99,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
   function preserveMotionView(o,before){
     if(host||!before)return;
     const dx=o.x-before.x,dz=o.z-before.z;
+    telemetry.visualError(Math.hypot(dx,dz));
     if(dx*dx+dz*dz>64||Math.abs(o.y+(o.meshOffsetY||0)-before.y)>4){motionView.delete(o);return;}
     motionView.set(o,{x:before.x,y:before.y,z:before.z,at:performance.now()});
   }
@@ -267,12 +269,14 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     capture(full = false) {const at=performance.now(),frame=delta.snapshot(records(),full);Object.assign(api.stats,{captureMs:performance.now()-at,rows:frame.rows.length,objects:objects.size});return frame;},
     baseline() { initialKeys=new Set(objects.keys());const rows = [...records()]; delta.baseline(rows); for (const [k, v] of rows) baseline.set(k, v);received.clear();dirty.clear(); },
     receive(frame) {
-      if(!frame||frame.rev<=serial)return;serial=frame.rev;
+      if(!frame||frame.rev<=serial)return;
+      const started=performance.now();serial=frame.rev;
       const rows=frame.rows||[],present=frame.full?new Set(rows.map(r=>r[0])):null,changes=[];
       if(present)for(const key of dirty)if(!present.has(key)&&baseline.has(key)){changes.push([key,baseline.get(key)]);dirty.delete(key);}
       if(present)for(const[key,{type,o}]of objects)if(['i','p','d'].includes(type)&&!present.has(key)&&baseline.has(key)&&!dirty.has(key)&&!same(pack(type,o),baseline.get(key)))changes.push([key,baseline.get(key)]);
       for(const[key,v]of rows){if(['i','p','d','c','n','t'].includes(key[0])||!same(v,received.has(key)?received.get(key):baseline.get(key)))changes.push([key,v]);if(baseline.has(key))dirty.add(key);}
       for(const[key,v]of changes)received.set(key,v);apply(changes);
+      telemetry.world(frame.rev,rows.length,performance.now()-started);
     },
     interpolate(dt){
       const k=1-Math.exp(-Math.min(.05,dt)*22);
