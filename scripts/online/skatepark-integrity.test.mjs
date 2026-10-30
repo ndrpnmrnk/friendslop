@@ -98,3 +98,18 @@ test('studio actually constructs the entire bowl mesh without undefined geometry
  assert.equal(meshes[0].geometry.position.data.length,(32+2)*(64+1)*3);
  assert.equal(W.skateBowl.outerRadius,L.bowl.outerRadius);
 });
+
+test('airtime is integrated under gravity and not snapped to the next ground surface',()=>{
+ const physics=read('src/world/physics.js');
+ const start=physics.indexOf('if (b.air || b.y > gy + 0.02)');
+ const end=physics.indexOf("if(b.kind==='crate')",start);
+ assert(start>0&&end>start);
+ const air=physics.slice(start,end);
+ assert(air.includes('const nextY=previousY+b.vy*dt'));
+ assert(air.includes('b.vy<=0&&nextY<=gy'),'landing only while falling');
+ assert(air.includes('b.y=nextY;b.air=true'),'while rising we must stay airborne');
+ assert(air.includes('constrainBowlWheel(')||physics.includes('constrainBowlWheel(W.skateBowl,b,dt)'));
+ assert(!air.includes('rise / dt * 0.85'),'surface cannot inject upward velocity on ground');
+ const walk=physics.slice(physics.indexOf('export function moveBody'),physics.indexOf('/* Зоны:'));
+ assert(walk.includes('constrainBowlWalker(W.skateBowl'));
+});
