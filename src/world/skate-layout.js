@@ -2,7 +2,7 @@
 // a real walk-in rental rather than a sealed decorative box.
 export const SKATE_LAYOUT=Object.freeze({
  size:44,
- bowl:{x:22,z:23,flatRadius:4.25,rimRadius:8.05,outerRadius:11,depth:2.7},
+ bowl:{x:22,z:23,flatRadius:4.25,rimRadius:8.05,outerRadius:8.05,depth:3.05,patchHalf:9.35},
  halfpipe:{x:9.5,z:9.4,width:9.2,radius:2.35,front:7.2,back:11.6},
  railsNE:[[32,7,40,7,.72],[32,11,40,11,.53]],
  railsSW:[[4.5,33,11.8,33,.58],[4.5,37,11.8,37,.68]],
@@ -28,7 +28,7 @@ export const rentalRideClear=(p,L=SKATE_LAYOUT)=>{
 };
 export function skateSection(x,z,y=0,L=SKATE_LAYOUT){
  const r=Math.hypot(x-L.bowl.x,z-L.bowl.z);
- if(r>L.bowl.flatRadius+.25&&r<L.bowl.rimRadius+.3&&y>.25)return 'bowl';
+ if(r>L.bowl.flatRadius+.25&&r<L.bowl.rimRadius+.1&&y<-.12)return 'bowl';
  const h=L.halfpipe;
  if(Math.abs(x-h.x)<h.width/2+.35&&z>3.8&&z<15.2&&y>.22)return 'halfpipe';
  return null;
