@@ -176,7 +176,13 @@ function puppetStep(b, dt, t) {
   if(b.held){cargoPosition(b,b.held.pos,b.held.def.r);b.held.g.rotation.y=b.root.rotation.y;}
   if (b.tag) { b.tag.visible = b.root.visible; b.tag.position.set(b.root.position.x, b.root.position.y + (b.ch.d?.top || 1.8) + .45, b.root.position.z); }
 }
-function sendTake(it) { if (MATCH.on && !MATCH.world.ownsScope?.(it.netScope)) MATCH.world.request('take', it); }
+function sendTake(it){
+  if(!MATCH.on||MATCH.host||!it?.netId)return;
+  // Even the owner of a mission scope must ask the host before taking an item.
+  // Otherwise the client's local scope could bypass authoritative pickup.
+  it.netPendingTakeAt=performance.now();
+  MATCH.world.request('take',it);
+}
 function sendThrow(it, from, vel) { if (MATCH.on && !MATCH.world.ownsScope?.(it.netScope)) MATCH.world.request('throw', it, { v: vel.toArray() }); }
 function sendHit(a, k, args) {
   if (!MATCH.on) return;
