@@ -32,3 +32,15 @@ test('remote bicycle pedals use the same transmitted crank phase as both rider f
  alignBikePedals(a,{cyclePhase:NaN});assert.equal(pedals.rotation.x,Math.PI);
  a.ride.rider={};alignBikePedals(a,{cyclePhase:2});assert.equal(pedals.rotation.x,Math.PI);
 });
+
+test('remote scooter rider follows shared board bank and pitch on curved bowl',()=>{
+ const a=actor();
+ a.ride.kind='scooter';
+ a.ride.mesh.rotation.x=-.31;
+ a.ride.mesh.rotation.z=.42;
+ alignMountedVisual(a);
+ assert(Math.abs(a.root.rotation.x-(-.31*.85))<1e-10);
+ assert(Math.abs(a.root.rotation.z-.42*.9)<1e-10);
+ a.ride.mesh.rotation.z=-.16;
+ alignMountedVisual(a);assert(Math.abs(a.root.rotation.z-(-.16*.9))<1e-10);
+});
