@@ -44,7 +44,8 @@ function infoText(extra = '') {
     `Район: ${i.district || '—'} · позиция ${i.pos || '—'} · камера ${i.cam || '—'}`,
     `В руках: ${i.held || '—'}${i.ride ? ' · едет: ' + i.ride : ''} · FPS ${prof.fps} (1% low ${prof.low}) · графика ${i.quality || '?'}`,
     `GPU: ${i.gpu || '?'}`, i.error ? `Последняя ошибка: ${i.error}` : '', ...((i.fault?.stack||'').split('\n').slice(0,3).map(x=>x.slice(0,220)))].filter(Boolean);
-  if(networkStats().trim())lines.push(networkStats().trim());
+  // Each diagnostic line must be its own canvas text row in the exported PNG.
+  if(networkStats().trim())lines.push(...networkStats().trim().split('\n'));
   for(const incident of recentOnlineIncidents().slice(-4))lines.push('Автодиагностика '+incident.time+': '+incident.description);
   if (extra) lines.push('Комментарий: ' + extra);
   return lines;
@@ -52,7 +53,7 @@ function infoText(extra = '') {
 function openReport(shot) {
   unlockFn();
   const m = document.createElement('div'); m.id = 'bugModal';
-  m.innerHTML = `<div class="bm-card"><b>ОТЧЁТ О БАГЕ</b><img alt=""><textarea maxlength="300" placeholder="Что пошло не так? (можно пусто)"></textarea><div class="bm-row"><button class="bm-save">Сохранить картинку</button><button class="bm-cancel">Отмена</button></div><small>Картинка скачается в папку загрузок — пришли её Claude. Текст отчёта ещё и скопирован.</small></div>`;
+  m.innerHTML = `<div class="bm-card"><b>ОТЧЁТ О БАГЕ</b><img alt=""><textarea maxlength="300" placeholder="Что пошло не так? (можно пусто)"></textarea><div class="bm-row"><button class="bm-save">Сохранить картинку</button><button class="bm-cancel">Отмена</button></div><small>Картинка скачается в папку загрузок — пришли её Claude. Текст отчёта также копируется для отправки разработчику.</small></div>`;
   document.body.appendChild(m); const img = m.querySelector('img'); if (shot) img.src = shot; else img.remove();
   const ta = m.querySelector('textarea'); setTimeout(() => ta.focus(), 30);
   const close = () => m.remove();
