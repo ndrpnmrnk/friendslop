@@ -39,8 +39,8 @@ export function warningHazard(b,{name,x,z,w,d,y=0,period=40,warning=2,active=3,h
   if(on)for(const a of localActors())if(Math.abs(a.pos.x-b.X(x))<w/2+a.r&&Math.abs(a.pos.z-b.Z(z))<d/2+a.r&&a.pos.y>b.Y+y-.25&&a.pos.y<b.Y+y+2.3&&(cool.get(a)||0)<districtClock()){cool.set(a,districtClock()+active+1);if(hit)hit(a);else knockDown(a,0,5,1.1);}
  };localAnimation(fn,lamp.m,...(visual?.roots||[]));(W.districtMechanics??=[]).push({name,phase,hot,lamp});return fn;
 }
-export function districtFrame(b,id,{spawn=[22,40],floor=[17,30,27,42],waterfront=false}={}){
+export function districtFrame(b,id,{spawn=[22,40],floor=[17,30,27,42],waterfront=false,catArea=null}={}){
  if(!waterfront){b.path([[22,43],[22,34]],3,T.pave());for(const x of[3,41]){b.lamp(x,40);b.planter(x,34,2,2,.45,'shrub');}}else for(const x of[3,41])b.lamp(x,25);
- b.spawn(...spawn);b.zone('floor',...floor);if(!waterfront)b.cats(2,34,13,41);else b.cats(2,10,13,13);
+ b.spawn(...spawn);b.zone('floor',...floor);if(catArea)b.cats(...catArea);else if(!waterfront)b.cats(2,34,13,41);else b.cats(2,10,13,13);
  (W.districtLayouts??=[]).push({id,size:44,spawn:{x:b.X(spawn[0]),y:b.Y,z:b.Z(spawn[1])}});
 }
