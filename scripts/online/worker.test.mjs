@@ -109,3 +109,24 @@ test('shared FIST snapshots and host-only grants use the existing match transpor
   assert.equal(ack.coin,1);assert.equal(ack.id,g.welcome.id);
  }finally{h.ws.close(1000,'leave');g.ws.close(1000,'leave');}
 });
+
+
+test('mission item: one guest pickup command reaches host and authoritative holder reaches all peers',async()=>{
+ const code='I'+Math.random().toString(36).slice(2,7).toUpperCase();
+ const h=await connect(code,'items-host',true,'mission-items',true),a=await connect(code,'items-worker',false,'mission-items'),b=await connect(code,'items-helper',false,'mission-items');
+ try{
+  const key='i:m12/w4/s0/0',ep=929;
+  h.send({t:'st',m:'match',protocol:2,ep,n:1,w:{d:{rev:1,full:true,rows:[[key,['missioncrate','placed',1,0,2,0,0,0,0,0,0,'',0,0,0,1,0,0,0,'',12,null]]]}}});
+  await Promise.all([a.next(m=>m.t==='st'&&m.n===1),b.next(m=>m.t==='st'&&m.n===1)]);
+  b.send({t:'st',m:'match',protocol:2,ep,n:2,cmds:[{kind:'take',key}]});
+  const cmd=await h.next(m=>m.t==='st'&&m.n===2);
+  assert.equal(cmd.cmds[0].key,key);assert.equal(cmd.id,b.welcome.id);
+  h.send({t:'st',m:'match',protocol:2,ep,n:3,w:{d:{rev:2,full:false,rows:[[key,['missioncrate','held',1,1,2,0,0,0,0,0,0,'p'+b.welcome.id,0,0,0,1,0,0,0,'',12,null]]]}}});
+  const [worker,helper]=await Promise.all([a.next(m=>m.t==='st'&&m.n===3),b.next(m=>m.t==='st'&&m.n===3)]);
+  assert.equal(worker.w.d.rows[0][1][1],'held');
+  assert.equal(worker.w.d.rows[0][1][11],'p'+b.welcome.id);
+  assert.equal(helper.w.d.rows[0][1][11],'p'+b.welcome.id);
+  assert.equal(worker.id,h.welcome.id);
+  assert(!a.messages.some(m=>m.t==='st'&&m.n===2),'guest inputs go only to host');
+ }finally{for(const c of [h,a,b])try{c.ws.close(1000,'leave');}catch{}}
+});
