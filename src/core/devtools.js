@@ -1,4 +1,4 @@
-import {telemetry} from '../net/telemetry.js';
+import {telemetry,recentOnlineIncidents} from '../net/telemetry.js';
 import {NET} from '../net/net.js';
 /* v0.57 — инструменты для тестов автора.
    F3 — счётчик производительности: FPS, 1% low (худший 1% кадров), время кадра по системам, вызовы отрисовки.
@@ -45,6 +45,7 @@ function infoText(extra = '') {
     `В руках: ${i.held || '—'}${i.ride ? ' · едет: ' + i.ride : ''} · FPS ${prof.fps} (1% low ${prof.low}) · графика ${i.quality || '?'}`,
     `GPU: ${i.gpu || '?'}`, i.error ? `Последняя ошибка: ${i.error}` : '', ...((i.fault?.stack||'').split('\n').slice(0,3).map(x=>x.slice(0,220)))].filter(Boolean);
   if(networkStats().trim())lines.push(networkStats().trim());
+  for(const incident of recentOnlineIncidents().slice(-4))lines.push('Автодиагностика '+incident.time+': '+incident.description);
   if (extra) lines.push('Комментарий: ' + extra);
   return lines;
 }
