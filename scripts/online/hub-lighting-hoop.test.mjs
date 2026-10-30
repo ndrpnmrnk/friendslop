@@ -12,7 +12,8 @@ test('all hub lamp instances explicitly disable volumetric light shafts',()=>{
  const calls=[...hub.matchAll(/\bb\.lamp\(([^;]*)\);/g)].map(m=>m[1]);
  assert.equal(calls.length,1,'hub should use the guarded loop for all lamps');
  assert.equal(calls[0],'x,z,ry,false','new lamps must not recreate the hovering columns');
- assert.match(lamps,/let cone = null;\s*if \(showVolumetricCone\)/);
+ assert.match(lamps,/const cone=null/);
+ assert(!lamps.includes('cone = new THREE.Mesh(LAMP_CONE'),'light shafts must be absent in every district');
  assert.match(lighting,/if\(!l\.cone\)continue/,'light updater must skip absent cones');
 });
 test('hoop faces the paved central pathway away from the western building',()=>{
