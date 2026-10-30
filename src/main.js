@@ -68,6 +68,7 @@ import { initAudio, sfx, ambience, setListener, toggleMute,audioLevels,setAudioL
 import { drawCard } from './ui/cards.js';
 import { createMenu } from './ui/menu.js';
 import {resetCoins,updateCoins,coinState,grabFist,nearFist} from './game/coins.js';
+import {telemetry,diagnosticsText} from './net/telemetry.js';
 import {collection,addCoins} from './game/collection.js';
 import { createPodium, assignAwards, AWARDS, skinName } from './ui/podium.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
@@ -1055,10 +1056,11 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)roundMusic.
 // отладочный доступ из консоли браузера
 window.__fs = {voiceChat, lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: () => launchRound(MODES[0], randomMap()), launchRound, randomMap, setMode };
 window.__fs.lastFaults=lastFaults;
+window.__fs.onlineDiagnostics=()=>telemetry.snapshot();
 Object.assign(window.__fs,{scene,makeCharacter:(id)=>__mkChar(id),skinIds:()=>__skinIds,vfx:{explosion,fireworks,sparks:vfxSparks,impactBurst},menu,collection,coinState,showHub,showMenu,roundMusic,graphics,actionStats,addFists:(n=500)=>addCoins(n)});
 if(new URLSearchParams(globalThis.location?.search||'').get('dev')==='1'){const b=document.createElement('button');b.id='devFists';b.textContent='+500';b.title='Тест автомата: добавить 500 фистов';b.onclick=()=>addCoins(500);$('wallet').appendChild(b);}
 // v0.57: F3 — счётчик производительности, F8 — отчёт о баге (что сейчас происходит и где)
-initDevtools({ unlock: () => unlock(), network:()=>{if(NET.state!=='on')return '';const n=netStats(),w=(S.state==='hub'?menu.world.state:W).net?.stats;return `RTT до комнаты ${n.rtt} мс · отправка ${n.sendHz.toFixed(0)}/с · приём ${n.receiveHz.toFixed(0)}/с\nочередь ${(n.queue/1024).toFixed(1)} КБ · приём JS ${n.receiveMs.toFixed(2)} мс\n`+(w?`снимок ${w.captureMs.toFixed(2)} мс · изменений ${w.rows}/${w.objects}\n`:'');}, info: () => { const hub = S.state === 'hub' || S.state === 'menu', a = hub ? menu.player : P, p = a?.pos, f = n => n.toFixed(1);
+initDevtools({ unlock: () => unlock(), network:()=>{if(NET.state!=='on')return '';const n=netStats(),w=(S.state==='hub'?menu.world.state:W).net?.stats;return `RTT до комнаты ${n.rtt} мс · отправка ${n.sendHz.toFixed(0)}/с · приём ${n.receiveHz.toFixed(0)}/с\nочередь ${(n.queue/1024).toFixed(1)} КБ · приём JS ${n.receiveMs.toFixed(2)} мс\n`+diagnosticsText()+(w?`снимок ${w.captureMs.toFixed(2)} мс · изменений ${w.rows}/${w.objects}\n`:'');}, info: () => { const hub = S.state === 'hub' || S.state === 'menu', a = hub ? menu.player : P, p = a?.pos, f = n => n.toFixed(1);
   const d = p && !hub ? W.districts.find(q => p.x >= q.ox && p.x <= q.x1 && p.z >= q.oz && p.z <= q.z1) : null, gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
   return { state: S.state, mode: S.lastMode?.name, mission: S.wm?.m.key || S.mg?.m.key || null, district: hub ? 'Хаб' : d?.name || (p ? 'дорога/тоннель' : null), pos: p ? `${f(p.x)}, ${f(p.y)}, ${f(p.z)}` : null,
     cam: `${f(camera.position.x)}, ${f(camera.position.y)}, ${f(camera.position.z)}`, held: a?.held?.type || null, ride: a?.ride?.kind || null, quality: graphics.key,
