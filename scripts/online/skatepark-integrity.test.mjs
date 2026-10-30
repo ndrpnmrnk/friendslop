@@ -29,7 +29,7 @@ test('skate tricks award through existing score cap, no duplicate independent wa
  assert(skate.includes("['skate','scooter']"));
  assert(!/\b(?:SC\.award|bonus\(|addCoins\()/.test(skate));
 });
-test('skatebot AI never overwrites busy missions or other owner's rental',()=>{
+test("skatebot AI never overwrites busy missions or another player\x27s rental",()=>{
  const ai=read('src/world/skate-bots.js');
  const bots=read('src/game/bots.js');
  assert(ai.includes('board.rider')||ai.includes('b.rider'));
