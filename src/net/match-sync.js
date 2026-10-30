@@ -4,7 +4,7 @@ import {takeSounds,retrySounds,receiveSounds} from './audio-sync.js';
 import {CoinAwards} from './coin-protocol.js';
 import {coinSnapshot,applyCoinSnapshot,hostTakeCoin,showCoinGrant} from '../game/coins.js';
 import {claimFistReward} from '../game/collection.js';
-import {alignMountedVisual} from './rider-visual.js';
+import {alignMountedVisual,alignBikePedals} from './rider-visual.js';
 import { W, withWorld } from '../world/state.js';
 import { withRandom } from '../core/random.js';
 import { V3 } from '../core/gfx.js';
@@ -169,7 +169,7 @@ function puppetStep(b, dt, t) {
   if(MATCH.host&&b.netVelocity)b.vel.copy(b.netVelocity);
   if(!MATCH.host||!b.human)b.pos.set(m.x,m.y,m.z);b.root.position.set(m.x,m.y,m.z); b.onGround = !(k < .5 ? A.s : B.s).air;
   b.root.rotation.y = A.r + Math.atan2(Math.sin(B.r - A.r), Math.cos(B.r - A.r)) * k; b.root.visible = !!B.v;
-  const s = k < .5 ? A.s : B.s; b.stun = s.stun ? 1 : 0; hook(b.ch); b.ch.animate(dt, { ...s, t });
+  const s = k < .5 ? A.s : B.s; b.stun = s.stun ? 1 : 0;alignBikePedals(b,s); hook(b.ch); b.ch.animate(dt, { ...s, t });
   // Vehicle visual receives a newer authoritative sample than the actor buffer.
   // Keep the seated model on the actual rendered bicycle/cart every graphics frame.
   alignMountedVisual(b);
