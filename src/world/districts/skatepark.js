@@ -233,7 +233,7 @@ export default {
    b.box(x,z,q?.75:len+.08,q?len+.08:.75,.065,metal(),{y:.32,solid:false});
    for(const side of[-1,1])b.m(G.box,col(0x3a4551),
      x+(q?side*.30:0),.17,z+(q?0:side*.30),
-     q?.07:len,q?len:.07,.34);
+     q?.07:len,.34,q?len:.07);
   }
   closedWedge(b,36,14.1,3.2,2.5,.57,Math.PI);
   closedWedge(b,8.2,27,3.2,2.5,.53,0);
