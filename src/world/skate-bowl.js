@@ -68,7 +68,9 @@ export function bowlLipLaunch(board,oldX,oldZ,b){
  const kick=clamp(radial*Math.min(.62,exitSlope*.72),2.2,4.8);
  board.vy=Math.max(board.vy||0,kick);
  board.air=true;board.bowlFlightCooldown=1.4;board.bowlTakeoff=true;
- board.trick??={kind:board.kind==='scooter'?'barspin':'kickflip',t:0,dur:.48};
+ // A bowl exit is natural airtime, not a user-triggered trick. Do not
+ // synthesize a flip here: an early landing previously caused a forced
+ // dismount in updateRide when the fake animation had not finished.
  return true;
 }
 export function moveBowlBoard(board,dt,b){

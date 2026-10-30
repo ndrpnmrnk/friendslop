@@ -46,40 +46,21 @@ function deepBowl(b){
 }
 
 function halfpipe(b){
- const h=L.halfpipe,metalMat=metal(),dark=col(0x333943);
+ const h=L.halfpipe;
  b.ground(4.1,3.7,15,15.4,T.concrete(),2.5,.024);
  const first=b.quarterPipe(h.x,h.front,h.width,h.radius,Math.PI,.8);
- const second=b.quarterPipe(h.x,h.back,h.width,h.radius,0,.8);
- // Close visible undersides and give the halfpipe proper metal kick plates,
- // coping and deck edge guards. No floating label above the transition.
+ b.quarterPipe(h.x,h.back,h.width,h.radius,0,.8);
+ // The quarter-pipe generator already provides continuous curved skins,
+ // closed side profiles, decks and one genuine coping rail. Keep a single
+ // unobtrusive rear closure on each half; remove the duplicate metal bar,
+ // tall corner posts, detached footings and tiny dash-like deck strips.
+ // They were overlapping the transition and poking through the surface.
  const U=h.radius*.78,deck=.8;
  for(const [z,dir]of[[h.front,-1],[h.back,1]]){
   const back=z+dir*(U+deck*.92);
   b.box(h.x,back,h.width,.15,first,tmat(T.concrete()),{solid:false});
-  b.box(h.x,z+dir*(U+.08),h.width+.08,.1,.20,metalMat,{y:first-.12,solid:false});
-  for(const side of[-1,1]){
-   b.box(h.x+side*(h.width/2-.07),z+dir*(U+.28),.09,.92,first,dark,{solid:false});
-   b.box(h.x+side*(h.width/2-.11),z+dir*(U+.22),.11,.32,.12,metalMat,{y:first,solid:false});
-  }
  }
- // Flat central section, side landing platforms and industrial-looking
- // dark metal detailing - no raised invisible wall in the travel lane.
- for(const x of [h.x-h.width/2+.24,h.x+h.width/2-.24]){
-  for(const z of [h.front-1.3,h.back+1.3])
-   b.m(G.box,metalMat,x,.06,z,.18,.10,.6);
- }
- // Braced metal sides and anti-slip deck strips, never hidden collision lips.
- for(const sx of[-1,1]){
-  const px=h.x+sx*(h.width/2+.10);
-  for(const zz of[h.front-1.10,h.back+1.10]){
-   b.m(G.box,dark,px,first*.51,zz,.11,first+.15,.14);
-   b.m(G.box,metalMat,px,first+.04,zz,.18,.045,.38);
-  }
- }
- for(const zz of[h.front-1.62,h.back+1.62])
-  for(let i=0;i<5;i++)b.m(G.box,metalMat,
-   h.x-h.width/2+.65+i*(h.width-1.3)/4,first+.008,zz,.42,.012,.08);
- // Separate playable grind bars next to the halfpipe, not across its mouth.
+ // These are independent grind rails, away from the halfpipe riding lane.
  b.grindRail(3.7,17.3,11.0,17.3,.53);
  b.grindRail(15.9,4.6,15.9,11.3,.58);
 }

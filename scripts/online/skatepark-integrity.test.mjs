@@ -21,6 +21,10 @@ test('deep bowl is ONE continuous rendered height field, same as physical ground
  assert(physics.includes('moveBowlBoard(b,dt/n,bowl)'),'bowl momentum must integrate on physical contact substeps');
  assert(physics.includes('(b.bowlBank || 0)'));
  assert(read('src/game/ride.js').includes('(b.bowlBank || 0)'));
+ const ride=read('src/game/ride.js'),bowl=read('src/world/skate-bowl.js');
+ assert(!bowl.includes('board.trick??='),'bowl takeoff must never start a fake aerial trick');
+ assert(ride.includes('manual: true'),'only a user-requested trick can cause an incomplete-trick dismount');
+ assert(ride.includes('else if(tr.manual)'),'automatic/bot motions cannot throw riders off on landing');
 });
 test('halfpipe and small wedges remain rideable, but wedge back and sides are closed',()=>{
  const scene=read('src/world/districts/skatepark.js');
@@ -127,6 +131,10 @@ test('no floating labels, and halfpipe has closed metal-reinforced structure',()
  assert(scene.includes('const first=b.quarterPipe('));
  assert(scene.includes('b.box(h.x,back,h.width,.15,first'));
  assert(scene.includes('b.grindRail(15.9,4.6'));
+ assert(!scene.includes('Braced metal sides and anti-slip deck strips'),'remove extra braces and dashes');
+ assert(!scene.includes('b.box(h.x,z+dir*(U+.08)'),'remove duplicate metal bar across the coping');
+ assert(!scene.includes('px,first*.51'),'remove protruding end posts');
+ assert(!scene.includes('first+.008,zz'),'remove distracting barcode-style deck ticks');
  assert(ramp.includes('N = 20, U = R * 0.78'));
 });
 test('skate rental has mounted fascia, recognizable gear displays and central lightweight light',()=>{

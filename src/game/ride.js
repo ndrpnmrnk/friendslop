@@ -178,7 +178,9 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
     b.shuv = tr.kind === 'shuvit' ? e * Math.PI : tr.kind === 'tre' || tr.kind === 'tailwhip' || tr.kind === 'barspin' ? e * Math.PI * 2 : 0;
     if (!b.air && tr.t > 0.12) { b.trick = null; b.flip = 0; b.shuv = 0; p.trickK = 0;
       if (k >= 0.8) { W.onTrick && W.onTrick(p, tr.kind); burst(b.x, b.y + 0.2, b.z, 8, { color: 0xf5c542, size: 0.12, speed: 2.5, up: 2 }); sfx('land', { v: 1.2 }); }
-      else { dismount(p, false); p.vel.set(b.vx * 0.5, 4, b.vz * 0.5); p.onGround = false; p.stun = 0.7; p.noMountT = 2.5; sfx('hit'); return 'crash'; } } }
+      else if(tr.manual){ dismount(p, false); p.vel.set(b.vx * 0.5, 4, b.vz * 0.5); p.onGround = false; p.stun = 0.7; p.noMountT = 2.5; sfx('hit'); return 'crash'; }
+      // Uncommanded animations (e.g. NPC tricks) must never eject the
+      // rider on a perfectly ordinary early landing. } }
   p.pos.set(b.x, b.y + R.seat, b.z); p.vel.set(b.vx, 0, b.vz); p.onGround = !b.air; p.speed = sp;
   // наклон в повороте: сильнее на скорости; руль и переднее колесо поворачиваются
   const leanMax = b.kind === 'bike' ? 0.34 : b.kind === 'skate' ? 0.24 : b.kind === 'scooter' ? 0.2 : 0, leanT = classic && !b.air ? (b.steer || 0) * leanMax * Math.min(1, sp / 5) : 0;
@@ -198,7 +200,7 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   if(isMotorCar(b.kind)&&isCrashImpact(b.hitSpeed,b.mountGrace,8)){b.skid=.85;b.spin=2.2;b.heading+=.5;b.vx-=fx*2;b.vz-=fz*2;p.daze=Math.max(p.daze||0,1);sfx('hit');}
   if (!isMotorCar(b.kind)&&isCrashImpact(b.hitSpeed,b.mountGrace,6)) { const v = b.hitSpeed; dismount(p, false); p.vel.set(-fx * 3, 5, -fz * 3); p.onGround = false; p.stun = 0.9; p.noMountT = 2.5; burst(b.x, b.y + 0.6, b.z, 8, { size: 0.4, speed: 3 }); return 'crash'; }
   // скейт и самокат: пробел — прыжок (олли), слезть — E
-  if (ctrl && !isMotorCar(b.kind) && tapped('Space')) { if (board) { if (!b.air) { if(b.grind){b.grind=null;b.grindCooldown=.6;b.grindSnd=0;} b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(random() * L.length) | 0], t: 0, dur: 0.48 }; } return null; } dismount(p, true); return 'jump'; }
+  if (ctrl && !isMotorCar(b.kind) && tapped('Space')) { if (board) { if (!b.air) { if(b.grind){b.grind=null;b.grindCooldown=.6;b.grindSnd=0;} b.vy = 6.8; b.y += 0.05; b.air = true; sfx('jump'); const L = TRICKS[b.kind]; b.trick = { kind: L[(random() * L.length) | 0], t: 0, dur: 0.48, manual: true }; } return null; } dismount(p, true); return 'jump'; }
   if (b.grind) { b.grindSnd = (b.grindSnd || 0) - dt; if (b.grindSnd <= 0) { b.grindSnd = .30; sfx('grind', { at: { x: b.x, y: b.y, z: b.z }, v: Math.min(1, Math.hypot(b.vx, b.vz) / 8) }); } }
   if (b.grind && random() < dt * 14) burst(b.x, b.y + 0.05, b.z, 1, { color: 0xffd25c, size: 0.06, speed: 2, up: 1.5, g: 12, life: 0.3, grow: 0 });
   return null;

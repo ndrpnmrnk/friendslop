@@ -55,6 +55,7 @@ test('continuous lip crossing launches only on real outward speed',()=>{
  const r=B.rimRadius-.035,fast=board(r,0,12,0);fast.y=bowlHeight(r,B);
  fast.x=B.rimRadius+.04;
  assert(bowlLipLaunch(fast,r,0,bowl));assert(fast.air&&fast.vy>3);
+ assert.equal(fast.trick,undefined,'natural bowl exit cannot start an automatic flip');
  assert(!bowlLipLaunch(fast,r,0,bowl),'one launch per flight');
  const slow=board(r,0,4,0);slow.y=bowlHeight(r,B);slow.x=B.rimRadius+.04;
  assert(!bowlLipLaunch(slow,r,0,bowl));
@@ -89,6 +90,19 @@ test('realistic post-climb exit speed is sufficient for a smooth launch',()=>{
  moderate.y=bowlHeight(r,B);moderate.x=B.rimRadius+.03;
  assert(bowlLipLaunch(moderate,r,0,bowl));
  assert(moderate.vy>2&&moderate.vy<5);
+ assert.equal(moderate.trick,undefined,'a short bowl exit must not throw the player off the board');
+ const scooter={...board(r,0,6.3,0),kind:'scooter'};
+ scooter.y=bowlHeight(r,B);scooter.x=B.rimRadius+.03;
+ assert(bowlLipLaunch(scooter,r,0,bowl));
+ assert.equal(scooter.trick,undefined,'scooter bowl exit cannot create a fake barspin');
+});
+test('bowl exit preserves an explicitly initiated trick without replacing it',()=>{
+ const bowl={...B,x:0,z:0,baseY:0},r=B.rimRadius-.04;
+ const b=board(r,0,7,0);
+ const manual={kind:'kickflip',t:.2,dur:.48,manual:true};
+ b.trick=manual;b.y=bowlHeight(r,B);b.x=B.rimRadius+.03;
+ assert(bowlLipLaunch(b,r,0,bowl));
+ assert.equal(b.trick,manual,'manual tricks remain under user control');
 });
 test('old wheel radius clamping is disabled - the C2 surface handles contact instead',()=>{
  const b=board(7.8,0,12,0),x=b.x;
