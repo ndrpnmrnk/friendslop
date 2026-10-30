@@ -95,7 +95,7 @@ export function updateWorldFx(dt, t, P) {
     const prev = l.k; l.k += (want - l.k) * Math.min(1, dt * (l.down ? 7 : 3)); if (Math.abs(l.k - want) < 0.01) l.k = want;
     l.seg.position.y = l.y0 + (1 - l.k) * l.low;
     if (l.down && prev < 0.98 && l.k >= 0.98) { smokeRing(l.bx, l.by + 0.1, l.bz, 8, { speed: 2 }); shake(0.25); }
-    if (l.down && l.k < 0.9 && P && Math.hypot(P.pos.x - l.bx, P.pos.z - l.bz) < 0.8 && P.pos.y < l.by + 2) { P.stun = Math.max(P.stun, 1.4); P.vel.set((P.pos.x - l.bx) * 4, 3, (P.pos.z - l.bz) * 4); }
+    if (l.down && l.k < 0.9 && P && !P.ride && Math.hypot(P.pos.x - l.bx, P.pos.z - l.bz) < 0.8 && P.pos.y < l.by + 2) { P.stun = Math.max(P.stun, 1.4); P.vel.set((P.pos.x - l.bx) * 4, 3, (P.pos.z - l.bz) * 4); }
     l.zone.y0 = l.k > 0.95 ? l.by : l.y0 + l.low;
   }
   // карусель: стоящих на платформе крутит вместе с ней

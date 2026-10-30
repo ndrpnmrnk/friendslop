@@ -44,7 +44,6 @@ import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
 import { netActor, shoot, resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow,releaseNet } from './game/tools.js';
 import { separateActors, knockDown } from './game/actors.js';
-import { resetReplay, recordReplay, replayMoment, replayClip, createReplayPlayer, encodeNetworkReplay, decodeNetworkReplay } from './game/replay.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import {tugInput} from './game/item-tug.js';
 import { mouse as M_ } from './core/input.js';
@@ -360,7 +359,7 @@ function prepareRound(tut = false) {
   // прогрев шейдеров — в самом конце, когда на карте уже есть боты, коты, жители и все предметы (+ набор всех предметов)
   { const t0 = performance.now(), kit = prewarmKit(); scene.add(kit); try { warmup(scene, camera); } finally { scene.remove(kit); } console.info('[friendslop] шейдеры:', Math.round(performance.now() - t0), 'мс'); }
   console.info('[friendslop] неподвижных объектов:', freezeStatic());
-  resetReplay([P, ...(W.bots || [])]);
+
 }
 /* Непрерывный пролёт по кварталам к игроку, затем отсчёт 5-4-3-2-1. */
 /* v0.53: прилёт на карту. Каждого игрока выстреливает дугой из-за края города (продолжение залпа катапульты):
@@ -463,32 +462,19 @@ function finalRows(){
  const rows=[P,...(W.bots||[])].map(mk);if(MATCH.on)rows.sort((a,b)=>a.key.localeCompare(b.key));return assignAwards(rows);
 }
 function startFinale() {
-  if(MATCH.on){if(!MATCH.host&&!MATCH.final)return;if(MATCH.host)netPublishFinal(finalRows(),encodeNetworkReplay(replayClip()));}
+  if(MATCH.on){if(!MATCH.host&&!MATCH.final)return;if(MATCH.host)netPublishFinal(finalRows(),null);}
   roundMusic.stop(); if (S.mg) closeMission(null); if (S.wm) closeWorld(null); if (S.crane) exitCrane(); P.charging = false;
-  S.state = 'finale'; S.fin = { t: 0, stage: 'whistle', a0: P.root.rotation.y + Math.PI * .75, clip: MATCH.on ? decodeNetworkReplay(MATCH.final?.replay,W.net.actor,key=>W.net.objects.get(key)?.o) : replayClip() };
+  S.state = 'finale'; S.fin = { t: 0, stage: 'whistle', a0: P.root.rotation.y + Math.PI * .75, clip: null };
   document.body.classList.add('cine'); $('hud').classList.add('hidden'); unlock(); setCursor(true);
   const st = $('finStamp'); st.classList.remove('hidden', 'pop'); void st.offsetWidth; st.classList.add('pop'); sfx('whistle'); sfx('boom', { v: .5 }); shakeCam(.3);
 }
 const _fp = new V3();
 function updateFinale(dt) {
-  const F = S.fin; F.t += dt;
-  if (F.stage === 'whistle') {
-    const k = Math.min(1, F.t / 1.9), a = F.a0 + k * 1.1, r = 6 - k * 1.8; _fp.copy(P.root.position);
-    cam.free = { p: new V3(_fp.x + Math.sin(a) * r, _fp.y + 2.4 - k * .6, _fp.z + Math.cos(a) * r), l: new V3(_fp.x, _fp.y + 1.1, _fp.z) };
-    if (F.t > 1.9) { $('finStamp').classList.add('hidden');
-      if (F.clip) { F.stage = 'replay'; F.t = 0; F.player = createReplayPlayer(F.clip); F.a0 = random() * 6.28; const tag = $('replayTag'); tag.querySelector('span').textContent = F.clip.focus === P ? TEXT.you : (F.clip.focus.name || ''); tag.classList.remove('hidden'); sfx('shutter'); }
-      else finishFinale(); }
-  } else if (F.stage === 'replay') {
-    F.player.step(dt); F.player.focusPos(_fp); const a = F.a0 + F.t * .32;
-    const want = { p: new V3(_fp.x + Math.sin(a) * 6, _fp.y + 2.6, _fp.z + Math.cos(a) * 6), l: new V3(_fp.x, _fp.y + 1, _fp.z) };
-    if (!F.cam) F.cam = want; else { F.cam.p.lerp(want.p, 1 - Math.exp(-dt * 4)); F.cam.l.lerp(want.l, 1 - Math.exp(-dt * 6)); }
-    cam.free = { p: F.cam.p.clone(), l: F.cam.l.clone() };
-    if (F.player.done || F.skip) { F.player.restore(); finishFinale(); }
-  }
+ const F=S.fin;F.t+=dt;const k=Math.min(1,F.t/1.9),a=F.a0+k*1.1,r=6-k*1.8;_fp.copy(P.root.position);
+ cam.free={p:new V3(_fp.x+Math.sin(a)*r,_fp.y+2.4-k*.6,_fp.z+Math.cos(a)*r),l:new V3(_fp.x,_fp.y+1.1,_fp.z)};
+ if(F.t>1.9)finishFinale();
 }
-function finishFinale() { $('replayTag').classList.add('hidden'); $('finStamp').classList.add('hidden'); document.body.classList.remove('cine'); cam.free = null; S.fin = null; endRound(); }
-addEventListener('keydown', e => { if (S.state === 'finale' && S.fin?.stage === 'replay' && ['Space', 'Enter', 'Escape'].includes(e.code)) S.fin.skip = true; });
-addEventListener('pointerdown', () => { if (S.state === 'finale' && S.fin?.stage === 'replay') S.fin.skip = true; });
+function finishFinale(){ $('finStamp').classList.add('hidden');document.body.classList.remove('cine');cam.free=null;S.fin=null;endRound(); }
 function endRound() {
   S.settingsOpen=false;$('settings').classList.add('hidden');$('settings').classList.remove('in-match');
   roundMusic.stop();
@@ -664,18 +650,17 @@ function hookFun() {
   // удар/попадание: мелкий бонус (по лидеру — чуть больше); ударил того, кто делает миссию, — СОРВАЛ
   W.onHit = (att, vic, kind) => {
     if (!att || att === vic || !vic) return;
-    replayMoment((kind === 'heavy' ? 3 : kind === 'melee' ? 2 : 1) + (att === P || vic === P ? 2 : 0) + (vic === FUN.leader ? 1 : 0), vic);
     if (EV.big && EV.big.def.onHit) EV.big.def.onHit(EV.big.s, att, vic, kind);
     if (vic === P) shakeCam(kind === 'heavy' ? 0.35 : 0.18); else if (att === P) shakeCam(0.1);
     if (!onHitLeader(att, vic)) comboAct(att, 'hits', kind === 'heavy' ? PTS.hitHeavy : PTS.hitLight, vic.pos); else comboAct(att, 'hits', 0);
     if (vic.bot) { const m = interruptBot(vic); if (m) sabotage(att, vic, m); }
     else if (vic === P && S.mg && kind !== 'light') { const m = S.mg.m; closeMission(null); sabotage(att, P, m); }
   };
-  W.onFunny = (vic, kind, owner) => { replayMoment(2 + (owner === P || vic === P ? 1 : 0), vic); if (owner && vic !== owner) comboAct(owner, 'traps', PTS.trap, vic.pos); };
+  W.onFunny = (vic, kind, owner) => { if (owner && vic !== owner) comboAct(owner, 'traps', PTS.trap, vic.pos); };
   // перила: 5 очков, за одни и те же — не чаще раза в 10 с
   W.onGrind = b => { const a = b.rider; if (!a) return; a.grinds = a.grinds || new Map(); const now = W.time || 0, last = a.grinds.get(b.grind) ?? -99;
     if (now - last >= 10) { a.grinds.set(b.grind, now); comboAct(a, 'tricks', PTS.grind, a.pos); } else if (a === P) comboAct(a, null, 0); };
-  W.onTrick = a => { replayMoment(2 + (a === P ? 1 : 0), a); const now = W.time || 0; if (now - (a.trickT ?? -99) >= 3) { a.trickT = now; comboAct(a, 'tricks', PTS.trick, a.pos); } };
+  W.onTrick = a => { const now = W.time || 0; if (now - (a.trickT ?? -99) >= 3) { a.trickT = now; comboAct(a, 'tricks', PTS.trick, a.pos); } };
   W.onVacuumSteal = (a, it) => { if (a === P) stealItem(it); };
   W.onArrest = (who, by) => { if (who === P) toast(TEXT.arrested, 'bad'); else if (by === P) { toast(TEXT.arrestOk(who.name), 'gold'); bonus(P, 'hits', 20, who.pos); } };
   W.onSteal = (thief, from, it) => { if (from === P) toast(TEXT.stolenFrom(thief.name), 'bad'); };
@@ -920,7 +905,7 @@ function frame() {
       if (P.held) { cargoPosition(P,P.held.pos,P.held.def.r); P.held.g.rotation.y = P.root.rotation.y;poseMeleeItem(P,P.held); }
       if (P.charging && !P.held && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
       if (P.stun > 0 && P.charging) { P.charging = false; $('dot').classList.remove('charge'); }
-      W.time = EV.t; recordReplay(dt);
+      W.time = EV.t;
       {const m=S.mg?.m||S.wm?.m;if(m?.activeLeft!=null)$('mgpts').textContent=`+${m.pts} · ${Math.ceil(Math.max(0,m.activeLeft))} с`;}
       updateMissions(dt, t, P, { phase: phaseOf(EV.t), t: EV.t, playerScore: () => S.score });
       // главная цель — одна: ближайшая видимая миссия (своя личная — в приоритете), остальные приглушены

@@ -22,7 +22,7 @@ export function tryGrabTarget(a, b) {
   for (const t of W.grabTargets || []) {
     if (Math.hypot(b.pos.x - t.x, b.pos.z - t.z) > t.r || (t.y !== undefined && Math.abs(b.pos.y - t.y) > 1.4)) continue;
     const p = b.pos;
-    if (t.kind === 'stash') { const at = t.at || { x: t.x, y: p.y, z: t.z }; trapped.push({ b, t: t.t || 3, at, root: b.root.visible }); b.pos.set(at.x, at.y, at.z); b.vel.set(0, 0, 0); b.stun = Math.max(b.stun || 0, (t.t || 3) + .2); b.root.visible = false; sfx('bonk', { at: p }); smokeRing(at.x, at.y + .4, at.z, 8, { speed: 1.6 }); }
+    if (t.kind === 'stash') { const at = t.at || { x: t.x, y: p.y, z: t.z }; trapped.push({ b, t: t.t || 3, at, root: b.root.visible }); b.pos.set(at.x, at.y, at.z); b.vel.set(0, 0, 0); b.stun = Math.max(b.stun || 0, (t.t || 3) + .2); b.root.visible = t.visible === true; sfx('bonk', { at: p }); smokeRing(at.x, at.y + .4, at.z, 8, { speed: 1.6 }); }
     else if (t.kind === 'dunk') { knockDown(b, (t.dir?.[0] || 0) * 3, (t.dir?.[1] || 0) * 3, t.t || 1.6); sfx('splash', { at: p }); burst(p.x, p.y + .3, p.z, 18, { color: t.color || 0x8ec8f0, size: .14, speed: 3, up: 3 }); }
     else if (t.kind === 'bounce') { b.vel.set((t.dir?.[0] || 0) * 3, 11, (t.dir?.[1] || 0) * 3); b.onGround = false; b.stun = Math.max(b.stun || 0, .6); sfx('spring', { at: p }); }
     else if (t.kind === 'slow') { b.webT = Math.max(b.webT || 0, t.t || 5); b.stun = Math.max(b.stun || 0, .8); sfx('drop', { at: p }); burst(p.x, p.y + .6, p.z, 14, { color: t.color || 0x9a9488, size: .16, speed: 2, up: 2 }); }

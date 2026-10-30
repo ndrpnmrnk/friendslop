@@ -1,3 +1,4 @@
+import {burgerGame} from './burger.js';
 import {fistModel} from '../game/fist-model.js';
 import { random } from '../core/random.js';
 import {addOutline} from '../game/outline.js';
@@ -422,44 +423,7 @@ export const WORLD5 = {
 /* ====================== панельные (камера встаёт к объекту) ====================== */
 export const PANEL5 = {
   // 3. Бургеры: котлеты жарятся (низ темнеет). Клик — перевернуть; когда и второй бок готов — клик ещё раз, в булку. Нужно 3 хороших
-  grill(o, api, ctx) {
-    api.feedback?.();
-    const s = o.spot, F = new V3(s.f[0], 0, s.f[1]), c0 = new V3(s.bx, s.by, s.bz);
-    api.pose(c0.clone().addScaledVector(F, 0.85).add(new V3(0, 0.95, 0)), c0.clone().addScaledVector(F, -0.05));
-    const grp = new THREE.Group(); grp.position.copy(c0); grp.rotation.y = Math.atan2(F.x, F.z); W.group.add(grp);
-    grp.add(compose('m5grill', a => { a(G.box, col(0x2b2533), -0.15, 0.02, 0, 0.62, 0.04, 0.36); for (let i = 0; i < 7; i++) a(G.box, col(0x6a6d78), -0.15, 0.045, -0.15 + i * 0.05, 0.6, 0.01, 0.012); a(G.box, glow(0xff6a1a), -0.15, 0.03, 0, 0.56, 0.005, 0.3);
-      a(G.box, tmat(T.wood()), 0.36, 0.02, 0, 0.3, 0.03, 0.34); }));
-    const RAW = new THREE.Color(0xd87a7a), DONE = new THREE.Color(0x8a4a2a), BURN = new THREE.Color(0x1e1410), tmp = new THREE.Color();
-    const shade = (k, m) => { if (k < 3.5) tmp.copy(RAW).lerp(DONE, k / 3.5); else if (k < 6.5) tmp.copy(DONE); else tmp.copy(DONE).lerp(BURN, Math.min(1, (k - 6.5) / 1.5)); m.color.copy(tmp); };
-    const P3 = [-0.33, -0.15, 0.03].map((x, i) => { const g = new THREE.Group(); g.position.set(x, 0.07, 0); grp.add(g); const top = mesh(G.cyl12, lam({ color: 0xd87a7a }), 0, 0.015, 0, 0.075, 0.03, 0.075, g), bot = mesh(G.cyl12, lam({ color: 0xd87a7a }), 0, -0.012, 0, 0.076, 0.026, 0.076, g);
-      top.userData.i = bot.userData.i = i; return { g, top, bot, a: 0, b: 0, flips: 0, flipT: 0, dead: 0 }; });
-    const spatula=compose('m24spatula',a=>{a(G.box,col(0x3a2418),0,0,0.13,0.035,0.035,0.18);a(G.box,tmat(T.metal()),0,-0.01,-0.02,0.12,0.014,0.14);for(const x of [-0.035,0,0.035])a(G.box,col(0x2a2232),x,0,-0.02,0.008,0.003,0.09);});grp.add(spatula);toolHand(ctx,spatula,0,0,0.2);spatula.visible=false;
-    for(const p of P3)for(const x of [-0.035,0,0.035])mesh(G.box,col(0x5a3020),x,0.032,0,0.008,0.003,0.09,p.g);
-    const cues=P3.map((p,i)=>{const g=mesh(G.torus,lam({color:0xe5bf79,transparent:true,opacity:.3}),p.g.position.x,.055,.0,.095,.095,.095,grp);g.rotation.x=Math.PI/2;return g;});
-    const orders=[];for(let i=0;i<3;i++){const m=mesh(G.sph10,lam({color:0xe8a050,transparent:true,opacity:.22}),.36,.10,-.1+i*.1,.07,.04,.07,grp);orders.push(m);}
-    let good = 0, endT = -1, buns = 0;
-    const reset = p => { p.a = 0; p.b = 0; p.flips = 0; p.g.visible = true; p.g.position.y = 0.07; p.g.rotation.x = 0; };
-    const bun = () => { const b = new THREE.Group(); b.position.set(0.36, 0.04, -0.1 + buns * 0.1); grp.add(b); b.add(compose('m5bun', a => { a(G.cyl12, col(0xe8a050), 0, 0.012, 0, 0.07, 0.024, 0.07); a(G.cyl12, col(0x6a3a1e), 0, 0.034, 0, 0.068, 0.02, 0.068); a(G.cyl12, col(0x6aa84f), 0, 0.048, 0, 0.072, 0.006, 0.072); a(G.sph10, col(0xe8a050), 0, 0.055, 0, 0.07, 0.04, 0.07); })); for(let i=0;i<5;i++)mesh(G.box,col(0xf1dfaa),Math.sin(i*2.4)*0.04,0.088,Math.cos(i*2.4)*0.035,0.009,0.004,0.005,b);buns++; };
-    api.progress(0); api.msg('Клик по котлете — перевернуть. Обе стороны готовы — клик, в булку');
-    return {
-      botStep(dt, brain) { if(!brain.ready(0.35)||endT>0)return;const p=P3.find(p=>p.dead<=0&&p.flipT<=0&&((p.flips===0&&p.b>=3.4)||(p.flips>0&&p.a>=3.3&&p.b>=3.3)));if(p)this.down(brain.hit(p.top)); },
-      down(ray) { if (endT > 0) return; const h = ray.intersectObjects(P3.flatMap(p => [p.top, p.bot]), false)[0]; if (!h) return; const p = P3[h.object.userData.i]; if (p.flipT > 0 || p.dead > 0) return;
-        if (p.flips === 0) { p.flips = 1; p.flipT = 0.35; [p.a, p.b] = [p.b, p.a]; sfx('hiss'); return; }
-        // подать: обе стороны прожарены и не сгорели
-        const ok = p.a >= 3.2 && p.b >= 3.2 && p.a < 6.5 && p.b < 6.5; sfx(ok ? 'pickup' : 'bonk');
-        if (ok) { orders[good].visible=false;good++; bun(); api.progress(good / 3); api.msg(`Бургер ${good}/3!`, 'good'); if (good >= 3) { endT = 1; sfx('done'); } } else api.msg(p.a < 3.2 || p.b < 3.2 ? 'Сырая!' : 'Сгорела!', 'bad');
-        reset(p); },
-      update(dt) {
-        if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); }
-        spatula.visible=false;for (const p of P3) { if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) reset(p); continue; }
-          p.b += dt;const cue=cues[P3.indexOf(p)],ready=p.flips===0?p.b>=3.2:p.a>=3.2&&p.b>=3.2;cue.material.color.setHex(p.b>=6.5?0xe14b48:ready?0xb8d68b:0xe5bf79);cue.material.opacity=ready?.75:.18;cue.scale.setScalar(ready?1+Math.sin(p.b*6)*.07:1);shade(p.b, p.bot.material); shade(p.a, p.top.material);
-          if (p.flipT > 0) { p.flipT -= dt; const k = 1 - p.flipT / 0.35; spatula.visible=true;spatula.position.set(p.g.position.x,0.04+Math.sin(k*Math.PI)*0.08,0.1);spatula.rotation.x=-Math.sin(k*Math.PI)*0.5; p.g.position.y = 0.07 + Math.sin(k * Math.PI) * 0.12; p.g.rotation.x = k * Math.PI; if (p.flipT <= 0) p.g.rotation.x = 0; }
-          if (random() < dt * (p.b > 6.5 ? 14 : 3)) { const w = new V3(); p.g.getWorldPosition(w); puff(w.x, w.y + 0.05, w.z, { color: p.b > 6.5 ? 0x2a2230 : 0xd8d0e4, size: 0.06, vy: 0.6, life: 0.6 }); }
-          if (p.b > 8.5) { p.dead = 1; p.g.visible = false; api.msg('Сгорела! Новая котлета', 'bad'); sfx('bonk'); } }
-      },
-      stop() { W.group.remove(grp); },
-    };
-  },
+  grill: burgerGame,
   // Стрелка и смотровая трубка показывают именно залитое топливо (0-10 л).
   fuel(o, api, ctx) {
     api.feedback?.();

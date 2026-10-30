@@ -162,7 +162,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   // пробел — отпрыгнуть назад/вбок; другой персонаж на лестнице — твёрдый, сквозь него не пролезть
   const wasClimb = p.climb; p.climb = null;
   if (p.ladderCD > 0) p.ladderCD -= dt;
-  for (const l of p.ladderCD > 0 ? [] : W.ladders) {
+  for (const l of p.ladderCD > 0 || p.ride ? [] : W.ladders) {
     if (p.pos.x > l.x0 && p.pos.x < l.x1 && p.pos.z > l.z0 && p.pos.z < l.z1 && p.pos.y >= l.y0 - 0.1 && p.pos.y < l.y1) {
       const into = -(ix * l.nx + iz * l.nz), shift = ctrl && (keys.ShiftLeft || keys.ShiftRight);
       let dir = 0;

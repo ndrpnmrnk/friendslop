@@ -30,13 +30,13 @@ export function buildRoadsAndTunnels(half) {
   }
   const manholes = new Set(shuffle(segs.slice()).slice(0, 10));
   // v0.56: люк шире — 2.2 × 2 м (был 1.2 × 1.2): камера не застревает в шахте, сразу видно, куда спускаться
-  const HU = 1.1, HV = 1.0;
+  const HU = 1.1, HV = .65;
   for (const s of segs) {
     const P = (u, v) => s.axis === 'x' ? [u, v] : [v, u]; // u — вдоль, v — поперёк
     const R = (u0, v0, u1, v1) => { const [x0, z0] = P(u0, v0), [x1, z1] = P(u1, v1); roadBox(Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1)); };
     const v0 = s.c - road / 2, v1 = s.c + road / 2;
     if (manholes.has(s)) {
-      const m = (s.a + s.b) / 2 + 6, hv = s.c + 0.35; // люк над тоннелем (шахта целиком над проходом)
+      const m = (s.a + s.b) / 2 + 6, hv = s.c + 1.65; s.hatch=m; // люк над тоннелем (шахта целиком над проходом)
       R(s.a, v0, m - HU, v1); R(m + HU, v0, s.b, v1); R(m - HU, v0, m + HU, hv - HV); R(m - HU, hv + HV, m + HU, v1);
       const [hx, hz] = P(m, hv), hx2 = s.axis === 'x' ? HU : HV, hz2 = s.axis === 'x' ? HV : HU;
       W.holes.push({ x0: hx - hx2, z0: hz - hz2, x1: hx + hx2, z1: hz + hz2, soft: true });
@@ -84,11 +84,12 @@ function tunnelSegment(s, P, brick, conc) {
     // v0.57: проём берём только свой (в пределах этого сегмента). Раньше проём из коллектора попадал во все сегменты ряда,
     // и у соседних строилась «вывернутая» стена поперёк канала — тоннель торчал внутри коллектора и закрывал выход.
     const ops = W.tunnelOpenings.filter(o => o.axis === s.axis && Math.abs(o.at - v) < 1 && o.to > ua && o.from < ub).map(o => [Math.max(ua, o.from), Math.min(ub, o.to)]).sort((p, q) => p[0] - q[0]);
+    if(side===1&&s.hatch!=null){const a=s.hatch-1.3,c=s.hatch+1.3;ops.push([a,c]);ops.sort((p,q)=>p[0]-q[0]);box(a,s.c+half,c,s.c+2.5,(x0,z0,x1,z1)=>floorPiece(x0,z0,x1,z1,conc));for(const[u0,u1]of[[a-t,a],[c,c+t]])box(u0,s.c+half,u1,s.c+2.7,(x0,z0,x1,z1)=>wallPiece(x0,z0,x1,z1,wallMat));box(a,s.c+2.5,c,s.c+2.8,(x0,z0,x1,z1)=>wallPiece(x0,z0,x1,z1,wallMat));}
     let cur = ua;
     // ниша-кладовка в одной из стен (случайно): там ящики и нычка для миссий
     const alcove = side === 1 && !ops.length && rand() < 0.35 ? (s.a + s.b) / 2 + (rand() - 0.5) * 8 : null;
     if (alcove !== null) ops.push([alcove - 1.3, alcove + 1.3]);
-    for (const [f, tt] of ops) { box(cur, v - t / 2, f, v + t / 2, (x0, z0, x1, z1) => wallPiece(x0, z0, x1, z1, wallMat)); cur = tt; }
+    for (const [f, tt] of ops) { if(f>cur)box(cur, v - t / 2, f, v + t / 2, (x0, z0, x1, z1) => wallPiece(x0, z0, x1, z1, wallMat)); cur = Math.max(cur,tt); }
     box(cur, v - t / 2, ub, v + t / 2, (x0, z0, x1, z1) => wallPiece(x0, z0, x1, z1, wallMat));
     if (alcove !== null) {
       const vb = v + t / 2, vf = vb + 2.6;
@@ -150,9 +151,9 @@ function manhole(x, z, hx, hz) {
   for (const [dx, dz, w, d] of [[0, -hz - .06, hx * 2 + .24, .12], [0, hz + .06, hx * 2 + .24, .12], [-hx - .06, 0, .12, hz * 2], [hx + .06, 0, .12, hz * 2]]) mesh(G.box, warn, x + dx, 0.02, z + dz, w, 0.05, d, W.group);
   // шахта: бетонные стенки толщиной в плиту дороги (сверху не видно «пустоты» между асфальтом и тоннелем)
   for (const [dx, dz, w, d] of [[0, -hz + .04, hx * 2, .08], [0, hz - .04, hx * 2, .08], [-hx + .04, 0, .08, hz * 2], [hx - .04, 0, .08, hz * 2]]) mesh(G.box, tmat(T.concrete()), x + dx, -0.5, z + dz, w, 0.98, d, W.group);
-  mesh(G.cyl12, tmat(T.metal()), x + hx + .7, 0.03, z + 0.3, 0.6, 0.05, 0.6, W.group);
+  mesh(G.cyl12, tmat(T.metal()), x, -.035, z + hz + .55, 0.6, 0.05, 0.6, W.group);
   const b = new Builder(0, 0, 0, 'Тоннели');
-  b.ladder(x, z - hz + .05, 's', 0.05, UG.floor); W.ladders[W.ladders.length - 1].slide = true; // сверху — плавно съезжаешь, снизу — лезешь
+  b.ladder(x, z - hz + .05, 's', .05, UG.floor); W.ladders[W.ladders.length - 1].slide = true; // сверху — плавно съезжаешь, снизу — лезешь
   // столб света из люка вниз
   const shaft = mesh(G.cone8, alphaMat(T.light(), { blending: THREE.AdditiveBlending, opacity: 0.3, side: THREE.DoubleSide }), x, -2.4, z, hx * 1.3, 3.0, hz * 1.3, W.group); shaft.rotation.x = 0;
   b.light(x, z, 1.8, 0.03, false);

@@ -19,7 +19,7 @@ test('all physical item mission categories are included in the centralized sync 
  const itemGames={
   'src/missions/games2.js':['targets','cleanup','delivery','pizza'],
   'src/missions/games3.js':['salad','bulb','firebin'],
-  'src/missions/games5.js':['steal','generator','balloon','mail','detector','cart']
+  'src/missions/games5.js':['generator','balloon','mail','detector','cart']
  };
  let covered=0;
  for(const [path,keys] of Object.entries(itemGames)){
@@ -30,7 +30,8 @@ test('all physical item mission categories are included in the centralized sync 
     covered++;
   }
  }
- assert.equal(covered,13);
+ assert.equal(covered,12);
+ assert.equal(CONFIG.missions.steal,undefined,'skeleton mission removed from the spawn catalog');
  const world=source('src/net/world-sync.js'),match=source('src/net/match-sync.js');
  assert(world.includes("type==='i'?Number(/^m("),'mission items must inherit scope tags');
  assert(world.includes('canHostAcceptMissionItem('),'host must authorize scoped items');

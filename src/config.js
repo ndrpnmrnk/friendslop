@@ -91,7 +91,6 @@ export const CONFIG = {
     pipes: { name: 'Трубы', home: 'sewer', icon: '', points: 220, diff: 'mid', life: 50, max: 1, game: 'pipes', zones: ['floor', 'tunnel', 'inside'], foot: [1.6, 0.6], clear: 1.6 },
     // v0.23: 14 новых миссий в 3D-мире (games5.js)
     doorbell: { name: 'Позвони и убеги', home: 'yard', icon: '', points: 220, diff: 'mid', life: 60, max: 1, game: 'doorbell', world: true, zones: ['floor'], foot: [2.4, 0.5], clear: 3 },
-    steal:  { name: 'Утащи у скелета', home: 'park', icon: '', points: 240, diff: 'mid', life: 60, max: 1, game: 'steal', world: true, zones: ['floor'], foot: [1.9, 0.6], clear: 2.5 },
     grill:  { name: 'Бургеры на гриле', icon: '', points: 230, diff: 'mid', life: 55, max: 1, game: 'grill', spot: 'grill' },
     generator: { name: 'Заправь генератор', home: 'plaza', icon: '', points: 250, diff: 'mid', life: 70, max: 1, game: 'generator', world: true, zones: ['floor'], foot: [3.4, 0.9], clear: 1.6 },
     bells:  { name: 'Колокола склепа', home: 'cemetery', icon: '', points: 240, diff: 'mid', life: 60, max: 1, game: 'bells', zones: ['floor'], foot: [3.2, 0.6], clear: 3.8 },

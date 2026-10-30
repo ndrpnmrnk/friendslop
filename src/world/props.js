@@ -413,8 +413,7 @@ export const PropMethods = {
     add(G.box, body, -2.35, 1.15, 0, 1.6, 1.5, 2.2); add(G.box, gl, -3.16, 1.5, 0, 0.04, 0.6, 1.9); add(G.box, gl, -2.4, 1.5, 1.11, 1.2, 0.55, 0.02); add(G.box, gl, -2.4, 1.5, -1.11, 1.2, 0.55, 0.02);
     add(G.box, dk, -3.2, 0.55, 0, 0.14, 0.3, 2.2); for (const zz of [-0.8, 0.8]) add(G.box, glow(0xfff1c0), -3.17, 0.85, zz, 0.04, 0.16, 0.3);
     // окно выдачи: проём, ставень-козырёк, прилавок, меню, свет
-    add(G.box, col(0x2a2232), 0.6, 1.75, 1.162, 3.0, 1.1, 0.02); add(G.box, glow(0xffd28a), 0.6, 1.75, 1.18, 2.8, 0.9, 0.01); for(const x of[-.3,.5,1.3]){add(G.cyl8,col(0xb48855),x,1.6,1.28,.13,.35,.13);add(G.box,col(0xdac99f),x,1.66,1.421,.13,.14,.016);}
-    const fl = add(G.box, tmat(T.awning('#f1e8ff', signC)), 0.6, 2.55, 1.6, 3.2, 0.06, 1.0); fl.rotation.x = -0.35;
+    add(G.box, col(0x2a2232), 0.6, 1.75, 1.162, 3.0, 1.1, 0.02); add(G.box, glow(0xffd28a), 0.6, 1.75, 1.18, 2.8, 0.9, 0.01);
     add(G.box, tmat(T.wood()), 0.6, 1.2, 1.3, 3.0, 0.06, 0.4); for (const xx of [-0.7, 0.6, 1.9]) add(G.box, dk, xx, 1.0, 1.42, 0.04, 0.4, 0.04);
     add(G.box, tmat(T.sign(sign, signC, '#f5c542')), 0.6, 2.95, 1.16, 3.6, 0.5, 0.03); add(G.box, tmat(T.chalkboard()), 2.5, 1.7, 1.17, 0.6, 0.8, 0.02);
     // колёса, арки, крыша: вентилятор и баллон
@@ -428,8 +427,6 @@ export const PropMethods = {
     for (const xx of [-1.35, -1.05]) { add(G.cyl8, col(0xd8243a), xx, 0.75, -1.4, 0.15, 0.5, 0.15); add(G.cyl8, mt, xx, 1.05, -1.4, 0.05, 0.1, 0.05); }
     // Окно выдачи свободно: свет под козырьком вместо гирлянды перед ним.
     add(G.box,glow(0xffd6a0),.6,2.46,1.22,2.7,.025,.035);
-    for (const [xx, c] of [[-0.6, 0xd8243a], [-0.45, 0xf5c542], [-0.3, 0x5a8a3a]]) { add(G.cyl6, col(c), xx, 1.33, 1.35, 0.035, 0.18, 0.035); add(G.cone6, col(c), xx, 1.46, 1.35, 0.02, 0.07, 0.02); }
-    add(G.box, mt, 1.6, 1.3, 1.35, 0.16, 0.14, 0.1); add(G.box, col(0xf1e8ff), 1.6, 1.39, 1.35, 0.12, 0.05, 0.06); add(G.box, tmat(T.cardboard()), 0.9, 1.31, 1.35, 0.3, 0.16, 0.2);
     add(G.box, tmat(T.metal()), 0.6, 0.25, 1.4, 0.8, 0.06, 0.35); for (const xx of [0.25, 0.95]) add(G.box, dk, xx, 0.12, 1.45, 0.04, 0.24, 0.04);
     for (const xx of [-2.3, 1.9]) for (const zz of [-1.12, 1.12]) { add(G.cyl12, tmat(T.tread()), xx, 0.38, zz, 0.39, 0.2, 0.39, Math.PI / 2); add(G.cyl12, tmat(T.hubcap()), xx, 0.38, zz * 1.11, 0.2, 0.02, 0.2, Math.PI / 2); add(G.box, dk, xx, 0.82, zz * 1.005, 0.95, 0.1, 0.02); }
     const af = new THREE.Group(); af.position.set(3.0, 0, 2.2); af.rotation.y = -0.4; g.add(af);

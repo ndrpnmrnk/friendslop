@@ -58,6 +58,7 @@ export const TowerMethods = {
         }
       }
       if (dr) holes.push({ u0: g0, u1: g1, y0: 0, y1: dh, door: true });
+      for(const q of o.passages||[])if(q.side===k){const u=q.at*sd.len;holes.push({u0:u-q.w/2,u1:u+q.w/2,y0:q.y,y1:q.y+(q.h||2.5),door:true});}
       // стена из прямоугольников вокруг проёмов
       const fac = facade(base, sd.len, H, { lit, brick, windows: false });
       const us = [...new Set([0, sd.len, ...holes.flatMap(h => [h.u0, h.u1])])].sort((a, b2) => a - b2);

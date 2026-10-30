@@ -13,9 +13,7 @@ const ringTex = () => pix('kit60-ring', 64, 64, g => { g.clearRect(0, 0, 64, 64)
 let _hz, _ring, _trim;
 export const KitMethods = {
   hazardFloor(x, z, w, d, y = 0) {
-    _hz ??= (() => { const t = stripes(); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; })();
-    const t = _hz.clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, w / 1.2), Math.max(1, d / 1.2));
-    const m = this.m(G.plane, lam({ map: t, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 'kit60-hz' + w + 'x' + d), x, y + .02, z, w, d, 1); m.rotation.x = -Math.PI / 2; return m;
+    return null; // Автор убрал разметку опасности во всех районах.
   },
   // лампа-предупреждение: set(k) — 0 погашена, 1 горит (мигание задаёт район)
   warnLamp(x, y, z, color = 0xff3a3a, s = .22) {

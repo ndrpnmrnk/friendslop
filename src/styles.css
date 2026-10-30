@@ -653,7 +653,7 @@ body.cine #hubUI,body.cine #hubPrompt,body.cine #hubHeld{opacity:0;pointer-event
 #studioLeave.hidden{display:none}
 
 /* v0.58: финал — штамп «ВРЕМЯ!» и плашка повтора */
-#finStamp{position:fixed;left:50%;top:42%;z-index:46;transform:translate(-50%,-50%) rotate(-8deg);font:900 clamp(56px,11vw,150px)/1 Rubik,Arial,sans-serif;color:#ffd27a;letter-spacing:.04em;
+#finStamp{position:fixed;left:50%;top:42%;z-index:46;transform:translate(-50%,-50%) rotate(-8deg);font:400 clamp(30px,7vw,90px)/1.4 "Press Start 2P",monospace;color:#ffd27a;letter-spacing:.04em;
  text-shadow:0 6px 0 #d8243a,0 12px 0 #2a1f3d,0 0 40px rgba(255,140,60,.45);-webkit-text-stroke:3px #2a1f3d;pointer-events:none}
 #finStamp.pop{animation:finPop .5s cubic-bezier(.2,1.6,.4,1) both}
 @keyframes finPop{0%{transform:translate(-50%,-50%) rotate(-30deg) scale(3);opacity:0}60%{opacity:1}100%{transform:translate(-50%,-50%) rotate(-8deg) scale(1)}}

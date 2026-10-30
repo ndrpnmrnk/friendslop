@@ -1,3 +1,4 @@
+import {grillVolcano} from '../grill-volcano.js';
 import {G,col,tmat,glow} from '../../core/gfx.js';
 import {T} from '../../core/textures.js';
 import {W} from '../state.js';
@@ -16,11 +17,7 @@ export default{id:'foodcourt',name:'Фудкорт',ground:'pave',size:44,build(
  b.foodTruck(9,23,0xbfa451,'ТАКО','#8d4f40');b.foodTruck(9,34,0x5d7793,'БУРГЕРЫ','#37434e');
  for(const[x,z]of[[32,23],[37,32],[29,37]]){b.table(x,z,1);b.chair(x-1.2,z,Math.PI/2);b.chair(x+1.2,z,-Math.PI/2);b.m(G.cyl6,col(0x393342),x,1.9,z,.04,3.8,.04);b.solid(x,z,.12,.12,0,3.8);addCanopy(b,x,z,{w:3.5,edge:3.35,rise:.5,colors:['#875568','#eadbc1']});}
  b.surface(9.6,24.3,3,.4,1.23).put('taco',.4,0);b.surface(9.6,35.3,3,.4,1.23).put('burger',.4,0);
- // Гриль с читаемой зоной жара, предупреждением и настоящим огнетушителем рядом.
- b.box(16,30,2,1,.85,tmat(T.metal()));for(const x of[15.4,16,16.6])b.m(G.box,col(0x26212e),x,.89,30,.08,.03,.9);
- const flame=b.m(G.cone8,glow(0xff9645),16,1.25,30,.5,1,.5);flame.visible=false;const visual=on=>{flame.visible=on;flame.scale.y=on?1.3+Math.sin(Date.now()*.02)*.25:1;};visual.roots=[flame];
- const state={values:[-1,1]};W.districtStates.push(state);const burning=()=>{const cycle=Math.floor(districtClock()/60);if(state.values[0]!==cycle){state.values=[cycle,1];}return state.values[1]>0;};W.fires.push({x:b.X(16),y:b.Y+.85,z:b.Z(30),get hp(){return state.values[1];},set hp(v){state.values[1]=Math.max(0,v);}});
- warningHazard(b,{name:'grill',enabled:burning,x:16,z:30,w:3,d:2,period:60,active:2.5,visual,hit:a=>knockDown(a,3,2,1)});
+ grillVolcano(b,22,28);
  b.item('extinguisher',18.3,28);b.m(G.box,tmat(T.sign('ОГНЕТУШИТЕЛЬ','#6b3239','#f2d7bc')),18.3,1.5,27.4,.7,.5,.06);
  b.grabTarget({x:5,z:29,r:1.1,kind:'slow',t:4,label:'мешки муки'});b.trashBags(4,28,2);b.bin(40,20);b.bin(14,39);
  districtFrame(b,'foodcourt');b.zone('floor',20,20,26,35);b.hw(()=>{b.stringLights(5,19,39,19,3.3);b.pumpkin(39,38);});
