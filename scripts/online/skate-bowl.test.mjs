@@ -34,6 +34,9 @@ test('gravity accelerates downhill only, without fake uphill boost from wall gri
  const a=board(6.2,0,1.5,10);a.y=bowlHeight(6.2,B);
  const vx=a.vx;moveBowlBoard(a,.016,bowl);
  assert(a.vx<vx&&Number.isFinite(a.vx));
+ // Acceleration is projected into horizontal space, not over-braked.
+ const slope=bowlSlope(6.2,B);
+ close((vx-a.vx)/.016,20*slope/(1+slope*slope),.04);
  assert(Number.isFinite(a.bowlPitch)&&Number.isFinite(a.bowlBank));
  assert(Math.abs(a.bowlPitch)<=1&&Math.abs(a.bowlBank)<=1);
  const outside=board(100,100,8,0);
@@ -65,11 +68,19 @@ test('walkers are not pinned or teleported on steep walls',()=>{
  const p={x:limit+.2,y:bowlHeight(limit+.2,B),z:0},v={x:3,z:0},from=p.x;
  p.x+=.2;
  assert(constrainBowlWalker(bowl,p,v,from,0,.016,true));
- close(p.x,from,.001);assert(v.x<=0,'uphill walk is blocked');
+ assert(p.x>from,'no one-frame position snap on the steep surface');
+ assert(v.x<3,'steep ramp should progressively slow uphill walking');
  const q={x:limit+.4,y:bowlHeight(limit+.4,B),z:0},u={x:0,z:0};
  assert(constrainBowlWalker(bowl,q,u,q.x,0,.016,true));
  close(q.x,limit+.4,.001);assert(u.x<0,'downhill is accelerated, not teleported');
  assert(!constrainBowlWalker(bowl,{x:limit+.8,y:1,z:0},{x:9,z:0},limit+.5,0,.016,false));
+});
+test('realistic post-climb exit speed is sufficient for a smooth launch',()=>{
+ const bowl={...B,x:0,z:0,baseY:0};
+ const r=B.rimRadius-.04,moderate=board(r,0,6.3,0);
+ moderate.y=bowlHeight(r,B);moderate.x=B.rimRadius+.03;
+ assert(bowlLipLaunch(moderate,r,0,bowl));
+ assert(moderate.vy>2&&moderate.vy<5);
 });
 test('old wheel radius clamping is disabled - the C2 surface handles contact instead',()=>{
  const b=board(7.8,0,12,0),x=b.x;

@@ -52,8 +52,12 @@ export const MoreMethods = {
     const fx = Math.sin(ry), fz = Math.cos(ry), q = Math.abs(fx) > 0.5;
     const steps = Math.ceil(U / 0.15);
     for (let i = 0; i < steps; i++) { const u0 = i * U / steps, u1 = (i + 1) * U / steps, hc = h(u1), uc = (u0 + u1) / 2;
-      this.solid(x + fx * uc, z + fz * uc, q ? (u1 - u0) : w, q ? w : (u1 - u0), 0, hc); }
-    this.solid(x + fx * (U + deck / 2), z + fz * (U + deck / 2), q ? deck : w, q ? w : deck, 0, top);
+      // Ramps must be ground supports, not vertical walls that reject wheels.
+      const support=this.solid(x + fx * uc, z + fz * uc, q ? (u1 - u0) : w, q ? w : (u1 - u0), 0, hc);
+      support.oneWay=true;
+    }
+    const platform=this.solid(x + fx * (U + deck / 2), z + fz * (U + deck / 2), q ? deck : w, q ? w : deck, 0, top);
+    platform.oneWay=true;
     return top;
   },
   // прямой трамплин-клин: поднимается на hgt за длину len в направлении ry

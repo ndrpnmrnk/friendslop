@@ -7,6 +7,7 @@ const read=path=>readFileSync(new URL('../../'+path,import.meta.url),'utf8');
 test('deep bowl is ONE continuous rendered height field, same as physical ground',()=>{
  const scene=read('src/world/districts/skatepark.js'),physics=read('src/world/physics.js');
  assert(scene.includes('bowlHeight(rad,L.bowl)'));
+ assert(scene.includes('rings=96'));
  assert(scene.includes('new THREE.BufferGeometry()'));
  assert(scene.includes('geo.computeVertexNormals()'));
  assert(scene.includes('holes:[[L.bowl.x-L.bowl.patchHalf'));
@@ -29,7 +30,8 @@ test('halfpipe and small wedges remain rideable, but wedge back and sides are cl
  assert(scene.includes('closedWedge(b,8.2'));
  assert(scene.includes('new THREE.ShapeGeometry(shape)'));
  assert(scene.includes('cap.scale.set(w,h,.11)'));
- assert(ramps.includes('this.solid(x + fx * uc'),'halfpipe slopes have real collision');
+ assert(ramps.includes('const support=this.solid(x + fx * uc'),'halfpipe slopes retain walkable support');
+ assert(ramps.includes('support.oneWay=true'),'halfpipe must not create blocking step walls');
 });
 test('rental is a walk-in building with glass fronts and doors that slide aside',()=>{
  const s=read('src/world/districts/skatepark.js');
@@ -95,7 +97,7 @@ test('studio actually constructs the entire bowl mesh without undefined geometry
  assert.doesNotThrow(()=>runInNewContext(build+'\ndeepBowl(b);',env,{timeout:3000}));
  assert.equal(meshes.length,2,'one bowl and one coping ring expected');
  assert(meshes[0].geometry.normalsComputed);
- assert.equal(meshes[0].geometry.position.data.length,(64+2)*(80+1)*3);
+ assert.equal(meshes[0].geometry.position.data.length,(96+2)*(112+1)*3);
  assert.equal(W.skateBowl.outerRadius,L.bowl.outerRadius);
 });
 
@@ -126,11 +128,11 @@ test('no floating labels, and halfpipe has closed metal-reinforced structure',()
 });
 test('skate rental has mounted fascia, recognizable gear displays and central lightweight light',()=>{
  const scene=read('src/world/districts/skatepark.js');
- assert(scene.includes("b.sign(x,3.06,front+.20"));
+ assert(!scene.includes("b.sign(x,3.06,front+.20"));
  assert(scene.includes('b.light(x,z,2.3,.035,true)'));
  assert(scene.includes('skateShopBulb'));
  assert(scene.includes('const counterZ=back+1.05'));
- assert(scene.includes('Helmet hooks'));
+ assert(scene.includes('Dedicated wall hooks'));
  assert(!scene.includes('const shelfX=x+sx*'));
  assert(scene.includes('breakBox(startX,doorY'));
 });
@@ -138,6 +140,8 @@ test('grounded riders and walkers do not alternate ground-air each downhill fram
  const code=read('src/world/physics.js');
  assert(code.includes('const walkFollow='));
  assert(code.includes('const bowlContactNow='));
+ assert(code.includes('const n=Math.min(32'),'small bowl movement substeps');
+ assert(code.includes('bowlLipLaunch(b,ox,oz,bowl)'),'test lip crossing at each movement substep');
  assert(code.includes('Math.abs(b.y-gy)<.45){b.y=gy;b.vy=0;}'));
  assert(code.includes('if (b.air || b.y > gy + 0.02)'));
 });
@@ -171,6 +175,6 @@ test('studio can build detailed halfpipe and entire rental interior without miss
    scene.slice(h0,h1)+'\n'+scene.slice(r0,r1)+'\nhalfpipe(b);rental(b);W.animated[0](.016);',
    env,{timeout:3000}));
  assert.equal(counts.ride,5);assert(counts.rail>=2);
- assert.equal(counts.light,1);assert.equal(counts.sign,1);
+ assert.equal(counts.light,1);assert.equal(counts.sign,0);
  assert(counts.glass>=4);assert(counts.box>=15);
 });

@@ -6,7 +6,8 @@ export const SKATE_LAYOUT=Object.freeze({
  halfpipe:{x:9.5,z:9.4,width:9.2,radius:2.35,front:7.2,back:11.6},
  railsNE:[[32,7,40,7,.72],[32,11,40,11,.53]],
  railsSW:[[4.5,33,11.8,33,.58],[4.5,37,11.8,37,.68]],
- railsExtra:[[32.2,16,38.7,16,.66],[30.8,30.9,34.2,30.9,.52],[13.1,30.9,17,30.9,.47]],
+ railsExtra:[[32.2,16,38.7,16,.66],[30.8,30.9,34.2,30.9,.52],[13.1,30.9,17,30.9,.47],
+   [4.8,20.3,11.4,20.3,.51],[32.5,26.8,39.2,26.8,.72],[18.2,37.0,24.3,37.0,.58]],
  rental:{x:35.3,z:35.3,w:8.6,d:7.0,doorWidth:2.35},
  // Intentionally asymmetric natural placement, no white parking stripes.
  rentalRides:[

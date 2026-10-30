@@ -186,23 +186,44 @@ export function updatePushables(dt, player) {
     if(b.solid)b.solid.on=false;
     if (b.grabbed) { b.hitSpeed = 0;if(b.solid)b.solid.on=true;syncPushable(b);continue; } // её ведёт игрок
     const op = { x: b.x, z: b.z };
-    // Applied only to real skate/scooter riders inside the skatepark; all
-    // other vehicles and other districts keep their existing physics.
-    moveBowlBoard(b,dt,W.skateBowl);
+    // Bowl forces and contact will be integrated together in movement substeps.
     b.hitSpeed = 0;
     // v0.56: движение по шагам не длиннее половины радиуса — быстрые машинки и карты больше не проскакивают сквозь стены
-    const y0 = b.y + (b.ride && b.kind !== 'ring' ? .5 : .2), mv = Math.hypot(b.vx, b.vz) * dt, n = Math.min(12, Math.max(1, Math.ceil(mv / Math.max(.08, b.r * .5))));
-    const p = { x: b.x, z: b.z }; let hit = null;
-    for (let i = 0; i < n; i++) { p.x += b.vx * dt / n; p.z += b.vz * dt / n; const h = pushOut(p, b.r, y0, b.y + 1); if (h) { hit = h; break; } }
-    if (b.ride && b.rider && !isFree(p.x - b.r * .7, p.z - b.r * .7, p.x + b.r * .7, p.z + b.r * .7, y0, b.y + 1)) { p.x = op.x; p.z = op.z; hit = hit || true; }
-    b.x = p.x; b.z = p.z;
+    const bowl=W.skateBowl,board=!!(b.rider&&(b.kind==='skate'||b.kind==='scooter'));
+    const y0=b.y+(b.ride&&b.kind!=='ring'?.5:.2);
+    const mv=Math.hypot(b.vx,b.vz)*dt;
+    // A wheeled rider takes smaller steps in a bowl; the same analytic
+    // surface resolves horizontal position and vertical wheel contact.
+    const n=Math.min(32,Math.max(1,Math.ceil(mv/Math.max(.065,board?.09:b.r*.5))));
+    const p={x:b.x,z:b.z};let hit=null;
+    for(let i=0;i<n;i++){
+      const ox=p.x,oz=p.z;
+      if(board)moveBowlBoard(b,dt/n,bowl);
+      p.x+=b.vx*dt/n;p.z+=b.vz*dt/n;
+      const h=pushOut(p,b.r,b.y+(b.ride?.18:.2),b.y+Math.max(1,b.h));
+      if(h){hit=h;break;}
+      b.x=p.x;b.z=p.z;
+      if(board&&!b.air&&bowl){
+        const radius=Math.hypot(b.x-bowl.x,b.z-bowl.z);
+        if(radius<bowl.rimRadius){
+          // Contact at EACH substep, never a metre-high final-frame snap.
+          b.y=bowlGround(bowl,b.x,b.z);b.vy=0;
+        }else if(bowlLipLaunch(b,ox,oz,bowl)){
+          // Launch is ballistic from the actual last contact height.
+          b.bowlTakeoff=true;
+        }
+      }
+    }
+    if(b.ride&&b.rider&&!isFree(p.x-b.r*.7,p.z-b.r*.7,p.x+b.r*.7,p.z+b.r*.7,y0,b.y+1)){
+      p.x=op.x;p.z=op.z;hit=hit||true;
+      if(board){b.air=false;b.vy=0;b.bowlTakeoff=false;}
+    }
+    b.x=p.x;b.z=p.z;
     recordImpact(b,hit,Math.hypot(b.vx,b.vz));
     if (hit) { b.hitSpeed = Math.hypot(b.vx, b.vz); const k = b.kind === 'voteBall' ? -0.7 : -0.3; b.vx *= k; b.vz *= k; }
     b.x = p.x; b.z = p.z;constrainWaterRide(b,op);
-    // Check the whole rim crossing, not just the old location. The existing
-    // board now enters a genuine ballistic state instead of snapping to
-    // street height at the first frame outside the bowl.
-    if(!hit)bowlLipLaunch(b,op.x,op.z,W.skateBowl);
+    // Lip crossing was already evaluated at the exact contact substep.
+    // Never launch after a rejected obstacle/collision movement.
     // A skate/scooter cannot climb multiple vertical metres of bowl wall in
     // one tick due to the ground height being treated as a step.
     // v0.61.8: no position snapping by the old radial wheel clamp.

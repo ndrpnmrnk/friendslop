@@ -47,12 +47,16 @@ export function bowlLipLaunch(board,oldX,oldZ,b){
    !['skate','scooter'].includes(board.kind))return false;
  const r0=Math.hypot(oldX-b.x,oldZ-b.z);
  const r1=Math.hypot(board.x-b.x,board.z-b.z);
- if(r0<b.rimRadius-.42||r0>=b.rimRadius||r1<b.rimRadius-.01)return false;
+ if(r0<b.rimRadius-.48||r0>=b.rimRadius||r1<b.rimRadius-.01)return false;
  const nx=(board.x-b.x)/(r1||1),nz=(board.z-b.z)/(r1||1);
  const radial=board.vx*nx+board.vz*nz,sp=Math.hypot(board.vx,board.vz);
  const previousGround=b.baseY+bowlHeight(r0,b);
- if(radial<7.2||sp<9.3||Math.abs(board.y-previousGround)>.22)return false;
- const kick=clamp(1.45+radial*.27,3.2,5.3);
+ // At three metres of climb a 13 m/s board naturally arrives near 5-7 m/s.
+ // The previous 9.3 m/s exit requirement was practically unreachable.
+ if(radial<4.6||sp<5.2||Math.abs(board.y-previousGround)>.28)return false;
+ // Carry outward momentum into a modest vertical arc; do not lift the board.
+ const exitSlope=bowlSlope(b.rimRadius-.57,b);
+ const kick=clamp(radial*Math.min(.62,exitSlope*.72),2.2,4.8);
  board.vy=Math.max(board.vy||0,kick);
  board.air=true;board.bowlFlightCooldown=1.4;board.bowlTakeoff=true;
  board.trick??={kind:board.kind==='scooter'?'barspin':'kickflip',t:0,dur:.48};
@@ -70,7 +74,9 @@ export function moveBowlBoard(board,dt,b){
  }
  // The only force here is gravity projected down the actual ramp.
  // No speed-based magnetic grip, wall normal propulsion or fake lift.
- const down=20*contact.slope/Math.sqrt(1+contact.slope*contact.slope);
+ // Horizontal acceleration of a constrained wheeled body on y=h(r).
+ // sqrt(1+slope²) over-braked the steepest parts of the old bowl.
+ const down=20*contact.slope/(1+contact.slope*contact.slope);
  board.vx-=contact.nx*down*dt;board.vz-=contact.nz*down*dt;
  const ease=1-Math.exp(-dt*9);
  board.bowlPitch=(Number.isFinite(board.bowlPitch)?board.bowlPitch:0)
@@ -89,28 +95,23 @@ export function bowlWalkLimit(b,maxSlope=.95){
  return lo;
 }
 export function constrainBowlWalker(b,p,v,oldX,oldZ,dt,wasGrounded){
- if(!b||!wasGrounded||p.y>b.baseY+.25||
-   p.y<b.baseY-b.depth-.42)return false;
- const x=oldX-b.x,z=oldZ-b.z,from=Math.hypot(x,z);
- const dx=p.x-b.x,dz=p.z-b.z,to=Math.hypot(dx,dz);
- if(to<.001||from>b.rimRadius+.2||to>b.rimRadius+.2)return false;
- const limit=bowlWalkLimit(b),nx=dx/to,nz=dz/to;
- if(from<=limit&&to>limit){
-  p.x=b.x+nx*limit;p.z=b.z+nz*limit;
-  const outward=v.x*nx+v.z*nz;
-  if(outward>0){v.x-=outward*nx;v.z-=outward*nz;}return true;
+ if(!b||!wasGrounded||p.y>b.baseY+.25||p.y<b.baseY-b.depth-.42)return false;
+ const dx=p.x-b.x,dz=p.z-b.z,r=Math.hypot(dx,dz);
+ if(r<=b.flatRadius||r>=b.rimRadius||r<.01)return false;
+ const slope=bowlSlope(r,b),nx=dx/r,nz=dz/r;
+ if(slope<.55)return false;
+ // Never clamp the avatar's position against a fictitious vertical wall:
+ // that created the visible back-and-forth snapping on every uphill frame.
+ // A steep ramp gradually slows an ascent and gently slides a standing
+ // walker down; running/jumping can still carry real momentum uphill.
+ const radial=v.x*nx+v.z*nz,steep=clamp((slope-.55)/.95,0,1);
+ if(radial>0){
+  const keep=Math.exp(-dt*steep*3.5);
+  v.x-=nx*radial*(1-keep);v.z-=nz*radial*(1-keep);
  }
- if(from>limit&&from<b.rimRadius){
-  // Descending the wall is allowed; ascending it requires jumping.
-  // Apply smooth downhill acceleration, never teleport toward the center.
-  const acceleration=7*dt;
-  v.x-=nx*acceleration;v.z-=nz*acceleration;
-  if(to>from){p.x=b.x+nx*from;p.z=b.z+nz*from;
-   const outward=v.x*nx+v.z*nz;
-   if(outward>0){v.x-=outward*nx;v.z-=outward*nz;}}
-  return true;
- }
- return false;
+ const slide=5.0*steep*dt;
+ v.x-=nx*slide;v.z-=nz*slide;
+ return true;
 }
 // Compatibility hook for old callers: the new C2 surface has bounded
 // slope and no per-tick radial snapping. Ground contact is resolved once.
