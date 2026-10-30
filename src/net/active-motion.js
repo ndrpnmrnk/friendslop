@@ -48,7 +48,7 @@ export class ActiveMotion {
       const row=[key,...values],cost=JSON.stringify(row).length+1;
       // Promote stale far objects to prevent permanent starvation by riders.
       const rank=age>=1200?0:tier==='high'?0:tier==='medium'?1:2;
-      candidates.push({key,signature,row,cost,rank,age,i});
+      candidates.push({key,signature,row,cost,rank,age:last==null?age+1200:age,i});
     }
     candidates.sort((a,b)=>a.rank-b.rank||b.age-a.age||a.i-b.i);
     for(const c of candidates){
