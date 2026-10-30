@@ -3,40 +3,54 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {SKATE_LAYOUT as L} from '../../src/world/skate-layout.js';
 const read=path=>readFileSync(new URL('../../'+path,import.meta.url),'utf8');
-test('six real curved quarter pipes build center bowl and separated half-pipe',()=>{
- const skate=read('src/world/districts/skatepark.js'),method=read('src/world/more.js');
- assert.match(skate,/b\.quarterPipe\(x,z-inner,width,radius,Math\.PI,deck\)/);
- assert.match(skate,/b\.quarterPipe\(x,z\+inner,width,radius,0,deck\)/);
- assert.match(skate,/b\.quarterPipe\(x-inner,z,width,radius,-Math\.PI\/2,deck\)/);
- assert.match(skate,/b\.quarterPipe\(x\+inner,z,width,radius,Math\.PI\/2,deck\)/);
- assert.match(skate,/b\.quarterPipe\(h\.x,h\.front,h\.width,h\.radius,Math\.PI,\.8\)/);
- assert.match(skate,/b\.quarterPipe\(h\.x,h\.back,h\.width,h\.radius,0,\.8\)/);
- assert(method.includes('this.solid(x + fx * uc'), 'curved surface must have stair-step collisions');
+test('deep bowl is ONE continuous rendered height field, same as physical ground',()=>{
+ const scene=read('src/world/districts/skatepark.js'),physics=read('src/world/physics.js');
+ assert(scene.includes('bowlHeight(rad,L.bowl)'));
+ assert(scene.includes('new THREE.BufferGeometry()'));
+ assert(scene.includes('geo.computeVertexNormals()'));
+ assert(scene.includes('W.skateBowl={...L.bowl'));
+ assert(!scene.includes('b.quarterPipe(x,z-inner'),'no four disconnected segments');
+ assert(physics.includes('bowlGround(W.skateBowl,x,z,maxY)'));
+ assert(physics.includes('moveBowlBoard(b,dt,W.skateBowl)'));
+ assert(physics.includes('(b.bowlBank || 0)'));
+ assert(read('src/game/ride.js').includes('(b.bowlBank || 0)'));
 });
-test('rental rides use standard online-ready pushables, not decorative meshes',()=>{
- const skate=read('src/world/districts/skatepark.js');
- assert(skate.includes('b.ride(ride.kind,ride.x,ride.z,ride.ry)'));
- assert(skate.includes('districtRental'));
- assert(skate.includes('rentalRideClear'));
- assert(!skate.includes("b.item('ball'"));
+test('halfpipe and small wedges remain rideable, but wedge back and sides are closed',()=>{
+ const scene=read('src/world/districts/skatepark.js');
+ const ramps=read('src/world/more.js');
+ assert(scene.includes('b.quarterPipe(h.x,h.front'));
+ assert(scene.includes('b.quarterPipe(h.x,h.back'));
+ assert(scene.includes('closedWedge(b,36'));
+ assert(scene.includes('closedWedge(b,8.2'));
+ assert(scene.includes('new THREE.ShapeGeometry(shape)'));
+ assert(scene.includes('cap.scale.set(w,h,.11)'));
+ assert(ramps.includes('this.solid(x + fx * uc'),'halfpipe slopes have real collision');
+});
+test('rental is a walk-in building with glass fronts and doors that slide aside',()=>{
+ const s=read('src/world/districts/skatepark.js');
+ assert(s.includes('const paneW=(w-doorWidth)/2'));
+ assert(s.includes('transparent:true,opacity:.38'));
+ assert(s.includes('W.animated.push(dt=>'));
+ assert(s.includes('left.position.x=leftX-open*1.14'));
+ assert(s.includes('right.position.x=rightX+open*1.14'));
+ assert(!s.includes('b.box(x,z,w,d,2.65,brick)'),'must not recreate full solid kiosk');
+ assert(!s.includes("'СКЕЙТЫ · САМОКАТЫ'"));
+ assert(!s.includes("b.marking(ride.x"),'no parking stripes');
+ assert(s.includes('b.ride(ride.kind,ride.x,ride.z,ride.ry)'));
  const net=read('src/net/world-sync.js');
- assert(net.includes("register('p'")||net.includes("api.register('p'")||net.includes("type==='p'"),'pushables must be part of network world');
+ assert(net.includes("type==='p'"),'rental pushables remain synced');
 });
-test('skate tricks award through existing score cap, no duplicate independent wallet',()=>{
- const skate=read('src/world/districts/skatepark.js');
- assert(skate.includes('W.onTrick(a,'));
- assert(skate.includes('now-r.last>9'));
- assert(skate.includes("['skate','scooter']"));
- assert(!/\b(?:SC\.award|bonus\(|addCoins\()/.test(skate));
+test('tricks use existing capped score hook with no periodic currency exploit',()=>{
+ const scene=read('src/world/districts/skatepark.js');
+ assert(scene.includes('W.onTrick(a,'));
+ assert(scene.includes('now-r.last>9'));
+ assert(scene.includes("['skate','scooter']"));
+ assert(!/\b(?:SC\.award|bonus\(|addCoins\()/.test(scene));
 });
-test("skatebot AI never overwrites busy missions or another player\x27s rental",()=>{
- const ai=read('src/world/skate-bots.js');
- const bots=read('src/game/bots.js');
- assert(ai.includes('board.rider')||ai.includes('b.rider'));
- assert(ai.includes('actor.work'));
- assert(ai.includes('board.rider!==actor'));
- assert(bots.includes('W.skateAI?.tick(b,dt,t)'));
- assert(bots.includes('W.skateAI?.goal(b)'));
- assert(read('src/world/state.js').includes('W.skateAI=null'));
+test('bots keep mission priority and reset across districts',()=>{
+ const ai=read('src/world/skate-bots.js'),bots=read('src/game/bots.js');
+ assert(ai.includes('actor.work')&&ai.includes('board.rider!==actor'));
+ assert(bots.includes('W.skateAI?.tick(b,dt,t)')&&bots.includes('W.skateAI?.goal(b)'));
+ assert(read('src/world/state.js').includes('W.skateBowl=null'));
  assert(L.missionFloor[0]<L.spawn[0]&&L.missionFloor[2]>L.spawn[0]);
 });
