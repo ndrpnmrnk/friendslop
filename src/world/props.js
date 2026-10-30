@@ -228,16 +228,9 @@ export const PropMethods = {
     if (fl) { pool.material = pool.material.clone(); W.flick.push({ mats: [bm], pool, t: random() * 5, on: true }); }
     W.keep.push(pool); bulb.onBreak = () => { pool.visible = false; pool.userData.broken = true; };
     // объёмный конус света под плафоном (v0.23): аддитивный, мягкий к краям и к земле; гаснет вместе с фонарём
-    let cone = null;
-    if (showVolumetricCone) {
-      cone = new THREE.Mesh(LAMP_CONE, LAMP_CONE_M());
-      cone.position.set(this.X(lx), this.Y + 1.52, this.Z(lz));
-      cone.renderOrder = 4;
-      cone.userData.noOcc = true;
-      cone.visible = false;
-      this.g.add(cone);
-      W.keep.push(cone);
-    }
+    // Glow pools and lanterns remain, but no volumetric cylinder is created
+    // in ANY district. Those were visible as free-floating light pillars.
+    const cone=null;
     W.lamps.push({ x: this.X(x), z: this.Z(z), y: this.Y, lx: this.X(lx), lz: this.Z(lz), ry, pool, bm, bulb, cone, district: this.d });
     this.solid(x, z, 0.35, 0.35, 0, 3.4);
   },
