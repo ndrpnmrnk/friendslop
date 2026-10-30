@@ -17,7 +17,7 @@ try{
  w.__forceDistricts=ids;fs.S.botCount=7;fs.startRound();assert(W.districts.length===9&&W.bots.length===7,'mixed map + 7 bots');
  for(let i=0;i<120;i++){w.__stepTestFrame();await sleep(17);}
  assert([fs.P,...W.bots].every(a=>[a.pos.x,a.pos.y,a.pos.z].every(Number.isFinite)),'round positions finite');assert(!fs.lastFaults().some(q=>Date.parse(q.at)>Date.now()-5000),'no runtime faults');
- assert(W.factorySite?.cans.length===6&&W.salonSite&&W.university?.charges.length===4&&W.pitch,'mission sites preserved');
+ assert(W.factorySite?.cans.length===6&&W.salonSite&&W.university?.charges.length===4,'mission sites preserved');assert(!W.pitch,'skatepark has no permanent soccer pitch');assert(W.pushables.some(q=>q.districtRental==='skatepark'),'rental boards spawned in mixed map');
  const states=[];
  for(const host of[true,false]){const state=world.createWorld(new gfx.THREE.Group());state.districtStates.push({values:[0]});states.push({state,wire:world.withWorld(state,()=>sync.createWorldSync({host,id:host?1:2,myKey:host?'p1':'p2',actor:()=>null,command:()=>{},visuals:false}))});}
  states[0].state.districtStates[0].values[0]=1234;const packet=world.withWorld(states[0].state,()=>states[0].wire.capture(true));world.withWorld(states[1].state,()=>states[1].wire.receive(packet));assert(states[1].state.districtStates[0].values[0]===1234,'bell/projector state replicated');
