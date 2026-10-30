@@ -1,6 +1,7 @@
 import { tipBin, animateTip } from './pushables.js';
 import { W } from './state.js';
 import { clamp } from '../core/rng.js';
+import {bowlSample,bowlAcceleration,bowlTakeoff,bowlBank} from './skate-bowl.js';
 
 /* Твёрдые объекты — AABB с высотой: {x0,x1,z0,z1,y0,y1,on}.
    Всё, у чего верх ниже «шага», можно перешагнуть; на всё остальное — запрыгнуть или залезть. */
@@ -48,7 +49,17 @@ export function addObb(o) { const b = { on: true, yaw: 0, ...o }; (W.obbs || (W.
 export let groundObb = null;
 let _selfP = null;
 export function groundAt(x, z, r, maxY) {
-  let g = maxY >= 0 && !inHole(x, z) ? 0 : -60; groundObb = null;
+  let g = maxY >= 0 && !inHole(x, z) ? 0 : -60;groundObb=null;
+  // The skatepark has a real hole in the world slab. One continuous analytic
+  // surface replaces the absent ground (including the patch around its lip).
+  // Normal floors, hatches, and other maps keep their old ground behavior.
+  if(W.skateBowl){
+    const sample=bowlSample(x,z,W.skateBowl);
+    if(sample){
+      const y=W.skateBowl.y+sample.height;
+      if(y<=maxY+(_cover?1.15:.35))g=y;
+    }
+  }
   for (const s of solidsNear(x - r, z - r, x + r, z + r)) if (s.on && s.y1 <= maxY && s.y1 > g && overlapXZ(s, x, z, r)) g = s.y1;
   if (W.obbs) for (const o of W.obbs) { if (!o.on || o.y1 > maxY || o.y1 <= g) continue; const l = obbLocal(o, x, z); if (l.x + r > o.lx0 && l.x - r < o.lx1 && l.z + r > o.lz0 && l.z - r < o.lz1) { g = o.y1; groundObb = o; } }
   // на толкаемых предметах (бак, бочка, тележка) можно стоять, как на земле
@@ -172,6 +183,12 @@ export function updatePushables(dt, player) {
     if (b.grabbed) { b.hitSpeed = 0;if(b.solid)b.solid.on=true;syncPushable(b);continue; } // её ведёт игрок
     const op = { x: b.x, z: b.z };
     b.hitSpeed = 0;
+    const skatingBowl=(b.kind==='skate'||b.kind==='scooter')&&W.skateBowl;
+    const oldBowl=skatingBowl?bowlSample(b.x,b.z,W.skateBowl):null;
+    if(oldBowl?.wall&&!b.air){
+      const a=bowlAcceleration(oldBowl,b.vx,b.vz);
+      b.vx+=a.x*dt;b.vz+=a.z*dt;
+    }
     // v0.56: движение по шагам не длиннее половины радиуса — быстрые машинки и карты больше не проскакивают сквозь стены
     const y0 = b.y + (b.ride && b.kind !== 'ring' ? .5 : .2), mv = Math.hypot(b.vx, b.vz) * dt, n = Math.min(12, Math.max(1, Math.ceil(mv / Math.max(.08, b.r * .5))));
     const p = { x: b.x, z: b.z }; let hit = null;
@@ -180,7 +197,17 @@ export function updatePushables(dt, player) {
     b.x = p.x; b.z = p.z;
     recordImpact(b,hit,Math.hypot(b.vx,b.vz));
     if (hit) { b.hitSpeed = Math.hypot(b.vx, b.vz); const k = b.kind === 'voteBall' ? -0.7 : -0.3; b.vx *= k; b.vz *= k; }
-    b.x = p.x; b.z = p.z;constrainWaterRide(b,op);
+    b.x=p.x;b.z=p.z;constrainWaterRide(b,op);
+    const newBowl=skatingBowl?bowlSample(b.x,b.z,W.skateBowl):null;
+    if(skatingBowl){
+      const launch=bowlTakeoff(oldBowl,newBowl,b.vx,b.vz,Math.hypot(b.vx,b.vz),b.air);
+      if(launch&&b.rider){
+        b.y=Math.max(b.y,W.skateBowl.y+(newBowl?.height||0)+.10);
+        b.vy=launch;b.air=true;b.bowlLaunchCooldown=.9;
+        if(!b.trick)b.trick={kind:b.kind==='scooter'?'barspin':'kickflip',t:0,dur:.48};
+      }
+      b.bank=bowlBank(newBowl,b.heading||0);
+    }else b.bank=0;
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: .45, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
     // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
@@ -214,7 +241,7 @@ export function updatePushables(dt, player) {
     // движение по форме: стоячий бак скользит не поворачиваясь; бочка, шина и колёсное едут вдоль «колёс»,
     // боковое скольжение гасится, направление плавно доворачивается к толчку
     const sp = Math.hypot(b.vx, b.vz);
-    if (b.rider) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.set(-(b.pitch || 0), b.heading + (b.shuv || 0), (b.flip || 0) + (b.lean || 0)); }
+    if (b.rider) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.set(-(b.pitch || 0), b.heading + (b.shuv || 0), (b.flip || 0) + (b.lean || 0) + (b.bank || 0)); }
     else if ((b.kind === 'skate' || b.kind === 'scooter') && (b.pitch || b.flip)) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.x = -(b.pitch || 0); b.mesh.rotation.z = 0; b.flip = 0; b.shuv = 0; }
     else if (b.kind === 'chair') b.mesh.rotation.y += Math.hypot(b.x - op.x, b.z - op.z) * 2;
     else if (b.kind !== 'bin' && b.kind!=='crate' && sp > 0.02) {
