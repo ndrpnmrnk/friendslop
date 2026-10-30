@@ -7,7 +7,7 @@ import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
 import { addSolid, groundAt, pushOut, isFree,raySolids } from '../world/physics.js';
 import { burst, puff, smokeRing, splash } from '../world/particles.js';
-import { addItem, launch } from '../game/items.js';
+import { addItem, launch, drop } from '../game/items.js';
 import { buildCat, COATS } from '../game/cats.js';
 import { iconCanvas, icon } from '../ui/icons.js';
 import { SKINS } from '../characters/skins.js';
@@ -179,12 +179,15 @@ export const WORLD3 = {
   salad(o, api, ctx) {
     api.feedback?.();
     const s = o.spot, home = new V3(s.x, s.y, s.z), P = ctx.player, from = home;
-    const items = ['cucumber', 'tomato'].map(k => { const p = farPoint(from, 4, 22); const it = addItem(k, p.x, p.y, p.z, random() * 6); it.def = { ...it.def, respawn: 0 }; it.ring = ringMark(); return it; });
+    const items = ['cucumber', 'tomato'].map(k => { const p = farPoint(from, 4, 22); const it = addItem(k, p.x, p.y, p.z, random() * 6); it.def = { ...it.def, respawn: 0 }; it.mission=ctx.mission;it.mine=P;it.ring = ringMark(); return it; });
     let time = 112, hint = '';
     const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
-    const atHome = it => Math.hypot(it.pos.x - home.x, it.pos.z - home.z) < 1.8 && Math.abs(it.pos.y - home.y) < 1.6;
+    const table=new V3(s.bx,s.y+.945,s.bz);
+    const atHome = it => it.state==='rest'&&Math.hypot(it.pos.x-table.x,it.pos.z-table.z)<.6&&Math.abs(it.pos.y-table.y-it.def.r)<.35;
     return {
-      botItems:()=>items,botPickable:it=>!atHome(it), botTarget:()=>P.held&&items.includes(P.held)?home:null,botDeposit:()=>home,botDrop:true,
+      botItems:()=>items,botPickable:it=>!atHome(it), botTarget:()=>P.held&&items.includes(P.held)?home:null,botDeposit:()=>table,botDrop:true,
+      prompt:()=>items.includes(P.held)&&P.pos.distanceTo(home)<2.2?'<b>E</b>Положить овощ на стол':'',
+      interact(){const it=P.held;if(!items.includes(it)||P.pos.distanceTo(home)>2.2)return false;const i=items.indexOf(it);drop(it,table.x+(i?-.22:.22),table.y,table.z);P.held=null;it.owner=null;it.holder=null;api.msg('На столе: '+(i?'помидор':'огурец'),'good');return true;},
       target() { if(items.includes(P.held))return home;const l = items.find(it => !atHome(it) && P.held !== it); if (l) { say(l.type === 'cucumber' ? 'Найди огурец' : 'Найди помидор'); return l.pos; } say('Неси на кухню'); return home; },
       update(dt) {
         time -= dt; api.timer(time);
@@ -194,7 +197,7 @@ export const WORLD3 = {
         if (n === 2) return api.finish({ chain: 'saladCut' });
         if (time <= 0) api.finish({ success: false });
       },
-      stop() { for (const it of items) { W.group.remove(it.ring); it.outline.set(false); if (P.held === it) P.held = null; it.state = 'gone'; it.g.visible = false; } },
+      stop() { for (const it of items) { W.group.remove(it.ring); it.outline.set(false); if (P.held === it) P.held = null;if(it.owner?.held===it)it.owner.held=null; it.state = 'gone'; it.g.visible = false; } },
     };
   },
 

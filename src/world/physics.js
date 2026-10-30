@@ -143,9 +143,9 @@ export function zoneAt(x, z, y, type) {
 }
 
 // Свободно ли место (для спавна объектов миссий)
-export function isFree(x0, z0, x1, z1, y0, y1, ignoreOneWay = false, reserveLadders = true) {
+export function isFree(x0, z0, x1, z1, y0, y1, ignoreOneWay = false, reserveLadders = true, allowWater = false) {
   for (const s of solidsNear(x0, z0, x1, z1)) if (s.on && !(ignoreOneWay && s.oneWay) && s.y1 > y0 && s.y0 < y1 && x1 > s.x0 && x0 < s.x1 && z1 > s.z0 && z0 < s.z1) return false;
-  for (const q of W.zones) if (q.type === 'water' && Math.abs(q.y - y0) < 0.6 && (q.c ? (Math.max(x0, Math.min(q.c[0], x1)) - q.c[0]) ** 2 + (Math.max(z0, Math.min(q.c[1], z1)) - q.c[1]) ** 2 < q.c[2] ** 2 : x1 > q.r[0] && x0 < q.r[2] && z1 > q.r[1] && z0 < q.r[3])) return false;
+  for (const q of W.zones) if (!allowWater && q.type === 'water' && Math.abs(q.y - y0) < 0.6 && (q.c ? (Math.max(x0, Math.min(q.c[0], x1)) - q.c[0]) ** 2 + (Math.max(z0, Math.min(q.c[1], z1)) - q.c[1]) ** 2 < q.c[2] ** 2 : x1 > q.r[0] && x0 < q.r[2] && z1 > q.r[1] && z0 < q.r[3])) return false;
   for (const l of reserveLadders ? W.ladders : []) if (y1 > l.y0 && y0 < l.y1 && x1 > l.x0 - 0.5 && x0 < l.x1 + 0.5 && z1 > l.z0 - 0.5 && z0 < l.z1 + 0.5) return false;
   return true;
 }
@@ -216,7 +216,7 @@ export function updatePushables(dt, player) {
         }
       }
     }
-    if(b.ride&&b.rider&&!isFree(p.x-b.r*.7,p.z-b.r*.7,p.x+b.r*.7,p.z+b.r*.7,y0,b.y+1,true,false)){
+    if(b.ride&&b.rider&&!isFree(p.x-b.r*.7,p.z-b.r*.7,p.x+b.r*.7,p.z+b.r*.7,y0,b.y+1,true,false,!!b.ride.water)){
       p.x=op.x;p.z=op.z;hit=hit||true;
       if(board){b.air=false;b.vy=0;b.bowlTakeoff=false;}
     }
@@ -234,7 +234,8 @@ export function updatePushables(dt, player) {
     const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: .45, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
     // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
-    if (b.ride && b.kind !== 'ring') {
+    if (b.ride?.water) { b.vy=0;b.air=false; }
+    else if (b.ride) {
       _selfP = b; _cover = !!b.ride; let gy = groundAt(b.x, b.z, b.r * 0.4, b.y + 0.35); _cover = false; _selfP = null; b.vy = b.vy || 0;
       const canGrind=(b.kind==='skate'||b.kind==='scooter')&&!!b.rider;
       const bowlY=canGrind?bowlGround(W.skateBowl,b.x,b.z):null;

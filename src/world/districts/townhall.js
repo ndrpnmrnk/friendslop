@@ -1,4 +1,4 @@
-import {G,col,tmat} from '../../core/gfx.js';
+import {THREE,G,col,tmat} from '../../core/gfx.js';
 import {T} from '../../core/textures.js';
 import {W} from '../state.js';
 import {mayorModel} from '../../characters/mayor.js';
@@ -20,7 +20,7 @@ export default{id:'townhall',name:'Мэрия',ground:'pave',size:44,build(b){
  b.box(22,27,12,.12,.9,green,{y:4.18});for(const x of[17,27])b.box(x,25,.4,.4,4,trim);
  b.stairs(30,28,'n',0,4.18,2,0,.45);b.box(29,21.5,4,2,.18,stone,{y:4});b.ladder(27.8,23.3,'e',4.18);
  b.sign(22,6.2,24.12,0,'МЭРИЯ','#3a5048','#ebd8ad',9,.8);for(const x of[16.3,27.7])b.box(x,23.8,.45,.6,8,trim,{solid:false});
- const roof=b.m(G.cone8,green,22,9.1,13,8,2.2,12);roof.rotation.y=Math.PI/4;
+ const roof=b.m(new THREE.ConeGeometry(1,1,4),green,22,8.9,13,9.2,1.8,15.3);roof.rotation.y=Math.PI/4;
  b.box(22,33,4,2,.45,tmat(T.wood()));b.m(G.box,green,22,1.05,33,1.3,.75,.7);for(const x of[8,36])for(const z of[31,38])b.planter(x,z,2.5,2.5,.5,'shrub');
  const model=mayorModel();model.root.position.set(b.X(22),b.Y+4,b.Z(21));W.group.add(model.root);W.keep.push(model.root);
  const m={...npcBody(model),kind:'mayor',r:.72,h:2.2,home:model.root.position.clone(),busy:false,t:0,lard:false,arms:model.arms,face:model.face};W.mayor=m;W.npcs.push(m);

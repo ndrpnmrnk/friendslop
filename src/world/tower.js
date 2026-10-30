@@ -26,7 +26,7 @@ export const TowerMethods = {
     const hsteps = Math.max(2, Math.round(fh / 2 / 0.28)), rise = fh / 2 / hsteps, Lh = hsteps * run;
     const ix0 = x + t, iz0 = z + t, ix1 = x + w - t, iz1 = z + d - t;
     const sx0 = o.stairX ?? ix0, sz0 = iz0, f0 = sx0 + EL, f1 = f0 + Lh, sx1 = hasStairs ? f1 + ML : sx0, sz1 = hasStairs ? sz0 + lane * 2 : sz0;
-    const dw = o.doorW ?? 2.0, dh = 2.35, plain = col(base), inner = o.inner || T.wallIn([0xc8b8d8, 0xd8c8a8, 0xa8c0d0, 0xd0b0b0, 0xb8d0b0][(random() * 5) | 0], random() < 0.5 ? 'wallpaper_g' : 'wallpaper2_g');
+    const dw = Math.min(2.8,o.doorW ?? 1.25), dh = 2.35, plain = col(base), inner = o.inner || T.wallIn([0xc8b8d8, 0xd8c8a8, 0xa8c0d0, 0xd0b0b0, 0xb8d0b0][(random() * 5) | 0], random() < 0.5 ? 'wallpaper_g' : 'wallpaper2_g');
     const doors = o.doors || (o.door ? [o.door] : []);
     // пожарная лестница (только на боковых стенах e/w): площадки на каждом этаже «ёлочкой», марши между ними,
     // снизу — красная откидная секция, сверху — лестница на крышу
@@ -272,6 +272,7 @@ export const TowerMethods = {
       if (o.lights !== false) for (let lx = ix0 + 2.2; lx < ix1 - 1; lx += 4.5) { fb.m(G.box, glow(0xfff0d0), lx, fh - 0.23, (r.z0 + r.z1) / 2, 1.2, 0.04, 0.3); fb.light(lx, (r.z0 + r.z1) / 2, 2.0, 0, true); }
       if (k > 0 && r.z1 - r.z0 > 2) W.spots.deliver.push({ x: fb.X((r.x0 + r.x1) / 2), z: fb.Z((r.z0 + r.z1) / 2), y: fb.Y, name: `${this.d}, ${k + 1} этаж`, floor: k,
         guide: { box: [this.X(ix0), this.Z(iz0), this.X(ix1), this.Z(iz1)], y0: this.Y, fh, door: doorOut, stair: [this.X(sx0 + 0.5), this.Z(sz0 + lane * 1.5), this.X(f0 + 0.4), this.Z(sz0 + lane / 2)] } });
+      fb._room={x0:ix0,z0:iz0,x1:ix1,z1:iz1};
       if (o.interior) o.interior(fb, k, r);
       if (o.zoneInside !== false && r.z1 - r.z0 > 2) fb.zone('inside', ix0 + 0.5, r.z0 + 0.4, ix1 - 0.5, r.z1 - 0.5);
       if (HW && o.web !== false && k % 2 === 1) fb.web(ix1 - 0.3, fh - 0.6, iz1 - 0.02, Math.PI, 0.9);
@@ -312,6 +313,10 @@ export const TowerMethods = {
   },
   wardrobe(x, z, ry = 0) { const wd = tmat(T.wood()); W.hides.push({ x: this.X(x), y: this.Y, z: this.Z(z), r: 1.3, kind: 'wardrobe', out: [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))] }); this.box(x, z, Math.abs(Math.sin(ry)) > 0.5 ? 0.6 : 1.2, Math.abs(Math.sin(ry)) > 0.5 ? 1.2 : 0.6, 2.0, [wd, wd, wd, wd, tmat(T.cabinet(0x6a4a30)), tmat(T.cabinet(0x6a4a30))]); },
   kitchen(x, z, len, ry = 0) {
+    if(this._room){const r=this._room,q=Math.abs(Math.sin(ry))>.5;len=Math.min(len,(q?r.z1-r.z0:r.x1-r.x0)-1.8);const c=Math.cos(ry),s=Math.sin(ry),dx=q?.42:len/2+.08,dz=q?len/2+.08:.42;
+      x=Math.max(r.x0+dx+Math.max(0,c)*.9,Math.min(r.x1-dx-Math.max(0,-c)*.9,x));z=Math.max(r.z0+dz+Math.max(0,-s)*.9,Math.min(r.z1-dz-Math.max(0,s)*.9,z));
+      if(q)x=s>0?r.x0+.42:r.x1-.42;else z=c>0?r.z0+.42:r.z1-.42;}
+
     const g = this.prop(x, z, ry), wd = tmat(T.cabinet(0xd8d0c0)), top = col(0x3a3440), mt = tmat(T.metal());
     const a = (px, py, pz, sx, sy, sz, mm) => { const o = new THREE.Mesh(G.box, mm); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); g.add(o); };
     a(0, 0.45, 0, len, 0.9, 0.6, wd); a(0, 0.92, 0, len + 0.04, 0.05, 0.64, top); a(len / 2 - 0.4, 0.96, 0, 0.6, 0.02, 0.5, col(0x17141c));

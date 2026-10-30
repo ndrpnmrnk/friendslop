@@ -5,7 +5,7 @@ import { T } from '../core/textures.js';
 import { HW } from '../config.js';
 import { W } from './state.js';
 import { breakBox } from './breakables.js';
-import { addZone } from './physics.js';
+import { addZone,isFree } from './physics.js';
 import { addSwinger } from './swingers.js';
 import { puff } from './particles.js';
 import {addCanopy} from './canopies.js';
@@ -251,12 +251,15 @@ export const PropMethods = {
     for (let i = 0; i < n; i++) {
       const o = (i - (n - 1) / 2) * 0.8, px = x + (along ? o : 0), pz = z + (along ? 0 : o);
       const t = this.m(new THREE.TorusGeometry(1, 0.08, 4, 10, Math.PI), mt, px, 0, pz, 0.38, 0.75, 0.38); t.rotation.y = along ? Math.PI / 2 : 0;
-      if (i % 2 === 0 && random() < 0.8) this.bicycle(px + (along ? 0.18 : 0.1), pz + (along ? 0.1 : 0.18), along ? 0 : Math.PI / 2, [0x3a7ac8, 0xd8243a, 0xf5c542, 0x6aa84f][i % 4]);
+      if (i % 2 === 0 && random() < 0.8){const bx=px+(along?0:-1.35),bz=pz+(along?1.35:0);if(isFree(this.X(bx)-.55,this.Z(bz)-.55,this.X(bx)+.55,this.Z(bz)+.55,this.Y+.15,this.Y+1.3))this.bicycle(bx,bz,along?0:-Math.PI/2,[0x3a7ac8,0xd8243a,0xf5c542,0x6aa84f][i%4]);}
+      this.solid(px,pz,.14,.14,0,.75);
     }
-    this.solid(x, z, along ? n * 0.8 : 0.3, along ? 0.3 : n * 0.8, 0, 0.8);
+
   },
   // Газетный киоск-автомат
   newsBox(x, z, ry = 0, c = 0x305c88) {
+    for(const door of W.doors)if(Math.abs(door.y-this.Y)<1&&Math.hypot(this.X(x)-door.x,this.Z(z)-door.z)<2){if(door.axis==='x')x+=2.3;else z+=2.3;}
+
     const g = this.prop(x, z, ry), b = col(c), dk = col(0x17141c);
     const add = (geo, m, px, py, pz, sx, sy, sz, rx = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.x = rx; g.add(o); };
     add(G.box, b, 0, 0.55, 0, 0.5, 0.7, 0.45); add(G.box, b, 0, 0.98, -0.05, 0.52, 0.12, 0.52, 0.25);
@@ -266,6 +269,8 @@ export const PropMethods = {
   },
   // Почтовый ящик (v0.18): синий ящик на стойке, козырёк от дождя, щель с клапаном, табличка «ПОЧТА», рожок-эмблема, дверца с замком
   postBox(x, z, ry = 0) {
+    for(const door of W.doors)if(Math.abs(door.y-this.Y)<1&&Math.hypot(this.X(x)-door.x,this.Z(z)-door.z)<2){if(door.axis==='x')x+=2.3;else z+=2.3;}
+
     const g = this.prop(x, z, ry), b = col(0x2a5aa8), bd = col(0x1e4688), dk = col(0x17141c), wh = col(0xf1e8ff), yl = col(0xf5c542);
     const add = (geo, m, px, py, pz, sx, sy, sz, rx = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.set(rx, 0, rz); g.add(o); };
     add(G.cyl8, dk, 0, 0.42, -0.02, 0.05, 0.84, 0.05); add(G.box, dk, 0, 0.02, -0.02, 0.26, 0.04, 0.2);

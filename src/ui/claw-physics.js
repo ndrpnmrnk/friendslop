@@ -31,7 +31,7 @@ export function toyPhysics(dolls){
    /* v0.59: будим игрушки, только когда клешня опустилась к куче и правда может их задеть (раньше будила, проезжая сверху, — куча начинала дрожать) */
    if(pos.y<2.25&&Math.hypot(palm.velocity.x,palm.velocity.y,palm.velocity.z)>.02){moving=true;quiet=0;for(const d of dolls)if(Math.hypot(d.g.position.x-pos.x,d.g.position.z-pos.z)<radius+.35&&d.g.position.y>pos.y-1.1)d.physics.wakeUp();}},
   // захват: шарнир между ладонью и точкой на игрушке; держит, пока не отпустим или не соскользнёт
-  grab(toy,localPivot){this.drop();toy.physics.collisionFilterMask=G_TOY|G_WALL;toy.physics.wakeUp();joint=new C.PointToPointConstraint(palm,new C.Vec3(0,-.08,0),toy.physics,new C.Vec3(localPivot.x,localPivot.y,localPivot.z),40);world.addConstraint(joint);joint.toy=toy;moving=true;quiet=0;},
+  grab(toy,localPivot){this.drop();toy.physics.collisionFilterMask=G_TOY|G_WALL;toy.physics.wakeUp();joint=new C.PointToPointConstraint(palm,new C.Vec3(0,-.08,0),toy.physics,new C.Vec3(localPivot.x,localPivot.y,localPivot.z),12);world.addConstraint(joint);joint.toy=toy;moving=true;quiet=0;},
   drop(){if(!joint)return;world.removeConstraint(joint);joint.toy.physics.collisionFilterMask=G_TOY|G_CLAW|G_WALL;joint.toy.physics.wakeUp();joint=null;moving=true;quiet=0;},
   get holding(){return joint?.toy||null;},
   // v0.58: игрушку в клешне ведём сами (без шарнира): тело убираем из мира, соседи мягко оседают в образовавшуюся ямку

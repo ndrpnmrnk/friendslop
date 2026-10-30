@@ -434,6 +434,8 @@ export class Builder {
   /* ---------- дверь ---------- */
   // Дверь в проёме: hinge — точка петли (локально), axis 'x' — проём вдоль X, inward — знак вращения при открытии
   door(hx, hz, axis, inward, y = 0, w = 2.0, h = 2.35, style = 'wood') {
+    if(w>1.6){const half=w/2,one=this.door(hx,hz,axis,inward,y,half,h,style),two=this.door(hx+(axis==='x'?half:0),hz+(axis==='z'?half:0),axis,inward,y,half,h,style);
+      two.pivot.position[axis]+=half;two.pivot.scale[axis]=-1;two.inward=-inward;one.autoCenter=two.autoCenter={x:(one.x+two.x)/2,z:(one.z+two.z)/2};const state={open:false};for(const leaf of[one,two])Object.defineProperty(leaf,'open',{enumerable:true,get:()=>state.open,set:v=>{state.open=!!v;}});return one;}
     const pivot = new THREE.Group(); pivot.position.set(this.X(hx), this.Y + y, this.Z(hz)); this.g.add(pivot);
     const wood = tmat(T.wood()), dk = col(0x3a2418);
     const px = axis === 'x' ? w / 2 : 0, pz = axis === 'x' ? 0 : w / 2;
@@ -453,7 +455,7 @@ export class Builder {
     if (style !== 'glass') { mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : 0.07, 1.05, axis === 'x' ? 0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot);
       mesh(G.box, col(0xf5c542), axis === 'x' ? w - 0.2 : -0.07, 1.05, axis === 'x' ? -0.07 : w - 0.2, 0.08, 0.08, 0.08, pivot); }
     const s = axis === 'x' ? this.solid(hx + w / 2, hz, w, 0.16, y, h) : this.solid(hx, hz + w / 2, 0.16, w, y, h);
-    const d = { pivot, solid: s, open: false, ang: 0, inward, axis, x: this.X(hx + px), z: this.Z(hz + pz), y: this.Y + y, outline: addOutline(pivot, 0.04) };
+    const d = { pivot, solid: s, open: false, ang: 0, inward, axis, x: this.X(hx + px), z: this.Z(hz + pz), y: this.Y + y, outline: addOutline(pivot, 0.04), automatic:style==='glass' };
     W.doors.push(d); return d;
   }
 
