@@ -159,8 +159,8 @@ export function leaveHide(P) {
 export function registerInteracts() {
   // в уличной урне тоже можно спрятаться (после того как её обыскали); опрокинут урну — выкатишься рэгдоллом
   for (const b of W.pushables) if (b.kind === 'bin') W.hides.push({ get x() { return b.x; }, get y() { return b.y; }, get z() { return b.z; }, r: 1.0, kind: 'bin', out: [0, 1], pb: b });
-  for (const h of W.hides) W.interacts.push({ get x() { return h.kind === 'wardrobe' ? h.x + h.out[0] * 0.8 : h.x; }, get z() { return h.kind === 'wardrobe' ? h.z + h.out[1] * 0.8 : h.z; }, get y() { return h.y; }, r: h.kind === 'wardrobe' ? 0.9 : h.r, dy: h.kind === 'bin' ? 1.5 : 0.9, get label() { return 'Спрятаться ' + ({ leaves: 'в листья', wardrobe: 'в шкаф', bin: h.pb ? 'в урну' : 'в мусорный бак' }[h.kind] || ''); },
-    enabled: P => !P.held && !(h.pb && (!h.pb.looted || h.pb.tipped || h.pb.rider)), act: P => hideIn(P, h) });
+  for (const h of W.hides) W.interacts.push({ get x() { return h.kind === 'wardrobe' ? h.x + h.out[0] * 0.8 : h.x; }, get z() { return h.kind === 'wardrobe' ? h.z + h.out[1] * 0.8 : h.z; }, get y() { return h.y; }, r: h.kind === 'wardrobe' ? 0.9 : h.r, dy: h.kind === 'bin' ? 1.5 : 0.9, get label() { return 'Спрятаться ' + ({ leaves: 'в листья', wardrobe: 'в шкаф', cinema:'в тёмном зале',bin: h.pb ? 'в урну' : 'в мусорный бак' }[h.kind] || ''); },
+    enabled: P => (!h.enabled||h.enabled()) && !P.held && !(h.pb && (!h.pb.looted || h.pb.tipped || h.pb.rider)), act: P => hideIn(P, h) });
   // мусорный бак: порыться — один шанс за раунд (выпало или нет), потом пусто; вблизи — светлый контур, пока не обыскан
   for (const b of W.pushables) if (b.kind === 'bin') { b.binOutline = b.binOutline || addOutline(b.mesh, 0.03, OUTLINE.use);
     W.interacts.push({ get x() { return b.x; }, get z() { return b.z; }, y: b.y, r: 1.1, label: 'Порыться в урне', outline: b.binOutline, glow: () => !b.looted, enabled: P => !P.held && !b.tipped && !b.rider && !b.looted,

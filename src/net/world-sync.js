@@ -14,8 +14,9 @@ import { ActiveMotion, validMotion } from './active-motion.js';
 import {telemetry} from './telemetry.js';
 import {replicationTier,movementIntervalMs,criticalStateChange} from './replication-priority.js';
 import {canHostAcceptMissionItem,applyHostMissionItem,remotePickup} from './mission-item-authority.js';
+import {startTug,tugInput,clearTug} from '../game/item-tug.js';
 
-const LISTS = { i: 'items', p: 'pushables', d: 'doors', s: 'solids', o: 'obbs', b: 'breakables', c: 'cats', n: 'npcs', a: 'interacts' };
+const LISTS = { i: 'items', p: 'pushables', d: 'doors', s: 'solids', o: 'obbs', b: 'breakables', c: 'cats', n: 'npcs', a: 'interacts', e: 'districtStates' };
 const pos = v => [q(v.x), q(v.y), q(v.z)];
 const fields = ['x0', 'z0', 'x1', 'z1', 'y0', 'y1'];
 const obbFields = ['cx', 'cz', 'yaw', 'lx0', 'lz0', 'lx1', 'lz1', 'y0', 'y1'];
@@ -71,9 +72,10 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
   }
   function pack(type, o) {
     switch (type) {
-      case 'i': return [o.type, o.state, ...pos(o.pos), ...pos(o.vel), ...[o.g.rotation.x, o.g.rotation.y, o.g.rotation.z].map(q), keyOf(o.owner), o.noPickup ? 1 : 0, o.ammo || 0, o.taken ? 1 : 0, o.g.visible ? 1 : 0,q(o.cd),q(o.draw),q(o.aimT),o.perfumeEffect||'',o.mission?.id||null,o.radio?[o.radio.on?1:0,o.radio.station,o.radio.since,o.radio.offset]:null];
+      case 'e': return o.values.slice();
+      case 'i': return [o.type, o.state, ...pos(o.pos), ...pos(o.vel), ...[o.g.rotation.x, o.g.rotation.y, o.g.rotation.z].map(q), keyOf(o.owner), o.noPickup ? 1 : 0, o.ammo || 0, o.taken ? 1 : 0, o.g.visible ? 1 : 0,q(o.cd),q(o.draw),q(o.aimT),o.perfumeEffect||'',o.mission?.id||null,o.radio?[o.radio.on?1:0,o.radio.station,o.radio.since,o.radio.offset]:null,o.tug?[keyOf(o.tug.actor),q(o.tug.progress)]:null];
       case 'p': return [o.kind, q(o.x), q(o.y), q(o.z), q(o.vx), q(o.vy), q(o.vz), ...[o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z].map(q), o.dead ? 1 : 0, o.tipped ? 1 : 0, keyOf(o.rider), keyOf(o.grabbed), q(o.heading)];
-      case 's': return flat(o,fields,'on');
+      case 's': return o.netLocal?null:flat(o,fields,'on');
       case 'a': return Object.getOwnPropertyDescriptor(o,'x')?.get?null:[q(o.x),q(o.y),q(o.z),q(o.r)];
       case 'o': return flat(o,obbFields,'on');
       case 'd': return [o.open ? 1 : 0, q(o.ang), q(o.av), o.dirS ?? null, o.solid?.on ? 1 : 0];
@@ -121,7 +123,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       if(o?.on!==undefined)o.on=false;
       objects.delete(key);movers.delete(key);motionView.delete(o);worldSentAt.delete(key);return;
     }
-    if (!Array.isArray(v) || !['i', 'p', 's', 'o', 'd', 'b', 'v', 'c', 'n','a','t'].includes(type)) return;
+    if (!Array.isArray(v) || !['i', 'p', 's', 'o', 'd', 'b', 'v', 'c', 'n','a','t','e'].includes(type)) return;
     // Созданные не миссиями предметы (дождь, подарок, выпадение из шкафа).
     if (!o && type === 'i') { if (!vector(v.slice(2, 5))) return; o = addItem(v[0], v[2], v[3], v[4]); }
     if (!o && type === 'p') o = addPushable({X:x=>x,Z:z=>z,Y:0}, v[0], v[1], v[3], v[2]);
@@ -130,6 +132,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     if(!o&&type==='t'&&['arrow','net','water','candy','web','bubble','perfume','firework'].includes(v[0]))o=W.netCreateShot?.(v[0],new V3(...v.slice(1,4)),new V3(0,0,1),0,0,actor(v[10]));
     if (!o) return;
     if (!entry) { register(type, o, key); entry = objects.get(key); }
+    if(type==='i'&&!proposal){if(v[22]){const challenger=actor(v[22][0]);if(challenger){o.tug={actor:challenger,progress:v[22][1],time:0,defend:false};challenger.tugItem=o;}}else clearTug(o);}
     if(!proposal&&localOwns(o)){
       if(type!=='i')return;
       // Local scope ownership is NOT permission to ignore an authoritative
@@ -172,6 +175,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
         if(o.tag==='lift-floor'&&p?.onGround&&Math.abs(p.pos.y-o.y1)<.25&&p.pos.x>o.x0&&p.pos.x<o.x1&&p.pos.z>o.z0&&p.pos.z<o.z1)p.pos.y+=dy;
         moveSolid(o, ...v.slice(0, 6)); o.on = !!v[6]; break;
       }
+      case 'e': o.values=v.slice();break;
       case 'a': ['x','y','z','r'].forEach((k,i)=>{const d=Object.getOwnPropertyDescriptor(o,k);if(!d?.get||d.set)o[k]=v[i];});break;
       case 't':o.p.fromArray(v.slice(1,4));o.v.fromArray(v.slice(4,7));o.g=v[7];o.life=v[8];o.delay=v[9];o.owner=actor(v[10]);target(o.m,v.slice(1,4),v.slice(11,15),v.slice(15,18));o.m.visible=!!v[18];break;
       case 'o': obbFields.forEach((k, i) => { o[k] = v[i]; }); o.on = !!v[9]; break;
@@ -213,6 +217,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     if (msg.kind === 'grip') { const b = actor(msg.key); if (b) grabActor(a, b); return; }
     if (!o) return;
     const p = o.pos || o.mesh?.position || o;
+    if(msg.kind==='tug'){if(o.tug&&(o.owner===a||o.tug.actor===a))tugInput(a,!!msg.hold);else if(msg.hold)startTug(a,o);return;}
     if(msg.kind==='use'){
       if(o.owner===a&&o.state==='held'&&vector(msg.target)&&Number.isFinite(msg.dt))W.netUseTool?.(a,o,new V3(...msg.target),Math.max(0,Math.min(.2,msg.dt)));
       return;
@@ -274,7 +279,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     setIdentity(value){myKey=value;serial=0;},
     discover(){for(const[type,list]of Object.entries(LISTS))for(const o of W[list]||[])if(!seen.has(o))register(type,o);},
     restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();motionView.clear();motionPackets.reset();received.clear();dirty.clear();worldSentAt.clear();delta.last=new Map(delta.base);delta.rev=0;delta.visited.clear();serial=0;},
-    setHost(value){host=!!value;api.host=host;api.replica=!host;serial=0;worldSentAt.clear();motionView.clear();motionPackets.reset();},
+    setHost(value){host=!!value;api.host=host;api.replica=!host;if(host)for(const it of W.items)clearTug(it);serial=0;worldSentAt.clear();motionView.clear();motionPackets.reset();},
     resetStream(){serial=0;},
     get applying() { return applying; },
     motionEntries(options){return motionPackets.capture(movers,32,8192,options);},
@@ -340,7 +345,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       }
     },
     canSimulate(o) { if(o?.netScope?.startsWith('m'))return !!api.ownsScope?.(o.netScope); return host || !o?.netId || localOwns(o) || o.rider === W.player || o.grabbed === W.player; },
-    canAnimate(f) { return f.netScope?.startsWith('m') ? !!api.ownsScope?.(f.netScope) : host; },
+    canAnimate(f) { if(f.netLocal)return true;return f.netScope?.startsWith('m') ? !!api.ownsScope?.(f.netScope) : host; },
   };
   api.buildings=(W.buildings||[]).slice();api.spots=Object.fromEntries(Object.entries(W.spots).map(([k,v])=>[k,v.slice()]));
   W.net = api;

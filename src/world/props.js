@@ -433,7 +433,8 @@ export const PropMethods = {
     for (const zz of [-1.0, 1.0]) add(G.box, mt, 0.6, 2.78, zz, 4.2, 0.04, 0.04); for (const xx of [-1.4, 0.6, 2.6]) for (const zz of [-1.0, 1.0]) add(G.box, mt, xx, 2.74, zz, 0.04, 0.1, 0.04);
     for (const zz of [-1.2, 1.2]) { add(G.box, dk, -3.0, 1.6, zz, 0.06, 0.04, 0.2); add(G.box, mt, -3.0, 1.6, zz * 1.12, 0.05, 0.22, 0.12); }
     for (const xx of [-1.35, -1.05]) { add(G.cyl8, col(0xd8243a), xx, 0.75, -1.4, 0.15, 0.5, 0.15); add(G.cyl8, mt, xx, 1.05, -1.4, 0.05, 0.1, 0.05); }
-    for (let i = 0; i < 8; i++) add(G.sph, glow([0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0][i % 4]), -0.8 + i * 0.4, 2.3 - Math.sin(i / 7 * Math.PI) * 0.12, 1.5, 0.05, 0.05, 0.05);
+    // Окно выдачи свободно: свет под козырьком вместо гирлянды перед ним.
+    add(G.box,glow(0xffd6a0),.6,2.46,1.22,2.7,.025,.035);
     for (const [xx, c] of [[-0.6, 0xd8243a], [-0.45, 0xf5c542], [-0.3, 0x5a8a3a]]) { add(G.cyl6, col(c), xx, 1.33, 1.35, 0.035, 0.18, 0.035); add(G.cone6, col(c), xx, 1.46, 1.35, 0.02, 0.07, 0.02); }
     add(G.box, mt, 1.6, 1.3, 1.35, 0.16, 0.14, 0.1); add(G.box, col(0xf1e8ff), 1.6, 1.39, 1.35, 0.12, 0.05, 0.06); add(G.box, tmat(T.cardboard()), 0.9, 1.31, 1.35, 0.3, 0.16, 0.2);
     add(G.box, tmat(T.metal()), 0.6, 0.25, 1.4, 0.8, 0.06, 0.35); for (const xx of [0.25, 0.95]) add(G.box, dk, xx, 0.12, 1.45, 0.04, 0.24, 0.04);

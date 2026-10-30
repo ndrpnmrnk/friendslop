@@ -1,6 +1,6 @@
 import { random } from '../core/random.js';
 import { hazardSteer } from './grab-targets.js';
-import {findMantle,beginMantle,advanceMantle} from '../world/traversal.js';
+import {findMantle,beginMantle,advanceMantle,catchLedge,advanceHang} from '../world/traversal.js';
 import {bounceAt} from './worldfx.js';
 import {tryBotTool,cancelBotAim} from './bot-tools.js';
 import {poseBow} from './bow.js';
@@ -190,6 +190,7 @@ export function updateBots(dt, t, P) {
     if (b.puppet) { W.netPuppet?.(b, dt, t); continue; } // v0.61: живой игрок или бот хоста по сети — двигает сеть
     if (b.drone || b.returning) { if(b.work&&!b.work.world)interruptBotWork(b);continue; }
     tickStun(b, dt);
+    b.hangCooldown=Math.max(0,(b.hangCooldown||0)-dt);if(b.hang){advanceHang(b,dt,actors(),{pull:b.hang.t>.6});b.ch.animate(dt,{t,speed:0,hang:b.hang?.handHeight||0,air:!!b.hang});blob(b);progBar(b);continue;}
     if(b.mantle&&(b.stun>0||b.heldBy||b.ride)){b.mantle=null;b.onGround=false;}
     if(b.mantle){advanceMantle(b,dt);b.ch.animate(dt,{t,speed:0,climb:true,air:false,vy:2});blob(b);progBar(b);continue;}
     b.toolAiming=false;if(b.heldBy||b.stun>0||b.daze>0||b.getT>0||b.netT>0||b.climbing||b.work)cancelBotAim(b);
@@ -277,7 +278,7 @@ export function updateBots(dt, t, P) {
     const was = b.onGround; b.noGrav=ctrl&&(b.climbing||!!b.ladderExit);if(!ctrl){b.climbing=false;b.ladderExit=null;}
     applyGripMotion(b,dt);
     moveBody(b, dt, PC.gravity);
-    b.mantleProbe=Math.max(0,(b.mantleProbe||0)-dt);if(ctrl&&!b.onGround&&!b.climbing&&!b.held&&!b.heldBy&&!b.ride&&b.vel.y<3&&b.mantleProbe<=0&&(ix||iz)){b.mantleProbe=.12;const ledge=findMantle(b,ix,iz);if(ledge)beginMantle(b,ledge);}
+    b.mantleProbe=Math.max(0,(b.mantleProbe||0)-dt);if(ctrl&&!b.onGround&&!b.climbing&&!b.held&&!b.heldBy&&!b.ride&&b.vel.y<3&&b.mantleProbe<=0&&!(b.hangCooldown>0)&&(ix||iz)){b.mantleProbe=.12;const ledge=findMantle(b,ix,iz);if(ledge)catchLedge(b,ledge);}
 
     if(b.landed){const bo=bounceAt(b.pos.x,b.pos.z,b.pos.y,Math.max(0,b.airPeak-b.pos.y));if(bo){b.vel.y=bo.power;b.onGround=false;b.airPeak=b.pos.y;}}
     if (b.onGround && !was) { const drop = b.airPeak - b.pos.y; if (drop > 0.6) smokeRing(b.pos.x, b.pos.y + 0.1, b.pos.z, 5, { speed: 1.6, size: 0.14 });
@@ -317,7 +318,7 @@ function decide(b, P) {
   // трус: опасность рядом — бежать или прятаться
   if (mood === 'coward' && P && !P.hidden) { const d = Math.hypot(P.pos.x - b.pos.x, P.pos.z - b.pos.z);
     if (d < 6 && (P.charging || P.dive || P.holding || (P.held && P.held.def.heavy))) {
-      const h = W.hides.find(q => Math.hypot(q.x - b.pos.x, q.z - b.pos.z) < 7 && Math.abs(q.y - b.pos.y) < 1 && !(q.pb && (!q.pb.looted || q.pb.tipped)) && !actors().some(a => a.hidden === q));
+      const h = W.hides.find(q => (!q.enabled||q.enabled()) && Math.hypot(q.x - b.pos.x, q.z - b.pos.z) < 7 && Math.abs(q.y - b.pos.y) < 1 && !(q.pb && (!q.pb.looted || q.pb.tipped)) && !actors().some(a => a.hidden === q));
       if (h && r < 0.5) { b.goal = { x: h.x, y: h.y, z: h.z, kind: 'hide', h, near: h.r }; return; }
       const dx = b.pos.x - P.pos.x, dz = b.pos.z - P.pos.z; b.goal = { x: b.pos.x + dx / (d || 1) * 8, y: b.pos.y, z: b.pos.z + dz / (d || 1) * 8, kind: 'flee' }; return; } }
   // Выброшенные вещи можно подобрать; очки задания не переходят с предметом.

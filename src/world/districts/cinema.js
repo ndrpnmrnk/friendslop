@@ -2,10 +2,12 @@ import {G,col,tmat,glow,compose} from '../../core/gfx.js';
 import {T} from '../../core/textures.js';
 import {W} from '../state.js';
 import {cinemaSeat,cinemaPoster,filmArchive,filmWorkbench,popcorn,cinemaProjection} from '../cinema-props.js';
+import {districtFrame} from '../district-motion.js';
 import {routeLight} from '../wayfinding.js';
 
 // Небольшой старый кинотеатр: все уровни соединены проходами, маршом и пожарной лестницей.
-export default{id:'cinema',name:'Последний сеанс',ground:'pave',build(b){
+export default{id:'cinema',name:'Последний сеанс',ground:'pave',size:44,build(outer){
+ const b=new outer.constructor(outer.ox+6,outer.oz+3,outer.Y,outer.d);
  const dark=col(0x302737),wood=tmat(T.wood()),brass=col(0x967a58),plaster=tmat(T.plaster()),FH=6;
  b.ground(1,1,31,29.5,T.pave(),2);
  b.tower({x:2,z:2,w:28,d:23,floors:1,fh:FH,stairs:false,windows:false,wall:0x70545f,inner:T.wallIn(0x9a7c75),floor:T.floorTile(),facadeProps:false,canopy:false,doorW:3,door:{side:'s',at:.5,style:'glass'},ladder:{side:'e',at:.25},interior(f){
@@ -68,5 +70,6 @@ export default{id:'cinema',name:'Последний сеанс',ground:'pave',bu
  b.at(FH).light(28.9,7.75,1.2,.015,true);b.at(FH).light(20,20.5,1.25,.015,true);for(const x of[13.3,18.7]){b.m(G.box,dark,x,FH+1.17,19.12,.19,.24,.17);b.m(G.box,glow(0xd8b98e),x,FH+1.17,19.02,.13,.15,.04);}
  b.at(FH).bench(7.2,21.2,0);b.at(FH).bin(9.2,21.3);b.at(FH).zone('roof',4.5,10,13,19);
  b.fence(1,2,1,24,1.1,'iron');b.bin(30.6,27.5);b.spawn(16,29);b.spawn(18.5,21);b.zone('floor',11,28,22,30.5);b.cats(2,26,29,30.5);
+ outer.path([[22,43],[22,30]],4,T.pave());for(const x of[8,36]){outer.bench(x,37,x<22?Math.PI/2:-Math.PI/2);cinemaPoster(outer,x,33,0,x<22?0:1);outer.planter(x,41,3,1.4,.5,'shrub');}outer.bikeRack(3,33,4,Math.PI/2);outer.ladder(7,15,'w',6);outer.plank(6,29,6,6,6,1.4);outer.climbTrim(6,17.5,1.4,23,6);districtFrame(outer,'cinema',{floor:[16,33,28,42]});
  b.hw(()=>{b.pumpkin(13.6,26.4,.35);b.pumpkin(18.4,26.4,.3);b.stringLights(6.4,25.3,25.6,25.3,4.65);b.web(2.35,4.9,2.4,Math.PI/2,1.2);b.web(29.65,4.8,17.55,-Math.PI/2,.8);});
 }};

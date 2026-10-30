@@ -21,7 +21,7 @@ import { OpenMethods } from './openables.js';
 import { MoreMethods } from './more.js';
 import { KitMethods } from './district-kit.js';
 
-/* Конструктор района. Все координаты — локальные (0..32), высота от уровня тротуара.
+/* Конструктор района. Все координаты — локальные (0..44 для нового формата), высота от уровня тротуара.
    Районы описываются вызовами этих методов в своих файлах в world/districts. */
 export class Builder {
   constructor(ox, oz, Y, district) {

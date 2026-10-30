@@ -2,6 +2,7 @@ import {THREE,G,col,tmat,glow,mesh,compose} from '../core/gfx.js';
 import {T,pix} from '../core/textures.js';
 import {W} from './state.js';
 import {addOutline} from '../game/outline.js';
+import {districtClock,localAnimation,localActors} from './district-motion.js';
 import {sfx} from '../core/sfx.js';
 
 export function cinemaSeat(b,x,z,y,number){
@@ -38,7 +39,11 @@ export function cinemaProjection(b,x,z,y,screen){
  g.updateWorldMatrix(true,true);const lens=g.localToWorld(new THREE.Vector3(0,.28,.8)),verts=[];const corners=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>new THREE.Vector3(b.X(screen.x+sx*screen.w*.48),b.Y+screen.y+sy*screen.h*.47,b.Z(screen.z)+.025));for(let i=0;i<4;i++)for(const p of[lens,corners[i],corners[(i+1)%4]])verts.push(p.x,p.y,p.z);
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));const beamMat=new THREE.MeshBasicMaterial({color:0xf0c78e,transparent:true,opacity:.025,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}),beam=new THREE.Mesh(geometry,beamMat);b.g.add(beam);W.keep.push(beam);W.mapResources.add(geometry);W.mapResources.add(beamMat);beam.visible=false;
  const site={x:b.X(x),z:b.Z(z),y:b.Y+y-.82,g,reels,screen:screenMesh,beam,remaining:0,playing:false};
- W.cinemaSite=site;const interact={x:b.X(x),z:b.Z(z+.9),y:site.y,r:1.25,dy:.7,outline,get label(){return site.playing?'Остановить проектор':'Запустить последний сеанс';},act(){site.playing=!site.playing;site.remaining=45;sfx('click',{at:g.position,v:.3});}};W.interacts.push(interact);
- W.animated.push(dt=>{material.uniforms.age.value+=dt;if(site.playing){site.remaining-=dt;for(const r of reels)r.rotation.z-=dt*1.8;if(site.remaining<=0)site.playing=false;}const k=material.uniforms.power.value;k&&(film.visible=true);material.uniforms.power.value=THREE.MathUtils.damp(k,site.playing?1:0,3,dt);beam.visible=material.uniforms.power.value>.02;beamMat.opacity=.026*material.uniforms.power.value;});
+ const state={values:[0]};W.districtStates.push(state);site.state=state;W.cinemaSite=site;
+ for(const hx of[screen.x-1,screen.x+1])W.hides.push({x:b.X(hx),y:b.Y+.16,z:b.Z(9),r:1.1,kind:'cinema',out:[0,1],cinema:site,enabled:()=>!site.playing});
+ const interact={x:b.X(x),z:b.Z(z+.9),y:site.y,r:1.25,dy:.7,outline,get label(){return site.playing?'Остановить проектор':'Запустить последний сеанс';},act(){state.values[0]=state.values[0]>districtClock()?0:districtClock()+45;sfx('click',{at:g.position,v:.3});}};W.interacts.push(interact);
+ localAnimation(dt=>{site.remaining=Math.max(0,state.values[0]-districtClock());site.playing=site.remaining>0;material.uniforms.age.value=districtClock()%3600;if(site.playing){for(const r of reels)r.rotation.z-=dt*1.8;}const k=material.uniforms.power.value;k&&(film.visible=true);material.uniforms.power.value=THREE.MathUtils.damp(k,site.playing?1:0,3,dt);beam.visible=material.uniforms.power.value>.02;beamMat.opacity=.026*material.uniforms.power.value;
+  for(const a of localActors(true)){a.projectorBlind=Math.max(0,(a.projectorBlind||0)-dt);if(site.playing&&a.hidden?.cinema===site){a.hidden=null;a.root.visible=true;}if(!site.playing)continue;const eye=a.pos.clone().add(new THREE.Vector3(0,1.45,0)),depth=(lens.z-eye.z)/(lens.z-b.Z(screen.z));if(depth<=0||depth>=1)continue;const cx=lens.x+(b.X(screen.x)-lens.x)*depth,cy=lens.y+(b.Y+screen.y-lens.y)*depth;const dx=lens.x-eye.x,dz=lens.z-eye.z,dist=Math.hypot(dx,dz);if(Math.abs(eye.x-cx)<screen.w*.5*depth&&Math.abs(eye.y-cy)<screen.h*.5*depth&&(Math.sin(a.facing||0)*dx+Math.cos(a.facing||0)*dz)/(dist||1)>.45)a.projectorBlind=.6;}
+ },g,screenMesh,beam);
  return site;
 }

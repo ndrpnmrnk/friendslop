@@ -7,6 +7,7 @@ import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
 import { raySolids } from '../world/physics.js';
 import { tryGrabTarget, updateGrabTargets } from './grab-targets.js';
+import {updateTugs,applyTugMotion} from './item-tug.js';
 
 /* Захват удерживает соперника за одежду на земле. Оба продолжают ходить,
    схваченный сильно замедлен и может вырваться. Подъёма и броска персонажа нет. */
@@ -49,6 +50,7 @@ export function struggleTap(b) { if (W.net?.request('struggle', '')) return; if 
 // После ввода, ДО moveBody: тяга не стирается управлением следующего кадра.
 // Меняем только горизонтальную скорость; стены, ступени и высоту решает физика.
 export function applyGripMotion(a, dt) {
+  applyTugMotion(a);
   if (!a.holding && !a.heldBy) return;
   const b = a.heldBy;
   if (b && b.holding === a && a.onGround && b.onGround && clearGrip(a, b)) {
@@ -92,7 +94,7 @@ export function updateGrabs(dt) {
     poseGrip(a,b,dt);
     if (tryGrabTarget(a, b)) letGo(a); // v0.60: дотащил до цели района (бак, вода, маты…)
   }
-  updateGrabTargets(dt);
+  updateGrabTargets(dt);updateTugs(dt);
 }
 
 /* ---------- эмоции на 1–5 ---------- */

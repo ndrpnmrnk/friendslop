@@ -1,81 +1,27 @@
-import { random } from '../../core/random.js';
-import {routeLight} from '../wayfinding.js';
+import {G,col,tmat,glow} from '../../core/gfx.js';
+import {T} from '../../core/textures.js';
+import {W} from '../state.js';
 import {medicalChart,medicalTray} from '../medical-props.js';
-import { THREE, G, tmat, col, glow, lam } from '../../core/gfx.js';
-import { T } from '../../core/textures.js';
-import { W } from '../state.js';
-import { sfx } from '../../core/sfx.js';
-
-/* Заброшенная больница: два этажа, тёмный коридор с мигающими лампами, палаты с койками,
-   каталки (схватить ЛКМ, разогнать и запрыгнуть E), хлопающие сами по себе двери, призраки-простыни,
-   рентген-кабинет со светящимся снимком, лифт «НЕ РАБОТАЕТ», шкафчики персонала (открываются),
-   регистратура с телефоном, кухня персонала. Снаружи: скорая, сломанный забор, заросли. */
-export default {
-  id: 'hospital', name: 'Больница', ground: 'dirt',
-  build(b) {
-    b.ground(13.5, 16, 18.5, 31.5, T.concrete(), 3);
-    const FH = 3.8;
-    b.tower({ x: 2, z: 0.5, w: 26, d: 15.5, floors: 2, fh: FH, wall: 0x8a9a8c, lit: 0.12, lights: false, floor: T.floorTile(),
-      door: { side: 's', at: 0.5, sign: ['БОЛЬНИЦА №13', '#2a5a4a', '#d8f0e0'] }, gaps: [{ side: 'e', at: 0.5 }], fireEscape: { side: 'w', at: 0.5 },
-      interior(f, k, r) {
-        const h = FH - 0.2, north = 8.5, south = 11.7, mid = (north + south) / 2;
-        // Сквозной коридор 3.2 м. Вход и лестница соединены свободным проходом.
-        for (const [xa, xb] of [[r.x0, 10.5], [10.5, 19], [19, r.x1]]) {
-          f.partition(xa, north, xb, north, h, 0.5, 2);
-          if (xa > r.x0) f.box(xa, (r.z0 + north) / 2, 0.12, north - r.z0, h, tmat(T.plaster()));
-          const cx = (xa + xb) / 2;
-          f.flickerLamp(cx, (r.z0 + north) / 2, FH - 0.2);
-          if (k === 0) {
-            if(xa===r.x0){f.bench(7.2,7.6,0);medicalChart(f,9.3,north-.075,1.9,Math.PI);}
-            else if (xa === 10.5) { f.xray(cx, r.z0 + 0.5, 0); f.cupboard(xb - 0.65, r.z0 + 0.4); }
-            else { f.bed(cx, r.z0 + 1.3, Math.PI, 0x8ab0a8); f.sheetGhost(xb - 1.1, north - 0.9, FH - 0.3); }
-          } else {
-            if(xa===r.x0){f.kitchen(7.8,7.75,3,Math.PI);f.shelf(4.2,7.1,1.8,Math.PI/2,'hospital');}
-            else if (xa === 10.5) for (let x = xa + 1; x < xb - 1; x += 0.8) f.locker(x, r.z0 + 0.4, 0, 0x4a7a6a);
-            else { f.bed(cx, r.z0 + 1.3, Math.PI, 0xd8d0c0); f.xray(xb - 0.6, north - 1, -Math.PI / 2); }
-          }
-        }
-        // Регистратура в открытом холле перед палатами, вне объёма лестницы.
-        if(k===0){f.desk(16.55,13.65,0,true);f.phoneSpot(16.55,13.65,[0,1]);medicalChart(f,17.92,14.4,1.9,-Math.PI/2);}
-        routeLight(f,r.x0+.012,mid,.22,Math.PI/2);for(const z of[3.0,5.0])routeLight(f,r.x0+.012,z,.30,Math.PI/2);
-        // Две большие палаты по сторонам центрального входного холла.
-        for (const [xa, xb] of [[r.x0, 12], [18, r.x1]]) {
-          const cx = (xa + xb) / 2;
-          f.partition(xa, south, xb, south, h, 0.5, 2);
-          const inner = xa === r.x0 ? xb : xa;
-          f.box(inner, (south + r.z1) / 2, 0.12, r.z1 - south, h, tmat(T.plaster()));
-          const door = f.door(cx - 1, south, 'x', 1, 0, 2, 2.2); door.haunted = true;
-          for (const x of [xa + 1.5, xb - 1.5]) f.bed(x, r.z1 - 1.4, Math.PI, k ? 0xd8d0c0 : 0x8ab0a8);
-          f.cupboard(cx,r.z1-.4,Math.PI);if(!k)medicalTray(f,cx,r.z1-.4,.942);for(const x of[xa+1.5,xb-1.5])medicalChart(f,x,south+.075,2.0,0);f.flickerLamp(cx,(south+r.z1)/2,FH-.2);
-          if (k === 1) f.sheetGhost(xa + 1.5, south + 0.9, FH - 0.3);
-        }
-        for (let x = r.x0 + 2; x < r.x1 - 1; x += 5) f.flickerLamp(x, mid, FH - 0.2);
-        f.elevator(r.x1 - 2, r.z0 - 0.1, 0, 0);
-        // Каталки в боковых карманах, середина коридора остаётся свободной.
-        f.ride('gurney', r.x1 - 1.3, mid, Math.PI / 2);
-        f.ride('gurney', r.x0 + 1.3, mid, -Math.PI / 2);
-        f.sign(15, 2.5, south + 0.08, 0, k ? 'ПАЛАТЫ · ПЕРСОНАЛ' : 'РЕНТГЕН · РЕГИСТРАТУРА', '#2a5a4a', '#d8f0e0', 2.8, 0.35);
-      } });
-    // хлопающие двери: сами открываются и закрываются, когда кто-то рядом
-    for (const d of W.doors) if (d.haunted) { let t = 2 + random() * 4; W.animated.push(dt => { t -= dt; if (t > 0) return; t = 1.5 + random() * 5; const P = W.player; if (!P || Math.hypot(P.pos.x - d.x, P.pos.z - d.z) > 14) return; d.open = !d.open; d.slam = 0.6; sfx('door', { at: d, v: 0.6 }); }); }
-    // двор: скорая, сломанный забор, заросли, мёртвые деревья
-    b.car(22.5, 23.5, Math.PI / 2, 0xe8e4ec, 'van');
-    b.m(G.box, tmat(T.sign('СКОРАЯ', '#f1e8ff', '#d8243a')), 22.5, 0.9, 25.53, 1.4, 0.3, 0.02);
-    b.m(G.box, glow(0x4ab0f0), 22.5, 1.62, 23.5, 0.5, 0.12, 0.2);
-    b.fence(1, 31.2, 12, 31.2, 1.4, 'wood'); b.fence(20, 31.2, 31, 31.2, 1.4, 'wood'); b.fence(31.2, 17, 31.2, 31, 1.6, 'iron');
-    for (const [x, z] of [[3, 20], [9, 27], [27.5, 18.5]]) b.deadTree(x, z);
-    for (const [x, z] of [[6, 18], [11, 21], [26, 29], [29, 21]]) b.bush(x, z, 1.4, 1.2, 0.9);
-    b.leafPile(6.5, 24, 0.8); b.ride('gurney', 16, 20, 0.3); b.ride('chair', 10, 17.5, 1.2);
-    b.dumpster(28.5, 26.5); b.bin(12.8, 17); b.trashBags(25.5, 17, 2);
-    b.rake(4.5, 29, 0.6);
-    b.lamp(13, 17.5, Math.PI); b.lamp(19, 30, 0);
-    b.puddle(17, 24, 1.2); b.puddle(7, 19, 0.8);
-    b.mist(0.5, 16, 31.5, 31.5, 0);
-    b.birds('crow', 2, 18, 12, 30, 4);
-    b.zone('floor', 1, 17, 12, 30); b.zone('floor', 19, 26, 31, 30.5);
-    b.cats(1, 17, 31, 31);
-    b.spawn(16, 22); b.spawn(5, 28);
-    b.hw(() => { b.pumpkin(14.2, 16.6); b.pumpkin(24.5, 29); });
-    void THREE; void col; void lam;
-  },
-};
+import {districtFrame,localAnimation,districtClock} from '../district-motion.js';
+import {sfx} from '../../core/sfx.js';
+export default{id:'hospital',name:'Больница',ground:'dirt',size:44,build(b){
+ const FH=3.8,gurneys=[];
+ b.tower({x:3,z:2,w:38,d:25,floors:2,fh:FH,wall:0x82988b,lit:.18,windowPools:false,facadeProps:false,lights:false,doorW:3,door:{side:'s',at:.5,sign:['БОЛЬНИЦА №13','#34594e','#dfdec3']},gaps:[{side:'e',at:.5}],fireEscape:{side:'w',at:.6},floor:T.floorTile(),interior(f,k,r){
+  // Коридор шириной четыре метра, с карманами для транспорта и сквозным выходом.
+  const north=14,south=18,mid=16;
+  for(const[xa,xb]of[[r.x0,15],[15,28],[28,r.x1]]){const cx=(xa+xb)/2;f.partition(xa,north,xb,north,3.6,.5,2.2);if(xa>r.x0)f.box(xa,10,.15,8,3.6,tmat(T.plaster()));
+   if(xa===15){f.xray(cx,r.z0+.7,0);f.cupboard(xb-.6,r.z0+.4);}else{for(const x of[xa+2,xb-2])f.bed(x,10,Math.PI,0x93afa3);medicalChart(f,cx,north-.08,1.8,Math.PI);}
+   if(cx>13)f.flickerLamp(cx,mid,3.5);
+  }
+  for(const[xa,xb]of[[4,17],[27,40]]){const cx=(xa+xb)/2;f.partition(xa,south,xb,south,3.6,.5,2.4);for(const x of[xa+2,xb-2])f.bed(x,23,Math.PI,0xb7b8a1);f.cupboard(cx,25.8,Math.PI);medicalTray(f,cx,25.8,.942);}
+  if(!k){f.desk(31,25,Math.PI,true);f.phoneSpot(31,25,[0,1]);f.bench(12,25,Math.PI);f.waterCooler(38,25);}else{f.locker(31,25.8,Math.PI,0x6b7c72);f.kitchen(36,25.8,3,Math.PI);}
+  for(const x of[7,37]){const before=W.pushables.length;f.ride('gurney',x,mid,x<22?Math.PI/2:-Math.PI/2);gurneys.push(W.pushables[before]);}f.sign(22,2.5,26.7,Math.PI,'ПАЛАТЫ · РЕНТГЕН','#34594e','#dfdec3',4,.4);
+ }});
+ // Полосы маршрута и сирена заранее предупреждают о разгоне каталок.
+ for(const y of[0,FH]){b.at(y).hazardFloor(22,14.3,31,.25);b.at(y).hazardFloor(22,17.7,31,.25);b.at(y).hazard({x0:6,z0:14,x1:38,z1:18,y0:0,y1:2,active:()=>districtClock()%32<5});}
+ const lamps=[b.warnLamp(6,2.5,16),b.warnLamp(38,2.5,16)];let last=-1,sounded=-1;
+ localAnimation(()=>{const p=districtClock()%32,warn=p<2;for(const l of lamps)l.set(p<5?Number(Math.sin(p*16)>0):0);const cycle=Math.floor(districtClock()/32);if(warn&&sounded!==cycle){sounded=cycle;sfx('alarm',{at:lamps[0].m.position,range:28});}if(cycle!==last&&p>=2&&p<5){last=cycle;if(!W.net?.replica)for(const cart of gurneys)if(cart&&!cart.rider&&!cart.grabbed){cart.vx=cart.x<b.X(22)?8:-8;cart.vz=0;}}},...lamps.map(l=>l.m));
+ b.ground(18,27,26,43,T.concrete(),3);b.car(34,34,Math.PI/2,0xe2dfd3,'van');b.m(G.box,glow(0x729ebe),34,1.6,34,.5,.12,.2);
+ for(const[x,z]of[[7,33],[11,39],[38,39]])b.deadTree(x,z);b.fence(2,42,17,42,1.2,'iron');b.fence(27,42,42,42,1.2,'iron');b.dumpster(40,31);b.bin(29,29);b.ride('gurney',15,32,0);
+ b.grabTarget({x:10,z:30,r:1.2,kind:'fling',dir:[1,0],label:'каталка'});b.softMist(2,29,42,43,.2);districtFrame(b,'hospital');b.zone('floor',5,29,15,40);b.hw(()=>b.pumpkin(28,28));
+}};

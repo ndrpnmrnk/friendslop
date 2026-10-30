@@ -1,0 +1,44 @@
+// Одна целевая CPU-проверка без WebGL/WAN. Основная игра не загружает этот файл.
+const log=document.querySelector('#log'),say=s=>log.textContent+='\n'+s;
+const assert=(ok,msg)=>{if(!ok)throw Error(msg);say('PASS '+msg);};
+const frame=document.createElement('iframe');frame.src='/__logic-index.html?testFrames=1';document.body.append(frame);const w=frame.contentWindow;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+try{
+ const end=Date.now()+30000;while(!w.__onlineTestModules?.camera){if(Date.now()>end)throw Error('boot: '+w.document.body.innerText.slice(0,200));await sleep(80);}
+ const fs=w.__fs,{W}=fs;
+ // Imports live inside the iframe realm, so each assertion uses the SAME world singleton.
+ const get=await w.eval('(async()=>p=>import(p+"?net-logic-test"))()');
+ const [gfx,world,builder,physics,tug,traversal,player,sync,mammoth,lock,bus,games,random,motion]=await Promise.all(['core/gfx.js','world/state.js','world/builder.js','world/physics.js','game/item-tug.js','world/traversal.js','game/player.js','net/world-sync.js','missions/mammoth.js','missions/lockpick.js','missions/bus.js','missions/games5.js','core/random.js','world/district-motion.js'].map(p=>get('/src/'+p)));
+ const ids=['foodcourt','office','port','skatepark','hospital','factory','townhall','university','cinema'];
+ const mapObjects=[];
+ for(const id of ids){const {default:d}=await get('/src/world/districts/'+id+'.js');const state=world.createWorld(new gfx.THREE.Group());world.withWorld(state,()=>{random.withRandom(610,()=>d.build(new builder.Builder(0,0,0,id)));assert(d.size===44,id+' 44m');const p=state.districtLayouts[0]?.spawn;assert(p&&physics.isFree(p.x-.4,p.z-.4,p.x+.4,p.z+.4,p.y+.1,p.y+1.8),id+' clear spawn');state.group.updateMatrixWorld(true);for(const f of state.animated)f(1/60,10);if(id==='cinema'){const a=player.createPlayer('cat');state.player=a;a.hidden=state.hides.find(h=>h.kind==='cinema');a.root.visible=false;state.cinemaSite.state.values[0]=motion.districtClock()+20;for(const f of state.animated)f(1/60,10);assert(!a.hidden&&a.root.visible,'projector reveals occupied dark hiding place');}if(id==='foodcourt'){state.fires.at(-1).hp=0;assert(state.districtStates[0].values[1]===0,'extinguisher changes shared grill state');}for(const s of state.solids)if(![s.x0,s.x1,s.z0,s.z1,s.y0,s.y1].every(Number.isFinite))throw Error(id+' invalid solid');mapObjects.push({id,solids:state.solids.length,items:state.items.length});});}
+ say('LAYOUTS '+JSON.stringify(mapObjects));
+ // Реальная смешанная карта и короткий раунд на 7 ботов.
+ w.__forceDistricts=ids;fs.S.botCount=7;fs.startRound();assert(W.districts.length===9&&W.bots.length===7,'mixed map + 7 bots');
+ for(let i=0;i<120;i++){w.__stepTestFrame();await sleep(17);}
+ assert([fs.P,...W.bots].every(a=>[a.pos.x,a.pos.y,a.pos.z].every(Number.isFinite)),'round positions finite');assert(!fs.lastFaults().some(q=>Date.parse(q.at)>Date.now()-5000),'no runtime faults');
+ assert(W.factorySite?.cans.length===6&&W.salonSite&&W.university?.charges.length===4&&W.pitch,'mission sites preserved');
+ const states=[];
+ for(const host of[true,false]){const state=world.createWorld(new gfx.THREE.Group());state.districtStates.push({values:[0]});states.push({state,wire:world.withWorld(state,()=>sync.createWorldSync({host,id:host?1:2,myKey:host?'p1':'p2',actor:()=>null,command:()=>{},visuals:false}))});}
+ states[0].state.districtStates[0].values[0]=1234;const packet=world.withWorld(states[0].state,()=>states[0].wire.capture(true));world.withWorld(states[1].state,()=>states[1].wire.receive(packet));assert(states[1].state.districtStates[0].values[0]===1234,'bell/projector state replicated');
+ const tiny=world.createWorld(new gfx.THREE.Group());world.withWorld(tiny,()=>{const a=player.createPlayer('cat'),b=player.createPlayer('cat');a.pos.set(0,0,0);b.pos.set(0,0,1.2);tiny.player=a;tiny.bots=[b];b.human=true;const it=fs.addItem('ball',0,1,1.2);it.state='held';it.owner=b;b.held=it;assert(tug.startTug(a,it),'tug accepted');for(let i=0;i<300;i++)tug.updateTugs(1/60);assert(a.held===it&&!b.held&&it.owner===a,'tug unique ownership');
+ a.held=null;b.held=it;it.owner=b;assert(tug.startTug(a,it),'second tug');tug.tugInput(b,true);for(let i=0;i<550;i++)tug.updateTugs(1/60);assert(b.held===it&&it.owner===b&&!it.tug,'defender keeps item');
+ const support=physics.addSolid(-2,1,2,3,0,2);a.pos.set(0,.3,.5);a.held=null;b.held=null;const target=traversal.findMantle(a,0,1);assert(target,'ledge found');traversal.catchLedge(a,target);assert(a.hang,'high ledge hangs');b.pos.set(a.pos.x,2,a.pos.z+a.r);b.onGround=true;b.vel.set(1,0,0);traversal.advanceHang(a,.1,[a,b]);assert(!a.hang&&a.vel.y<0,'stepping on hands releases ledge');
+ const o={pos:()=>new gfx.V3(0,0,0),f:[0,1]},result=[];const game=lock.lockpickGame(o,{feedback(){},pose(){},msg(){},progress(){},finish:r=>result.push(r)},{bot:true});for(let i=0;i<300&&!result.length;i++){game.botStep(1/60);game.update(1/60);}assert(result[0]?.success,'3D lock bot completes same mechanic');game.stop();
+ a.pos.set(10,0,0);b.pos.set(10,0,1.2);a.onGround=b.onGround=true;it.pos.set(10,1,1.2);a.netKey='p1';b.netKey='p2';it.state='held';it.owner=b;b.held=it;a.held=null;
+ const wire=sync.createWorldSync({host:true,id:1,myKey:'p1',actor:k=>k==='p1'?a:k==='p2'?b:null,command:()=>{},visuals:false});assert(tug.startTug(a,it),'host tug command');const original=it.tug;
+ wire.remoteOwns=()=>true;const row=wire.capture(true).rows.find(r=>r[0]===it.netId),forged=row[1].slice();forged[22]=['p2',1];wire.accept([[row[0],forged]],b);assert(it.tug===original&&it.tug.actor===a&&it.tug.progress===.1,'guest proposal cannot forge tug winner');wire.setHost(true);assert(!it.tug&&it.owner===b,'host migration cancels unfinished tug safely');tiny.net=null;
+ let deckY=1;const deck=motion.movingDeck(new builder.Builder(0,0,0,'test'),{name:'test-deck',x:30,z:30,route:()=>({x:30,z:30,y:deckY})});a.pos.set(30,1,30);a.vel.set(0,0,0);const update=tiny.animated.at(-1);deckY=1.1;update(1/60);assert(Math.abs(a.pos.y-1.1)<.001&&Math.abs(deck.solid.y1-1.1)<.001,'moving deck carries body and collider together');
+ const belt=motion.conveyor(new builder.Builder(0,0,0,'test'),40,40,3,8,{speed:2});a.pos.set(40,belt.y,40);const loose=fs.addItem('ball',40,belt.y,40);loose.pos.y=belt.y+loose.def.r;loose.state='rest';tiny.animated.at(-1)(.1);assert(a.pos.z>40.19&&loose.pos.z>40.19,'conveyor carries body and item');
+ const api={feedback(){},pose(p,l){if(p){this.eye=p.clone();this.look=l.clone();}},msg(){},timer(){},progress(){},finish(r){this.result=r;}};
+ const ctx={player:a,bot:true,cursor(){},mission:{id:12345}};
+ const mamm=mammoth.buildMammoth(8,0,8,[0,1]),dress=mammoth.mammothDress(mamm,api,ctx);
+ assert(dress.cloth.parent===mamm.body,'mammoth pants follow body transform');
+ const brain={rayTo(q){return new gfx.THREE.Raycaster(api.eye.clone(),q.clone().sub(api.eye).normalize());}};
+ for(let i=0;i<1800&&!api.result;i++){dress.botStep(1/30,brain);dress.update(1/30);tiny.group.updateMatrixWorld(true);}
+ assert(api.result?.success,'mammoth four edges, launch and fireworks');dress.stop();mamm.dispose();delete api.result;
+ const detector=games.WORLD5.detector({pos:()=>new gfx.V3(0,0,0)},api,ctx);a.pos.copy(detector.botTarget());assert(detector.interact(),'detector digs at signal');for(let i=0;i<150&&!api.result;i++)detector.update(1/30);assert(api.result?.success,'detector treasure completed');detector.stop();delete api.result;
+ const grill=games.PANEL5.grill({spot:{f:[0,1],bx:0,by:1,bz:0}},api,ctx),cook={ready:()=>true,hit:mesh=>({intersectObjects:()=>[{object:mesh}]})};for(let i=0;i<600&&!api.result;i++){grill.botStep(1/30,cook);grill.update(1/30);}assert(api.result?.success,'grill three burgers');grill.stop();
+ });
+ say('DONE - CPU logic only; GPU/FPS/WAN not measured.');
+}catch(e){say('FAIL '+e.stack);console.error(e);}

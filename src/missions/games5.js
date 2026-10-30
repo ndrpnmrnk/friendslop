@@ -1,3 +1,4 @@
+import {fistModel} from '../game/fist-model.js';
 import { random } from '../core/random.js';
 import {addOutline} from '../game/outline.js';
 import {CONFIG} from '../config.js';
@@ -304,23 +305,23 @@ export const WORLD5 = {
     api.feedback?.();const tune=CONFIG.detector,P=ctx.player;P.missionTool=true;const c=o.pos(),pts=[farFloor(c,3,12),farFloor(c,3,12),farFloor(c,3,12)],goal=pts[0],decoy=pts.slice(1),dug=new Set(),holes=[];
     let time=80,phase='search',digT=0,found=0,pulse=1,hint='',digAt=null,hole=null;
     const detector=new THREE.Group();detector.name='metal-detector';W.group.add(detector);
-    detector.add(compose('detector32',a=>{const metal=tmat(T.metal()),dark=col(0x302a3a),rubber=tmat(T.cloth(0x554a40));a(G.cyl6,metal,0,-.29,.28,.021,.92,.021,-.66);a(G.cyl6,rubber,0,.03,0,.04,.24,.04,.18);a(G.box,dark,0,.08,.06,.22,.15,.19,-.25);a(G.box,tmat(T.sign('SCAN','#342c28','#d1b98b')),0,.16,.08,.14,.012,.085);a(G.cyl6,dark,0,.15,-.1,.065,.05,.065);a(G.torus,dark,0,-.66,.55,.19,.19,.10,Math.PI/2);a(G.box,dark,0,-.66,.55,.33,.025,.035);for(let i=0;i<5;i++)a(G.torus,rubber,0,-.16-i*.055,.15+i*.043,.024,.024,.024,-.66);}));
+    detector.add(compose('detector61',a=>{const metal=tmat(T.metal()),dark=col(0x302a3a),rubber=tmat(T.cloth(0x554a40));a(G.cyl6,metal,0,-.29,.28,.021,.92,.021,-.66);a(G.cyl6,rubber,0,.03,0,.04,.24,.04,.18);a(G.box,dark,0,.08,.06,.22,.15,.19,-.25);a(G.box,tmat(T.cloth(0x645a49)),0,.16,-.12,.19,.04,.15);a(G.torus,metal,0,.17,-.14,.12,.06,.07,Math.PI/2);a(G.cyl6,dark,0,.15,-.1,.065,.05,.065);a(G.torus,dark,0,-.66,.55,.19,.19,.10,Math.PI/2);a(G.box,dark,0,-.66,.55,.33,.025,.035);for(let i=0;i<5;i++)a(G.torus,rubber,0,-.16-i*.055,.15+i*.043,.024,.024,.024,-.66);}));
     // Никакого зелёного луча или подсветки клада: только локальная волна и звук.
-    const meter=mesh(G.box,col(0xd9ad56),.055,.17,.08,.025,.012,.015,detector);
+    const signal=mesh(G.sph10,glow(0xe8ba62),.055,.17,.08,.018,.012,.018,detector);
     const shovel=compose('digShovel32',a=>{a(G.cyl6,tmat(T.wood()),0,-.1,.08,.025,.64,.025,-.2);a(G.box,tmat(T.metal()),0,-.48,.15,.22,.25,.045,-.2);a(G.box,col(0x29232e),0,.25,0,.13,.04,.045);});shovel.name='detector-shovel';W.group.add(shovel);shovel.visible=false;
     const wave=ring(0xdfb265);wave.name='detector-wave';wave.visible=false;
-    const find=()=>{if(flat(digAt,goal)<1.05){const ch=new THREE.Group();ch.position.copy(goal);W.group.add(ch);holes.push(ch);ch.add(compose('m5chest',a=>{a(G.box,tmat(T.wood()),0,.2,0,.6,.35,.4);a(G.box,col(0xd8a030),0,.2,.205,.1,.12,.02);a(G.box,glow(0xf5c542),0,.4,0,.5,.05,.3);}));burst(goal.x,goal.y+.5,goal.z,16,{color:0xf5c542,size:.12,speed:2.5,up:2});sfx('done');api.msg('КЛАД!','good');phase='found';found=1.3;return;}
+    const find=()=>{if(flat(digAt,goal)<1.05){const ch=new THREE.Group();ch.position.copy(goal);W.group.add(ch);holes.push(ch);ch.add(compose('m5chest',a=>{a(G.box,tmat(T.wood()),0,.2,0,.6,.35,.4);a(G.box,col(0xd8a030),0,.2,.205,.1,.12,.02);a(G.box,glow(0xf5c542),0,.4,0,.5,.05,.3);}));burst(goal.x,goal.y+.5,goal.z,16,{color:0xf5c542,size:.12,speed:2.5,up:2});for(let i=0;i<5;i++){const fist=fistModel().clone(true);fist.scale.setScalar(.45);fist.position.set((i%3-1)*.17,.44+Math.floor(i/3)*.13,(i%2-.5)*.12);ch.add(fist);}sfx('done');api.msg('КЛАД!','good');phase='found';found=1.3;return;}
       const d=decoy.find(q=>!dug.has(q)&&flat(digAt,q)<1.05);if(d){dug.add(d);const it=addItem('slipper',d.x,d.y+.4,d.z);it.def={...it.def,respawn:0};api.msg('Старый ботинок...','bad');}else{time-=4;api.msg('Пусто (-4 с)','bad');}phase='search';hint='';};
-    api.msg('Слушай сигнал: чем чаще писк и круг, тем ближе. E - копать');
+    api.msg('Слушай писк · E - копать');
     return{get phase(){return phase;},botTarget:()=>goal,botStep(dt,brain){if(flat(P.pos,goal)<.8&&phase==='search'&&brain.ready(1))this.interact();},target:()=>null,prompt:()=>phase==='search'&&flat(P.pos,c)<16?'<b>E</b>Копать':'',
       interact(){if(phase!=='search'||flat(P.pos,c)>16)return false;phase='dig';digT=tune.digTime;digAt=P.pos.clone();const f=P.root.rotation.y;hole=mesh(G.disc,new THREE.MeshBasicMaterial({color:0x2a1e18}),digAt.x+Math.sin(f)*.48,digAt.y+.022,digAt.z+Math.cos(f)*.48,.08,.08,1,W.group);hole.rotation.x=-Math.PI/2;holes.push(hole);api.msg('Копаем...');return true;},
-      update(dt){time-=dt;api.timer(time);if(time<=0)return api.finish({success:false});followHand(P,detector,Math.sin(time*4)*.07);detector.visible=phase==='search';shovel.visible=phase==='dig';
+      update(dt){time-=dt;api.timer(time);if(time<=0)return api.finish({success:false});followHand(P,detector,Math.sin(time*3)*.045);detector.rotation.y+=Math.sin(time*2.2)*.22;detector.visible=phase==='search';shovel.visible=phase==='dig';
        if(phase==='dig'){digT-=dt;const k=1-digT/tune.digTime,stroke=Math.sin(k*Math.PI*4);followHand(P,shovel,-.45+stroke*.65);shovel.position.y-=Math.max(0,stroke)*.2;hole.scale.setScalar(.08+k*(tune.holeRadius-.08));if(stroke>.8&&random()<dt*30){puff(hole.position.x,hole.position.y+.08,hole.position.z,{color:0x60432d,size:.10,vx:(random()-.5)*2,vy:2.5,vz:(random()-.5)*2,g:9,life:.5});sfx('imp',{at:hole.position,m:'dirt',v:.3});}if(digT<=0){shovel.visible=false;find();}}
        if(phase==='found'){found-=dt;if(found<=0)return api.finish({success:true,mult:1});}
        const d=Math.min(...[goal,...decoy.filter(q=>!dug.has(q))].map(q=>flat(P.pos,q))),k=Math.max(0,Math.min(1,1-d/tune.range));const interval=tune.farPulse-k*(tune.farPulse-tune.nearPulse);pulse+=dt/interval;
        if(pulse>=1){pulse%=1;if(phase==='search')sfx('beep',{at:P.pos,range:10,p:k,v:.65});}
-       wave.visible=phase==='search'&&P===W.player;const coil=detector.localToWorld(new V3(0,-.66,.55));wave.position.set(coil.x,P.pos.y+.035,coil.z);wave.scale.setScalar(.22+pulse*.95);wave.material.opacity=Math.sin(pulse*Math.PI)*(.22+k*.13);meter.scale.x=.3+k*.7;
-       const next=d<1.05?'Сигнал прямо под ногами - E, копать':d<3?'Частый сигнал - совсем близко':d<6?'Сигнал усиливается':'Редкий сигнал - ищи ближе';if(phase==='search'&&next!==hint){hint=next;api.msg(next,d<1.05?'good':'');}api.progress(null);
+       wave.visible=phase==='search'&&P===W.player;const coil=detector.localToWorld(new V3(0,-.66,.55));wave.position.set(coil.x,P.pos.y+.035,coil.z);wave.scale.setScalar(.22+pulse*.95);wave.material.opacity=Math.sin(pulse*Math.PI)*(.22+k*.13);signal.visible=pulse<.18;
+       const next=d<1.05?'Под ногами · E':d<3?'Совсем близко':d<6?'Теплее':'Ищи сигнал';if(phase==='search'&&next!==hint){hint=next;api.msg(next,d<1.05?'good':'');}api.progress(null);
       },stop(){P.missionTool=false;for(const g of [detector,shovel,wave,...holes])g.removeFromParent();wave.material.dispose();}
     };
   },
@@ -434,6 +435,8 @@ export const PANEL5 = {
       top.userData.i = bot.userData.i = i; return { g, top, bot, a: 0, b: 0, flips: 0, flipT: 0, dead: 0 }; });
     const spatula=compose('m24spatula',a=>{a(G.box,col(0x3a2418),0,0,0.13,0.035,0.035,0.18);a(G.box,tmat(T.metal()),0,-0.01,-0.02,0.12,0.014,0.14);for(const x of [-0.035,0,0.035])a(G.box,col(0x2a2232),x,0,-0.02,0.008,0.003,0.09);});grp.add(spatula);toolHand(ctx,spatula,0,0,0.2);spatula.visible=false;
     for(const p of P3)for(const x of [-0.035,0,0.035])mesh(G.box,col(0x5a3020),x,0.032,0,0.008,0.003,0.09,p.g);
+    const cues=P3.map((p,i)=>{const g=mesh(G.torus,lam({color:0xe5bf79,transparent:true,opacity:.3}),p.g.position.x,.055,.0,.095,.095,.095,grp);g.rotation.x=Math.PI/2;return g;});
+    const orders=[];for(let i=0;i<3;i++){const m=mesh(G.sph10,lam({color:0xe8a050,transparent:true,opacity:.22}),.36,.10,-.1+i*.1,.07,.04,.07,grp);orders.push(m);}
     let good = 0, endT = -1, buns = 0;
     const reset = p => { p.a = 0; p.b = 0; p.flips = 0; p.g.visible = true; p.g.position.y = 0.07; p.g.rotation.x = 0; };
     const bun = () => { const b = new THREE.Group(); b.position.set(0.36, 0.04, -0.1 + buns * 0.1); grp.add(b); b.add(compose('m5bun', a => { a(G.cyl12, col(0xe8a050), 0, 0.012, 0, 0.07, 0.024, 0.07); a(G.cyl12, col(0x6a3a1e), 0, 0.034, 0, 0.068, 0.02, 0.068); a(G.cyl12, col(0x6aa84f), 0, 0.048, 0, 0.072, 0.006, 0.072); a(G.sph10, col(0xe8a050), 0, 0.055, 0, 0.07, 0.04, 0.07); })); for(let i=0;i<5;i++)mesh(G.box,col(0xf1dfaa),Math.sin(i*2.4)*0.04,0.088,Math.cos(i*2.4)*0.035,0.009,0.004,0.005,b);buns++; };
@@ -444,12 +447,12 @@ export const PANEL5 = {
         if (p.flips === 0) { p.flips = 1; p.flipT = 0.35; [p.a, p.b] = [p.b, p.a]; sfx('hiss'); return; }
         // подать: обе стороны прожарены и не сгорели
         const ok = p.a >= 3.2 && p.b >= 3.2 && p.a < 6.5 && p.b < 6.5; sfx(ok ? 'pickup' : 'bonk');
-        if (ok) { good++; bun(); api.progress(good / 3); api.msg(`Бургер ${good}/3!`, 'good'); if (good >= 3) { endT = 1; sfx('done'); } } else api.msg(p.a < 3.2 || p.b < 3.2 ? 'Сырая!' : 'Сгорела!', 'bad');
+        if (ok) { orders[good].visible=false;good++; bun(); api.progress(good / 3); api.msg(`Бургер ${good}/3!`, 'good'); if (good >= 3) { endT = 1; sfx('done'); } } else api.msg(p.a < 3.2 || p.b < 3.2 ? 'Сырая!' : 'Сгорела!', 'bad');
         reset(p); },
       update(dt) {
         if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); }
         spatula.visible=false;for (const p of P3) { if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) reset(p); continue; }
-          p.b += dt; shade(p.b, p.bot.material); shade(p.a, p.top.material);
+          p.b += dt;const cue=cues[P3.indexOf(p)],ready=p.flips===0?p.b>=3.2:p.a>=3.2&&p.b>=3.2;cue.material.color.setHex(p.b>=6.5?0xe14b48:ready?0xb8d68b:0xe5bf79);cue.material.opacity=ready?.75:.18;cue.scale.setScalar(ready?1+Math.sin(p.b*6)*.07:1);shade(p.b, p.bot.material); shade(p.a, p.top.material);
           if (p.flipT > 0) { p.flipT -= dt; const k = 1 - p.flipT / 0.35; spatula.visible=true;spatula.position.set(p.g.position.x,0.04+Math.sin(k*Math.PI)*0.08,0.1);spatula.rotation.x=-Math.sin(k*Math.PI)*0.5; p.g.position.y = 0.07 + Math.sin(k * Math.PI) * 0.12; p.g.rotation.x = k * Math.PI; if (p.flipT <= 0) p.g.rotation.x = 0; }
           if (random() < dt * (p.b > 6.5 ? 14 : 3)) { const w = new V3(); p.g.getWorldPosition(w); puff(w.x, w.y + 0.05, w.z, { color: p.b > 6.5 ? 0x2a2230 : 0xd8d0e4, size: 0.06, vy: 0.6, life: 0.6 }); }
           if (p.b > 8.5) { p.dead = 1; p.g.visible = false; api.msg('Сгорела! Новая котлета', 'bad'); sfx('bonk'); } }

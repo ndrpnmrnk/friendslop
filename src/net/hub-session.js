@@ -10,7 +10,7 @@ import { pushOut, pushActorsOut, bumpPushables } from '../world/physics.js';
 import { vector, sweepPosition } from './state-codec.js';
 import { worldIntervalFor } from './cadence.js';
 
-const poseKeys='speed air vy climb dive roll slide crouch hold held2 restrained payload stun getup rag daze ride rideSpeed emote emoteT dangle sit board cyclePhase look act actK fly flySpin missionTool'.split(' ');
+const poseKeys='speed air vy hang climb dive roll slide crouch hold held2 restrained payload stun getup rag daze ride rideSpeed emote emoteT dangle sit board cyclePhase look act actK fly flySpin missionTool'.split(' ');
 const pose=a=>Object.fromEntries(poseKeys.filter(k=>['number','string','boolean'].includes(typeof a?.[k])).map(k=>[k,a[k]]));
 const fields=['stun','getT','daze','wetT','slipT','netT','webT','knockT','gripSafe','struggle'];
 // Хаб использует тот же реестр предметов, команды и физические тела, что и матч.

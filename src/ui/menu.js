@@ -28,6 +28,7 @@ import {cargoPosition,poseMeleeItem} from '../game/handheld.js';
 import {updateTools,useTool,shoot,toolImpact,sodaBlast,releaseBow,releaseNet,vacuumFire} from '../game/tools.js';
 import {nearestRideable,grab,release,dismount} from '../game/ride.js';
 import {updateGrabs,grabTarget,grabActor,letGo} from '../game/grab.js';
+import {tugInput} from '../game/item-tug.js';
 import {knockDown,releaseDisconnected,tickStun} from '../game/actors.js';
 import {initHubSync,updateHubSync,remoteActors,configureHubSync} from '../net/hub-sync.js';
 import {NET,setSkin,inRoom,onNet,send,serverNow,hubHostId} from '../net/net.js';
@@ -145,7 +146,7 @@ export function createMenu(){
   function hubTarget(){const P=st.player,ordinary=worldTarget(P,camera,{items:false}),q=stationAt(P.pos);if(!q||P.held||ordinary&&ordinary.s<.9)return ordinary;
     return {station:q,label:({wardrobe:'Гардероб',claw:'Автомат'}[q.id])+(st.netHub.busy(q.id)?' · занято':''),act:()=>{}};}
   st.interact=()=>scope(()=>{
-        const P=st.player;if(st.mode!=='roam'||st.pause||st.transition||P.stun>0||P.getT>0||P.heldBy)return;
+        const P=st.player;if(st.mode!=='roam'||st.pause||st.transition||P.stun>0||P.getT>0||P.heldBy||P.hang)return;
     if(st.flow?.stage==='cutscene')return;
     const near=hubTarget()?.station;
     if(P.ride||P.grab||P.bench||P.swing||P.hidden||P.holding){leaveObject(P);return;}
@@ -155,7 +156,7 @@ export function createMenu(){
       st.clawRoam={yaw:rig.state.yaw,pitch:rig.state.pitch,pos:P.pos.clone(),actorYaw:P.root.rotation.y};const shot=st.claw.cameraPose(camera,true);travel('arcade-in',P.pos,shot.p,shot.l,1.6,()=>{mode('claw');st.ch.root.visible=false;st.claw.open();},{yaw:Math.PI/2});
     }});
   });
-  on('down',btn=>{if(!st.wantsLock||!locked())return;scope(()=>{const P=st.player;if(P.stun>0||P.heldBy)return;if(btn===0&&grabFist(P))return;
+  on('down',btn=>{if(!st.wantsLock||!locked())return;scope(()=>{const P=st.player;if(P.stun>0||P.heldBy||P.hang)return;if(btn===0&&tugInput(P,true))return;if(btn===0&&grabFist(P))return;
     if(P.grab&&(btn===0||btn===2)){release(P,1.1);return;}
     if(btn===0&&P.charging){clearThrow();P.chargeManual=false;sfx('click');return;}
     if(btn===0&&P.held){if(!P.held.def.hold){const snd=useTool(P,P.held,aimPoint());if(snd)sfx(snd);else if(!P.held.def.tool){drop(P.held,P.pos.x+Math.sin(P.root.rotation.y)*.7,P.pos.y,P.pos.z+Math.cos(P.root.rotation.y)*.7);P.held=null;}}return;}
@@ -167,7 +168,7 @@ export function createMenu(){
     if(btn===2&&P.held){P.charging=true;P.charge=0;P.chargeManual=false;P.aimYaw=P.root.rotation.y;}
   });});
   on('wheel',d=>{if(!st.wantsLock)return;if(!st.player.charging){scope(()=>{const radio=st.player.held?.type==='boombox'?st.player.held:!st.player.held?nearRadio(st.player,aim(camera)):null;if(radio)tuneRadio(radio,d);});return;}if(st.player.charging){st.player.chargeManual=true;st.player.charge=clamp(st.player.charge-d*.1,.05,1);sfx('tick');}});
-  on('up',btn=>{if(!st.wantsLock)return;scope(()=>{const P=st.player;if(btn===0&&P.held?.type==='bow')releaseBow(P,P.held,aimPoint());if(btn===0&&P.held?.type==='net')releaseNet(P,P.held,aimPoint());if(btn===0&&P.held?.type==='vacuum')vacuumFire(P,P.held,aimPoint());
+  on('up',btn=>{if(!st.wantsLock)return;scope(()=>{const P=st.player;if(btn===0&&tugInput(P,false))return;if(btn===0&&P.held?.type==='bow')releaseBow(P,P.held,aimPoint());if(btn===0&&P.held?.type==='net')releaseNet(P,P.held,aimPoint());if(btn===0&&P.held?.type==='vacuum')vacuumFire(P,P.held,aimPoint());
     if(btn===2&&P.charging){P.charging=false;const it=P.held;if(it){launch(it,it.pos.clone(),throwVelocity(it.pos,aimPoint(),P.charge,it.def));it.owner=P;P.held=null;P.throwT=.3;sfx('throw');voice(P.ch,'throw');}}
   });});
   st.key=code=>{if(st.mode==='claw'){st.claw.key(code);return;}if(code==='Escape'){if(st.choosing)st.finishWardrobe(false);else if(st.mode==='tv')st.closeTV();else st.togglePause();return;}if(st.choosing){if(['KeyA','ArrowLeft'].includes(code))st.next(-1);if(['KeyD','ArrowRight'].includes(code))st.next(1);if(code==='Enter')st.finishWardrobe(true);}else if(code==='KeyE'&&tapped('KeyE'))st.interact();};
@@ -255,7 +256,7 @@ export function createMenu(){
   function walk(dt){
     const P=st.player,delta=takeLook();world.state.time=st.t;
     if(P.charging&&!P.chargeManual)P.charge=Math.min(1,P.charge+dt/CONFIG.throw.chargeTime);
-    if(mouse.left&&P.held?.def.hold&&P.stun<=0&&locked()){useTool(P,P.held,aimPoint(),dt);P.sprayT=['bow','net'].includes(P.held.type)?0:.1;}
+    if(mouse.left&&!P.held?.tug&&P.held?.def.hold&&P.stun<=0&&locked()){useTool(P,P.held,aimPoint(),dt);P.sprayT=['bow','net'].includes(P.held.type)?0:.1;}
     const cut=st.flow?.stage==='cutscene';
     if(cut)launchStep(dt);else updatePlayer(P,dt,st.t,true,rig.state.yaw);
     // v0.59: упал с острова — возвращаемся (на «Острове затей» — сверху на батут)

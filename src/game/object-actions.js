@@ -8,6 +8,7 @@ import {leaveSwing,leaveBench,leaveHide} from './worldfx.js';
 import {letGo} from './grab.js';
 import {sfx} from '../core/sfx.js';
 import {TEXT} from '../ui/text.js';
+import {tugTarget,startTug} from './item-tug.js';
 const names={cart:'тележку',skate:'скейт',scooter:'самокат',chair:'кресло',barrow:'тачку',kidcar:'машинку',gurney:'каталку',tire:'шину',ring:'круг'};
 export function worldAimPoint(player,camera,out=new V3()){
  const r=aim(camera),t=raySolids(r.ray.origin,r.ray.direction,80);
@@ -17,9 +18,10 @@ export function worldAimPoint(player,camera,out=new V3()){
 // Одинаковый приоритет E: расстояние, взгляд, высота, состояние предмета.
 /* v0.52: управление — ЛКМ схватить/подобрать (предметы, пойманное на лету), ПКМ бросок, E только взаимодействие. */
 export function pickTarget(P,{stealItem}={}){
- if(P.ride||P.held)return null;const f=P.root.rotation.y,fx=Math.sin(f),fz=Math.cos(f);let best=null,bs=1e9;
+ if(P.ride||P.held||P.hang||P.mantle)return null;const f=P.root.rotation.y,fx=Math.sin(f),fz=Math.cos(f);let best=null,bs=1e9;
  for(const it of W.items){if(it.noPickup||!['rest','placed'].includes(it.state)||it.boxed&&!it.boxed.open)continue;const d=Math.hypot(it.pos.x-P.pos.x,it.pos.z-P.pos.z);if(d>1.6||it.pos.y<P.pos.y-.6||it.pos.y>P.pos.y+1.8)continue;
   const l=d||1,s=Math.max(.05,d)*(1.35-.35*((it.pos.x-P.pos.x)*fx+(it.pos.z-P.pos.z)*fz)/l);if(s<bs){bs=s;best=it;}}
+ const contested=tugTarget(P);if(contested)return{item:contested,label:'Держи ЛКМ - перетянуть предмет',act:()=>startTug(P,contested)};
  if(best){const it=best;return{item:it,label:`${TEXT.take} ${it.def.name.toLowerCase()}`,act:()=>{if(it.steal&&it.mine!==P&&stealItem){stealItem(it);return;}pickUp(it);P.held=it;it.owner=P;it.wasHeld=true;sfx('pickup');}};}
  let fl=null,fd=1.7;for(const q of W.items)if(q.state==='fly'&&q.owner!==P&&!q.def.heavy&&!q.noPickup){const d=Math.hypot(q.pos.x-P.pos.x,q.pos.z-P.pos.z);if(d<fd&&q.pos.y>P.pos.y&&q.pos.y<P.pos.y+2.4){fd=d;fl=q;}}
  if(fl)return{item:fl,catch:true,label:'Поймать',act:()=>{pickUp(fl);P.held=fl;fl.owner=P;fl.wasHeld=true;sfx('pickup');}};

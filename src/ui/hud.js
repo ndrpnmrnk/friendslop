@@ -122,8 +122,8 @@ export function renderStamina(P, dt, missionTool=null) {
   const fx = [P.webT>0?`${img('web',16)}${Math.ceil(P.webT)}`:'', P.ghost > 0 ? `${img('mask', 16)}${Math.ceil(P.ghost)}` : '', P.energy > 0 ? `${img('energy', 16)}${Math.ceil(P.energy)}` : '', P.paintT > 0 ? `${img('paint', 16)}${Math.ceil(P.paintT)}` : '', P.stBoost > 0 ? `${img('energy', 16)}${Math.ceil(P.stBoost)}` : ''].filter(Boolean).join('');
   if (fx !== H.gslot) { H.gslot = fx; const e3 = $('gslot'); e3.innerHTML = fx; e3.classList.toggle('hidden', !fx); }
   // конфетти перед глазами
-  const bl = $('blind'), blind = P.blind > 0;
-  if (blind !== !bl.classList.contains('hidden')) { bl.classList.toggle('hidden', !blind); if (blind) { bl.innerHTML = ''; for (let i = 0; i < 70; i++) { const q = document.createElement('i'); q.style.cssText = `left:${random() * 100}%;top:${random() * 100}%;background:${['#ff5a6e', '#f5c542', '#9be36b', '#4ab0f0', '#b18cff'][i % 5]};transform:rotate(${random() * 90}deg)`; bl.appendChild(q); } } }
+  const bl = $('blind'), glare=P.projectorBlind>0,blind = P.blind > 0||glare;bl.style.background=glare?'rgba(255,237,192,.86)':'';bl.style.filter=glare?'blur(3px)':'';
+  if (blind !== !bl.classList.contains('hidden')) { bl.classList.toggle('hidden', !blind); if (blind) { bl.innerHTML = ''; for (let i = 0; i < (glare?0:70); i++) { const q = document.createElement('i'); q.style.cssText = `left:${random() * 100}%;top:${random() * 100}%;background:${['#ff5a6e', '#f5c542', '#9be36b', '#4ab0f0', '#b18cff'][i % 5]};transform:rotate(${random() * 90}deg)`; bl.appendChild(q); } } }
 }
 
 // события раунда: баннер на 1,5 с, потом значок с отсчётом у таймера
@@ -132,7 +132,9 @@ export function eventChip(key, sec, info = '') { const c = $('evchip'); if (!key
 
 export function renderHeld(P,missionTool=null,host=$('held'),state=H){
   let held = '';
-  if(P.grab?.holdOnly)held='';
+  if(P.hang)held='<span class="key">ПРОБЕЛ / E</span>Подтянуться <span class="key">C / S</span>Отпустить';
+  else if(P.tugItem||P.held?.tug)held='<span class="key">ЛКМ</span>Держи хват <span class="key">WASD</span>Тяни предмет';
+  else if(P.grab?.holdOnly)held='';
   else if(P.grab?.dragOnly)held='Ящик <span class="key">ЛКМ</span>Отпустить';
   else if (P.grab) held = `${img('cart', 22)}${TEXT.grab[P.grab.kind] || ''} <span class="key">E</span>${TEXT.keys.hop}`;
   else if (P.holding) held = `${img('mouse', 22)}${P.holding.bot ? P.holding.name : TEXT.you} <span class="key">WASD</span>Оттяни <span class="key">E / ЛКМ / ПКМ</span>Отпустить`;

@@ -26,17 +26,17 @@ export function mammothDress(o,api,ctx){
   for(let row=1;row<=6;row++){const ring=edge.map((source,i)=>add({kind:'leg',source,side,k:row/6,a:(side?Math.PI:0)+i/edge.length*Math.PI*2},i/edge.length*2,1-row/6));join(prev,ring);prev=ring;}
  }
  const geom=new THREE.BufferGeometry();geom.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geom.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geom.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geom.setIndex(indices);
- const mat=new THREE.MeshLambertMaterial({map:pantsTexture(),side:THREE.FrontSide,vertexColors:true}),cloth=new THREE.Mesh(geom,mat);cloth.name='mammoth-briefs';cloth.frustumCulled=false;o.g.add(cloth);
- const innerMat=new THREE.MeshLambertMaterial({color:0x2e5a3c,side:THREE.BackSide}),inner=new THREE.Mesh(geom,innerMat);inner.frustumCulled=false;inner.raycast=()=>{};o.g.add(inner);
+ const mat=new THREE.MeshLambertMaterial({map:pantsTexture(),side:THREE.FrontSide,vertexColors:true}),cloth=new THREE.Mesh(geom,mat);cloth.name='mammoth-briefs';cloth.frustumCulled=false;o.body.add(cloth);
+ const innerMat=new THREE.MeshLambertMaterial({color:0x2e5a3c,side:THREE.BackSide}),inner=new THREE.Mesh(geom,innerMat);inner.frustumCulled=false;inner.raycast=()=>{};o.body.add(inner);
  const grip=new THREE.Group();o.g.add(grip);toolHand(ctx,grip);grip.visible=false;
- const heights=[.28,.28,.28,.28],velocity=[0,0,0,0],fixed=[false,false,false,false],flash=[0,0,0,0],plane=new THREE.Plane(),hit=new V3(),eye=new V3(),look=new V3(),targetEye=new V3(),targetLook=new V3(),local=new V3();let page=0,side=0,active=0,selected=-1,hy=0,base=0,goal=.28,turn=0,end=-1,time=0,gasT=0;const origin=o.g.position.clone(),bodyRotation=o.body.rotation.clone();
+ const heights=[.28,.28,.28,.28],velocity=[0,0,0,0],fixed=[false,false,false,false],flash=[0,0,0,0],plane=new THREE.Plane(),hit=new V3(),eye=new V3(),look=new V3(),targetEye=new V3(),targetLook=new V3(),local=new V3();let page=0,side=0,active=0,selected=-1,hy=0,base=0,goal=.28,turn=0,end=-1,time=0,gasT=0,fireworks=false;const origin=o.g.position.clone(),bodyRotation=o.body.rotation.clone();
  const part=(x,z)=>(z>0?2:0)+(x<0?0:1);
  function pose(snap=false){const z=page?1:-1,x=side?1:-1;targetLook.copy(o.g.localToWorld(new V3(x*.55,1.05,z*.83)));targetEye.copy(o.g.localToWorld(new V3(x*2.5,1.9,z*3.0)));if(snap){eye.copy(targetEye);look.copy(targetLook);}api.pose(eye,look);}
  function message(){api.msg((page?'Спереди: ':'Сзади: ')+(side?'правый':'левый')+' светлый край - зажми ЛКМ и подтяни вверх');}
  function release(){if(selected<0)return;const i=selected;velocity[i]=0;if(heights[i]>1.28){heights[i]=1.34;fixed[i]=true;flash[i]=.8;sfx('click');selected=-1;active++;if(active<4){page=Math.floor(active/2);side=active%2;turn=.9;pose();message();}else{end=0;turn=0;api.msg('Трусики на месте!','good');sfx('done');}return;}sfx('cloth');selected=-1;message();}
  function project(q){
   // Мягкая оболочка корпуса и четыре ноги удерживают ткань снаружи шерсти.
-  const y=(q.y-1.5)/.97,r=Math.hypot(q.x/.99,y,q.z/1.28)/1.055;if(r<1&&r>.01){q.x/=r;q.y=1.5+(q.y-1.5)/r;q.z/=r;}
+  const y=(q.y-1.5)/.97,r=Math.hypot(q.x/.99,y,q.z/1.28)/1.014;if(r<1&&r>.01){q.x/=r;q.y=1.5+(q.y-1.5)/r;q.z/=r;}
   if(q.y<1.38)for(const x of [-.59,.59])for(const z of [-.73,.73]){const dx=q.x-x,dz=q.z-z,d=Math.hypot(dx,dz),radius=q.y>.9?.39:.33;if(d<radius){q.x=x+(d>.001?dx/d:Math.sign(x))*radius;q.z=z+(d>.001?dz/d:0)*radius;}}
   q.y=Math.max(.055,q.y);return q;
  }
@@ -57,12 +57,12 @@ export function mammothDress(o,api,ctx){
  botStep(dt,brain){if(turn>0||end>=0)return;if(selected<0){const pos=geom.attributes.position,ind=geom.index;for(let j=0;j<ind.count;j+=3){const q=new V3();for(let k=0;k<3;k++)q.add(new V3().fromBufferAttribute(pos,ind.getX(j+k)));q.multiplyScalar(1/3);if((q.x<0?0:1)!==side)continue;const ray=brain.rayTo(o.g.localToWorld(q));const hits=ray.intersectObject(cloth);if(!hits.length)continue;const front=o.g.worldToLocal(hits[0].point.clone());if((front.x<0?0:1)!==side)continue;this.down(ray);if(selected>=0)break;}}else{goal=Math.min(1.38,goal+dt*.48);if(heights[selected]-base>.24||heights[selected]>1.30)release();}},
  update(dt){time+=dt;turn=Math.max(0,turn-dt);for(let i=0;i<4;i++){flash[i]=Math.max(0,flash[i]-dt);if(fixed[i])continue;const target=i===selected?goal:heights[i];velocity[i]+=(target-heights[i])*65*dt;velocity[i]*=Math.exp(-12*dt);heights[i]=Math.min(1.36,Math.max(.26,heights[i]+velocity[i]*dt));}
   for(const [a,b]of [[0,1],[2,3],[0,2],[1,3]]){const low=heights[a]<heights[b]?a:b,high=low===a?b:a;if(!fixed[low]&&heights[high]-heights[low]>.42)heights[low]+=dt*.28;}
-  deform();eye.lerp(targetEye,1-Math.exp(-dt*4));look.lerp(targetLook,1-Math.exp(-dt*4));api.pose(eye,look);plane.setFromNormalAndCoplanarPoint(eye.clone().sub(look).normalize(),look);grip.visible=selected>=0;if(selected>=0)grip.position.set(side?.83:-.83,heights[selected],page?1.08:-1.08);
+  if(end<0)deform();eye.lerp(targetEye,1-Math.exp(-dt*4));look.lerp(targetLook,1-Math.exp(-dt*4));api.pose(eye,look);plane.setFromNormalAndCoplanarPoint(eye.clone().sub(look).normalize(),look);grip.visible=selected>=0;if(selected>=0)grip.position.set(side?.83:-.83,heights[selected],page?1.08:-1.08);
   api.progress(heights.reduce((s,y)=>s+Math.max(0,(y-.28)/1.06),0)/4);
-  if(end>=0){end+=dt;selected=-1;const crouch=Math.min(1,end/.45),lift=Math.max(0,end-.9);o.body.rotation.x=bodyRotation.x-Math.sin(crouch*Math.PI/2)*.65;o.g.position.y=origin.y+Math.sin(Math.min(1,end/.9)*Math.PI)*.6+lift*lift*5;o.solid.on=end<.9;
+  if(end>=0){end+=dt;selected=-1;const crouch=Math.min(1,end/.75),lift=Math.max(0,end-.9);o.body.rotation.x=bodyRotation.x-Math.sin(crouch*Math.PI)*.25;o.body.scale.set(1+Math.sin(crouch*Math.PI)*.12,1-Math.sin(crouch*Math.PI)*.18,1+Math.sin(crouch*Math.PI)*.12);o.g.position.y=origin.y+Math.sin(Math.min(1,end/.9)*Math.PI)*.6+lift*lift*5;o.solid.on=end<.9;
     gasT-=dt;if(gasT<=0&&end>.5){gasT=.10;const p=o.g.localToWorld(new V3(0,.55,-.6));smoke(p.x,p.y,p.z,{color:0x80b64f,size:.35,grow:1.6,life:1.7,vy:-2.5,g:-.4});for(const a of actors())if(a!==ctx.player&&!a.hidden&&a.pos.distanceTo(origin)<3.6)daze(a,1.35);}
-    targetLook.copy(o.g.position).y+=1.1;targetEye.copy(origin).add(new V3(4.8,3.8,5.5));eye.lerp(targetEye,1-Math.exp(-dt*3));look.lerp(targetLook,1-Math.exp(-dt*4));api.pose(eye,look);if(end>2.55)api.finish({success:true,mult:1});
+    targetLook.copy(o.g.position).y+=1.1;targetEye.copy(origin).add(new V3(4.8,3.8,5.5));eye.lerp(targetEye,1-Math.exp(-dt*3));look.lerp(targetLook,1-Math.exp(-dt*4));api.pose(eye,look);if(end>3&&!fireworks){fireworks=true;o.g.visible=false;for(const color of[0xff6aa8,0xffd04a,0x7ad8ff,0x9be36b])burst(o.g.position.x,o.g.position.y+1,o.g.position.z,18,{color,size:.16,speed:5,up:3,life:1.6});W.flash?.(o.g.position,0xffd99b,1.8,24);sfx('pop',{at:o.g.position,range:150});}if(end>4.2)api.finish({success:true,mult:1});
   }
 
- },stop(){o.g.position.copy(origin);o.body.rotation.copy(bodyRotation);o.solid.on=true;grip.removeFromParent();cloth.removeFromParent();inner.removeFromParent();geom.dispose();mat.dispose();innerMat.dispose();ctx.cursor(true);}};
+ },stop(){o.g.visible=true;o.body.scale.set(1,1,1);o.g.position.copy(origin);o.body.rotation.copy(bodyRotation);o.solid.on=true;grip.removeFromParent();cloth.removeFromParent();inner.removeFromParent();geom.dispose();mat.dispose();innerMat.dispose();ctx.cursor(true);}};
 }

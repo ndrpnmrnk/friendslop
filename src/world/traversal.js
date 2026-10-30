@@ -40,3 +40,21 @@ export function advanceMantle(actor,dt){
  if(m.t>=1){actor.pos.copy(m.landing);actor.mantle=null;actor.onGround=true;actor.airPeak=actor.pos.y;}
  return true;
 }
+
+// Высокий край сначала ловим руками. Пробел/E - подтянуться, C/S - отпустить.
+export function catchLedge(actor,target){
+ if(target.landing.y-actor.pos.y<actor.h*.72){beginMantle(actor,target);return;}
+ const p=target.route[1].clone();p.y=target.landing.y-actor.h*.85;
+ if(!bodyClear(p,actor.r,actor.h))return;
+ actor.pos.copy(p);actor.vel.set(0,0,0);actor.onGround=false;actor.facing=Math.atan2(target.dir.x,target.dir.z);actor.root.rotation.y=actor.facing;actor.hang={target,t:0,handHeight:target.landing.y-p.y};
+}
+export function releaseLedge(actor){actor.hang=null;actor.hangCooldown=.8;actor.onGround=false;actor.vel.y=-1;}
+export function advanceHang(actor,dt,list,{pull=false,drop=false}={}){
+ const h=actor.hang;if(!h)return false;h.t+=dt;
+ if(drop||!h.target.support?.on||actor.stun>0||actor.heldBy||h.t>12){releaseLedge(actor);return false;}
+ // Владелец висящего тела проверяет и сетевых игроков. Повторный пакет удара не нужен.
+ const top=h.target.landing,dir=h.target.dir;
+ for(const other of list)if(other!==actor&&!other.drone&&!other.hidden&&other.onGround&&Math.abs(other.pos.y-top.y)<.22&&Math.hypot(other.vel.x,other.vel.z)>.35&&Math.hypot(other.pos.x-(actor.pos.x+dir.x*actor.r),other.pos.z-(actor.pos.z+dir.z*actor.r))<other.r+.2){releaseLedge(actor);actor.vel.x=-dir.x*1.5;actor.vel.z=-dir.z*1.5;return false;}
+ if(pull&&h.t>.18){const target=h.target;target.route[0]=actor.pos.clone();target.route[1].y=actor.pos.y;beginMantle(actor,target);return false;}
+ actor.vel.set(0,0,0);return true;
+}

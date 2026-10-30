@@ -33,7 +33,7 @@ export function criticalStateChange(kind,previous,next){
  if(kind==='i'){
   // item state, owner, pickup permission, collected, visibility, mission ID,
   // radio controls: NEVER defer any of these transitions.
-  return [0,1,11,12,13,14,15,19,20,21].some(i=>JSON.stringify(previous[i])!==JSON.stringify(next[i]));
+  return [0,1,11,12,13,14,15,19,20,21,22].some(i=>JSON.stringify(previous[i])!==JSON.stringify(next[i]));
  }
  if(kind==='p'){
   // type, destroyed/tipped, rider and grab holder changes.

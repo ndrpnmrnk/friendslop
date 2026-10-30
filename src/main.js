@@ -46,6 +46,7 @@ import { netActor, shoot, resetTools, updateTools, useTool, toolVerb, toolImpact
 import { separateActors, knockDown } from './game/actors.js';
 import { resetReplay, recordReplay, replayMoment, replayClip, createReplayPlayer, encodeNetworkReplay, decodeNetworkReplay } from './game/replay.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
+import {tugInput} from './game/item-tug.js';
 import { mouse as M_ } from './core/input.js';
 import { cargoPosition,poseMeleeItem } from './game/handheld.js';
 import { createBots, updateBots, botHitHook, interruptBot } from './game/bots.js';
@@ -728,7 +729,7 @@ on('down', btn => {
   if(S.settingsOpen)return;
   if (S.state !== 'play') return;
   if (P.drone) { droneAction(P, btn, aim(camera).ray.direction); return; }
-  if (P.returning) return;
+  if (P.returning||P.hang) return;
   if(btn===0&&!S.mg&&!S.crane&&grabFist(P))return;
   // v0.57: нажатие, которым предмет подобрали, им же не стреляет (сетемёт, лук, пылесос) — выстрел только следующим нажатием
   if (btn === 0) P.pickClick = !P.held;
@@ -742,6 +743,7 @@ on('down', btn => {
   if (P.grab && (btn === 0 || btn === 2)) { release(P, 1.1); return; }
   // замах (ПКМ зажата): ЛКМ — передумал, опустить руку (бросок отменён)
   if (btn === 0 && P.charging) { P.charging = false; P.chargeManual = false; $('dot').classList.remove('charge'); sfx('click'); throwTip(true); return; }
+  if(btn===0&&tugInput(P,true))return;
   // в руках инструмент: ЛКМ — применить
   if (btn === 0 && P.held) { if (!P.held.def.hold) { const snd = useTool(P, P.held, aimPoint()); if (snd) sfx(snd); else if (!P.held.def.tool && !P.held.def.use) { drop(P.held, P.pos.x + Math.sin(P.root.rotation.y) * 0.7, P.pos.y, P.pos.z + Math.cos(P.root.rotation.y) * 0.7); P.held = null; } } return; }
   if(btn===0&&!P.held){const r=nearRadio(P,aim(camera));if(r){toggleRadio(r);return;}}
@@ -766,7 +768,7 @@ on('up', btn => {
   if(S.settingsOpen)return;
   if (S.state !== 'play') return;
   if (S.mg) { if (btn === 0 && S.mg.game.up) S.mg.game.up(aim(camera)); return; }
-  if(btn===0)S.wm?.game.up?.(aim(camera));
+  if(btn===0){tugInput(P,false);S.wm?.game.up?.(aim(camera));}
   // пылесос: отпустил ЛКМ — содержимое вылетает очередью
   const fresh = btn === 0 && P.pickClick; if (btn === 0) P.pickClick = false;
   if(btn===0&&!fresh&&P.held?.type==='bow')releaseBow(P,P.held,aimPoint());if(btn===0&&!fresh&&P.held?.type==='net')releaseNet(P,P.held,aimPoint());
@@ -824,6 +826,7 @@ function updateGlow() {
   glowOn = want;
 }
 function interact() {
+  if(P?.hang)return;
   if(P?.roofSeat){P.roofSeat=null;return;}
   if(P?.hotPotato)return;
   if(P.heldBy||P.stun>0||P.getT>0)return;
@@ -909,7 +912,7 @@ function frame() {
       if (S.tut) updateTutorial(dt);
       if (!S.settingsOpen&&tapped('KeyE')) interact();
       // инструмент, который действует пока зажата ЛКМ (огнетушитель, магнит)
-      if (M_.left && !P.pickClick && P.held && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT=['bow','net'].includes(P.held.type)?0:.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; if(!['bow','net'].includes(P.held.type))sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
+      if (M_.left && !P.pickClick && P.held && !P.held.tug && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT=['bow','net'].includes(P.held.type)?0:.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; if(!['bow','net'].includes(P.held.type))sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
       if (P.charging && !P.chargeManual) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
       if(S.mg&&(P.heldBy||P.stun>0||P.daze>0||P.pos.distanceTo(S.mg.start)>0.65))closeMission(null);
       updatePlayer(P, dt, t, !S.settingsOpen && !S.mg && !S.crane && !P.stationaryWork, cam.yaw);

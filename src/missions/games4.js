@@ -1,3 +1,4 @@
+import {lockpickGame} from './lockpick.js';
 import { random } from '../core/random.js';
 import {leafHeap} from './leaf-heap.js';
 import { graffitiGame } from './graffiti.js';
@@ -136,40 +137,7 @@ export const PANEL4 = {
   },
 
   // Отмычка: двигай мышью — угол отмычки; зажми ЛКМ — проворачивай замок. Не там — замок упирается, отмычка трещит
-  lockpick(o, api, ctx) {
-    api.feedback?.();
-    const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.1).add(new V3(0, 1.0, 0)), c.clone().add(new V3(0, 0.4, 0)));
-    const { ui, cv, g } = overlay('lockui', 'ОТМЫЧКА', 'Води мышью — ищи точку. Зажми ЛКМ — проворачивай. Замок упёрся — отпусти, иначе сломаешь', 300, 220);if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
-    const sweet = (random() * 140 - 70) * Math.PI / 180, WIN = 7 * Math.PI / 180, ZONE = 40 * Math.PI / 180;
-    let pick = 0, turn = 0, holding = false, strain = 0, picks = 3, endT = -1, shake = 0;
-    const draw = () => {
-      g.fillStyle = '#17111f'; g.fillRect(0, 0, 300, 220); const cx = 150, cy = 130;
-      g.fillStyle = '#6a4a1a'; g.beginPath(); g.arc(cx, cy, 78, 0, 7); g.fill(); g.fillStyle = '#d8a030'; g.beginPath(); g.arc(cx, cy, 70, 0, 7); g.fill();
-      g.fillStyle = '#b8862a'; g.beginPath(); g.arc(cx, cy, 44, 0, 7); g.fill();
-      g.save(); g.translate(cx, cy); g.rotate(turn); g.fillStyle = '#17111f'; g.fillRect(-5, -26, 10, 34); g.beginPath(); g.arc(0, -26, 9, 0, 7); g.fill(); g.restore();
-      const sh = holding && strain > 0 ? (random() - 0.5) * 0.06 : 0;
-      g.save(); g.translate(cx, cy); g.rotate(pick + sh - Math.PI / 2); g.fillStyle = '#c8c8d8'; g.fillRect(0, -2, 110, 4); g.fillStyle = '#8a8d98'; g.fillRect(100, -5, 12, 10); g.restore();
-      g.font = '10px "Press Start 2P", monospace'; g.fillStyle = '#f1e8ff'; g.fillText('ОТМЫЧКИ', 10, 20); for (let i = 0; i < 3; i++) { g.fillStyle = i < picks ? '#c8c8d8' : '#3a3046'; g.fillRect(10 + i * 18, 30, 12, 4); }
-    };
-    const onMove = e => { if (endT > 0) return; const r = cv.getBoundingClientRect(), k = (e.clientX - r.left) / r.width; pick = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, (k - 0.5) * Math.PI)); };
-    const onDown = () => { holding = true; }, onUp = () => { holding = false; };
-    cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerdown', onDown); addEventListener('pointerup', onUp);
-    api.progress(0); api.msg('Найди точку и проверни замок');
-    return {
-      botStep(dt, brain) { pick+=(sweet-pick)*Math.min(1,dt*2);holding=Math.abs(pick-sweet)<WIN; },
-      update(dt) {
-        if (endT > 0) { endT -= dt; draw(); if (endT <= 0) api.finish({ success: true, mult: 0.6 + picks * 0.15 }); return; }
-        const off = Math.abs(pick - sweet), maxT = off < WIN ? Math.PI / 2 : Math.max(0, 1 - (off - WIN) / ZONE) * Math.PI / 2 * 0.85;
-        if (holding) { turn = Math.min(maxT, turn + dt * 2.2); if (turn >= maxT - 0.01 && maxT < Math.PI / 2) { strain += dt; if (random() < dt * 8) sfx('screw', { v: 0.3 }); } else strain = Math.max(0, strain - dt); }
-        else { turn = Math.max(0, turn - dt * 3); strain = Math.max(0, strain - dt * 2); }
-        if (strain > 1.1) { picks--; strain = 0; turn = 0; holding = false; sfx('glass', { v: 0.5 }); api.msg(picks ? 'Хрусть! Отмычка сломалась' : 'Все отмычки сломаны', 'bad'); if (!picks) return api.finish({ success: false }); }
-        api.progress(turn / (Math.PI / 2));
-        if (turn >= Math.PI / 2 - 0.01) { endT = 0.8; api.msg('Щёлк! Открыто', 'good'); sfx('done'); }
-        draw();
-      },
-      stop() { ui.remove(); removeEventListener('pointerup', onUp); },
-    };
-  },
+  lockpick: lockpickGame,
 
   // Трубы: клик — повернуть секцию на 90°. Вода течёт от входа (слева) до выхода (справа)
   pipes(o, api, ctx) {
