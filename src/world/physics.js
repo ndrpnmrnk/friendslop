@@ -142,8 +142,8 @@ export function zoneAt(x, z, y, type) {
 }
 
 // Свободно ли место (для спавна объектов миссий)
-export function isFree(x0, z0, x1, z1, y0, y1) {
-  for (const s of solidsNear(x0, z0, x1, z1)) if (s.on && s.y1 > y0 && s.y0 < y1 && x1 > s.x0 && x0 < s.x1 && z1 > s.z0 && z0 < s.z1) return false;
+export function isFree(x0, z0, x1, z1, y0, y1, ignoreOneWay = false) {
+  for (const s of solidsNear(x0, z0, x1, z1)) if (s.on && !(ignoreOneWay && s.oneWay) && s.y1 > y0 && s.y0 < y1 && x1 > s.x0 && x0 < s.x1 && z1 > s.z0 && z0 < s.z1) return false;
   for (const q of W.zones) if (q.type === 'water' && Math.abs(q.y - y0) < 0.6 && (q.c ? (Math.max(x0, Math.min(q.c[0], x1)) - q.c[0]) ** 2 + (Math.max(z0, Math.min(q.c[1], z1)) - q.c[1]) ** 2 < q.c[2] ** 2 : x1 > q.r[0] && x0 < q.r[2] && z1 > q.r[1] && z0 < q.r[3])) return false;
   for (const l of W.ladders) if (x1 > l.x0 - 0.5 && x0 < l.x1 + 0.5 && z1 > l.z0 - 0.5 && z0 < l.z1 + 0.5) return false;
   return true;
@@ -200,7 +200,7 @@ export function updatePushables(dt, player) {
       const ox=p.x,oz=p.z;
       if(board)moveBowlBoard(b,dt/n,bowl);
       p.x+=b.vx*dt/n;p.z+=b.vz*dt/n;
-      const h=pushOut(p,b.r,b.y+(b.ride?.18:.2),b.y+Math.max(1,b.h));
+      const h=pushOut(p,b.r,b.y+(b.ride ? .18 : .2),b.y+Math.max(1,b.h));
       if(h){hit=h;break;}
       b.x=p.x;b.z=p.z;
       if(board&&!b.air&&bowl){
@@ -214,7 +214,7 @@ export function updatePushables(dt, player) {
         }
       }
     }
-    if(b.ride&&b.rider&&!isFree(p.x-b.r*.7,p.z-b.r*.7,p.x+b.r*.7,p.z+b.r*.7,y0,b.y+1)){
+    if(b.ride&&b.rider&&!isFree(p.x-b.r*.7,p.z-b.r*.7,p.x+b.r*.7,p.z+b.r*.7,y0,b.y+1,true)){
       p.x=op.x;p.z=op.z;hit=hit||true;
       if(board){b.air=false;b.vy=0;b.bowlTakeoff=false;}
     }

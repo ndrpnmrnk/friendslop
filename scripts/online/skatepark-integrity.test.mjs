@@ -17,7 +17,7 @@ test('deep bowl is ONE continuous rendered height field, same as physical ground
  assert(scene.includes('W.skateBowl={...L.bowl'));
  assert(!scene.includes('b.quarterPipe(x,z-inner'),'no four disconnected segments');
  assert(physics.includes('bowlGround(W.skateBowl,x,z,maxY)'));
- assert(physics.includes('moveBowlBoard(b,dt,W.skateBowl)'));
+ assert(physics.includes('moveBowlBoard(b,dt/n,bowl)'),'bowl momentum must integrate on physical contact substeps');
  assert(physics.includes('(b.bowlBank || 0)'));
  assert(read('src/game/ride.js').includes('(b.bowlBank || 0)'));
 });
@@ -32,6 +32,7 @@ test('halfpipe and small wedges remain rideable, but wedge back and sides are cl
  assert(scene.includes('cap.scale.set(w,h,.11)'));
  assert(ramps.includes('const support=this.solid(x + fx * uc'),'halfpipe slopes retain walkable support');
  assert(ramps.includes('support.oneWay=true'),'halfpipe must not create blocking step walls');
+ assert(read('src/world/physics.js').includes('ignoreOneWay && s.oneWay'),'wheel probes must ignore ramp one-way support blockers');
 });
 test('rental is a walk-in building with glass fronts and doors that slide aside',()=>{
  const s=read('src/world/districts/skatepark.js');

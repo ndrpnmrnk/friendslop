@@ -256,7 +256,7 @@ export default {
   for(const [px,pz,len]of[[6.3,35.6,2.8],[36.8,23.8,2.6]]){
    b.box(px,pz,len,.48,.26,tmat(T.concrete()));
    b.box(px,pz,len+.04,.53,.045,metal(),{y:.265,solid:false});
-   for(const sign of[-1,1])b.m(G.box,metal(),px,pz? .15:.15,pz+sign*.22,len,.25,.035);
+   for(const sign of[-1,1])b.m(G.box,metal(),px,.15,pz+sign*.22,len,.25,.035);
   }
   closedWedge(b,36,14.1,3.2,2.5,.57,Math.PI);
   closedWedge(b,8.2,27,3.2,2.5,.53,0);
