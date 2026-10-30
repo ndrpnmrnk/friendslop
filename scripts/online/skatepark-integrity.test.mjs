@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
 import {SKATE_LAYOUT as L} from '../../src/world/skate-layout.js';
 const read=path=>readFileSync(new URL('../../'+path,import.meta.url),'utf8');
 test('deep bowl is ONE continuous rendered height field, same as physical ground',()=>{
@@ -63,4 +64,37 @@ test('bots keep mission priority and reset across districts',()=>{
  assert(bots.includes('W.skateAI?.tick(b,dt,t)')&&bots.includes('W.skateAI?.goal(b)'));
  assert(read('src/world/state.js').includes('W.skateBowl=null'));
  assert(L.missionFloor[0]<L.spawn[0]&&L.missionFloor[2]>L.spawn[0]);
+});
+
+test('studio actually constructs the entire bowl mesh without undefined geometry parameters',async()=>{
+ const scene=read('src/world/districts/skatepark.js');
+ const from=scene.indexOf('function deepBowl(b){');
+ const to=scene.indexOf('\nfunction halfpipe(b){',from);
+ assert(from>=0&&to>from,'bowl builder function missing');
+ // Execute the real extracted builder with stand-in rendering objects.
+ // A source string check alone missed the outerRadius ReferenceError in v0.61.5.
+ const build=scene.slice(from,to);
+ const meshes=[];
+ class FakeMesh{
+  constructor(geometry,material){this.geometry=geometry;this.material=material;this.rotation={};this.position={};}
+ }
+ const THREE={
+  DoubleSide:2,
+  BufferGeometry:class{
+   setAttribute(k,v){this[k]=v;}
+   setIndex(v){this.indices=v;}
+   computeVertexNormals(){this.normalsComputed=true;}
+  },
+  Float32BufferAttribute:class{constructor(data,components){this.data=data;this.components=components;}},
+  Mesh:FakeMesh,TorusGeometry:class{constructor(){}}
+ };
+ const W={skateBowl:null};
+ const b={prop(){return {add(m){meshes.push(m);}}},X:v=>v,Z:v=>v,Y:0};
+ const {bowlHeight}=await import('../../src/world/skate-bowl.js');
+ const env={THREE,G:{},b,W,L,bowlHeight,metal:()=>({}),lam:()=>({}),T:{concrete:()=>({})}};
+ assert.doesNotThrow(()=>runInNewContext(build+'\ndeepBowl(b);',env,{timeout:3000}));
+ assert.equal(meshes.length,2,'one bowl and one coping ring expected');
+ assert(meshes[0].geometry.normalsComputed);
+ assert.equal(meshes[0].geometry.position.data.length,(32+2)*(64+1)*3);
+ assert.equal(W.skateBowl.outerRadius,L.bowl.outerRadius);
 });
