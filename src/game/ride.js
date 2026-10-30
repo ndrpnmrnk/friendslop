@@ -13,6 +13,19 @@ import { sfx } from '../core/sfx.js';
    E на ходу — запрыгнуть, дальше она катится по инерции, а ты только подруливаешь.
    W/A/S/D — разгон и поворот относительно камеры, Пробел — спрыгнуть с прыжком.
    Врезался на большой скорости — вылетаешь и ненадолго оглушён. */
+function recoverRideCollision(b){
+  if(W.net&&!W.net.canSimulate(b))return true; // guest waits for host correction
+  const corrected=safeMountCandidate({x:b.x,z:b.z},point=>{
+    if(b.solid)b.solid.on=false;
+    try{pushOut(point,b.r,b.y+.18,b.y+Math.max(b.h,.7));}
+    finally{if(b.solid)b.solid.on=true;}
+  });
+  if(!corrected)return false;
+  if(Math.hypot(corrected.x-b.x,corrected.z-b.z)>.015){
+    b.x=corrected.x;b.z=corrected.z;syncPushable(b);
+  }
+  return true;
+}
 export function nearestRideable(p, r = 1.6, coast = false) {
   let best = null, bd = r;
   for (const b of W.pushables) {
@@ -28,17 +41,7 @@ export function mount(p, b) {
   if (b.rider && b.rider !== p || b.grabbed && b.grabbed !== p) return false;
   // Free a post-crash body from overlapping walls before mounting.
   // The authoritative host resolves position, guests await its correction.
-  if(!W.net||W.net.canSimulate(b)){
-    const corrected=safeMountCandidate({x:b.x,z:b.z},point=>{
-      if(b.solid)b.solid.on=false;
-      try{pushOut(point,b.r,b.y+.18,b.y+Math.max(b.h,.7));}
-      finally{if(b.solid)b.solid.on=true;}
-    });
-    if(!corrected)return false;
-    if(Math.hypot(corrected.x-b.x,corrected.z-b.z)>.015){
-      b.x=corrected.x;b.z=corrected.z;syncPushable(b);
-    }
-  }
+  if(!recoverRideCollision(b))return false;
   W.net?.request('mount', b);
   p.ride=b;b.rider=p;b.heading=b.mesh.rotation.y;
   // Never replay an impact recorded on the previous rider.
@@ -69,7 +72,7 @@ export function updateGrab(p, dt) {
 }
 // E на ходу: запрыгнуть в тележку, она получает скорость разбега
 export function hopIn(p) {
-  const b = p.grab; if (!b||b.noRide) return false;
+  const b = p.grab; if (!b||b.noRide||!b.ride||b.dead||!recoverRideCollision(b)) return false;
   p.grab = null; b.grabbed = null;
   b.vx = p.vel.x * 1.12; b.vz = p.vel.z * 1.12;
   p.ride = b; b.rider = p; b.stopT=0;b.hitSpeed=0;b.impactSpeed=0;b.impactContact=false;b.mountGrace=.4;b.skid=0;b.spin=0;
