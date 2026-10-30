@@ -19,5 +19,12 @@ export function alignMountedVisual(actor){
   if(!pose||!actor?.root?.position)return false;
   actor.root.position.set(pose.x,pose.y,pose.z);
   actor.root.rotation.y=pose.yaw;
+  if(actor.ride?.kind==='skate'||actor.ride?.kind==='scooter'){
+    // On a high-speed bowl carve the authoritative board already includes
+    // surface banking. Align the remote rider with that same mesh each frame.
+    const r=actor.ride.mesh?.rotation;
+    if(Number.isFinite(r?.x))actor.root.rotation.x=r.x*.85;
+    if(Number.isFinite(r?.z))actor.root.rotation.z=r.z*.9;
+  }
   return true;
 }

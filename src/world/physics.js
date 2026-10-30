@@ -1,6 +1,7 @@
 import { tipBin, animateTip } from './pushables.js';
 import { W } from './state.js';
 import { clamp } from '../core/rng.js';
+import {bowlGround,moveBowlBoard} from './skate-bowl.js';
 
 /* Твёрдые объекты — AABB с высотой: {x0,x1,z0,z1,y0,y1,on}.
    Всё, у чего верх ниже «шага», можно перешагнуть; на всё остальное — запрыгнуть или залезть. */
@@ -49,6 +50,10 @@ export let groundObb = null;
 let _selfP = null;
 export function groundAt(x, z, r, maxY) {
   let g = maxY >= 0 && !inHole(x, z) ? 0 : -60; groundObb = null;
+  // Smooth procedural skate bowl is a height field, not a ring of blocking walls.
+  // Both rider wheels and on-foot actors sample the identical static surface.
+  const bowlY=bowlGround(W.skateBowl,x,z,maxY);
+  if(bowlY!==null)g=Math.max(g,bowlY);
   for (const s of solidsNear(x - r, z - r, x + r, z + r)) if (s.on && s.y1 <= maxY && s.y1 > g && overlapXZ(s, x, z, r)) g = s.y1;
   if (W.obbs) for (const o of W.obbs) { if (!o.on || o.y1 > maxY || o.y1 <= g) continue; const l = obbLocal(o, x, z); if (l.x + r > o.lx0 && l.x - r < o.lx1 && l.z + r > o.lz0 && l.z - r < o.lz1) { g = o.y1; groundObb = o; } }
   // на толкаемых предметах (бак, бочка, тележка) можно стоять, как на земле
@@ -171,6 +176,9 @@ export function updatePushables(dt, player) {
     if(b.solid)b.solid.on=false;
     if (b.grabbed) { b.hitSpeed = 0;if(b.solid)b.solid.on=true;syncPushable(b);continue; } // её ведёт игрок
     const op = { x: b.x, z: b.z };
+    // Applied only to real skate/scooter riders inside the skatepark; all
+    // other vehicles and other districts keep their existing physics.
+    moveBowlBoard(b,dt,W.skateBowl);
     b.hitSpeed = 0;
     // v0.56: движение по шагам не длиннее половины радиуса — быстрые машинки и карты больше не проскакивают сквозь стены
     const y0 = b.y + (b.ride && b.kind !== 'ring' ? .5 : .2), mv = Math.hypot(b.vx, b.vz) * dt, n = Math.min(12, Math.max(1, Math.ceil(mv / Math.max(.08, b.r * .5))));
@@ -214,7 +222,7 @@ export function updatePushables(dt, player) {
     // движение по форме: стоячий бак скользит не поворачиваясь; бочка, шина и колёсное едут вдоль «колёс»,
     // боковое скольжение гасится, направление плавно доворачивается к толчку
     const sp = Math.hypot(b.vx, b.vz);
-    if (b.rider) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.set(-(b.pitch || 0), b.heading + (b.shuv || 0), (b.flip || 0) + (b.lean || 0)); }
+    if (b.rider) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.set(-(b.pitch || 0), b.heading + (b.shuv || 0), (b.flip || 0) + (b.lean || 0) + (b.bowlBank || 0)); }
     else if ((b.kind === 'skate' || b.kind === 'scooter') && (b.pitch || b.flip)) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.x = -(b.pitch || 0); b.mesh.rotation.z = 0; b.flip = 0; b.shuv = 0; }
     else if (b.kind === 'chair') b.mesh.rotation.y += Math.hypot(b.x - op.x, b.z - op.z) * 2;
     else if (b.kind !== 'bin' && b.kind!=='crate' && sp > 0.02) {
