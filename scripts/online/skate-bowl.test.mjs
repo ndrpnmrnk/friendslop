@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {BOWL_DEFAULT as B,bowlHeight,bowlSlope,bowlGround,moveBowlBoard} from '../../src/world/skate-bowl.js';
+import {BOWL_DEFAULT as B,bowlHeight,bowlSlope,bowlGround,moveBowlBoard,bowlLipLaunch,bowlContact} from '../../src/world/skate-bowl.js';
 const eps=(a,b,d=.02)=>assert(Math.abs(a-b)<=d,`expected ${a} near ${b}`);
 test('bowl floor is 3.05m genuinely BELOW deck and lip is flush, with no outer berm',()=>{
  assert(B.depth>=3&&B.patchHalf>B.rimRadius);
@@ -30,14 +30,26 @@ test('slow rider slides downhill, fast carve generates limited body bank',()=>{
  assert(Number.isFinite(fast.vx)&&Number.isFinite(fast.bowlBank));
  assert(Math.abs(fast.bowlBank)<=.65);
 });
-test('fast outward motion at inner rim launches one finite-airtime trick',()=>{
+test('fast bowl exit preserves airborne vertical momentum without floor snap',()=>{
+ const surface={...B,x:0,z:0,baseY:0},r=B.rimRadius-.3;
+ const fast=board(r,0,13,0);fast.y=bowlHeight(r,B);
+ moveBowlBoard(fast,.016,surface);
+ const oldX=fast.x;fast.x=B.rimRadius+.08;
+ assert(bowlLipLaunch(fast,oldX,0,surface));assert(fast.air&&fast.vy>3&&fast.y>0);
+ assert.equal(fast.trick.kind,'barspin');assert(!bowlLipLaunch(fast,oldX,0,surface));
+ const slow=board(r,0,3,0);slow.y=bowlHeight(r,B);slow.x=B.rimRadius+.08;
+ assert(!bowlLipLaunch(slow,r,0,surface));
+ const inward=board(r,0,-13,0);inward.y=bowlHeight(r,B);inward.x=B.rimRadius+.08;
+ assert(!bowlLipLaunch(inward,r,0,surface));
+});
+test('surface contact normal gives both aligned pitch and roll',()=>{
  const surface={...B,x:0,z:0,baseY:0};
- const r=B.rimRadius-.065,b=board(r,0,13,0);b.y=bowlHeight(r,B);
- assert(moveBowlBoard(b,.016,surface));assert(b.air&&b.vy>3&&b.y>0);
- assert.equal(b.trick.kind,'barspin');assert.equal(b.trick.dur,.36);
- assert(!moveBowlBoard(b,.016,surface));
- const low=board(r,0,3,0);low.y=bowlHeight(r,B);
- assert(!moveBowlBoard(low,.016,surface));
+ const c=bowlContact(surface,6,1,Math.PI/4);
+ assert(Number.isFinite(c.pitch)&&Number.isFinite(c.roll));
+ const boardA=board(6,1,0,8);boardA.heading=Math.PI/4;boardA.y=bowlHeight(Math.hypot(6,1),B);
+ moveBowlBoard(boardA,.1,surface);
+ assert(Math.abs(boardA.bowlBank)>0.01&&Math.abs(boardA.bowlPitch)>0.01);
+ assert(Math.abs(boardA.bowlBank)<1.1&&Math.abs(boardA.bowlPitch)<1.1);
 });
 test('boards outside the skate district and unoccupied boards retain ordinary physics',()=>{
  const b=board(100,100,12,0),surface={...B,x:0,z:0,baseY:0};
