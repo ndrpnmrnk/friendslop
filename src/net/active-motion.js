@@ -8,7 +8,7 @@ export const validMotion = row => Array.isArray(row) && row.length === 10 &&
   row.slice(1).every(n => finite(n, 10000));
 
 export class ActiveMotion {
-  constructor(){this.last=new Map();this.sentAt=new Map();this.cursor=0;}
+  constructor(){this.last=new Map();this.sentAt=new Map();this.waitSince=new Map();this.cursor=0;}
   capture(movers,maxRows=32,maxBytes=8192,options=null){
     const entries=[...movers],n=entries.length,rows=[];let bytes=2,visited=0;
     if(!n)return rows;
@@ -42,8 +42,9 @@ export class ActiveMotion {
       const signature=JSON.stringify(values);
       if(this.last.get(key)===signature)continue;
       const tier=replicationTier(b,viewers),last=this.sentAt.get(key);
-      const age=last==null?Infinity:Math.max(0,now-last);
-      if(age<movementIntervalMs(tier,queued))continue;
+      if(!this.waitSince.has(key))this.waitSince.set(key,now);
+      const age=last==null?Math.max(0,now-this.waitSince.get(key)):Math.max(0,now-last);
+      if(last!=null&&age<movementIntervalMs(tier,queued))continue;
       const row=[key,...values],cost=JSON.stringify(row).length+1;
       // Promote stale far objects to prevent permanent starvation by riders.
       const rank=age>=1200?0:tier==='high'?0:tier==='medium'?1:2;
@@ -53,14 +54,14 @@ export class ActiveMotion {
     for(const c of candidates){
       if(rows.length>=maxRows)break;
       if(bytes+c.cost>budget)continue;
-      rows.push(c.row);bytes+=c.cost;this.last.set(c.key,c.signature);this.sentAt.set(c.key,now);
+      rows.push(c.row);bytes+=c.cost;this.last.set(c.key,c.signature);this.sentAt.set(c.key,now);this.waitSince.delete(c.key);
     }
     // Removed objects should not retain old send timestamps forever.
     if(this.sentAt.size>movers.size+32){
-      for(const key of this.sentAt.keys())if(!movers.has(key)){this.sentAt.delete(key);this.last.delete(key);}
+      for(const key of this.sentAt.keys())if(!movers.has(key)){this.sentAt.delete(key);this.last.delete(key);this.waitSince.delete(key);}
     }
     return rows;
   }
-  retry(){this.last.clear();this.sentAt.clear();}
-  reset(){this.last.clear();this.sentAt.clear();this.cursor=0;}
+  retry(){this.last.clear();this.sentAt.clear();this.waitSince.clear();}
+  reset(){this.last.clear();this.sentAt.clear();this.waitSince.clear();this.cursor=0;}
 }
