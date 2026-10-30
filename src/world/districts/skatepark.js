@@ -3,6 +3,7 @@ import {T} from '../../core/textures.js';
 import {W} from '../state.js';
 import {localActors,districtFrame} from '../district-motion.js';
 import {SKATE_LAYOUT as L,skateSection,rentalRideClear} from '../skate-layout.js';
+import {skateBotController} from '../skate-bots.js';
 
 /* v0.61.2 - скейт-парк 44 × 44, восстановлен строго по схеме:
     СЗ: хафпайп    СВ: перила
@@ -127,5 +128,7 @@ export default {
   b.zone('floor',33.0,19.0,40.0,27.0);
   b.hw(()=>{b.pumpkin(41,27);b.pumpkin(3,29);});
   skateRideBonus(b);
+  W.skateOriginX=b.ox;W.skateOriginZ=b.oz;
+  W.skateAI=skateBotController();
  }
 };
