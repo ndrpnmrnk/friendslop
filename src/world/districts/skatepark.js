@@ -170,7 +170,7 @@ export default {
   b.grabTarget({x:5.4,z:28.4,r:1.2,kind:'bounce',label:'рампа'});
   districtFrame(b,'skatepark',{spawn:L.spawn,floor:L.missionFloor,catArea:[2,39.2,10,42.2]});
   b.zone('floor',35.8,18.2,40.5,26.0);
-  b.hw(()=>{b.pumpkin(41,27);b.pumpkin(3,29);});
+  b.hw(()=>{b.pumpkin(41.4,33.5);b.pumpkin(3,29);});
   skateRideBonus(b);
   W.skateOriginX=b.ox;W.skateOriginZ=b.oz;W.skateBaseY=b.Y;
   W.skateAI=skateBotController();
