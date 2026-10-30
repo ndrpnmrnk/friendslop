@@ -10,6 +10,16 @@ class Ring {
  reset(){this.i=0;this.n=0;}
 }
 const clamp=(v,max)=>Math.max(0,Math.min(max,v));
+const INCIDENT_KEY='friendslop.onlineIncidents.v1';
+export function recentOnlineIncidents(){
+ try{const data=JSON.parse(localStorage.getItem(INCIDENT_KEY)||'[]');return Array.isArray(data)?data.slice(-12):[];}catch{return [];}
+}
+function persistIncident(kind,description){
+ try{
+  const past=recentOnlineIncidents();past.push({time:new Date().toISOString(),kind,description});
+  localStorage.setItem(INCIDENT_KEY,JSON.stringify(past.slice(-12)));
+ }catch{}
+}
 export class OnlineTelemetry {
  constructor(){this.reset();}
  reset(){
@@ -53,6 +63,7 @@ export class OnlineTelemetry {
   if(last?.kind===kind&&now-last.time<10000){last.count++;last.time=now;return;}
   this.history.push({kind,description,time:now,count:1});
   if(this.history.length>20)this.history.shift();
+  persistIncident(kind,description);
  }
  assess(now=performance.now(),online=true,visible=true){
   if(now-this.lastCheck<1000)return [];
@@ -65,6 +76,7 @@ export class OnlineTelemetry {
     ['jitter',this.jitter.n>=5&&this.jitter.p95()>90,'скачки RTT p95 >90 мс'],
     ['frame',this.frames.n>=50&&this.frames.p95()>55,'5% кадров дольше 55 мс'],
     ['snapshot',this.lastWorldAt>0&&now-this.lastWorldAt>1800,'нет снимков мира >1.8 с'],
+    ['visual',this.visual.n>=20&&this.visual.p95()>1.2,'расхождение объектов p95 >1.2 м'],
     ['state',this.lastStateAt>0&&age>1400,'нет новых сетевых состояний >1.4 с']
   ];
   const raised=[];
