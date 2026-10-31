@@ -55,14 +55,14 @@ export const netSound = n => { if (inRoom()) send({ t: 'ev', e: 'snd', n }); };
 // каждый кадр хаба: P — свой игрок, ch — его модель, mode — что делает (roam/wardrobe/claw/…), camera — для ников
 // hold — идёт общая сцена запуска (положения друзей ведёт она); ball — мяч голосования (считает хост)
 export function updateHubSync(dt, { P, ch, mode, camera, ball, hold, launchState }) {
-  clock += dt; lastHub = performance.now();
+  clock += dt; lastHub = performance.now();session?.presence();
   if (!inRoom()) { if (remotes.size) for (const id of [...remotes.keys()]) despawn(id); return; }
   // своё состояние
   if (ch && !ch._netHook) { const f = ch.animate; ch.animate = (d, s) => { ch._netS = s; return f.call(ch, d, s); }; ch._netHook = true; }
   // звуки своего персонажа для остальных: начало эмоции, прыжок
   const now=motionNow();idleT -= dt;
    const sendInterval=motionIntervalFor(NET.players.size,NET.ws?.bufferedAmount||0);NET.sendRateHz=Math.round(1/sendInterval);
-  if (now >= sendT && P) { const elapsed=lastHubSend?Math.min(.5,now-lastHubSend):SEND;lastHubSend=now;sendT=nextSendAt(sendT,now,sendInterval); const s = {}, src = ch?._netS || {};
+  if (now >= sendT && P && !session?.away) { const elapsed=lastHubSend?Math.min(.5,now-lastHubSend):SEND;lastHubSend=now;sendT=nextSendAt(sendT,now,sendInterval); const s = {}, src = ch?._netS || {};
     for (const k of POSE) { const v = src[k]; if (v !== undefined && v !== null && v !== false && v !== 0) s[k] = typeof v === 'number' ? Math.round(v * 100) / 100 : v; }
     const m = { t: 'st', m: 'hub', x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), r: +(ch?.root.rotation.y || 0).toFixed(2), s, rtt: NET.rtt };
     session?.tick(elapsed,P,m);m.x=+P.pos.x.toFixed(3);m.y=+P.pos.y.toFixed(3);m.z=+P.pos.z.toFixed(3);if(session?.host&&hold){m.launchState=launchState;m.launchAt=serverNow();}
@@ -98,6 +98,6 @@ function tagFor(r, cam, show = true) {if(!r.tag)return;
 }
 // друзья в хабе (для сбора у рогатки и сцены запуска), по номеру игрока
 export const remoteActors = (all=false) => [...remotes.values()].filter(r => r.mode==='hub' && (all || r.buf.length)).sort((a, b) => a.id - b.id);
-// для «в матче»: хаб не обновляется дольше секунды — сообщаем остальным, что мы не в хабе
-setInterval(() => { if (inRoom() && !MATCH.on && performance.now() - lastHub > 1000) send({ t: 'st', m: 'match', rtt: NET.rtt }); }, 2000);
+// Presence follows real hub lifecycle, not throttled rAF in a background tab.
+setInterval(()=>session?.presence(),1000);
 export const remoteMode = id => remotes.get(id)?.mode || 'hub';

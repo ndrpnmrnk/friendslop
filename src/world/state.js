@@ -8,7 +8,7 @@ export let W = {
 };
 export function resetWorld(group) {
   for(const r of W.mapResources||[])r.dispose();W.mapResources=new Set();
-  W.group = group; W.net = null; W.netPuppet = W.netHit = W.netThrow = W.netTake = null;
+  W.group = group; W.playBounds=null; W.hubReturn=null; W.net = null; W.netPuppet = W.netHit = W.netThrow = W.netTake = null;
   W.factorySite=W.salonSite=W.mayor=W.university=W.cinemaSite=null;
   W.skateAI=null;W.skateBowl=null;W.skateOriginX=W.skateOriginZ=W.skateBaseY=0;
   W.fatDone=false;

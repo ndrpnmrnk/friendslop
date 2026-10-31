@@ -16,11 +16,12 @@ const fields=['stun','getT','daze','wetT','slipT','netT','webT','knockT','gripSa
 // Хаб использует тот же реестр предметов, команды и физические тела, что и матч.
 export function createHubSession(world,remotes,options){
  let net=null,room='',identity=0,authority=null,host=false,full=0,worldT=0,seq=0,lastSeq=0,station=null,pending=null;
+ let away=false,resuming=false,resumeTo=0,resumeToken=0,requestAt=0;
  const pendingPositions=new Map(),queue=[],slots={wardrobe:null,claw:null};
  const key=()=> 'p'+NET.id, actor=k=>k===key()?world.state.player:[...remotes.values()].find(a=>a.netKey===k);
  const scope=fn=>withWorld(world.state,fn), trusted=m=>m.id===hubHostId();
  const event=m=>send({t:'ev',e:'hub',room:NET.code,...m});
- const command=q=>{if(queue.length<32)queue.push(q);};
+ const command=q=>{if(!away&&queue.length<32)queue.push(q);};
  const cache=scope(()=>createWorldSync({host:true,id:0,actor,command,myKey:'p0',visuals:false}));world.state.net=null;
  function ensure(){
    if(!inRoom()){net=null;room='';world.state.net=null;world.state.netHit=world.state.netTake=world.state.netThrow=null;world.state.bots=[];return;}
@@ -32,6 +33,30 @@ export function createHubSession(world,remotes,options){
    world.state.netHit=hit;world.state.netTake=it=>net.request('take',it);world.state.netThrow=(it,p,v)=>net.request('throw',it,{v:v.toArray()});
    world.state.hitActors=[botHitHook];
  }
+ // Explicit withdrawal + snapshot barrier works with the existing relay Worker.
+ function checkpoint(kind,to=0,token=0){event({e:'hub-transfer',kind,to,token,hw:net.capture(true),hs:[world.state.player,...(world.state.bots||[])].map(packet),slots:{...slots},door:world.curtainOpen});}
+ function presence(hidden=document.hidden){
+   if(!inRoom()){away=resuming=false;return;}
+   const inactive=hidden||options.active&&!options.active();
+   if(inactive){if(!away)scope(()=>{ensure();if(net&&host)checkpoint('checkpoint');queue.length=0;pendingPositions.clear();away=true;resuming=false;host=false;net?.setHost(false);send({t:'st',m:'match',hubAway:true});});return;}
+   if(!away)return;
+   scope(()=>{ensure();if(host){host=false;net?.setHost(false);}
+     const leader=hubHostId();
+     if(!leader||leader===NET.id){away=resuming=false;authority=NET.id;host=true;net?.setHost(true);full=worldT=0;return;}
+     if(!resuming||resumeTo!==leader){resuming=true;resumeTo=leader;resumeToken++;requestAt=0;}
+     const now=performance.now();if(now-requestAt>=1000||!requestAt){requestAt=now;event({e:'hub-transfer',kind:'request',to:leader,token:resumeToken});}
+   });
+ }
+ document.addEventListener('visibilitychange',()=>presence());
+ onNet('ev',m=>{if(m.e!=='hub-transfer'||!inRoom()||m.room!==NET.code)return;scope(()=>{
+   ensure();if(!net)return;
+   if(m.kind==='request'&&m.to===NET.id&&host&&!away){checkpoint('snapshot',m.id,m.token);return;}
+   const checkpointFrame=m.kind==='checkpoint'&&trusted(m)&&!host&&!away;
+   const resumed=m.kind==='snapshot'&&away&&resuming&&m.to===NET.id&&m.id===resumeTo&&m.id===hubHostId()&&m.token===resumeToken;
+   if(!checkpointFrame&&!resumed||!m.hw?.full)return;
+   if(resumed)net.resetStream();net.receive(m.hw);for(const q of m.hs||[])receiveActor(q);if(m.slots)Object.assign(slots,m.slots);if(Number.isFinite(m.door))world.curtain(m.door);
+   if(resumed){away=resuming=false;queue.length=0;pendingPositions.clear();full=worldT=0;}
+ });});
  function hit(a,k,args){if(a.netProtected)return;if(host){if(k!=='daze')dropHeld(a,args[0],args[1]);event({kind:'hit',to:a.netKey,k,args});}else command({kind:'hit',to:a.netKey,k,args});}
  function applyHit(a,k,args){if(!a||a.netProtected)return;if(k==='knock')knockDown(a,...args);else if(k==='shove')shove(a,...args);else if(k==='daze')daze(a,...args);}
  function stationAct(a,m){
@@ -48,11 +73,11 @@ export function createHubSession(world,remotes,options){
    if(m.kind?.startsWith('station-')){stationAct(a,m);return;}
    if(a.netProtected)return;
    if(m.kind==='hit'){const b=actor(m.to);if(b&&!b.netProtected&&a.pos.distanceTo(b.pos)<3&&Array.isArray(m.args)&&m.args.every(n=>Number.isFinite(n)&&Math.abs(n)<35)){if(b.puppet)hit(b,m.k,m.args);else applyHit(b,m.k,m.args);}return;}
-   net.act(a,m);full=0;
+   net.act(a,m);if(m.kind!=='bump')full=0;
  }
  function before(P){
-   ensure();if(!net)return;
-   P.netKey=key();P.netProtected=!!station||options.cutscene();
+   ensure();if(!net)return;if(away&&host){net.setHost(false);host=false;}
+   P.netKey=key();P.netProtected=away||!!station||options.cutscene();
    world.state.bots=[...remotes.values()].filter(a=>a.mode!=='match'&&a.buf.length);
    for(const a of world.state.bots){a.netKey='p'+a.id;a.puppet=true;a.human=true;a.bot=true;a.netProtected=Object.values(slots).includes(a.netKey)||options.cutscene();}
    world.state.net=net;world.state.netHit=hit;
@@ -97,6 +122,6 @@ export function createHubSession(world,remotes,options){
        for(const a of world.state.bots)if(a.netInput){const p=a.netInput.p,dx=a.pos.x-p[0],dz=a.pos.z-p[2];if(Math.hypot(dx,dz)>.015){m.fix.push({to:a.netKey,n:a.netInput.n,delta:[dx,0,dz]});a.netInput=null;}}
        if(worldT<=0){worldT=worldIntervalFor(NET.players.size);m.hw=net.capture(full<=0);if(full<=0)full=3;}
      }else{m.door=world.curtainOpen;if(worldT<=0){worldT=worldIntervalFor(NET.players.size);m.c=net.proposals();}if(queue.length)m.cmds=queue.splice(0);}
-   },get host(){return host;},get slots(){return slots;},get net(){return net;}
+   },presence,get away(){return away;},get host(){return host;},get slots(){return slots;},get net(){return net;}
  };
 }

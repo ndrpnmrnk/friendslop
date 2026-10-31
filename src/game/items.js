@@ -1,3 +1,4 @@
+import {requestBump} from '../world/physics.js';
 import {popcornModel,scatterPopcorn} from '../world/popcorn.js';
 import {dropHeld,daze} from './actors.js';
 import { random } from '../core/random.js';
@@ -300,11 +301,21 @@ function simulate(it, dt, flying) {
   } else { const k = Math.min(3, 0.6 + v.length() / 8); it.g.rotation.x += dt * 8 * k; it.g.rotation.y += dt * 5 * k; }
 }
 
+export function bumpItem(it,pl,velocity=null){
+ if(!pl||pl.held===it||it.state!=='rest'||it.noPickup)return;
+ const dx=it.pos.x-pl.pos.x,dz=it.pos.z-pl.pos.z,d=Math.hypot(dx,dz),m=it.def.r+pl.r;
+ if(d<1e-3||d>m+(velocity ? .25 : 0)||it.pos.y-it.def.r>=pl.pos.y+.6||it.pos.y<=pl.pos.y-.2)return;
+ const nx=dx/d,nz=dz/d,vn=(velocity?.[0]??pl.vel.x)*nx+(velocity?.[2]??pl.vel.z)*nz;
+ if(W.net&&!W.net.canSimulate(it)){requestBump(pl,it);return;}
+ if(d<m){it.pos.x+=nx*(m-d);it.pos.z+=nz*(m-d);}
+ if(vn>.5){const k=1/Math.sqrt(it.def.mass);it.vel.x=nx*vn*.8*k;it.vel.z=nz*vn*.8*k;it.vel.y=Math.min(3.5,vn*.35*k);}
+}
 export function updateItems(dt, pl) {
   for(const a of [pl,...(!W.net?.replica?W.bots||[]:[])].filter(a=>a&&!a.puppet)){if(a.held?.type==='coal'&&!a.netProtected){a.coalHeat=(a.coalHeat||0)+dt;if(a.coalHeat>1.8){a.coalHeat=0;daze(a,.65);const hot=a.held;if(a===pl&&W.net?.replica)W.net.request('drop',hot);if(a.held===hot)dropHeld(a);sfx('hiss',{at:a.pos,range:8,v:.4});}}else a.coalHeat=0;}
 
   for (const it of W.items) {
-    if (W.net && !W.net.canSimulate(it)) continue;
+    if (W.net && !W.net.canSimulate(it)){bumpItem(it,pl);continue;}
+    if(W.hubReturn&&it.state!=='held'&&it.pos.y<-14){W.hubReturn(it);continue;}
     if (it.state === 'gone' || it.state === 'placed') continue;
     if (it.state === 'held') continue;
     if (it.state === 'fly') { if (it.noHitT > 0) it.noHitT -= dt; simulate(it, dt, true); continue; }
@@ -317,20 +328,12 @@ export function updateItems(dt, pl) {
       it.floatY = undefined;
     }
     // лежит: мяч и упавшие предметы живут по физике
-    const foot=it.pos.y-(it.def.halfHeight??it.def.r),stable=Math.abs(foot-CONFIG.base)<.12&&it.vel.lengthSq()<.01;
+    const foot=it.pos.y-(it.def.halfHeight??it.def.r),stable=it.floorY!=null&&Math.abs(foot-it.floorY)<.05&&it.vel.lengthSq()<.01&&it.floorX===it.pos.x&&it.floorZ===it.pos.z;
     it.floorProbe=(it.floorProbe||0)-dt;
-    if(!stable||it.floorProbe<=0||it.floorY==null){it.floorY=groundAt(it.pos.x,it.pos.z,it.def.r*.5,it.pos.y);it.floorProbe=.18;}
+    if(!stable||it.floorProbe<=0||it.floorY==null){it.floorY=groundAt(it.pos.x,it.pos.z,it.def.r*.5,it.pos.y);it.floorProbe=.18;it.floorX=it.pos.x;it.floorZ=it.pos.z;}
     const moving = it.vel.lengthSq() > 0.01 || foot > it.floorY + 0.05;
     if (moving) simulate(it, dt, false);
-    if (pl && pl.held !== it) {
-      const dx = it.pos.x - pl.pos.x, dz = it.pos.z - pl.pos.z, d = Math.hypot(dx, dz), m = it.def.r + pl.r;
-      if (d < m && d > 1e-3 && it.pos.y - it.def.r < pl.pos.y + 0.6 && it.pos.y > pl.pos.y - 0.2) {
-        const nx = dx / d, nz = dz / d, k = 1 / Math.sqrt(it.def.mass);
-        it.pos.x += nx * (m - d); it.pos.z += nz * (m - d);
-        const vn = pl.vel.x * nx + pl.vel.z * nz;
-        if (vn > 0.5) { it.vel.x = nx * vn * 0.8 * k; it.vel.z = nz * vn * 0.8 * k; it.vel.y = Math.min(3.5, vn * 0.35 * k); }
-      }
-    }
+    bumpItem(it,pl);
   }
   for (let i = W.zones.length - 1; i >= 0; i--) { const z = W.zones[i]; if (z.expires !== undefined) { z.expires -= dt; if (z.expires <= 0) W.zones.splice(i, 1); } }
 }

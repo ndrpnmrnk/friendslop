@@ -22,7 +22,7 @@ function eligible(o) {
 }
 
 export function batchBegin(scene, camera, all = false) {
-  if (!enabled) return;
+  if (!enabled) return false;
   frameNo++;
   scene.updateMatrixWorld(); camera.updateMatrixWorld();
   _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _f.setFromProjectionMatrix(_pm);
@@ -62,7 +62,7 @@ export function batchBegin(scene, camera, all = false) {
     p.im.visible = false;
     if (frameNo - p.used > 240) { p.im.removeFromParent(); p.im.dispose(); pools.delete(key); groups.delete(key); }
   }
-  batchStats.batched = batched; batchStats.draws = draws;
+  batchStats.batched = batched; batchStats.draws = draws;return true;
 }
 export function batchEnd() {
   for (const o of hidden) o.visible = true;

@@ -173,7 +173,10 @@ export function present(scene, camera, outlineTarget=null) {
   renderer.shadowMap.needsUpdate=now-lastShadow>1000/quality.shadowHz;if(renderer.shadowMap.needsUpdate)lastShadow=now;
   post.uniforms.glowSteps.value=graphics.key==='low'?2:graphics.key==='medium'?4:8;post.uniforms.time.value=now*.001;WL.time.value=now*.001;
   if(scene.userData.wl)scene.userData.wl.apply();else disableWL();WL.max.value=quality.wl??8;
-  renderer.setRenderTarget(rt); batchBegin(scene,camera); try{renderer.render(scene, camera);}finally{batchEnd();}
+  const autoWorld=scene.matrixWorldAutoUpdate;
+  renderer.setRenderTarget(rt);if(!batchBegin(scene,camera))scene.updateMatrixWorld();scene.matrixWorldAutoUpdate=false;
+  try{renderer.render(scene,camera);}catch(e){scene.matrixWorldAutoUpdate=autoWorld;throw e;}finally{batchEnd();}
+  try {
   post.uniforms.outlineOn.value=outlineTarget?1:0;
   if(outlineTarget){const marked=[],layers=camera.layers.mask,bg=scene.background,override=scene.overrideMaterial,shadow=renderer.shadowMap.autoUpdate;
     outlineTarget.traverse(o=>{if(o.isMesh&&o.visible&&!o.userData.noOutline&&o.name!=='character-shadow'){marked.push([o,o.layers.mask]);o.layers.enable(2);}});
@@ -186,6 +189,7 @@ export function present(scene, camera, outlineTarget=null) {
     try{camera.layers.set(31);scene.background=null;renderer.autoClear=false;renderer.clearDepth();renderer.render(scene,camera);}
     finally{camera.layers.mask=layers;scene.background=bg;renderer.autoClear=auto;}
   }
+  } finally {scene.matrixWorldAutoUpdate=autoWorld;}
 }
 
 export const cameras = [];

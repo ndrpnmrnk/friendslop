@@ -19,8 +19,8 @@ function gridInsert(s) {
   }
 }
 // Движущиеся твёрдые ящики обновляют только занятые ячейки сетки.
-export function moveSolid(s,x0,z0,x1,z1,y0,y1){const old=[Math.floor(s.x0/CELL),Math.floor(s.x1/CELL),Math.floor(s.z0/CELL),Math.floor(s.z1/CELL)],next=[Math.floor(x0/CELL),Math.floor(x1/CELL),Math.floor(z0/CELL),Math.floor(z1/CELL)],changed=old.some((v,i)=>v!==next[i]);if(changed)for(let x=old[0];x<=old[1];x++)for(let z=old[2];z<=old[3];z++){const k=ck(x,z),a=W.grid?.get(k);if(a){const i=a.indexOf(s);if(i>=0)a.splice(i,1);if(!a.length)W.grid.delete(k);}}Object.assign(s,{x0,z0,x1,z1,y0,y1});if(changed)gridInsert(s);}
-export function syncPushable(b){b.mesh.position.set(b.x,b.y+(b.meshOffsetY||0),b.z);if(b.solid){const r=b.h/2;moveSolid(b.solid,b.x-r,b.z-r,b.x+r,b.z+r,b.y,b.y+b.h);b.mesh.updateMatrixWorld(true);for(const q of b.piece?.inst||[]){q.mx.multiplyMatrices(b.mesh.matrixWorld,q.local);q.im.setMatrixAt(q.i,q.mx);q.im.instanceMatrix.needsUpdate=true;}}}
+export function moveSolid(s,x0,z0,x1,z1,y0,y1){if(s.x0===x0&&s.z0===z0&&s.x1===x1&&s.z1===z1&&s.y0===y0&&s.y1===y1)return;const old=[Math.floor(s.x0/CELL),Math.floor(s.x1/CELL),Math.floor(s.z0/CELL),Math.floor(s.z1/CELL)],next=[Math.floor(x0/CELL),Math.floor(x1/CELL),Math.floor(z0/CELL),Math.floor(z1/CELL)],changed=old.some((v,i)=>v!==next[i]);if(changed)for(let x=old[0];x<=old[1];x++)for(let z=old[2];z<=old[3];z++){const k=ck(x,z),a=W.grid?.get(k);if(a){const i=a.indexOf(s);if(i>=0)a.splice(i,1);if(!a.length)W.grid.delete(k);}}Object.assign(s,{x0,z0,x1,z1,y0,y1});if(changed)gridInsert(s);}
+export function syncPushable(b){b.mesh.position.set(b.x,b.y+(b.meshOffsetY||0),b.z);if(b.solid){const r=b.h/2;moveSolid(b.solid,b.x-r,b.z-r,b.x+r,b.z+r,b.y,b.y+b.h);if(b.piece?.inst?.length)b.mesh.updateMatrixWorld(true);for(const q of b.piece?.inst||[]){q.mx.multiplyMatrices(b.mesh.matrixWorld,q.local);q.im.setMatrixAt(q.i,q.mx);q.im.instanceMatrix.needsUpdate=true;}}}
 let stamp = 0; const _q = [];
 // твёрдые объекты, пересекающие прямоугольник (без повторов). Результат переиспользуется — не хранить.
 export function solidsNear(x0, z0, x1, z1, out = _q) {
@@ -186,6 +186,11 @@ export function updatePushables(dt, player) {
     if(b.dead || W.net && !W.net.canSimulate(b))continue;
     if(b.solid)b.solid.on=false;
     if (b.grabbed) { b.hitSpeed = 0;if(b.solid)b.solid.on=true;syncPushable(b);continue; } // её ведёт игрок
+    if(W.hubReturn&&!b.rider&&(b.hubFalling||!W.walk(b.x,b.z))){
+      _selfP=b;const floor=groundAt(b.x,b.z,b.r*.25,b.y+.1);_selfP=null;
+      if(b.hubFalling||floor<b.y-.2){b.hubFalling=true;b.vy=(b.vy||0)-22*dt;b.y+=b.vy*dt;b.x+=b.vx*dt;b.z+=b.vz*dt;
+        if(b.y<-14)W.hubReturn(b);syncPushable(b);continue;}
+    }
     const op = { x: b.x, z: b.z };
     b.grindCooldown=Math.max(0,(b.grindCooldown||0)-dt);
     // Bowl forces and contact will be integrated together in movement substeps.
@@ -339,7 +344,9 @@ export function updatePushables(dt, player) {
       if (b.roller) b.roller.rotation.x += vf * dt / b.r;
     }
   }
-  for (let i = 0; i < W.pushables.length; i++) for (let j = i + 1; j < W.pushables.length; j++) {
+  // Nearby pairs only. AABB insertion covers large props crossing cell edges too.
+  const pairs=pushablePairs();let candidates=0;
+  for(const [i,j] of pairs){candidates++;
     const a = W.pushables[i], b = W.pushables[j];
     if(W.net&&(!W.net.canSimulate(a)||!W.net.canSimulate(b)))continue;
     const dx = b.x - a.x, dz = b.z - a.z, m = a.r + b.r;
@@ -348,7 +355,25 @@ export function updatePushables(dt, player) {
     const d = Math.hypot(dx,dz);
     if (d < m && d > 1e-4 && a.y<b.y+b.h && b.y<a.y+a.h) { const closing=((a.vx-b.vx)*dx+(a.vz-b.vz)*dz)/d;if(closing>1.8){recordImpact(a,true,closing);recordImpact(b,true,closing);if(a.kind==='kart'&&b.kind==='kart'&&closing>8){for(const c of [a,b]){if(c.rider)c.rider.daze=Math.max(c.rider.daze||0,1.0);c.heading+=(c===a?1:-1)*.6;c.skid=1;c.spin=(c===a?1:-1)*2;}}const impulse=closing*.6;a.vx-=dx/d*impulse;a.vz-=dz/d*impulse;b.vx+=dx/d*impulse;b.vz+=dz/d*impulse;} const k = (m - d) / 2 / d; a.x -= dx * k; a.z -= dz * k; b.x += dx * k; b.z += dz * k; }
   }
+  Object.assign(W.physicsStats??={}, {pushCandidates:candidates,allPairs:W.pushables.length*(W.pushables.length-1)/2});
   if (player) bumpPushables(player);for(const b of W.pushables){if(b.ride?.water){constrainWaterRide(b);b.mesh.position.x=b.x;b.mesh.position.z=b.z;if(b.rider){b.rider.pos.x=b.x;b.rider.pos.z=b.z;}}if(b.solid)syncPushable(b);}
+}
+// Guest contacts are commands; the host validates reach and applies the impulse once.
+export function requestBump(a,o){if(!a||a.puppet||a.netProtected)return;const now=performance.now();if(now<(o.netBumpAt||0)||Math.hypot(a.vel.x,a.vel.z)<.3)return;o.netBumpAt=now+100;W.net?.request('bump',o,{v:[a.vel.x,0,a.vel.z]});}
+export function applyPushBump(a,b,v){
+ if(b.dead||b.rider||b.grabbed||a.ride||a.pos.y>b.y+b.h-.06||a.pos.y+a.h<b.y)return;
+ const dx=b.x-a.pos.x,dz=b.z-a.pos.z,d=Math.hypot(dx,dz),m=b.r+a.r;if(d<1e-4||d>m+.45)return;
+ const nx=dx/d,nz=dz/d,vn=Math.max(0,v[0]*nx+v[2]*nz),target=vn*(b.mass>3?.45:.85),current=b.vx*nx+b.vz*nz;
+ if(current<target){const k=(target-current)*Math.min(1,1.5/b.mass);b.vx+=nx*k;b.vz+=nz*k;}if(b.kind==='bin'&&vn>8.5)tipBin(b,nx,nz);
+}
+const pairBins=new Map(),pairMarks=[];
+function* pushablePairs(){
+ for(const list of pairBins.values())list.length=0;
+ const all=W.pushables;
+ for(let i=0;i<all.length;i++){const b=all[i];if(b.dead||!Number.isFinite(b.x)||!Number.isFinite(b.z)||!Number.isFinite(b.r))continue;for(let x=Math.floor((b.x-b.r)/4);x<=Math.floor((b.x+b.r)/4);x++)for(let z=Math.floor((b.z-b.r)/4);z<=Math.floor((b.z+b.r)/4);z++){const k=ck(x,z);let list=pairBins.get(k);if(!list)pairBins.set(k,list=[]);list.push(i);}}
+ pairMarks.length=all.length;pairMarks.fill(-1);
+ for(let i=0;i<all.length;i++){const a=all[i];if(a.dead||!Number.isFinite(a.x)||!Number.isFinite(a.z)||!Number.isFinite(a.r))continue;for(let x=Math.floor((a.x-a.r)/4);x<=Math.floor((a.x+a.r)/4);x++)for(let z=Math.floor((a.z-a.r)/4);z<=Math.floor((a.z+a.r)/4);z++)for(const j of pairBins.get(ck(x,z))||[]){if(j<=i||pairMarks[j]===i)continue;pairMarks[j]=i;yield [i,j];}}
+ if(pairBins.size>4096)for(const[k,v]of pairBins)if(!v.length)pairBins.delete(k);
 }
 // Игрок толкает предметы, предметы мешают игроку
 export function bumpPushables(pl) {
@@ -366,7 +391,7 @@ export function bumpPushables(pl) {
     if (d >= m || d < 1e-4) continue;
     const nx = dx / d, nz = dz / d, over = m - d;
     // На госте пассивный предмет не меняет свою физику, контакт отталкивает только игрока.
-    if(passive){p.x-=nx*over;p.z-=nz*over;const vn=pl.vel.x*nx+pl.vel.z*nz;if(vn>0){pl.vel.x-=nx*vn;pl.vel.z-=nz*vn;}continue;}
+    if(passive){requestBump(pl,b);p.x-=nx*over;p.z-=nz*over;const vn=pl.vel.x*nx+pl.vel.z*nz;if(vn>0){pl.vel.x-=nx*vn;pl.vel.z-=nz*vn;}continue;}
     // запрыгивает/цепляется выше середины — предмет не двигается, персонажа мягко сдвигает
     if (!pl.onGround && p.y > b.y + b.h * 0.45) { p.x -= nx * over; p.z -= nz * over; continue; }
     const share = 1 / (1 + b.mass);

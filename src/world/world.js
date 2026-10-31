@@ -29,7 +29,7 @@ export function generateMap(scene, s) {
   resetWorld(group); resetParticles(); resetBreakables(); resetGrabTargets(); setParent(group);
   seed(s);
   const { grid, chunk, road, base } = CONFIG, total = grid * chunk + (grid + 1) * road, half = total / 2;
-  W.bounds = half + 3.4;
+  W.bounds = half + 3.4; W.playBounds = half;
   // разметка
   const line = paint(0xd8d0b8), yl = paint(0xe0b02a);
   const mark = (x, z, w, d, mat) => { const m = mesh(G.plane, mat, x, 0.025, z, w, d, 1, group); m.rotation.x = -Math.PI / 2; };

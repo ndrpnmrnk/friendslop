@@ -1,0 +1,39 @@
+// Real local relay + two game instances; controlled frames, no GPU/WAN claim.
+const out=document.querySelector('#log'),clients=[],started=Date.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const log=(s,v='')=>out.textContent+='\n'+s+' '+JSON.stringify(v),assert=(ok,msg)=>{if(!ok)throw Error(msg);log('PASS',msg);};
+const wait=async(fn,label,ms=25000)=>{log('WAIT',label);const end=Date.now()+ms;while(Date.now()<end){if(fn())return;await sleep(100);}throw Error('timeout '+label);};
+const pump=setInterval(()=>{for(const c of clients)if(!c.hidden)c.w.__stepTestFrame?.();},1000/60);
+try{
+ for(let i=0;i<2;i++){
+  const f=document.createElement('iframe');f.src='/__logic-index.html?testFrames=1';document.querySelector('#clients').append(f);const w=f.contentWindow;
+  await wait(()=>w.__onlineTestModules?.camera&&w.__fs?.menu,'boot');const m=w.__onlineTestModules,fs=w.__fs,c={w,m,fs,hidden:false};clients.push(c);Object.defineProperty(w.document,'hidden',{configurable:true,get:()=>c.hidden});c.scope=fn=>m.world.withWorld(fs.menu.world.state,fn);
+  m.mic.MIC.on=false;m.mic.stopMic();w.localStorage.setItem('friendslop.server','ws://'+location.host+'/__rooms');m.net.myName('Recovery '+i);fs.showHub();log('BOOT',i);
+ }
+ const[h,g]=clients,hm=h.fs.menu,gm=g.fs.menu;h.m.net.createRoom('cat');await wait(()=>h.m.net.inRoom(),'room');const code=h.m.net.NET.code;g.w.sessionStorage.setItem('friendslop.tok.'+code,'recovery-'+Date.now());g.m.net.joinRoom(code,'cat');await wait(()=>clients.every(c=>c.fs.menu.mode==='roam'&&c.fs.menu.world.state.bots?.length===1),'roster');
+ const place=(c,x,z)=>{const a=c.fs.menu.player;a.pos.set(x,0,z);a.vel.set(0,0,0);a.onGround=true;for(const peer of clients){const r=peer.fs.menu.world.state.bots?.find(r=>r.id===c.m.net.NET.id);if(r){r.pos.set(x,0,z);r.vel.set(0,0,0);for(const q of r.buf){q.x=x;q.y=0;q.z=z;}}}};
+ const ball=c=>c.fs.menu.world.vote.ball,item=c=>c.fs.menu.world.state.items.find(i=>i.type==='ball');
+ assert(JSON.stringify(hm.world.state.items.map(i=>[i.type,i.home.x,i.home.z]))===JSON.stringify(gm.world.state.items.map(i=>[i.type,i.home.x,i.home.z])),'hub item registry identical across clients');
+ place(h,-6,14);const vb=ball(h);vb.x=0;vb.z=9;vb.vx=vb.vz=0;await sleep(450);place(g,0,10.45);await sleep(250);
+ const z0=vb.z;
+ // Attempt an actual body contact on the guest; the local collision sends its intended velocity.
+ for(let i=0;i<8;i++){g.scope(()=>{gm.player.vel.set(0,0,-6);gm.player.pos.set(ball(g).x,0,ball(g).z+gm.player.r+ball(g).r-.02);g.m.physics.bumpPushables(gm.player);});await sleep(100);}
+ await wait(()=>vb.z<z0-.25,'guest pushes shared voting ball');assert(vb.z<z0-.25,'guest body pushes authoritative voting ball');
+ const loose=item(h);h.scope(()=>{loose.state='rest';loose.pos.set(-4,loose.def.r,12);loose.vel.set(0,0,0);});await sleep(450);place(g,-4,12.7);await sleep(200);const lz=loose.pos.z;
+ for(let i=0;i<5;i++){g.scope(()=>{const it=item(g);gm.player.pos.set(it.pos.x,0,it.pos.z+it.def.r+gm.player.r-.01);gm.player.vel.set(0,0,-5);g.m.items.bumpItem(it,gm.player);});await sleep(120);}
+ await wait(()=>loose.pos.z<lz-.15,'guest kicks loose item');assert(true,'guest can kick loose shared item');
+ place(g,item(g).pos.x,item(g).pos.z+.6);await sleep(250);g.scope(()=>{const it=item(g);g.m.items.pickUp(it);it.owner=gm.player;gm.player.held=it;});await wait(()=>item(h).state==='held','take');g.scope(()=>{const it=item(g);gm.player.held=null;g.m.items.launch(it,gm.player.pos.clone().add(gm.player.vel.clone().set(0,1,0)),it.vel.clone().set(3,3,0));});await wait(()=>item(h).state==='fly','throw');assert(true,'guest pickup and use/throw still work');
+ // Hide old leader, let the other move the world, return old leader and require a snapshot first.
+ h.hidden=true;h.w.document.dispatchEvent(new h.w.Event('visibilitychange'));await wait(()=>gm.netHub.host,'temporary leader');assert(!hm.netHub.host&&gm.netHub.host,'hidden host withdraws authority');
+ const current=ball(g);current.x=5;current.z=12;current.vx=current.vz=0;place(g,-6,14);await sleep(300);
+ h.hidden=false;h.w.document.dispatchEvent(new h.w.Event('visibilitychange'));await wait(()=>!hm.netHub.away&&hm.netHub.host,'resume barrier');await sleep(800);
+ assert(Math.hypot(ball(h).x-5,ball(h).z-12)<.3&&Math.hypot(ball(g).x-5,ball(g).z-12)<.3,'returning old host preserves new world position');
+ // Lost objects must visibly fall before returning, without allocating replacements.
+ const count=hm.world.state.pushables.length,home={x:ball(h).x,z:ball(h).z};ball(h).x=48;ball(h).z=0;ball(h).vx=ball(h).vz=0;await wait(()=>ball(h).y<-.5,'ball falls');assert(ball(h).y<-.5,'unrideable ball falls off island');await wait(()=>Math.abs(ball(h).y)<.01&&Math.abs(ball(h).x)<10,'ball returns');assert(hm.world.state.pushables.length===count,'return reuses original object');
+ log('LOOSE TEST START',{state:item(h).state,p:item(h).pos.toArray()});const initial=item(h).home;h.scope(()=>{const it=item(h);it.state='rest';it.owner=null;it.pos.set(48,.4,0);it.vel.set(0,0,0);});await sleep(700);log('LOOSE AFTER',{state:item(h).state,p:item(h).pos.toArray(),v:item(h).vel.toArray(),floor:item(h).floorY,can:hm.netHub.net.canSimulate(item(h))});await wait(()=>item(h).pos.y<-.5,'loose fall');await wait(()=>Math.hypot(item(h).pos.x-initial.x,item(h).pos.z-initial.z)<.1,'loose returns');assert(true,'loose item falls and returns to original spot');await sleep(500);assert(item(h).pos.distanceTo(item(g).pos)<.2,'returned item replicated');
+ const get=await h.w.eval('(async()=>p=>import(p+"?net-logic-test"))()');const [gfx,world,builder,g4,random]=await Promise.all(['core/gfx.js','world/state.js','world/builder.js','missions/games4.js','core/random.js'].map(p=>get('/src/'+p)));
+ const test=world.createWorld(new gfx.THREE.Group());world.withWorld(test,()=>{test.bounds=30;test.playBounds=20;const b=new builder.Builder(0,0,0,'test');b.box(21,0,.3,12,4,gfx.col(0x777777));b.box(0,0,.3,12,4,gfx.col(0x777777));const spots=g4.graffitiPlaces();assert(spots.length>0&&spots.every(q=>Math.abs(q.x+q.f[0]*1.5)+.6<=20&&Math.abs(q.z+q.f[1]*1.5)+.6<=20),'graffiti rejects walls and approaches beyond playable bounds');});
+ const props=await get('/src/world/pushables.js'),performanceWorld=world.createWorld(new gfx.THREE.Group());world.withWorld(performanceWorld,()=>{performanceWorld.bounds=500;const b=new builder.Builder(0,0,0,'test');for(let i=0;i<240;i++)props.addPushable(b,'barrel',(i%20)*5,Math.floor(i/20)*5);performanceWorld.pushables[1].x=.3;h.m.physics.updatePushables(1/60,null);const stats=performanceWorld.physicsStats;assert(stats.pushCandidates<stats.allPairs*.1,'spatial grid removes distant collision pair checks');assert(Math.hypot(performanceWorld.pushables[1].x-performanceWorld.pushables[0].x,performanceWorld.pushables[1].z-performanceWorld.pushables[0].z)>=performanceWorld.pushables[0].r+performanceWorld.pushables[1].r-.01,'nearby overlapping barrels still separate');log('PAIRS',stats);});
+ // One mixed gameplay round, preserving all current cinema/factory/skatepark updates.
+ h.m.net.leaveRoom();g.m.net.leaveRoom();h.w.__forceDistricts=['cinema','factory','foodcourt','office','park','shops','townhall','university','skatepark'];h.fs.S.botCount=7;h.fs.startRound();await sleep(1000);assert(h.fs.W.bots.length===7,'mixed map with seven bots');assert([h.fs.P,...h.fs.W.bots].every(a=>[a.pos.x,a.pos.y,a.pos.z].every(Number.isFinite)),'mixed round positions finite');assert(!clients.some(c=>c.fs.lastFaults().some(q=>Date.parse(q.at)>=started)),'no runtime faults');
+ log('DONE - local CPU logic, geometry and network; GPU/FPS/WAN not measured.');
+}catch(e){log('FAIL',e.stack);for(const c of clients)log('STATE',{faults:c.fs.lastFaults().slice(-3),mode:c.fs.menu.mode,host:c.fs.menu.netHub.host,away:c.fs.menu.netHub.away,ball:{x:c.fs.menu.world.vote.ball.x,y:c.fs.menu.world.vote.ball.y,z:c.fs.menu.world.vote.ball.z}});}finally{clearInterval(pump);}

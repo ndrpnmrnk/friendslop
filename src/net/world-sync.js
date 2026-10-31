@@ -3,9 +3,9 @@ import {toggleRadio,tuneRadio} from '../game/radio.js';
 import {withSoundSource,sfx} from '../core/sfx.js';
 import { W } from '../world/state.js';
 import { V3, THREE } from '../core/gfx.js';
-import { addItem, pickUp, launch, drop } from '../game/items.js';
+import { addItem, pickUp, launch, drop, bumpItem } from '../game/items.js';
 import { addPushable } from '../world/pushables.js';
-import { addSolid, addObb, moveSolid, syncPushable, pushOut, raySolids } from '../world/physics.js';
+import { addSolid, addObb, moveSolid, syncPushable, pushOut, raySolids, applyPushBump } from '../world/physics.js';
 import { breakPiece } from '../world/breakables.js';
 import { grabActor, letGo, struggleTap } from '../game/grab.js';
 import { mount, grab, dismount, release } from '../game/ride.js';
@@ -164,7 +164,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
         if (!proposal && (o.rider === W.player || o.grabbed === W.player) && (v[12]===myKey||v[13]===myKey)) break;
         const before=motionView.get(o)||{x:o.mesh.position.x,y:o.mesh.position.y,z:o.mesh.position.z};
         const oldRider = o.rider, oldGrab = o.grabbed;
-        o.x = v[1]; o.y = v[2]; o.z = v[3]; o.vx = v[4]; o.vy = v[5]; o.vz = v[6]; o.dead = !!v[10]; o.tipped = !!v[11]; o.heading = v[14];
+        o.x = v[1]; o.y = v[2]; o.z = v[3]; o.hubFalling=false; o.vx = v[4]; o.vy = v[5]; o.vz = v[6]; o.dead = !!v[10]; o.tipped = !!v[11]; o.heading = v[14];
         o.rider = actor(v[12]); o.grabbed = actor(v[13]);
         if (oldRider && oldRider !== o.rider && oldRider.ride === o) oldRider.ride = null;
         if (oldGrab && oldGrab !== o.grabbed && oldGrab.grab === o) oldGrab.grab = null;
@@ -219,6 +219,12 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     if (msg.kind === 'grip') { const b = actor(msg.key); if (b) grabActor(a, b); return; }
     if (!o) return;
     const p = o.pos || o.mesh?.position || o;
+    if(msg.kind==='bump'){
+      if(!vector(msg.v,3,30)||a.netProtected||a.stun>0||a.heldBy||a.ride)return;
+      if(msg.key[0]==='p')applyPushBump(a,o,msg.v);
+      else if(msg.key[0]==='i')bumpItem(o,a,msg.v);
+      return;
+    }
     if(msg.kind==='tug'){if(o.tug&&(o.owner===a||o.tug.actor===a))tugInput(a,!!msg.hold);else if(msg.hold)startTug(a,o);return;}
     if(msg.kind==='use'){
       if(o.owner===a&&o.state==='held'&&vector(msg.target)&&Number.isFinite(msg.dt))W.netUseTool?.(a,o,new V3(...msg.target),Math.max(0,Math.min(.2,msg.dt)));
@@ -281,7 +287,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     setIdentity(value){myKey=value;serial=0;},
     discover(){for(const[type,list]of Object.entries(LISTS))for(const o of W[list]||[])if(!seen.has(o))register(type,o);},
     restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();motionView.clear();motionPackets.reset();received.clear();dirty.clear();worldSentAt.clear();delta.last=new Map(delta.base);delta.rev=0;delta.visited.clear();serial=0;},
-    setHost(value){host=!!value;api.host=host;api.replica=!host;if(host)for(const it of W.items)clearTug(it);serial=0;worldSentAt.clear();motionView.clear();motionPackets.reset();},
+    setHost(value){host=!!value;api.host=host;api.replica=!host;if(host)for(const it of W.items)clearTug(it);serial=0;worldSentAt.clear();visual.clear();motionView.clear();motionPackets.reset();},
     resetStream(){serial=0;},
     get applying() { return applying; },
     motionEntries(options){return motionPackets.capture(movers,32,8192,options);},

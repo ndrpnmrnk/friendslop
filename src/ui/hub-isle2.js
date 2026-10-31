@@ -154,11 +154,11 @@ export function buildIsle2(b, group) {
           sfx('bonk', { at: it.pos }); sfx('points', { at: it.pos }); burst(tx, q.y, GZ - .2, 10, { color: 0xffd27a, size: .1, speed: 2, up: 1.5 }); toast('Тир: ' + score + (q.kind === 'duck' ? '  (утка +2)' : '')); break; }
       }
       // брошенное возвращается на стойку: улетело вниз, разбилось или лежит в стороне дольше 5 с
-      for (const a of ammo) { const it = a.it, h = it.home;
+      for (const a of (W.net?.replica?[]:ammo)) { const it = a.it, h = it.home;
         const lost = it.state === 'gone' || it.pos.y < -10, idle = it.state === 'rest' && Math.hypot(it.pos.x - h.x, it.pos.z - h.z) > 1;
         a.away = lost ? a.away + dt * 10 : idle ? a.away + dt : 0; if (a.away > 5) { a.away = 0; respawnItem(it); sfx('spring', { at: it.pos, v: .5 }); } }
       // бочки упали с арены — возвращаются
-      for (const br of barrels) if (br && br.y < -14) { br.x = A.x + (random() - .5); br.z = A.z; br.y = 3; br.vx = br.vz = 0; br.vy = 0; }
+      for (const br of (W.net?.replica?[]:barrels)) if (br && br.y < -14) { W.hubReturn?.(br); }
       // фист и табло — раз в секунду
       slow -= dt; if (slow <= 0) { slow = 1; if (fist && fist.gone) { try { localStorage.setItem(FIST_KEY, String(Date.now())); } catch { } fist = null; } placeFist();
         const f = fist && !fist.gone ? -1 : Math.ceil(fistReadyIn() / 60000); if (f !== boardFist) { boardFist = f; drawBoard(); } }

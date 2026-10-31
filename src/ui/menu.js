@@ -71,7 +71,7 @@ export function createMenu(){
   camera.position.copy(SPLASH_CAM);camera.lookAt(look);
   const audioForward=new V3();
   const st={scene,camera,world,ch:null,player:null,rig,active:true,mode:'splash',idx:0,t:0,choosing:false,hover:false,drag:false,pause:false,transition:null,velocity:new V3(),sit:0};
-  st.netHub=configureHubSync(world,{busy:()=>{sfx('no');},cutscene:()=>st.flow?.stage==='cutscene'});
+  st.netHub=configureHubSync(world,{busy:()=>{sfx('no');},active:()=>st.active||st.pausedForSettings,cutscene:()=>st.flow?.stage==='cutscene'});
   let screenTimer=0;const hubHud={prompt:'',held:'',heldType:''};const glowing=new Set();const characters=new Map(),hubFX={shake:0,freeze:0};
   function scope(fn){return withWorld(world.state,()=>{const shake=FX.shake,freeze=FX.freeze;Object.assign(FX,hubFX);try{return fn();}finally{Object.assign(hubFX,FX);FX.shake=shake;FX.freeze=freeze;}});}
   const previewRig=createCameraRig(),previewCamera=makeCamera(CONFIG.camera.fov),clawStand=world.claw.stand.clone();

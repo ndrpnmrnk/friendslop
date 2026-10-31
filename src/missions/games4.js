@@ -34,6 +34,8 @@ export function graffitiPlaces(){
  for(const [axis,length]of [['x',wx],['z',wz]]){if(length<3.6)continue;for(const sign of [-1,1])for(const k of [.25,.5,.75]){
   const x=axis==='x'?s.x0+wx*k:sign>0?s.x1:s.x0,z=axis==='z'?s.z0+wz*k:sign>0?s.z1:s.z0,f=axis==='x'?[0,sign]:[sign,0];
   const px=x+f[0]*1.5,pz=z+f[1]*1.5,y=groundAt(px,pz,.25,s.y0+.35);
+  const limit=W.playBounds??W.bounds;
+  if(Math.abs(px)+.6>limit||Math.abs(pz)+.6>limit||Math.abs(x)>limit||Math.abs(z)>limit)continue;
   if(Math.abs(y-s.y0)>.3||s.y1<y+2.55||!isFree(px-.45,pz-.45,px+.45,pz+.45,y+.05,y+2.0))continue;
   if((W.paintSites||[]).some(p=>Math.hypot(p.x-x,p.z-z)<2.7))continue;
   // Весь прямоугольник должен попадать в одну физическую грань.

@@ -1,3 +1,4 @@
+import {installHubReturn} from './hub-return.js';
 import {buildHoop} from '../world/basketball.js';
 import {THREE,G,V3,mesh,col,tmat,glow,lam,compose} from '../core/gfx.js';
 import {T,facade} from '../core/textures.js';
@@ -193,7 +194,7 @@ export function buildHub(scene){
   /* ---------- v0.59: «Остров затей» за южной аркой ---------- */
   const isle2=buildIsle2(b,group);state.walk=hubWalk;
   resetTools();resetSplat();registerInteracts();bakeStatic(group);
-  const island=buildIsland(group);
+  const island=buildIsland(group);installHubReturn();
   let curtainOpen=0;
   const wardrobe={preview:new V3(-14.6,.2,-5),gate:new V3(-10,0,-5),inside:new V3(-12.3,0,-5),exit:new V3(-9.4,0,-5),camera:new V3(-11.35,1.6,-4.15),look:new V3(-14.6,1.05,-5),inYaw:-Math.PI/2,outYaw:Math.PI/2};
   const result={state,group,island,isle2,curtains:doors,lampLights:[],entrySolid,vote,screen,sling,claw,wardrobe,shop,
