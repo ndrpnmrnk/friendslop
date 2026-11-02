@@ -125,10 +125,13 @@ export function updateBreakables(dt, player) {
       burst((s.x0 + s.x1) / 2, s.y0 + 0.4, (s.z0 + s.z1) / 2, 6, { color: 0xd8d0e4, size: 0.35, speed: 1, up: 1, g: 1, grow: 1, life: 0.6 }); } }
   }
 }
-/* Оптимизация: все целые куски одного вида рисуются одной инстанс-отрисовкой.
-   Сломанный кусок просто сжимается в ноль и пропадает из батча. */
+/* Оптимизация (v0.67.2): целые куски рисуются BatchedMesh - один вызов на материал в участке 48×48 м,
+   разные формы деталей внутри одного вызова; невидимые и далёкие детали отсекаются поштучно.
+   Сломанный кусок сжимается в ноль, как раньше (API setMatrixAt тот же). */
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+const sig = g => Object.keys(g.attributes).sort().map(k => k + g.attributes[k].itemSize).join(',') + (g.index ? '|i' : '|n');
 export function bakeBreakables(group) {
+  W.breakInst = [];
   const by = new Map();
   group.updateMatrixWorld(true);
   for (const p of W.breakables) {
@@ -137,15 +140,22 @@ export function bakeBreakables(group) {
     if (!list.length || list.some(o => Array.isArray(o.material))) continue;
     p.inst = [];
     for (const o of list) {
-      const k = o.geometry.uuid + o.material.uuid; let b = by.get(k); if (!b) by.set(k, b = { geo: o.geometry, mat: o.material, items: [] });
-      b.items.push({ p, mx: o.matrixWorld.clone(),local:o.matrixWorld.clone().premultiply(p.mesh.matrixWorld.clone().invert()) });
+      const e = o.matrixWorld.elements, cell = p.motion ? 'm' : Math.floor(e[12] / 48) + ':' + Math.floor(e[14] / 48);
+      const k = o.material.uuid + sig(o.geometry) + cell; let b = by.get(k); if (!b) by.set(k, b = { mat: o.material, items: [], motion: !!p.motion });
+      b.items.push({ p, geo: o.geometry, mx: o.matrixWorld.clone(), local: o.matrixWorld.clone().premultiply(p.mesh.matrixWorld.clone().invert()) });
     }
     p.mesh.parent.remove(p.mesh);
   }
   for (const b of by.values()) {
-    const im = new THREE.InstancedMesh(b.geo, b.mat, b.items.length); im.castShadow = !b.mat.transparent; im.receiveShadow = !b.mat.transparent;
-    b.items.forEach((it, i) => { im.setMatrixAt(i, it.mx); it.p.inst.push({ im, i, mx: it.mx,local:it.local }); });
-    im.instanceMatrix.needsUpdate = true;im.frustumCulled=!b.items.some(it=>it.p.motion); im.computeBoundingSphere(); group.add(im);
+    const geos = [...new Set(b.items.map(it => it.geo))];
+    const verts = geos.reduce((n, g) => n + g.attributes.position.count, 0), idx = geos.reduce((n, g) => n + (g.index ? g.index.count : 0), 0);
+    const bm = new THREE.BatchedMesh(b.items.length, verts, Math.max(idx, 1), b.mat);
+    const ids = new Map(geos.map(g => [g, bm.addGeometry(g)]));
+    bm.castShadow = !b.mat.transparent; bm.receiveShadow = !b.mat.transparent; bm.name = 'breakables';
+    bm.instanceMatrix = { needsUpdate: false }; // совместимость со старым кодом, который трогал InstancedMesh
+    b.items.forEach(it => { const i = bm.addInstance(ids.get(it.geo)); bm.setMatrixAt(i, it.mx); it.p.inst.push({ im: bm, i, mx: it.mx, local: it.local }); });
+    bm.computeBoundingSphere(); group.add(bm);
+    if (!b.motion) W.breakInst.push(bm);
   }
 }
 let _g;

@@ -203,8 +203,14 @@ export function createDog(h, breed = null) {
   const top = B.body[3][1] + B.body[3][3];
   const body = new THREE.Group(); g.add(body);
   const coat = GG.body.toNonIndexed(), positions = coat.attributes.position;
-  for (let i=0;i<positions.count;i+=3) { const y=(positions.getY(i)+positions.getY(i+1)+positions.getY(i+2))/3,z=(positions.getZ(i)+positions.getZ(i+1)+positions.getZ(i+2))/3;
-    coat.addGroup(i,3,B.saddle && y>B.body[2][1] && z<0.2?1:B.bib && (y<B.body[2][1]||z>0.2)?2:0); }
+  // v0.67.2: треугольники по материалу подряд - 3 группы (3 отрисовки) вместо группы на каждый треугольник (~60).
+  const tri=[];for (let i=0;i<positions.count;i+=3) { const y=(positions.getY(i)+positions.getY(i+1)+positions.getY(i+2))/3,z=(positions.getZ(i)+positions.getZ(i+1)+positions.getZ(i+2))/3;
+    tri.push([i,B.saddle && y>B.body[2][1] && z<0.2?1:B.bib && (y<B.body[2][1]||z>0.2)?2:0]); }
+  tri.sort((a,b)=>a[1]-b[1]);
+  for (const name of Object.keys(coat.attributes)) { const at=coat.attributes[name],n=at.itemSize,src=at.array.slice(),dst=at.array;let w=0;
+    for (const [i] of tri) for (let v=0;v<3;v++) for (let c=0;c<n;c++) dst[w++]=src[(i+v)*n+c];
+    at.needsUpdate=true; }
+  for (let m=0,k=0;m<3;m++){const start=k;while(k<tri.length&&tri[k][1]===m)k++;if(k>start)coat.addGroup(start*3,(k-start)*3,m);}
   const torso=new THREE.Mesh(coat,[fur,dk,lt]);torso.castShadow=torso.receiveShadow=true;body.add(torso);
   body.add(compose('dogB6' + key, a => {
     if (fr) for (const sx of [-1, 1]) a(G.plane, fr, sx * 0.165, B.body[2][1] - 0.13, 0, 0.56, 0.22, 1, 0, sx * Math.PI / 2);

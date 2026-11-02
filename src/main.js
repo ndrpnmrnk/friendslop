@@ -1,3 +1,4 @@
+import { batchStats } from './core/batch.js';
 import { random, withRandom } from './core/random.js';
 import { updateVfx, explosion, fireworks, sparks as vfxSparks, impactBurst } from './game/vfx.js';
 import { MODES, setMode } from './game/modes.js';
@@ -1055,7 +1056,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)roundMusic.
 window.__fs = {voiceChat, lastRuntime,lastFaults, eliminate, updateDrones, droneAction, throwPotato, SUP, spawnSupply, POL, renderer, S, EV, TOWN, WX, FUN, spawnTool, useTool, grabActor, letGo, aimPoint: () => aimPoint(), interact: () => interact(), spawn: k => { spawnMission(P, k); return M.list[M.list.length - 1]; }, openWorld, closeWorld, grab, hopIn, release, arc, land, phys: { groundAt, isFree, solidsNear }, get P() { return P; }, W, M, cam, openMission, enterCrane, camera, startRound: () => { prepareRound(); P.frozen = false; P.root.visible = true; goRound(); $('intro').classList.add('hidden'); }, startFlow: () => launchRound(MODES[0], randomMap()), launchRound, randomMap, setMode };
 window.__fs.lastFaults=lastFaults;
 window.__fs.onlineDiagnostics=()=>telemetry.snapshot();
-Object.assign(window.__fs,{scene,makeCharacter:(id)=>__mkChar(id),skinIds:()=>__skinIds,vfx:{explosion,fireworks,sparks:vfxSparks,impactBurst},menu,collection,coinState,showHub,showMenu,roundMusic,graphics,actionStats,addFists:(n=500)=>addCoins(n)});
+Object.assign(window.__fs,{batchStats,scene,makeCharacter:(id)=>__mkChar(id),skinIds:()=>__skinIds,vfx:{explosion,fireworks,sparks:vfxSparks,impactBurst},menu,collection,coinState,showHub,showMenu,roundMusic,graphics,actionStats,addFists:(n=500)=>addCoins(n)});
 if(new URLSearchParams(globalThis.location?.search||'').get('dev')==='1'){const b=document.createElement('button');b.id='devFists';b.textContent='+500';b.title='Тест автомата: добавить 500 фистов';b.onclick=()=>addCoins(500);$('wallet').appendChild(b);}
 // v0.57: F3 — счётчик производительности, F8 — отчёт о баге (что сейчас происходит и где)
 initDevtools({ unlock: () => unlock(), network:()=>{if(NET.state!=='on')return '';const n=netStats(),w=(S.state==='hub'?menu.world.state:W).net?.stats;return `RTT до комнаты ${n.rtt} мс · отправка ${n.sendHz.toFixed(0)}/с · приём ${n.receiveHz.toFixed(0)}/с\nочередь ${(n.queue/1024).toFixed(1)} КБ · приём JS ${n.receiveMs.toFixed(2)} мс\n`+diagnosticsText()+(w?`снимок ${w.captureMs.toFixed(2)} мс · изменений ${w.rows}/${w.objects}\n`:'');}, info: () => { const hub = S.state === 'hub' || S.state === 'menu', a = hub ? menu.player : P, p = a?.pos, f = n => n.toFixed(1);

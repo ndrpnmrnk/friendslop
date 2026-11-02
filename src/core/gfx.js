@@ -55,6 +55,9 @@ export function ps1(m, stable = false) {
       #ifdef USE_INSTANCING
       wlp = instanceMatrix * wlp;
       #endif
+      #ifdef USE_BATCHING
+      wlp = batchingMatrix * wlp;
+      #endif
       vWLPos = (modelMatrix * wlp).xyz;` : ''));
     if (lit) {
       Object.assign(sh.uniforms, { uWLOn: WL.on, uWLMax: WL.max, uWLGrid: WL.grid, uWLLights: WL.lights, uWLMask: WL.mask, uWLOrigin: WL.origin, uWLGridSize: WL.gridSize, uWLCell: WL.cell,

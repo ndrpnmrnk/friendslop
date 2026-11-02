@@ -6,7 +6,8 @@ import { graphics } from '../core/quality.js';
    переводим на слой 5 — камера и тень его не рисуют. Логика и физика работают как обычно: меняется только картинка.
    Проверка 5 раз в секунду, с запасом (гистерезис), чтобы на границе ничего не мигало. */
 const NEAR = 1, FAR = 1 << 5;
-const R = { item: 36, push: 48, cat: 42, door: 52, actor: 80 }, GAP = 5;
+// v0.67.2: двери почти все в зданиях - за 34 м не видны; NPC и группы разрушаемых - тоже по дальности
+const R = { item: 36, push: 48, cat: 42, door: 34, actor: 80, npc: 46, breakable: 62 }, GAP = 5;
 const cache = new WeakMap();
 let t = 0;
 function meshes(root) {
@@ -30,6 +31,8 @@ export function updateCull(dt, camera, player) {
   for (const b of W.pushables || []) { if (b.rider || b.grabbed) { set(b.mesh, false); continue; } test(b.mesh, b.x, b.y, b.z, cx, cy, cz, R.push); }
   for (const k of W.cats || []) { const p = k.root.position; test(k.root, p.x, p.y, p.z, cx, cy, cz, R.cat); }
   for (const d of W.doors || []) test(d.pivot, d.x, d.y, d.z, cx, cy, cz, R.door);
+  for (const n of W.npcs || []) { const root = n.g || n.root || n.mesh; if (!root || n.heldBy) continue; const p = root.position; test(root, p.x, p.y, p.z, cx, cy, cz, R.npc); }
+  for (const im of W.breakInst || []) { const s = im.boundingSphere; if (s) test(im, s.center.x, s.center.y, s.center.z, cx, cy, cz, R.breakable + s.radius); }
   // v0.67: персонаж - ~25 деталей. Дальних (за дымкой) не рисуем, тень персонажа - только вблизи камеры.
   const q = graphics.current, sh2 = (q.actorShadow ?? 28) ** 2;
   for (const a of [W.player, ...(W.bots || [])]) { const root = a?.root; if (!root) continue; const p = root.position;
