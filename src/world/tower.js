@@ -323,7 +323,6 @@ export const TowerMethods = {
     const q=Math.abs(Math.sin(ry))>.5;this.solid(x,z,q?.65:len,q?len:.65,0,.95);g.surface=this.surface(x,z,len+.04,.64,.945,ry,'kitchen');
     // холодильник с открывающейся дверцей рядом со столешницей
     const fx = -len / 2 - 0.4; this.fridge(x + fx * Math.cos(ry), z - fx * Math.sin(ry), ry);
-    this.kitchenSpot(x, z, [Math.round(Math.sin(ry)), Math.round(Math.cos(ry))]);
   },
   desk(x, z, ry = 0, pc = true) {
     const g = this.prop(x, z, ry), wd = tmat(T.wood()), dk = col(0x2b2533);

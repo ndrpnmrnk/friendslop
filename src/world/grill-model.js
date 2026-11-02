@@ -1,0 +1,13 @@
+import {THREE,G,mesh,col,tmat,lam,compose} from '../core/gfx.js';
+import {pix,T} from '../core/textures.js';
+const TOP=new THREE.SphereGeometry(1,14,7,0,Math.PI*2,0,Math.PI/2),BOTTOM=new THREE.SphereGeometry(1,14,7,0,Math.PI*2,Math.PI/2,Math.PI/2),RIM=new THREE.TorusGeometry(1,.025,5,24);
+const enamel=()=>pix('grill0633-enamel',64,64,g=>{g.fillStyle='#67716d';g.fillRect(0,0,64,64);for(let i=0;i<280;i++){g.fillStyle=i%4?'#77817a':'#424b48';g.fillRect(i*23%64,i*17%64,1,1);}for(const y of[3,60]){g.fillStyle='#afb6a0';g.fillRect(0,y,64,1);}for(let i=0;i<8;i++){g.fillStyle='#c0b99d';g.fillRect(6+i*7,7,2,2);}});
+const soot=()=>pix('grill0633-soot',64,64,g=>{g.fillStyle='#4c4740';g.fillRect(0,0,64,64);for(let i=0;i<550;i++){g.fillStyle=['#28282a','#6d6050','#3d3935'][i%3];g.fillRect(i*29%64,i*43%64,2+(i%3),1+(i%2));}for(let x=5;x<64;x+=9){g.fillStyle='#7c7060';g.fillRect(x,0,1,64);}});
+export function grillBowl(){const g=new THREE.Group();mesh(BOTTOM,tmat(enamel()),0,0,0,1.25,.65,1,g);mesh(BOTTOM,lam({map:soot(),side:THREE.BackSide}),0,0,0,1.22,.62,.97,g);const rim=mesh(RIM,tmat(T.metal()),0,0,0,1.25,1,1,g);rim.rotation.x=Math.PI/2;return g;}
+export function grillLid(){const g=new THREE.Group();g.name='grill-hinged-lid';mesh(TOP,tmat(enamel()),0,0,.85,1.25,.70,1,g);mesh(TOP,lam({map:soot(),side:THREE.BackSide}),0,0,.85,1.22,.675,.975,g);
+ const rim=mesh(RIM,tmat(T.metal()),0,.006,.85,1.25,1,1,g);rim.rotation.x=Math.PI/2;
+ g.add(compose('grill0633-lid-details',a=>{const mt=tmat(T.metal()),dk=tmat(T.paintMetal(0x343d3c));for(const x of[-.26,.26])a(G.box,mt,x,.23,1.77,.07,.16,.07);a(G.cyl8,tmat(T.wood()),0,.32,1.77,.055,.65,.055,0,0,Math.PI/2);for(const x of[-.9,.9])a(G.box,mt,x,.035,.03,.20,.10,.12);a(G.cyl12,mt,.38,.64,.92,.14,.025,.14);a(G.cyl12,col(0xd9d3be),.38,.66,.92,.118,.01,.118);a(G.box,col(0xb4613c),.38,.668,.92,.015,.008,.18,0,.5);for(let i=0;i<5;i++)a(G.box,dk,-.42+i*.12,.57,.75,.055,.02,.28);}));
+ return g;
+}
+const coalTex=()=>pix('coal0633-char',32,32,g=>{g.fillStyle='#453b35';g.fillRect(0,0,32,32);for(let i=0;i<220;i++){g.fillStyle=['#28272a','#635348','#88735c'][i%3];g.fillRect(i*17%32,i*23%32,2,1);}g.strokeStyle='#e88b36';g.lineWidth=1;for(let i=0;i<4;i++){g.beginPath();g.moveTo(i*9,0);g.lineTo(i*8+4,12);g.lineTo(i*7+1,23);g.lineTo(i*9+5,32);g.stroke();}});
+export function coalModel(){return compose('hot-coal0633',a=>{a(G.ico,lam({map:coalTex(),emissive:0x69301a,emissiveIntensity:.35}),0,0,0,.17,.13,.16);for(const[x,z,ry]of[[-.07,.02,.6],[.04,-.035,-.35],[.085,.045,.7]])a(G.box,lam({color:0xf0a24b,emissive:0xe65d20,emissiveIntensity:.6}),x,.098,z,.018,.01,.09,0,ry,.12);});}

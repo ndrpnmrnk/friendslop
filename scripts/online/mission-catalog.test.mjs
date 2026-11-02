@@ -6,7 +6,7 @@ const source=p=>readFileSync(new URL('../../'+p,import.meta.url),'utf8');
 
 test('entire mission catalog remains registered with unique definitions',()=>{
  const names=Object.keys(CONFIG.missions);
- assert(names.length>=40,'expected the full party mission catalog');
+ assert(names.length>=39,'expected the full party mission catalog');
  for(const name of names){
   const def=CONFIG.missions[name];
   assert(def?.game,'unregistered game for '+name);
@@ -18,7 +18,7 @@ test('entire mission catalog remains registered with unique definitions',()=>{
 test('all physical item mission categories are included in the centralized sync audit',()=>{
  const itemGames={
   'src/missions/games2.js':['targets','cleanup','delivery','pizza'],
-  'src/missions/games3.js':['salad','bulb','firebin'],
+  'src/missions/games3.js':['bulb','firebin'],
   'src/missions/games5.js':['generator','balloon','detector','cart']
  };
  let covered=0;
@@ -30,7 +30,7 @@ test('all physical item mission categories are included in the centralized sync 
     covered++;
   }
  }
- assert.equal(covered,11);
+ assert.equal(covered,10);
  assert.equal(CONFIG.missions.steal,undefined,'skeleton mission removed from the spawn catalog');
  const world=source('src/net/world-sync.js'),match=source('src/net/match-sync.js');
  assert(world.includes("type==='i'?Number(/^m("),'mission items must inherit scope tags');
@@ -45,5 +45,5 @@ test('cleanup follows replicated collected state and balloon undoes stolen steps
  assert(cleanup.includes("got=o.litter.filter(it=>it.taken).length"));
  assert(crates.includes('q.it.onPickup=()'));
  assert(crates.includes('placed.splice(i)'));
- for(const key of ['mail','intercom','doorbell'])assert.equal(CONFIG.missions[key],undefined);
+ for(const key of ['mail','intercom','doorbell','salad'])assert.equal(CONFIG.missions[key],undefined);
 });

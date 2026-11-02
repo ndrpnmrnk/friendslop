@@ -60,7 +60,7 @@ import { isFree, solidsNear } from './world/physics.js';
 import { pulseOutline } from './game/outline.js';
 import { nearestRideable, mount, dismount, grab, release, hopIn } from './game/ride.js';
 import { updateBreakables } from './world/breakables.js';
-import { $, renderHud, renderStamina, resetHud, markWon, flyScore, sparks, eventBanner, eventChip, toast, renderNav } from './ui/hud.js';
+import { $, renderHud, renderStamina, resetHud, markWon, flyScore, sparks, eventBanner, eventChip, toast, renderNav, renderMissionHints } from './ui/hud.js';
 import { TEXT } from './ui/text.js';
 import { img } from './ui/icons.js';
 import { initAudio, sfx, ambience, setListener, toggleMute,audioLevels,setAudioLevel } from './core/sfx.js';
@@ -907,7 +907,7 @@ function frame() {
       updateMissions(dt, t, P, { phase: phaseOf(EV.t), t: EV.t, playerScore: () => S.score });
       // главная цель — одна: ближайшая видимая миссия (своя личная — в приоритете), остальные приглушены
       { let best = null, bd = 1e9; if (!EV.big && !S.wm) for (const m of M.list) { if (m.busy || m.doer || !visibleTo(m, P)) continue; const q = m.obj.pos(), d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z) + Math.abs(q.y - P.pos.y) * 3 - (m.owner === P ? 20 : 0); if (d < bd) { bd = d; best = m; } }
-        S.main = best; for (const m of M.list) { const on = m === best, mk = m.marker, pop = mk.pop || 1; if (m.life > m.maxLife * 0.25) mk.bm.opacity = on ? 0.4 : 0.1; mk.sp.scale.set((on ? 1.9 : 1.15) * pop, (on ? 2.4 : 1.45) * pop, 1); mk.ring.visible = on; } }
+        S.main = best; for (const m of M.list) focusMissionMarker(m,P,m===best,t); }
       // ничейные предметы миссий (выронили и никто не подобрал) исчезают через 10 с
       for (const q of W.items) if (q.steal && q.state === 'rest' && q.mine !== P) { q.restT = (q.restT || 0) + dt; if (q.restT > 10) { q.state = 'gone'; q.g.visible = false; q.steal = null; } } else if (q.steal) q.restT = 0;
       if(S.mg){const j=S.mg;if(W.net)W.net.runWork(j.m,()=>j.game.update(dt));else j.game.update(dt);}
@@ -978,6 +978,7 @@ function frame() {
       else if (S.main) { const q = S.main.obj.pos(); nt = { x: q.x, y: q.y, z: q.z, icon: S.main.key, missionId: S.main.id, color: S.main.owner ? '#f5c542' : '#' + DIFF[S.main.def.diff].toString(16).padStart(6, '0'), label: (TEXT.missions[S.main.key] || [S.main.def.name])[0] }; }
       if (nt && !bt && nt.floorDelta === undefined) nt = routeTo(P.pos, nt); if (P.drone || P.returning) nt = null;
       S.nav = nt; renderNav(camera, P, nt);
+      renderMissionHints(camera,P,M.list.filter(m=>visibleTo(m,P)),S.main,!S.mg&&!S.wm&&!EV.big&&!P.drone&&!P.returning);
     }
     for (const d of W.doors) {
       if(W.net?.replica)continue;
@@ -1082,3 +1083,4 @@ import {initSoundSync} from './net/audio-sync.js';
 import {initVoiceChat} from './net/voice-chat.js';
 import {remoteActors} from './net/hub-sync.js';
 import {releaseDisconnected} from './game/actors.js';
+import {focusMissionMarker} from './missions/marker-visuals.js';

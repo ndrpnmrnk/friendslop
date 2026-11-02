@@ -22,6 +22,7 @@ import { buildShells, buildFishing, buildSpot, buildTargets, buildCleanup } from
 import { PANEL3, WORLD3, buildPhone, buildFire, buildDeadLamp, buildCatBox } from './games3.js';
 import { PANEL4, WORLD4, buildLeafPile, buildGraffitiWall, graffitiPlaces, buildChest, buildValve } from './games4.js';
 import { PANEL5, WORLD5, buildGenerator, buildBells, buildTree, buildDetectorSign, buildCartStart, buildGraveCam, buildAntenna, buildDovecote } from './games5.js';
+import {missionBeacon,missionCeiling} from './marker-visuals.js';
 
 /* Общий случайный пул. Завершение одного задания освобождает один слот;
    остальные задания не ждут его и не образуют упорядоченную волну. */
@@ -57,8 +58,7 @@ function drawPlate(m, k) {
 }
 function marker(def, key) {
   const g = new THREE.Group(), color = DIFF[def.diff];
-  const bm = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide });
-  const beam = new THREE.Mesh(G.beam, bm); beam.scale.set(1, 7, 1); beam.position.y = 3.5; g.add(beam);
+  const beam=missionBeacon(color),bm=beam.material;beam.scale.y=1.85;beam.position.y=1.015;g.add(beam);
   const rm = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true });
   const ring = new THREE.Mesh(G.ring, rm); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ring.scale.setScalar(1.4); g.add(ring);
   // «волна» при появлении: кольцо расходится по земле
@@ -66,8 +66,8 @@ function marker(def, key) {
   const wave = new THREE.Mesh(G.ring, wm); wave.rotation.x = -Math.PI / 2; wave.position.y = 0.08; g.add(wave);
   const c = document.createElement('canvas'); c.width = 64; c.height = 80; const cx = c.getContext('2d'); cx.imageSmoothingEnabled = false;
   const tex = new THREE.CanvasTexture(c); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
-  const sp = sprite(tex, 1.5); sp.scale.set(1.6, 2, 1); sp.position.y = 4.4; g.add(sp);
-  W.group.add(g); return { g, bm, rm, wm, wave, sp, ring, cx, tex, born: 0, drawT: 0 };
+  const sp = sprite(tex, 1.5); sp.scale.set(.86, 1.08, 1); sp.position.y = 2.15; g.add(sp);
+  ring.visible=false;wave.visible=false;W.group.add(g); return { g, beam, bm, rm, wm, wave, sp, ring, cx, tex, born: 0, drawT: 0 };
 }
 
 const FACINGS = [[0, 1], [1, 0], [0, -1], [-1, 0]];
@@ -236,13 +236,11 @@ export function updateMissions(dt, t, player, opts = {}) {
       if (m.life <= 0) { if (!m.owner) M.burnt++; removeMission(m); continue; }
     }
     const k = m.activeLeft==null?m.life/m.maxLife:m.activeLeft/m.activeMax;
-    mk.drawT -= visualDt; if (mk.drawT <= 0) { mk.drawT = 0.25; drawPlate(m, k); }
+    mk.drawT -= visualDt; if (mk.drawT <= 0) { mk.drawT = 0.25; drawPlate(m, k); mk.clearance=missionCeiling(p,m.obj.solid); }
     // появление: плашка «выпрыгивает», по земле расходится кольцо
     mk.born += visualDt; const b = mk.born;
     const pop = b < 0.5 ? 1 + Math.sin(b / 0.5 * Math.PI) * 0.6 : 1;
-    mk.pop = pop; mk.sp.position.y = 4.4 + Math.sin(t * 3 + m.id) * 0.2 + (b < 0.35 ? (0.35 - b) * 8 : 0);
-    mk.wave.visible = b < 1.2; if (mk.wave.visible) { mk.wave.scale.setScalar(1 + b * 9); mk.wm.opacity = Math.max(0, 1 - b / 1.2); }
-    mk.bm.opacity = k < 0.25 ? (Math.sin(t * 12) > 0 ? 0.45 : 0.1) : mk.bm.opacity;
+    mk.pop = pop;mk.ring.visible=false;mk.wave.visible=false;
   }
   if(!W.net?.replica&&!M.manual&&shared().length<waveSize(phase)){
     if(M.waveT<=0)M.waveT=1.5+random()*2;

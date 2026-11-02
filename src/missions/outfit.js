@@ -7,7 +7,7 @@ import {actors} from '../game/actors.js';
 import {sfx} from '../core/sfx.js';
 import {addOutline,OUTLINE} from '../game/outline.js';
 import {makeCharacter} from '../characters/rig.js';
-import {OUTFIT_SLOTS,OUTFIT_NAMES,OUTFIT_THEMES,outfitPiece,wearOutfit,applyOutfit} from '../characters/outfits.js';
+import {OUTFIT_SLOTS,OUTFIT_NAMES,outfitPiece,wearOutfit,applyOutfit} from '../characters/outfits.js';
 import {photoCard} from './photo-card.js';
 const shuffled=a=>{const q=a.slice();for(let i=q.length-1;i>0;i--){const j=gameRandom()*(i+1)|0;[q[i],q[j]]=[q[j],q[i]];}return q;};
 function hanging(slot,v){const root=new THREE.Group();
@@ -36,14 +36,14 @@ export function buildOutfit(x,y,z,f){
  return{g,garments,solids,reach:2.2,pos:()=>g.position,front:()=>g.localToWorld(new V3(0,0,2.7)),dispose(){if(disposed)return;disposed=true;solids.forEach(s=>s.on=false);W.animated=W.animated.filter(a=>a!==animate);garments.forEach(q=>q.outline.set(false));g.removeFromParent();}};
 }
 export function outfitRecipe(previous={},random=gameRandom){
- const themed=random()<.4,theme=random()*4|0,values={};for(const slot of OUTFIT_SLOTS)values[slot]=themed?theme:random()*4|0;
+ const values={};for(const slot of OUTFIT_SLOTS)values[slot]=random()*4|0;
  let changed=OUTFIT_SLOTS.filter(s=>values[s]!==previous[s]).length;
  for(const slot of OUTFIT_SLOTS)if(changed<2&&values[slot]===previous[slot]){values[slot]=(values[slot]+1+(random()*3|0))%4;changed++;}
- const same=OUTFIT_SLOTS.every(s=>values[s]===values.hat);return{values,label:same?OUTFIT_THEMES[values.hat]:'СМЕШАННЫЙ ОБРАЗ'};
+ return{values,label:'СОБЕРИ ОБРАЗ'};
 }
 export function outfitGame(o,api,ctx){
  api.feedback();const P=ctx.player,m=ctx.mission||{};m.outfitRecipe??=outfitRecipe(P.ch.outfit.values);const recipe=m.outfitRecipe.values;let age=0,active=null,finished=false,stopped=false,success=0;const taken={},fly=new THREE.Group();W.group.add(fly);let photo=null;
- if(!ctx.bot){const preview=makeCharacter(P.ch.skinId);applyOutfit(preview,recipe);for(let i=0;i<24;i++)preview.animate(1/60,{t:0,speed:0});photo=photoCard(preview.root,{title:m.outfitRecipe.label,width:112,height:144,view:[.3,.12,1]});}
+ if(!ctx.bot){const preview=makeCharacter(P.ch.skinId);applyOutfit(preview,recipe);for(let i=0;i<24;i++)preview.animate(1/60,{t:0,speed:0});photo=photoCard(preview.root,{title:m.outfitRecipe.label,width:144,height:184,supersample:4,view:[.32,.16,1]});}
  api.msg('Собери образ с фото. E у вещи - примерить');
  const matches=()=>OUTFIT_SLOTS.map(slot=>P.ch.outfit.values[slot]===recipe[slot]);
  function choice(){if(age<2.2||active||finished||matches().every(Boolean)||P.drone||P.returning||P.stun>0||P.getT>0||P.heldBy||P.held||Math.abs(P.pos.y-o.g.position.y)>.6)return null;let best=null,score=1e9;const eye=P.pos.clone().add(new V3(0,1.15,0)),forward=new V3(Math.sin(P.root.rotation.y),0,Math.cos(P.root.rotation.y));

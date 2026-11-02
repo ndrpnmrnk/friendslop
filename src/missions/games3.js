@@ -16,7 +16,6 @@ import { startEmote } from '../game/grab.js';
 import { sfx } from '../core/sfx.js';
 
 /* Миссии v0.14:
-   салат (принеси огурец и помидор на кухню → нарежь по линиям → в миску),
    «позови всех гулять» (звонит телефон → мессенджер → каждому стикер),
    лампочка (принеси лампочку → залезь по стремянке → вкрути, вращая мышью),
    котята в коробку (загони двух котят — толкай, пугай, мани уточкой),
@@ -67,75 +66,7 @@ export function buildCatBox(x, y, z, f) {
 
 /* ---------- панельные игры ---------- */
 export const PANEL3 = {
-  // Нарезка (v0.22): огурец лежит ЦЕЛЫЙ — режем поперёк пунктира (зажав ЛКМ), он распадается на кружки; потом так же помидор.
-  // Потом клик — ставим миску, нарезка ссыпается в неё, и миску раскручиваем: зажать ЛКМ и водить мышью по кругу.
-  saladCut(o, api, ctx) {
-    api.feedback?.();
-    const s = o.spot, F = new V3(s.f[0], 0, s.f[1]), top = s.y + 0.96;
-    const c0 = new V3(s.bx, top, s.bz).addScaledVector(F, 0.05);
-    api.pose(c0.clone().addScaledVector(F, 0.85).add(new V3(0, 0.95, 0)), c0.clone().addScaledVector(F, -0.05));
-    const grp = new THREE.Group(); grp.position.copy(c0); grp.rotation.y = Math.atan2(F.x, F.z); W.group.add(grp);
-    mesh(G.box, tmat(T.wood()), -0.12, 0.012, 0, 0.62, 0.025, 0.3, grp);
-    const bowl = compose('bowl2', a => { a(new THREE.SphereGeometry(1, 10, 5, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), lam({ color: 0xb8b0c8, side: THREE.DoubleSide }, 'bowl'), 0, 0.1, 0, 0.16, 0.1, 0.16);
-      a(G.torus, col(0x8a84a0), 0, 0.1, 0, 0.16, 0.16, 0.06, Math.PI / 2); });
-    const BX = 0.36; bowl.position.set(BX, 0, 0.6); bowl.visible = false; grp.add(bowl);
-    const VEG = [{ k: 'cucumber', n: 5, len: 0.42, r: 0.045, inner: 0xc8e8a0 }, { k: 'tomato', n: 3, len: 0.2, r: 0.085, inner: 0xff8a6a }];
-    const skin = [lam({ map: T.cucumberL() }, 'saladCuc2'), lam({ map: T.tomato() }, 'saladTom')];
-    let vi = 0, chunks = [], meshes = [], lines = [], cuts = new Set(), phase = 'cut', drag = false, last = null, spinA = 0, lastA = null, endT = -1, moveT = 0;
-    const done = [];
-    const lineM = new THREE.MeshBasicMaterial({ color: 0xf1e8ff, transparent: true, opacity: 0.85 });
-    const x0 = () => -0.12 - VEG[vi].len / 2;
-    // перерисовать овощ: каждый кусок между разрезами — один меш (целый овощ = один кусок), на срезах — светлая мякоть
-    const draw = () => {
-      for (const m of meshes) grp.remove(m); meshes = []; const v = VEG[vi], w = v.len / v.n; let gap = 0;
-      for (const [a, b] of chunks) { const len = (b - a) * w, cx = x0() + (a + b) / 2 * w + (a > 0 ? (gap += 0.012) : 0), g = new THREE.Group(); g.position.set(cx, 0.025 + v.r, 0); grp.add(g); meshes.push(g);
-        if (vi === 0) { const m = mesh(G.cyl8, skin[0], 0, 0, 0, v.r, len, v.r, g); m.rotation.z = Math.PI / 2; }
-        else mesh(G.sph10, skin[1], 0, 0, 0, Math.min(v.len / 2, len * 0.5 + 0.004), v.r, v.r, g);
-        const half = vi ? Math.min(v.len / 2, len * 0.5 + 0.004) * 0.9 : len / 2 + 0.001;
-        for (const [e, sg] of [[a, -1], [b, 1]]) if (e > 0 && e < v.n) { const d = mesh(G.disc, lam({ color: v.inner }, 'pulp' + v.inner), sg * half, 0, 0, v.r * (vi ? 0.8 : 0.9), v.r * (vi ? 0.8 : 0.9), 1, g); d.rotation.y = sg * Math.PI / 2; } }
-    };
-    const setup = () => {
-      for (const l of lines) grp.remove(l); lines = []; cuts = new Set(); const v = VEG[vi], w = v.len / v.n; chunks = [[0, v.n]]; draw();
-      for (let i = 1; i < v.n; i++) for (let k = 0; k < 4; k++) { const l = mesh(G.box, lineM, x0() + w * i, 0.03 + v.r * 2 + 0.005, -0.12 + k * 0.08, 0.008, 0.002, 0.04, grp); l.userData.i = i; lines.push(l); }
-      api.msg(vi ? 'ТЕПЕРЬ ПОМИДОР! Режь поперёк' : 'РЕЖЬ ОГУРЕЦ! Зажми ЛКМ и веди поперёк', 'good'); api.progress(vi * 0.35);
-    };
-    setup();
-    const local = ray => { const p = onPlane(ray, new V3(0, 1, 0), new V3(0, top + 0.05, 0)); return p ? grp.worldToLocal(p) : null; };
-    // нарезанное — в сторону (назад по доске), потом всё ссыпается в миску
-    const park = () => { for (const g of meshes) { const st = g.position.clone(), tg = new V3(st.x, st.y, -0.15); g.userData.anim = { st, tg, t: 0 }; done.push(g); } meshes = []; };
-    const toBowl = () => { let k = 0; for (const g of done) { g.userData.anim = { st: g.position.clone(), tg: new V3(BX + (random() - 0.5) * 0.14, 0.11 + k * 0.004, (random() - 0.5) * 0.14), t: -0.12 * k, arc: 0.14 }; k++; } };
-    const angleOf = ray => { const p = local(ray); return p ? Math.atan2(p.z, p.x - BX) : null; };
-    return {
-      botStep(dt, brain) { const a=brain.time*3;let q;if(phase==='cut'){q=new V3(-0.12+Math.sin(a)*0.32,0.05,0);grp.localToWorld(q);}else if(phase==='spin'){q=new V3(BX+Math.cos(a)*0.12,0.05,Math.sin(a)*0.12);grp.localToWorld(q);}else q=grp.localToWorld(new V3(0,0.05,0));const ray=brain.rayTo(q);if(!drag)this.down(ray);this.move(ray);if(phase==='bowl')this.down(ray); },
-      down(ray) { drag = true; last = local(ray); lastA = angleOf(ray);
-        if (phase === 'bowl') { phase = 'drop'; moveT = 0; bowl.visible = true; sfx('click'); api.msg('Миска на месте', 'good'); } },
-      move(ray) {
-        if (!drag) return;
-        if (phase === 'spin') { const a = angleOf(ray); if (a === null || lastA === null) { lastA = a; return; } let da = a - lastA; da = Math.atan2(Math.sin(da), Math.cos(da)); lastA = a;
-          if (Math.abs(da) < 1.2) spinA += Math.abs(da); const k = Math.min(1, spinA / (Math.PI * 6)); api.progress(0.7 + k * 0.3);
-          if (k >= 1 && endT < 0) { endT = 1.0; api.msg('Салат готов!', 'good'); sfx('done'); } return; }
-        if (phase !== 'cut') return; const p = local(ray); if (!p || !last) { last = p; return; }
-        const v = VEG[vi], w = v.len / v.n;
-        for (let i = 1; i < v.n; i++) { const lx = x0() + w * i; if (cuts.has(i)) continue;
-          if ((last.x - lx) * (p.x - lx) < 0 && Math.abs(p.z) < 0.18) { cuts.add(i); sfx('chop');
-            const ci = chunks.findIndex(([a, b]) => a < i && i < b), [a, b] = chunks[ci]; chunks.splice(ci, 1, [a, i], [i, b]); chunks.sort((q, r) => q[0] - r[0]); draw();
-            for (const l of lines) if (l.userData.i === i) l.visible = false; const wp = grp.localToWorld(new V3(lx, 0.06, 0)); burst(wp.x, wp.y, wp.z, 5, { color: v.inner, size: 0.04, speed: 0.6, up: 0.6, g: 6, life: 0.4, grow: 0 }); } }
-        last = p;
-        if (cuts.size >= v.n - 1) { park(); api.progress((vi + 1) * 0.35);
-          if (vi === 0) { vi = 1; phase = 'wait'; setTimeout(() => { phase = 'cut'; setup(); }, 450); } else { phase = 'bowl'; for (const l of lines) l.visible = false; api.msg('Поставь миску: клик по доске', 'good'); } }
-      },
-      up() { drag = false; last = null; lastA = null; },
-      update(dt) {
-        for (const g of done) { const A = g.userData.anim; if (!A || A.t >= 1) continue; A.t += dt / 0.35; const k = Math.min(1, Math.max(0, A.t)); g.position.lerpVectors(A.st, A.tg, k); if (A.arc) g.position.y += Math.sin(k * Math.PI) * A.arc; }
-        if (phase === 'drop') { moveT += dt; bowl.position.z = Math.max(0, 0.6 - moveT * 2.4); if (bowl.position.z <= 0) { phase = 'fill'; moveT = 0; toBowl(); } }
-        else if (phase === 'fill') { moveT += dt; if (moveT > 0.35 + done.length * 0.12) { phase = 'spin'; api.msg('МЕШАЙ! Зажми ЛКМ и крути по кругу', 'good'); api.progress(0.7); } }
-        // миска крутится вслед за мышью, нарезка в ней ездит по кругу
-        if (phase === 'spin' || endT > 0) { const r = spinA + (endT > 0 ? (1 - endT) * 10 : 0); bowl.rotation.y = -r; done.forEach((g, i) => { const a = -r + i * 1.3, rr = 0.05 + (i % 3) * 0.02; g.position.set(BX + Math.cos(a) * rr, 0.11 + (i % 4) * 0.01, Math.sin(a) * rr); g.rotation.y = -r; }); }
-        if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); }
-      },
-      stop() { W.group.remove(grp); },
-    };
-  },
+
 
   // Мессенджер: кликни по каждому другу, выбери стикер — отправь
   phone(o, api, ctx) {
@@ -175,31 +106,7 @@ export const PANEL3 = {
 
 /* ---------- уличные ---------- */
 export const WORLD3 = {
-  // Салат: огурец и помидор где-то рядом (подсвечены), принеси оба к кухне — дальше нарезка
-  salad(o, api, ctx) {
-    api.feedback?.();
-    const s = o.spot, home = new V3(s.x, s.y, s.z), P = ctx.player, from = home;
-    const items = ['cucumber', 'tomato'].map(k => { const p = farPoint(from, 4, 22); const it = addItem(k, p.x, p.y, p.z, random() * 6); it.def = { ...it.def, respawn: 0 }; it.mission=ctx.mission;it.mine=P;it.ring = ringMark(); return it; });
-    let time = 112, hint = '';
-    const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
-    const table=new V3(s.bx,s.y+.945,s.bz);
-    const atHome = it => it.state==='rest'&&Math.hypot(it.pos.x-table.x,it.pos.z-table.z)<.6&&Math.abs(it.pos.y-table.y-it.def.r)<.35;
-    return {
-      botItems:()=>items,botPickable:it=>!atHome(it), botTarget:()=>P.held&&items.includes(P.held)?home:null,botDeposit:()=>table,botDrop:true,
-      prompt:()=>items.includes(P.held)&&P.pos.distanceTo(home)<2.2?'<b>E</b>Положить овощ на стол':'',
-      interact(){const it=P.held;if(!items.includes(it)||P.pos.distanceTo(home)>2.2)return false;const i=items.indexOf(it);drop(it,table.x+(i?-.22:.22),table.y,table.z);P.held=null;it.owner=null;it.holder=null;api.msg('На столе: '+(i?'помидор':'огурец'),'good');return true;},
-      target() { if(items.includes(P.held))return home;const l = items.find(it => !atHome(it) && P.held !== it); if (l) { say(l.type === 'cucumber' ? 'Найди огурец' : 'Найди помидор'); return l.pos; } say('Неси на кухню'); return home; },
-      update(dt) {
-        time -= dt; api.timer(time);
-        for (const it of items) { it.ring.visible = it.state === 'rest' && !atHome(it); it.ring.position.set(it.pos.x, it.pos.y - it.def.r + 0.04, it.pos.z); it.outline.set(it.state === 'rest'); }
-        const n = items.filter(it => atHome(it) && (it.state === 'rest' || P.held === it)).length; api.progress(n / 2 * 0.5);
-        if (items.some(it => it.state === 'gone')) return api.finish({ success: false });
-        if (n === 2) return api.finish({ chain: 'saladCut' });
-        if (time <= 0) api.finish({ success: false });
-      },
-      stop() { for (const it of items) { W.group.remove(it.ring); it.outline.set(false); if (P.held === it) P.held = null;if(it.owner?.held===it)it.owner.held=null; it.state = 'gone'; it.g.visible = false; } },
-    };
-  },
+
 
   // Лампочка: возьми лампочку, поставь стремянку у фонаря (уже стоит), залезь и вкрути (E)
   bulb(o, api, ctx) {

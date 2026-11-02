@@ -441,7 +441,11 @@ export const PropMethods = {
     this.zone('roof', x - 1.2, z - 0.8, x + 2.6, z + 0.8, 2.7);
     this.light(x + 0.6, z + 2.2, 2.2);
     W.spots.pickup.push({ x: this.X(x + 0.6), z: this.Z(z + 1.9), y: this.Y, f: [0, 1], district: this.d, label: 'фудтрак «' + sign + '»' });
-    (W.spots.grill || (W.spots.grill = [])).push({ x: this.X(x + 0.6), z: this.Z(z + 2.0), y: this.Y, f: [0, 1], bx: this.X(x + 0.6), bz: this.Z(z + 1.3), by: this.Y + 1.23, district: this.d, label: 'гриль «' + sign + '»' });
+    // Отдельный стол перед бортом: поверхность не входит в кузов и старый прилавок.
+    const gx=x+.6,gz=z+2.35;this.box(gx,gz,3.2,1.14,.09,tmat(T.metal()),{y:.87});
+    for(const dx of[-1.4,1.4])for(const dz of[-.43,.43])this.box(gx+dx,gz+dz,.065,.065,.87,mt);
+    this.solid(gx,gz,3.2,1.14,.82,.14);
+    (W.spots.grill || (W.spots.grill = [])).push({ x:this.X(gx),z:this.Z(gz+1.25),y:this.Y,f:[0,1],bx:this.X(gx),bz:this.Z(gz),by:this.Y+.96,district:this.d,label:'гриль «'+sign+'»' });
     return g;
   },
   // Аркадный автомат

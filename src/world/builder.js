@@ -166,7 +166,7 @@ export class Builder {
     // v0.21: разные типы — седан, хэтчбек, такси, фургон, пикап. Low-poly, краска по фото металла, шины/колпаки/номера.
     const TY = { sedan: { L: 3.9, cab: [-0.2, 2.2, 0.5], H: 0.95 }, taxi: { L: 3.9, cab: [-0.2, 2.2, 0.5], H: 0.95 }, hatch: { L: 3.4, cab: [-0.4, 2.1, 0.55], H: 0.95 },
       pickup: { L: 4.3, cab: [0.5, 1.5, 0.55], H: 0.95 }, van: { L: 4.4, cab: [-0.3, 3.6, 0.95], H: 0.95 } }, ty = TY[type] || TY.sedan, L = ty.L, hl = L / 2;
-    const g = new THREE.Group(); g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
+    const g = new THREE.Group(); g.userData.noOcc=true; g.position.set(this.X(x), this.Y, this.Z(z)); g.rotation.y = ry; this.g.add(g);
     g.add(compose('car3' + type + c, add => {
       const paint = tmat(T.carPaint(c)), side = tmat(T.carSide(c)), glass = tmat(T.carGlass(c)), dk = col(0x17111f), bump = col(0x2b2833), chrome = col(0x9a9da8), [cx, cl, ch] = ty.cab;
       add(G.box, paint, 0, 0.66, 0, L, 0.58, 1.76); add(G.box, side, 0, 0.66, 0.885, L - 0.3, 0.5, 0.01); add(G.box, side, 0, 0.66, -0.885, L - 0.3, 0.5, 0.01, 0, Math.PI);

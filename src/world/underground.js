@@ -36,11 +36,11 @@ export function buildRoadsAndTunnels(half) {
     const R = (u0, v0, u1, v1) => { const [x0, z0] = P(u0, v0), [x1, z1] = P(u1, v1); roadBox(Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1)); };
     const v0 = s.c - road / 2, v1 = s.c + road / 2;
     if (manholes.has(s)) {
-      const m = (s.a + s.b) / 2 + 6, hv = s.c + 1.65; s.hatch=m; // люк над тоннелем (шахта целиком над проходом)
+      const m = (s.a + s.b) / 2 + 6, hv = s.c + 1.85; s.hatch=m; // люк над тоннелем (шахта целиком над проходом)
       R(s.a, v0, m - HU, v1); R(m + HU, v0, s.b, v1); R(m - HU, v0, m + HU, hv - HV); R(m - HU, hv + HV, m + HU, v1);
       const [hx, hz] = P(m, hv), hx2 = s.axis === 'x' ? HU : HV, hz2 = s.axis === 'x' ? HV : HU;
       W.holes.push({ x0: hx - hx2, z0: hz - hz2, x1: hx + hx2, z1: hz + hz2, soft: true });
-      manhole(hx, hz, hx2, hz2);
+      manhole(hx, hz, hx2, hz2, s.axis);
     } else R(s.a, v0, s.b, v1);
     tunnelSegment(s, P, brick, conc);
   }
@@ -119,11 +119,17 @@ function tunnelSegment(s, P, brick, conc) {
   // трубы — по глухой стене, не поперёк проёма в район
   const opOn = sd => W.tunnelOpenings.some(o => o.axis === s.axis && Math.abs(o.at - (s.c + sd * (half + t / 2))) < 1 && o.to > ua && o.from < ub);
   if (opOn(ps)) ps = -ps;
-  box(ua, s.c + ps * (half - 0.25), ub, s.c + ps * (half - 0.25), (x0, z0, x1, z1) => {
-    const len = Math.max(x1 - x0, z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, alongX = x1 - x0 > z1 - z0;
-    for (const [y, r, m] of [[-2.0, 0.16, tmat(T.rust())], [-2.45, 0.1, tmat(T.metal())]]) { const pp = mesh(G.cyl8, m, cx, y, cz, r, len, r, W.group); pp.rotation[alongX ? 'z' : 'x'] = Math.PI / 2; }
-    for (let k = -len / 2 + 1; k < len / 2; k += 2.5) mesh(G.box, col(0x2b2533), cx + (alongX ? k : 0), -2.2, cz + (alongX ? 0 : k), alongX ? 0.08 : 0.4, 0.6, alongX ? 0.4 : 0.08, W.group);
-  });
+  if(s.hatch!=null)ps=1;
+  const side=s.c+ps*(half-.25),pipeSolids=[];
+  for(const[y,r,mat,arch]of[[-2,.16,tmat(T.rust()),-1.35],[-2.45,.10,tmat(T.metal()),-1.66]]){
+    const points=s.hatch==null?[[ua,y],[ub,y]]:[[ua,y],[s.hatch-2,y],[s.hatch-1.5,arch],[s.hatch-1.05,arch],[s.hatch+1.05,arch],[s.hatch+1.5,arch],[s.hatch+2,y],[ub,y]];
+    const worldPoints=points.map(([u,py])=>{const[x,z]=P(u,side);return new THREE.Vector3(x,py,z);});
+    const curve=new THREE.CatmullRomCurve3(worldPoints,false,'centripetal'),steps=s.hatch==null?1:40,geo=new THREE.TubeGeometry(curve,steps,r,8,false);W.mapResources.add(geo);mesh(geo,mat,0,0,0,1,1,1,W.group);
+    // Небольшие сегменты коллизии следуют изгибу, не перекрывая свободный просвет под трубой.
+    for(let i=0;i<steps;i++){const a=curve.getPoint(i/steps),c=curve.getPoint((i+1)/steps);const solid=addSolid(Math.min(a.x,c.x)-r,Math.min(a.z,c.z)-r,Math.max(a.x,c.x)+r,Math.max(a.z,c.z)+r,Math.min(a.y,c.y)-r,Math.max(a.y,c.y)+r);solid.tag='service-pipe';pipeSolids.push(solid);}
+    for(let u=ua+1;u<ub;u+=3){if(s.hatch!=null&&Math.abs(u-s.hatch)<2.2)continue;const[x,z]=P(u,side);const ring=mesh(G.torus,tmat(T.metal()),x,y,z,r*1.07,r*1.07,r*.20,W.group);ring.rotation.y=s.axis==='x'?Math.PI/2:0;}
+  }
+  (W.servicePipes??=[]).push({axis:s.axis,side,solids:pipeSolids,hatch:s.hatch});
   // лампы в решётчатых плафонах + пятна света, решётки в полу, предметы
   for (let u = ua + 4; u < ub - 2; u += 8) { const [x, z] = P(u, s.c + half - 0.1); lampAt(x, UG.ceil - 0.25, z); const [lx, lz] = P(u, s.c); tb.light(lx, lz, 1.8, 0.02, true); }
   for (let u = ua + 6; u < ub - 4; u += 11) { const [x, z] = P(u, s.c); const gr = mesh(G.plane, tmat(T.grate()), x, UG.floor + 0.08, z, 0.8, 0.8, 1, W.group); gr.rotation.x = -Math.PI / 2; }
@@ -144,8 +150,8 @@ function tunnelNode(x, z, w0, w1, n0, n1, brick, conc) {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) wallPiece(x + sx * e + (sx < 0 ? -t : 0), z + sz * e + (sz < 0 ? -t : 0), x + sx * e + (sx < 0 ? 0 : t), z + sz * e + (sz < 0 ? 0 : t), brick);
   lampAt(x, UG.ceil - 0.25, z);
 }
-function manhole(x, z, hx, hz) {
-  W.manholes.push({ x, z });
+function manhole(x, z, hx, hz, axis) {
+  const hatch={x,z,axis};W.manholes.push(hatch);
   // люк: чугунная рамка (v0.57: без жёлто-чёрных полос — это цвет опасности), сдвинутая крышка, лестница у северного края
   const iron = col(0x2b2533), warn = tmat(T.metal());
   for (const [dx, dz, w, d] of [[0, -hz - .06, hx * 2 + .24, .12], [0, hz + .06, hx * 2 + .24, .12], [-hx - .06, 0, .12, hz * 2], [hx + .06, 0, .12, hz * 2]]) mesh(G.box, warn, x + dx, 0.02, z + dz, w, 0.05, d, W.group);
@@ -153,7 +159,7 @@ function manhole(x, z, hx, hz) {
   for (const [dx, dz, w, d] of [[0, -hz + .04, hx * 2, .08], [0, hz - .04, hx * 2, .08], [-hx + .04, 0, .08, hz * 2], [hx - .04, 0, .08, hz * 2]]) mesh(G.box, tmat(T.concrete()), x + dx, -0.5, z + dz, w, 0.98, d, W.group);
   mesh(G.cyl12, tmat(T.metal()), x, -.035, z + hz + .55, 0.6, 0.05, 0.6, W.group);
   const b = new Builder(0, 0, 0, 'Тоннели');
-  b.ladder(x, z - hz + .05, 's', .05, UG.floor); W.ladders[W.ladders.length - 1].slide = true; // сверху — плавно съезжаешь, снизу — лезешь
+  if(axis==='x')b.ladder(x,z+hz-.05,'n',.05,UG.floor);else b.ladder(x+hx-.05,z,'w',.05,UG.floor); W.ladders[W.ladders.length - 1].slide = true;hatch.ladder=W.ladders[W.ladders.length-1]; // сверху — плавно съезжаешь, снизу — лезешь
   // столб света из люка вниз
   const shaft = mesh(G.cone8, alphaMat(T.light(), { blending: THREE.AdditiveBlending, opacity: 0.3, side: THREE.DoubleSide }), x, -2.4, z, hx * 1.3, 3.0, hz * 1.3, W.group); shaft.rotation.x = 0;
   b.light(x, z, 1.8, 0.03, false);

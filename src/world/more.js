@@ -22,7 +22,7 @@ export const MoreMethods = {
     this.slip(x, z, 1.0);
   },
   // место для миссии «Салат»: кухонный стол с разделочной доской (интерьеры, фудкорт)
-  kitchenSpot(x, z, f, y = 0) { W.spots.kitchen = W.spots.kitchen || []; W.spots.kitchen.push({ x: this.X(x + f[0] * 0.95), z: this.Z(z + f[1] * 0.95), y: this.Y + y, f, bx: this.X(x), bz: this.Z(z), district: this.d, label: 'кухня' }); },
+
   // стол для «звонящего телефона»
   phoneSpot(x, z, f, y = 0) { W.spots.phone = W.spots.phone || []; W.spots.phone.push({ x: this.X(x + f[0] * 0.9), z: this.Z(z + f[1] * 0.9), y: this.Y + y, f, bx: this.X(x), bz: this.Z(z), by: this.Y + y + 0.8, district: this.d, label: 'телефон' }); },
   // урна, которая может загореться (миссия «Потуши урну»)

@@ -100,7 +100,7 @@ const ART = {
   bulb: ['....kkkk....', '...kyyyyk...', '..kyywyyyk..', '..kywyyyyk..', '..kyyyyyyk..', '...kyyyyk...', '....kyyk....', '....kssk....', '....kdsk....', '....kssk....', '.....kk.....', '............'],
   pizza: ['kkkkkkkkkkkk', 'koooooooooOk', '.kyryyyryyk.', '.kyyyyyyryk.', '..kyyryyyk..', '..kyyyyyyk..', '...kyryyk...', '...kyyyyk...', '....kyyk....', '....kyrk....', '.....kk.....', '............'],
   // новые миссии
-  salad: ['............', '...g.r..g...', '..gGrrgGrg..', '.grgGgrrGgg.', 'kkkkkkkkkkkk', 'kwwwwwwwwwwk', '.kwwwwwwwwk.', '..kwwwwwwk..', '...kkkkkk...', '............', '............', '............'],
+
   phone: ['...kkkkkk...', '..kddddddk..', '..kcccccck..', '..kcbcbcck..', '..kcccccck..', '..kcgcpcck..', '..kcccccck..', '..kcccccck..', '..kddddddk..', '..kddkkddk..', '...kkkkkk...', '............'],
   catbox: ['............', '..k......k..', '.kok....kok.', '.kookkkkook.', 'kkkkkkkkkkkk', 'knnnnnnnnnnk', 'knnnNNNNnnnk', 'knnnnnnnnnnk', 'knnnnnnnnnnk', 'kNNNNNNNNNNk', 'kkkkkkkkkkkk', '............'],
   firebin: ['.....o......', '....oyo..o..', '...oyyo.oyo.', '..oyyyyooyo.', '.oyywyyyyyo.', 'kkkkkkkkkkkk', '.kssssssssk.', '.ksdsdsdsdk.', '.kssssssssk.', '.ksdsdsdsdk.', '.kssssssssk.', '..kkkkkkkk..'],

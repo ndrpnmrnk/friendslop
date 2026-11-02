@@ -17,6 +17,7 @@ const H = { cards: new Map(), won: new Set(), shown: 0, lastSec: -1, prompt: '',
 
 export function resetHud() {
   resetCompass();
+  if (HINTS.host) HINTS.host.classList.add('hidden');
   for (const el of H.cards.values()) el.remove(); H.cards.clear(); H.won.clear(); H.shown = 0; H.lastSec = -1; H.prompt = H.held = H.gslot = '';
   $('score').textContent = '0'; $('evchip').classList.add('hidden'); $('evbanner').classList.add('hidden'); $('blind').classList.add('hidden');
   $('lockhint').style.backgroundImage = `url(${icon('mouse', 4)})`;
@@ -46,6 +47,39 @@ export function renderNav(camera, P, t) {
   const lb = el.querySelector('.nl'), lt = t.label || ''; if (lb.textContent !== lt) lb.textContent = lt;
 }
 export function resetCompass() { NAV.key = ''; }
+
+// Не больше трёх спокойных указателей: дальние задания читаются без длинных столбов сквозь дома.
+const HINTS = { host: null, slots: [] };
+export function renderMissionHints(camera, P, missions, primary, enabled = true) {
+  if (!HINTS.host) {
+    HINTS.host = document.createElement('div'); HINTS.host.id = 'missionHints'; $('hud').appendChild(HINTS.host);
+    for (let i = 0; i < 3; i++) { const el = document.createElement('div'); el.className = 'missionHint hidden'; el.innerHTML = '<i></i><span></span><b>›</b>'; HINTS.host.appendChild(el); HINTS.slots.push(el); }
+  }
+  HINTS.host.classList.toggle('hidden', !enabled);
+  if (!enabled) return;
+  const candidates = missions.filter(m => m !== primary && !m.busy && !m.doer).map(m => ({ m, p: m.obj.pos() }))
+    .map(e => ({ ...e, d: e.p.distanceTo ? e.p.distanceTo(P.pos) : Math.hypot(e.p.x-P.pos.x,e.p.y-P.pos.y,e.p.z-P.pos.z) }))
+    .filter(e => e.d > 5 && e.d < 125).sort((a,b) => a.d-b.d);
+  const occupied = [], width = innerWidth, height = innerHeight;
+  if (primary) { const p=primary.obj.pos(),v=new V3(p.x,p.y+1.5,p.z).project(camera);if(v.z<1)occupied.push([(v.x+1)*width/2,(1-v.y)*height/2]); }
+  let index=0;
+  for (const {m,p,d} of candidates) {
+    if (index===3) break;
+    const v=new V3(p.x,p.y+1.5,p.z).project(camera),behind=v.z>1;
+    let x=(v.x+1)*width/2,y=(1-v.y)*height/2;if(behind){x=width-x;y=height-y;}
+    const dx=x-width/2,dy=y-height/2,angle=Math.atan2(dy,dx),edge=behind||x<52||x>width-52||y<125||y>height-80;
+    if(edge){const k=Math.min((width/2-52)/Math.max(.001,Math.abs(dx)),(height/2-125)/Math.max(.001,Math.abs(dy)));x=width/2+dx*k;y=height/2+dy*k;}
+    x=Math.max(42,Math.min(width-42,x));y=Math.max(130,Math.min(height-80,y));
+    if(x<(width>760?290:220)&&y<430)x=width>760?302:228;
+    if(x>width-205&&y<215)y=230;
+    if(occupied.some(([ox,oy])=>Math.hypot(ox-x,oy-y)<65))continue;occupied.push([x,y]);
+    const el=HINTS.slots[index++];el.classList.remove('hidden');el.style.transform=`translate(${Math.round(x)}px,${Math.round(y)}px)`;el.style.opacity=String(.48+.26*Math.max(0,1-d/125));
+    if(el._mission!==m.id){el._mission=m.id;el.querySelector('i').innerHTML=img(m.key,20);el.title=m.def.name;}
+    const level=missionLevel(p.y,P.pos.y);el.querySelector('span').textContent=`${Math.round(d)} м${level>0?' ↑':level<0?' ↓':''}`;
+    const arrow=el.querySelector('b');arrow.style.visibility=edge?'visible':'hidden';arrow.style.transform=`rotate(${angle}rad)`;
+  }
+  for(;index<3;index++)HINTS.slots[index].classList.add('hidden');
+}
 
 // пиксельные искры (на экране)
 export function sparks(x, y, colors = ['#ff8a1f', '#f5c542', '#9be36b'], n = 8, host = $('flyers')) {

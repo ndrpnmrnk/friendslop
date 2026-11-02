@@ -34,7 +34,7 @@ function boundaryHit(old,p,r){const B=W.bounds-r;let t=1,n=null;for(const a of['
 
 function build(type) {
   if(type==='popcorn')return popcornModel();
-  if(type==='coal')return compose('hot-coal-0622',a=>{a(G.ico,col(0x342a27),0,0,0,.17,.13,.16);for(const x of[-.08,.03,.09])a(G.box,glow(0xe76e28),x,.10,.02,.025,.025,.17);});
+  if(type==='coal')return coalModel();
   if(type==='fatcan')return fatCanModel();
   if(SNACKS[type])return snackModel(type);
   if(type==='boombox')return radioModel();
@@ -382,3 +382,4 @@ export function predict(from,vel,out,n,def,end){
 
 import {SNACKS,snackModel} from './snacks.js';
 import {radioModel} from './radio.js';
+import {coalModel} from '../world/grill-model.js';

@@ -25,7 +25,8 @@ export function bakeStatic(group, section=false) {
   group.updateMatrixWorld(true);
   const buckets = new Map(), removed = [], boxes = [];
   const ok = m => m && (!m.transparent || m.blending === THREE.AdditiveBlending) && !keep.has(m) && m.visible !== false;
-  const visit = o => {
+  const visit = (o, protectedView = false) => {
+    protectedView ||= !!o.userData.noOcc;
     if (keep.has(o)) return;
     if (o.isMesh && !o.isInstancedMesh && o.visible && !o.userData.dyn && o.geometry.attributes.uv && o.geometry.attributes.normal) {
       const mats = Array.isArray(o.material) ? o.material : [o.material];
@@ -38,12 +39,12 @@ export function bakeStatic(group, section=false) {
         const cell = Math.floor(c.x / CELL) + ':' + Math.floor(c.z / CELL);
         // «паспорт» объекта для камеры мини-игр (game/occlusion.js): центр, радиус+100, полувысота
         { const sz = new THREE.Vector3(); g.boundingBox.getSize(sz); const n = g.attributes.position.count, a = new Float32Array(n * 4), h = new Float32Array(n), r = Math.hypot(sz.x, sz.z) / 2;
-          for (let i = 0; i < n; i++) { a[i * 4] = c.x; a[i * 4 + 1] = c.y; a[i * 4 + 2] = c.z; a[i * 4 + 3] = r + 100; h[i] = sz.y / 2; }
+          for (let i = 0; i < n; i++) { a[i * 4] = c.x; a[i * 4 + 1] = c.y; a[i * 4 + 2] = c.z; a[i * 4 + 3] = protectedView ? 0 : r + 100; h[i] = sz.y / 2; }
           g.setAttribute('aObj', new THREE.BufferAttribute(a, 4)); g.setAttribute('aObjH', new THREE.BufferAttribute(h, 1)); }
         pending.push({ o, g, mats, cell }); removed.push(o); return;
       }
     }
-    for (const c of o.children.slice()) visit(c);
+    for (const c of o.children.slice()) visit(c, protectedView);
   };
   const pending = [];
   for (const c of group.children.slice()) visit(c);
