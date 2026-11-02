@@ -1,3 +1,4 @@
+import { unmergeCharacter } from './merge.js';
 import {THREE,V3} from '../core/gfx.js';
 import {OUTFIT_SLOTS,outfitPiece} from './outfit-assets.js';
 import {coreSurface,fitGarment,automaticFit} from './outfit-fit.js';
@@ -22,6 +23,7 @@ export function prepareOutfits(ch){
 }
 export function wearOutfit(ch,slot,v){
  if(!OUTFIT_SLOTS.includes(slot)||v!=null&&(!Number.isInteger(v)||v<0||v>3))return false;const state=ch.outfit;if(!state)return false;
+ unmergeCharacter(ch);ch.mergeDirty=true;ch.mergeT=0; // v0.68: склейка деталей пересобирается после переодевания
  for(const q of state.layers[slot]||[])q.removeFromParent();state.layers[slot]=[];state.values[slot]=v;state.active=OUTFIT_SLOTS.some(s=>state.values[s]!=null);
  for(const q of state.nativeSlots[slot])q.visible=v==null;
  if(slot==='shoes')for(const group of state.nativeFeet)for(const q of group)q.visible=v==null;

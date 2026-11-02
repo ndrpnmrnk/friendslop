@@ -1,3 +1,4 @@
+import { mergeCharacter } from './merge.js';
 import { random } from '../core/random.js';
 import {meleeHand} from './melee-pose.js';
 import { THREE, G, sprite , jellify } from '../core/gfx.js';
@@ -33,7 +34,8 @@ export function makeCharacter(skinId) {
   const ch = { ...parts, skinId, skin, d, stars, blob: sh, blobS: d.shadow ?? 0.55, ph: 0, squash: 0, blinkT: 2, expr: 'idle', holdPoint: new THREE.Vector3() };
   prepareOutfits(ch);
   ch.speechMouth=makeSpeechMouth(head,skinId);
-  ch.animate = (dt, st) => {if(ch.hazeTilt){body.rotation.z-=ch.hazeTilt;ch.hazeTilt=0;}bindBody();animate(ch, dt, st);bindBody();if(rigidBase&&(ch.shout||0)>.02){body.rotation.z+=Math.sin(st.t*25)*.025*ch.shout;}skin.animate?.(ch, dt, st);animateSpeech(ch,dt);updateOutfit(ch,dt,st); if (st.daze && !(st.rag > 0.001)) { ch.stars.visible = true; ch.stars.rotation.y += dt * 5; } };
+  ch.mergeDirty = true; ch.mergeT = 0;
+  ch.animate = (dt, st) => {if(ch.mergeDirty&&!ch.merging&&(ch.mergeT+=dt)>.3){ch.merging=true;ch.mergeDirty=false;try{mergeCharacter(ch);}catch(e){console.warn('merge',e);}finally{ch.merging=false;}}if(ch.hazeTilt){body.rotation.z-=ch.hazeTilt;ch.hazeTilt=0;}bindBody();animate(ch, dt, st);bindBody();if(rigidBase&&(ch.shout||0)>.02){body.rotation.z+=Math.sin(st.t*25)*.025*ch.shout;}skin.animate?.(ch, dt, st);animateSpeech(ch,dt);updateOutfit(ch,dt,st); if (st.daze && !(st.rag > 0.001)) { ch.stars.visible = true; ch.stars.rotation.y += dt * 5; } };
   // голос: мешок надувается сразу (звук включает тот, кто вызвал)
   ch.croakNow = () => { if (ch.head.userData.sac) ch.sacT = -0.0001; };
   jellify(ch.root, 0.45); // v0.52: персонажи с мягким переливом по краю — самые заметные в кадре

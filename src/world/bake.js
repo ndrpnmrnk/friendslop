@@ -49,7 +49,7 @@ export function bakeStatic(group, section=false) {
   const pending = [];
   for (const c of group.children.slice()) visit(c);
   fixCoplanar(boxes);
-  const atlas=materialAtlas(new Set(pending.flatMap(p=>p.mats)),W.mapResources,new Set([T.water(),T.waterHi(),T.foam()].map(t=>t.source.uuid)));
+  const atlas=materialAtlas(new Set(pending.flatMap(p=>p.mats)),W.mapResources,new Set([T.water(),T.waterHi(),T.foam()].map(t=>t.source.uuid)),new Set((W.flick||[]).flatMap(f=>f.mats||[])));
   for (const { o, g, mats, cell } of pending) {
     {
       {
@@ -80,7 +80,7 @@ export function bakeStatic(group, section=false) {
   // подвижное тоже отбрасывает и принимает тени
   group.traverse(o => { if (o.isMesh && !o.userData.baked && !o.isInstancedMesh) { const m = Array.isArray(o.material) ? o.material[0] : o.material; o.castShadow = !m.transparent && !(m.emissive && m.emissiveIntensity > 0.5); o.receiveShadow = !m.transparent; } });
   installOcclusion(group);
-  return { meshes: removed.length, draws: n,atlasPages:atlas.pages };
+  return { meshes: removed.length, draws: n,atlasPages:atlas.pages,atlasDynamic:atlas.dynamic };
 }
 /* Одинаковые по виду материалы сводим к одному: повтор/сдвиг текстуры переносим в UV,
    тогда все дорожки из плитки, все серые стены и т.п. рисуются одним куском. */
@@ -106,13 +106,13 @@ function canon(mat, g) {
   return c;
 }
 function strip(g) {
-  for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv' && k !== 'aObj' && k !== 'aObjH' && k !== 'aAtlas' && k !== 'color') g.deleteAttribute(k);
+  for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv' && k !== 'aObj' && k !== 'aObjH' && k !== 'aAtlas' && k !== 'aDyn' && k !== 'color') g.deleteAttribute(k);
   g.clearGroups(); g.morphAttributes = {};
   return g;
 }
 function slice(g, start, count) {
   const out = new THREE.BufferGeometry();
-  for (const k of ['position', 'normal', 'uv', 'aObj', 'aObjH','aAtlas','color']) { const a = g.attributes[k]; if (!a) continue; out.setAttribute(k, new THREE.BufferAttribute(a.array.slice(start * a.itemSize, (start + count) * a.itemSize), a.itemSize)); }
+  for (const k of ['position', 'normal', 'uv', 'aObj', 'aObjH','aAtlas','aDyn','color']) { const a = g.attributes[k]; if (!a) continue; out.setAttribute(k, new THREE.BufferAttribute(a.array.slice(start * a.itemSize, (start + count) * a.itemSize), a.itemSize)); }
   return out;
 }
 function flip(g) {
