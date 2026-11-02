@@ -38,7 +38,7 @@ export function materialAtlas(materials,resources,animated=new Set(),dynamic=new
       diffuseColor*=sampledDiffuseColor;
       #endif
       diffuseColor.rgb*=vDynC;`).replace('#include <emissivemap_fragment>','totalEmissiveRadiance=vDynE;');
-   };mat.onBeforeRender=r=>sync(r);mat.customProgramCacheKey=()=>program+'-atlas68';mat.userData.atlas=true;if(bright)mat.userData.noShadow=true;shared.set(key,mat);resources.add(mat);
+   };mat.onBeforeRender=r=>sync(r);mat.userData.dyn=dyn;mat.customProgramCacheKey=()=>program+'-atlas68';mat.userData.atlas=true;if(bright)mat.userData.noShadow=true;shared.set(key,mat);resources.add(mat);
   }
   const n=g.attributes.position.count,rect=new Float32Array(n*4),color=new Uint8Array(n*3),dynA=new Float32Array(n).fill(ds);const rgb=ds?[255,255,255]:[m.color.r,m.color.g,m.color.b].map(v=>Math.round(Math.min(1,Math.max(0,v))*255));
   for(let i=0;i<n;i++){rect.set(slot.rect,i*4);color.set(rgb,i*3);}g.setAttribute('aAtlas',new THREE.BufferAttribute(rect,4));g.setAttribute('color',new THREE.BufferAttribute(color,3,true));g.setAttribute('aDyn',new THREE.BufferAttribute(dynA,1));return mat;

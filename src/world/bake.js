@@ -28,7 +28,7 @@ export function bakeStatic(group, section=false) {
   const visit = (o, protectedView = false) => {
     protectedView ||= !!o.userData.noOcc;
     if (keep.has(o)) return;
-    if (o.isMesh && !o.isInstancedMesh && o.visible && !o.userData.dyn && o.geometry.attributes.uv && o.geometry.attributes.normal) {
+    if (o.isMesh && !o.isInstancedMesh && !o.isBatchedMesh && o.visible && !o.userData.dyn && o.geometry.attributes.uv && o.geometry.attributes.normal) {
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       if (mats.every(ok)) {
         let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
