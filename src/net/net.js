@@ -1,4 +1,5 @@
 import { random } from '../core/random.js';
+// Выпуск v0.63.4 (release).
 import { smoothClockOffset } from './cadence.js';
 import {telemetry} from './telemetry.js';
 /* Сеть Friendslop: подключение к серверу комнат (worker/), список игроков, отправка/приём сообщений.
