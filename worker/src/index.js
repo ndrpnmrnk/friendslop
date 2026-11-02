@@ -63,6 +63,12 @@ export class Room extends DurableObject {
         if(!a.host&&(m.w||m.h||m.b||m.t==='ev'&&(['hub','flow','roster','final','mission-grant','host-pause','correction','effect'].includes(m.e)||m.e==='hit'&&m.ep!==undefined)))break;
         this.cast(m,ws);break;
       }
+      // v0.65: хост свернул игру - добровольно отдаёт роль ведущего другому игроку того же матча.
+      case 'handoff': {
+        if(!a.host)break;const next=this.players().filter(q=>q.ws!==ws&&!!q.a.match===!!a.match).sort((x,y)=>x.a.id-y.a.id)[0];if(!next)break;
+        a.host=false;ws.serializeAttachment(a);next.a.host=true;next.ws.serializeAttachment(next.a);await this.ctx.storage.put('hostToken',next.a.token);
+        this.cast({t:'upd',p:this.pub(a)});this.cast({t:'upd',p:this.pub(next.a)});break;
+      }
       case 'rules': {if(!a.host||typeof m.bots!=='boolean')break;await this.ctx.storage.put('bots',m.bots);this.cast({t:'rules',bots:m.bots});break;}
       case 'p': this.send(ws, { t: 'P', c: m.c, s:Date.now() }); break;
       case 'ready': a.ready = !!m.v; ws.serializeAttachment(a); this.cast({ t: 'upd', p: this.pub(a) }); break;

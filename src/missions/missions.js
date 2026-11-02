@@ -230,6 +230,8 @@ export function updateMissions(dt, t, player, opts = {}) {
   for (const m of M.list.slice()) {
     const p = (m.key==='cleanup'&&m.busy&&m.track?.())||m.obj.pos(), mk = m.marker; mk.g.position.set(p.x, p.y, p.z);
     mk.g.visible = !m.busy && !m.doer && visibleTo(m, player);
+    // v0.65: у гостя таймеры идут плавно сами (хост присылает точные раз в секунду), но истечение решает только хост.
+    if(W.net?.replica&&phase!=='event'){if(m.activeLeft!=null)m.activeLeft=Math.max(.05,m.activeLeft-visualDt);else if(!m.busy&&!m.doer)m.life=Math.max(.05,m.life-visualDt);}
     if(m.activeLeft!=null){m.activeLeft-=dt;if(m.activeLeft<=0){m.onExpire?.();if(M.list.includes(m))removeMission(m);continue;}}
     if (!m.busy && !m.doer && m.activeLeft==null) {
       m.life -= dt;

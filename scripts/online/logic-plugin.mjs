@@ -11,14 +11,15 @@ export function onlineLogicTestPlugin() {
           if(!rooms){
             const require=createRequire(new URL('../../worker/package.json',import.meta.url));
             const {Miniflare,convertV4MiniflareOptions}=require('miniflare');
-            rooms=new Miniflare(convertV4MiniflareOptions({workers:[{modules:true,scriptPath:fileURLToPath(new URL('../../worker/src/index.js',import.meta.url)),
-              compatibilityDate:'2025-06-01',durableObjects:{ROOMS:{className:'Room',useSQLite:true}}}],host:'127.0.0.1',port:8787,cf:false}));
+            const src=fileURLToPath(new URL('../../worker/src/',import.meta.url));
+            rooms=new Miniflare(convertV4MiniflareOptions({workers:[{modulesRoot:src,modules:['index.js','accounts.js'].map(f=>({type:'ESModule',path:src+f})),
+              compatibilityDate:'2025-06-01',durableObjects:{ROOMS:{className:'Room',useSQLite:true},ACCOUNTS:{className:'Accounts',useSQLite:true}}}],host:'127.0.0.1',port:8787,cf:false}));
           }
           await rooms.ready;
         }catch(e){res.statusCode=500;res.end('Local rooms test failed: '+e.message);return;}
         const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8');
         res.setHeader('Content-Type','text/html');
-        res.end(html.replace('./src/main.js','/scripts/online/logic-entry.js'));
+        res.end(html.replace(/\.\/src\/(main|boot)\.js/,'/scripts/online/logic-entry.js'));
       });
       server.httpServer?.once('close',()=>rooms?.dispose());
     },

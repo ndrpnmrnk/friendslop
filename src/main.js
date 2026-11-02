@@ -982,8 +982,9 @@ function frame() {
       renderMissionHints(camera,P,M.list.filter(m=>visibleTo(m,P)),S.main,!S.mg&&!S.wm&&!EV.big&&!P.drone&&!P.returning);
     }
     for (const d of W.doors) {
-      if(W.net?.replica)continue;
-      if(d.automatic)d.open=actors().some(a=>!a.drone&&!a.hidden&&Math.abs(a.pos.y-d.y)<1.5&&Math.hypot(a.pos.x-(d.autoCenter?.x??d.x),a.pos.z-(d.autoCenter?.z??d.z))<2.5);
+      // v0.65: гость сам анимирует только дверь, которую он только что открыл/закрыл (до ответа хоста).
+      if(W.net?.replica&&!(d.netPendingAt&&performance.now()-d.netPendingAt<700))continue;
+      if(d.automatic&&!W.net?.replica)d.open=actors().some(a=>!a.drone&&!a.hidden&&Math.abs(a.pos.y-d.y)<1.5&&Math.hypot(a.pos.x-(d.autoCenter?.x??d.x),a.pos.z-(d.autoCenter?.z??d.z))<2.5);
       // выбитая выпадом дверь (v0.22) летит в сторону выпада по инерции, бьётся об упор и чуть отскакивает
       const want = d.open ? 1.65 * (d.dirS || d.inward) : 0;
       if (d.av) { d.ang += d.av * dt; d.av *= Math.exp(-dt * 2.2); if (Math.abs(d.ang) > 1.8) { d.ang = Math.sign(d.ang) * 1.8; d.av = -d.av * 0.3; } if (Math.abs(d.av) < 0.4) d.av = 0; }

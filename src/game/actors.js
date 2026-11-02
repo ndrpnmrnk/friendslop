@@ -70,7 +70,9 @@ export function separateActors() {
     if(d>=r)continue;const overlap=r-d;if(d<.0001){dx=1;dz=0;d=1;}
     for(const [body,sign]of [[a,-1],[b,1]]){
       if(W.net?.replica&&body!==W.player)continue;
-      const k=W.net?.replica?1:.5;body.pos.x+=sign*dx/d*overlap*k;body.pos.z+=sign*dz/d*overlap*k;
+      // v0.65: у гостя каждый раздвигает только себя и на половину перекрытия - второй игрок делает то же у себя,
+      // поэтому вместе выходит ровно одно перекрытие, без отскоков от отставшей картинки друга.
+      const k=.5;body.pos.x+=sign*dx/d*overlap*k;body.pos.z+=sign*dz/d*overlap*k;
       pushOut(body.pos,body.r,body.pos.y+body.step,body.pos.y+body.h);
     }
   }

@@ -3,7 +3,8 @@ import {toggleRadio,tuneRadio} from '../game/radio.js';
 import {withSoundSource,sfx} from '../core/sfx.js';
 import { W } from '../world/state.js';
 import { V3, THREE } from '../core/gfx.js';
-import { addItem, pickUp, launch, drop, bumpItem } from '../game/items.js';
+import { addItem, pickUp, launch, drop, bumpItem, predictFlight } from '../game/items.js';
+import { NET } from './net.js';
 import { addPushable } from '../world/pushables.js';
 import { addSolid, addObb, moveSolid, syncPushable, pushOut, raySolids, applyPushBump } from '../world/physics.js';
 import { breakPiece } from '../world/breakables.js';
@@ -143,6 +144,12 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       if(!applyHostMissionItem({state:o.state,ownerKey:currentOwner,pendingAt:o.netPendingTakeAt||0},
         {state:v[1],ownerKey:desiredOwner},myKey,performance.now()))return;
     }
+    if(type==='i'&&!proposal&&o.netPendingThrowAt){
+      // Свой бросок уже летит у гостя; снимок «ещё в руке» от хоста (бросок не дошёл) не возвращает предмет в руку.
+      const wait=performance.now()-o.netPendingThrowAt;
+      if(o.state==='fly'&&v[1]==='held'&&v[11]===myKey&&wait<600)return;
+      if(v[1]!=='held'||wait>=600)o.netPendingThrowAt=0;
+    }
     if(type==='i'&&!proposal&&o.netPendingTakeAt){
       const wait=performance.now()-o.netPendingTakeAt,mine=o.state==='held'&&o.owner===W.player;
       if(mine&&v[1]!=='held'&&!v[11]&&wait<600)return;
@@ -162,11 +169,21 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
         if(owner===W.player&&v[1]==='held')o.netPendingTakeAt=0;
         o.state = v[1]; o.owner = owner; o.vel.fromArray(v.slice(5, 8)); o.noPickup = !!v[12]; o.ammo = v[13]; o.taken = !!v[14]; o.g.visible = !!v[15];o.cd=v[16]||0;if(owner!==W.player){o.draw=v[17]||0;o.aimT=v[18]||0;}o.perfumeEffect=v[19]||undefined;o.mission=v[20]?api.getMission?.(v[20]):null;if(o.type==='boombox'){const r=v[21]||[0,0,0,0];Object.assign(o.radio||(o.radio={}),{on:!!r[0],station:r[1],since:r[2],offset:r[3]});}
         if (o.state === 'held' && owner) { visual.delete(o.g);owner.held = o; if (owner !== W.player) cargoPosition(owner, o.pos, o.def.r); }
-        else target(o.g, v.slice(2, 5));
+        else if (o.state === 'fly' && !api.canSimulate(o)) {
+          // v0.65: снимок полёта старше «сейчас» на задержку сети. Досчитываем его вперёд и плавно сводим.
+          visual.delete(o.g);
+          const mine=keyOf(o.owner)===myKey,age=Math.min(.35,Math.max(0,(NET.rtt||0)/1000*(mine?1:.5))+.02);
+          const p=new V3(...v.slice(2,5)),vel=new V3(...v.slice(5,8));predictFlight(p,vel,age,o.def.drag);
+          if(oldState!=='fly'||o.netStopped&&o.pos.distanceTo(p)>.6||o.pos.distanceTo(p)>4){o.pos.copy(p);o.netCorr=null;}
+          else o.netCorr=(o.netCorr||new V3()).copy(p).sub(o.pos);
+          o.vel.copy(vel);o.netStopped=false;
+        }
+        else {o.netCorr=null;target(o.g, v.slice(2, 5));}
         o.g.rotation.set(...v.slice(8, 11)); break;
       }
       case 'p': {
         if (!proposal && (o.rider === W.player || o.grabbed === W.player) && (v[12]===myKey||v[13]===myKey)) break;
+        if (!proposal && !host && o.netLeaseUntil > performance.now() && !v[12] && !v[13]) break; // v0.65: гость сам толкает этот предмет
         const before=motionView.get(o)||{x:o.mesh.position.x,y:o.mesh.position.y,z:o.mesh.position.z};
         const oldRider = o.rider, oldGrab = o.grabbed;
         o.x = v[1]; o.y = v[2]; o.z = v[3]; o.hubFalling=false; o.vx = v[4]; o.vy = v[5]; o.vz = v[6]; o.dead = !!v[10]; o.tipped = !!v[11]; o.heading = v[14];
@@ -186,7 +203,8 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       case 'a': ['x','y','z','r'].forEach((k,i)=>{const d=Object.getOwnPropertyDescriptor(o,k);if(!d?.get||d.set)o[k]=v[i];});break;
       case 't':o.p.fromArray(v.slice(1,4));o.v.fromArray(v.slice(4,7));o.g=v[7];o.life=v[8];o.delay=v[9];o.owner=actor(v[10]);target(o.m,v.slice(1,4),v.slice(11,15),v.slice(15,18));o.m.visible=!!v[18];break;
       case 'o': obbFields.forEach((k, i) => { o[k] = v[i]; }); o.on = !!v[9]; break;
-      case 'd': o.open = !!v[0]; o.ang = v[1]; o.av = v[2]; o.dirS = v[3]; o.pivot.rotation.y = o.ang; if (o.solid) o.solid.on = !!v[4]; break;
+      case 'd': if(!proposal&&o.netPendingAt){if(performance.now()-o.netPendingAt<600&&!!v[0]!==o.open)break;o.netPendingAt=0;} // v0.65: своя дверь уже открыта у гостя
+        o.open = !!v[0]; o.ang = v[1]; o.av = v[2]; o.dirS = v[3]; o.pivot.rotation.y = o.ang; if (o.solid) o.solid.on = !!v[4]; break;
       case 'b': if (!v[0] && o.alive) breakPiece(o); break;
       case 'v': {
         target(o,v.slice(0,3),v.slice(3,7),v.slice(7,10));o.visible=!!v[10];
@@ -263,7 +281,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
   function proposals(force=false) {
     const out = [];
     const now=performance.now(),full=force||now-proposalAt>3000;if(full)proposalAt=now;
-    for (const [key, { type, o }] of objects) if (localOwns(o) || type === 'p' && (o.rider === W.player || o.grabbed === W.player)) {
+    for (const [key, { type, o }] of objects) if (localOwns(o) || type === 'p' && (o.rider === W.player || o.grabbed === W.player || o.netLeaseUntil > now - 300)) {
       const value=pack(type,o);if(value){const text=JSON.stringify(value);if(full||lastProposal.get(key)!==text)out.push([key,value]);lastProposal.set(key,text);}
     }
     return out;
@@ -279,7 +297,11 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
           !canHostAcceptMissionItem(entry?.o,value,keyOf(a),keyOf(entry?.o?.owner)))continue;
         accepted.push([key,value]);continue;
       }
-      if (entry?.type === 'p' && (entry.o.rider === a || entry.o.grabbed === a) && vector(value.slice(1, 7), 6)) {
+      // v0.65: гость толкает свободный ящик/бочку/тележку у себя («аренда» ~0.8 с), хост принимает его движение.
+      const now=performance.now(),po=entry?.type==='p'?entry.o:null;
+      const pushLease=po&&!po.rider&&!po.grabbed&&!po.dead&&!po.netScope?.startsWith('m')&&(!po.netLeaseBy||po.netLeaseBy===a||now>po.netLeaseHostUntil);
+      if(pushLease&&!(value[12]||value[13])){po.netLeaseBy=a;po.netLeaseHostUntil=now+800;}
+      if (entry?.type === 'p' && (entry.o.rider === a || entry.o.grabbed === a || pushLease&&!(value[12]||value[13])) && vector(value.slice(1, 7), 6)) {
         const b = entry.o, was = b.solid?.on; if (b.solid) b.solid.on = false;
         try {
           const fixed = sweepPosition([b.x, b.y, b.z], value.slice(1, 4), b.r, p => pushOut(p, b.r, p.y + .2, p.y + b.h));
@@ -292,6 +314,9 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
   }
   const api = { host, replica: !host, register, scope, runScope, tree, objects, keyOf, request, reachable, act, proposals, accept, apply,
     retryProposals(){lastProposal.clear();},
+    // v0.65: аренда толкаемого предмета гостем. Хост не арендует; миссионные и занятые предметы - нет.
+    lease(o){if(host||!o?.netId||o.rider||o.grabbed||o.dead||o.netScope?.startsWith('m'))return false;const now=performance.now();if(!(o.netLeaseUntil>now))o.netLeaseUntil=now;o.netLeaseUntil=Math.max(o.netLeaseUntil,now+700);return true;},
+    leaseProposals(){const out=[],now=performance.now();for(const [key,{type,o}] of objects)if(type==='p'&&o.netLeaseUntil>now-300){const value=pack(type,o);if(value){out.push([key,value]);lastProposal.set(key,JSON.stringify(value));}}return out;},
     locally(fn){const old=applying;applying=true;try{return fn();}finally{applying=old;}},
     setIdentity(value){myKey=value;serial=0;},
     discover(){for(const[type,list]of Object.entries(LISTS))for(const o of W[list]||[])if(!seen.has(o))register(type,o);},
@@ -307,7 +332,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
         if(!validMotion(row))continue;
         const entry=objects.get(row[0]);if(entry?.type!=='p')continue;
         const o=entry.o;
-        if(o.rider===W.player||o.grabbed===W.player)continue;
+        if(o.rider===W.player||o.grabbed===W.player||o.netLeaseUntil>performance.now())continue;
         const before=motionView.get(o)||{x:o.mesh.position.x,y:o.mesh.position.y,z:o.mesh.position.z};
         [o.x,o.y,o.z,o.vx,o.vy,o.vz]=row.slice(1,7);
         syncPushable(o);o.mesh.rotation.set(...row.slice(7,10));preserveMotionView(o,before);
@@ -318,6 +343,14 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       const at=performance.now(),now=options.now??at,viewers=options.viewers||[],queued=options.queued||0;
       const frame=delta.snapshot(records(),full,(key,previous,next)=>{
         const entry=objects.get(key);
+        // v0.65: визуальный узел - незаметный сдвиг (<2 см, <0.6°, тот же масштаб/видимость/текстура) ждёт до 1 с.
+        if(entry?.type==='v'&&Array.isArray(previous)&&Array.isArray(next)&&previous.length===next.length&&previous.length>=11&&!next[11]&&!previous[11]){
+          const last=worldSentAt.get(key),dp=Math.hypot(next[0]-previous[0],next[1]-previous[1],next[2]-previous[2]);
+          const dot=Math.abs(next[3]*previous[3]+next[4]*previous[4]+next[5]*previous[5]+next[6]*previous[6]);
+          const same=dp<.02&&dot>.99998&&next[7]===previous[7]&&next[8]===previous[8]&&next[9]===previous[9]&&next[10]===previous[10];
+          if(same&&last!=null&&now-last<1000)return false;
+          worldSentAt.set(key,now);return true;
+        }
         if(!entry||!['p','i'].includes(entry.type))return true;
         // The event-like bits of the snapshot are never slowed: pickup,
         // drop, placement, item collected, mounting, collisions and death.
@@ -361,7 +394,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
         if(age>=.085&&Math.hypot(o.vx,o.vz)<.02&&Math.hypot(v.x-x,v.y-y,v.z-z)<.002)motionView.delete(o);
       }
     },
-    canSimulate(o) { if(o?.netScope?.startsWith('m'))return !!api.ownsScope?.(o.netScope); return host || !o?.netId || localOwns(o) || o.rider === W.player || o.grabbed === W.player; },
+    canSimulate(o) { if(o?.netScope?.startsWith('m'))return !!api.ownsScope?.(o.netScope); return host || !o?.netId || localOwns(o) || o.rider === W.player || o.grabbed === W.player || o.netLeaseUntil > performance.now(); },
     canAnimate(f) { if(f.netLocal)return true;return f.netScope?.startsWith('m') ? !!api.ownsScope?.(f.netScope) : host; },
   };
   api.buildings=(W.buildings||[]).slice();api.spots=Object.fromEntries(Object.entries(W.spots).map(([k,v])=>[k,v.slice()]));

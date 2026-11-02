@@ -300,6 +300,20 @@ function simulate(it, dt, flying) {
   } else { const k = Math.min(3, 0.6 + v.length() / 8); it.g.rotation.x += dt * 8 * k; it.g.rotation.y += dt * 5 * k; }
 }
 
+/* v0.65: у гостя чужой и свой брошенный предмет летит по той же баллистике каждый кадр,
+   а не прыгает между снимками хоста. Это только картинка: попадания, разбитие и приземление решает хост,
+   его снимок мягко подтягивает предмет (netCorr), а при большом расхождении ставит сразу. */
+export function predictFlight(p,v,dt,drag=0){integrateProjectile(p,v,dt,drag);}
+function netFlight(it,dt){
+  if(it.netCorr){const k=1-Math.exp(-dt*12);it.pos.addScaledVector(it.netCorr,k);it.netCorr.multiplyScalar(1-k);if(it.netCorr.lengthSq()<1e-6)it.netCorr=null;}
+  if(it.netStopped)return;
+  const r=it.def.r,ry=it.def.halfHeight??r,old=it.pos.clone();
+  integrateProjectile(it.pos,it.vel,Math.min(dt,.05),it.def.drag);
+  const dv=it.pos.clone().sub(old),len=dv.length();
+  if(len>1e-4){const wall=raySolids(old,dv.normalize(),len);if(wall<len){it.pos.copy(old).addScaledVector(dv,Math.max(0,wall-.02));it.vel.set(0,0,0);it.netStopped=true;return;}}
+  const gy=groundAt(it.pos.x,it.pos.z,r*.5,it.pos.y+r*.5);if(it.pos.y-ry<gy){it.pos.y=gy+ry;it.vel.set(0,0,0);it.netStopped=true;return;}
+  const k=Math.min(3,.6+it.vel.length()/8);it.g.rotation.x+=dt*8*k;it.g.rotation.y+=dt*5*k;
+}
 export function bumpItem(it,pl,velocity=null){
  if(!pl||pl.held===it||it.state!=='rest'||it.noPickup)return;
  const dx=it.pos.x-pl.pos.x,dz=it.pos.z-pl.pos.z,d=Math.hypot(dx,dz),m=it.def.r+pl.r;
@@ -313,7 +327,7 @@ export function updateItems(dt, pl) {
   for(const a of [pl,...(!W.net?.replica?W.bots||[]:[])].filter(a=>a&&!a.puppet)){if(a.held?.type==='coal'&&!a.netProtected){a.coalHeat=(a.coalHeat||0)+dt;if(a.coalHeat>1.8){a.coalHeat=0;daze(a,.65);const hot=a.held;if(a===pl&&W.net?.replica)W.net.request('drop',hot);if(a.held===hot)dropHeld(a);sfx('hiss',{at:a.pos,range:8,v:.4});}}else a.coalHeat=0;}
 
   for (const it of W.items) {
-    if (W.net && !W.net.canSimulate(it)){bumpItem(it,pl);continue;}
+    if (W.net && !W.net.canSimulate(it)){if(it.state==='fly')netFlight(it,dt);else bumpItem(it,pl);continue;}
     if(W.hubReturn&&it.state!=='held'&&it.pos.y<-14){W.hubReturn(it);continue;}
     if (it.state === 'gone' || it.state === 'placed') continue;
     if (it.state === 'held') continue;
@@ -367,7 +381,7 @@ export function throwVelocity(from, target, charge, def) {
   const f = k / (1 - Math.exp(-k * T)), vx = dist * f, vy = (dy + GRAV * T / k) * f - GRAV / k;
   return new V3(dx / dist * vx, vy, dz / dist * vx);
 }
-export function launch(it, from, vel) { if(it.taken)return;it.throwFrom=from.clone();it.hoopScored=false;it.throwId=(it.throwId||0)+1; it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true;  W.netThrow?.(it, from, vel); }
+export function launch(it, from, vel) { if(it.taken)return;if(W.net?.replica){it.netPendingThrowAt=performance.now();it.netStopped=false;it.netCorr=null;}it.throwFrom=from.clone();it.hoopScored=false;it.throwId=(it.throwId||0)+1; it.state = 'fly'; it.pos.copy(from); it.vel.copy(vel); it.g.visible = true;  W.netThrow?.(it, from, vel); }
 const predicted=[];
 export function predict(from,vel,out,n,def,end){
  const p=from.clone(),v=vel.clone(),h=1/60,r=def.r,ry=def.halfHeight??r;let count=0,landed=false;if(end)end.visible=false;

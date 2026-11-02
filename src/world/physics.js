@@ -380,7 +380,7 @@ export function bumpPushables(pl) {
   const p = pl.pos;
   for (const b of W.pushables) {
     if (b.rider || b.grabbed || pl.ride) continue;
-    const passive=!!(W.net&&!W.net.canSimulate(b));
+    let passive=!!(W.net&&!W.net.canSimulate(b));
     const top = b.y + b.h;
     if (p.y > top - 0.06 || p.y + pl.h < b.y) {
       // стоит сверху — предмет стоит как вкопанный
@@ -390,6 +390,10 @@ export function bumpPushables(pl) {
     const dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz), m = b.r + pl.r;
     if (d >= m || d < 1e-4) continue;
     const nx = dx / d, nz = dz / d, over = m - d;
+    // v0.65: хост не толкает предмет за гостя, который сам ведёт его у себя (иначе двойной толчок).
+    if(!W.net?.replica&&pl.puppet&&b.netLeaseBy===pl&&performance.now()<b.netLeaseHostUntil)continue;
+    // Гость упирается сбоку - берёт предмет «в аренду» и толкает у себя сразу, без ожидания хоста.
+    if(passive&&!pl.puppet&&W.net?.lease?.(b))passive=false;
     // На госте пассивный предмет не меняет свою физику, контакт отталкивает только игрока.
     if(passive){requestBump(pl,b);p.x-=nx*over;p.z-=nz*over;const vn=pl.vel.x*nx+pl.vel.z*nz;if(vn>0){pl.vel.x-=nx*vn;pl.vel.z-=nz*vn;}continue;}
     // запрыгивает/цепляется выше середины — предмет не двигается, персонажа мягко сдвигает

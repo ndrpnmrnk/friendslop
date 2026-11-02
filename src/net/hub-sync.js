@@ -1,4 +1,4 @@
-import {motionNow,sampleMotion} from './motion-buffer.js';
+import {motionNow,sampleMotion,stampMotion,motionDelay,pushMotion,motionStamp} from './motion-buffer.js';
 import {alignMountedVisual,alignBikePedals} from './rider-visual.js';
 import { THREE, V3 } from '../core/gfx.js';
 import { createPlayer } from '../game/player.js';
@@ -45,8 +45,8 @@ export function initHubSync(sc) {
   onNet('join', p => spawn(p));
   onNet('leave', id => despawn(id));
   onNet('state', () => { for (const p of others()) { const r = remotes.get(p.id); if (!r) spawn(p); else { if (r.skin !== p.skin) { spawn(p); } else if (r.name !== p.name) retag(r, p.name); } const current=remotes.get(p.id);if(current&&p.scene)current.mode=p.scene; } for (const id of [...remotes.keys()]) if (!NET.players.has(id)) despawn(id); });
-  onNet('st', m => { for(const q of (m.id===hubHostId()?m.hs:[])||[]){if(q.id===m.id)continue;const a=remotes.get(q.id);if(a){a.mode='hub';a.buf.push({t:motionNow(),x:q.x,y:q.y,z:q.z,yaw:q.r,s:q.s||{}});if(a.buf.length>30)a.buf.shift();}} const r = remotes.get(m.id); if (!r) return; r.mode = m.m || 'hub'; if (m.x === undefined || r.mode === 'match') return;
-    r.buf.push({ t: motionNow(), x: m.x, y: m.y, z: m.z, yaw: m.r, s: m.s || {} }); if (r.buf.length > 30) r.buf.shift(); });
+  onNet('st', m => { for(const q of (m.id===hubHostId()?m.hs:[])||[]){if(q.id===m.id)continue;const a=remotes.get(q.id);if(a){a.mode='hub';pushMotion(a.buf,{t:stampMotion(a.netTrack||(a.netTrack={}),Number.isFinite(q.ts)?q.ts:NaN),x:q.x,y:q.y,z:q.z,yaw:q.r,s:q.s||{}},30);}} const r = remotes.get(m.id); if (!r) return; r.mode = m.m || 'hub'; if (m.x === undefined || r.mode === 'match') return;
+    r.netTs=Number.isFinite(m.ts)?m.ts:undefined;pushMotion(r.buf,{ t: stampMotion(r.netTrack||(r.netTrack={}),Number.isFinite(m.ts)?m.ts:NaN), x: m.x, y: m.y, z: m.z, yaw: m.r, s: m.s || {} },30); });
   onNet('ev', m => { const r = remotes.get(m.id), p = NET.players.get(m.id); if (!r || p?.muted) return; if (m.e === 'snd' && r.mode === 'hub') sfx(m.n, { at: r.pos, v: .8 }); });
 }
 /* звук своего персонажа, который должны услышать остальные (эмоция, прыжок) */
@@ -64,7 +64,7 @@ export function updateHubSync(dt, { P, ch, mode, camera, ball, hold, launchState
    const sendInterval=motionIntervalFor(NET.players.size,NET.ws?.bufferedAmount||0);NET.sendRateHz=Math.round(1/sendInterval);
   if (now >= sendT && P && !session?.away) { const elapsed=lastHubSend?Math.min(.5,now-lastHubSend):SEND;lastHubSend=now;sendT=nextSendAt(sendT,now,sendInterval); const s = {}, src = ch?._netS || {};
     for (const k of POSE) { const v = src[k]; if (v !== undefined && v !== null && v !== false && v !== 0) s[k] = typeof v === 'number' ? Math.round(v * 100) / 100 : v; }
-    const m = { t: 'st', m: 'hub', x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), r: +(ch?.root.rotation.y || 0).toFixed(2), s, rtt: NET.rtt };
+    const m = { t: 'st', m: 'hub', ts: motionStamp(), x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2), r: +(ch?.root.rotation.y || 0).toFixed(2), s, rtt: NET.rtt };
     session?.tick(elapsed,P,m);m.x=+P.pos.x.toFixed(3);m.y=+P.pos.y.toFixed(3);m.z=+P.pos.z.toFixed(3);if(session?.host&&hold){m.launchState=launchState;m.launchAt=serverNow();}
     const key = JSON.stringify([m.x,m.y,m.z,m.r,s,m.m,m.pm,m.hs,m.slots,m.door]); if(key!==last||idleT<=0||m.hw?.full||m.hw?.rows.length||m.cmds?.length||m.c?.length||m.fix?.length||m.fx?.length||hold){if(send(m)===false)session?.unsent(m);else{session?.sent(m);last=key;idleT=IDLE;}} }
   // Мяч получает единый host-authority поток pm/hw, без второго клиентского толчка.
@@ -73,7 +73,7 @@ export function updateHubSync(dt, { P, ch, mode, camera, ball, hold, launchState
   for (const r of remotes.values()) {
     const b = r.buf; if (!b.length) continue;
     if (hold) { tagFor(r, cam); continue; }
-    const m=sampleMotion(b,now,MOTION_DELAY),A=m.a,B=m.b,k=m.k;
+    const m=sampleMotion(b,now,motionDelay(r.netTrack)),A=m.a,B=m.b,k=m.k;
     r.s=k<.5?A.s:B.s;r.onGround=!r.s.air;r.stun=r.s.stun?1:0;r.getT=r.s.getup||0;r.daze=r.s.daze?1:0;
     r.vel.set((B.x-A.x)/Math.max(.05,B.t-A.t), (B.y-A.y)/Math.max(.05,B.t-A.t),(B.z-A.z)/Math.max(.05,B.t-A.t));
     if(!session?.host)r.pos.set(m.x,m.y,m.z);

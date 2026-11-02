@@ -1,4 +1,4 @@
-import {motionNow,sampleMotion} from './motion-buffer.js';
+import {motionNow,sampleMotion,stampMotion,motionDelay,pushMotion,motionStamp} from './motion-buffer.js';
 import {disposeActorDrone} from '../game/drone.js';
 import {takeSounds,retrySounds,receiveSounds} from './audio-sync.js';
 import {CoinAwards} from './coin-protocol.js';
@@ -37,7 +37,8 @@ function tryCoinPickup(actor,id){
  if(ok)MATCH.worldT=0;
  return ok;
 }
-const pose = src => { const s = {}; if (!src) return s; for (const k of POSE) { const v = src[k]; if (typeof v === 'number' && finite(v)) s[k] = Math.round(v * 100) / 100; else if (typeof v === 'boolean' || typeof v === 'string' && v.length <= 24) s[k] = v; } return s; };
+// v0.65: нули и false не передаются (как в хабе) - пакет позы в несколько раз меньше, отсутствие = 0/false.
+const pose = src => { const s = {}; if (!src) return s; for (const k of POSE) { const v = src[k]; if (typeof v === 'number' && finite(v)) { const r = Math.round(v * 100) / 100; if (r) s[k] = r; } else if (v === true || typeof v === 'string' && v && v.length <= 24) s[k] = v; } return s; };
 const hook = ch => { if (ch && !ch._netHook) { const f = ch.animate; ch.animate = (d, s) => { ch._netS = s; return f.call(ch, d, s); }; ch._netHook = true; } };
 const myKey = () => 'p' + NET.id;
 const find = key => key === myKey() ? W.player : W.bots?.find(b => b.netKey === key);
@@ -60,7 +61,7 @@ export const netPaused = () => MATCH.on && !!MATCH.world && ((!MATCH.startAt || 
 export function netBeginMatch(seed) {
   netEndMatch();
   Object.assign(MATCH, { on: inRoom(), host: NET.host, seed, roster: null, scene: null, sendT: 0, worldT: 0, fullT: 0,
-    paused: false, authority:[...NET.players.values()].find(p=>p.host)?.id, startAt:null, final: null, seq: 0, lastHost: performance.now() });
+    paused: false, authority:[...NET.players.values()].find(p=>p.host)?.id, startAt:null, final: null, seq: 0, lastHost: performance.now(), missionKey:null, coinKey:null, rosterKey:null, missionAt:0 });
   MATCH.ready.clear(); pendingPositions.clear(); commands.length = 0;corrections.clear();coinAwards.clear(); clock = 0; lastGuestFrame = 0;
   MATCH.members=new Set(NET.players.keys());
 }
@@ -116,15 +117,15 @@ function syncBots(){
   if(count){const humans=W.bots;W.bots=[];const created=createBots(MATCH.scene,W.player.ch.skinId,count);W.bots=[...humans,...created];created.forEach((b,i)=>{b.netKey='b'+i;hook(b.ch);});}
   MATCH.roster=W.bots.filter(b=>!b.human).map(b=>({name:b.name,skin:b.skin}));MATCH.fullT=0;event({e:'roster',bots:MATCH.roster});
 }
-function actorPacket(a) {
+function actorPacket(a,ts) {
   return [a.netKey, +a.pos.x.toFixed(3), +a.pos.y.toFixed(3), +a.pos.z.toFixed(3), +a.root.rotation.y.toFixed(3),
     pose(a.ch._netS), Math.round(a === W.player ? callbacks.score?.() || 0 : a.score || 0), a.puppet ? (a.buf.at(-1)?.v??0) : a.hidden || a.drone || a.returning&&a.returning.t<1.25 ? 0 : 1,
-    a.st || {}, MATCH.world.keyOf(a.holding), MATCH.world.keyOf(a.heldBy),callbacks.droneState?.(a)];
+    a.st || {}, MATCH.world.keyOf(a.holding), MATCH.world.keyOf(a.heldBy),callbacks.droneState?.(a),a.human&&a.puppet?a.netTs:ts];
 }
 function receiveActors(rows) {
   for (const q of rows || []) {
     const a = find(q[0]); if (!a) continue;
-    if (a !== W.player) push(a, q[1], q[2], q[3], q[4], q[5], q[6], q[7]);
+    if (a !== W.player) push(a, q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[12]);
     else callbacks.setScore?.(q[6]);
     a.st = q[8] || {}; a.holding = find(q[9]) || null; a.heldBy = find(q[10]) || null;
     if(a!==W.player)callbacks.droneApply?.(a,q[11]);
@@ -142,33 +143,40 @@ export function netMatchTick(dt, P) {
    MATCH.sendT = nextSendAt(MATCH.sendT,now,interval);NET.sendRateHz=Math.round(1/interval);hook(P.ch);
   if(MATCH.host&&!netWaiting()&&!MATCH.startAt)MATCH.startAt=serverNow()+300;
   const n = ++MATCH.seq;
-  const m = { t: 'st', m: 'match', protocol: 2, ep: MATCH.seed, n, x: +P.pos.x.toFixed(3), y: +P.pos.y.toFixed(3), z: +P.pos.z.toFixed(3),
+  const ts=motionStamp(),m = { t: 'st', m: 'match', protocol: 2, ep: MATCH.seed, n, ts, x: +P.pos.x.toFixed(3), y: +P.pos.y.toFixed(3), z: +P.pos.z.toFixed(3),
     fx:takeSounds(), r: +P.root.rotation.y.toFixed(3), s: pose(P.ch._netS), rtt: NET.rtt, dr:callbacks.droneState?.(P), v: P.hidden || P.drone || P.returning&&P.returning.t<1.25 ? 0 : 1 };
   if (MATCH.host) {
     // One broadcast state is received by every guest. Use ALL active human
     // player positions for the shared priority set; not only the host.
     const interest={viewers:[P,...W.bots.filter(b=>b.human&&!b.returning)],
       queued:NET.ws?.bufferedAmount||0,now:performance.now()};
-    m.h = [P, ...W.bots].map(actorPacket);m.fix=[...corrections.values()];const pm=MATCH.world.motionEntries(interest);if(pm.length)m.pm=pm;
+    m.h = [P, ...W.bots].map(a=>actorPacket(a,ts));m.fix=[...corrections.values()];const pm=MATCH.world.motionEntries(interest);if(pm.length)m.pm=pm;
     if (MATCH.worldT <= 0 && callbacks.state?.() !== 'results' && callbacks.state?.() !== 'finale') {
       MATCH.worldT = worldIntervalFor(NET.players.size); const full = MATCH.fullT <= 0; if (full) MATCH.fullT = KEYFRAME_INTERVAL;
-      m.w = { d: MATCH.world.capture(full,interest), missions: MATCH.missions.snapshot(), events: networkEventSnapshot(),
-        clock, startAt:MATCH.startAt, time: callbacks.time?.(), state: callbacks.state?.(), ruined:MATCH.world.destructionState?.(),candies:callbacks.candyState?.(),coins:coinSnapshot(), paused: MATCH.paused || netWaiting(), ready:[...MATCH.ready], roster: MATCH.roster };
+      // v0.65: списки миссий/монет/ботов - только при изменении (таймеры миссий раз в секунду) и в ключевом кадре.
+      const missions=MATCH.missions.snapshot(),mKey=JSON.stringify(missions.map(q=>[q.r?.id,q.owner,q.lease?.token,q.lease?.actor,q.stage,q.kind,q.game,q.busy,q.progress])),at=performance.now();
+      const sendMissions=full||mKey!==MATCH.missionKey||at-(MATCH.missionAt||0)>1000;if(sendMissions){MATCH.missionKey=mKey;MATCH.missionAt=at;}
+      const coins=coinSnapshot(),cKey=JSON.stringify(coins),sendCoins=full||cKey!==MATCH.coinKey;if(sendCoins)MATCH.coinKey=cKey;
+      const rKey=JSON.stringify(MATCH.roster),sendRoster=full||rKey!==MATCH.rosterKey;if(sendRoster)MATCH.rosterKey=rKey;
+      m.w = { d: MATCH.world.capture(full,interest), missions: sendMissions?missions:undefined, events: networkEventSnapshot(),
+        clock, startAt:MATCH.startAt, time: callbacks.time?.(), state: callbacks.state?.(), ruined:MATCH.world.destructionState?.(),candies:callbacks.candyState?.(),coins:sendCoins?coins:undefined, paused: MATCH.paused || netWaiting(), ready:[...MATCH.ready], roster: sendRoster?MATCH.roster:undefined };
     }
   } else if (MATCH.worldT <= 0 && callbacks.state?.() === 'play') { MATCH.worldT = worldIntervalFor(NET.players.size); m.c = MATCH.world.proposals(); }
+  else if (callbacks.state?.() === 'play') { const lease = MATCH.world.leaseProposals(); if (lease.length) m.c = lease; } // толкаемое гостем - каждым пакетом
   if (!MATCH.host && commands.length) m.cmds = commands.slice();
   if (send(m) !== false) { if(m.cmds)commands.splice(0,m.cmds.length);if(MATCH.host)corrections.clear(); pendingPositions.set(n, [m.x, m.y, m.z]); if (pendingPositions.size > 40) pendingPositions.delete(pendingPositions.keys().next().value); }
-  else {retrySounds(m.fx);if(MATCH.host){MATCH.fullT=0;MATCH.world.retryMotion();}else MATCH.world.retryProposals();}
+  else {retrySounds(m.fx);if(MATCH.host){MATCH.fullT=0;MATCH.missionKey=MATCH.coinKey=MATCH.rosterKey=null;MATCH.world.retryMotion();}else MATCH.world.retryProposals();}
 }
-function push(b, x, y, z, r, s = {}, sc, v = 1) {
-  if (!vector([x, y, z]) || !finite(r)) return;
-  b.buf.push({ t: motionNow(), x, y, z, r, s: pose(s), v }); if (b.buf.length > 24) b.buf.shift();
+function push(b, x, y, z, r, s = {}, sc, v = 1, ts) {
   if (sc !== undefined) b.score = sc;
+  if (!vector([x, y, z]) || !finite(r)) return;
+  const t=stampMotion(b.netTrack||(b.netTrack={}),Number.isFinite(ts)?ts:NaN);
+  pushMotion(b.buf,{ t, x, y, z, r, s: pose(s), v });
 }
 function puppetStep(b, dt, t) {
   const buf = b.buf;
   if (!buf.length) { b.ch.animate(dt, { t, speed: 0 }); return; }
-  const m=sampleMotion(buf,motionNow(),MOTION_DELAY),A=m.a,B=m.b,k=m.k;
+  const m=sampleMotion(buf,motionNow(),motionDelay(b.netTrack)),A=m.a,B=m.b,k=m.k;
   b.vel.set((B.x - A.x) / Math.max(.05, B.t - A.t), (B.y - A.y) / Math.max(.05, B.t - A.t), (B.z - A.z) / Math.max(.05, B.t - A.t));
   if(MATCH.host&&b.netVelocity)b.vel.copy(b.netVelocity);
   if(!MATCH.host||!b.human)b.pos.set(m.x,m.y,m.z);b.root.position.set(m.x,m.y,m.z); b.onGround = !(k < .5 ? A.s : B.s).air;
@@ -195,7 +203,7 @@ function sendHit(a, k, args) {
 }
 function guestState(m) {
   const b = find('p' + m.id); if (!b || !vector([m.x, m.y, m.z]) || !finite(m.r) || (m.n | 0) <= (b.netSeq || 0)) return;
-  b.netSeq = m.n;
+  b.netSeq = m.n;b.netTs=Number.isFinite(m.ts)?m.ts:undefined;
   // v0.63.4: движение гостя доверяется его клиенту. Хост больше не прогоняет позицию через свою
   // коллизию и задержанные позиции других игроков: из-за разницы в 50-150 мс это давало постоянные
   // поправки - телепорты у лавочек, дверей и рядом с другими игроками.
@@ -204,7 +212,7 @@ function guestState(m) {
   b.netAt = clock;
   if(b.heldBy){const dx=p[0]-b.heldBy.pos.x,dz=p[2]-b.heldBy.pos.z,d=Math.hypot(dx,dz);if(d>2){p[0]=b.heldBy.pos.x+dx/d*2;p[2]=b.heldBy.pos.z+dz/d*2;corrections.set(b.netKey,{to:b.netKey,n:m.n,p});}}
   callbacks.droneApply?.(b,m.dr);
-  push(b, ...p, m.r, m.s || {}, b.score || 0, m.v); b.pos.fromArray(p);
+  push(b, ...p, m.r, m.s || {}, b.score || 0, m.v, m.ts); b.pos.fromArray(p);
   if(!MATCH.final)for(const cmd of (m.cmds||[]).slice(0,32))handleCommand(b,cmd);
   if (m.c && !MATCH.final) MATCH.world.accept(m.c, b);receiveSounds(m.fx,b);
 }
@@ -236,7 +244,7 @@ export function initMatchSync(options = {}) {
       if(m.w.ready)MATCH.ready=new Set(m.w.ready);
       if (m.w.roster) { MATCH.roster = m.w.roster; addBotPuppets(MATCH.roster); }
       MATCH.world.receiveDestruction?.(m.w.ruined);
-      MATCH.missions.receive(m.w.missions || []);
+      if (Array.isArray(m.w.missions)) MATCH.missions.receive(m.w.missions);
       receiveNetworkEvents(m.w.events, callbacks.eventUi);callbacks.candyApply?.(m.w.candies);
       MATCH.world.receive(m.w.d);if(m.w.coins)applyCoinSnapshot(m.w.coins); MATCH.paused = !!m.w.paused; callbacks.setTime?.(m.w.time);
     }
@@ -271,9 +279,14 @@ export function initMatchSync(options = {}) {
     MATCH.world?.locally(()=>releaseDisconnected(b));if (MATCH.host) {MATCH.missions?.disconnect(b.netKey);MATCH.fullT=0;}
     b.root.removeFromParent(); b.tag?.removeFromParent(); b.tag?.material.map?.dispose(); b.tag?.material.dispose(); W.bots.splice(W.bots.indexOf(b), 1);
   });
+  let handoffTimer = 0;
   document.addEventListener('visibilitychange', () => {
+    clearTimeout(handoffTimer);
     if (!MATCH.on || !MATCH.host) return;
     MATCH.paused = document.hidden; MATCH.fullT = 0; event({ e: 'host-pause', paused: MATCH.paused });
+    // v0.65: свернул дольше 3 с (например, переключился на Discord) - роль хоста уходит другу, матч не стоит.
+    if (document.hidden && [...MATCH.members].some(id => id !== NET.id && NET.players.has(id)))
+      handoffTimer = setTimeout(() => { if (document.hidden && MATCH.on && MATCH.host && !MATCH.final) send({ t: 'handoff' }); }, 3000);
   });
 }
 function applyCorrection(m){if(m.to!==myKey()||!vector(m.p))return;
@@ -291,5 +304,8 @@ function syncAuthority(){
  if(NET.host&&MATCH.world){
    for(const b of W.bots)if(!b.human){b.puppet=false;b.facing=b.root.rotation.y;b.throwCD=2;b.goal=null;}
    event({e:'roster',bots:MATCH.roster||[]});
+ }else if(MATCH.world){
+   // v0.65: бывший хост (отдал роль) - его боты становятся марионетками нового хоста.
+   for(const b of W.bots)if(!b.human){b.puppet=true;b.buf=[];b.netTrack={};b.goal=null;b.nav=null;}
  }
 }

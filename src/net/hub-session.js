@@ -1,3 +1,4 @@
+import {motionStamp} from './motion-buffer.js';
 import {takeSounds,retrySounds,receiveSounds} from './audio-sync.js';
 import { poseGrip } from '../game/grab.js';
 import { W, withWorld } from '../world/state.js';
@@ -82,7 +83,7 @@ export function createHubSession(world,remotes,options){
    for(const a of world.state.bots){a.netKey='p'+a.id;a.puppet=true;a.human=true;a.bot=true;a.netProtected=Object.values(slots).includes(a.netKey)||options.cutscene();}
    world.state.net=net;world.state.netHit=hit;
  }
- function packet(a){return {id:a===world.state.player?NET.id:a.id,x:a.pos.x,y:a.pos.y,z:a.pos.z,r:a.root.rotation.y,s:pose(a.ch._netS||a.s),
+ function packet(a){return {ts:a===world.state.player?motionStamp():a.netTs,id:a===world.state.player?NET.id:a.id,x:a.pos.x,y:a.pos.y,z:a.pos.z,r:a.root.rotation.y,s:pose(a.ch._netS||a.s),
    f:fields.map(k=>a[k]||0),holding:net.keyOf(a.holding),heldBy:net.keyOf(a.heldBy),protected:!!a.netProtected};}
  function correct(m){if(m.to===key()&&vector(m.delta)){const p=world.state.player,sent=pendingPositions.get(m.n);if(!sent||Math.hypot(p.pos.x-sent[0],p.pos.z-sent[2])>8||Math.abs(p.pos.y-sent[1])>8)return;pendingPositions.delete(m.n);p.pos.x+=m.delta[0];p.pos.z+=m.delta[2];pushOut(p.pos,p.r,p.pos.y+p.step,p.pos.y+p.h);}
  }
@@ -122,7 +123,7 @@ export function createHubSession(world,remotes,options){
      if(host){m.fix=[];m.hs=[P,...world.state.bots].map(packet);const pm=net.motionEntries();if(pm.length)m.pm=pm;m.slots={...slots};m.door=world.curtainOpen;
        for(const a of world.state.bots)if(a.netInput){const p=a.netInput.p,dx=a.pos.x-p[0],dz=a.pos.z-p[2];if(Math.hypot(dx,dz)>.015){m.fix.push({to:a.netKey,n:a.netInput.n,delta:[dx,0,dz]});a.netInput=null;}}
        if(worldT<=0){worldT=worldIntervalFor(NET.players.size);m.hw=net.capture(full<=0);if(full<=0)full=3;}
-     }else{m.door=world.curtainOpen;if(worldT<=0){worldT=worldIntervalFor(NET.players.size);m.c=net.proposals();}if(queue.length)m.cmds=queue.splice(0);}
+     }else{m.door=world.curtainOpen;if(worldT<=0){worldT=worldIntervalFor(NET.players.size);m.c=net.proposals();}else{const lease=net.leaseProposals();if(lease.length)m.c=lease;}if(queue.length)m.cmds=queue.splice(0);}
    },presence,get away(){return away;},get host(){return host;},get slots(){return slots;},get net(){return net;}
  };
 }
