@@ -13,7 +13,7 @@ export function radioModel(){const g=new THREE.Group();g.name='boombox';g.add(co
 export function toggleRadio(it){if(W.net?.request('radio',it,{action:'toggle'}))return;changeRadio(it,'toggle',serverNow());sfx('click',{at:it.pos,range:8});}
 export function tuneRadio(it,d){if(W.net?.request('radio',it,{action:'tune',step:d>0?1:-1}))return;changeRadio(it,'tune',serverNow(),d);sfx('tick',{at:it.pos,range:7});}
 export function nearRadio(a,ray){let best=null,dist=2;for(const it of W.items){if(it.type!=='boombox'||!['rest','placed'].includes(it.state))continue;const d=it.pos.distanceTo(a.pos.clone().add(new V3(0,.5,0)));if(d>=dist)continue;if(ray&&ray.ray.distanceToPoint(it.pos)>.45)continue;const from=a.pos.clone().add(new V3(0,1,0)),v=it.pos.clone().sub(from),len=v.length();if(raySolids(from,v.normalize(),len)<len-.2)continue;dist=d;best=it;}return best;}
-function stream(it){let r=radios.get(it);if(r)return r;const bus=audioBus('radio');if(!bus)return null;const audio=new Audio();audio.preload='auto';audio.loop=true;const source=bus.ac.createMediaElementSource(audio),spatial=spatialSource(bus.ac,bus.master,18);source.connect(spatial.input);r={audio,spatial,source,loaded:-1,world:W.group,check:0,tryAt:0,aligned:'',lastSeek:0,playing:false};radios.set(it,r);return r;}
+function stream(it){let r=radios.get(it);if(r)return r;const bus=audioBus('radio');if(!bus)return null;const audio=new Audio();audio.preload='auto';audio.loop=true;audio.preservesPitch=false;const source=bus.ac.createMediaElementSource(audio),spatial=spatialSource(bus.ac,bus.master,18);source.connect(spatial.input);r={audio,spatial,source,loaded:-1,world:W.group,check:0,tryAt:0,aligned:'',lastSeek:0,playing:false};radios.set(it,r);return r;}
 function dispose(r){r.audio.pause();r.audio.removeAttribute('src');r.audio.load();r.source.disconnect();r.spatial.dispose();}
 export function resetRadios(){setRadioFocus(0);for(const r of radios.values())dispose(r);radios.clear();}
 export function updateRadios(dt,listener,active){
@@ -58,9 +58,11 @@ export function updateRadios(dt,listener,active){
            }
            q.audio.play().catch(()=>{q.tryAt=serverNow()+1500;}).finally(()=>{q.playing=false;});
          }else if(!q.audio.paused&&now>=q.check){
-           q.check=now+1500;
-           const phase=radioPhase(r,now,q.audio.duration);
-           const change=radioCorrection(phase,q.audio.currentTime,q.audio.duration,{secondsSinceSeek:(now-q.lastSeek)/1000});
+           q.check=now+700;
+           const phase=radioPhase(r,now,q.audio.duration),raw=wrappedDrift(phase,q.audio.currentTime,q.audio.duration);
+           q.drift=Math.abs(raw)>2||q.drift==null?raw:q.drift+(raw-q.drift)*.4;
+           const change=radioCorrection(q.audio.currentTime+q.drift,q.audio.currentTime,q.audio.duration,{secondsSinceSeek:(now-q.lastSeek)/1000});
+           if(change.seek!==null)q.drift=null;
            if(change.seek!==null){try{q.audio.currentTime=change.seek;q.lastSeek=now;}catch{}}
            q.audio.playbackRate=change.rate;
          }

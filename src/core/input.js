@@ -9,10 +9,23 @@ export const lock = { want: () => false };
 export const locked = () => document.pointerLockElement === canvas;
 export function unlock() { mouse.left=mouse.right=false;look.dx=look.dy=0;if (locked()) document.exitPointerLock(); }
 // захват мыши без отдельного клика: вызывается из любого действия пользователя (клик по кнопке, нажатие клавиши)
-export function requestLock() { if (!lock.want() || locked()) return; try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
+// v0.66: браузер около секунды отклоняет повторный захват после Esc. Не теряем клик: повторяем
+// в пределах того же действия пользователя (его разрешение живёт несколько секунд), пока захват не встанет.
+let lastExit = 0, retryT = 0, pending = false;
+export function requestLock() {
+  if (!lock.want() || locked()) return; clearTimeout(retryT); pending = true;
+  const attempt = tries => {
+    if (!pending || !lock.want() || locked()) { pending = false; return; }
+    const retry = () => { if (pending && tries < 10 && performance.now() - lastExit < 2600) retryT = setTimeout(() => attempt(tries + 1), 160); else pending = false; };
+    try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(retry); } catch (_) { retry(); }
+  };
+  attempt(0);
+}
+document.addEventListener('pointerlockerror', () => { if (pending && performance.now() - lastExit < 2600) { clearTimeout(retryT); retryT = setTimeout(requestLock, 160); } });
 const handlers = { down: [], up: [], move: [], key: [], wheel: [] };
 // колёсико мыши (сила броска); страницу не прокручиваем
-addEventListener('wheel', e => { if (!handlers.wheel.length) return; e.preventDefault(); handlers.wheel.forEach(f => f(Math.sign(e.deltaY))); }, { passive: false });
+// v0.66: колесо забирает игра только при захваченной мыши; в меню оно прокручивает список.
+addEventListener('wheel', e => { if (!handlers.wheel.length || !locked()) return; e.preventDefault(); handlers.wheel.forEach(f => f(Math.sign(e.deltaY))); }, { passive: false });
 export const on = (ev, fn) => handlers[ev].push(fn);
 
 addEventListener('keydown', e => {
@@ -29,7 +42,7 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => clearInput());
-document.addEventListener('pointerlockchange', () => { mouse.left=mouse.right=false;look.dx=look.dy=0; });
+document.addEventListener('pointerlockchange', () => { mouse.left=mouse.right=false;look.dx=look.dy=0; if (!locked()) lastExit = performance.now(); else pending = false; });
 export function clearInput(){for(const k in keys)keys[k]=false;pressed.clear();mouse.left=mouse.right=false;look.dx=look.dy=0;}
 export const tapped = code => pressed.has(code);
 export const endFrame = () => pressed.clear();

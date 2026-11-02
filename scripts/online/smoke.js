@@ -91,6 +91,8 @@ try {
   place(h,front.clone().add(new h.fs.P.pos.constructor(0,0,3)));place(g,front);
   g.fs.openMission(gm);try{await wait(()=>g.fs.S.mg?.m===gm,'guest mission grant',8000);}catch(e){report('Grant debug',{hostLease:m.netLease,guestLease:gm.netLease,hostBusy:m.busy,claimed:m.claimedBy?.netKey,gScore:g.fs.S.score,gPos:g.fs.P.pos.toArray(),hostSeenGuest:h.fs.W.bots.find(b=>b.human)?.pos.toArray(),front:m.obj.front().toArray(),hostState:h.fs.S.state,guestState:g.fs.S.state});throw e;}
   assert(m.netLease?.actor==='p'+g.net.NET.id,'guest receives an exclusive attempt');
+  // Хост не засчитывает миссию быстрее 0.1 с по часам раунда (защита от мгновенного решения) - решаем как человек.
+  await new Promise(r=>setTimeout(r,500));
   const game=g.fs.S.mg.game,board=gm.obj,scoreBefore=g.fs.S.score;
   game.update(2.4);
   while(board.order.some((v,i)=>v!==i)){
@@ -100,6 +102,8 @@ try {
   }
   game.update(1.3);
   await wait(()=>!h.fs.M.list.includes(m)&&!g.fs.M.list.includes(gm),'shared mission completion');
+  // Очки приходят пакетом хоста, миссия может исчезнуть у гостя чуть раньше. Ждём начисления, затем проверяем, что оно одно.
+  await wait(()=>g.fs.S.score!==scoreBefore,'award arrives',4000);await new Promise(r=>setTimeout(r,600));
   assert(g.fs.S.score===scoreBefore+m.pts,'host awards the guest exactly once');
   const bike=h.fs.W.pushables.find(p=>p.kind==='bike'&&!p.rider&&!p.grabbed);
   if(bike){

@@ -105,13 +105,14 @@ export function grabFist(P){
  sfx('pickup',{at:c.pos,range:7,v:.5});showGain();
  return true;
 }
-export function updateCoins(dt,P){const s=current();s.age+=dt;FIST_SHINE.value=s.age;s.probe-=dt;const check=s.probe<=0;if(check)s.probe=.4;
+// v0.66: монеты сталкиваются только с движущимися предметами (лежащие уже разведены), стены - при полёте или проверке.
+export function updateCoins(dt,P){const s=current();s.age+=dt;FIST_SHINE.value=s.age;s.probe-=dt;const check=s.probe<=0;if(check)s.probe=.4;const movers=W.net?.replica?[]:W.items.filter(it=>it.state==='fly'||it.state==='rest'&&it.vel.lengthSq()>.01);
  for(let i=0;i<s.coins.length;i++){const c=s.coins[i];if(c.gone)continue;let scale=1;
   if(c.take){c.take.t+=dt;const k=Math.min(1,c.take.t/.32),a=c.take.actor;a.root.updateMatrixWorld(true);if(c.take.t<.13){const reach=a.root.worldToLocal(c.take.from.clone().add(new V3(0,.3,0)));a.ch.handR.position.lerp(reach,1-Math.exp(-dt*24));a.root.updateMatrixWorld(true);}const hand=a.ch.handR.getWorldPosition(new V3());c.pos.lerpVectors(c.take.from,hand,k*k*(3-2*k));scale=1-k*.9;if(k>=1){c.gone=true;for(const b of[...s.batches,...s.outlines])b.setMatrixAt(i,zero);s.spark.setMatrixAt(i*2,zero);s.spark.setMatrixAt(i*2+1,zero);continue;}}
   else if(W.net?.replica){if(c.target)c.pos.lerp(c.target,1-Math.exp(-Math.min(.05,dt)*16));}
-  else{const old=c.pos.clone();if(pushOut(c.pos,c.r,c.pos.y+.01,c.pos.y+c.h)){c.fly=true;c.vel.x+=THREE.MathUtils.clamp((c.pos.x-old.x)/Math.max(dt,.001),-6,6);c.vel.z+=THREE.MathUtils.clamp((c.pos.z-old.z)/Math.max(dt,.001),-6,6);}
+  else{const old=c.pos.clone();if((c.fly||check)&&pushOut(c.pos,c.r,c.pos.y+.01,c.pos.y+c.h)){c.fly=true;c.vel.x+=THREE.MathUtils.clamp((c.pos.x-old.x)/Math.max(dt,.001),-6,6);c.vel.z+=THREE.MathUtils.clamp((c.pos.z-old.z)/Math.max(dt,.001),-6,6);}
    for(const a of actors()){if(a.drone||a.returning||a.hidden||a.pos.y>c.pos.y+.6||a.pos.y+a.h<c.pos.y)continue;const dx=c.pos.x-a.pos.x,dz=c.pos.z-a.pos.z,d=Math.hypot(dx,dz),over=c.r+a.r-d;if(over>0&&d>.001){const nx=dx/d,nz=dz/d;c.pos.x+=nx*over;c.pos.z+=nz*over;const speed=Math.max(.5,a.vel.x*nx+a.vel.z*nz);c.vel.x+=nx*speed*.7;c.vel.z+=nz*speed*.7;c.fly=true;}}
-   for(const it of W.items){if(!['rest','fly'].includes(it.state)||Math.abs(it.pos.y-c.pos.y-.25)>.5)continue;const dx=c.pos.x-it.pos.x,dz=c.pos.z-it.pos.z,d=Math.hypot(dx,dz),over=c.r+it.def.r-d;if(over>0&&d>.001){c.pos.x+=dx/d*over;c.pos.z+=dz/d*over;c.vel.x+=it.vel.x*.5;c.vel.z+=it.vel.z*.5;c.fly=true;}}
+   for(const it of movers){if(Math.abs(it.pos.y-c.pos.y-.25)>.5)continue;const dx=c.pos.x-it.pos.x,dz=c.pos.z-it.pos.z,d=Math.hypot(dx,dz),over=c.r+it.def.r-d;if(over>0&&d>.001){c.pos.x+=dx/d*over;c.pos.z+=dz/d*over;c.vel.x+=it.vel.x*.5;c.vel.z+=it.vel.z*.5;c.fly=true;}}
    for(let j=0;j<i;j++){const b=s.coins[j];if(b.gone||b.take||Math.abs(b.pos.y-c.pos.y)>.5)continue;const dx=c.pos.x-b.pos.x,dz=c.pos.z-b.pos.z,d=Math.hypot(dx,dz);if(d>.001&&d<.5){const k=(.5-d)/2/d;c.pos.x+=dx*k;c.pos.z+=dz*k;b.pos.x-=dx*k;b.pos.z-=dz*k;c.fly=b.fly=true;}}
    if(check&&!c.fly&&groundAt(c.pos.x,c.pos.z,.15,c.pos.y+.05)<c.pos.y-.1){c.fly=true;c.onGround=false;}if(c.fly){moveBody(c,dt);c.vel.x*=Math.exp(-dt*5);c.vel.z*=Math.exp(-dt*5);c.yaw+=dt*c.vel.length()*.4;if(c.onGround)c.fly=false;}}
   tmp.position.copy(c.pos);tmp.position.y+=.055*scale;tmp.rotation.set(0,c.yaw,0);tmp.scale.setScalar(scale);tmp.updateMatrix();for(const b of s.batches)b.setMatrixAt(i,tmp.matrix);

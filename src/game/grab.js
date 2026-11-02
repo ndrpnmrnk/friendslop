@@ -31,7 +31,11 @@ export function grabTarget(a, r = 1.35) {
 }
 export function grabActor(a, b) {
   if (!b || a === b || handBusy(a) || unavailable(a) || unavailable(b) || a.stun > 0 || a.daze > 0 || a.getT > 0 || a.holding || a.heldBy || b.heldBy || b.holding || b.gripSafe > 0 || !a.onGround || !b.onGround || Math.abs(a.pos.y - b.pos.y) > 0.7 || a.pos.distanceTo(b.pos) > 1.6 || !clearGrip(a, b)) return false;
-  if (W.net?.request('grip', b.netKey || W.net.keyOf(b))) return true;
+  if (W.net?.request('grip', b.netKey || W.net.keyOf(b))) {
+    // v0.66: у гостя захват виден сразу; хост подтверждает или отменяет (тогда через 0.6 с всё вернётся).
+    if (W.net.replica) { a.holding = b; a.gripT = 0; b.heldBy = a; a.netGripAt = performance.now(); a.charging = false; sfx('grab', { at: b.pos }); }
+    return true;
+  }
   a.holding = b; a.gripT = 0; b.heldBy = a; b.struggle = 0; b.emote = null;
   dropHeld(b); b.charging = false; a.charging = false;
   sfx('grab', { at: b.pos }); voice(b.ch, 'hurt', b.pos); W.onHit && W.onHit(a, b, 'melee'); return true;

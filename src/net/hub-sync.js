@@ -1,4 +1,5 @@
 import {motionNow,sampleMotion,stampMotion,motionDelay,pushMotion,motionStamp} from './motion-buffer.js';
+import {applyHitPrediction} from './hit-predict.js';
 import {alignMountedVisual,alignBikePedals} from './rider-visual.js';
 import { THREE, V3 } from '../core/gfx.js';
 import { createPlayer } from '../game/player.js';
@@ -80,7 +81,7 @@ export function updateHubSync(dt, { P, ch, mode, camera, ball, hold, launchState
     const dy = Math.atan2(Math.sin(B.yaw - A.yaw), Math.cos(B.yaw - A.yaw)); r.yaw = A.yaw + dy * k;
     const show = r.mode === 'hub'; r.ch.root.visible = show; r.ch.root.position.set(m.x,m.y,m.z); r.ch.root.rotation.y = r.yaw;
     if (show) {
-      const pose=k<.5?A.s:B.s;
+      const pose=applyHitPrediction(r,k<.5?A.s:B.s,r.ch.root);
       alignBikePedals(r,pose);
       r.ch.animate(dt, { ...pose, t: clock });
       // Rider and vehicle must share the exact displayed position in this frame.

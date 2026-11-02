@@ -22,6 +22,7 @@ import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
 import { initNetUI, beforeHub, afterHubShown } from './net/ui.js';
 import { initAccountUI } from './ui/account-ui.js';
+import { initSettingsPanel, resetSettingsScroll } from './ui/settings-panel.js';
 import { MATCH, seededMap, netPrepareMatch, netMarkReady, netMatchTick, netEndMatch, initMatchSync, humansInRoom, myRank, netPaused, netPublishFinal } from './net/match-sync.js';
 import { NET, onNet, serverNow,botsEnabled,setBotsEnabled,netStats } from './net/net.js';
 import { CANDY_TYPES, applyCandy } from './game/candy.js';
@@ -125,7 +126,12 @@ const menu = createMenu();
 const podium = createPodium();
 // мышь захватывается для камеры во время игры (кроме мини-игр)
 lock.want = () => !S.settingsOpen&&((['starting','roulette','intro','play'].includes(S.state)&&!S.mg)||(S.state==='hub'&&menu.wantsLock));
-document.addEventListener('pointerlockchange', () => { if(locked()&&!lock.want())unlock();if(!locked()&&S.state==='hub'&&menu.wantsLock)menu.togglePause(); setCursor(S.cursor);  $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
+// v0.66: Esc в браузере сам снимает захват мыши - меню открывается с первого нажатия, и в хабе, и в матче.
+// Повторное событие клавиши Esc сразу после этого игнорируется, чтобы меню не закрылось обратно.
+let escGuard = 0;
+document.addEventListener('pointerlockchange', () => { if(locked()&&!lock.want())unlock();
+  if(!locked()&&S.state==='hub'&&menu.wantsLock){menu.togglePause();escGuard=performance.now();}
+  else if(!locked()&&S.state==='play'&&lock.want()&&!S.settingsOpen){showSettings();escGuard=performance.now();} setCursor(S.cursor);  $('lockhint').classList.toggle('hidden', locked() || S.state !== 'play' || !!S.mg); document.body.classList.toggle('locked', locked()); });
 
 const S = { state: 'menu', settingsOpen:false,intro: null, time: 0, score: 0, done: 0, mg: null, wm: null, crane: false, hudT: 0, cursor: true };
 let P = null;
@@ -207,6 +213,7 @@ addEventListener('pointerdown', () => { initAudio(); ambience(true); }, { once: 
 $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 initAccountUI(() => beforeHub(showHub));
+initSettingsPanel();
 // v0.61: сетевой матч — синхронизация; хост закрыл лобби или выгнали посреди матча — матч заканчивается, все в хаб
 initMatchSync({
   open: openMission,
@@ -246,7 +253,7 @@ $('setBtn').innerHTML = img('gear', 28); $('micIco').innerHTML = img('mic', 20);
 function showSettings() {
   if(S.state==='play'){S.settingsFrom='play';S.settingsOpen=true;setCursor(true);P.charging=false;if(P.held?.type==='bow')P.held.draw=0;S.mg?.game.up?.();S.wm?.game.up?.();clearInput();takeLook();unlock();$('settings').classList.add('in-match');$('settings').classList.remove('hidden');syncSettings();fillMics();return;}
   $('settings').classList.remove('in-match');S.settingsFrom=S.state;menu.suspend();S.state = 'settings'; menu.active = false; screen('settings'); sfx('click'); syncSettings(); fillMics(); }
-function syncSettings() {syncBotsUI(); $('graphicsQ').value=graphics.key;const levels=audioLevels();for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio',voice:'volVoice'})){const el=$(id);el.value=Math.round(levels[k]*100);el.nextElementSibling.textContent=el.value+'%';} $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micOpen').value=MIC.openThreshold;$('micClose').value=MIC.closeThreshold; $('micLoudS').value = MIC.loudSens; }
+function syncSettings() {resetSettingsScroll();syncBotsUI(); $('graphicsQ').value=graphics.key;const levels=audioLevels();for(const[k,id]of Object.entries({effects:'volEffects',ambient:'volAmbient',music:'volMusic',radio:'volRadio',voice:'volVoice'})){const el=$(id);el.value=Math.round(levels[k]*100);el.nextElementSibling.textContent=el.value+'%';} $('micOn').textContent = MIC.on ? 'ВКЛ' : 'ВЫКЛ'; $('micOn').classList.toggle('on', MIC.on); $('micMode').textContent = MIC.mode === 'always' ? 'ВСЕГДА' : 'ЗАЖАТЬ V'; $('micOpen').value=MIC.openThreshold;$('micClose').value=MIC.closeThreshold; $('micLoudS').value = MIC.loudSens; }
 async function fillMics() { const list = await listMics(), sel = $('micDev'); sel.innerHTML = '<option value="">По умолчанию</option>' + list.map((d, i) => `<option value="${d.deviceId}">${d.label || 'Микрофон ' + (i + 1)}</option>`).join(''); sel.value = MIC.device || ''; }
 $('setBtn').onclick = showSettings;
 // качество света (v0.23): переключатель в настройках; карта теней меняется сразу, остальное — каждый кадр
@@ -765,6 +772,7 @@ on('up', btn => {
   }
 });
 on('key', code => {
+  if (code === 'Escape' && performance.now() - escGuard < 350) return;
   if (code === 'KeyM') { toggleMute(); return; }
   if(code==='Escape'&&(S.state==='settings'||S.settingsOpen)){backSettings();return;}
   if(code==='Escape'&&S.state==='mode'){menu.closeTV();return;}

@@ -19,6 +19,17 @@ renderer.setPixelRatio(1);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap; // v0.57: мягкий край тени (5 выборок с шумом — в духе зерна PS1), без квадратных лесенок
 renderer.shadowMap.autoUpdate=false;
+/* v0.66: three.js не кэширует uniform-массивы (вспышки uDynP/uDynC, матрица тени) и шлёт их заново
+   на КАЖДЫЙ вызов отрисовки - сотни лишних обращений к драйверу за кадр. Значение uniform хранится
+   в программе шейдера, поэтому то же самое значение по тому же адресу можно не отправлять. */
+{const gl=renderer.getContext(),cache=new WeakMap();
+ const wrap=(name,at)=>{const send=gl[name]?.bind(gl);if(!send)return;gl[name]=(loc,...args)=>{const data=args[at];
+  if(loc&&data&&data.length&&args.length===at+1){const prev=cache.get(loc);
+   if(prev&&prev.length===data.length){let i=0;for(;i<data.length;i++)if(prev[i]!==Math.fround(data[i]))break;if(i===data.length)return;prev.set(data);}
+   else cache.set(loc,Float32Array.from(data));}
+  return send(loc,...args);};};
+ wrap('uniform4fv',0);wrap('uniform3fv',0);wrap('uniform2fv',0);wrap('uniform1fv',0);wrap('uniformMatrix4fv',1);wrap('uniformMatrix3fv',1);
+}
 export const canvas = renderer.domElement;
 document.getElementById('game').appendChild(canvas);
 
@@ -157,6 +168,18 @@ const silhouetteMat=ps1(new THREE.MeshBasicMaterial({color:0xffffff,fog:false,si
 const overlays=new Set();
 export function registerOverlay(root){root.traverse(o=>{o.layers.set(31);o.userData.noOcc=true;});overlays.add(root);return()=>overlays.delete(root);}
 let lastShadow=-Infinity,qualityRevision=0;
+/* v0.66: детали меньше 12 см (пуговицы, глаза, пряжки, мелкий декор) на карте теней не различимы
+   (пиксель тени ~4 см на 80 м), но каждая - отдельная отрисовка в проходе теней. Тень от них не рисуем.
+   Проверка новых объектов раз в 2 с, каждый меш - один раз. */
+const shadowChecked=new WeakSet();let shadowTrimAt=0;
+function trimShadowCasters(scene,now){
+  if(now-shadowTrimAt<2000)return;shadowTrimAt=now;
+  scene.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||shadowChecked.has(o))return;shadowChecked.add(o);if(!o.castShadow||o.userData.keepShadow)return;
+    const g=o.geometry;if(!g)return;if(!g.boundingSphere)g.computeBoundingSphere();
+    const s=o.getWorldScale?o.getWorldScale(_scale):o.scale,r=(g.boundingSphere?.radius||0)*Math.max(s.x,s.y,s.z);
+    if(r>0&&r<.12){o.castShadow=false;o.userData.shadowTrimmed=true;}});
+}
+const _scale=new THREE.Vector3();
 const sceneQuality=new WeakMap();
 onGraphics(()=>{qualityRevision++;lastShadow=-Infinity;resize();});
 export function setActionVisuals(speed=0,impact=0){post.uniforms.velocity.value=Math.min(1,Math.max(0,speed));post.uniforms.punch.value=Math.min(1,Math.max(0,impact));}
@@ -170,6 +193,7 @@ export function present(scene, camera, outlineTarget=null) {
   LEAF_CAM.value.copy(camera.position);
   const quality=graphics.current,now=performance.now();
   if(sceneQuality.get(scene)!==qualityRevision){scene.traverse(o=>{if(o.isLight&&o.shadow){const sh=o.shadow;if(sh.mapSize.x!==quality.shadow){sh.mapSize.set(quality.shadow,quality.shadow);sh.map?.dispose();sh.map=null;}}});sceneQuality.set(scene,qualityRevision);}
+  trimShadowCasters(scene,now);
   renderer.shadowMap.needsUpdate=now-lastShadow>1000/quality.shadowHz;if(renderer.shadowMap.needsUpdate)lastShadow=now;
   post.uniforms.glowSteps.value=graphics.key==='low'?2:graphics.key==='medium'?4:8;post.uniforms.time.value=now*.001;WL.time.value=now*.001;
   if(scene.userData.wl)scene.userData.wl.apply();else disableWL();WL.max.value=quality.wl??8;

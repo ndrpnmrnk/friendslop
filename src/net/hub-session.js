@@ -1,4 +1,5 @@
 import {motionStamp} from './motion-buffer.js';
+import {predictHit} from './hit-predict.js';
 import {takeSounds,retrySounds,receiveSounds} from './audio-sync.js';
 import { poseGrip } from '../game/grab.js';
 import { W, withWorld } from '../world/state.js';
@@ -58,7 +59,7 @@ export function createHubSession(world,remotes,options){
    if(resumed)net.resetStream();net.receive(m.hw);for(const q of m.hs||[])receiveActor(q);if(m.slots)Object.assign(slots,m.slots);if(Number.isFinite(m.door))world.curtain(m.door);
    if(resumed){away=resuming=false;queue.length=0;pendingPositions.clear();full=worldT=0;}
  });});
- function hit(a,k,args){if(a.netProtected)return;if(host){if(k!=='daze')dropHeld(a,args[0],args[1]);event({kind:'hit',to:a.netKey,k,args});}else command({kind:'hit',to:a.netKey,k,args});}
+ function hit(a,k,args){if(a.netProtected)return;predictHit(a,k,args);if(host){if(k!=='daze')dropHeld(a,args[0],args[1]);event({kind:'hit',to:a.netKey,k,args});}else command({kind:'hit',to:a.netKey,k,args});}
  function applyHit(a,k,args){if(!a||a.netProtected)return;if(k==='knock')knockDown(a,...args);else if(k==='shove')shove(a,...args);else if(k==='daze')daze(a,...args);}
  function stationAct(a,m){
    if(!a)return;const name=m.station;if(!['wardrobe','claw'].includes(name))return;

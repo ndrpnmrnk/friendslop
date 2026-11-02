@@ -432,6 +432,8 @@ void grabTarget;
 // бот (v0.22): закрытая дверь или стекло прямо на пути — выпад (как Q у игрока): дверь распахивается по инерции, стекло бьётся
 function botDive(b, ix, iz) {
   if (b.diveT > 0 || b.diveCD > 0 || !b.onGround || b.climbing || (b.held && b.held.def.heavy) || b.holding) return;
+  // v0.66: двери/стёкла на пути ищем 8 раз в секунду, а не каждый кадр (перебор всех дверей и стёкол карты).
+  const at=performance.now();if(at<(b.diveScanAt||0))return;b.diveScanAt=at+125;
   const l = Math.hypot(ix, iz); if (l < 0.5) return; const ux = ix / l, uz = iz / l;
   let why = null;
   for(const d of W.doors){if(d.open||Math.abs(d.y-b.pos.y)>1.2)continue;const s=d.solid,cx=Math.max(s.x0,Math.min(b.pos.x,s.x1)),cz=Math.max(s.z0,Math.min(b.pos.z,s.z1)),dx=cx-b.pos.x,dz=cz-b.pos.z,dd=Math.hypot(dx,dz);if(dd<1.5&&(dd<0.4||(dx*ux+dz*uz)/(dd||1)>0.35)){why=d;break;}}

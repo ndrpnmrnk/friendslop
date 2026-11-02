@@ -48,6 +48,13 @@ const _l = { x: 0, z: 0 };
 export function obbLocal(o, x, z) { const c = Math.cos(o.yaw), s = Math.sin(o.yaw), dx = x - o.cx, dz = z - o.cz; _l.x = dx * c - dz * s; _l.z = dx * s + dz * c; return _l; }
 export function addObb(o) { const b = { on: true, yaw: 0, ...o }; (W.obbs || (W.obbs = [])).push(b);if(W.net&&!W.net.applying)W.net.register('o',b); return b; }
 export let groundObb = null;
+/* v0.66: толкаемые предметы по клеткам 4 м. groundAt зовётся сотни раз за кадр (ящики, боты, предметы, монеты)
+   и раньше каждый раз перебирал ВСЕ ящики/бочки/тележки карты. Сетка пересобирается раз в кадр (updatePushables)
+   или при смене мира/списка; за кадр предмет сдвигается меньше запаса поиска. */
+const PG=4;
+function pushGrid(){let g=W._pushGrid;const now=performance.now();if(g&&!g.dirty&&g.list===W.pushables&&g.n===W.pushables.length&&now-g.at<40)return g;
+  const map=new Map();for(const b of W.pushables){if(!Number.isFinite(b.x)||!Number.isFinite(b.z))continue;const k=ck(Math.floor(b.x/PG),Math.floor(b.z/PG));let a=map.get(k);if(!a)map.set(k,a=[]);a.push(b);}
+  return W._pushGrid={map,list:W.pushables,n:W.pushables.length,dirty:false,at:now};}
 let _selfP = null;
 export function groundAt(x, z, r, maxY) {
   let g = maxY >= 0 && !inHole(x, z) ? 0 : -60; groundObb = null;
@@ -58,7 +65,9 @@ export function groundAt(x, z, r, maxY) {
   for (const s of solidsNear(x - r, z - r, x + r, z + r)) if (s.on && s.y1 <= maxY && s.y1 > g && overlapXZ(s, x, z, r)) g = s.y1;
   if (W.obbs) for (const o of W.obbs) { if (!o.on || o.y1 > maxY || o.y1 <= g) continue; const l = obbLocal(o, x, z); if (l.x + r > o.lx0 && l.x - r < o.lx1 && l.z + r > o.lz0 && l.z - r < o.lz1) { g = o.y1; groundObb = o; } }
   // на толкаемых предметах (бак, бочка, тележка) можно стоять, как на земле
-  for (const b of W.pushables) { if (b.rider || b.grabbed || b === _selfP) continue; const top = b.y + b.h; if (top <= maxY && top > g && Math.hypot(x - b.x, z - b.z) < b.r * 0.92 + r * 0.5) g = top; }
+  const pg=pushGrid(),m=r+2.2,i0=Math.floor((x-m)/PG),i1=Math.floor((x+m)/PG),j0=Math.floor((z-m)/PG),j1=Math.floor((z+m)/PG);
+  for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){const a=pg.map.get(ck(i,j));if(!a)continue;
+    for (const b of a) { if (b.rider || b.grabbed || b === _selfP) continue; const top = b.y + b.h; if (top <= maxY && top > g && Math.hypot(x - b.x, z - b.z) < b.r * 0.92 + r * 0.5) g = top; }}
   return g;
 }
 
@@ -182,6 +191,7 @@ export function constrainWaterRide(b,previous={x:b.x,z:b.z}){
   b.vx=b.vz=0;if(wet(b.x,b.z))b.waterHome={x:b.x,z:b.z};return false;
 }
 export function updatePushables(dt, player) {
+  if(W._pushGrid)W._pushGrid.dirty=true;
   for (const b of W.pushables) {
     if(b.dead || W.net && !W.net.canSimulate(b))continue;
     if(b.solid)b.solid.on=false;

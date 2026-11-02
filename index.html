@@ -45,19 +45,21 @@
 <div id="clawUI" class="hidden"><div class="clawTop"></div><p id="clawMessage" aria-live="polite"></p><div class="clawControls"><div class="clawArrows"><button class="parr" data-claw="KeyW" aria-label="Клешня назад">▲</button><div><button class="parr" data-claw="KeyA" aria-label="Клешня влево">◀</button><button class="parr" data-claw="KeyS" aria-label="Клешня вперёд">▼</button><button class="parr" data-claw="KeyD" aria-label="Клешня вправо">▶</button></div></div><button class="pbtn" id="clawDrop">ИГРАТЬ · 50 ФИСТОВ</button><button class="pback" id="clawBack">ВЕРНУТЬСЯ</button></div></div>
 
 <!-- Настройки звука, графики и микрофона -->
-<div id="settings" class="screen hidden">
-  <div class="sctitle">НАСТРОЙКИ</div><p class="liveMatchNotice">Матч продолжается</p><button id="studioLeave" class="pbtn alt hidden">ВЫЙТИ ИЗ СТУДИИ</button>
-  <div id="setbox" class="pframe">
-    <section class="settingsGroup"><h2>ИГРА</h2><div class="srow"><span>Боты-соперники</span><button id="botsToggle" class="stog" role="switch" aria-label="Боты-соперники" aria-checked="true">ВКЛ</button></div><p class="snote" id="botsNote">Можно играть только своей компанией</p></section>
-    <section class="settingsGroup graphicsSettings" aria-labelledby="graphicsTitle"><h2 id="graphicsTitle">ГРАФИКА</h2><div class="srow"><label class="sl" for="graphicsQ">Качество</label><select id="graphicsQ"><option value="low">Низкая</option><option value="medium">Средняя</option><option value="high">Высокая</option></select></div></section>
-    <section class="settingsGroup audioSettings" aria-labelledby="audioTitle"><h2 id="audioTitle">ЗВУК</h2>
+<div id="settings" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+ <div class="setPanel">
+  <header class="setHead"><h1 id="setTitle">НАСТРОЙКИ</h1><p class="liveMatchNotice">Матч продолжается</p><button class="setClose" id="setBack" aria-label="Закрыть настройки"><span class="key">Esc</span></button></header>
+  <button id="studioLeave" class="pbtn alt hidden">ВЫЙТИ ИЗ СТУДИИ</button>
+  <div id="setbox" class="setScroll">
+    <details class="settingsGroup" open><summary>ИГРА</summary><div class="sbody"><div class="srow"><span>Боты-соперники</span><button id="botsToggle" class="stog" role="switch" aria-label="Боты-соперники" aria-checked="true">ВКЛ</button></div><p class="snote" id="botsNote">Можно играть только своей компанией</p></div></details>
+    <details class="settingsGroup graphicsSettings" open><summary>ГРАФИКА</summary><div class="sbody"><div class="srow"><label class="sl" for="graphicsQ">Качество</label><select id="graphicsQ"><option value="low">Низкая</option><option value="medium">Средняя</option><option value="high">Высокая</option></select></div></div></details>
+    <details class="settingsGroup audioSettings" open><summary>ЗВУК</summary><div class="sbody">
       <div class="srow"><label for="volEffects">Предметы и действия</label><input id="volEffects" type="range" min="0" max="100" step="1"><output for="volEffects"></output></div>
       <div class="srow"><label for="volAmbient">Окружение</label><input id="volAmbient" type="range" min="0" max="100" step="1"><output for="volAmbient"></output></div>
       <div class="srow"><label for="volMusic">Фоновая музыка</label><input id="volMusic" type="range" min="0" max="100" step="1"><output for="volMusic"></output></div>
       <div class="srow"><label for="volRadio">Бумбокс</label><input id="volRadio" type="range" min="0" max="100" step="1"><output for="volRadio"></output></div>
       <div class="srow"><label for="volVoice">Голоса игроков</label><input id="volVoice" type="range" min="0" max="100" step="1"><output for="volVoice"></output></div>
-    </section>
-    <details class="settingsGroup micSettings"><summary>Микрофон</summary>
+    </div></details>
+    <details class="settingsGroup micSettings"><summary>МИКРОФОН</summary><div class="sbody">
     <div class="srow"><span class="sl"><i id="micIco"></i>Микрофон</span><button class="stog" id="micOn">ВЫКЛ</button></div>
     <div class="srow"><span class="sl">Устройство</span><select id="micDev"></select></div>
     <div class="srow"><span class="sl">Режим</span><button class="stog" id="micMode">ВСЕГДА</button></div>
@@ -66,9 +68,9 @@
     <div class="srow"><label class="sl" for="micClose">Порог закрытия</label><input type="range" id="micClose" min="0" max="0.9" step="0.01"></div>
     <div class="srow col"><div id="micMeter"><i></i><b id="micThr"></b><b id="micLoud" class="loud"></b></div><div id="micState"></div></div>
     <p class="snote" id="voiceStatus" role="status"></p>
-    <div class="snote">Открытие - громкость, при которой включается голос. Закрытие - более низкий порог, ниже которого голос выключается через 0,35 с. Порог не подстраивается автоматически. В режиме «Зажать V» громкость не отсекает речь.</div></details>
+    <p class="snote">Открытие - громкость, при которой включается голос. Закрытие - ниже неё голос выключается через 0,35 с. В режиме «Зажать V» громкость не отсекает речь.</p></div></details>
   </div>
-  <button class="pback" id="setBack">◀ <span class="key">Esc</span></button>
+ </div>
 </div>
 
 <!-- Выбор режима -->

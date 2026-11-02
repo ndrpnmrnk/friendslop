@@ -15,6 +15,7 @@ import { cargoPosition } from '../game/handheld.js';
 import { pushOut, pushActorsOut, bumpPushables } from '../world/physics.js';
 import { NET, onNet, send, inRoom, others, serverNow } from './net.js';
 import { makeTag } from './hub-sync.js';
+import { predictHit, applyHitPrediction } from './hit-predict.js';
 import { createWorldSync } from './world-sync.js';
 import { attachMissionSync } from './mission-sync.js';
 import { networkEventSnapshot, receiveNetworkEvents } from '../game/events.js';
@@ -44,7 +45,14 @@ const myKey = () => 'p' + NET.id;
 const find = key => key === myKey() ? W.player : W.bots?.find(b => b.netKey === key);
 const trusted = m => !!NET.players.get(m.id)?.host;
 const event = data => send({ t: 'ev', ep: MATCH.seed, ...data });
+// v0.66: разовые действия гостя уходят хосту сразу отдельным событием, а не ждут следующего пакета состояния.
+const URGENT = new Set(['take','throw','drop','door','slam','grip','letgo','dismount','release','mount','cart','interact','radio','break','dog','tug','struggle']); // миссии (claim/finish/chain) - обычным пакетом, порядок с их данными важнее
+let urgentAt = 0, urgentN = 0;
 const command = data => {
+  if (!MATCH.host && URGENT.has(data.kind)) {
+    const now = performance.now(); if (now - urgentAt > 1000) { urgentAt = now; urgentN = 0; }
+    if (urgentN < 12 && send({ t: 'ev', e: 'cmd', ep: MATCH.seed, ...data }) !== false) { urgentN++; return; }
+  }
   if (data.kind === 'use' && data.dt > 0) {
     const old = commands.find(q => q.kind === 'use' && q.key === data.key);
     if (old) { old.dt = Math.min(.2, old.dt + data.dt); old.target = data.target; return; }
@@ -127,7 +135,11 @@ function receiveActors(rows) {
     const a = find(q[0]); if (!a) continue;
     if (a !== W.player) push(a, q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[12]);
     else callbacks.setScore?.(q[6]);
-    a.st = q[8] || {}; a.holding = find(q[9]) || null; a.heldBy = find(q[10]) || null;
+    a.st = q[8] || {};
+    // v0.66: свой только что начатый захват держится, пока хост его не подтвердил (до 0.6 с).
+    const gp=W.player.netGripAt&&performance.now()-W.player.netGripAt<600?W.player.holding:null;
+    if(gp&&q[9]===MATCH.world.keyOf(gp))W.player.netGripAt=0;
+    if(!(gp&&(a===W.player&&!q[9]||a===gp&&!q[10]))){a.holding = find(q[9]) || null; a.heldBy = find(q[10]) || null;}
     if(a!==W.player)callbacks.droneApply?.(a,q[11]);
   }
 }
@@ -181,11 +193,16 @@ function puppetStep(b, dt, t) {
   if(MATCH.host&&b.netVelocity)b.vel.copy(b.netVelocity);
   if(!MATCH.host||!b.human)b.pos.set(m.x,m.y,m.z);b.root.position.set(m.x,m.y,m.z); b.onGround = !(k < .5 ? A.s : B.s).air;
   b.root.rotation.y = A.r + Math.atan2(Math.sin(B.r - A.r), Math.cos(B.r - A.r)) * k; b.root.visible = !!B.v;
-  const s = k < .5 ? A.s : B.s; b.stun = s.stun ? 1 : 0;alignBikePedals(b,s); hook(b.ch); b.ch.animate(dt, { ...s, t });
+  const s = applyHitPrediction(b, k < .5 ? A.s : B.s, b.root); b.stun = s.stun ? 1 : 0;alignBikePedals(b,s); hook(b.ch); b.ch.animate(dt, { ...s, t });
   // Vehicle visual receives a newer authoritative sample than the actor buffer.
   // Keep the seated model on the actual rendered bicycle/cart every graphics frame.
   alignMountedVisual(b);
   if(b.held){cargoPosition(b,b.held.pos,b.held.def.r);b.held.g.rotation.y=b.root.rotation.y;}
+  // v0.66: того, кого держу я, рисую у своих рук, а не там, где он был 100-200 мс назад.
+  if (b.heldBy === W.player && W.player.holding === b) {
+    const P=W.player,dx=b.root.position.x-P.pos.x,dz=b.root.position.z-P.pos.z,d=Math.hypot(dx,dz)||1,want=Math.min(Math.max(d,.85),1.1);
+    b.root.position.x=P.pos.x+dx/d*want;b.root.position.z=P.pos.z+dz/d*want;b.root.position.y+=(P.pos.y-b.root.position.y)*.7;
+  }
   if (b.tag) { b.tag.visible = b.root.visible; b.tag.position.set(b.root.position.x, b.root.position.y + (b.ch.d?.top || 1.8) + .45, b.root.position.z); }
 }
 function sendTake(it){
@@ -198,8 +215,18 @@ function sendTake(it){
 function sendThrow(it, from, vel) { if (MATCH.on && !MATCH.world.ownsScope?.(it.netScope)) MATCH.world.request('throw', it, { v: vel.toArray() }); }
 function sendHit(a, k, args) {
   if (!MATCH.on) return;
+  predictHit(a, k, args);
   if (MATCH.host) { if (k !== 'daze') dropHeld(a, args[0], args[1]); event({ e: 'hit', to: a.netKey, k, a: args }); }
-  else command({ kind: 'hit', to: a.netKey, k, a: args });
+  // v0.66: удар гостя идёт сразу всем (цель применяет у себя, хост - для ботов и выпавшего предмета), без промежуточного хоста.
+  else event({ e: 'phit', to: a.netKey, k, a: args });
+}
+const validHit=(attacker,target,m)=>attacker&&target&&attacker.pos.distanceTo(target.pos)<4.5&&['knock','shove','daze'].includes(m.k)&&Array.isArray(m.a)&&m.a.every(v=>finite(v,35));
+function receiveDirectHit(m){
+  const target=find(m.to),attacker=find('p'+m.id);if(!validHit(attacker,target,m)||MATCH.final)return;
+  if(target===W.player){applyHit(W.player,m.k,m.a);return;}
+  if(!MATCH.host)return;
+  if(target.human){if(m.k!=='daze'&&!target.netProtected)dropHeld(target,m.a[0],m.a[1]);return;}
+  applyHit(target,m.k,m.a); // бот хоста
 }
 function guestState(m) {
   const b = find('p' + m.id); if (!b || !vector([m.x, m.y, m.z]) || !finite(m.r) || (m.n | 0) <= (b.netSeq || 0)) return;
@@ -255,6 +282,7 @@ export function initMatchSync(options = {}) {
     if (m.e === 'roster' && trusted(m) && m.ep === MATCH.seed) { MATCH.roster = m.bots; if (MATCH.scene) addBotPuppets(m.bots); return; }
     if (!MATCH.on || m.ep !== MATCH.seed) return;
     if (m.e === 'match-ready' && MATCH.host) { MATCH.ready.add(m.id); MATCH.fullT = 0; event({ e: 'roster', bots: MATCH.roster || [] }); return; }
+    if (m.e === 'phit') { if (MATCH.world) receiveDirectHit(m); return; }
     if (m.e === 'cmd' && MATCH.host && !MATCH.final && MATCH.world) {
       const a = find('p' + m.id); if (!a) return;
       handleCommand(a,m); return;
