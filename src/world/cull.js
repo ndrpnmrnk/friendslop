@@ -1,11 +1,12 @@
 import { THREE } from '../core/gfx.js';
 import { W } from './state.js';
+import { graphics } from '../core/quality.js';
 /* v0.57 — дальность прорисовки мелочи. В PS1-картинке с дымкой предмет за 35+ м занимает пару пикселей,
    а стоит отдельного вызова отрисовки (и ещё одного в тенях). Дальние предметы, толкаемые вещи, котов и двери
    переводим на слой 5 — камера и тень его не рисуют. Логика и физика работают как обычно: меняется только картинка.
    Проверка 5 раз в секунду, с запасом (гистерезис), чтобы на границе ничего не мигало. */
 const NEAR = 1, FAR = 1 << 5;
-const R = { item: 36, push: 48, cat: 42, door: 52 }, GAP = 5;
+const R = { item: 36, push: 48, cat: 42, door: 52, actor: 80 }, GAP = 5;
 const cache = new WeakMap();
 let t = 0;
 function meshes(root) {
@@ -18,7 +19,7 @@ function set(root, far) {
   cache.delete(root); for (const m of meshes(root)) m.layers.mask = far ? FAR : NEAR;
 }
 function test(root, x, y, z, cx, cy, cz, r) {
-  if (!root) return; const d2 = (x - cx) ** 2 + (y - cy) ** 2 * .5 + (z - cz) ** 2, was = !!root.userData.far;
+  if (!root) return; r *= graphics.current.cullK ?? 1; const d2 = (x - cx) ** 2 + (y - cy) ** 2 * .5 + (z - cz) ** 2, was = !!root.userData.far;
   set(root, was ? d2 > (r - GAP) ** 2 : d2 > r * r);
 }
 export function updateCull(dt, camera, player) {
@@ -29,6 +30,12 @@ export function updateCull(dt, camera, player) {
   for (const b of W.pushables || []) { if (b.rider || b.grabbed) { set(b.mesh, false); continue; } test(b.mesh, b.x, b.y, b.z, cx, cy, cz, R.push); }
   for (const k of W.cats || []) { const p = k.root.position; test(k.root, p.x, p.y, p.z, cx, cy, cz, R.cat); }
   for (const d of W.doors || []) test(d.pivot, d.x, d.y, d.z, cx, cy, cz, R.door);
+  // v0.67: персонаж - ~25 деталей. Дальних (за дымкой) не рисуем, тень персонажа - только вблизи камеры.
+  const q = graphics.current, sh2 = (q.actorShadow ?? 28) ** 2;
+  for (const a of [W.player, ...(W.bots || [])]) { const root = a?.root; if (!root) continue; const p = root.position;
+    if (a !== W.player) test(root, p.x, p.y, p.z, cx, cy, cz, R.actor);
+    const near = (p.x - cx) ** 2 + (p.z - cz) ** 2 < sh2; if (root.userData.shadowNear !== near) { root.userData.shadowNear = near;
+      root.traverse(o => { if (!o.isMesh) return; if (o.userData.castBase === undefined) o.userData.castBase = o.castShadow; o.castShadow = near && o.userData.castBase && !o.userData.shadowTrimmed; }); } }
 }
 // при смене мира всё снова «ближнее»
 export function resetCull() { t = 0; }

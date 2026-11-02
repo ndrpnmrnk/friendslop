@@ -108,7 +108,7 @@ const front = (a,r,dot=.4,fn)=>{const f=a.root.rotation.y,fx=Math.sin(f),fz=Math
 const swing=(a,it,hit)=>{if(a.melee)return null;it.cd=CONFIG.melee.cooldown;a.swatT=CONFIG.melee.duration;a.melee={it,left:CONFIG.melee.duration,hit:false,apply:hit};return null;};
 export function useTool(a, it, aim, dt = 0) {
   if (!it || a.stun > 0) return null;
-  if(W.net?.replica&&!W.net.ownsScope?.(it.netScope)&&W.net.request('use',it,{target:aim?.toArray?.()||[a.pos.x,a.pos.y,a.pos.z],dt})&&!['bow','net'].includes(it.type))return;
+  if(W.net?.replica&&!W.net.ownsScope?.(it.netScope)&&W.net.request('use',it,{target:aim?.toArray?.()||[a.pos.x,a.pos.y,a.pos.z],dt})&&!['bow','net','sling'].includes(it.type))return;
   if(SNACKS[it.type]){eatSnack(a,it);return null;}
   if(it.type==='boombox'){toggleRadio(it);return null;}
   const k = it.type, d = it.def, hp = a.ch ? a.ch.holdPoint : new V3(a.pos.x, a.pos.y + 1.2, a.pos.z);
@@ -128,13 +128,15 @@ export function useTool(a, it, aim, dt = 0) {
     case 'umbrella': { it.cd = 0.25; it.open = !it.open; const c = it.g.userData.canopy; if (c) c.scale.set(it.open ? 0.78 : 0.09, it.open ? 0.8 : 1, it.open ? 0.78 : 0.09); return 'umbrella'; }
     case 'banana': { const f = a.root.rotation.y; dropHeld(a); it.state = 'gone'; placeBanana(it, a.pos.x + Math.sin(f) * 0.9, a.pos.y, a.pos.z + Math.cos(f) * 0.9, a); return 'drop'; }
     case 'duck': { it.cd = 0.8; W.lure = { x: a.pos.x, z: a.pos.z, t: 4, by: a }; for (const c of W.cats) c.lure = { x: a.pos.x, z: a.pos.z, t: 4 }; puff(hp.x, hp.y + 0.2, hp.z, { size: 0.4, life: 0.25, color: 0xf5c542 }); return 'squeak'; }
-    case 'bubbles': { it.cd = 0.5; shoot('bubble', from, dir, 7, 0, a); spend(); return 'bubble'; }
+    case 'bubbles': { if (it.cd > 0) return null; it.cd = 0.5; shoot('bubble', from, dir, 7, 0, a); spend(); return 'bubble'; }
     case 'whistle': { it.cd = 0.8; for (const b of actors()) { if (b === a || b.hidden) continue; if (Math.hypot(b.pos.x - a.pos.x, b.pos.z - a.pos.z) < 8) { b.vel.y = Math.max(b.vel.y, 6); b.onGround = false; dropHeld(b); b.startle = 0.8; } }
       for (const c of W.cats) { const q = c.root.position; if (Math.hypot(q.x - a.pos.x, q.z - a.pos.z) < 10) c.hit && c.hit(false, q.x - a.pos.x, q.z - a.pos.z); } scareBirds(a.pos.x, a.pos.z, 14); W.whistle = { x: a.pos.x, y: a.pos.y, z: a.pos.z, t: 6, by: a }; spend(); return 'whistle'; }
     case 'paint': { const f = a.root.rotation.y; dropHeld(a); it.state = 'gone'; it.g.visible = false; paintPuddle(a.pos.x + Math.sin(f) * 1.2, a.pos.y, a.pos.z + Math.cos(f) * 1.2, 1.2, a); return 'splash'; }
     case 'energy': { a.energy = 7; a.tired = 0; burst(a.pos.x, a.pos.y + 1, a.pos.z, 10, { color: 0x9be36b, size: 0.2, speed: 2 }); spend(); return 'drink'; }
-    case 'water': { it.cd = 0.22; for (let i = 0; i < 4; i++) shoot('water', from, dir, 22 + i, i * 0.03, a); spend(); return 'water'; }
-    case 'sling': { it.cd = 0.4; shoot('candy', from, dir, 42, 0, a); spend(); return 'candy'; }
+    // v0.67: единое прицеливание на ЛКМ. Водный пистолет и пузыри - держишь, и они стреляют сразу, точно в прицел.
+    case 'water': { if (it.cd > 0) return null; it.cd = 0.22; for (let i = 0; i < 4; i++) shoot('water', from, dir, 22 + i, i * 0.03, a); spend(); return 'water'; }
+    // рогатка тянется как лук: держишь - резинка натягивается (быстрее и точнее), отпускаешь - выстрел
+    case 'sling': { if (it.cd > 0) return null; it.draw = Math.min(1, (it.draw || 0) + (dt || (a.bot ? .2 : 0)) / .6); it.drawAim = aim.clone(); return null; }
     // хлопушка: облако конфетти + оглушение стоя всех в облаке
     case 'popper': { const f = a.root.rotation.y, px = a.pos.x + Math.sin(f) * 2.2, pz = a.pos.z + Math.cos(f) * 2.2; toolState().clouds.push({ x: px, y: a.pos.y, z: pz, t: 2.4, owner: a, hit: new Set() }); const cs = [0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff];
       for (const c of cs) burst(px, a.pos.y + 1, pz, 14, { color: c, size: 0.12, speed: 4, up: 3.5, g: 2, life: 2.2, grow: 0 }); smokeRing(px, a.pos.y + 0.8, pz, 10, { speed: 3, size: 0.25, grow: 1, life: 0.6 }); scareBirds(px, pz, 6); spend(); sfx('confetti', { at: a.pos }); return 'pop'; }
@@ -221,7 +223,13 @@ function stickArrow(s, pt, actor, gy) {
   m.visible = true; list.push({ m, t: 0, q0: m.quaternion.clone(), a: actor || null });
 }
 export function releaseNet(a,it,aim){if(it?.type!=='net')return;if(W.net?.request('release-tool',it,{target:aim.toArray()})){it.aimT=0;return;}const ok=(it.aimT||0)>0;it.aimT=0;if(!ok||it.cd>0||a.stun>0)return;const from=it.pos.clone(),dir=aim.clone().sub(from).normalize();shoot('net',from,dir,19,0,a);it.cd=it.def.cdMax;a.throwT=.2;sfx('throw',{at:a.pos});}
-export function releaseBow(a,it,aim){if(it?.type!=='bow')return;if(W.net?.request('release-tool',it,{target:aim.toArray()})){it.draw=0;return;}const draw=it.draw||0;it.draw=0;if(draw<.12||it.cd>0||it.ammo<=0||a.stun>0)return;const from=it.pos.clone(),velocity=bowVelocity(from,aim,draw),shot=shoot('arrow',from,velocity.clone().normalize(),velocity.length(),0,a);shot.p.copy(from);shot.v.copy(velocity);shot.g=ARROW_GRAVITY;shot.life=3;it.ammo--;it.cd=1.05;a.throwT=.2;sfx('throw',{at:a.pos});}
+// разброс от недотянутой тетивы/резинки: полный натяг - точно в прицел
+const spreadDir=(v,draw)=>{const k=(1-draw)*.11;if(k<=0)return v;const l=v.length();v.x+=(random()-.5)*2*k*l;v.y+=(random()-.5)*k*l;v.z+=(random()-.5)*2*k*l;return v.setLength(l);};
+export function releaseSling(a,it,aim){if(it?.type!=='sling')return;if(W.net?.request('release-tool',it,{target:aim.toArray()})){it.draw=0;return;}const draw=it.draw||0;it.draw=0;if(draw<.08||it.cd>0||it.ammo<=0||a.stun>0)return;
+  const hp=a.ch?a.ch.holdPoint:new V3(a.pos.x,a.pos.y+1.2,a.pos.z),from=hp.clone(),dir=aim.clone().sub(from).normalize(),speed=24+22*draw,v=spreadDir(dir.multiplyScalar(speed),draw);
+  shoot('candy',from,v.clone().normalize(),speed,0,a);it.ammo--;it.cd=.35;a.throwT=.15;sfx('candy',{at:a.pos});if(it.ammo<=0)consume(a,it);}
+export function releaseAim(a,it,aim){if(it?.type==='bow')return releaseBow(a,it,aim);if(it?.type==='sling')return releaseSling(a,it,aim);}
+export function releaseBow(a,it,aim){if(it?.type!=='bow')return;if(W.net?.request('release-tool',it,{target:aim.toArray()})){it.draw=0;return;}const draw=it.draw||0;it.draw=0;if(draw<.12||it.cd>0||it.ammo<=0||a.stun>0)return;const from=it.pos.clone(),velocity=spreadDir(bowVelocity(from,aim,draw),Math.min(1,draw*1.15)),shot=shoot('arrow',from,velocity.clone().normalize(),velocity.length(),0,a);shot.p.copy(from);shot.v.copy(velocity);shot.g=ARROW_GRAVITY;shot.life=3;it.ammo--;it.cd=1.05;a.throwT=.2;sfx('throw',{at:a.pos});}
 function consume(a, it) { if (a.held === it) a.held = null; it.state = 'gone'; it.g.visible = false; it.def = { ...it.def, respawn: 0 }; }
 
 /* ловушки: банановая кожура, лужа краски, паутина */
@@ -416,6 +424,6 @@ export function updateTools(dt, t) {
 }
 // иконка-подсказка для HUD: есть ли у инструмента действие на ЛКМ
 export const toolVerb = it => SNACKS[it?.type]?'съесть · восстановить выносливость':it?.type==='boombox'?`${it.radio?.on?'выключить':'включить'} · колесо - волна ${STATIONS[it.radio?.station||0].freq}`:({ can: it && it.shake > 0.5 ? 'открыть (трясли!)' : 'открыть', net: it && it.cd > 0 ? 'перезарядка' : 'держи ЛКМ — прицел, отпусти — сетка', badge: 'брось (ПКМ) — вызвать наряд', glove: 'удар', vacuum: it && it.bag && it.bag.length ? `держи — втянуть · отпусти — пли (${it.bag.length})` : 'держи — втянуть', slipper: 'шлёп', pillow: 'бац', umbrella: it && it.open ? 'сложить' : 'раскрыть', banana: 'бросить под ноги', duck: 'пискнуть', bubbles: 'пузырь', whistle: 'свисток', paint: 'вылить', energy: 'выпить',
-  bong:'воспользоваться',perfume:'распылить облако',bow:'держи ЛКМ - тяни, отпусти - выстрел',water: 'пли', sling: 'выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', rake:'ЛКМ - удар, ПКМ - бросить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';
+  bong:'воспользоваться',perfume:'распылить облако',bow:'держи ЛКМ - тяни, отпусти - выстрел',water: 'держи ЛКМ - струя', sling: 'держи ЛКМ - тяни, отпусти - выстрел', popper: 'хлоп', web: 'метнуть', firework: it && it.lit !== undefined ? 'бросай!' : 'поджечь', rake:'ЛКМ - удар, ПКМ - бросить', cushion: 'подложить', extinguisher: 'струя', magnet: 'тянуть' })[it ? it.type : ''] || '';
 import {SNACKS,eatSnack} from './snacks.js';
 import {toggleRadio,STATIONS} from './radio.js';

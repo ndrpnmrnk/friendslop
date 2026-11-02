@@ -206,7 +206,7 @@ export function updatePushables(dt, player) {
     // Bowl forces and contact will be integrated together in movement substeps.
     b.hitSpeed = 0;
     // v0.56: движение по шагам не длиннее половины радиуса — быстрые машинки и карты больше не проскакивают сквозь стены
-    const bowl=W.skateBowl,board=!!(b.rider&&(b.kind==='skate'||b.kind==='scooter'));
+    const bowl=W.skateBowl,board=!!(b.rider&&(b.kind==='skate'||b.kind==='scooter'||b.kind==='bike'));
     const y0=b.y+(b.ride&&b.kind!=='ring'?.5:.2);
     const mv=Math.hypot(b.vx,b.vz)*dt;
     // A wheeled rider takes smaller steps in a bowl; the same analytic
@@ -275,7 +275,7 @@ export function updatePushables(dt, player) {
         const candidate=findRailLanding(b,W.rails,nextY);
         if(candidate){startRailGrind(b,candidate);gy=Math.max(gy,b.grind.y);}
       }
-      const board = b.kind === 'skate' || b.kind === 'scooter';
+      const board = b.kind === 'skate' || b.kind === 'scooter' || b.kind === 'bike';
       const bowlContactNow=board&&!b.air?bowlContact(W.skateBowl,b.x,b.z,b.heading||0):null;
       // Follow continuous *grounded* bowl slope while rolling, not the
       // jumping/landing branch. A real jump or coping launch sets b.air
@@ -297,7 +297,9 @@ export function updatePushables(dt, player) {
         // If the board missed a floor crossing in a previous step, never
         // allow it to keep falling through the bowl visual surface.
         if(landing){
-          if(b.vy< -7&&b.rider)b.hardLand=-b.vy;
+          // v0.67: приземление: скорость по земле сохраняется, жёсткое чуть гасит; пыль, звук, тряска камеры
+          const impact=-b.vy;if(impact>7&&b.rider)b.hardLand=impact;
+          if(board&&b.rider&&impact>3){const k=impact>15?.85:impact>10?.93:1;b.vx*=k;b.vz*=k;W.onBoardLand?.(b,impact);}
           b.y=gy;b.vy=0;b.air=false;b.bowlTakeoff=false;
         }else{b.y=nextY;b.air=true;}
         if(board)b.pitch=(b.pitch||0)*Math.exp(-dt*3);

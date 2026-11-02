@@ -43,7 +43,7 @@ import { updateCrane } from './world/crane.js';
 import { updateSwingers } from './world/swingers.js';
 import { createSky } from './world/sky.js';
 import { buildLife, updateLife } from './world/life.js';
-import { netActor, shoot, resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow,releaseNet } from './game/tools.js';
+import { netActor, shoot, resetTools, updateTools, useTool, toolVerb, toolImpact, sodaBlast, spawnTool,releaseBow,releaseAim,releaseNet } from './game/tools.js';
 import { actors, separateActors, knockDown } from './game/actors.js';
 import { grabTarget, grabActor, letGo, updateGrabs } from './game/grab.js';
 import {tugInput} from './game/item-tug.js';
@@ -214,6 +214,8 @@ $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 initAccountUI(() => beforeHub(showHub));
 initSettingsPanel();
+// v0.67: приземление доски/самоката/велосипеда после подлёта
+W.onBoardLand=(b,v)=>{burst(b.x,b.y+.1,b.z,Math.min(14,4+v*.6|0),{color:0xbfb3a3,size:.14,speed:1.6+v*.08,up:.8});sfx('land',{at:{x:b.x,y:b.y,z:b.z},v:Math.min(1,.35+v*.04)});if(b.rider===W.player)shake(Math.min(.32,v*.018));};
 // v0.61: сетевой матч — синхронизация; хост закрыл лобби или выгнали посреди матча — матч заканчивается, все в хаб
 initMatchSync({
   open: openMission,
@@ -343,7 +345,7 @@ function prepareRound(tut = false) {
   if (tut) globalThis.__forceDistricts = null;
   withRandom(MATCH.on ? MATCH.seed ^ 0x1f123bb5 : random()*2**32,()=>buildLife(scene)); resetSplat(); resetPolice();
   registerInteracts();
-  withRandom(MATCH.on ? MATCH.seed ^ 0x221ab : random()*2**32,()=>resetTools()); withRandom(MATCH.on ? MATCH.seed ^ 0x7a33b9 : random()*2**32,()=>resetTown()); withRandom(MATCH.on ? MATCH.seed ^ 0x12a7 : random()*2**32,()=>startWeather(scene)); buildReflections(); resetFun(() => S.score); hookFun(); W.netDroneInput=applyNetworkDroneAction;W.netCreateShot=shoot;W.netUseTool=useTool;W.netReleaseTool=(a,it,aim)=>it.type==='bow'?releaseBow(a,it,aim):releaseNet(a,it,aim);W.netGrabDog=grabDog; W.toolImpact = toolImpact; W.sodaBlast = sodaBlast; W.knockDown = knockDown; W.isMissionCat = c => M.list.some(m => m.obj === c); W.letGo = letGo; W.dismount = a => dismount(a, false); W.leaveSwing = leaveSwing; W.leaveBench = leaveBench; W.leaveHide = a => { if (a.bot) a.hideT = 0; else leaveHide(a); }; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
+  withRandom(MATCH.on ? MATCH.seed ^ 0x221ab : random()*2**32,()=>resetTools()); withRandom(MATCH.on ? MATCH.seed ^ 0x7a33b9 : random()*2**32,()=>resetTown()); withRandom(MATCH.on ? MATCH.seed ^ 0x12a7 : random()*2**32,()=>startWeather(scene)); buildReflections(); resetFun(() => S.score); hookFun(); W.netDroneInput=applyNetworkDroneAction;W.netCreateShot=shoot;W.netUseTool=useTool;W.netReleaseTool=(a,it,aim)=>['bow','sling'].includes(it.type)?releaseAim(a,it,aim):releaseNet(a,it,aim);W.netGrabDog=grabDog; W.toolImpact = toolImpact; W.sodaBlast = sodaBlast; W.knockDown = knockDown; W.isMissionCat = c => M.list.some(m => m.obj === c); W.letGo = letGo; W.dismount = a => dismount(a, false); W.leaveSwing = leaveSwing; W.leaveBench = leaveBench; W.leaveHide = a => { if (a.bot) a.hideT = 0; else leaveHide(a); }; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
   buildMinimap(DISTRICTS); CURTAIN = findMat('curtain');
   resetEvents(); resetSupplies(); resetDrones();
   resetMissions();
@@ -761,7 +763,7 @@ on('up', btn => {
   if(btn===0){tugInput(P,false);S.wm?.game.up?.(aim(camera));}
   // пылесос: отпустил ЛКМ — содержимое вылетает очередью
   const fresh = btn === 0 && P.pickClick; if (btn === 0) P.pickClick = false;
-  if(btn===0&&!fresh&&P.held?.type==='bow')releaseBow(P,P.held,aimPoint());if(btn===0&&!fresh&&P.held?.type==='net')releaseNet(P,P.held,aimPoint());
+  if(btn===0&&!fresh&&['bow','sling'].includes(P.held?.type))releaseAim(P,P.held,aimPoint());if(btn===0&&!fresh&&P.held?.type==='net')releaseNet(P,P.held,aimPoint());
   if (btn === 0 && !fresh && P.held && P.held.type === 'vacuum') { const n = vacuumFire(P, P.held, aimPoint()); if (n) P.throwT = 0.3; }
   if (btn === 2 && P.charging) {
     P.charging = false; $('dot').classList.remove('charge'); throwTip(true); if (tipN < 4) { tipN++; try { localStorage.setItem('friendslop.throwTip', tipN); } catch (_) {} }
@@ -903,7 +905,7 @@ function frame() {
       if (S.tut) updateTutorial(dt);
       if (!S.settingsOpen&&tapped('KeyE')) interact();
       // инструмент, который действует пока зажата ЛКМ (огнетушитель, магнит)
-      if (M_.left && !P.pickClick && P.held && !P.held.tug && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT=['bow','net'].includes(P.held.type)?0:.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; if(!['bow','net'].includes(P.held.type))sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
+      if (M_.left && !P.pickClick && P.held && !P.held.tug && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT=['bow','net','sling'].includes(P.held.type)?0:.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; if(!['bow','net','sling'].includes(P.held.type))sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
       if (P.charging && !P.chargeManual) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
       if(S.mg&&(P.heldBy||P.stun>0||P.daze>0||P.pos.distanceTo(S.mg.start)>0.65))closeMission(null);
       updatePlayer(P, dt, t, !S.settingsOpen && !S.mg && !S.crane && !P.stationaryWork, cam.yaw);
@@ -1025,7 +1027,7 @@ function frame() {
     updateBreakables(dt, S.state === 'play' ? P : null);
     updateActionEffects(dt,S.state==='play'&&!S.mg?P:null,camera);updateParticles(dt);updateVfx(dt);updateSplat(dt);setActionVisuals(P&&!S.mg?Math.max(0,(Math.hypot(P.vel.x,P.vel.z)-7)/8):0,FX.shake*.5);
     prof.mark('частицы');
-    updateCamera(camera, P, dt, false, S.state === 'play' && !S.settingsOpen ? lk : null, !!(P && P.charging)); prof.mark('камера'); if (S.state === 'play' || S.state === 'intro' || S.state === 'finale') { updateCull(dt, camera, P); checkFrozen(); }
+    updateCamera(camera, P, dt, false, S.state === 'play' && !S.settingsOpen ? lk : null, !!(P && (P.charging || mouse.left && !P.pickClick && locked() && ['bow','sling','water','bubbles','net','perfume'].includes(P.held?.type)))); // v0.67: зажатая ЛКМ со стрелковым предметом - камера к плечу prof.mark('камера'); if (S.state === 'play' || S.state === 'intro' || S.state === 'finale') { updateCull(dt, camera, P); checkFrozen(); }
     {const k=S.state==='play'&&!P?.drone&&!P?.returning?Math.min(1,(P?.hazeT||0)/2):0;camera.rotation.z+=Math.sin(t*1.8)*.035*k;canvas.style.filter=k>0?`blur(${(.45*k).toFixed(2)}px) saturate(1.12)`:'';}
     S.mg?.game?.afterCamera?.();S.wm?.game?.afterCamera?.();
     { aimMoon(sky.moonDir()); const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz);

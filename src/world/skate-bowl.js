@@ -53,7 +53,7 @@ export function bowlContact(b,x,z,heading=0){
 // lip at a sufficient speed. It does not teleport the board upward.
 export function bowlLipLaunch(board,oldX,oldZ,b){
  if(!b||!board?.rider||board.air||(board.bowlFlightCooldown||0)>0||
-   !['skate','scooter'].includes(board.kind))return false;
+   !['skate','scooter','bike'].includes(board.kind))return false;
  const r0=Math.hypot(oldX-b.x,oldZ-b.z);
  const r1=Math.hypot(board.x-b.x,board.z-b.z);
  if(r0<b.rimRadius-.48||r0>=b.rimRadius||r1<b.rimRadius-.01)return false;
@@ -62,10 +62,11 @@ export function bowlLipLaunch(board,oldX,oldZ,b){
  const previousGround=b.baseY+bowlHeight(r0,b);
  // At three metres of climb a 13 m/s board naturally arrives near 5-7 m/s.
  // The previous 9.3 m/s exit requirement was practically unreachable.
- if(radial<4.6||sp<5.2||Math.abs(board.y-previousGround)>.28)return false;
- // Carry outward momentum into a modest vertical arc; do not lift the board.
- const exitSlope=bowlSlope(b.rimRadius-.57,b);
- const kick=clamp(radial*Math.min(.62,exitSlope*.72),2.2,4.8);
+ // v0.67: вылет по физике: на краю вертикальная скорость = радиальная × наклон стенки.
+ // Быстро выезжаешь - выше подлёт; медленно - просто выкатываешься на край.
+ if(radial<4.1||sp<4.5||Math.abs(board.y-previousGround)>.32)return false;
+ const exitSlope=bowlSlope(b.rimRadius-1.2,b); // наклон крутой части стенки: импульс от неё доносится через скруглённый край
+ const kick=clamp(radial*Math.min(1.2,exitSlope)*.55,2.4,8);
  board.vy=Math.max(board.vy||0,kick);
  board.air=true;board.bowlFlightCooldown=1.4;board.bowlTakeoff=true;
  // A bowl exit is natural airtime, not a user-triggered trick. Do not

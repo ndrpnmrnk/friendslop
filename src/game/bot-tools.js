@@ -2,7 +2,7 @@ import {V3} from '../core/gfx.js';
 import {W} from '../world/state.js';
 import {raySolids} from '../world/physics.js';
 import {actors} from './actors.js';
-import {useTool,releaseBow} from './tools.js';
+import {useTool,releaseAim} from './tools.js';
 const ranges={bow:24,net:15,water:11,sling:20,bubbles:6,extinguisher:5,perfume:5};
 export function cancelBotAim(b){if(b.weapon?.it)b.weapon.it.draw=0;b.weapon=null;b.toolAiming=false;}
 export function tryBotTool(b,preferred,dt){const it=b.held,range=ranges[it?.type];if(!range){cancelBotAim(b);return false;}if(it.def.ammo&&it.ammo<=0){cancelBotAim(b);return false;}
@@ -14,7 +14,7 @@ export function tryBotTool(b,preferred,dt){const it=b.held,range=ranges[it?.type
  let q=b.weapon;if(!q||q.it!==it||q.target!==target){cancelBotAim(b);q=b.weapon={it,target,aimT:0,wait:0,aim:new V3()};}q.aimT+=dt;q.wait=Math.max(0,q.wait-dt);b.toolAiming=true;b.aimAt=target.pos;b.facing=Math.atan2(target.pos.x-b.pos.x,target.pos.z-b.pos.z);
  const distance=from.distanceTo(target.pos),draw=Math.min(1,.42+distance*.026),speed=it.type==='bow'?7+37*draw**.85:it.type==='net'?19:22,flight=Math.min(.65,distance/speed),gravity=it.type==='bow'?16:it.type==='net'?6:it.type==='water'?14:0,initial=it.type==='net'?2:it.type==='water'?1.5:0;
  q.aim.copy(target.pos).y+=.9;q.aim.addScaledVector(target.vel||new V3(),flight*.65);q.aim.y+=.5*gravity*flight*flight-initial*flight;
- if(it.type==='bow'){if(q.aimT<.30||(it.cd||0)>0||!(it.equipT>.65))return true;useTool(b,it,q.aim,dt);if(it.draw>=draw){releaseBow(b,it,q.aim);q.aimT=0;}return true;}
+ if(it.type==='bow'||it.type==='sling'){if(q.aimT<.30||(it.cd||0)>0||!(it.equipT>.65))return true;useTool(b,it,q.aim,dt);if(it.draw>=(it.type==='sling'?Math.min(1,draw+.15):draw)){releaseAim(b,it,q.aim);q.aimT=0;}return true;}
  if(q.aimT<.35||q.wait>0||(it.cd||0)>0&&!it.def.hold)return true;
  useTool(b,it,q.aim,it.def.hold?dt:0);if(!it.def.hold)q.wait=it.type==='net'?1:.55;return true;
 }

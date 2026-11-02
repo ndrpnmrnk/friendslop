@@ -25,7 +25,7 @@ import {updateParticles} from '../world/particles.js';
 import {updateItems,drop,throwVelocity,launch,predict} from '../game/items.js';
 import {worldTarget,worldAimPoint,interactObject,leaveObject,pickTarget} from '../game/object-actions.js';
 import {cargoPosition,poseMeleeItem} from '../game/handheld.js';
-import {updateTools,useTool,shoot,toolImpact,sodaBlast,releaseBow,releaseNet,vacuumFire} from '../game/tools.js';
+import {updateTools,useTool,shoot,toolImpact,sodaBlast,releaseBow,releaseAim,releaseNet,vacuumFire} from '../game/tools.js';
 import {nearestRideable,grab,release,dismount} from '../game/ride.js';
 import {updateGrabs,grabTarget,grabActor,letGo} from '../game/grab.js';
 import {tugInput} from '../game/item-tug.js';
@@ -137,7 +137,7 @@ export function createMenu(){
       if(st.mode!=='roam'||st.pause){st.claw?.close?.();st.choosing=false;st.transition=null;st.pause=false;$('hubPause').classList.remove('open');$('setBtn').classList.remove('hub-settings');roam();}
       syncMembers();startLaunch(m.launch);}});});
   onNet('st',m=>{if(m.id===NET.id||m.id!==hubHostId()||!st.launch||!m.launchState)return;const state={...m.launchState};state.t+=Math.max(0,Math.min(.5,(serverNow()-(m.launchAt||serverNow()))/1000));Object.assign(world.sling.st,state);});
-  scope(()=>{Object.assign(world.state,{netCreateShot:shoot,netUseTool:useTool,netReleaseTool:(a,it,aim)=>it.type==='bow'?releaseBow(a,it,aim):releaseNet(a,it,aim),toolImpact,sodaBlast,knockDown,letGo,dismount:a=>dismount(a,false),leaveBench,leaveHide,leaveSwing,releaseCart:a=>release(a,.3),onDrink:()=>sfx('drink')});});
+  scope(()=>{Object.assign(world.state,{netCreateShot:shoot,netUseTool:useTool,netReleaseTool:(a,it,aim)=>['bow','sling'].includes(it.type)?releaseAim(a,it,aim):releaseNet(a,it,aim),toolImpact,sodaBlast,knockDown,letGo,dismount:a=>dismount(a,false),leaveBench,leaveHide,leaveSwing,releaseCart:a=>release(a,.3),onDrink:()=>sfx('drink')});});
   const arc=Array.from({length:11},()=>{const m=sprite(T.dot(),.13,{color:0xffb45a,depthTest:false,opacity:.95});m.renderOrder=10;m.visible=false;scene.add(m);return m;});
   const land=new THREE.Mesh(G.ring,new THREE.MeshBasicMaterial({color:0xff8a1f,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}));land.rotation.x=-Math.PI/2;land.scale.setScalar(.5);land.visible=false;scene.add(land);
   const aimPoint=()=>worldAimPoint(st.player,camera);
@@ -168,7 +168,7 @@ export function createMenu(){
     if(btn===2&&P.held){P.charging=true;P.charge=0;P.chargeManual=false;P.aimYaw=P.root.rotation.y;}
   });});
   on('wheel',d=>{if(!st.wantsLock)return;if(!st.player.charging){scope(()=>{const radio=st.player.held?.type==='boombox'?st.player.held:!st.player.held?nearRadio(st.player,aim(camera)):null;if(radio)tuneRadio(radio,d);});return;}if(st.player.charging){st.player.chargeManual=true;st.player.charge=clamp(st.player.charge-d*.1,.05,1);sfx('tick');}});
-  on('up',btn=>{if(!st.wantsLock)return;scope(()=>{const P=st.player;if(btn===0&&tugInput(P,false))return;if(btn===0&&P.held?.type==='bow')releaseBow(P,P.held,aimPoint());if(btn===0&&P.held?.type==='net')releaseNet(P,P.held,aimPoint());if(btn===0&&P.held?.type==='vacuum')vacuumFire(P,P.held,aimPoint());
+  on('up',btn=>{if(!st.wantsLock)return;scope(()=>{const P=st.player;if(btn===0&&tugInput(P,false))return;if(btn===0&&['bow','sling'].includes(P.held?.type))releaseAim(P,P.held,aimPoint());if(btn===0&&P.held?.type==='net')releaseNet(P,P.held,aimPoint());if(btn===0&&P.held?.type==='vacuum')vacuumFire(P,P.held,aimPoint());
     if(btn===2&&P.charging){P.charging=false;const it=P.held;if(it){launch(it,it.pos.clone(),throwVelocity(it.pos,aimPoint(),P.charge,it.def));it.owner=P;P.held=null;P.throwT=.3;sfx('throw');voice(P.ch,'throw');}}
   });});
   st.key=code=>{if(st.mode==='claw'){st.claw.key(code);return;}if(code==='Escape'){if(st.choosing)st.finishWardrobe(false);else if(st.mode==='tv')st.closeTV();else st.togglePause();return;}if(st.choosing){if(['KeyA','ArrowLeft'].includes(code))st.next(-1);if(['KeyD','ArrowRight'].includes(code))st.next(1);if(code==='Enter')st.finishWardrobe(true);}else if(code==='KeyE'&&tapped('KeyE'))st.interact();};
@@ -256,7 +256,7 @@ export function createMenu(){
   function walk(dt){
     const P=st.player,delta=takeLook();world.state.time=st.t;
     if(P.charging&&!P.chargeManual)P.charge=Math.min(1,P.charge+dt/CONFIG.throw.chargeTime);
-    if(mouse.left&&!P.held?.tug&&P.held?.def.hold&&P.stun<=0&&locked()){useTool(P,P.held,aimPoint(),dt);P.sprayT=['bow','net'].includes(P.held.type)?0:.1;}
+    if(mouse.left&&!P.held?.tug&&P.held?.def.hold&&P.stun<=0&&locked()){useTool(P,P.held,aimPoint(),dt);P.sprayT=['bow','net','sling'].includes(P.held.type)?0:.1;}
     const cut=st.flow?.stage==='cutscene';
     if(cut)launchStep(dt);else updatePlayer(P,dt,st.t,true,rig.state.yaw);
     // v0.59: упал с острова — возвращаемся (на «Острове затей» — сверху на батут)

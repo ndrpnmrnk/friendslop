@@ -1,7 +1,7 @@
 import {THREE,V3} from '../core/gfx.js';
 import {aim} from '../core/input.js';
 import {W} from '../world/state.js';
-import {raySolids} from '../world/physics.js';
+import {raySolids,groundAt} from '../world/physics.js';
 import {pickUp,drop} from './items.js';
 import {nearestRideable,mount,dismount,hopIn,release} from './ride.js';
 import {leaveSwing,leaveBench,leaveHide} from './worldfx.js';
@@ -10,8 +10,15 @@ import {sfx} from '../core/sfx.js';
 import {TEXT} from '../ui/text.js';
 import {tugTarget,startTug} from './item-tug.js';
 const names={cart:'тележку',skate:'скейт',scooter:'самокат',chair:'кресло',barrow:'тачку',kidcar:'машинку',gurney:'каталку',tire:'шину',ring:'круг'};
+const _aimP=new V3();
 export function worldAimPoint(player,camera,out=new V3()){
- const r=aim(camera),t=raySolids(r.ray.origin,r.ray.direction,80);
+ const r=aim(camera),t=raySolids(r.ray.origin,r.ray.direction,80),o=r.ray.origin,d=r.ray.direction;
+ // v0.67: земля, скейт-чаша и рампы - поверхность высот, а не объект: идём по лучу и ищем, где он уходит под неё.
+ // Раньше луч проходил чашу насквозь и прицел повисал в воздухе на высоте игрока.
+ if(d.y<-.02){let a=0;const q=_aimP,end=Math.min(t,80);
+  for(let s=.4;s<end;s+=Math.max(.35,s*.05)){q.copy(o).addScaledVector(d,s);
+   if(groundAt(q.x,q.z,.05,q.y+3)>q.y){let lo=a,hi=s;for(let i=0;i<7;i++){const m=(lo+hi)/2;q.copy(o).addScaledVector(d,m);if(groundAt(q.x,q.z,.05,q.y+3)>q.y)hi=m;else lo=m;}return out.copy(o).addScaledVector(d,hi);}
+   a=s;}}
  if(t<80)return out.copy(r.ray.origin).addScaledVector(r.ray.direction,t);
  return r.ray.intersectPlane(new THREE.Plane(new V3(0,1,0),-player.pos.y),out)||out.copy(r.ray.origin).addScaledVector(r.ray.direction,40);
 }

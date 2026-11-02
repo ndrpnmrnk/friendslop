@@ -90,6 +90,7 @@ const WL_BODY = `
       float hgt = wP.y - uWLBase;
       // затенение у основания стен и предметов, вверх сходит на нет; под землёй своё
       aoF = mix(1.0, mix(mk.r, 1.0, smoothstep(0.1, 1.9, hgt)), step(-0.6, hgt) * uWLAo);
+      { vec2 dp = floor(wP.xz * 8.0); float bay = fract(dot(dp, vec2(0.5, 0.75 * dp.y)) * 0.5 + dp.x * 0.25) - 0.5; aoF = clamp(floor(aoF * 6.0 + 0.5 + bay * 0.6) / 6.0, 0.0, 1.0); } // пиксельные ступени
       float roofY = mk.g * 48.0;
       float inside = max(step(0.05, roofY) * step(wP.y, roofY - 0.25), step(hgt, -0.8));
       sky = mix(1.0, uWLIndoor, inside);
@@ -105,6 +106,7 @@ const WL_BODY = `
           if (wP.y < lb.x || wP.y > lb.y) continue;
           vec3 L = lp.xyz - wP; float d = length(L), a = clamp(1.0 - d / lp.w, 0.0, 1.0); a *= a;
           if (a <= 0.0) continue;
+          { vec2 dp = floor(wP.xz * 8.0); a = floor(a * 7.0 + 0.5 + (fract(dp.x * 0.5 + dp.y * 0.25) - 0.4) * 0.5) / 7.0; } // мягкий спад ступенями в пикселях
           float nl = clamp(dot(wN, L / max(d, 1e-3)) * 0.85 + 0.15, 0.0, 1.0);
           acc += texelFetch(uWLLights, ivec2(ii, 1), 0).rgb * a * nl;
         }

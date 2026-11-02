@@ -97,7 +97,8 @@ export function buildWorldLight(group) {
     const list = solidsNear(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz));
     const dx = bx - ax, dy = by - ay, dz = bz - az;
     for (const s of list) {
-      if (!s.on || glass.has(s) || s.y1 - s.y0 < 0.6) continue;
+      // v0.67: тонкие столбы/стойки (<0.45 м) не гасят свет целой клетки - иначе за ними квадратные тени
+      if (!s.on || glass.has(s) || s.y1 - s.y0 < 0.6 || Math.min(s.x1 - s.x0, s.z1 - s.z0) < 0.45) continue;
       if (ax > s.x0 && ax < s.x1 && az > s.z0 && az < s.z1 && ay > s.y0 && ay < s.y1) continue; // источник внутри своего корпуса
       let t0 = 0.02, t1 = 0.98;
       for (const [o, d, lo, hi] of [[ax, dx, s.x0, s.x1], [ay, dy, s.y0, s.y1], [az, dz, s.z0, s.z1]]) {
@@ -124,7 +125,9 @@ export function buildWorldLight(group) {
       if (d > 0.9) {
         const nx = cx + Math.sign(l.x - cx) * Math.min(0.45, Math.abs(l.x - cx)), nz = cz + Math.sign(l.z - cz) * Math.min(0.45, Math.abs(l.z - cz));
         const lo = floor + 0.35, hi = Math.min(l.y - 0.1, floor + 2.0);
-        if (blocked(l.x, l.y, l.z, cx, lo, cz) && blocked(l.x, l.y, l.z, cx, hi, cz) && blocked(l.x, l.y, l.z, nx, hi, nz)) continue;
+        // клетка тёмная, только если закрыты и центр, и все четыре угла - край тени идёт по стене, а не по сетке
+        if (blocked(l.x, l.y, l.z, cx, lo, cz) && blocked(l.x, l.y, l.z, cx, hi, cz) && blocked(l.x, l.y, l.z, nx, hi, nz)
+          && [[-.45,-.45],[.45,-.45],[-.45,.45],[.45,.45]].every(([ux,uz]) => blocked(l.x, l.y, l.z, cx + ux, hi, cz + uz))) continue;
       }
       if (!a) best[i + j * gw] = a = [];
       let k = a.length; while (k > 0 && a[k - 1].w < w) k--; a.splice(k, 0, { id, w }); if (a.length > PER) a.pop();
@@ -159,10 +162,10 @@ export function buildWorldLight(group) {
       for (let i = 0; i < mw; i++) { if (i + r < mw) s += a[i + r + j * mw]; if (i - r - 1 >= 0) s -= a[i - r - 1 + j * mw]; t[i + j * mw] = s / n; } }
     for (let i = 0; i < mw; i++) { let s = 0; for (let j = 0; j < r && j < mh; j++) s += t[i + j * mw];
       for (let j = 0; j < mh; j++) { if (j + r < mh) s += t[i + (j + r) * mw]; if (j - r - 1 >= 0) s -= t[i + (j - r - 1) * mw]; a[i + j * mw] = s / n; } } };
-  const sharp = occ.slice(); blur(occ, 2); blur(occ, 2);
+  blur(occ, 2); blur(occ, 2); blur(occ, 1); // v0.67: только мягкое затенение, без прямоугольника коллайдера
   const mask = new Uint8Array(mw * mh * 4);
   for (let i = 0; i < mw * mh; i++) {
-    const ao = 1 - Math.min(1, Math.max(occ[i], sharp[i] * 0.85) * 1.15) * 0.62;
+    const ao = 1 - Math.min(1, occ[i] * 1.25) * 0.55;
     mask[i * 4] = Math.round(ao * 255); mask[i * 4 + 1] = Math.round(Math.min(1, roof[i] / 48) * 255); mask[i * 4 + 3] = 255;
   }
   const maskTex = new THREE.DataTexture(mask, mw, mh, THREE.RGBAFormat); maskTex.magFilter = maskTex.minFilter = THREE.LinearFilter; maskTex.needsUpdate = true;
