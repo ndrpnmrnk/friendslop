@@ -12,7 +12,8 @@ import { WL } from '../core/wl-uniforms.js';
    Вторая карта (0.25 м) хранит затенение у стен и предметов (AO) и высоту крыши над точкой —
    внутри зданий и под навесами меньше «небесного» света, на улице больше.
    Всё считается один раз; горящие/разбитые/мигающие источники меняют только свою яркость. */
-const CELL = 1, MASK = 0.25, PER = 8, MAXL = 2040;
+// v0.67.1: 12 источников на клетку (3 текселя) - предел почти не срабатывает, нет обрывов света по границе клетки
+const CELL = 1, MASK = 0.25, PER = 12, MAXL = 2040;
 const tmpC = new THREE.Color(), tmpB = new THREE.Box3(), tmpV = new THREE.Vector3();
 const texAvg = new Map();
 
@@ -120,6 +121,7 @@ export function buildWorldLight(group) {
       const cx = ox + (i + 0.5) * CELL, cz = oz + (j + 0.5) * CELL, d = Math.hypot(cx - l.x, cz - l.z);
       if (d > r + CELL * 0.71) continue;
       const w = l.strength * (1 - Math.min(1, d / r)) ** 2 + 0.001;
+      if (w < l.strength * 0.012 && d > CELL) continue; // вклад на краю радиуса незаметен - не занимает место в клетке
       let a = best[i + j * gw]; if (a && a.length >= PER && a[PER - 1].w >= w) continue;
       // видит ли источник клетку: проверяем низко и на высоте человека (и центр, и ближнюю к свету точку клетки)
       if (d > 0.9) {
@@ -133,10 +135,10 @@ export function buildWorldLight(group) {
       let k = a.length; while (k > 0 && a[k - 1].w < w) k--; a.splice(k, 0, { id, w }); if (a.length > PER) a.pop();
     }
   });
-  const grid = new Float32Array(gw * 2 * gh * 4).fill(-1);
+  const grid = new Float32Array(gw * 3 * gh * 4).fill(-1);
   for (let c = 0; c < best.length; c++) { const a = best[c]; if (!a) continue; const i = c % gw, j = (c / gw) | 0;
-    for (let k = 0; k < a.length; k++) grid[((j * gw * 2) + i * 2 + (k >> 2)) * 4 + (k & 3)] = a[k].id; }
-  const gridTex = new THREE.DataTexture(grid, gw * 2, gh, THREE.RGBAFormat, THREE.FloatType); gridTex.needsUpdate = true;
+    for (let k = 0; k < a.length; k++) grid[((j * gw * 3) + i * 3 + (k >> 2)) * 4 + (k & 3)] = a[k].id; }
+  const gridTex = new THREE.DataTexture(grid, gw * 3, gh, THREE.RGBAFormat, THREE.FloatType); gridTex.needsUpdate = true;
 
   const N = Math.max(1, lights.length), ldata = new Float32Array(N * 3 * 4);
   lights.forEach((l, i) => {
