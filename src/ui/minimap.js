@@ -3,10 +3,12 @@ import { W } from '../world/state.js';
 import { CONFIG, DIFF } from '../config.js';
 import { cam } from '../game/camera.js';
 import { iconCanvas } from './icons.js';
+import { layoutMissionMarkers } from './mission-map.js';
 
 /* Мини-карта: при старте раунда рисуем план города (районы, дороги, здания, вода) в картинку,
    каждый кадр поворачиваем её так, чтобы верх был туда, куда смотрит камера. Игрок — в центре,
-   миссии — цветные точки (на краю, если далеко), цель уличной миссии — зелёная звезда. */
+   миссии сохраняют пиктограммы и на краю; стрелка указывает направление, маленькая
+   стрелка высоты — задание выше/ниже игрока. Цель уличной миссии — зелёная звезда. */
 const PX = 3; // пикселей плана на метр
 let plan = null, half = 0,lastDraw=-Infinity;
 const GROUND = { pave: '#4a4258', grass: '#2e4a2c', dirt: '#4a3a2c', concrete: '#47434f', asphalt: '#2b2733', cobble: '#4e4660', flag: '#4a4458' };
@@ -55,10 +57,38 @@ export function drawMinimap(P, missions, target, extra, main) {
     for (let i = 1; i < n; i++) if ((i + Math.floor(ph)) % 2 === 0) { const k = i / n; g.fillRect(Math.round(R + (mx - R) * k) - 1, Math.round(R + (my - R) * k) - 1, 3, 3); }
     if (mm <= lim) { const pz = 11 + Math.round(Math.sin(performance.now() / 160) * 2); g.strokeStyle = main.color || '#f1e8ff'; g.lineWidth = 2; g.strokeRect(Math.round(mx) - pz, Math.round(my) - pz, pz * 2, pz * 2); } }
   for (const b of W.bots || []) if (!b.hidden) mark(b.pos.x, b.pos.z, b.marked > 0 ? '#f5c542' : '#b18cff', 'bot');
-  for (const m of missions) if (!m.busy) { const p = m.obj.pos(); mark(p.x, p.z, '#' + DIFF[m.def.diff].toString(16).padStart(6, '0'), { icon: m.key }); }
   for (const c of W.supplies || []) mark(c.p.x, c.p.z, '#b18cff', { icon: 'parcel' });
   for (const e of extra || []) mark(e.x, e.z, e.color, e.icon ? { icon: e.icon } : 'star');
   if (target) mark(target.x, target.z, '#9be36b', 'star');
+  const entries = missions.filter(m => !m.busy).map(m => ({ id: m.id, icon: m.key,
+    ...m.obj.pos(), color: '#' + DIFF[m.def.diff].toString(16).padStart(6, '0') }));
+  for (const m of layoutMissionMarkers(entries, P.pos, cam.yaw, S, main?.missionId)) {
+    const x = m.x, y = m.y;
+    g.save(); g.globalAlpha = m.opacity;
+    // Тонкая связь не выдаёт сдвинутый ради читаемости значок за реальную точку.
+    if (!m.edge && Math.hypot(x - m.anchorX, y - m.anchorY) > 3) {
+      g.strokeStyle = m.color; g.lineWidth = 1; g.beginPath(); g.moveTo(m.anchorX, m.anchorY); g.lineTo(x, y); g.stroke();
+      g.fillStyle = m.color; g.fillRect(Math.round(m.anchorX) - 1, Math.round(m.anchorY) - 1, 3, 3);
+    }
+    if (m.focus) { g.fillStyle = '#17111f'; g.fillRect(x - 12, y - 12, 24, 24);
+      g.strokeStyle = '#fff1bf'; g.lineWidth = 2; g.strokeRect(x - 11, y - 11, 22, 22); }
+    g.fillStyle = '#17111f'; g.fillRect(x - 9, y - 9, 18, 18);
+    g.strokeStyle = m.color; g.lineWidth = 1; g.strokeRect(x - 8.5, y - 8.5, 17, 17);
+    g.drawImage(iconCanvas(m.icon, 1), x - 6, y - 6);
+    if (m.edge) {
+      g.save(); g.translate(x + Math.cos(m.angle) * 15, y + Math.sin(m.angle) * 15); g.rotate(m.angle);
+      g.fillStyle = '#17111f'; g.fillRect(-4, -5, 8, 10); g.fillStyle = m.color;
+      g.beginPath(); g.moveTo(4, 0); g.lineTo(-2, -3); g.lineTo(-2, 3); g.fill(); g.restore();
+    }
+    if (m.level) {
+      g.fillStyle = '#17111f'; g.fillRect(x + 5, y + 3, 10, 12);
+      g.fillStyle = m.level > 0 ? '#bce5ff' : '#ffd293';
+      const by = y + (m.level > 0 ? 5 : 12), step = m.level > 0 ? 1 : -1;
+      for (let i = 0; i < 3; i++) g.fillRect(x + 9 - i, by + step * i, 1 + 2 * i, 1);
+      g.fillRect(x + 9, y + 8, 1, 3);
+    }
+    g.restore();
+  }
   // игрок
   const a = P.root.rotation.y, la = Math.atan2(Math.sin(a) * rx + Math.cos(a) * rz, Math.sin(a) * fx + Math.cos(a) * fz);
   g.save(); g.translate(R, R); g.rotate(la); g.fillStyle = '#ff8a1f'; g.strokeStyle = '#17111f'; g.lineWidth = 2;

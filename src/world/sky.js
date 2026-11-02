@@ -55,30 +55,28 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
   // ---- оттенок района ----
   const TINT = { cemetery: 0x9ad8a8, industrial: 0xffc890, sewer: 0x90d8d0, hospital: 0x9ad8c0, port: 0xa8c8ff };
   const baseHemi = new THREE.Color(SEASON.hemi[0]), baseFog = new THREE.Color(SEASON.fog[0]), curT = new THREE.Color(1, 1, 1), tmp = new THREE.Color();
-  let dim = 0, night = 0; const nightFog = new THREE.Color(0x120c1e), md0 = md.clone();
+  let night = 0; const nightFog = new THREE.Color(0x120c1e), md0 = md.clone();
   return {
-    setDim(k) { dim = k; },
-    get dim() { return dim; },
     moonDir: () => moon.position.clone().normalize(),
     setNight(k) { night = k; const m2 = md0.clone(); m2.y += k * 55; m2.normalize().multiplyScalar(170); moon.position.copy(m2); halo.position.copy(m2).multiplyScalar(1.01); },
     update(camera, t, dt, player, hemi, fog) {
       g.position.set(camera.position.x, 0, camera.position.z);
-      stars[0].material.opacity = (0.7 + Math.sin(t * 1.7) * 0.3) * (1 - dim * 0.3); stars[1].material.opacity = (0.7 - Math.sin(t * 1.7) * 0.3) * (1 - dim * 0.3);
+      stars[0].material.opacity = (0.7 + Math.sin(t * 1.7) * 0.3); stars[1].material.opacity = (0.7 - Math.sin(t * 1.7) * 0.3);
       clouds.rotation.y += dt * 0.004;
-      domeM.color.setScalar((1 - dim * 0.55) * (1 - night * 0.45)); ring.material.color.setScalar((1 - dim * 0.7) * (1 - night * 0.3));
+      domeM.color.setScalar(1 - night * 0.45); ring.material.color.setScalar(1 - night * 0.3);
       // туман ползёт, мигающие фонари и вывески
       const mt = T.mist(); mt.offset.x += dt * 0.012; mt.offset.y += dt * 0.006;
       for (const f of W.flick) {
         f.t -= dt; if (f.t <= 0) { f.on = !f.on; f.t = f.period ? f.period : f.on ? (random() < 0.3 ? 0.08 : 1 + random() * 5) : 0.04 + random() * 0.18; }
         const k = f.on ? 1 : (f.sign ? 0.3 : f.period ? 0.15 : 0.08);
         for (const m of f.mats) { if (m.emissive) m.emissiveIntensity = 0.9 * k; else m.color.setScalar(k); }
-        if (f.pool) f.pool.visible = f.on && !f.pool.userData.broken && dim < 0.3;
+        if (f.pool) f.pool.visible = f.on && !f.pool.userData.broken;
       }
       if (!player || !hemi) return;
       let id = null; for (const d of W.districts) if (player.pos.x >= d.ox && player.pos.x < d.x1 && player.pos.z >= d.oz && player.pos.z < d.z1) { id = d.id; break; }
       tmp.setHex(TINT[id] || 0xffffff); curT.lerp(tmp, Math.min(1, dt * 1.2));
       hemi.color.copy(baseHemi).multiply(curT);
-      if (!dim && fog) { fog.color.copy(baseFog).lerp(tmp.copy(baseFog).multiply(curT), 0.5).lerp(nightFog, night * 0.55); }
+      if (fog) { fog.color.copy(baseFog).lerp(tmp.copy(baseFog).multiply(curT), 0.5).lerp(nightFog, night * 0.55); }
     },
   };
 }

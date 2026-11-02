@@ -29,7 +29,7 @@ export function buildLife(scene) {
     bats.push(c);
   }
   // крысы в тоннелях
-  for (const r of W.floodRects.slice().sort(() => random() - 0.5).slice(0, 6)) {
+  for (const r of W.tunnelFloors.slice().sort(() => random() - 0.5).slice(0, 6)) {
     const [x0, z0, x1, z1] = r, alongX = x1 - x0 > z1 - z0;
     const g = compose('rat', a => { const m = col(0x4a4048); a(G.sphL, m, 0, 0.07, 0, 0.08, 0.06, 0.14); a(G.sphL, m, 0, 0.08, 0.13, 0.05, 0.045, 0.07); a(G.cyl5, col(0xc89a9a), 0, 0.05, -0.2, 0.01, 0.2, 0.01, Math.PI / 2 - 0.2); a(G.sph, col(0xc89a9a), 0.035, 0.12, 0.12, 0.02, 0.02, 0.01); a(G.sph, col(0xc89a9a), -0.035, 0.12, 0.12, 0.02, 0.02, 0.01); });
     W.group.add(g); W.keep.push(g);

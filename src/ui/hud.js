@@ -6,6 +6,7 @@ import { icon, img } from './icons.js';
 import { TOOL_INFO, FX_LABEL, TEXT } from './text.js';
 import { toolVerb } from '../game/tools.js';
 import { W } from '../world/state.js';
+import { missionLevel } from './mission-map.js';
 
 /* Игровой интерфейс: всё минимально и в одном пиксельном стиле.
    DOM обновляется только при изменениях, анимации — CSS steps(). */
@@ -80,13 +81,14 @@ export function renderHud(S, P, prompt, dt) {
       el = document.createElement('div'); el.className = `mcard new d-${m.def.diff}${m.owner ? ' mine' : ''}`; el.innerHTML = `${img(m.key, 30)}<div class="mt"><div class="mn">${tag}${(TEXT.missions[m.key] || [m.def.name])[0]}</div><div class="ms"><span class="pts">${m.pts}</span><span class="dist"></span></div><div class="where"></div><div class="mstatus"></div><div class="bar"><i></i></div></div>`; $('missions').appendChild(el); H.cards.set(m.id, el); setTimeout(() => el.classList.remove('new'), 600); }
     const p = (m.busy && m.track && m.track()) || m.obj.pos(), dx = p.x - P.pos.x, dz = p.z - P.pos.z;
     const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw), ang = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz);
-    el.querySelector('.dist').textContent = `${Math.round(Math.hypot(dx, dz))}м`;
+    const level = missionLevel(p.y, P.pos.y), floorHint = level > 0 ? ' · ↑' : level < 0 ? ' · ↓' : '';
+    el.querySelector('.dist').textContent = `${Math.round(Math.hypot(dx, dz))}м${floorHint}`;
     const w = el.querySelector('.where'), wt = m.where || ''; if (w.textContent !== wt) w.textContent = wt;
     const bar = el.querySelector('.bar'); bar.firstChild.style.width = Math.max(0, m.life / m.maxLife * 100) + '%'; bar.classList.toggle('warn', m.life < m.maxLife * 0.25);
     const occupied=(m.claimedBy||m.doer), mine=occupied===P;
     el.querySelector('.mstatus').textContent=occupied?(mine?(m.busy?'Выполняешь · Z отменить':'Принято · E продолжить'):'Выполняется'):'';
     bar.classList.toggle('hidden',!!occupied&&m.key==='detector');
-    if(mine&&m.activeLeft!=null)el.querySelector('.dist').textContent=`${Math.ceil(Math.max(0,m.activeLeft))}с · ${Math.round(Math.hypot(dx,dz))}м`;
+    if(mine&&m.activeLeft!=null)el.querySelector('.dist').textContent=`${Math.ceil(Math.max(0,m.activeLeft))}с · ${Math.round(Math.hypot(dx,dz))}м${floorHint}`;
     if(occupied&&m.progress!=null)bar.firstChild.style.width=Math.min(100,Math.max(0,m.progress*100))+'%';
     el.classList.toggle('taken', !!occupied&&!mine);
     el.classList.toggle('active', !!m.busy); el.classList.toggle('main', m === nearest && !m.busy); el.classList.toggle('dim', m !== nearest);

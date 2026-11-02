@@ -105,14 +105,12 @@ const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(n
 // свет луны идёт ОТ видимой луны (тени совпадают с небом); отражённый свет — мягкая сиреневая подсветка с другой стороны (объём)
 const bounce = new THREE.DirectionalLight(0xa18eac, 0.22 * Math.PI); scene.add(bounce, bounce.target);
 function aimMoon(d) { const k = Math.max(0.55, d.y); SUN_DIR.set(d.x, k, d.z).normalize(); SUN_R.crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(); SUN_U.crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize(); }
-// фонарик персонажа (горит только в событии «Отключили свет»; свет есть всегда, чтобы не пересобирать шейдеры)
 const sky = createSky(scene);
 const haze = createHaze(scene); // v0.57: лёгкая дымка у земли
-const flash = new THREE.SpotLight(0xfff0d0, 0, 26, 0.55, 0.5, 1.2); scene.add(flash, flash.target);
 // вспышка взрыва: короткий точечный свет
 initDust(scene);
 W.flash = (p, c, k = 1, range = 12, decay = 3.5) => localLighting.flash({ x: p.x, y: p.y + 1, z: p.z }, c, k, range, decay);
-initEvents({ player: () => P, lights: () => ({ hemi, sun, flash, scene, sky }),prepareRace:()=>{if(S.mg)closeMission({success:false});if(S.wm)closeWorld({success:false});for(const b of W.bots||[])if(b.work)removeMission(b.work.m);}, award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
+initEvents({ player: () => P, prepareRace:()=>{if(S.mg)closeMission({success:false});if(S.wm)closeWorld({success:false});for(const b of W.bots||[])if(b.work)removeMission(b.work.m);}, award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
 const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => eventChip(null) };
 function followSun(x, y, z) {
   // привязка к текселю карты теней, чтобы края теней не дрожали при движении
@@ -924,7 +922,6 @@ function frame() {
         S.phase = ph;
         const left = Math.ceil(PHASE.event - EV.t), txt = ph === 'calm' ? (left > 0 && left <= PHASE.warn ? TEXT.phase.soon(left) : TEXT.phase.calm) : ph === 'event' ? (EV.big ? TEXT.events[EV.big.key].replace('!', '') : TEXT.phase.calm) : TEXT.phase.final;
         const pe = $('phase'); if (pe.textContent !== txt) { pe.textContent = txt; pe.className = 'ph-' + ph + (ph === 'calm' && left > 0 && left <= PHASE.warn ? ' warn' : ''); } }
-      if (flash.intensity > 0) { const f = P.root.rotation.y; flash.position.set(P.pos.x, P.pos.y + 1.6, P.pos.z); flash.target.position.set(P.pos.x + Math.sin(f) * 6, P.pos.y, P.pos.z + Math.cos(f) * 6); }
       // v0.57: мини-карта 30 раз в секунду, а не каждый кадр (на 144 Гц это лишние 2D-отрисовки)
       if ((S.mmT = (S.mmT || 0) - dt) <= 0) { S.mmT = 1 / 30; const bt = bigTarget(); drawMinimap(P, M.list.filter(m => visibleTo(m, P)), S.wm && S.wm.game.target ? S.wm.game.target() : null, bt ? [{ x: bt.x, z: bt.z, color: '#ff8a1f', icon: TEXT.eventIcon[EV.big.key] }] : null, S.nav); }
       if (S.time <= 0 && !W.net?.replica) { S.time = 0; renderHud(S, P, '', 0); startFinale(); }
@@ -976,9 +973,9 @@ function frame() {
       const wt = S.wm && S.wm.game.target ? S.wm.game.target() : null, bt = bigTarget();
       let nt = null;
       if (S.mg) nt = null;
-      else if (wt) nt = { ...wt, x: wt.x, y: wt.y ?? P.pos.y, z: wt.z, icon: S.wm.m.key, color: '#9be36b', label: wt.label || TEXT.navHere };
+      else if (wt) nt = { ...wt, x: wt.x, y: wt.y ?? P.pos.y, z: wt.z, icon: S.wm.m.key, missionId: S.wm.m.id, color: '#9be36b', label: wt.label || TEXT.navHere };
       else if (bt) nt = { x: bt.x, y: bt.y ?? P.pos.y, z: bt.z, icon: TEXT.eventIcon[EV.big.key], color: '#ff8a1f', label: TEXT.events[EV.big.key].replace('!', '') };
-      else if (S.main) { const q = S.main.obj.pos(); nt = { x: q.x, y: q.y, z: q.z, icon: S.main.key, color: S.main.owner ? '#f5c542' : '#' + DIFF[S.main.def.diff].toString(16).padStart(6, '0'), label: (TEXT.missions[S.main.key] || [S.main.def.name])[0] }; }
+      else if (S.main) { const q = S.main.obj.pos(); nt = { x: q.x, y: q.y, z: q.z, icon: S.main.key, missionId: S.main.id, color: S.main.owner ? '#f5c542' : '#' + DIFF[S.main.def.diff].toString(16).padStart(6, '0'), label: (TEXT.missions[S.main.key] || [S.main.def.name])[0] }; }
       if (nt && !bt && nt.floorDelta === undefined) nt = routeTo(P.pos, nt); if (P.drone || P.returning) nt = null;
       S.nav = nt; renderNav(camera, P, nt);
     }
@@ -1008,9 +1005,9 @@ function frame() {
     prof.mark('боты/события');
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' || S.state === 'finale' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
-      if (!(EV.cur && EV.cur.key === 'dark')) { hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35); }
+      hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35);
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
-    updateReflections(camera, t);localLighting.update(camera,dt,sky.dim||0); haze.update(t, camera); prof.mark('погода/свет');
+    updateReflections(camera, t);localLighting.update(camera,dt,0); haze.update(t, camera); prof.mark('погода/свет');
     cam.shake = FX.shake; cam.fovAdd = S.state === 'intro' && S.intro && !S.intro.landed ? 12 : P && S.state === 'play'&&!S.mg ? P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8) : 0;
     // линии скорости: спринт, катание, полёт после броска
     { const sp = S.state === 'intro' && S.intro && !S.intro.landed && S.intro.t > S.intro.delay ? 14 : P && S.state === 'play' ? Math.hypot(P.vel.x, P.vel.z) : 0, k = Math.max(0, Math.min(1, (sp - 8.5) / 6)), el = $('speedl'); const o = (Math.round(k * 5) / 5).toFixed(1); if (el.style.opacity !== o) el.style.opacity = o; }

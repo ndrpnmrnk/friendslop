@@ -9,9 +9,8 @@ import { THREE, V3, G, mesh, col, lam, tmat, compose, alphaMat } from '../core/g
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
 import { addItem, launch } from './items.js';
-import { LIGHTMAT, LIGHTDIM, WATERMAT } from '../world/builder.js';
 import { UG } from '../world/underground.js';
-import { splash, burst, puff, smokeRing } from '../world/particles.js';
+import { burst, puff, smokeRing } from '../world/particles.js';
 import { groundAt, isFree } from '../world/physics.js';
 import { actors, shove, knockDown, dropHeld, daze } from './actors.js';
 import { spawnTool, explode } from './tools.js';
@@ -25,11 +24,11 @@ import { MODE } from './modes.js';
 const isMode = id => MODE.cur.id === id;
 
 /* События раунда.
-   Малые (раз в ~минуту, 20 с): тыквопад, темнота с фонариком, потоп в тоннелях.
+   Малые (в режиме хаоса, 20 с): тыквопад.
    Общее (одно за раунд, около середины): царь горы, мотылёк в трусах, тыквенный футбол — участвуют все,
    объявляется баннером, видно стрелкой и на мини-карте. Пока идёт общее событие, таймеры миссий стоят. */
 /* Ритм раунда: 0:00–1:00 — спокойно, только миссии; 1:00–1:45 — общее событие; 1:45–3:00 — финальный рывок, очки ×2.
-   Малые события (тыквопад, темнота, потоп) сейчас не запускаются. */
+   В классическом режиме малые события не запускаются. */
 export const PHASE = { event: 120, resume: 180, final: 225, warn: 5 };
 export const phaseOf = t => t < PHASE.event ? 'calm' : t < PHASE.resume ? 'event' : t < PHASE.final ? 'calm' : 'final';
 export const EV = { t: 0, next: 1e9, cur: null, left: 0, big: null, bigAt: 120, bigDone: false };
@@ -37,7 +36,7 @@ const DUR = 20;
 let ctx = null;
 export function initEvents(c) { ctx = c; }
 // v0.53: режим задаёт ритм — «Хаос-ночь» включает малые события, «Марафон» ставит общие события подряд
-export function resetEvents() { if (EV.cur) stopEvent(); if (EV.big) stopBig(); EV.t = 0; EV.next = isMode('chaos') ? 25 : 1e9; EV.cur = null; EV.bigAt = isMode('marathon') ? 25 : PHASE.event; EV.bigDone = false; EV.lastBig = null; EV.netSerial = 0; W.eventBot = null; }
+export function resetEvents() { if (EV.cur) stopEvent(); if (EV.big) stopBig(); EV.t = 0; EV.next = isMode('chaos') ? 25 : 1e9; EV.cur = null; EV.bigAt = isMode('marathon') ? 25 : PHASE.event; EV.bigDone = false; EV.last = null; EV.lastBig = null; EV.netSerial = 0; W.eventBot = null; }
 
 const EVENTS = {
   pumpkins: { title: 'ТЫКВЕННЫЙ ДОЖДЬ', sub: 'С неба падают тыквы!',
@@ -49,22 +48,6 @@ const EVENTS = {
       s.items.push(it);
     },
     stop(s) { for (const it of s.items) if (it.state === 'rest') { it.state = 'gone'; it.g.visible = false; } },
-  },
-  dark: { title: 'ОТКЛЮЧИЛИ СВЕТ', sub: 'Фонари погасли. У тебя фонарик',
-    start(s) { const L = ctx.lights(); s.h = L.hemi.intensity; s.sun = L.sun.intensity; s.fog = L.scene.fog.color.getHex(); L.flash.intensity = 0; LIGHTMAT().visible = false; LIGHTDIM().visible = false; s.k = 0; },
-    update(s, dt) { const L = ctx.lights(); s.k = Math.min(1, s.k + dt * 1.5); L.hemi.intensity = s.h * (1 - 0.6 * s.k); L.sun.intensity = s.sun * (1 - 0.75 * s.k); L.flash.intensity = 60 * s.k; L.sky.setDim(s.k);
-      L.scene.fog.color.setHex(0x120c1c); L.scene.background.setHex(0x120c1c); },
-    stop(s) { const L = ctx.lights(); L.hemi.intensity = s.h; L.sun.intensity = s.sun; L.flash.intensity = 0; L.scene.fog.color.setHex(s.fog); L.scene.background.setHex(s.fog); LIGHTMAT().visible = true; LIGHTDIM().visible = true; L.sky.setDim(0); },
-  },
-  flood: { title: 'ПОТОП В ТОННЕЛЯХ', sub: 'Под дорогами вода по колено',
-    start(s) {
-      s.meshes = []; s.zones = []; s.h = 0;
-      for (const [x0, z0, x1, z1] of W.floodRects) { const m = mesh(G.box, WATERMAT(), (x0 + x1) / 2, UG.floor, (z0 + z1) / 2, x1 - x0, 0.04, z1 - z0, W.group); s.meshes.push(m);
-        const zn = { type: 'water', r: [x0, z0, x1, z1], y: UG.floor }; W.zones.push(zn); s.zones.push(zn); }
-      const P = ctx.player(); if (P.pos.y < UG.floor + 1) splash(P.pos.x, P.pos.y, P.pos.z, 1);
-    },
-    update(s, dt) { s.h = Math.min(0.45, s.h + dt * 0.15); for (const m of s.meshes) m.position.y = UG.floor + s.h; },
-    stop(s) { for (const m of s.meshes) W.group.remove(m); W.zones = W.zones.filter(z => !s.zones.includes(z)); },
   },
 };
 
@@ -324,7 +307,8 @@ export function updateEvents(dt, ui) {
     if (B.left <= 0 || r === 'end' || (!isMode('marathon') && EV.t >= PHASE.resume)) { stopBig(); ui.end();
       if (isMode('marathon') && EV.t < CONFIG.roundTime - 45) { EV.bigDone = false; EV.bigAt = EV.t + 12; } } return; }
   if (!EV.cur && EV.t >= EV.next && EV.t < (isMode('chaos') ? CONFIG.roundTime - 25 : 170)) {
-    const keys = Object.keys(EVENTS).filter(k => k !== EV.last), key = keys[(random() * keys.length) | 0];
+    const all = Object.keys(EVENTS), other = all.filter(k => k !== EV.last), keys = other.length ? other : all;
+    const key = keys[(random() * keys.length) | 0];
     EV.cur = { key, def: EVENTS[key], s: {} }; EV.left = DUR; EV.last = key; startNetworkEvent(EV.cur);
     ui.start(key);
   }

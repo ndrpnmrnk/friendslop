@@ -112,7 +112,6 @@ const ART = {
   rain: ['....kkkk....', '..kkddddkk..', '.kddddddddk.', 'kddddddddddk', 'kkkkkkkkkkkk', '............', '.b...b...b..', 'b...b...b...', '...b...b...b', '..b...b...b.', '............', '............'],
   // события и прочее
   flash: ['............', '.kkkk.......', 'kyyyykk.....', 'kyyyyssk....', 'kyyyysssk.y.', 'kyyyysssk..y', 'kyyyyssk..y.', 'kkkkkkk..y..', '...........y', '............', '............', '............'],
-  flood: ['............', '............', '..b....b....', '.bcb..bcb..b', 'bbbbbbbbbbbb', 'BbbbBbbbBbbb', 'bbbbbbbbbbbb', 'BBbbBBbbBBbb', 'bbbbbbbbbbbb', 'BBBBBBBBBBBB', '............', '............'],
   mouse: ['....kkkk....', '...kwwwwk...', '..kwwkwwwk..', '..kwwkwwwk..', '..kwwkwwwk..', '..kkkkkkkk..', '..kwwwwwwk..', '..kwwwwwwk..', '..kwwwwwwk..', '...kwwwwk...', '....kkkk....', '............'],
   cart: ['k...........', '.k..........', '.kkkkkkkkkk.', '.kssssssssk.', '..ksssssssk.', '..kssssssk..', '...kkkkkkk..', '...k....k...', '..kdk..kdk..', '...k....k...', '............', '............'],
 };
