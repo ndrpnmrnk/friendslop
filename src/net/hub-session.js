@@ -90,11 +90,12 @@ export function createHubSession(world,remotes,options){
  onNet('st',m=>{if(m.m!=='hub'||m.protocol!==2)return;scope(()=>{
    ensure();if(!net)return;
    if(host){const a=actor('p'+m.id);if(!a||!vector([m.x,m.y,m.z]))return;
-     if(!a.netProtected){const end=[m.x,m.y,m.z],from=a.pos.toArray();const p=Math.abs(m.y-a.pos.y)>8?end:sweepPosition(from,end,a.r,q=>{pushOut(q,a.r,q.y+a.step,q.y+a.h);pushActorsOut(q,a);});a.pos.fromArray(p);pushOut(a.pos,a.r,a.pos.y+a.step,a.pos.y+a.h);}
+     // v0.63.4: позиция гостя доверяется его клиенту - без поправок от коллизии хоста (они давали телепорты).
+     let held=false;if(!a.netProtected)a.pos.set(m.x,m.y,m.z);
      else if(slots.wardrobe===a.netKey&&m.x>-17.5&&m.x<-8.5&&m.z>-9&&m.z<-.5)a.pos.set(m.x,m.y,m.z);
-     if(a.heldBy){const dx=a.pos.x-a.heldBy.pos.x,dz=a.pos.z-a.heldBy.pos.z,d=Math.hypot(dx,dz);if(d>1.2){a.pos.x=a.heldBy.pos.x+dx/d*1.2;a.pos.z=a.heldBy.pos.z+dz/d*1.2;}}
+     if(a.heldBy){const dx=a.pos.x-a.heldBy.pos.x,dz=a.pos.z-a.heldBy.pos.z,d=Math.hypot(dx,dz);if(d>2){a.pos.x=a.heldBy.pos.x+dx/d*2;a.pos.z=a.heldBy.pos.z+dz/d*2;held=true;}}
      if(a.buf.length){a.buf.at(-1).x=a.pos.x;a.buf.at(-1).z=a.pos.z;}
-     a.netInput={n:m.n,p:[m.x,m.y,m.z]};a.s=m.s||{};a.onGround=!m.s?.air;
+     a.netInput=held?{n:m.n,p:[m.x,m.y,m.z]}:null;a.s=m.s||{};a.onGround=!m.s?.air;
      if(slots.wardrobe===a.netKey&&Number.isFinite(m.door))world.curtain(m.door);
      for(const cmd of m.cmds||[])act(a,cmd);net.accept(m.c,a);receiveSounds(m.fx,a);
    }else if(trusted(m)&&m.n>lastSeq){

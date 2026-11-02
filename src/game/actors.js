@@ -63,7 +63,7 @@ void V3;
 
 // Телесный контакт отдельно от ИИ. Реплика предсказывает только собственное тело.
 export function separateActors() {
-  const list=actors().filter(a=>(!a.puppet||a.buf?.length)&&!a.hidden&&!a.ride&&!a.holding&&!a.heldBy);
+  const list=actors().filter(a=>(!a.puppet||a.buf?.length)&&!a.hidden&&!a.ride&&!a.holding&&!a.heldBy&&!a.bench&&!a.swing&&!a.zip&&!a.roofSeat&&!a.bus&&!(a.puppet&&a.buf.at(-1)?.s?.ride));
   for(let pass=0;pass<2;pass++)for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
     const a=list[i],b=list[j];if(Math.abs(a.pos.y-b.pos.y)>=Math.min(a.h,b.h)*.75)continue;
     let dx=b.pos.x-a.pos.x,dz=b.pos.z-a.pos.z,d=Math.hypot(dx,dz),r=a.r+b.r;

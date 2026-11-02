@@ -141,6 +141,17 @@ export default {
       if (!/^[A-Z0-9]{4,6}$/.test(code)) return new Response('bad room', { status: 400 });
       return env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(req);
     }
+    if (url.pathname === '/ice') {
+      // Голос: временные данные TURN Cloudflare (секреты TURN_KEY_ID и TURN_KEY_API_TOKEN). Без них - только STUN.
+      const headers = { 'access-control-allow-origin': '*', 'content-type': 'application/json', 'cache-control': 'no-store' };
+      if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return new Response('{"iceServers":[]}', { headers });
+      try {
+        const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`, {
+          method: 'POST', headers: { authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ ttl: 86400 }) });
+        const d = await r.json(), list = Array.isArray(d?.iceServers) ? d.iceServers : d?.iceServers ? [d.iceServers] : [];
+        return new Response(JSON.stringify({ iceServers: list }), { headers });
+      } catch { return new Response('{"iceServers":[]}', { headers }); }
+    }
     if (url.pathname === '/') return new Response('friendslop rooms ok', { headers: { 'access-control-allow-origin': '*' } });
     return new Response('not found', { status: 404 });
   },

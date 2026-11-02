@@ -38,7 +38,7 @@ export function addZipline(b, ax, ay, az, bx, by, bz) {
   cable.lookAt(B); b.m(G.box, col(0xf5c542), ax, ay - 0.6, az, 0.5, 0.3, 0.04).rotation.y = Math.atan2(B.x - A.x, B.z - A.z);
   const z = { a: A, b: B, len, slope: (A.y - B.y) / len, dx: (B.x - A.x) / hz, dz: (B.z - A.z) / hz };
   (W.ziplines || (W.ziplines = [])).push(z);
-  W.interacts.push({ x: A.x - z.dx * 0.6, z: A.z - z.dz * 0.6, y: A.y - 2.4, r: 1.3, dy: 0.9, label: 'Зиплайн', enabled: P => !P.held && !P.holding, act: P => startZip(P, z) });
+  W.interacts.push({ x: A.x - z.dx * 0.6, z: A.z - z.dz * 0.6, y: A.y - 2.4, r: 1.3, dy: 0.9, self: true, label: 'Зиплайн', enabled: P => !P.held && !P.holding, act: P => startZip(P, z) });
   return z;
 }
 void THREE; void burst;

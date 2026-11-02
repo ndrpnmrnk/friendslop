@@ -196,17 +196,13 @@ function sendHit(a, k, args) {
 function guestState(m) {
   const b = find('p' + m.id); if (!b || !vector([m.x, m.y, m.z]) || !finite(m.r) || (m.n | 0) <= (b.netSeq || 0)) return;
   b.netSeq = m.n;
-  let p = [m.x, m.y, m.z];
-  if (callbacks.state?.() === 'play' && b.buf.length && !m.s?.fly && !m.dr && !b.ride && !b.grab) {
-    const from = b.buf.at(-1), start = [from.x, from.y, from.z];
-    const elapsed = Math.min(.6, Math.max(.05, clock - (b.netAt || clock)));
-    if (Math.hypot(p[0] - start[0], p[2] - start[2]) > 32 * elapsed + 2) p = start;
-    p = sweepPosition(start, p, b.r, q => {pushOut(q,b.r,q.y+b.step,q.y+b.h);pushActorsOut(q,b);});
-    if (Math.hypot(p[0] - m.x, p[2] - m.z) > .12) corrections.set(b.netKey,{to:b.netKey,n:m.n,p});
-  }
+  // v0.63.4: движение гостя доверяется его клиенту. Хост больше не прогоняет позицию через свою
+  // коллизию и задержанные позиции других игроков: из-за разницы в 50-150 мс это давало постоянные
+  // поправки - телепорты у лавочек, дверей и рядом с другими игроками.
+  const p = [m.x, m.y, m.z];
   const previous=b.buf.at(-1),elapsed=Math.max(.05,clock-(b.netAt||clock));b.netVelocity=new V3(previous?(p[0]-previous.x)/elapsed:0,previous?(p[1]-previous.y)/elapsed:0,previous?(p[2]-previous.z)/elapsed:0);
   b.netAt = clock;
-  if(b.heldBy){const dx=p[0]-b.heldBy.pos.x,dz=p[2]-b.heldBy.pos.z,d=Math.hypot(dx,dz);if(d>1.2){p[0]=b.heldBy.pos.x+dx/d*1.2;p[2]=b.heldBy.pos.z+dz/d*1.2;corrections.set(b.netKey,{to:b.netKey,n:m.n,p});}}
+  if(b.heldBy){const dx=p[0]-b.heldBy.pos.x,dz=p[2]-b.heldBy.pos.z,d=Math.hypot(dx,dz);if(d>2){p[0]=b.heldBy.pos.x+dx/d*2;p[2]=b.heldBy.pos.z+dz/d*2;corrections.set(b.netKey,{to:b.netKey,n:m.n,p});}}
   callbacks.droneApply?.(b,m.dr);
   push(b, ...p, m.r, m.s || {}, b.score || 0, m.v); b.pos.fromArray(p);
   if(!MATCH.final)for(const cmd of (m.cmds||[]).slice(0,32))handleCommand(b,cmd);

@@ -1,22 +1,30 @@
-import {NET,onNet,inRoom,send} from './net.js';
+import {NET,onNet,inRoom,send,serverUrl} from './net.js';
 import {audioBus} from '../core/sfx.js';
 import {spatialSource} from '../core/spatial-audio.js';
 
 // Голос напрямую между участниками: Worker передаёт только адресные SDP/ICE-сообщения.
 // Один sendrecv-трансивер на пару, replaceTrack при смене/выключении микрофона.
-export function initVoiceChat({input,actor,scene,iceServers=[{urls:'stun:stun.cloudflare.com:3478'}]}){
- const peers=new Map();let identity='',tick=0;
+export function initVoiceChat({input,actor,scene,iceServers=[{urls:['stun:stun.cloudflare.com:3478','stun:stun.l.google.com:19302']}]}){
+ const peers=new Map();let identity='',tick=0,ice=iceServers,iceAt=0;
+ // v0.63.4: TURN-ретранслятор Cloudflare (если настроен на сервере комнат). Без него голос не проходит
+ // через «серые» IP провайдеров и мобильных сетей - соединение напрямую там невозможно.
+ function loadIce(){
+  if(performance.now()-iceAt<30*60e3&&iceAt)return;iceAt=performance.now();
+  const url=serverUrl().replace(/^ws/,'http').replace(/\/+$/,'')+'/ice';
+  fetch(url).then(r=>r.ok?r.json():null).then(d=>{if(!Array.isArray(d?.iceServers)||!d.iceServers.length)return;
+   ice=[...iceServers,...d.iceServers];for(const p of peers.values()){try{p.pc.setConfiguration({iceServers:ice});if(p.pc.connectionState!=='connected')p.pc.restartIce();}catch{}}}).catch(()=>{});
+ }
  const signal=(id,payload)=>send({t:'ev',e:'rtc',to:id,...payload});
  function close(id){const p=peers.get(id);if(!p)return;peers.delete(id);p.pc.close();if(p.audio){p.audio.pause();p.audio.srcObject=null;}p.source?.disconnect();p.spatial?.dispose();p.analyser?.disconnect();}
  function sync(){
   const key=inRoom()?NET.code+':'+NET.id:'';
   if(identity!==key){for(const id of [...peers.keys()])close(id);identity=key;}
-  if(!key||typeof RTCPeerConnection==='undefined')return;
+  if(!key||typeof RTCPeerConnection==='undefined')return;loadIce();
   for(const id of [...peers.keys()])if(!NET.players.has(id))close(id);
   for(const id of NET.players.keys())if(id!==NET.id&&!peers.has(id))create(id);
  }
  function create(id){
-  const pc=new RTCPeerConnection({iceServers}),p={pc,id,making:false,ignore:false,setting:false,candidates:[],track:null,stream:null,restartAt:0,started:performance.now(),localCandidates:0};peers.set(id,p);
+  const pc=new RTCPeerConnection({iceServers:ice}),p={pc,id,making:false,ignore:false,setting:false,candidates:[],track:null,stream:null,restartAt:0,started:performance.now(),localCandidates:0};peers.set(id,p);
   if(NET.id<id)p.sender=pc.addTransceiver(input()?.getAudioTracks().find(t=>t.readyState==='live')||'audio',{direction:'sendrecv'}).sender;
   pc.onicecandidate=({candidate})=>{if(candidate){p.localCandidates++;signal(id,{candidate:candidate.toJSON()});}};
   pc.onnegotiationneeded=async()=>{if(!p.sender||p.making)return;try{p.making=true;await pc.setLocalDescription();signal(id,{description:pc.localDescription});}catch{p.error='Не удалось соединить голос';}finally{p.making=false;}};

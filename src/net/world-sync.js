@@ -143,6 +143,11 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       if(!applyHostMissionItem({state:o.state,ownerKey:currentOwner,pendingAt:o.netPendingTakeAt||0},
         {state:v[1],ownerKey:desiredOwner},myKey,performance.now()))return;
     }
+    if(type==='i'&&!proposal&&o.netPendingTakeAt){
+      const wait=performance.now()-o.netPendingTakeAt,mine=o.state==='held'&&o.owner===W.player;
+      if(mine&&v[1]!=='held'&&!v[11]&&wait<600)return;
+      if(v[1]==='held'||wait>=600)o.netPendingTakeAt=0;
+    }
     switch (type) {
       case 'i': {
         if(o.type==='popcorn'&&o.state==='fly'&&v[1]==='gone')scatterPopcorn(new V3(v[2],v[3],v[4]));
@@ -239,9 +244,13 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     }
     if (msg.kind === 'drop') { if (o.owner !== a || o.state !== 'held') return; drop(o, a.pos.x, a.pos.y, a.pos.z); a.held = null; return; }
     if (msg.kind === 'break') { if (reachable(a, o.mesh?.position, 3)) breakPiece(o, msg.v || [0, 0, 0]); return; }
+    if (msg.kind === 'take') {
+      // v0.63.4: гость уже проверил дистанцию у себя (1.5-1.7 м). Хост видит его с задержкой,
+      // поэтому даём запас и не режем подбор лучом - иначе предмет «не брался» и откатывался.
+      const dy=p.y-a.pos.y;if(a.heldBy||Math.hypot(p.x-a.pos.x,p.z-a.pos.z)>(o.state==='fly'?3.6:3)||dy<-1.6||dy>3.2)return; if(a.held&&(a.held.state!=='held'||a.held.owner!==a))a.held=null;
+      if (!a.held && ['rest', 'placed', 'fly'].includes(o.state) && (!o.boxed || o.boxed.open) && pickUp(o) !== false) { o.owner = a; a.held = o; o.wasHeld = true; } return; }
     if (!reachable(a, p, msg.kind === 'interact' ? Math.min(4, o.r || 2.4) + .3 : 2.5)) return;
-    if (msg.kind === 'take') { if (!a.held && ['rest', 'placed', 'fly'].includes(o.state) && (!o.boxed || o.boxed.open) && pickUp(o) !== false) { o.owner = a; a.held = o; o.wasHeld = true; } }
-    else if(msg.kind==='slam'){o.open=true;o.av=msg.ux?Math.sign(msg.ux)*10:10;}
+    if(msg.kind==='slam'){o.open=true;o.av=msg.ux?Math.sign(msg.ux)*10:10;}
     else if (msg.kind === 'door') { o.open = !o.open; o.dirS = null; o.av = 0;sfx('door',{at:p}); }
     else if (msg.kind === 'mount') { if (!o.rider && !o.grabbed) mount(a, o); }
     else if (msg.kind === 'cart') { if (!o.rider && !o.grabbed) grab(a, o); }
