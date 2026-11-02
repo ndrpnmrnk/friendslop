@@ -59,8 +59,8 @@ export function eliminate(a, seconds) {
   a.hazeT=0;a.bongUse=null;a.frozen=false;a.noRun=false;a.stationaryWork=false;a.bus=null;a.roofSeat=null;a.dive=null;a.slideT=0;a.rollT=0;a.climbing=false;
   a.droneCauseSnapshot={at:Date.now(),pos:a.pos.toArray(),work:a.work?.m?.key||null};
   W.onEliminate && W.onEliminate(a);
-  // выбывание сбрасывает все «залипающие» состояния: перекур, собака на руках, скамейка, стан (v0.21)
-  a.chill = null; a.charging = false; if (a.dogHeld) { a.dogHeld.heldBy = null; a.dogHeld = null; } if (a.bench && W.leaveBench) W.leaveBench(a); a.stun = 0; a.getT = 0; a.daze = 0; a.netT = 0; a.floatT = 0;
+  // выбывание сбрасывает все «залипающие» состояния: собака на руках, скамейка, стан (v0.21)
+  a.charging = false; if (a.dogHeld) { a.dogHeld.heldBy = null; a.dogHeld = null; } if (a.bench && W.leaveBench) W.leaveBench(a); a.stun = 0; a.getT = 0; a.daze = 0; a.netT = 0; a.floatT = 0;
   dropHeld(a); if (a.ride) dismount(a, false); if (a.grab) release(a, 0); if (a.holding && W.letGo) W.letGo(a); if (a.heldBy && W.letGo) W.letGo(a.heldBy);
   if (a.swing) { a.swing.rider = null; a.swing = null; } a.hidden = null; a.zip = null; a.climb = null; a.mantle = null; a.hang = null; a.caged = null; a.goal = null;a.nav=null;a.stairRoute=null;a.ladderExit=null;a.escapeLadder=null;
   a.drone = { ...helicopter(a), left: seconds, cd: 0, candy: true, home: a.pos.clone(), intro: 1.2, tumble: 0 };

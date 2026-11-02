@@ -87,7 +87,7 @@ export function attachMissionSync(world, { myKey, host, actor, sendEvent, comman
     }
     if (!leases.owns(m.id, key, msg.token)) return;
     if (msg.kind === 'chain') {
-      const allowed = { salad: 'saladCut', bulb: 'bulbScrew', intercom: 'keypad', mammoth: 'mammothDress' };
+      const allowed = { salad: 'saladCut', bulb: 'bulbScrew',  mammoth: 'mammothDress' };
       if (allowed[m.key] !== msg.game) return;
       stopSpectator(m.id); m.netStage = (m.netStage || 0) + 1;
       m.def = { ...m.def, world: false, game: msg.game }; m.netKind = 'panel'; observe(m); return;

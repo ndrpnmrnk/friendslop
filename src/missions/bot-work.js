@@ -39,7 +39,7 @@ export function beginBotWork(b, m) {
   const build=()=>(job.world?WORLD_GAMES:ALL_GAMES)[m.def.game](m.obj,api,ctx);
   job.game=W.net?W.net.work(m,job.world?'world':'panel',build):build();
   for(const it of W.items)if(!before.has(it))it.mission=m;
-  const ui=document.getElementById(['fuse','phone','keypad','lockpick','pipes'].includes(m.def.game)?({fuse:'wireui',phone:'phoneui',keypad:'keyui',lockpick:'lockui',pipes:'pipeui'}[m.def.game])+'-bot-'+m.id:'');
+  const ui=document.getElementById(['fuse','phone','lockpick','pipes'].includes(m.def.game)?({fuse:'wireui',phone:'phoneui',lockpick:'lockui',pipes:'pipeui'}[m.def.game])+'-bot-'+m.id:'');
   if(ui&&job.look){
     const cv=document.createElement('canvas');cv.width=cv.height=64;const tx=new THREE.CanvasTexture(cv);tx.magFilter=tx.minFilter=THREE.NearestFilter;tx.generateMipmaps=false;
     const mat=new THREE.MeshBasicMaterial({map:tx}),display=new THREE.Group();display.position.copy(job.look);display.lookAt(eye);

@@ -4,24 +4,21 @@ import { random } from '../core/random.js';
 import {addOutline} from '../game/outline.js';
 import {CONFIG} from '../config.js';
 import {cameraModel,tripodModel} from './camera-model.js';
-import { buildEntranceBell,doorbellGame } from './doorbell.js';
 import { followHand, handPosition, cargoPosition, toolHand } from '../game/handheld.js';
 import { THREE, G, V3, mesh, col, tmat, lam, glow, compose, sprite } from '../core/gfx.js';
 import { T, pix } from '../core/textures.js';
 import { W } from '../world/state.js';
 import { addSolid, isFree, groundAt, raySolids } from '../world/physics.js';
 import { burst, puff } from '../world/particles.js';
-import { addItem, launch, setLetterColor } from '../game/items.js';
+import { addItem, launch } from '../game/items.js';
 import { addPushable } from '../world/pushables.js';
-import { skelModel } from '../game/town.js';
 import { daze,actors } from '../game/actors.js';
 import { sfx } from '../core/sfx.js';
 import { nearbyItemPoint } from './location.js';
 
 /* v0.23 — 14 новых миссий, все в 3D-мире, с настоящими объектами:
-   doorbell  Позвони и убеги (Goose Game)   steal    Утащи у скелета (Goose Game)    grill   Бургеры на гриле (Overcooked)
    generator Заправь генератор (Among Us)  bells    Колокола склепа (Zelda)         moths   Мотыльки в сачок (Animal Crossing)
-   carwash   Помой машину (Car Wash)       balloon  Шарик на дереве (физика)        mail    Почтальон (Paperboy)
+   carwash   Помой машину (Car Wash)       balloon  Шарик на дереве (физика)
    detector  Металлоискатель (Stardew)     cart     Тележка из магазина (GTA)       ghost   Фото призрака (Fatal Frame)
    antenna   Настрой антенну (Among Us)    pigeon   Поймай голубя (WarioWare) */
 
@@ -44,28 +41,16 @@ function farFloor(p, a, b) {
 }
 const flat = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const los = (a, b) => { const d = new V3().subVectors(b, a), l = d.length(); if (l < 0.01) return true; d.multiplyScalar(1 / l); return raySolids(a, d, l) >= l - 0.35; };
-// конус взгляда: красный сектор на земле перед NPC
-function viewCone(range, half) { const m = new THREE.Mesh(new THREE.CircleGeometry(range, 14, -Math.PI / 2 - half, half * 2), new THREE.MeshBasicMaterial({ color: 0xff3a4a, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.y = 0.05; const g = new THREE.Group(); g.add(m); W.group.add(g); return g; }
-function sees(eye, yaw, range, half, P) {
-  if (P.hidden) return false; const dx = P.pos.x - eye.x, dz = P.pos.z - eye.z, d = Math.hypot(dx, dz); if (d > range) return false;
-  let da = Math.atan2(dx, dz) - yaw; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) > half) return false;
-  return los(new V3(eye.x, eye.y + 1.5, eye.z), new V3(P.pos.x, P.pos.y + (P.crouch ? 0.6 : 1.2), P.pos.z));
-}
+
+
 let _gh; const ghostTex = () => _gh || (_gh = (() => { const c = document.createElement('canvas'); c.width = 24; c.height = 28; const g = c.getContext('2d');
   g.fillStyle = '#e8f0ff'; g.beginPath(); g.arc(12, 11, 10, Math.PI, 0); g.lineTo(22, 26); for (let i = 0; i < 4; i++) g.lineTo(22 - (i + 0.5) * 5, i % 2 ? 26 : 22); g.lineTo(2, 26); g.closePath(); g.fill();
   g.fillStyle = '#17111f'; g.fillRect(7, 9, 3, 4); g.fillRect(14, 9, 3, 4); g.fillRect(10, 16, 4, 3);
   const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; })());
 const mkGhost = () => { const s = sprite(ghostTex(), 1); s.material = new THREE.SpriteMaterial({ map: ghostTex(), transparent: true, opacity: 0.8, depthWrite: false }); s.scale.set(1.0, 1.15, 1); W.group.add(s); return s; };
-const numTex = (n, c) => { const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16; const g = cv.getContext('2d'); g.fillStyle = '#' + c.toString(16).padStart(6, '0'); g.fillRect(0, 0, 16, 16); g.fillStyle = '#f1e8ff'; g.font = 'bold 12px monospace'; g.textAlign = 'center'; g.fillText(String(n), 8, 12);
-  const t = new THREE.CanvasTexture(cv); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; };
-
 /* ====================== объекты (ставит генератор миссий) ====================== */
-export const buildDoor=buildEntranceBell;
-export function buildSkelBench(x, y, z, f) {
-  const o = place(x, y, z, f, g => { g.add(compose('m5bench', a => { const w = tmat(T.wood()), dk = col(0x2b2533); a(G.box, w, 0, 0.45, 0, 1.8, 0.06, 0.45); a(G.box, w, 0, 0.75, -0.2, 1.8, 0.35, 0.05); for (const sx of [-0.8, 0.8]) a(G.box, dk, sx, 0.22, 0, 0.06, 0.44, 0.42); }));
-    const sk = skelModel('smoke'); sk.g.position.set(-0.35, -0.5, 0.0); sk.legs.forEach(l => (l.rotation.x = -1.4)); g.add(sk.g); g.userData.sk = sk; }, [1.9, 0.6], 0.5);
-  o.type = 'skelbench'; o.sk = o.g.userData.sk; return o;
-}
+
+
 export function buildGenerator(x, y, z, f) {
   const o = place(x, y, z, f, g => { g.add(compose('m5gen', a => { const y2 = lam({ map: T.paintMetal(0xd8a030) }, 'm5genY'), dk = col(0x2b2533), mt = tmat(T.metal());
     a(G.box, y2, 0, 0.5, 0, 1.2, 0.7, 0.7); a(G.box, tmat(T.vent()), 0, 0.5, 0.36, 0.8, 0.4, 0.01); for (const sx of [-0.62, 0.62]) a(G.box, dk, sx, 0.55, 0, 0.04, 0.8, 0.75);
@@ -131,46 +116,13 @@ export function buildDovecote(x, y, z, f) {
     a(G.box, col(0x17111f), -0.18, 1.98, 0.301, 0.18, 0.2, 0.01); a(G.box, col(0x17111f), 0.18, 1.98, 0.301, 0.18, 0.2, 0.01); a(G.box, w, 0, 1.82, 0.36, 0.7, 0.03, 0.15); })), [0.8, 0.6], 1.8);
   o.type = 'dovecote'; return o;
 }
-export function buildMailBag(x, y, z, f) {
-  const o = place(x, y, z, f, g => g.add(compose('m5mail', a => { a(G.box, lam({ map: T.cloth(0x6a4a2a, 'leather_g') }, 'm5bag'), 0, 0.25, 0, 0.6, 0.5, 0.3); a(G.box, col(0x3a2418), 0, 0.52, 0, 0.62, 0.06, 0.32);
-    for (let i = 0; i < 4; i++) a(G.box, col(0xf1e8ff), -0.15 + i * 0.1, 0.56, 0, 0.08, 0.1, 0.02, 0.2); a(G.box, tmat(T.sign('ПОЧТА', '#1e4688', '#f1e8ff')), 0, 0.3, 0.155, 0.4, 0.14, 0.01); })), [0.7, 0.4], 0.6);
-  o.type = 'mailbag'; return o;
-}
+
 // спот-миссии: гриль у фудтрака, мойка у машины, мотыльки у фонаря
 export const buildGrillSpot = sp => ({ type: 'spot', spot: sp, f: sp.f, pos: () => new V3(sp.x, sp.y, sp.z), dispose() {} });
 
 /* ====================== уличные миссии ====================== */
 export const WORLD5 = {
-  doorbell:doorbellGame,
   // 2. Утащи у скелета: банка рядом с ним на лавке; бери, когда он не смотрит (красный сектор), и уноси за 12 м
-  steal(o, api, ctx) {
-    const P = ctx.player, sk = o.sk, c = o.pos(), yaw0 = o.g.rotation.y; let look = yaw0, want = yaw0, nextT = 2, strikes = 0, time = 75, hold = 0, grace=3, suspicion=0, recovery=0, attempted=false;
-    const spot = new V3(c.x + Math.cos(yaw0) * 0.45, c.y + 0.6, c.z - Math.sin(yaw0) * 0.45);
-    const can = addItem('can', spot.x, spot.y, spot.z); can.def = { ...can.def, respawn: 0 }; const rg = ring(0xf5c542);
-    const cone = viewCone(7, 0.6); cone.position.set(c.x, c.y, c.z);
-    api.msg('Стащи банку, пока скелет не смотрит');
-    return {
-      botItems:()=>[can],botTarget:()=>P.held===can?c.clone().addScaledVector(new V3(-Math.sin(yaw0),0,-Math.cos(yaw0)),14):can.pos,
-      target: () => P.held === can ? null : can.pos,
-      update(dt) {
-        time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false });
-        if (can.state === 'gone') return api.finish({ success: false });
-        // скелет крутит головой: смотрит перед собой, иногда резко оборачивается
-        nextT -= dt; if (nextT <= 0) { nextT = 1.2 + random() * 2; want = yaw0 + (random() < 0.55 ? 0 : (random() < 0.5 ? -1 : 1) * (1.2 + random() * 1.6)); }
-        look += (want - look) * Math.min(1, dt * 3); sk.body.rotation.y = look - yaw0; cone.rotation.y = look; hold += dt; sk.arms[1].rotation.x = -1.6 + Math.sin(hold * 1.3) * 0.5;
-        rg.visible = P.held !== can; rg.position.set(can.pos.x, can.pos.y - 0.08, can.pos.z);
-        grace-=dt;recovery-=dt;if(P.held===can)attempted=true;
-        const near=flat(P.pos,c)<7,has=P.held===can;
-        const watching=grace<=0&&recovery<=0&&attempted&&near&&has&&sees(c,look,7,.6,P);
-        suspicion=Math.max(0,Math.min(1,suspicion+(watching?dt*1.5:-dt*2)));cone.children[0].material.opacity=watching?.10+suspicion*.4:.12;
-        if(watching&&suspicion>=1) { strikes++;suspicion=0;recovery=3;attempted=false; sfx('curse', { at: c }); daze(P, 1); if (P.held === can) P.held = null; can.state = 'rest'; can.pos.copy(spot); can.vel.set(0, 0, 0);
-          api.msg(strikes >= 2 ? 'Попался дважды!' : 'Заметил! Банку вернул', 'bad'); if (strikes >= 2) return api.finish({ success: false }); }
-        const d = flat(can.pos, c); api.progress(Math.min(1, d / 12));
-        if (d > 12 && can.state !== 'fly') { sfx('done'); api.finish({ success: true, mult: 1 }); }
-      },
-      stop() { W.group.remove(cone); W.group.remove(rg); if (P.held === can) P.held = null; can.state = 'gone'; can.g.visible = false; },
-    };
-  },
   // 4. Генератор: принеси канистру к генератору → E → залей (панель «fuel»)
   generator(o, api, ctx) {
     api.feedback?.();
@@ -262,43 +214,6 @@ export const WORLD5 = {
       },
       update(dt){time-=dt;api.timer(time);if(time<=0)return api.finish({success:false});P.carryCrate=held()||null;markers.forEach((m,i)=>m.visible=i===placed.length&&placed.length<3);mat.opacity=0.35+Math.sin(performance.now()*0.005)*0.12;},
       stop(){P.carryCrate=null;for(const q of crates){unpin(q);q.it.onPickup=null;if(q.it.owner?.held===q.it)q.it.owner.held=null;q.it.state='gone';q.it.g.visible=false;}for(const m of markers)m.removeFromParent();mat.dispose();o.bl.visible=!done;},
-    };
-  },
-  // 9. Почтальон: 3 письма по цветным ящикам (можно закинуть броском)
-  mail(o, api, ctx) {
-    api.feedback?.();
-    const P = ctx.player, c = o.pos(), COL = [[0xd8243a, 'красный'], [0x2a6ad8, 'синий'], [0x3a9a4a, 'зелёный']]; let time=150,k=0,letter=null;
-    const destinations=[];let previous=c;for(let i=0;i<3;i++){let best=null,bestScore=-1;for(let j=0;j<32;j++){const q=farFloor(previous,i?20:30,i?40:55),min=Math.min(flat(q,c),...destinations.map(v=>flat(v,q)));if(min>bestScore){best=q;bestScore=min;}if(min>18)break;}destinations.push(best);previous=best;}
-    const boxes = COL.map(([cc], i) => { const p=destinations[i],g = new THREE.Group(); g.position.copy(p); g.rotation.y = random() * 6; W.group.add(g);
-      g.add(compose('m5mbox' + cc, a => { const m = lam({ map: T.paintMetal(cc) }, 'm5mb' + cc); a(G.box, col(0x2b2533), 0, 0.5, 0, 0.08, 1.0, 0.08); a(G.box, m, 0, 1.15, 0, 0.42, 0.34, 0.5); a(G.cyl8, m, 0, 1.32, 0, 0.21, 0.5, 0.21, Math.PI / 2); a(G.box, col(0x17111f), 0, 1.22, 0.255, 0.26, 0.04, 0.01); }));
-      const sg = sprite(numTex(i + 1, cc), 0.5); sg.position.y = 1.9; g.add(sg); const flag=new THREE.Group();flag.name='mail-flag';flag.position.set(0.23,1.13,0);g.add(flag);flag.rotation.x=Math.PI/2;
-      mesh(G.box,col(0xe8dfc8),0,0.17,0,0.025,0.34,0.025,flag);mesh(G.box,col(cc),0,0.29,0.065,0.035,0.12,0.15,flag);
-      const s = addSolid(p.x - 0.25, p.z - 0.25, p.x + 0.25, p.z + 0.25, p.y, p.y + 1.0); return { g, p, s,flag,delivered:false }; });
-    const give = () => { setLetterColor(COL[k][0]); letter = addItem('letter', P.pos.x, P.pos.y + 1.2, P.pos.z); letter.def = { ...letter.def, respawn: 0 }; ctx.give(letter); api.msg(`Письмо в ${COL[k][1]} ящик №${k + 1}`, 'good'); };
-    give();
-    const slot = i => new V3(boxes[i].p.x, boxes[i].p.y + 1.2, boxes[i].p.z);
-    const deliver = () => { boxes[k].delivered=true;if (letter) { if (P.held === letter) P.held = null; letter.state = 'gone'; letter.g.visible = false; } sfx('pickup'); burst(boxes[k].p.x, boxes[k].p.y + 1.3, boxes[k].p.z, 8, { color: COL[k][0], size: 0.08, speed: 1.4 });
-      k++; api.progress(k / 3); if (k >= 3) { sfx('done'); api.finish({ success: true, mult: 1 }); return; } give(); };
-    return {
-      botItems:()=>letter?[letter]:[],botTarget:()=>letter&&P.held!==letter?letter.pos:boxes[k]?.p,
-      target: () => letter&&P.held!==letter?letter.pos:boxes[k] ? boxes[k].p : c,
-      prompt: () => letter && P.held === letter && flat(P.pos, boxes[k].p) < 1.5 ? '<b>E</b>Опустить письмо' : '',
-      interact() { if (!letter || P.held !== letter || flat(P.pos, boxes[k].p) > 1.5) return false; deliver(); return true; },
-      update(dt) {
-        time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false }); if (k >= 3) return;
-        for(const box of boxes)box.flag.rotation.x+=((box.delivered?0:Math.PI/2)-box.flag.rotation.x)*(1-Math.exp(-dt*9));
-        if (letter && (letter.state === 'fly' || letter.state === 'rest') && letter.pos.distanceTo(slot(k)) < 0.7) return deliver();
-        // не в тот ящик — письмо отскакивает
-        for (let i = 0; i < 3; i++) if (i !== k && letter && letter.state === 'fly' && letter.pos.distanceTo(slot(i)) < 0.6) { letter.vel.multiplyScalar(-0.4); api.msg('Не тот ящик!', 'bad'); }
-        // A missing envelope is not evidence of delivery. Do not silently
-        // create the next one or advance the mission without the player's
-        // interaction with the correct mailbox.
-        if(letter && letter.state==='gone'){
-          api.msg('Письмо потеряно - доставка не засчитана','bad');
-          return api.finish({success:false});
-        }
-      },
-      stop() { for (const b of boxes) { W.group.remove(b.g); b.s.on = false; } if (letter && letter.state !== 'gone') { if (P.held === letter) P.held = null; letter.state = 'gone'; letter.g.visible = false; } },
     };
   },
   // 10. Металлоискатель: писк чаще рядом с кладом; E — копать (лишние ямы отнимают время)

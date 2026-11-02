@@ -201,13 +201,6 @@ function animate(c, dt, s) {
     setHand(c.handL, -hx * 0.8, d.top - 0.2 + sn * 0.22, 0.4, f); setHand(c.handR, hx * 0.8, d.top - 0.2 - sn * 0.22, 0.4, f);
   } else if (s.air) {
     setHand(c.handL, -hx - 0.1, hy + 0.35, hz, f); setHand(c.handR, hx + 0.1, hy + 0.35, hz, f);
-  } else if (s.act === 'smoke') {
-    // перекур/пивко (v0.20): берёт из протянутой пачки → подносит ко рту ПЕРЕД лицом → щелчком выкидывает
-    setHand(c.handL, -hx, hy + fl, hz, f);
-    if (s.smokePh === 'take') setHand(c.handR, hx * 0.6, hy + 0.25, hz + 0.5, damp(8, dt));
-    else if (s.smokePh === 'flick') setHand(c.handR, hx + 0.15, hy + 0.2, hz + 0.55, damp(18, dt));
-    else { const up = Math.max(0, Math.sin(t * 1.1)), my = d.top - 0.42, mz = Math.max(hz + 0.3, 0.46);
-      setHand(c.handR, hx * (1 - up * 0.7), hy + (my - hy) * up, hz + (mz - hz) * up, damp(7, dt)); c.head.rotation.x = -0.12 * up; }
   } else if (s.act === 'stretch') {
     const a = Math.sin(Math.min(1, s.actK) * Math.PI);
     setHand(c.handL, -hx - 0.15 * a, hy + (d.top - hy + 0.35) * a, hz, f); setHand(c.handR, hx + 0.15 * a, hy + (d.top - hy + 0.35) * a, hz, f); c.body.scale.y *= 1 + 0.08 * a;

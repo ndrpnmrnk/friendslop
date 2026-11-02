@@ -201,9 +201,7 @@ export const PropMethods = {
       s(G.box, 0, 0.44, -0.02, 0.06, 0.05, 0.5); s(G.box, 0, 0.66, 0.0, 0.06, 0.05, 0.46); s(G.box, 0, 0.56, 0.22, 0.05, 0.2, 0.05);
       s(G.cyl8, 0, 0.66, 0.24, 0.045, 0.06, 0.045, Math.PI / 2); s(G.box, 0, 0.02, 0.24, 0.12, 0.04, 0.12); s(G.box, 0, 0.02, -0.38, 0.12, 0.04, 0.12);
     }
-    // Хэллоуин: изредка на скамейке сидит весёлый скелет (машет, нога на ногу, держит тыкву; бывает в шляпе или шарфе)
-    const skel = HW && random() < (globalThis.__skel ?? 0); // v0.19: на лавочках почти не сидят — по городу ходят скелеты-NPC
-    if (skel) skeleton(g, ['wave', 'cross', 'pumpkin'][(random() * 3) | 0], random() < 0.5 ? (random() < 0.5 ? 'hat' : 'scarf') : null, random() < 0.5 ? -0.4 : 0.4);
+    const skel = false;
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.6 : 2, q ? 2 : 0.6, 0, 0.55);
     W.benches.push({ x: this.X(x), y: this.Y, z: this.Z(z), ry: g.rotation.y, skel, riders: [] });
     if (random() < 0.1 && this.Y > -1) this.cushion(x + (q ? 0 : 0.5), z + (q ? 0.5 : 0), 0.55);
@@ -630,36 +628,7 @@ export const PropMethods = {
 
 /* Скелет на скамейке: череп с челюстью, рёбра, кости рук и ног. Позы: машет (рука качается), нога на ногу, держит тыкву.
    off — сдвиг по скамейке. Машущая рука и челюсть анимируются. */
-function skeleton(g, pose, acc, off) {
-  const bone = col(0xe8e0d0), dk = col(0x17111f), sk = new THREE.Group(); sk.position.x = off; g.add(sk);
-  sk.add(compose('skel_' + pose, a => {
-    // череп, глазницы, нос, зубы; шея и позвоночник; таз
-    a(G.sph10, bone, 0, 1.2, -0.06, 0.17, 0.17, 0.16); a(G.box, bone, 0, 1.1, -0.0, 0.2, 0.08, 0.16);
-    for (const sx of [-0.065, 0.065]) a(G.box, dk, sx, 1.22, 0.1, 0.06, 0.06, 0.02); a(G.box, dk, 0, 1.15, 0.11, 0.03, 0.04, 0.02);
-    for (let i = -2; i <= 2; i++) a(G.box, dk, i * 0.03, 1.085, 0.08, 0.012, 0.03, 0.01);
-    a(G.cyl5, bone, 0, 0.98, -0.1, 0.03, 0.14, 0.03); a(G.cyl5, bone, 0, 0.74, -0.14, 0.028, 0.42, 0.028);
-    for (let i = 0; i < 5; i++) { const w = 0.3 - i * 0.025; a(G.halfTorus, bone, 0, 0.94 - i * 0.065, -0.13, w * 0.5, 0.16, 0.3, Math.PI / 2, 0, 0); }
-    a(G.box, bone, 0, 0.92, -0.14, 0.34, 0.035, 0.05); a(G.box, bone, 0, 0.5, -0.1, 0.3, 0.1, 0.16);
-    // ноги: бедро вперёд по сиденью, голень вниз; «нога на ногу» — правая лежит на левой
-    for (const sx of [-1, 1]) { const cross = pose === 'cross' && sx > 0;
-      a(G.cyl5, bone, sx * 0.09, cross ? 0.58 : 0.5, 0.06, 0.028, 0.36, 0.028, Math.PI / 2 - (cross ? 0.25 : 0), 0, cross ? 0.5 : 0);
-      if (cross) { a(G.cyl5, bone, -0.04, 0.5, 0.38, 0.025, 0.4, 0.025, 1.0, 0, 1.1); a(G.box, bone, -0.2, 0.36, 0.5, 0.07, 0.04, 0.14); }
-      else { a(G.cyl5, bone, sx * 0.09, 0.27, 0.25, 0.025, 0.44, 0.025); a(G.box, bone, sx * 0.09, 0.04, 0.3, 0.08, 0.04, 0.16); } }
-    // левая рука лежит на спинке/коленях; правая — по позе
-    a(G.cyl5, bone, -0.2, 0.8, -0.1, 0.022, 0.3, 0.022, 0, 0, 0.25); a(G.cyl5, bone, -0.24, 0.6, 0.02, 0.02, 0.28, 0.02, 1.2, 0, 0);
-    if (pose === 'pumpkin') { a(G.cyl5, bone, 0.2, 0.8, -0.1, 0.022, 0.3, 0.022, 0, 0, -0.25); a(G.cyl5, bone, 0.18, 0.66, 0.06, 0.02, 0.28, 0.02, 1.3, 0, 0.3);
-      a(G.sph10, tmat(T.pumpkin()), 0, 0.68, 0.2, 0.17, 0.14, 0.17); a(G.cyl6, col(0x3f6b2a), 0, 0.83, 0.2, 0.025, 0.06, 0.025); }
-    if (pose === 'cross') { a(G.cyl5, bone, 0.2, 0.8, -0.1, 0.022, 0.3, 0.022, 0, 0, -0.25); a(G.cyl5, bone, 0.14, 0.62, 0.08, 0.02, 0.28, 0.02, 1.3, 0, -0.4); }
-    if (acc === 'hat') { a(G.cyl12, col(0x2a1f3d), 0, 1.36, -0.06, 0.26, 0.025, 0.26); a(G.cone8, col(0x2a1f3d), 0, 1.58, -0.06, 0.17, 0.44, 0.17); a(G.cyl12, col(0xff8a1f), 0, 1.4, -0.06, 0.15, 0.04, 0.15); }
-    if (acc === 'scarf') { a(G.torus, col(0xd8243a), 0, 1.0, -0.08, 0.15, 0.15, 0.2, Math.PI / 2); a(G.box, col(0xd8243a), 0.08, 0.86, 0.06, 0.07, 0.24, 0.03, 0.2); a(G.box, col(0xf1e8ff), 0.08, 0.8, 0.075, 0.07, 0.03, 0.03, 0.2); }
-  }));
-  if (pose === 'wave') {
-    // машущая рука: плечо — точка вращения
-    const arm = new THREE.Group(); arm.position.set(0.18, 0.92, -0.1); sk.add(arm);
-    arm.add(compose('skelArm', a => { const bone2 = col(0xe8e0d0); a(G.cyl5, bone2, 0.04, 0.12, 0, 0.022, 0.28, 0.022, 0, 0, -0.3); a(G.cyl5, bone2, 0.1, 0.38, 0, 0.02, 0.26, 0.02); for (let i = 0; i < 4; i++) a(G.box, bone2, 0.06 + i * 0.025, 0.55, 0, 0.012, 0.08, 0.012); }));
-    W.keep.push(arm); const ph = random() * 6; W.animated.push((dt, t) => { arm.rotation.z = Math.sin(t * 5 + ph) * 0.35 - 0.1; });
-  }
-}
+
 
 const LAMP_CONE = new THREE.CylinderGeometry(0.13, 1.35, 2.95, 12, 1, true);
 let _lc; export const LAMP_CONE_M = () => _lc || (_lc = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,

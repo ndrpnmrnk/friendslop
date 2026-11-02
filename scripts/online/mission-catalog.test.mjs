@@ -19,7 +19,7 @@ test('all physical item mission categories are included in the centralized sync 
  const itemGames={
   'src/missions/games2.js':['targets','cleanup','delivery','pizza'],
   'src/missions/games3.js':['salad','bulb','firebin'],
-  'src/missions/games5.js':['generator','balloon','mail','detector','cart']
+  'src/missions/games5.js':['generator','balloon','detector','cart']
  };
  let covered=0;
  for(const [path,keys] of Object.entries(itemGames)){
@@ -30,7 +30,7 @@ test('all physical item mission categories are included in the centralized sync 
     covered++;
   }
  }
- assert.equal(covered,12);
+ assert.equal(covered,11);
  assert.equal(CONFIG.missions.steal,undefined,'skeleton mission removed from the spawn catalog');
  const world=source('src/net/world-sync.js'),match=source('src/net/match-sync.js');
  assert(world.includes("type==='i'?Number(/^m("),'mission items must inherit scope tags');
@@ -39,11 +39,11 @@ test('all physical item mission categories are included in the centralized sync 
  assert(match.includes("MATCH.world.request('take',it)"),'mission holders must send pickup requests');
 });
 
-test('cleanup follows replicated collected state, balloon undoes stolen steps, mail cannot auto-deliver',()=>{
+test('cleanup follows replicated collected state and balloon undoes stolen steps',()=>{
  const cleanup=source('src/missions/games2.js');
  const crates=source('src/missions/games5.js');
  assert(cleanup.includes("got=o.litter.filter(it=>it.taken).length"));
  assert(crates.includes('q.it.onPickup=()'));
  assert(crates.includes('placed.splice(i)'));
- assert(!crates.includes("if (letter && letter.state === 'gone') give()"));
+ for(const key of ['mail','intercom','doorbell'])assert.equal(CONFIG.missions[key],undefined);
 });

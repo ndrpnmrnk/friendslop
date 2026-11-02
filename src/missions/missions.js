@@ -20,8 +20,8 @@ import { GAMES } from './games.js';
 import { PANEL_GAMES, WORLD_GAMES } from './games2.js';
 import { buildShells, buildFishing, buildSpot, buildTargets, buildCleanup } from './objects2.js';
 import { PANEL3, WORLD3, buildPhone, buildFire, buildDeadLamp, buildCatBox } from './games3.js';
-import { PANEL4, WORLD4, buildLeafPile, buildGraffitiWall, graffitiPlaces, buildIntercom, buildChest, buildValve } from './games4.js';
-import { PANEL5, WORLD5, buildDoor, buildSkelBench, buildGenerator, buildBells, buildTree, buildDetectorSign, buildCartStart, buildGraveCam, buildAntenna, buildDovecote, buildMailBag } from './games5.js';
+import { PANEL4, WORLD4, buildLeafPile, buildGraffitiWall, graffitiPlaces, buildChest, buildValve } from './games4.js';
+import { PANEL5, WORLD5, buildGenerator, buildBells, buildTree, buildDetectorSign, buildCartStart, buildGraveCam, buildAntenna, buildDovecote } from './games5.js';
 
 /* Общий случайный пул. Завершение одного задания освобождает один слот;
    остальные задания не ждут его и не образуют упорядоченную волну. */
@@ -108,14 +108,12 @@ function canSpawn(key, def) {
   if ((M.cooldown[key] || 0) > 0) return false;
   const n = M.list.filter(m => m.key === key).length;
   if (n >= def.max) return false;
-  if(key==='intercom'||key==='doorbell')return entrances(key).length>0;
   if(key==='graffiti')return graffitiPlaces().length>0;
   if (key === 'cat') return W.cats.some(c => !M.list.some(m => m.obj === c));
   if (def.needs && !(W.spots[def.needs] || []).length) return false;
   if (def.spot) return freeSpots(def.spot).length > 0;
   return true;
 }
-const entrances = kind => (W.buildings || []).filter(g => (kind!=='doorbell'||g.entryDoor)&&g.intercom && !M.list.some(m => m.obj.entrance === g)).filter(g => { const p=g.intercom, x=p.x+p.f[0]*0.9,z=p.z+p.f[1]*0.9; return isFree(x-0.3,z-0.3,x+0.3,z+0.3,p.y+0.05,p.y+1.8) && Math.abs(groundAt(x,z,0.25,p.y+0.3)-p.y)<0.2; });
 const freeSpots = kind => (W.spots[kind] || []).filter(sp => !M.list.some(m => m.obj.spot === sp) && !(sp.lamp && (sp.lamp.dead || (sp.lamp.pool && sp.lamp.pool.userData.broken))) && isFree(sp.x - 0.3, sp.z - 0.3, sp.x + 0.3, sp.z + 0.3, sp.y + 0.05, sp.y + 1.5) && Math.abs(groundAt(sp.x, sp.z, 0.2, sp.y + 0.4) - sp.y) < 0.25);
 
 // таймер миссии: от расстояния до ближайшего игрока (25–50 с), в финальном рывке короче
@@ -142,15 +140,13 @@ export function spawnWave(player, phase = 'calm') {
 // Зерно модели отдельно от выбора миссии и от прогретых кешей THREE.
 const BUILDERS = { puzzle: buildBoard, ttt: buildTable, shells: buildShells, cleanup: buildCleanup, catbox: buildCatBox,
   leaves: buildLeafPile, lockpick: buildChest, pipes: buildValve, outfit: buildOutfit, shakir: buildShakir,
-  perfume: buildPerfume, mammoth: buildMammoth, steal: buildSkelBench, generator: buildGenerator,
+  perfume: buildPerfume, mammoth: buildMammoth, generator: buildGenerator,
   bells: buildBells, balloon: buildTree, detector: buildDetectorSign, cart: buildCartStart,
-  ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote, mail: buildMailBag };
+  ghost: buildGraveCam, antenna: buildAntenna, pigeon: buildDovecote };
 function missionObject(r) {
   const { key, p = [0, 0, 0], f = [0, 1] } = r, [x, y, z] = p, def = CONFIG.missions[key];
   if (key === 'cat') return W.cats[r.ref];
   if (key === 'graffiti') return buildGraffitiWall(x, y, z, f, { solid: W.solids[r.ref] });
-  if (key === 'doorbell') return buildDoor((W.net?.buildings||W.buildings)[r.ref]);
-  if (key === 'intercom') { const g = (W.net?.buildings||W.buildings)[r.ref], q = g.intercom, o = buildIntercom(q.x, q.y, q.z, q.f); o.entrance = g; return o; }
   if (key === 'bus') return buildBus(r.place?{...r.place,path:r.place.path.map(p=>new V3(...p)),stops:r.place.stops.map(p=>new V3(...p))}:busPlaces()[r.ref]);
   if (key === 'van') return buildVan(r.place);
   if (key === 'fat') return buildFat();
@@ -191,9 +187,6 @@ export function spawnMission(player, only = null, opts = {}) {
     } else if (key === 'graffiti') {
       const a = graffitiPlaces(), q = a[random() * a.length | 0]; if (!q) continue;
       r.p = [q.x, q.y, q.z]; r.f = q.f; r.ref = W.solids.indexOf(q.solid); p = q; where = 'Стена города';
-    } else if (key === 'intercom' || key === 'doorbell') {
-      const a = entrances(key), g = a[random() * a.length | 0]; if (!g) continue;
-      r.ref = (W.net?.buildings||W.buildings).indexOf(g); p = g.intercom; where = g.name + ' · входная дверь';
     } else if (key === 'bus') {
       const a = busPlaces(); if (!a.length) continue; r.ref = random() * a.length | 0; p = a[r.ref];r.place={...p,path:p.path.map(v=>v.toArray()),stops:p.stops.map(v=>v.toArray())}; where = 'Маршрут 63';
     } else if (key === 'van') {
@@ -217,7 +210,7 @@ export function spawnMission(player, only = null, opts = {}) {
   return null;
 }
 const minDist = (p, list) => list.reduce((d, q) => Math.min(d, Math.hypot(q.x - p.x, q.z - p.z)), 60);
-export function startMissionClock(m) { if(m.activeLeft==null){m.activeMax=m.def.workLimit||({cart:150,delivery:105,pizza:90,mail:110,balloon:100,mammoth:110,graffiti:90,detector:80,perfume:90}[m.key]||Math.max(45,m.def.life||45));m.activeLeft=m.activeMax;} }
+export function startMissionClock(m) { if(m.activeLeft==null){m.activeMax=m.def.workLimit||({cart:150,delivery:105,pizza:90,balloon:100,mammoth:110,graffiti:90,detector:80,perfume:90}[m.key]||Math.max(45,m.def.life||45));m.activeLeft=m.activeMax;} }
 export function removeMission(m, silent = false) {
   m.onRemove?.(); m.onRemove=null;
   for(const it of W.items)if(it.mission===m){if(it.owner?.held===it)it.owner.held=null;it.state='gone';it.g.visible=false;it.outline?.set(false);it.ring?.removeFromParent();}

@@ -16,7 +16,6 @@ import {worldTarget,worldAimPoint,pickTarget} from './game/object-actions.js';
 import { updateOcclusion } from './game/occlusion.js';
 import {updateBongEffects} from './game/bong.js';
 import {recordFault,lastFaults,runtimeCheckpoint,lastRuntime} from './core/diagnostics.js';
-import {updateSmoking} from './game/smoking.js';
 import { applyNetworkDroneAction, networkCandyState, receiveNetworkCandies, networkDroneState, receiveNetworkDrone, eliminate, updateDrones, resetDrones, droneAction, DRONE_NET_COOLDOWN } from './game/drone.js';
 import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies.js';
 import { routeTo } from './missions/location.js';
@@ -1005,7 +1004,7 @@ function frame() {
       const cp = camera.position, want = inC(cp.x, cp.y, cp.z) || P.inLeaves ? 1 : 0; S.leafVeil = (S.leafVeil || 0) + (want - (S.leafVeil || 0)) * Math.min(1, dt * 6);
       const lv = $('leafVeil'); if (lv) { lv.style.opacity = S.leafVeil.toFixed(3); lv.classList.toggle('hidden', S.leafVeil < .01); } }
     if(S.state==='intro')for(const b of W.bots||[])if(b.puppet)W.netPuppet?.(b,dt,t);
-    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P);if(!MATCH.on)separateActors();updateGrabs(dt,t); if(!W.net?.replica){updateTraps(dt,t);updateTown(dt,t,P,!!EV.big);updateFun(dt,t);updatePolice(dt,t);} updateBongEffects(dt,t);updateSmoking(P,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
+    if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P);if(!MATCH.on)separateActors();updateGrabs(dt,t); if(!W.net?.replica){updateTraps(dt,t);updateTown(dt,t,P,!!EV.big);updateFun(dt,t);updatePolice(dt,t);} updateBongEffects(dt,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
     prof.mark('боты/события');
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' || S.state === 'finale' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);

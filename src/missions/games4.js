@@ -13,7 +13,6 @@ import { sfx } from '../core/sfx.js';
 /* v0.16 — пять новых миссий «руками»:
    leaves   — Золотой билет: разгребаешь кучу листьев мышью, ищешь билет среди мусора (панель, 3D).
    graffiti — Граффити по трафарету: закрась силуэт на стене баллончиком, не вылезая за край (панель, 3D).
-   intercom — Код домофона: цифры кода спрятаны по району на табличках — собери и введи (уличная + панель).
    lockpick — Отмычка: найди «сладкую точку» и проверни замок, пока не сломал все отмычки (панель).
    pipes    — Трубы: поворачивай секции, чтобы вода дошла от входа до выхода (панель). */
 
@@ -48,18 +47,7 @@ export function buildGraffitiWall(x,y,z,f,surface){
  const g=new THREE.Group();g.position.set(x,y,z);W.group.add(g);(W.paintSites??=[]).push({x,z});
  return{g,f,solid:surface?.solid,type:'graffiti',pos:()=>g.position,front:()=>new V3(x+f[0]*1.4,y,z+f[1]*1.4),dispose(){g.removeFromParent();}};
 }
-export function buildIntercom(x, y, z, f) {
-  const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=Math.atan2(f[0],f[1]);W.group.add(g);
-  g.add(compose('intercom25',a=>{
-    a(G.box,tmat(T.metal()),0,1.27,0,0.32,0.56,0.12);
-    a(G.box,tmat(T.vent()),0,1.43,0.066,0.23,0.12,0.012);
-    a(G.box,col(0x17111f),0,1.31,0.066,0.22,0.07,0.012);
-    a(G.box,glow(0x9be36b),0,1.31,0.074,0.16,0.025,0.01);
-    for(let row=0;row<4;row++)for(let c=0;c<3;c++)a(G.box,col(0xc8c0b0),-0.075+c*0.075,1.23-row*0.055,0.075,0.045,0.035,0.022);
-    a(G.box,tmat(T.sign('КОД', '#2a2533','#d8d0b8')),0,1.67,0,0.32,0.13,0.025);
-  }));
-  return {g,f,type:'intercom',reach:1.6,pos:()=>g.position,front:()=>new V3(x+f[0]*0.85,y,z+f[1]*0.85),dispose(){g.removeFromParent();}};
-}
+
 export function buildChest(x, y, z, f) {
   const o = place(x, y, z, f, g => g.add(compose('lockChest', a => { const w = tmat(T.wood()), m = col(0x4a4458); a(G.box, w, 0, 0.3, 0, 1.0, 0.6, 0.6); a(G.box, w, 0, 0.66, 0, 1.02, 0.14, 0.62);
     for (const sx of [-0.35, 0.35]) a(G.box, m, sx, 0.4, 0, 0.08, 0.82, 0.64); a(G.box, col(0xd8a030), 0, 0.42, 0.33, 0.16, 0.18, 0.06); a(G.box, col(0x17111f), 0, 0.4, 0.365, 0.03, 0.07, 0.01); })), [1.1, 0.7], 0.75, 1.6);
@@ -123,20 +111,6 @@ export const PANEL4 = {
   // Граффити: зажми ЛКМ и закрась силуэт; за край — клякса (меньше очков)
   graffiti:graffitiGame,
 
-  // Код домофона — ввод: кнопки 0–9, сброс; найденные цифры подсказаны сверху
-  keypad(o, api, ctx) {
-    api.feedback?.();
-    const c = o.pos(), F = new V3(o.f[0], 0, o.f[1]); api.pose(c.clone().addScaledVector(F, 1.0).add(new V3(0, 1.35, 0)), c.clone().add(new V3(0, 1.15, 0)));
-    const ui = document.createElement('div'); ui.id = 'keyui'; ui.className = 'mgui'; document.body.appendChild(ui); if(ctx?.bot){ui.id+='-bot-'+ctx.mission.id;ui.style.setProperty('display','none','important');}
-    let entry = '', endT = -1;
-    const render = () => { ui.innerHTML = `<div class="wt">ДОМОФОН</div><div class="kd">${(entry + '___').slice(0, 3).split('').join(' ')}</div><div class="kh">Найдено: ${o.code.join(' ')}</div><div class="kg">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, '✓'].map(k => `<button data-k="${k}">${k}</button>`).join('')}</div>`; };
-    render(); api.msg('Набери код из найденных цифр');
-    ui.addEventListener('pointerdown', e => { const b = e.target.closest('button'); if (!b || endT > 0) return; const k = b.dataset.k; sfx('click');
-      if (k === 'C') entry = ''; else if (k === '✓') { if (entry === o.code.join('')) { api.msg('Дверь открыта!', 'good'); sfx('bell'); endT = 0.9; } else { api.msg('Неверный код', 'bad'); sfx('alarm', { v: 0.4 }); entry = ''; } }
-      else if (entry.length < 3) entry += k; render(); });
-    return {
-      botStep(dt, brain) { if(!brain.ready(0.7)||endT>0)return;if(entry.length<3){entry+=o.code[entry.length];render();sfx('click');api.progress(entry.length/4);}else if(entry===o.code.join(''))endT=0.9; }, update(dt) { if (endT > 0) { endT -= dt; if (endT <= 0) api.finish({ success: true, mult: 1 }); } }, stop() { ui.remove(); } };
-  },
 
   // Отмычка: двигай мышью — угол отмычки; зажми ЛКМ — проворачивай замок. Не там — замок упирается, отмычка трещит
   lockpick: lockpickGame,
@@ -180,39 +154,5 @@ export const PANEL4 = {
 
 /* ---------- уличная часть «Кода домофона»: найти три таблички с цифрами ---------- */
 export const WORLD4 = {
-  intercom(o, api, ctx) {
-    api.feedback?.();
-    const P = ctx.player, c = o.pos(); o.code = [0, 0, 0].map(() => (random() * 10) | 0);
-    const used=[];
-    const plates = o.code.map((d,i)=>{
-      let p;for(let n=0;n<20;n++){p=nearbyItemPoint(o.front());if(used.every(q=>q.distanceTo(p)>1.8))break;}used.push(p.clone());
-      const cv=document.createElement('canvas');cv.width=96;cv.height=64;const g=cv.getContext('2d');
-      g.fillStyle='#d8ccb0';g.fillRect(0,0,96,64);g.fillStyle='#b8aa90';for(let n=0;n<100;n++)g.fillRect(random()*96,random()*64,1,1);
-      g.fillStyle='#342c30';g.font='bold 10px monospace';g.fillText('КОД ПОДЪЕЗДА',6,13);g.font='10px monospace';g.fillText('ЦИФРА '+(i+1)+' / 3',6,26);g.font='bold 30px monospace';g.fillText(String(d),39,54);
-      g.strokeStyle='#8a785c';g.strokeRect(2,2,91,59);g.fillStyle='#a86a40';g.fillRect(7,3,20,5);g.fillRect(70,55,19,5);
-      const tex=new THREE.CanvasTexture(cv);tex.magFilter=tex.minFilter=THREE.NearestFilter;tex.generateMipmaps=false;
-      const grp=new THREE.Group();grp.position.copy(p);grp.rotation.y=Math.atan2(c.x-p.x,c.z-p.z);W.group.add(grp);
-      // Записка на крышке небольшого ящика, с лентой и загнутым уголком.
-      mesh(G.box,tmat(T.crate()),0,0.23,0,0.65,0.46,0.5,grp);
-      const mat=new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide});const paper=mesh(G.plane,mat,0,0.468,0,0.56,0.38,1,grp);paper.rotation.x=-Math.PI/2;
-      mesh(G.box,col(0xbda478),0.2,0.48,-0.14,0.12,0.012,0.05,grp);
-      const solid=addSolid(p.x-0.32,p.z-0.32,p.x+0.32,p.z+0.32,p.y,p.y+0.46);
-      return {grp,p,got:false,i,tex,mat,solid};
-    });o.notes=plates;
-    let hint = ''; const say = h => { if (h !== hint) { hint = h; api.msg(h); } };
-    const codeStr = () => o.code.map((d, i) => plates[i].got ? d : '_').join(' ');
-    const all = () => plates.every(q => q.got); let time = 120;
-    return {
-      target() { const left = plates.filter(q => !q.got).sort((a, b) => a.p.distanceTo(P.pos) - b.p.distanceTo(P.pos)); if (left.length) { say(`Найди таблички с цифрами · код: ${codeStr()}`); return left[0].p; } say(`Код ${codeStr()} — беги к домофону, E`); return o.front(); },
-      prompt: () => plates.some(q=>!q.got&&q.p.distanceTo(P.pos)<1.8)?'<b>E</b>Прочитать записку':all()&&P.pos.distanceTo(o.front())<1.8?'<b>E</b>Набрать код':'',
-      interact() { const q=plates.find(q=>!q.got&&q.p.distanceTo(P.pos)<1.8);if(q){q.got=true;sfx('pickup');api.msg('Цифра '+(q.i+1)+': '+o.code[q.i]+' · код '+codeStr(),'good');return true;} if (all() && Math.hypot(P.pos.x - c.x, P.pos.z - c.z) < 1.8) { api.finish({ chain: 'keypad' }); return true; } return false; },
-      update(dt) {
-        time -= dt; api.timer(time); if (time <= 0) return api.finish({ success: false });
-
-        api.progress(plates.filter(q => q.got).length / 3);
-      },
-      stop() { for (const q of plates) {q.grp.removeFromParent();q.solid.on=false;q.tex.dispose();q.mat.dispose();} o.notes=null; },
-    };
-  },
 };
 void tmat;
