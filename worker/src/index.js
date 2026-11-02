@@ -1,4 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
+import { Accounts, discordStart, discordCallback, accountApi } from './accounts.js';
+export { Accounts };
 // Выпуск v0.63.4 (release, сборка 2).
 
 /* Сервер комнат Friendslop.
@@ -23,7 +25,7 @@ export class Room extends DurableObject {
     return new Response(null, { status: 101, webSocket: client });
   }
   players() { const out = []; for (const ws of this.ctx.getWebSockets()) { const a = ws.deserializeAttachment(); if (a?.id) out.push({ ws, a }); } return out; }
-  pub(a) { return { id: a.id, name: a.name, skin: a.skin, ready: !!a.ready, host: !!a.host, muted: !!a.muted, rtt: a.rtt | 0, scene:a.match?'match':'hub' }; }
+  pub(a) { return { id: a.id, name: a.name, avatar: a.avatar || '', skin: a.skin, ready: !!a.ready, host: !!a.host, muted: !!a.muted, rtt: a.rtt | 0, scene:a.match?'match':'hub' }; }
   send(ws, m) { try { ws.send(typeof m === 'string' ? m : JSON.stringify(m)); } catch { } }
   cast(m, except) { const s = JSON.stringify(m); for (const { ws } of this.players()) if (ws !== except) this.send(ws, s); }
   async webSocketMessage(ws, raw) {
@@ -94,7 +96,8 @@ export class Room extends DurableObject {
       if (token && token === await st.get('hostToken') && !list.some(q => q.a.host)) { host = true; await st.delete('hostGone'); await st.deleteAlarm(); this.cast({ t: 'hostback' }); }
     }
     const id=restored?.id||(await st.get('next'))||1;if(!restored)await st.put('next',id+1);
-    Object.assign(a, { id, name, skin: clean(m.skin) || 'cat', ready: false, host, muted: false, rtt: 0, token });
+    const avatar = typeof m.avatar === 'string' && /^https:\/\/cdn\.discordapp\.com\/[\w./?=-]{1,200}$/.test(m.avatar) ? m.avatar : '';
+    Object.assign(a, { id, name, avatar, skin: clean(m.skin) || 'cat', ready: false, host, muted: false, rtt: 0, token });
     ws.serializeAttachment(a);
     this.send(ws, { t: 'welcome', id, host, code: a.code, players: this.players().map(q => this.pub(q.a)),bots:(await st.get('bots'))!==false });
     this.cast({ t: 'join', p: this.pub(a) }, ws);
@@ -142,6 +145,9 @@ export default {
       if (!/^[A-Z0-9]{4,6}$/.test(code)) return new Response('bad room', { status: 400 });
       return env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(req);
     }
+    if (url.pathname === '/auth/discord') return discordStart(req, env);
+    if (url.pathname === '/auth/discord/callback') return discordCallback(req, env);
+    if (url.pathname === '/account' || url.pathname === '/account/logout') return accountApi(req, env);
     if (url.pathname === '/ice') {
       // Голос: временные данные TURN Cloudflare (секреты TURN_KEY_ID и TURN_KEY_API_TOKEN). Без них - только STUN.
       const headers = { 'access-control-allow-origin': '*', 'content-type': 'application/json', 'cache-control': 'no-store' };

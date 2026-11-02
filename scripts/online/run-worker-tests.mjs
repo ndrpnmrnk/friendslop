@@ -2,8 +2,8 @@ import {createRequire} from 'node:module';
 import {spawn} from 'node:child_process';
 const require=createRequire(new URL('../../worker/package.json',import.meta.url));
 const {Miniflare,convertV4MiniflareOptions}=require('miniflare');
-const options={workers:[{modules:true,scriptPath:new URL('../../worker/src/index.js',import.meta.url).pathname,
-  compatibilityDate:'2025-06-01',durableObjects:{ROOMS:{className:'Room',useSQLite:true}}}],host:'127.0.0.1',port:8788,cf:false};
+const options={workers:[{modulesRoot:new URL('../../worker/src/',import.meta.url).pathname,modules:['index.js','accounts.js'].map(f=>({type:'ESModule',path:new URL('../../worker/src/'+f,import.meta.url).pathname})),
+  compatibilityDate:'2025-06-01',durableObjects:{ROOMS:{className:'Room',useSQLite:true},ACCOUNTS:{className:'Accounts',useSQLite:true}}}],host:'127.0.0.1',port:8788,cf:false};
 const runtime=new Miniflare(convertV4MiniflareOptions?convertV4MiniflareOptions(options):options);
 try{
   const url=await runtime.ready;

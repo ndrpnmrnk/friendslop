@@ -21,6 +21,7 @@ import { SUP, resetSupplies, updateSupplies, spawnSupply } from './game/supplies
 import { routeTo } from './missions/location.js';
 import '@fontsource/press-start-2p/400.css';
 import { initNetUI, beforeHub, afterHubShown } from './net/ui.js';
+import { initAccountUI } from './ui/account-ui.js';
 import { MATCH, seededMap, netPrepareMatch, netMarkReady, netMatchTick, netEndMatch, initMatchSync, humansInRoom, myRank, netPaused, netPublishFinal } from './net/match-sync.js';
 import { NET, onNet, serverNow,botsEnabled,setBotsEnabled,netStats } from './net/net.js';
 import { CANDY_TYPES, applyCandy } from './game/candy.js';
@@ -205,7 +206,7 @@ for (const b of document.querySelectorAll('button')) { b.addEventListener('mouse
 addEventListener('pointerdown', () => { initAudio(); ambience(true); }, { once: true });
 $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
-$('playBtn').onclick = () => beforeHub(showHub);
+initAccountUI(() => beforeHub(showHub));
 // v0.61: сетевой матч — синхронизация; хост закрыл лобби или выгнали посреди матча — матч заканчивается, все в хаб
 initMatchSync({
   open: openMission,

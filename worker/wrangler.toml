@@ -7,6 +7,18 @@ compatibility_date = "2025-06-01"
 name = "ROOMS"
 class_name = "Room"
 
+[[durable_objects.bindings]]
+name = "ACCOUNTS"
+class_name = "Accounts"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room"]
+
+# v0.64: аккаунты игроков (вход через Discord)
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Accounts"]
+
+# Секреты (Settings → Variables and Secrets, тип Secret): DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET,
+# TURN_KEY_ID, TURN_KEY_API_TOKEN. Обычные vars здесь не задаём: deploy перезаписал бы их из этого файла.

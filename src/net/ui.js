@@ -3,6 +3,7 @@ import { NET, onNet, inRoom, me, myName, createRoom, joinRoom, leaveRoom, setRea
 import { remoteMode } from './hub-sync.js';
 import { SKINS } from '../characters/skins.js';
 import { sfx } from '../core/sfx.js';
+import { account, renameAccount } from './account.js';
 
 /* Интерфейс онлайна:
    - панель ника (при первом входе и по кнопке «сменить ник»): пиксельный ник-табличка прыгает по буквам, пока печатаешь;
@@ -25,7 +26,7 @@ export function askNick(then) {
   afterNick = then || null; $('nickInput').value = myName(); renderPreview(); $('nickPanel').classList.add('open'); $('nickCancel').classList.toggle('hidden', !myName());
   setTimeout(() => $('nickInput').focus(), 60);
 }
-function closeNick(ok) { if (ok) { const v = $('nickInput').value.trim().slice(0, 16); if (!v) return; setName(v); sfx('click'); } $('nickPanel').classList.remove('open'); const f = afterNick; afterNick = null; if (ok && f) f(); renderLobby(); }
+function closeNick(ok) { if (ok) { const v = $('nickInput').value.trim().slice(0, 16); if (!v) return; setName(v); if (account()) renameAccount(v); sfx('click'); } $('nickPanel').classList.remove('open'); const f = afterNick; afterNick = null; if (ok && f) f(); renderLobby(); }
 
 /* ---------- лобби в меню Esc ---------- */
 function renderLobby() {
@@ -43,7 +44,7 @@ function renderLobby() {
     <div class="lbCode"><span>КОД</span><b>${esc(NET.code)}</b><button class="lbLink" data-a="copy">скопировать ссылку</button></div>
     <div class="lbNick"><span>Боты-соперники</span><button class="stog ${botsEnabled()?'on':''}" role="switch" aria-label="Боты-соперники" aria-checked="${botsEnabled()}" data-a="bots" ${host?'':'disabled'}>${botsEnabled()?'ВКЛ':'ВЫКЛ'}</button></div>
     <ul class="lbList">${list.map(p => { const away = p.id !== NET.id && remoteMode(p.id) === 'match';
-      return `<li class="${p.id === NET.id ? 'me' : ''}"><i class="lbSkin">${esc((SKINS[p.skin]?.name || p.skin || '').slice(0, 1))}</i>
+      return `<li class="${p.id === NET.id ? 'me' : ''}">${p.avatar ? `<img class="lbAva" src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer">` : `<i class="lbSkin">${esc((SKINS[p.skin]?.name || p.skin || '').slice(0, 1))}</i>`}
         <b>${p.host ? '<em>ХОСТ</em>' : ''}${esc(p.name)}</b>
         <span class="lbReady ${p.ready ? 'on' : ''}">${p.ready ? 'ГОТОВ' : '—'}</span>
         <span class="lbPing ${p.rtt > 150 ? 'bad' : p.rtt > 80 ? 'mid' : ''}">${away ? 'в матче' : (p.rtt ? p.rtt + ' мс' : '…')}</span>

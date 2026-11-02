@@ -1,7 +1,7 @@
 {
   "name": "friendslop",
   "private": true,
-  "version": "0.63.4",
+  "version": "0.64.0",
   "type": "module",
   "scripts": {
     "dev": "node scripts/prepare-audio.mjs && vite",
