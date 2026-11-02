@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-// Выпуск v0.63.4 (release).
+// Выпуск v0.63.4 (release, сборка 2).
 
 /* Сервер комнат Friendslop.
    Один Durable Object «Room» на код комнаты (4 символа). Сервер ничего не считает: принимает игроков,
