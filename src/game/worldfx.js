@@ -88,9 +88,10 @@ export function updateWorldFx(dt, t, P) {
   for (const v of W.vendings) v.cd -= dt;
   // v0.70 сугробы: на каждом лежит снежок; забрали - через 2 с из сугроба лепится новый (только у ведущего: предмет общий)
   if (!W.net?.replica) for (const d of W.drifts || []) {
-    if (d.ball && d.ball.state === 'rest' && Math.hypot(d.ball.pos.x - d.x, d.ball.pos.z - d.z) < .9) { d.t = 0; continue; }
+    // снежок «принадлежит» сугробу, пока его не подобрали: скатился - всё равно не лепим новый (иначе снежки копятся)
+    if (d.ball && !d.ball.wasHeld && d.ball.state !== 'gone') { d.t = 0; continue; }
     d.ball = null; d.t = (d.t || 0) + dt;
-    if (d.t >= 2) { d.t = 0; const it = addItem('snowball', d.x, d.y + d.h, d.z, 0); it.def = { ...it.def, respawn: 0 }; d.ball = it; puff(d.x, d.y + d.h, d.z, { color: 0xf2f6ff, size: .3, life: .4, vy: .4 }); }
+    if (d.t >= 2 && W.items.filter(q => q.type === 'snowball' && q.state === 'rest').length < 40) { d.t = 0; const it = addItem('snowball', d.x, d.y + d.h, d.z, 0); it.def = { ...it.def, respawn: 0 }; d.ball = it; puff(d.x, d.y + d.h, d.z, { color: 0xf2f6ff, size: .3, life: .4, vy: .4 }); }
   }
   // колокол: раскачивается, расходится кольцо
   for (const b of W.bells) {

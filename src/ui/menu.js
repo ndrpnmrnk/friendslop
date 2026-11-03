@@ -216,7 +216,7 @@ export function createMenu(){
       if(S.phase==='fly'){if(!r.v){r.p0=a.pos.clone();r.v=withRandom((L.recipe?.seed||1)^r.i,()=>world.sling.breakAt?new V3((r.i%2?1:-1)*(1.5+random()*2.2),7+random()*2.5,-13-random()*4):new V3((r.i%3-1)*1.8+(random()-.5),13+random()*1.5,-27-random()*3));}
         const t=L.ft;a.pos.set(r.p0.x+r.v.x*t,r.p0.y+r.v.y*t-5*t*t,r.p0.z+r.v.z*t);a.root.position.copy(a.pos);a.root.rotation.y=Math.PI;a.ch.animate(dt,{t:st.t,fly:true,vy:r.v.y-10*t,flySpin:4.5});continue;}
       if(r.seated){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=turn(a.root.rotation.y,Math.PI,1-Math.exp(-dt*8));
-        a.ch.animate(dt,{t:st.t,speed:0,crouch:S.phase==='pull',act:S.phase==='board'?'cheer':undefined});seated++;continue;}
+        a.ch.animate(dt,S.phase==='board'&&world.sling.breakAt?{t:st.t,speed:0,emote:['wave','clap','laugh','dance'][(r.i+(L.recipe?.seed|0))%4],emoteT:T}:{t:st.t,speed:0,crouch:S.phase==='pull',act:S.phase==='board'?'cheer':undefined});seated++;continue;} // v0.70: в санях каждый по-своему - машет, хлопает, смеётся, танцует
       const face=p=>{const d=p.clone().sub(a.pos);if(d.lengthSq()>.0004)a.root.rotation.y=turn(a.root.rotation.y,Math.atan2(d.x,d.z),1-Math.exp(-dt*10));};
       const walk=(A,B,k,sp)=>{a.pos.lerpVectors(A,B,smooth(k));face(B);o.speed=k<1?sp:0;};
       if(T<1.0){walk(r.from,r.spot,T/1.0,.8);}
