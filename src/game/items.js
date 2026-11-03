@@ -54,12 +54,18 @@ function build(type) {
     mesh(G.sph, tmat(T.tomato()), 0, 0, 0, 0.16, 0.13, 0.16, g);
     for (let i = 0; i < 5; i++) { const l = mesh(G.box, col(0x3f6b2a), Math.cos(i * 1.26) * 0.04, 0.13, Math.sin(i * 1.26) * 0.04, 0.07, 0.01, 0.025, g); l.rotation.y = -i * 1.26; }
     mesh(G.cyl6, col(0x3f6b2a), 0, 0.15, 0, 0.012, 0.04, 0.012, g);
+  } else if (type === 'gift') { // v0.70 подарок: коробка с лентой и бантом
+    const c = [0xd8243a, 0x4ab0f0, 0x9be36b, 0xb18cff][(Math.random() * 4) | 0];
+    mesh(G.box, lam({ color: c, emissive: c, emissiveIntensity: .15 }, 'gift70c' + c), 0, 0, 0, .42, .38, .42, g); mesh(G.box, lam({ color: 0xf5c542, emissive: 0x6a4a10, emissiveIntensity: .4 }, 'gift70r'), 0, 0, 0, .44, .4, .08, g); mesh(G.box, lam({ color: 0xf5c542, emissive: 0x6a4a10, emissiveIntensity: .4 }, 'gift70r'), 0, 0, 0, .08, .4, .44, g);
+    for (const s2 of [-1, 1]) { const bw = mesh(G.torus, lam({ color: 0xf5c542 }, 'gift70bow'), s2 * .08, .24, 0, .08, .08, .08, g); bw.rotation.y = Math.PI / 2; }
   } else if (type === 'snowball') { // v0.70: комок снега - чуть неровный, с голубой тенью
     mesh(G.ico, snowMat(), 0, 0, 0, 0.14, 0.13, 0.14, g); mesh(G.ico, snowMat(), 0.05, 0.04, -0.03, 0.07, 0.06, 0.07, g);
   } else if (type === 'pumpkin') {
     mesh(G.sph, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.25, 0.32, g); // low-poly, «PS1»
     mesh(G.cyl6, col(0x3f6b2a), 0, 0.28, 0, 0.05, 0.14, 0.05, g);
     const f = mesh(G.plane, PFACE(), 0, 0.01, 0.315, 0.36, 0.3, 1, g); f.userData.noOutline = true;
+  } else if (type === 'bigpuck') {
+    mesh(G.cyl12, lam({ color: 0x1c1a22, emissive: 0x08080c }, 'puck70'), 0, -.2, 0, .55, .3, .55, g); mesh(G.cyl12, lam({ color: 0xc8302a }, 'puck70-stripe'), 0, -.2, 0, .56, .08, .56, g); mesh(G.cyl12, lam({ color: 0xf5c542, emissive: 0x5a4210, emissiveIntensity: .5 }, 'puck70-logo'), 0, -.04, 0, .28, .01, .28, g);
   } else if (type === 'bigpumpkin') {
     mesh(G.sph10, lam({ map: T.pumpkin(), emissive: 0x3a1a00 }, 'bigPump'), 0, 0, 0, 0.55, 0.47, 0.55, g);
     mesh(G.cyl6, col(0x3f6b2a), 0, 0.5, 0, 0.07, 0.18, 0.07, g);
@@ -305,7 +311,7 @@ function simulate(it, dt, flying) {
   if (!flying) {
     const onG = p.y - ry <= groundAt(p.x, p.z, r * 0.5, p.y) + 0.02;
     // трение: круглые катятся, кирпич быстро останавливается
-    if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, bigpumpkin: 0.8, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7, chair: 6, cone: 3, trash: 5, litter: 3, parcel: 6, duck: 2, cucumber: 2.5 }[it.type] ?? 5)); v.x *= f; v.z *= f; }
+    if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, bigpuck: 0.18, bigpumpkin: 0.8, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7, chair: 6, cone: 3, trash: 5, litter: 3, parcel: 6, duck: 2, cucumber: 2.5 }[it.type] ?? 5)); v.x *= f; v.z *= f; }
     if (['snowball', 'ball', 'bigpumpkin', 'pumpkin', 'balloon', 'tomato', 'litter', 'can', 'duck', 'cucumber', 'bulb'].includes(it.type)) { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
   } else { const k = Math.min(3, 0.6 + v.length() / 8); it.g.rotation.x += dt * 8 * k; it.g.rotation.y += dt * 5 * k; }
 }

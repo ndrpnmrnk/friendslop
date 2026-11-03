@@ -1,4 +1,5 @@
 import { buildIcicles } from './icicles.js';
+import { placeSnowrolls } from './snowroll.js';
 import { WINTER } from '../config.js';
 import { random } from '../core/random.js';
 import { withRandom } from '../core/random.js';
@@ -101,6 +102,7 @@ export function generateMap(scene, s) {
   const homes = shuffle(W.catHomes.slice());
   const used = new Set();
   for (const h of homes) { if (W.cats.length >= CONFIG.cats) break; if (used.has(h.district)) continue; used.add(h.district); spawnCat(h); }
+  if (WINTER) placeSnowrolls(); // v0.70: снежные комья на снегу
   buildIcicles(); // v0.70: до запекания - сосульки подвижные (W.keep)
   setParent(null);
   W.bakeInfo = bakeStatic(group);

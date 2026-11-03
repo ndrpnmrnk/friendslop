@@ -417,6 +417,7 @@ export function botHitHook(it, p, heavy, r) {
     if (a.held && a.held.type === 'umbrella' && a.held.open) { const f = a.root.rotation.y; if (-(it.vel.x * Math.sin(f) + it.vel.z * Math.cos(f)) > 2) { it.vel.multiplyScalar(-0.35); sfx('umbrella', { at: a.pos }); continue; } }
     // в пузыре: попадание лопает пузырь
     if (a.floatT > 0) { a.popBubble = true; continue; }
+    if (it.owner) { const st = it.owner.st || (it.owner.st = {}); st.throws = (st.throws || 0) + 1; if (it.type === 'snowball') st.snow = (st.snow || 0) + 1; } // v0.70: для наград в конце матча
     if (it.type === 'snowball') { snowHit(a, it.vel.x, it.vel.z, Math.min(5.5, 2.5 + it.vel.length() * .18)); sfx('snowHit', { at: a.pos }); }
     else if (heavy) { knockDown(a, it.vel.x * 0.4, it.vel.z * 0.4, a === W.player ? 1.2 : 1.4); voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); }
     else { a.push.set(it.vel.x * (a.bot ? 0.2 : 0.15), 0, it.vel.z * (a.bot ? 0.2 : 0.15)); if (it.type === 'balloon') { a.wetT = 4; a.slipT = 2; }

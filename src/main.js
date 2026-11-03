@@ -117,7 +117,7 @@ const haze = createHaze(scene); // v0.57: лёгкая дымка у земли
 // вспышка взрыва: короткий точечный свет
 initDust(scene);
 W.flash = (p, c, k = 1, range = 12, decay = 3.5) => localLighting.flash({ x: p.x, y: p.y + 1, z: p.z }, c, k, range, decay);
-initEvents({ player: () => P, prepareRace:()=>{if(S.mg)closeMission({success:false});if(S.wm)closeWorld({success:false});for(const b of W.bots||[])if(b.work)removeMission(b.work.m);}, award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
+initEvents({ scene: () => scene, camera: () => camera, player: () => P, prepareRace:()=>{if(S.mg)closeMission({success:false});if(S.wm)closeWorld({success:false});for(const b of W.bots||[])if(b.work)removeMission(b.work.m);}, award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
 const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => eventChip(null) };
 function followSun(x, y, z) {
   // привязка к текселю карты теней, чтобы края теней не дрожали при движении

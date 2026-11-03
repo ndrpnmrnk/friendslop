@@ -34,6 +34,8 @@ export function addPushable(b, kind, x, z, y = 0) {
   const g = new THREE.Group(); W.group.add(g);
   let roller = null, r;
   if(kind==='voteBall'){r=.95;} // v0.55: мяч голосования в хабе — модель добавляет хаб
+  else if(kind==='snowroll'){ // v0.70 снежный ком: толкаешь - катится и растёт; большой и быстрый сбивает игроков и ломает ящики
+    roller=new THREE.Group();roller.position.y=.5;g.add(roller);roller.add(compose('snowroll70',add=>{const w=lam({color:0xe8eef8,emissive:0x3a4660,emissiveIntensity:.2},'snowroll70');add(G.sph10,w,0,0,0,.5,.5,.5);for(let i=0;i<6;i++){const a=i*1.05;add(G.ico,w,Math.cos(a)*.38,Math.sin(a*1.7)*.3,Math.sin(a)*.38,.16,.12,.16);}add(G.box,tmat(T.bark()),.2,.3,.25,.03,.03,.3,.4,0,0);}));r=.5;}
   else if(kind==='bike'){g.add(bicycleModel());r=.52;}
   else if(kind==='kart'){g.add(kartModel([0xff8a1f,0x4ab0f0,0x9be36b,0xb18cff][W.pushables.filter(p=>p.kind==='kart').length%4]));r=.78;}
   else if (kind === 'cart') { g.add(cartModel()); r = 0.6; }
@@ -116,8 +118,8 @@ export function addPushable(b, kind, x, z, y = 0) {
     r = 0.5;
   }
   // mass: тележка катится легко, урна потяжелее, бочка тяжёлая
-  const mass = { voteBall:1.1, bike:.8,kart:2.2, table: 2.4, sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, duck: 1.35, gurney: 1.4 }[kind];
-  const h = { voteBall:1.9, bike:1.0,kart:.65, table: 0.8, sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, duck: 0.85, gurney: 0.9 }[kind];
+  const mass = { snowroll: 1.5, voteBall:1.1, bike:.8,kart:2.2, table: 2.4, sack: 2.6, cart: 1.2, bin: 2, barrel: 4, skate: 0.4, chair: 1, barrow: 1.6, tire: 0.7, scooter: 0.5, kidcar: 1.4, ring: 0.3, duck: 1.35, gurney: 1.4 }[kind];
+  const h = { snowroll: 1.0, voteBall:1.9, bike:1.0,kart:.65, table: 0.8, sack: 0.62, cart: 1.2, bin: 1.1, barrel: 0.85, skate: 0.16, chair: 1.1, barrow: 0.8, tire: 0.7, scooter: 0.2, kidcar: 0.6, ring: 0.3, duck: 0.85, gurney: 0.9 }[kind];
   // Never let a newly added prop with missing dimensions poison positions
   // with NaN when a player bumps it or an explosion applies an impulse.
   // The duck has explicit tuned values above; these defaults are a last

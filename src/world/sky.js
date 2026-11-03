@@ -3,6 +3,7 @@ import { THREE } from '../core/gfx.js';
 import { pix, T } from '../core/textures.js';
 import { WINTER, SEASON, HW } from '../config.js';
 import { W } from './state.js';
+import { WX } from './weather.js';
 
 /* Небо: купол с градиентом (тёплый горизонт → сливовый зенит), луна с ореолом, мерцающие звёзды,
    медленные облака и силуэт далёкого города по кругу. Всё без тумана, ездит вместе с камерой.
@@ -81,7 +82,7 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
       let id = null; for (const d of W.districts) if (player.pos.x >= d.ox && player.pos.x < d.x1 && player.pos.z >= d.oz && player.pos.z < d.z1) { id = d.id; break; }
       tmp.setHex(TINT[id] || 0xffffff); curT.lerp(tmp, Math.min(1, dt * 1.2));
       hemi.color.copy(baseHemi).multiply(curT);
-      if (fog) { fog.color.copy(baseFog).lerp(tmp.copy(baseFog).multiply(curT), 0.5).lerp(nightFog, night * 0.55); }
+      if (fog) { fog.color.copy(baseFog).lerp(tmp.copy(baseFog).multiply(curT), 0.5).lerp(nightFog, night * 0.55); if (WX.blizzard) fog.color.lerp(tmp.setHex(0xc4ccdc), WX.blizzard * .8); } // v0.70 метель - белёсая мгла
     },
   };
 }

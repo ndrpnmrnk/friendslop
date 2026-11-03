@@ -1,3 +1,4 @@
+import { WINTER } from '../config.js';
 /* Все строки интерфейса в одном месте (потом сюда добавится английский). Коротко: 2–3 слова. */
 export const TEXT = {
   title: 'FRIENDSLOP',
@@ -75,3 +76,10 @@ export const TOOL_INFO = {
 };
 export const FX_LABEL = { rag: ['СБИВАЕТ С НОГ', '#ff5a6e'], daze: ['ЗВЁЗДОЧКИ', '#f5c542'], push: ['ТОЛЧОК', '#4ab0f0'], blind: ['СЛЕПИТ', '#f1e8ff'], wet: ['МОКРЫЙ', '#7ac8f0'],
   stuck: ['ЗАПУТАН', '#b18cff'], float: ['В ПУЗЫРЕ', '#c8f0ff'], self: ['ТЕБЕ', '#9be36b'], trap: ['ЛОВУШКА', '#ff8a1f'], lure: ['ПРИМАНКА', '#ff7aa8'] };
+
+// v0.70 зимний сезон: названия и подсказки событий
+if (WINTER) {
+  Object.assign(TEXT.events, { pumpkins: 'СНЕЖКОПАД!', football: 'ХОККЕЙ НА ПЛОЩАДИ!', potato: 'ГОРЯЧИЙ ПОДАРОК!', blizzard: 'МЕТЕЛЬ!', santa: 'САНИ ДЕДА МОРОЗА!' });
+  Object.assign(TEXT.eventSub, { football: 'Гони шайбу в чужие ворота! Площадь замёрзла', potato: 'Подарок-бомба взорвётся! Передай его касанием', blizzard: 'Ветер сносит, видно только вблизи', santa: 'Лови подарки: первый, кто поднял, получает +40' });
+  Object.assign(TEXT.eventIcon, { pumpkins: 'ball', blizzard: 'rain', santa: 'parcel' });
+}

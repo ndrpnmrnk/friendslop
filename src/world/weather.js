@@ -60,7 +60,8 @@ export function updateWeather(dt, t, camera, P, scene, roundK) {
   const fog = scene.fog;
   if (base) {
     const fk = WX.kind === 'fog' ? 1 : 0, nk = WX.night;
-    fog.near = base.near * (1 - fk * 0.72) * (1 - nk * 0.15); fog.far = base.far * (1 - fk * 0.55) * (1 - nk * 0.12);
+    const bz = WX.blizzard || 0; // v0.70 метель: видно только ближнюю зону
+    fog.near = base.near * (1 - fk * 0.72) * (1 - nk * 0.15) * (1 - bz * .9); fog.far = base.far * (1 - fk * 0.55) * (1 - nk * 0.12) * (1 - bz * .84);
   }
   // дождь
   if (rain && camera) {

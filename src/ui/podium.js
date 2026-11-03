@@ -21,9 +21,13 @@ export const AWARDS = {
   worker:  { title: 'РАБОТЯГА', sub: s => `выполнил миссий: ${s.missions}`, anim: 'wave' },
   star:    { title: 'ЗВЕЗДА СОБЫТИЯ', sub: s => `очков в событии: ${s.event}`, anim: 'call' },
   clumsy:  { title: 'МАСТЕР ПАДЕНИЙ', sub: s => `падений: ${s.falls}`, anim: 'dizzy' },
+  // v0.70 смешные звания
+  sniper:  { title: 'САМЫЙ МЕТКИЙ', sub: s => `попаданий броском: ${s.throws}`, anim: 'wave' },
+  snowking:{ title: 'СНЕЖНЫЙ КОРОЛЬ', sub: s => `попал снежками: ${s.snow}`, anim: 'laugh' },
+  santa:   { title: 'ПОМОЩНИК САНТЫ', sub: s => `поймал подарков: ${s.gifts}`, anim: 'dance' },
   tourist: { title: 'ТУРИСТ', sub: () => 'просто гулял по городу', anim: 'look' },
 };
-const CAT = { bully: s => s.sabot * 3 + s.hits, thief: s => s.steals * 4, trick: s => s.traps * 2, skater: s => s.tricks, worker: s => s.missions * 2, star: s => s.event / 40, clumsy: s => s.falls * 1.5 };
+const CAT = { sniper: s => (s.throws || 0) * 1.2, snowking: s => (s.snow || 0) * 1.6, santa: s => (s.gifts || 0) * 5, bully: s => s.sabot * 3 + s.hits, thief: s => s.steals * 4, trick: s => s.traps * 2, skater: s => s.tricks, worker: s => s.missions * 2, star: s => s.event / 40, clumsy: s => s.falls * 1.5 };
 
 /* rows: [{ name, skin, score, st, me }] → по местам, с наградой у каждого (награды не повторяются) */
 export function assignAwards(rows) {

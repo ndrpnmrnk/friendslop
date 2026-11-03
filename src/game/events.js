@@ -16,7 +16,9 @@ import { actors, shove, knockDown, dropHeld, daze } from './actors.js';
 import { spawnTool, explode } from './tools.js';
 import { sparks as vfxSparks } from './vfx.js';
 import { iconCanvas } from '../ui/icons.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, WINTER } from '../config.js';
+import { WX, gust } from '../world/weather.js';
+import { createSnowfall } from '../world/snowfall.js';
 import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
 import { shake, hitFreeze } from './worldfx.js';
@@ -54,6 +56,35 @@ const EVENTS = {
 /* ================= общие события ================= */
 const award = (a, pts, at) => ctx.award && ctx.award(a, pts, at);
 const BIG = {
+  /* v0.70 Метель: 20 с очень плотного снега и тумана - видно только ближнюю зону; порывы ветра сносят игроков и лёгкие вещи.
+     Только погода: очков нет, задания продолжаются. Видимость и ветер одинаковы у всех (seed события). */
+  ...(WINTER ? { blizzard: { dur: 20,
+    start(s) { s.t = 0; s.made = !WX.snow; s.snow = WX.snow || createSnowfall(ctx.scene?.() || W.group, { density: 0 }); s.d0 = s.snow.state.density; s.fall0 = s.snow.state.fall; const a = random() * 6.28; s.wind = { x: Math.cos(a), z: Math.sin(a) }; s.gustT = 2; sfx('wind'); },
+    target() { return null; },
+    update(s, dt) { s.t += dt; const k = Math.min(1, s.t / 2.5) * Math.min(1, Math.max(0, (20 - s.t) / 2.5)); s.snow.state.density = s.d0 + 3.4 * k; s.snow.state.fall = s.fall0 + 3 * k;
+      s.snow.state.wind.x = s.wind.x * 9 * k; s.snow.state.wind.z = s.wind.z * 9 * k; if (s.made) s.snow.update(dt, ctx.camera?.());
+      WX.blizzard = k; s.gustT -= dt; if (s.gustT <= 0) { s.gustT = 2.5 + random() * 2; WX.gust = 1.2; sfx('wind'); }
+      if (WX.gust > 0) { const w0 = WX.wind; WX.wind = { ...w0, x: s.wind.x, z: s.wind.z }; gust(dt, ctx.player(), 1.4 * k); WX.wind = w0; } return null; },
+    info() { return 'МЕТЕЛЬ · держись подальше от края'; },
+    bot() { return null; },
+    stop(s) { WX.blizzard = 0; if (s.made) s.snow.dispose(); else { s.snow.state.density = s.d0; s.snow.state.fall = s.fall0; } } },
+  /* v0.70 Сани Деда Мороза: пролетают над городом и роняют подарки; кто первым подобрал подарок - +40 очков, конфетти. */
+  santa: { dur: 40,
+    start(s) { const b = W.bounds || 60, a = random() * 6.28; s.from = new V3(Math.cos(a) * b * 1.3, 22, Math.sin(a) * b * 1.3); s.to = s.from.clone().multiplyScalar(-1).setY(22); s.t = 0; s.dropT = 1.5; s.gifts = [];
+      s.g = compose('santaSleigh70', q => { const red = lam({ color: 0xc8302a, emissive: 0x3a0a08, emissiveIntensity: .4 }, 'santa70red'), gold = lam({ color: 0xf5c542, emissive: 0x6a4a10, emissiveIntensity: .5 }, 'santa70gold'), brown = col(0x6a4a3a);
+        q(G.box, red, 0, .5, 0, 1.4, .6, 2.6); q(G.box, red, 0, .9, -1.1, 1.4, .7, .4, -.4, 0, 0); for (const sx of [-1, 1]) q(G.box, gold, sx * .7, 0, 0, .08, .08, 3.0);
+        q(G.box, lam({ color: 0xf1e8ff }, 'santa70beard'), 0, 1.2, .3, .7, .6, .5); q(G.sph10, lam({ color: 0xd8243a }, 'santa70hat'), 0, 1.65, .3, .35, .35, .35); q(G.box, col(0x5a3a2a), 0, 1.05, .9, 1.1, .7, .9);
+        for (let i = 0; i < 4; i++) { const z = -2.6 - i * 1.5; q(G.box, brown, 0, .9, z, .45, .5, 1.1); q(G.box, brown, 0, 1.3, z - .6, .25, .4, .3); for (const sx of [-1, 1]) q(G.box, brown, sx * .15, .45, z, .08, .6, .08); }
+        q(G.sph, lam({ color: 0xff3a2a, emissive: 0xff3a2a, emissiveIntensity: 1.5 }, 'santa70nose'), 0, 1.35, -8, .1, .1, .1); });
+      W.group.add(s.g); W.keep.push(s.g); s.g.position.copy(s.from); s.g.lookAt(s.to); s.g.rotateY(Math.PI); sfx('fanfare'); },
+    target(s) { const g = s.gifts.find(q => q.state === 'rest'); return g ? g.pos : s.g.position; },
+    update(s, dt) { s.t += dt; const k = Math.min(1, s.t / 30), p = s.from.clone().lerp(s.to, k); p.y += Math.sin(s.t * 1.7) * .8; s.g.position.copy(p); s.g.visible = k < 1;
+      if (k < 1 && !W.net?.replica && (s.dropT -= dt) <= 0) { s.dropT = 1.1 + random() * .7; if (Math.abs(p.x) < (W.bounds || 60) - 4 && Math.abs(p.z) < (W.bounds || 60) - 4) { const it = addItem('gift', p.x, p.y - 1, p.z, random() * 6); it.def = { ...it.def, respawn: 0 }; launch(it, p.clone().setY(p.y - 1), new V3((random() - .5) * 3, -2, (random() - .5) * 3)); s.gifts.push(it); sfx('pop', { at: p }); } }
+      if (!W.net?.replica) for (const it of s.gifts) if (it.state === 'held' && it.owner && !it.opened) { it.opened = true; const a = it.owner; award(a, 40, a.pos); a.st && (a.st.gifts = (a.st.gifts || 0) + 1); vfxSparks({ x: a.pos.x, y: a.pos.y + 1.6, z: a.pos.z }, 26, 0xf5c542); sfx('confetti', { at: a.pos }); a.held = null; it.state = 'gone'; it.g.visible = false; }
+      return null; },
+    info(s) { return `САНИ ДЕДА МОРОЗА · лови подарки: +40 · осталось ${s.gifts.filter(q => q.state === 'rest' || q.state === 'fly').length}`; },
+    bot(s, b) { const g = s.gifts.filter(q => q.state === 'rest').sort((x, y) => x.pos.distanceTo(b.pos) - y.pos.distanceTo(b.pos))[0]; return g ? { x: g.pos.x, y: g.pos.y, z: g.pos.z, kind: 'event', near: .6 } : null; },
+    stop(s) { s.g.removeFromParent(); for (const it of s.gifts) if (it.state !== 'gone') { it.state = 'gone'; it.g.visible = false; } } } } : {}),
   // Царь горы: светящийся круг на крыше/башне/контейнере; очки за каждую секунду внутри, соперников можно сталкивать
   hill: { dur: 30,
     start(s) {
@@ -163,7 +194,7 @@ const BIG = {
 
   /* Горячая картошка: тыква-бомба с фитилём; передай касанием (или выпадом). Взорвалась в руках — −60. */
   potato: { dur: 40,
-    start(s) { s.bomb = compose('potatoBomb', a => { a(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.28, 0.32); a(G.cyl6, col(0x2b2533), 0, 0.3, 0, 0.03, 0.18, 0.03); a(G.sph, lam({ color: 0xffd25c, emissive: 0xff8a1f, emissiveIntensity: 1 }, 'fuseSpark'), 0, 0.42, 0, 0.06, 0.06, 0.06); });
+    start(s) { s.bomb = compose(WINTER ? 'potatoGift70' : 'potatoBomb', a => { if (WINTER) { a(G.box, lam({ color: 0xd8243a }, 'gift70red'), 0, 0, 0, .5, .45, .5); a(G.box, lam({ color: 0xf5c542 }, 'gift70rib'), 0, 0, 0, .52, .47, .1); a(G.box, lam({ color: 0xf5c542 }, 'gift70rib'), 0, 0, 0, .1, .47, .52); } else a(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.28, 0.32); a(G.cyl6, col(0x2b2533), 0, 0.3, 0, 0.03, 0.18, 0.03); a(G.sph, lam({ color: 0xffd25c, emissive: 0xff8a1f, emissiveIntensity: 1 }, 'fuseSpark'), 0, 0.42, 0, 0.06, 0.06, 0.06); });
       W.group.add(s.bomb); W.keep.push(s.bomb); s.cd = 0; s.boom = 0; give(s, actors()[(random() * actors().length) | 0], true); },
     target(s) { if (s.flight) return s.bomb.position; const P = ctx.player(); if (s.h !== P) return s.h?.pos || P.pos; return (actors().filter(a => a !== P).sort((a, b) => a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos))[0] || P).pos; },
     update(s, dt, t) {
@@ -321,7 +352,7 @@ export function updateEvents(dt, ui) {
 function startBig(ui) {
   const keys = Object.keys(BIG).filter(k => k !== EV.lastBig), key = globalThis.__forceBig || keys[(random() * keys.length) | 0];
   const until = isMode('marathon') ? Math.min(45, CONFIG.roundTime - 15 - EV.t) : PHASE.resume - EV.t;
-  EV.big = { key, def: BIG[key], s: {}, left:key==='lava'?Math.min(24,Math.max(0,until)):Math.max(0,until) }; EV.bigDone = true; EV.lastBig = key; startNetworkEvent(EV.big);
+  EV.big = { key, def: BIG[key], s: {}, left:key==='lava'?Math.min(24,Math.max(0,until)):key==='blizzard'?Math.min(20,Math.max(0,until)):Math.max(0,until) }; EV.bigDone = true; EV.lastBig = key; startNetworkEvent(EV.big);
   W.eventBot = b => EV.big ? EV.big.def.bot(EV.big.s, b) : null;
   ui.start(key, true);
 }

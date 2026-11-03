@@ -7,7 +7,7 @@ import {arrowModel,poseBow,bowVelocity,ARROW_GRAVITY} from './bow.js';
 import {raySolids} from '../world/physics.js';
 import { THREE, G, V3, col, lam, mesh, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
-import { CONFIG, HW } from '../config.js';
+import { WINTER, CONFIG, HW } from '../config.js';
 import { W } from '../world/state.js';
 import { groundAt, solidHit, addZone, impulsePushables } from '../world/physics.js';
 import { burst, puff, smoke, smokeRing, decal } from '../world/particles.js';
@@ -83,7 +83,11 @@ function updateFlyer(dt, t) {
   if (f.k > 40) { W.group.remove(f.g); toolState().flyer = null; }
 }
 function goldenCrate(x, y, z) {
-  const g = compose('goldCrate', a => { const gm = lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.6 }, 'goldCrate'), dk = col(0x6a4a1a);
+  // v0.70 зимой золотой ящик - большой подарок (та же редкая награда): коробка, золотая лента, бант, бирка
+  const g = WINTER ? compose('giftCrate70', a => { const box = lam({ color: 0xc8302a, emissive: 0x4a0a08, emissiveIntensity: .35 }, 'giftCrate70'), rib = lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: .7 }, 'giftCrate70rib');
+      a(G.box, box, 0, .35, 0, .72, .7, .72); a(G.box, box, 0, .73, 0, .78, .1, .78); a(G.box, rib, 0, .38, 0, .74, .78, .14); a(G.box, rib, 0, .38, 0, .14, .78, .74);
+      for (const s2 of [-1, 1]) a(G.torus, rib, s2 * .13, .86, 0, .13, .13, .13, 0, Math.PI / 2, 0); a(G.box, lam({ color: 0xf1e8ff }, 'giftCrate70tag'), .38, .5, .2, .02, .16, .12); })
+    : compose('goldCrate', a => { const gm = lam({ color: 0xf5c542, emissive: 0x6a4a00, emissiveIntensity: 0.6 }, 'goldCrate'), dk = col(0x6a4a1a);
     a(G.box, gm, 0, 0.35, 0, 0.7, 0.7, 0.7); for (const sx of [-1, 1]) for (const sz of [-1, 1]) a(G.box, dk, sx * 0.33, 0.35, sz * 0.33, 0.06, 0.72, 0.06); a(G.box, dk, 0, 0.69, 0, 0.72, 0.04, 0.12); });
   g.position.set(x, y, z); W.group.add(g); W.keep.push(g);
   toolState().gold.push({ g, x, y, z, used: false });

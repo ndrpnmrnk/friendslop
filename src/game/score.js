@@ -8,7 +8,7 @@ export const BONUS_CAP = 100;
 export const PTS = { hitLight: 5, hitHeavy: 10, leader: 25, catch: 10, trap: 15, grind: 5, trick: 10, sabotage: 0.25 };
 export const SC = { award: null };
 export function statsOf(a) {
-  return a.st || (a.st = { missions: 0, mpts: 0, hits: 0, sabot: 0, steals: 0, traps: 0, tricks: 0, falls: 0, catches: 0, event: 0, leader: 0 });
+  return a.st || (a.st = { missions: 0, mpts: 0, hits: 0, sabot: 0, steals: 0, traps: 0, tricks: 0, falls: 0, catches: 0, event: 0, leader: 0, snow: 0, throws: 0, gifts: 0 });
 }
 export function resetScore(award) {
   SC.award = award;
