@@ -1,3 +1,4 @@
+import { hitIcicles, updateIcicles } from '../world/icicles.js';
 import { random } from '../core/random.js';
 import { THREE, G, V3, col, lam, glow, tmat, mesh, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
@@ -37,6 +38,7 @@ export function bounceAt(x, z, y,drop=Infinity) {
 
 // ---------- удары по объектам мира (вызывается из бросков, выпада, гаджетов) ----------
 export function worldHit(p, power, vel) {
+  hitIcicles(p, power);
   // гидрант: сбили крышку — струя
   for (const h of W.hydrants) if (!h.on && power >= 3 && Math.hypot(h.x - p.x, h.z - p.z) < 0.7 && p.y < h.y + 1.3) { h.on = 8; h.t = 0; sfx('hydrant', { at: h }); burst(h.x, h.y + 0.8, h.z, 10, { color: 0x9ccbec, size: 0.3, speed: 3, up: 4 }); if (h.cap) h.cap.visible = false; addZone('puddle', { c: [h.x, h.z, 1.6] }, h.y, { expires: 14 }); }
   // машина: сигнализация
@@ -60,6 +62,7 @@ export function worldHit(p, power, vel) {
 const effects=new WeakMap();
 function worldEffects(){let state=effects.get(W.group||W);if(!state){state={alarm:[],ring:null};effects.set(W.group||W,state);}return state;}
 export function updateWorldFx(dt, t, P) {
+  updateIcicles(dt);
   const _alarmPool=worldEffects().alarm;
   // гидранты
   for (const h of W.hydrants) {
