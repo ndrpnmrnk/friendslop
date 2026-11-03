@@ -1,4 +1,5 @@
 import { buildIcicles } from './icicles.js';
+import { WINTER } from '../config.js';
 import { random } from '../core/random.js';
 import { withRandom } from '../core/random.js';
 import { addItem } from '../game/items.js';
@@ -51,6 +52,7 @@ export function generateMap(scene, s) {
     const d = picks[gx * grid + gz];
     const ox = -half + road + gx * (chunk + road), oz = -half + road + gz * (chunk + road);
     const top = flat(rep(GROUND[d.ground](), chunk / 3, chunk / 3));
+    if (WINTER && d.ground === 'grass') (W.snowRects ||= []).push([ox, oz, ox + chunk, oz + chunk, CONFIG.base]); // v0.70: снег - следы
     // плита района; если в районе есть проёмы (канал, люк), плита собирается из кусков вокруг них
     // v0.60: район нового формата (size 44) занимает всю клетку; старый (32 м) — в центре, вокруг бульвар
     const inset = (d.size || 32) >= chunk ? 0 : (chunk - (d.size || 32)) / 2;

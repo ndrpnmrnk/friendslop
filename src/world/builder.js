@@ -53,6 +53,7 @@ export class Builder {
     return g;
   }
   ground(x0, z0, x1, z1, tex, tile = 3, y = 0.01) {
+    if (WINTER && tex === T.grass()) { const ax = this.X(x0), bx = this.X(x1), az = this.Z(z0), bz = this.Z(z1); (W.snowRects ||= []).push([Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), this.Y + y]); }
     const w = x1 - x0, d = z1 - z0, m = this.m(G.plane, flat(rep(tex, w / tile, d / tile)), (x0 + x1) / 2, y, (z0 + z1) / 2, w, d, 1);
     m.rotation.x = -Math.PI / 2; return m;
   }

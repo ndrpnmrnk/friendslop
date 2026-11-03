@@ -16,6 +16,7 @@ import { chairModel, coneModel, trashModel, litterModel } from '../world/props.j
 import { PFACE } from '../world/builder.js';
 import { T } from '../core/textures.js';
 import { CONFIG, WINTER } from '../config.js';
+import { dent } from '../world/snow-trails.js';
 import { W } from '../world/state.js';
 import { groundAt, solidHit, raySolids, addZone, impulsePushables, zoneAt, materialAt } from '../world/physics.js';
 import { puff, burst, chunk, splash, ripple, decal } from '../world/particles.js';
@@ -194,6 +195,7 @@ function impact(it, n, speed) {
   // жетон (v0.23): упал — из точки выбегает наряд и ловит ближайшего к ней соперника
   if (it.type === 'badge' && it.owner && !it.badgeDone) { it.badgeDone = true; it.state = 'gone'; it.g.visible = false; W.badgeLand && W.badgeLand(it.pos.clone(), it.owner); return; }
   const p = it.pos, t = it.type, gy = groundAt(p.x, p.z, 0.1, p.y + 0.3);
+  if (WINTER && speed > 3 && (!n || n.y > .5)) dent(p.x, p.z, p.y, Math.max(.18, it.def.r)); // v0.70: ямка в снегу
   if(t==='popcorn'){hitActors(it,p,false);scatterPopcorn(p);vanish(it);return;}
   // хрупкая мелочь: сильный удар — разбилось (осколки, звон), до конца раунда
   if (it.def.breaks && speed > it.def.breaks) { const glass = t === 'monitor' || t === 'dlamp' || t === 'mug';

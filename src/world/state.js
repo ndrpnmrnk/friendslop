@@ -3,7 +3,7 @@ export let W = {
   group: null,
   solids: [], zones: [], doors: [], ladders: [], pushables: [], items: [],
   occluders: [], birds: [], cats: [], catHomes: [], missionZones: [], spawns: [],
-  debris: [], decals: [], animated: [], crane: null, bounds: 50, districts: [], breakables: [], holes: [], tunnelOpenings: [], keep: [], swingers: [], cars: [], vendings: [], drifts: [], flick: [], manholes: [], chimneys: [], interacts: [], elevators: [], bouncers: [], hydrants: [], bells: [], dropLadders: [], carousels: [], hides: [], hitHooks: [], tunnelFloors: [],
+  debris: [], decals: [], animated: [], crane: null, bounds: 50, districts: [], breakables: [], holes: [], tunnelOpenings: [], keep: [], swingers: [], cars: [], vendings: [], drifts: [], snowRects: [], flick: [], manholes: [], chimneys: [], interacts: [], elevators: [], bouncers: [], hydrants: [], bells: [], dropLadders: [], carousels: [], hides: [], hitHooks: [], tunnelFloors: [],
   spots: { fish: [], fuse: [], safe: [], pickup: [], deliver: [], demo: [], crane: [] },
 };
 export function resetWorld(group) {

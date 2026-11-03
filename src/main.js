@@ -77,6 +77,7 @@ import { buildMinimap, drawMinimap } from './ui/minimap.js';
 import { throwPotato, initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget, PHASE, phaseOf } from './game/events.js';
 import { DISTRICTS } from './world/districts/index.js';
 import { startWeather, updateWeather, stopWeather, WX } from './world/weather.js';
+import { resetSnowTrails, updateSnowTrails } from './world/snow-trails.js';
 import { buildReflections, updateReflections } from './world/reflect.js';
 import { updateTraps } from './game/traps.js';
 import { grabDog, resetTown, updateTown, TOWN } from './game/town.js';
@@ -346,7 +347,7 @@ function prepareRound(tut = false) {
   if (tut) globalThis.__forceDistricts = null;
   withRandom(MATCH.on ? MATCH.seed ^ 0x1f123bb5 : random()*2**32,()=>buildLife(scene)); resetSplat(); resetPolice();
   registerInteracts();
-  withRandom(MATCH.on ? MATCH.seed ^ 0x221ab : random()*2**32,()=>resetTools()); withRandom(MATCH.on ? MATCH.seed ^ 0x7a33b9 : random()*2**32,()=>resetTown()); withRandom(MATCH.on ? MATCH.seed ^ 0x12a7 : random()*2**32,()=>startWeather(scene)); sky.setPalette(WX.palette); buildReflections(); resetFun(() => S.score); hookFun(); W.netDroneInput=applyNetworkDroneAction;W.netCreateShot=shoot;W.netUseTool=useTool;W.netReleaseTool=(a,it,aim)=>['bow','sling'].includes(it.type)?releaseAim(a,it,aim):releaseNet(a,it,aim);W.netGrabDog=grabDog; W.toolImpact = toolImpact; W.sodaBlast = sodaBlast; W.knockDown = knockDown; W.isMissionCat = c => M.list.some(m => m.obj === c); W.letGo = letGo; W.dismount = a => dismount(a, false); W.leaveSwing = leaveSwing; W.leaveBench = leaveBench; W.leaveHide = a => { if (a.bot) a.hideT = 0; else leaveHide(a); }; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
+  withRandom(MATCH.on ? MATCH.seed ^ 0x221ab : random()*2**32,()=>resetTools()); withRandom(MATCH.on ? MATCH.seed ^ 0x7a33b9 : random()*2**32,()=>resetTown()); withRandom(MATCH.on ? MATCH.seed ^ 0x12a7 : random()*2**32,()=>startWeather(scene)); sky.setPalette(WX.palette); resetSnowTrails(scene); buildReflections(); resetFun(() => S.score); hookFun(); W.netDroneInput=applyNetworkDroneAction;W.netCreateShot=shoot;W.netUseTool=useTool;W.netReleaseTool=(a,it,aim)=>['bow','sling'].includes(it.type)?releaseAim(a,it,aim):releaseNet(a,it,aim);W.netGrabDog=grabDog; W.toolImpact = toolImpact; W.sodaBlast = sodaBlast; W.knockDown = knockDown; W.isMissionCat = c => M.list.some(m => m.obj === c); W.letGo = letGo; W.dismount = a => dismount(a, false); W.leaveSwing = leaveSwing; W.leaveBench = leaveBench; W.leaveHide = a => { if (a.bot) a.hideT = 0; else leaveHide(a); }; W.releaseCart = a => release(a, 0.3); W.onDrink = () => sfx('drink');
   buildMinimap(DISTRICTS); CURTAIN = findMat('curtain');
   resetEvents(); resetSupplies(); resetDrones();
   resetMissions();
@@ -1018,7 +1019,7 @@ function frame() {
     if (S.state === 'play') { updateTools(dt, t); updateBots(dt, t, P);if(!MATCH.on)separateActors();updateGrabs(dt,t); if(!W.net?.replica){updateTraps(dt,t);updateTown(dt,t,P,!!EV.big);updateFun(dt,t);updatePolice(dt,t);} updateBongEffects(dt,t);updateSnacks(P,dt);S.wm?.game.pose?.();for(const b of W.bots||[]){updateSnacks(b,dt);b.work?.game.pose?.();} }
     prof.mark('боты/события');
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
-    { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' || S.state === 'finale' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) * WX.nightK : 0; updateWeather(dt, t, camera, P, scene, nk); sky.setNight(nk);
+    { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' || S.state === 'finale' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) * WX.nightK : 0; updateWeather(dt, t, camera, P, scene, nk); updateSnowTrails(dt, camera); sky.setNight(nk);
       hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1) * WX.light; sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35) * WX.light;
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
     updateReflections(camera, t);localLighting.update(camera,dt,0); haze.update(t, camera); prof.mark('погода/свет');
