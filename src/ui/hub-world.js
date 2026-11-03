@@ -29,6 +29,10 @@ function picTex(kind,bg,fg,w,h,stripe){return pix('hub58-pic-'+kind+bg+fg+w+h,w,
   g.fillStyle='#ff6ab0';g.beginPath();g.moveTo(cx-sx*.42,cy-sx*.36);g.lineTo(cx-sx*.15,cy-sx*.42);g.quadraticCurveTo(cx,cy-sx*.28,cx+sx*.15,cy-sx*.42);g.lineTo(cx+sx*.42,cy-sx*.36);g.lineTo(cx+sx*.62,cy-sx*.08);g.lineTo(cx+sx*.4,cy+sx*.02);g.lineTo(cx+sx*.32,cy-sx*.1);g.lineTo(cx+sx*.32,cy+sx*.55);g.lineTo(cx-sx*.32,cy+sx*.55);g.lineTo(cx-sx*.32,cy-sx*.1);g.lineTo(cx-sx*.4,cy+sx*.02);g.lineTo(cx-sx*.62,cy-sx*.08);g.closePath();g.fill();
   g.fillStyle='#ffd27a';g.beginPath();g.arc(cx,cy+sx*.12,sx*.11,0,7);g.fill();g.strokeStyle=fg;g.beginPath();g.moveTo(cx-sx*.42,cy-sx*.36);g.lineTo(cx+sx*.42,cy-sx*.36);g.stroke();
   g.fillStyle=fg;for(const[ox,oy,r]of[[-.95,-.3,.06],[.9,-.45,.05],[.85,.35,.04]]){const x=cx+sx*ox,y=cy+sx*oy;g.fillRect(x-sx*r*2,y-1,sx*r*4,2);g.fillRect(x-1,y-sx*r*2,2,sx*r*4);}}
+ else if(kind==='cup'){g.fillRect(cx-s*.5,cy-s*.3,s*.9,s*.9);g.lineWidth=Math.max(3,H*.07);g.beginPath();g.arc(cx+s*.45,cy+s*.1,s*.25,-1.4,1.4);g.stroke();for(const dx of[-.25,0,.25]){g.beginPath();g.moveTo(cx+s*dx,cy-s*.45);g.quadraticCurveTo(cx+s*(dx+.12),cy-s*.65,cx+s*dx,cy-s*.85);g.stroke();}}
+ else if(kind==='ginger'){g.beginPath();g.arc(cx,cy-s*.5,s*.3,0,7);g.fill();g.fillRect(cx-s*.32,cy-s*.25,s*.64,s*.7);g.fillRect(cx-s*.75,cy-s*.2,s*1.5,s*.22);g.fillRect(cx-s*.38,cy+s*.4,s*.25,s*.5);g.fillRect(cx+s*.13,cy+s*.4,s*.25,s*.5);g.fillStyle=bg;g.fillRect(cx-s*.12,cy-s*.6,s*.07,s*.07);g.fillRect(cx+s*.06,cy-s*.6,s*.07,s*.07);g.fillRect(cx-s*.05,cy-s*.05,s*.1,s*.1);g.fillRect(cx-s*.05,cy+s*.15,s*.1,s*.1);}
+ else if(kind==='gift'){g.fillRect(cx-s*.7,cy-s*.3,s*1.4,s*1.1);g.fillStyle=bg;g.fillRect(cx-s*.08,cy-s*.3,s*.16,s*1.1);g.fillRect(cx-s*.7,cy+s*.1,s*1.4,s*.14);g.fillStyle=fg;g.beginPath();g.ellipse(cx-s*.25,cy-s*.45,s*.25,s*.15,.4,0,7);g.ellipse(cx+s*.25,cy-s*.45,s*.25,s*.15,-.4,0,7);g.stroke();}
+ else if(kind==='fir'){for(let k=0;k<3;k++){const w=s*(1-k*.25),y=cy+s*(.5-k*.45);g.beginPath();g.moveTo(cx-w*.8,y);g.lineTo(cx,y-s*.6);g.lineTo(cx+w*.8,y);g.fill();}g.fillRect(cx-s*.1,cy+s*.5,s*.2,s*.3);}
  else if(kind==='pad'){// геймпад: корпус с ручками, крестовина, две кнопки (розовая и жёлтая)
   const w=s*2.2,h=s*1.05;g.beginPath();g.moveTo(cx-w*.32,cy-h*.5);g.lineTo(cx+w*.32,cy-h*.5);g.quadraticCurveTo(cx+w*.5,cy-h*.5,cx+w*.5,cy);g.quadraticCurveTo(cx+w*.5,cy+h*.75,cx+w*.3,cy+h*.6);g.lineTo(cx+w*.18,cy+h*.25);g.lineTo(cx-w*.18,cy+h*.25);g.lineTo(cx-w*.3,cy+h*.6);g.quadraticCurveTo(cx-w*.5,cy+h*.75,cx-w*.5,cy);g.quadraticCurveTo(cx-w*.5,cy-h*.5,cx-w*.32,cy-h*.5);g.fill();
   g.fillStyle=bg;const dx=cx-w*.27,dy=cy-h*.05,q=h*.13;g.fillRect(dx-q*2,dy-q*.6,q*4,q*1.2);g.fillRect(dx-q*.6,dy-q*2,q*1.2,q*4);
@@ -48,166 +52,138 @@ function garment(kind,c,x,z,metal){const m=tmat(T.cloth(c)),dk=col(0x2a2430),y0=
 // кроссовок на полке: подошва, верх, носок, шнурки
 function sneaker(c,x,y,z){return compose('hub58-sneaker'+c,a=>{a(G.box,col(0xf1e8ff),0,.02,0,.13,.04,.32);a(G.box,col(c),0,.08,-.03,.12,.09,.24);a(G.sph10,col(c),0,.06,.1,.06,.05,.08);a(G.box,col(0x2a2430),0,.13,-.12,.11,.05,.06);for(let i=0;i<3;i++)a(G.box,col(0xf1e8ff),0,.126,-.04+i*.045,.09,.008,.012);}).translateX(x).translateY(y).translateZ(z);}
 
-/* v0.55 — хаб «Двор». Компактный городской двор в стиле PS1 (~40×50 м), всё рядом и детально.
-   В центре — арена с мячом голосования (выбор режима), над воротами табло (правила, карта), за ним — гигантская
-   рогатка для запуска. Слева магазинчик «Гардероб» с витриной, справа аркада с автоматом-клешнёй у входа.
-   На юге — точка появления, площадка для дурачества и столики. Праздничный декор — отдельным слоем (decor()),
-   под другой праздник меняется только он. */
+/* v0.71 J1 — новый хаб: летающий остров с открытой новогодней ярмаркой (вместо двора между домами).
+   В центре большая ёлка с табло побед; вокруг по геймдизайну, всё в 15-20 с бега, на виду:
+   юг - точка появления и мост на «Остров затей»; запад - большой ледовый каток выбора режима с табло;
+   север - высокая горка с санями (запуск в матч) на выступе острова; восток - две лавки: шале-гардероб
+   и игровой зал (автомат с друзьями и колесо удачи внутри). Между ними - ярмарочные домики, гирлянды от ёлки,
+   фонари вдоль дорожек, снеговики, скамейки. Края - низкое ограждение из столбиков с канатом. */
 export const HUB={spawn:new V3(0,0,15),spawns:Array.from({length:8},(_,i)=>new V3((i%4-1.5)*1.6,0,15+Math.floor(i/4)*1.6)),bounds:90};
-
+import {islandR} from './hub-island.js';
+// ярмарочный домик: прилавок, скатная крыша со снегом, гирлянда, товары и вывеска-картинка
+function stall(b,group,x,z,ry,kind,c){
+ const wood=tmat(T.wood()),roof=lam({color:c},'stall71-'+c),snow=lam({color:0xeef3fb},'stall71-snow'),dk=col(0x2b2533),lamp=lam({color:0xffe0a0,emissive:0xffc070,emissiveIntensity:1},'stall71-lamp');
+ const g=compose('stall71-'+kind+c,a=>{
+  a(G.box,wood,0,.55,.35,2.6,1.1,.6);a(G.box,lam({color:0xd8b88a},'stall71-top'),0,1.12,.42,2.7,.06,.75);a(G.box,wood,0,1.4,-.55,2.6,2.8,.12);
+  for(const s of[-1,1]){a(G.box,wood,s*1.25,1.4,.05,.14,2.8,.14);a(G.box,wood,s*1.25,1.4,-.4,.14,2.8,.14);a(G.box,wood,s*1.3,1.4,-.2,.06,2.6,.8);}
+  for(const s of[-1,1]){a(G.box,roof,0,2.95+.0,s*.38-.08,2.95,.08,1.05,s*.62,0,0);a(G.box,snow,0,3.04,s*.36-.08,2.9,.07,.95,s*.62,0,0);}
+  for(let i=0;i<9;i++)a(G.sph,lam({color:[0xd8243a,0xf5c542,0x9be36b,0x4ab0f0][i%4],emissive:[0xd8243a,0xf5c542,0x9be36b,0x4ab0f0][i%4],emissiveIntensity:.8},'stall71-b'+(i%4)),-1.2+i*.3,2.55-Math.sin(i/8*Math.PI)*.15,.75,.05,.05,.05);
+  a(G.box,lamp,0,2.4,.2,.18,.22,.18);
+  if(kind==='cocoa'){for(let i=0;i<5;i++){a(G.cyl8,lam({color:[0xd8243a,0xf1e8ff,0x4ab0f0][i%3]},'stall71-cup'+(i%3)),-.8+i*.4,1.25,.45,.09,.16,.09);a(G.cyl8,col(0x5a3a26),-.8+i*.4,1.33,.45,.075,.01,.075);}a(G.cyl12,steelM(),.9,1.5,-.2,.3,.6,.3);}
+  else if(kind==='ginger'){for(let i=0;i<6;i++){const xx=-1+i*.4;a(G.sph,col(0xa86a38),xx,1.3,.45,.08,.08,.03);a(G.box,col(0xa86a38),xx,1.18,.45,.13,.16,.03);a(G.box,col(0xf1e8ff),xx,1.18,.47,.12,.015,.01);}}
+  else if(kind==='toys'){for(let i=0;i<5;i++){const xx=-.9+i*.45;a(G.box,lam({color:[0xd8243a,0x4ab0f0,0x9be36b,0xf5c542,0xb18cff][i]},'stall71-gift'+i),xx,1.27,.4,.3,.24,.3);a(G.box,col(0xf1e8ff),xx,1.27,.4,.31,.25,.06);}}
+  else {for(let i=0;i<4;i++){a(G.cone8,lam({color:0x2f6a4a},'stall71-fir'),-.75+i*.5,1.42,.42,.16,.5,.16);a(G.sph,lam({color:0xd8243a,emissive:0xd8243a,emissiveIntensity:.6},'stall71-orn'),-.75+i*.5,1.5,.56,.04,.04,.04);}}
+ });g.position.set(x,0,z);g.rotation.y=ry;group.add(g);
+ const c2=Math.abs(Math.cos(ry)),hw=c2>.9?1.4:c2<.1?.8:1.15,hd=c2>.9?.8:c2<.1?1.4:1.15;addSolid(x-hw,z-hd,x+hw,z+hd,0,2.9);
+ (W.lightSources??=[]).push({x:x+Math.sin(ry)*.6,y:2.2,z:z+Math.cos(ry)*.6,color:0xffc888,strength:1.6,range:4.5});
+ // вывеска-картинка над прилавком
+ const t=picTex(kind==='cocoa'?'cup':kind==='ginger'?'ginger':kind==='toys'?'gift':'fir','#1b1524','#ffd27a',96,48,null),m=new THREE.Mesh(G.plane,lam({map:t,emissive:0xffffff,emissiveMap:t,emissiveIntensity:.5},'stall71-sign'+kind));
+ m.position.set(x+Math.sin(ry)*.95,2.72,z+Math.cos(ry)*.95);m.rotation.y=ry;m.scale.set(1.1,.55,1);m.userData.noBatch=true;group.add(m);
+}
+const steelM=()=>tmat(T.metal());
+// крыша-шале: два ската со снегом, свесы, фронтон с часами-вывеской
+function chaletRoof(group,x0,x1,z0,z1,h,color,ridgeX=false){
+ const w=x1-x0,d=z1-z0,cx=(x0+x1)/2,cz=(z0+z1)/2,rf=lam({color},'chalet71-'+color),snow=lam({map:T.roof(),color:0xffffff},'chalet71-snow'),wood=tmat(T.wood());
+ group.add(compose('chalet71-'+x0+z0,a=>{
+  if(ridgeX){const half=d/2+.5,ang=.62,L=half/Math.cos(ang);for(const s of[-1,1]){a(G.box,rf,cx,h+Math.sin(ang)*L/2+.2,cz+s*half/2,w+1,.18,L,-s*ang,0,0);a(G.box,snow,cx,h+Math.sin(ang)*L/2+.32,cz+s*half/2,w+.9,.08,L-.1,-s*ang,0,0);}
+   for(const s of[-1,1]){const tri=new THREE.Shape([new THREE.Vector2(-d/2,0),new THREE.Vector2(d/2,0),new THREE.Vector2(0,Math.tan(ang)*d/2)]);const geo=new THREE.ShapeGeometry(tri);a(geo,wood,x0+(s>0?w:0)+s*.05,h+.2,cz,1,1,1,0,Math.PI/2,0);}}
+  else{const half=w/2+.5,ang=.62,L=half/Math.cos(ang);for(const s of[-1,1]){a(G.box,rf,cx+s*half/2,h+Math.sin(ang)*L/2+.2,cz,L,.18,d+1,0,0,s*ang);a(G.box,snow,cx+s*half/2,h+Math.sin(ang)*L/2+.32,cz,L-.1,.08,d+.9,0,0,s*ang);}
+   for(const s of[-1,1]){const tri=new THREE.Shape([new THREE.Vector2(-w/2,0),new THREE.Vector2(w/2,0),new THREE.Vector2(0,Math.tan(ang)*w/2)]);a(new THREE.ShapeGeometry(tri),wood,cx,h+.2,z0+(s>0?d:0)+s*.05,1,1,1,0,s>0?0:Math.PI,0);}}
+  a(G.box,col(0x5a4a5a),x1-1.2,h+2.2,z1-1.4,.6,1.6,.6);a(G.box,lam({color:0xeef3fb},'chalet71-snowcap'),x1-1.2,h+3.05,z1-1.4,.7,.12,.7);
+ }));
+}
+// низкое ограждение по краю острова: деревянные столбики со снежными шапками и канат; проёмы под горку и мост
+function edgeRail(group){
+ const wood=tmat(T.wood()),snow=lam({color:0xeef3fb},'rail71-snow'),rope=col(0x8a5a36);
+ group.add(compose('rail71',a=>{const N=84;let prev=null;for(let i=0;i<=N;i++){const th=i/N*Math.PI*2,R=islandR(th)-1.1,x=Math.cos(th)*R,z=Math.sin(th)*R;
+  const gap=(Math.abs(x)<2.2&&z<0)||(Math.abs(x)<2.4&&z>0);if(gap){prev=null;continue;}
+  a(G.box,wood,x,.45,z,.16,.9,.16);a(G.box,snow,x,.94,z,.22,.08,.22);
+  if(prev){const mx=(x+prev[0])/2,mz=(z+prev[1])/2,L=Math.hypot(x-prev[0],z-prev[1]);a(G.cyl6,rope,mx,.72,mz,.03,L,.03,Math.PI/2,Math.atan2(x-prev[0],z-prev[1]),0);}prev=[x,z];}}));
+}
 export function buildHub(scene){
  const group=new THREE.Group();scene.add(group);const state=createWorld(group);state.bounds=HUB.bounds;
  return withWorld(state,()=>{
-  const b=new Builder(0,0,0,'Двор'),wood=tmat(T.wood()),metal=tmat(T.metal()),dark=col(0x272332);
+  const b=new Builder(0,0,0,'Ярмарка'),wood=tmat(T.wood()),metal=tmat(T.metal()),dark=col(0x272332);
   const LS=(state.lightSources??=[]);
-  /* ---------- земля ---------- */
-  // v0.58: земля — верх летающего острова (hub-island.js), двор и дорожки поверх
-  b.ground(-20,-26,20,24,T.pave(),1.5,.012);
-  b.ground(-2.2,2,2.2,24,T.cobble(),2,.016);
-  b.ground(-19,6,-8,22,T.grass(),2.5,.016);
-  /* ---------- дома по краям: обычные городские фасады, разной высоты ---------- */
-  // v0.59: дома разные — кирпич и штукатурка, свои цвета (слива, бирюза, охра, индиго, бордо, олива), разный шаг окон
-  for(const[x,z,w,d,h,c,brick,rs]of[[-17.5,-17.5,13,15,9,0x6a4a62,true,2.4],[17.5,-17.5,13,15,11,0x3f6464,false,2.6],[-25,7,10,34,11,0x7a5e40,true,2.4],[25,7,10,34,12,0x4a4f78,false,2.4],[-17,28,26,8,10,0x7a4246,true,2.5],[17,28,26,8,12,0x58664a,false,2.4]]){
-   b.facadeBlock(x,z,w,d,h,c,{lit:.35,brick,rowStep:rs});b.box(x,z,w+.25,d+.25,.2,tmat(T.roof()),{y:h});
-  }
-  // граффити на стенах, что смотрят во двор, и плющ, ползущий по фасадам
-  for(const[i,x,z,ry,w,h]of[[0,-19.97,14,Math.PI/2,4.6,2.3],[2,12,23.97,Math.PI,4.2,2.1],[1,19.97,-2,-Math.PI/2,3.6,1.8]]){const m=new THREE.Mesh(G.plane,lam({map:T.graffiti(i),transparent:true,alphaTest:.25},'hub59-graf'+i));m.position.set(x,1.1+h/2,z);m.rotation.y=ry;m.scale.set(w,h,1);group.add(m);}
-  { const ivy=lam({map:ivyTex(),transparent:true,alphaTest:.4,side:THREE.DoubleSide},'hub59-ivy');
-    for(const[x,z,ry,w,h]of[[19.96,17,-Math.PI/2,3.2,8],[-10.96,-13.5,Math.PI/2,2.6,6.5],[-6,23.96,Math.PI,3,7.5],[24,-9.96,0,2.4,8]]){const m=new THREE.Mesh(G.plane,ivy);m.position.set(x,h/2,z);m.rotation.y=ry;m.scale.set(w,h,1);group.add(m);} }
-  // южная арка-вход во двор
-  group.add(compose('hub55-gate',a=>{for(const s of[-1,1])a(G.box,col(0x4a4452),s*4.3,2.4,28.5,.6,4.8,.6);a(G.box,col(0x4a4452),0,5.0,28.5,9.2,.6,.7);}));
-  for(const s of[-1,1])addSolid(s*4.3-.3,28.2,s*4.3+.3,28.8,0,4.8); // v0.59: проход под аркой открыт — дальше мост на «Остров затей»
-  { const t=signTex('ДВОР',undefined,'#f5c542',256,64),m=new THREE.Mesh(G.plane,new THREE.MeshBasicMaterial({map:t}));m.position.set(0,5.0,28.12);m.rotation.y=Math.PI;m.scale.set(3.2,.8,1);group.add(m); }
-
-  /* ---------- арена, табло, рогатка ---------- */
-  const vote=buildVoteArena(b,MODES);
-  const screen=buildScreen(b,0,6.6,-12.8,MODES);
-  const sling=WINTER?buildSled(b,0,-21):buildSlingshot(b,0,-21); // v0.70: зимой - сани с трамплина
-  // два прожектора над ареной и фонари по периметру двора
-  for(const s of[-1,1])b.floodlight(s*8.4,2.6,s>0?-2.6:2.6,8,false);
-  // v0.60.15: отключить все объёмные ламповые конусы в хабе.
-  // Их прозрачные аддитивные цилиндры выглядели как парящие световые столбы
-  // и включались возле камеры. Плафоны, свет на земле и коллизия фонарей остаются.
-  for(const[x,z,ry]of[[-9,-12,Math.PI/2],[9,-12,-Math.PI/2],[-4.5,6,Math.PI/2],[4.5,6,-Math.PI/2],[-4.5,18,Math.PI/2],[4.5,18,-Math.PI/2],[-9,-22,Math.PI/2],[9,-22,-Math.PI/2]]) {
-    b.lamp(x,z,ry,false);
-  }
-
-  /* ---------- магазинчик «Гардероб» (запад) ---------- */
-  // v0.56: примерочная меньше (6×7 м) — персонаж стоит близко, камера рядом; позади — склад магазина (глухой фасад)
-  b.facadeBlock(-18.2,-5,2.8,10,4.4,0x5e4452,{lit:0});for(const z of[-9.3,-.7])b.box(-13.9,z,5.8,1.4,4.4,tmat(T.brickWall()));
-  const shop=room(b,group,{x0:-16.8,x1:-11,z0:-8.6,z1:-1.4,h:4.4,color:0x6a4a5a,wall:0xd8b8d0,plain:true,floor:'tile',door:{side:'e',a:-6.2,b:-3.8},window:{side:'s',a:-16.2,b:-12.6}});
-  { const t=picTex('shop','#2a1a2a','#ffd8ec',256,64,'#d8608a'),m=new THREE.Mesh(G.box,[lam({map:t,emissive:0xffffff,emissiveMap:t,emissiveIntensity:.5},'hub55-wsign'),dark,dark,dark,dark,dark]);m.position.set(-10.78,3.45,-5);m.scale.set(.12,.8,3.6);m.userData.noBatch=true;group.add(m); }
-  awning(b,group,-10.3,-5,'x',3.6,'#d8608a','#f1e8ff');
-  // у входа: уличная стойка с вещами на распродажу и горшки с цветами
-  { b.box(-9.6,-7.6,.05,1.6,.05,metal,{y:1.6,solid:false});for(const z of[-8.35,-6.85])b.box(-9.6,z,.05,.05,1.6,metal,{solid:false});b.box(-9.6,-7.6,.5,1.7,.05,metal,{y:.02,solid:false});
-    for(let k=0;k<4;k++)group.add(garment(k%3,[0xd8608a,0x4ab0f0,0xf5c542,0x9be36b][k],-9.6,-8.15+k*.36,metal).translateY(-.45).rotateY(Math.PI/2));addSolid(-9.9,-8.5,-9.3,-6.7,0,1.7);
-    for(const z of[-6.6,-3.4])b.planter(-10.4,z,.6,.6,.5,'shrub'); }
-  { const cl=[0x8a4a5a,0x4a6a7a,0xc8a050,0x5a4a8a,0x6a8a4a,0xd8608a],cloth=c=>tmat(T.cloth(c)),pk=col(0xd8608a),cream=col(0xf1e8ff);
-   // v0.59b: задняя стена — стеллаж-ячейки со сложенными вещами, коробками и обувью: ровный светлый фон за персонажем
-   { const lw=lam({color:0x9a6a48},'hub59-shelfwood3'),X=-16.62;
-     group.add(compose('hub59-cubbies',a=>{a(G.box,new THREE.MeshBasicMaterial({color:0x2a2034}),X+.02,1.6,-5,.04,3.1,4.6);
-       for(let r=0;r<=3;r++)a(G.box,lw,X+.22,.05+r*1.03,-5,.44,.09,4.7);for(let c=0;c<=4;c++)a(G.box,lw,X+.22,1.6,-7.3+c*1.15,.44,3.2,.09);
-       const C=[0xd8608a,0x4ab0f0,0xf5c542,0x9be36b,0xb18cff,0xf1e8ff,0xe0703a,0x5a8a9a];let k=0;
-       for(let r=0;r<3;r++)for(let c=0;c<4;c++){const zc=-6.72+c*1.15,y0=.08+r*1.03;k++;
-         if((r+c)%3===2){a(G.box,col(0xc8a070),X+.24,y0+.17,zc-.2,.3,.3,.42);a(G.box,col(0xc8a070),X+.24,y0+.16,zc+.25,.3,.28,.38);a(G.box,col(0x2a2430),X+.24,y0+.33,zc-.2,.31,.03,.43);}
-         else for(let q=0;q<3;q++)a(G.box,col(C[(k+q)%C.length]),X+.26,y0+.1+q*.15,zc+(q%2?.04:-.04),.34,.14,.7);}}));
-     addSolid(-16.8,-7.4,-16.0,-2.6,0,3.2); }
-   // подиум под примерку: круглый, с подсветкой по краю
-   b.m(G.cyl12,tmat(T.wood()),-14.6,.1,-5,1.0,.2,1.0);b.m(G.cyl12,lam({color:0x8a6a5a},'hub55-ped'),-14.6,.21,-5,.92,.02,.92);for(let k=0;k<12;k++){const an=k/12*Math.PI*2;b.m(G.sph,glow(0xffb0d8),-14.6+Math.cos(an)*.96,.21,-5+Math.sin(an)*.96,.05,.03,.05);}
-   // вешалка вдоль северной стены: вещи разных цветов, над ней полка с шапками и кроссовками, табличка «НОВИНКИ»
-   b.box(-13.35,-8.1,3.3,.06,.06,metal,{y:2.0,solid:false});for(const x of[-14.95,-11.75])b.box(x,-8.1,.06,.06,2.0,metal,{solid:false});
-   // v0.58: на вешалке настоящие вещи — худи с капюшоном и рукавами, футболки, куртки; каждая на плечиках с крючком
-   for(let k=0;k<7;k++){const x=-14.7+k*.45,c=cl[k%cl.length],kind=k%3;group.add(garment(kind,c,x,-8.1,metal));}
-   addSolid(-16.4,-8.6,-11.6,-7.75,0,2.2);
-   b.box(-14,-8.45,4.6,.3,.06,tmat(T.wood()),{y:2.6,solid:false});
-   group.add(compose('hub56-hats',a=>{a(G.cyl8,col(0x2a2430),-15.8,2.78,-8.45,.16,.3,.16);a(G.cyl8,col(0x2a2430),-15.8,2.64,-8.45,.26,.02,.26);a(G.cone8,col(0x3a2a4a),-14.9,2.84,-8.45,.18,.42,.18);a(G.cyl8,col(0x3a2a4a),-14.9,2.64,-8.45,.3,.02,.3);
-    a(G.sph10,col(0x4ab0f0),-14,2.72,-8.45,.17,.12,.17);a(G.box,col(0x4ab0f0),-14,2.67,-8.3,.2,.02,.14);}));
-   for(const[x,c]of[[-13.1,0xf1e8ff],[-12.45,0xd8243a]])group.add(sneaker(c,x,2.63,-8.45));
-   // у витрины: манекен в худи и пуф с коробками обуви
-   group.add(compose('hub56-mannequin',a=>{const m=col(0xd8cfc0);a(G.cyl8,m,0,.05,0,.3,.1,.3);a(G.cyl6,dark,0,.6,0,.03,1,.03);a(G.box,col(0xd8608a),0,1.32,0,.5,.6,.26);a(G.box,col(0xd8608a),0,1.62,-.08,.3,.12,.16);a(G.sph10,m,0,1.82,0,.14,.17,.14);a(G.cyl8,col(0xf5c542),0,1.98,0,.16,.06,.16);}).translateX(-15.6).translateZ(-2.1));
-   b.m(G.cyl12,tmat(T.cloth(0x6a3a5a)),-12.7,.22,-2.2,.4,.44,.4);for(const[y,c]of[[.5,0xd8a050],[.66,0xf1e8ff],[.8,0x4ab0f0]])b.box(-12.7,-2.2,.42,.28,.15,col(c),{y,solid:false});
-   addSolid(-13.1,-2.6,-12.3,-1.8,0,.9);
-   // подвесные лампы-конусы и светлый круглый ковёр под подиумом (тёмный полосатый ковёр давал «тёмный блок» снизу)
-   for(const z of[-6.2,-3.8]){b.box(-14.6,z,.02,.02,.9,metal,{y:3.5,solid:false});b.m(G.cone8,pk,-14.6,3.4,z,.28,.28,.28);b.m(G.sph,glow(0xffe0c0),-14.6,3.25,z,.1,.08,.1);}
-   b.m(G.cyl12,lam({color:0xe8d4dc},'hub59-rug'),-14.4,.012,-5,1.9,.012,1.9);b.m(G.cyl12,lam({color:0xd8608a},'hub59-rugrim'),-14.4,.008,-5,2.0,.01,2.0);
-   // касса у двери: стойка, терминал, пакетики
-   group.add(compose('hub59-till',a=>{a(G.box,lam({color:0xb89070},'hub59-shelfwood'),0,.5,0,.5,1,1.1);a(G.box,col(0xf1e8ff),0,1.02,0,.54,.04,1.14);a(G.box,col(0x2a2430),.05,1.14,.25,.2,.18,.06,-.4);a(G.box,col(0x9be36b),.06,1.16,.27,.15,.1,.01,-.4);
-     for(const[z,c]of[[-.3,0xd8608a],[-.05,0xf5c542]]){a(G.box,col(c),0,1.2,z,.2,.26,.12);a(G.halfTorus,col(0x2a2430),0,1.35,z,.06,.06,.3,0,Math.PI/2,0);}}).translateX(-11.6).translateZ(-7.4));
-   addSolid(-11.85,-7.95,-11.35,-6.85,0,1.1);
-   // примерочная кабинка в углу: рама, штанга, полузадёрнутая шторка в складку, зеркальце-панель и табурет
-   group.add(compose('hub59-booth',a=>{const fr=col(0x2a2430),cur=col(0xd8608a);for(const[x,z]of[[-.65,-.6],[.65,-.6],[-.65,.6],[.65,.6]])a(G.box,fr,x,1.15,z,.06,2.3,.06);
-     a(G.box,fr,0,2.3,-.6,1.36,.06,.06);a(G.box,fr,0,2.3,.6,1.36,.06,.06);a(G.box,fr,-.65,2.3,0,.06,.06,1.26);a(G.box,fr,.65,2.3,0,.06,.06,1.26);
-     a(G.box,col(0x6a5a78),-.65,1.15,0,.04,2.1,1.16);for(let i=0;i<5;i++)a(G.box,cur,.65,1.2,-.5+i*.13,.05+(i%2)*.05,2.0,.13);
-     a(G.box,col(0xbfd6e8),-.6,1.3,0,.02,1.1,.5);a(G.cyl8,col(0xb89070),0,.22,-.2,.2,.44,.2);}).translateX(-15.9).translateZ(-8.05));
-   addSolid(-16.6,-8.7,-15.2,-7.4,0,2.3);
-   // ровный верхний свет: две светящиеся панели в потолке
-   for(const z of[-7.2,-2.8])b.box(-14,z,2.2,.9,.04,lam({color:0xfff4ea,emissive:0xfff0e0,emissiveIntensity:.55},'hub59-ceilpanel'),{y:4.32,solid:false});
-   // мягкий свет сверху на персонажа: софтбокс под потолком — рамка, светящаяся ткань, мягкий ореол
-   b.box(-14.6,-5,1.5,1.5,.12,dark,{y:4.12,solid:false});b.box(-14.6,-5,1.36,1.36,.02,lam({color:0xfff4e8,emissive:0xfff0dc,emissiveIntensity:.9},'hub58-softbox'),{y:4.05,solid:false});
-   for(const[dx,dz]of[[-.7,0],[.7,0],[0,-.7],[0,.7]])b.box(-14.6+dx,-5+dz,dx?.03:1.5,dz?.03:1.5,.3,dark,{y:4.0,solid:false});
-   b.plantPot?.(-16.3,-1.9);b.plantPot?.(-11.6,-2.0);
-  }
-  // v0.59: ровный мягкий свет по всей примерочной (не только пятно сверху): софтбокс, заполняющий спереди, два боковых низко
-  LS.push({x:-14,y:4,z:-7.2,color:0xfff8f2,strength:1.1,range:5},{x:-14,y:4,z:-2.8,color:0xfff8f2,strength:1.1,range:5},{x:-14.6,y:3.9,z:-5,color:0xfff8f4,strength:2.4,range:5},{x:-12.4,y:1.5,z:-5,color:0xfff2f6,strength:1.8,range:4.5},{x:-14.2,y:1.2,z:-7.6,color:0xfff0ea,strength:.9,range:3.5},{x:-14.2,y:1.2,z:-2.4,color:0xfff0ea,strength:.9,range:3.5},{x:-12.5,y:3.2,z:-2.5,color:0xffe0c8,strength:1.2,range:4});
-  // раздвижные двери: деревянная рама со стеклом
-  const doors=[-1,1].map(s=>{const g=new THREE.Group();group.add(g);state.keep.push(g);g.add(compose('hub55-door',a=>{a(G.box,wood,0,1.3,0,.08,2.6,1.2);a(G.box,lam({color:0x9ab0c8,transparent:true,opacity:.45},'hub55-doorglass'),0,1.5,0,.1,1.6,.9);a(G.box,metal,.07,1.2,s*-.45,.06,.3,.05);}));return{g,s};});
-  const entrySolid=addSolid(-11.25,-6.2,-10.85,-3.8,0,2.6);
-
-  /* ---------- аркада и автомат (восток) ---------- */
-  room(b,group,{x0:11,x1:19.6,z0:-10,z1:0,h:4.6,color:0x3a4a6a,wall:0x2a2a3a,floor:'tile',door:{side:'w',a:-4.4,b:-1.8,open:true},window:{side:'w',a:-9.4,b:-4.8},window2:{side:'w',a:-1.4,b:-.6}});
-  { const t=picTex('pad','#14202a','#9fe8ff',256,64,'#4ab0f0'),m=new THREE.Mesh(G.box,[dark,lam({map:t,emissive:0xffffff,emissiveMap:t,emissiveIntensity:.55},'hub55-asign'),dark,dark,dark,dark]);m.position.set(10.78,3.6,-5);m.scale.set(.12,.8,3.6);m.userData.noBatch=true;group.add(m); }
-  for(const[x,z,c]of[[18.7,-8.8,0x7b4bc4],[18.7,-7.5,0xd8243a],[18.7,-1.5,0x4ab0f0],[15,-9.2,0x4a9a5a],[13.6,-9.2,0xe0a030]])b.arcade(x,z,x>18?-Math.PI/2:0,c);
-  LS.push({x:15.3,y:3.8,z:-5,color:0xb8c8ff,strength:4,range:7},{x:16,y:3,z:-8,color:0xd080ff,strength:2.5,range:5});
-  // v0.59: автомат внутри аркады, у восточной стены
-  const claw={pos:new V3(17.9,.15,-5.0),ry:-Math.PI/2,scale:.72,stand:new V3(16.2,0,-3.6),solid:[17.05,-6.3,18.75,-3.7]};
-
-  /* ---------- юг: площадка для дурачества и столики ---------- */
-  trampoline(b,group,-15,10,1.6);trampoline(b,group,-11,15,1.2);
-  // Лицевая сторона кольца (локальная -Z) смотрит на дорожку и центр двора (+X), не на западную стену (-X).
-  buildHoop(b,-17.5,20.5,-Math.PI/2);b.swingSet(-11.5,21.5,3.6,0);
-  for(const[t,x,z]of[['ball',-14,13],['water',-12,18],['water',-12.4,18.4],['duck',-17,14],['slipper',-9,9],['banana',-16,18.5]])b.item(t,x,z);
-  for(const[x,z]of[[11.5,10],[16.5,10],[11.5,16],[16.5,16]])b.picnic(x,z,0);
-  b.parasol(14,13,'#d8608a','#2a1f3d');b.parasol(14,19,'#4ab0f0','#2a1f3d');
-  b.vending(19,13,-Math.PI/2);b.newsBox(19,19,-Math.PI/2);b.bin(9.5,21);b.bin(-8.5,8);
-  for(const[x,z]of[[-6,9.5],[6,9.5]])b.planter(x,z,1.8,1.8,.5,'tree');
-  b.bench(-3.6,12,Math.PI/2);b.bench(3.6,12,-Math.PI/2);b.bench(-3.6,20,Math.PI/2);b.bench(3.6,20,-Math.PI/2);
-  for(const[x,z]of[[-19,-23],[19,-23]])b.tree(x,z,.9,0,'oak');
-  b.ride('cart',8.5,4,Math.PI/2);b.ride('skate',-2,8);
-  b.stringLights(-8,4.5,-8,22,4.8,[0xffb45a,0xff7a5a,0xffd27a]);b.stringLights(8,4.5,8,22,4.8,[0xffb45a,0xff7a5a,0xffd27a]);
-  decor(b,group);
-  // v0.70 зима: ёлка с табло побед у точки появления, колесо удачи и табло уровней у лавок
+  /* ---------- дорожки: утоптанный снег по плитке, кольцо вокруг ёлки и лучи к зонам ---------- */
+  b.ground(-2,-16,2,30,T.pave(),2,.016);b.ground(-10,-2,10,2,T.pave(),2,.016);b.ground(2,-2,11,2,T.pave(),2,.018);
+  { const r=new THREE.Mesh(new THREE.RingGeometry(4.2,6.2,40),lam({map:T.pave(),polygonOffset:true,polygonOffsetFactor:-2},'hub71-ring'));r.rotation.x=-Math.PI/2;r.position.y=.02;group.add(r); }
+  edgeRail(group);
+  /* ---------- центр: большая ёлка, табло побед ---------- */
   const xmas=[];
-  if(WINTER){buildTree(group,-6.6,16);xmas.push(buildBoard(group,-6.6,1.75,19.6,Math.PI/2,'wins'));
-    xmas.push(buildWheel(group,11.6,1.8,-Math.PI/2,msg=>{let t=document.getElementById('hubToast');if(!t){t=document.createElement('div');t.id='hubToast';document.body.appendChild(t);}t.textContent=msg;t.classList.remove('on');void t.offsetWidth;t.classList.add('on');}));
-    xmas.push(buildBoard(group,-9.2,1.75,1.8,Math.PI/2,'levels'));
-    for(const[x,z,ry]of[[4.6,23,-.4],[-15.5,4.5,.6],[15.8,21.5,-.8]])buildSnowman(group,x,z,ry);}
+  buildTree(group,0,0,2.1);xmas.push(buildBoard(group,-4.2,1.75,7.2,Math.PI*.15,'wins'));xmas.push(buildBoard(group,4.2,1.75,7.2,-Math.PI*.15,'levels'));
+  // гирлянды лучами от верхушки ёлки к домикам ярмарки
+  for(const[x,z]of[[7.5,7.5],[-7.5,7.5],[7.5,-7.5],[-7.5,-7.5]])b.stringLights(x*.18,z*.18,x,z,3.2);
+  /* ---------- запад: каток выбора режима, над воротами табло ---------- */
+  const vote=buildVoteArena(b,MODES);
+  const screen=buildScreen(b,-18,6.6,-16.6,MODES);
+  /* ---------- север: высокая горка с санями ---------- */
+  const sling=WINTER?buildSled(b,0,-24):buildSlingshot(b,0,-24);
+  /* ---------- ярмарочные домики ---------- */
+  stall(b,group,8.2,8.2,-Math.PI*.75,'cocoa',0xc8302a);stall(b,group,-7.6,8.6,Math.PI*.75,'ginger',0x2f7a46);
+  stall(b,group,7.8,-8.2,-Math.PI*.25,'toys',0x4a6ab0);stall(b,group,-7.4,-8.6,Math.PI*.25,'fir',0xb08a30);
+  /* ---------- фонари вдоль дорожек, скамейки, снеговики ---------- */
+  for(const[x,z,ry]of[[-2.8,12,Math.PI/2],[2.8,20,-Math.PI/2],[-2.8,26,Math.PI/2],[2.8,-11,-Math.PI/2],[-2.8,-15,Math.PI/2],[9.5,-2.8,0],[-9.5,2.8,Math.PI],[14,14,-Math.PI*.75],[-14,13,Math.PI*.75]])b.lamp(x,z,ry,false);
+  b.bench(-4.6,13,Math.PI/2);b.bench(4.6,13,-Math.PI/2);b.bench(-4.6,22,Math.PI/2);b.bench(4.6,22,-Math.PI/2);
+  for(const[x,z,ry]of[[6.5,17,-.5],[-9,18,.6],[13,-18,-.8],[-6,-20,.4]])buildSnowman(group,x,z,ry);
+  for(const[x,z]of[[-12,18],[12,22],[18,-20],[-16,22],[22,16]])b.tree(x,z,.9,0,'spruce');
+  for(const[t,x,z]of[[ 'ball',-6,16],['slipper',6,11],['duck',-10,24]])b.item(t,x,z);
+  b.ride('skate',-3,18);
+  // южная арка к мосту на «Остров затей»
+  group.add(compose('hub71-gate',a=>{for(const s of[-1,1]){a(G.box,wood,s*2.8,2.2,41.5,.4,4.4,.4);a(G.cone4,lam({color:0xeef3fb},'gate71-snow'),s*2.8,4.55,41.5,.35,.35,.35);}a(G.box,wood,0,4.3,41.5,6.2,.4,.5);a(G.box,lam({color:0xeef3fb},'gate71-snowtop'),0,4.55,41.5,6.3,.12,.6);
+   for(let i=0;i<11;i++)a(G.cone8,lam({color:[0xd8243a,0x9be36b,0xf5c542][i%3]},'gate71-flag'+(i%3)),-2.5+i*.5,3.95,41.5,.14,.3,.04,Math.PI,0,0);}));
+  for(const s of[-1,1])addSolid(s*2.8-.2,41.3,s*2.8+.2,41.7,0,4.4);
+  { const t=signTex('ОСТРОВ ЗАТЕЙ',undefined,'#f5c542',256,64),m=new THREE.Mesh(G.plane,new THREE.MeshBasicMaterial({map:t}));m.position.set(0,4.3,41.22);m.rotation.y=Math.PI;m.scale.set(3.2,.8,1);group.add(m); }
 
-  // северный край острова: низкое ограждение, за ним обрыв — туда стреляет рогатка
-  b.fence(-11,-25.6,11,-25.6,1.0,'iron');
-  /* ---------- v0.59: паркур вокруг двора ---------- */
-  // запад: пожарная лестница на доме у гардероба → крыша склада → крыша гардероба; восток: лестница на крышу аркады, там садик
-  { const st=tmat(T.paintMetal(0x3a4048));
-    for(const[y,x0,x1]of[[2.6,-23,-17.4],[5.2,-23,-17.4]]){b.box((x0+x1)/2,-9.4,x1-x0,1.2,.12,st,{y:y-.12});b.fence(x0,-10,x0,-8.8,1.0,'iron');}
-    b.ladder(-22.4,-8.75,'s',2.6);b.ladder(-18.2,-8.75,'s',5.2,2.6);
-    for(const[x,z]of[[-21,-22],[-14,-22]])b.aircon?.(x,z,9);
-    b.ladder(18.4,0,'s',4.9);
-    group.add(compose('hub59-roofgarden',a=>{for(const[x,z]of[[13,-8],[17.5,-8],[13,-2.5]]){a(G.box,col(0x6a4a3a),x,5.15,z,1.2,.5,.6);a(G.sph10,col(0x4f8a4a),x,5.55,z,.55,.35,.3);}a(G.box,tmat(T.wood()),15.5,5.2,-4.5,2,.08,.5);for(const s of[-.9,.9])a(G.box,col(0x2a2430),15.5+s,5.0,-4.5,.06,.3,.4);}));
-    b.stringLights(11.5,-9.6,19.2,-.4,6.2,[0xffb45a,0xff7a5a,0xffd27a],{endPoles:true}); // Без центрального столба перед автоматом (15.35, -5).
+  /* ---------- восток-север: шале-гардероб ---------- */
+  // v0.71: не коробка - шале со скатной крышей и снегом, крыльцо с навесом, витрина с вещами, вывеска-плечики; внутри - мягкий свет сверху
+  const WX0=12,WX1=19,WZ0=-14,WZ1=-6,WC=-10;
+  const shop=room(b,group,{x0:WX0,x1:WX1,z0:WZ0,z1:WZ1,h:3.8,color:0x8a4a5a,wall:0xe8d0dc,plain:true,floor:'wood',door:{side:'w',a:WC-1.3,b:WC+1.3},window:{side:'s',a:13,b:17.5}});
+  chaletRoof(group,WX0-.15,WX1+.15,WZ0-.15,WZ1+.15,3.8,0x7a2a3a,true);
+  { const t=picTex('hanger','#2a1a2a','#ffd8ec',256,64,'#d8608a'),m=new THREE.Mesh(G.box,[dark,lam({map:t,emissive:0xffffff,emissiveMap:t,emissiveIntensity:.5},'hub71-wsign'),dark,dark,dark,dark]);m.position.set(WX0-.2,3.25,WC);m.scale.set(.12,.7,3);m.rotation.y=Math.PI;m.userData.noBatch=true;group.add(m); }
+  group.add(compose('hub71-porch',a=>{for(const s of[-1,1])a(G.box,wood,WX0-1.6,1.4,WC+s*1.7,.16,2.8,.16);a(G.box,lam({color:0x7a2a3a},'chalet71-porch'),WX0-.9,2.95,WC,1.7,.1,3.8,0,0,.32);a(G.box,lam({color:0xeef3fb},'chalet71-porchsnow'),WX0-.9,3.03,WC,1.6,.06,3.7,0,0,.32);
+   for(let i=0;i<10;i++)a(G.sph,lam({color:0xffe08a,emissive:0xffc040,emissiveIntensity:1},'hub71-warm'),WX0-1.7,2.7,WC-1.6+i*.36,.05,.05,.05);}));
+  // витрина: два манекена в новогодних свитерах
+  for(const[x,c]of[[14.2,0xd8243a],[16.4,0x2f7a46]])group.add(compose('hub71-mann'+c,a=>{const m=col(0xd8cfc0);a(G.cyl8,m,0,.05,0,.3,.1,.3);a(G.cyl6,dark,0,.6,0,.03,1,.03);a(G.box,col(c),0,1.32,0,.5,.6,.26);a(G.box,col(0xf1e8ff),0,1.4,.135,.4,.06,.01);a(G.sph10,m,0,1.82,0,.14,.17,.14);a(G.cone8,col(0xd8243a),0,2.05,0,.15,.3,.15);a(G.sph,col(0xf1e8ff),0,2.2,0,.06,.06,.06);}).translateX(x).translateZ(WZ1-.7));
+  // интерьер: задняя стена-стеллаж, подиум с подсветкой, вешалка, зеркало, софтбокс над персонажем
+  { const lw=lam({color:0x9a6a48},'hub59-shelfwood3'),X=WX1-.2,C=[0xd8608a,0x4ab0f0,0xf5c542,0x9be36b,0xb18cff,0xf1e8ff,0xe0703a,0x5a8a9a];
+    group.add(compose('hub71-cubbies',a=>{for(let r=0;r<=3;r++)a(G.box,lw,X-.22,.05+r*.95,WC,.44,.09,4.2);for(let c=0;c<=3;c++)a(G.box,lw,X-.22,1.45,WC-2.05+c*1.37,.44,2.9,.09);
+      let k=0;for(let r=0;r<3;r++)for(let c=0;c<3;c++){const zc=WC-1.37+c*1.37,y0=.08+r*.95;k++;for(let q=0;q<3;q++)a(G.box,col(C[(k+q)%C.length]),X-.26,y0+.1+q*.15,zc+(q%2?.04:-.04),.34,.14,.8);}}));
+    addSolid(X-.45,WC-2.1,X,WC+2.1,0,3);
+    b.m(G.cyl12,wood,16.6,.1,WC,1.0,.2,1.0);b.m(G.cyl12,lam({color:0x8a6a5a},'hub55-ped'),16.6,.21,WC,.92,.02,.92);for(let k=0;k<12;k++){const an=k/12*Math.PI*2;b.m(G.sph,glow(0xffd8b0),16.6+Math.cos(an)*.96,.21,WC+Math.sin(an)*.96,.05,.03,.05);}
+    b.m(G.cyl12,lam({color:0xe8d4dc},'hub59-rug'),16.4,.012,WC,1.9,.012,1.9);
+    b.box(15.5,WZ0+.5,3.2,.06,.06,metal,{y:2.0,solid:false});for(const x of[13.9,17.1])b.box(x,WZ0+.5,.06,.06,2.0,metal,{solid:false});
+    for(let k=0;k<6;k++)group.add(garment(k%3,[0xd8243a,0x2f7a46,0xf5c542,0x4ab0f0,0xf1e8ff,0xb18cff][k],14.2+k*.5,WZ0+.5,metal));addSolid(13.6,WZ0+.1,17.4,WZ0+.9,0,2.2);
+    group.add(compose('hub71-mirror',a=>{a(G.box,col(0x6a4a3a),0,1.2,0,.08,2.2,1.0);a(G.box,col(0xbfd6e8),.05,1.2,0,.02,1.9,.8);}).translateX(13.4).translateZ(WZ1-1.1));
+    // софтбокс прямо над подиумом + рамка и мягкий ореол
+    b.box(16.6,WC,1.5,1.5,.12,dark,{y:3.62,solid:false});b.box(16.6,WC,1.36,1.36,.02,lam({color:0xfff4e8,emissive:0xfff0dc,emissiveIntensity:.95},'hub58-softbox'),{y:3.55,solid:false});
   }
-  // балконы с цветами и кондиционеры на домах вокруг двора — фасады живее
-  group.add(compose('hub59-balconies',a=>{const rail=col(0x2a2430),slab=col(0x6a6070);
-    for(const[x,z,y,ax]of[[-20.3,0,4.4,'z'],[-20.3,12,7,'z'],[20.3,4,4.4,'z'],[20.3,16,7,'z'],[-12,23.7,4.4,'x'],[12,23.7,7,'x'],[-15,-9.9,7.5,'x']]){const sx=ax==='z'?(x<0?1:-1):0,sz=ax==='x'?(z<0?1:-1):0;
-      a(G.box,slab,x+sx*.5,y,z+sz*.5,ax==='z'?1:2.4,.12,ax==='z'?2.4:1);a(G.box,rail,x+sx*.98,y+.5,z+sz*.98,ax==='z'?.05:2.4,.05,ax==='z'?2.4:.05);for(let k=-1;k<=1;k+=.5)a(G.box,rail,x+sx*.98+(ax==='x'?k*1.1:0),y+.25,z+sz*.98+(ax==='z'?k*1.1:0),.04,.5,.04);
-      a(G.box,col(0x8a4a3a),x+sx*.8,y+.2,z+sz*.8,ax==='z'?.3:1.2,.25,ax==='z'?1.2:.3);for(let k=-.4;k<=.4;k+=.4)a(G.sph10,col([0xd8608a,0xf5c542,0x9be36b][(k*5+5|0)%3]),x+sx*.8+(ax==='x'?k:0),y+.42,z+sz*.8+(ax==='z'?k:0),.12,.1,.12);}}));
-  /* ---------- v0.59: «Остров затей» за южной аркой ---------- */
+  LS.push({x:16.6,y:3.4,z:WC,color:0xfff6ee,strength:3.2,range:4.6},{x:14.6,y:2.2,z:WC,color:0xfff0e6,strength:2,range:4.2},{x:15,y:3.3,z:WC-2.6,color:0xffe8d8,strength:1,range:3.6},{x:15,y:3.3,z:WC+2.6,color:0xffe8d8,strength:1,range:3.6});
+  const doors=[-1,1].map(s=>{const g=new THREE.Group();group.add(g);state.keep.push(g);g.add(compose('hub55-door',a=>{a(G.box,wood,0,1.3,0,.08,2.6,1.2);a(G.box,lam({color:0x9ab0c8,transparent:true,opacity:.45},'hub55-doorglass'),0,1.5,0,.1,1.6,.9);a(G.box,metal,-.07,1.2,s*-.45,.06,.3,.05);}));return{g,s};});
+  const entrySolid=addSolid(WX0-.2,WC-1.2,WX0+.2,WC+1.2,0,2.6);
+
+  /* ---------- восток-юг: игровой зал - автомат с друзьями и колесо удачи ---------- */
+  const AX0=12,AX1=21,AZ0=2,AZ1=12;
+  room(b,group,{x0:AX0,x1:AX1,z0:AZ0,z1:AZ1,h:4.2,color:0x3a4a7a,wall:0x2a2a40,floor:'tile',door:{side:'w',a:5.8,b:8.6,open:true},window:{side:'w',a:2.8,b:5.2},window2:{side:'w',a:9.2,b:11.2}});
+  chaletRoof(group,AX0-.15,AX1+.15,AZ0-.15,AZ1+.15,4.2,0x2a3a6a,false);
+  { const t=picTex('pad','#14202a','#9fe8ff',256,64,'#4ab0f0'),m=new THREE.Mesh(G.box,[dark,lam({map:t,emissive:0xffffff,emissiveMap:t,emissiveIntensity:.55},'hub55-asign'),dark,dark,dark,dark]);m.position.set(AX0-.2,3.55,7.2);m.scale.set(.12,.75,3.4);m.rotation.y=Math.PI;m.userData.noBatch=true;group.add(m); }
+  for(const[x,z,ry,c]of[[14,2.7,0,0x7b4bc4],[15.4,2.7,0,0xd8243a],[16.8,2.7,0,0x4a9a5a],[20.3,6.9,-Math.PI/2,0xe0a030]])b.arcade(x,z,ry,c);
+  LS.push({x:16.5,y:3.6,z:7,color:0xb8c8ff,strength:3.6,range:7},{x:19.6,y:3,z:9.8,color:0xffd090,strength:2.4,range:4.5},{x:19,y:3,z:4.4,color:0xd080ff,strength:2,range:4.5});
+  const claw={pos:new V3(19.9,.15,4.4),ry:-Math.PI/2,scale:.72,stand:new V3(18.2,0,5.8),solid:[19.05,3.1,20.75,5.7]};
+  b.stringLights(AX0+.4,AZ0+.4,AX1-.4,AZ1-.4,3.8,undefined,{endPoles:true});
+  if(WINTER)xmas.push(buildWheel(group,20.2,9.4,-Math.PI/2,msg=>{let t=document.getElementById('hubToast');if(!t){t=document.createElement('div');t.id='hubToast';document.body.appendChild(t);}t.textContent=msg;t.classList.remove('on');void t.offsetWidth;t.classList.add('on');}));
+  decor(b,group);
+  /* ---------- «Остров затей» за южной аркой ---------- */
   const isle2=buildIsle2(b,group);state.walk=hubWalk;
   resetTools();resetSplat();registerInteracts();bakeStatic(group);
   const island=buildIsland(group);installHubReturn();
   let curtainOpen=0;
-  const wardrobe={preview:new V3(-14.6,.2,-5),gate:new V3(-10,0,-5),inside:new V3(-12.3,0,-5),exit:new V3(-9.4,0,-5),camera:new V3(-11.35,1.6,-4.15),look:new V3(-14.6,1.05,-5),inYaw:-Math.PI/2,outYaw:Math.PI/2};
+  const wardrobe={preview:new V3(16.6,.2,WC),gate:new V3(WX0-2,0,WC),inside:new V3(WX0+1.3,0,WC),exit:new V3(WX0-2.6,0,WC),camera:new V3(13.6,1.6,WC+.85),look:new V3(16.6,1.05,WC),inYaw:Math.PI/2,outYaw:-Math.PI/2};
+  const inRect=(c,x0,x1,z0,z1)=>c.x>x0&&c.x<x1&&c.z>z0&&c.z<z1&&c.y<4;
   const result={state,group,island,isle2,curtains:doors,lampLights:[],entrySolid,vote,screen,sling,claw,wardrobe,shop,
-   stations:[{id:'wardrobe',name:'Гардероб',hint:'Сменить персонажа',p:new V3(-10,0,-5),r:1.9},{id:'claw',name:'Автомат с друзьями',hint:'Выловить нового друга',p:new V3(16.2,0,-4.4),r:1.5},...isle2.stations],
-   curtain(open){curtainOpen=THREE.MathUtils.clamp(open,0,1);entrySolid.on=curtainOpen<.92;for(const{g,s}of doors)g.position.set(-11.05,0,-5+s*(.6+curtainOpen*1.15));},
+   inside:c=>inRect(c,WX0,WX1,WZ0,WZ1)||inRect(c,AX0,AX1,AZ0,AZ1),
+   stations:[{id:'wardrobe',name:'Гардероб',hint:'Сменить персонажа',p:new V3(WX0-2,0,WC),r:1.9},{id:'claw',name:'Автомат с друзьями',hint:'Выловить нового друга',p:new V3(18.2,0,5.6),r:1.5},...isle2.stations],
+   curtain(open){curtainOpen=THREE.MathUtils.clamp(open,0,1);entrySolid.on=curtainOpen<.92;for(const{g,s}of doors)g.position.set(WX0,0,WC+s*(.6+curtainOpen*1.15));},
    get curtainOpen(){return curtainOpen;},
    update(dt=0){for(const x of xmas)x.update(dt);}
   };result.curtain(0);return result;

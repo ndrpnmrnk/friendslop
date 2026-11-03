@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { W } from './state.js';
 import { solidsNear } from './physics.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, WINTER } from '../config.js';
 import { WL } from '../core/wl-uniforms.js';
 
 /* Свет мира (v0.51): сотни настоящих источников вместо 8 точечных ламп.
@@ -54,7 +54,7 @@ export function buildWorldLight(group) {
   const add = (x, y, z, color, strength, range, extra = {}) => { if (lights.length < MAXL) lights.push({ x, y, z, color: new THREE.Color(color), strength, range, band: null, k: 1, kOld: -1, ...extra }); };
   // фонари: тёплый натриевый свет, пятно на земле и стенах вокруг
   const lampPools = new Set();
-  for (const l of W.lamps || []) { lampPools.add(l.pool); add(l.lx, l.y + 2.9, l.lz, 0xffa85a, 13, 9.5, { pool: l.pool, kind: 'lamp' }); }
+  for (const l of W.lamps || []) { lampPools.add(l.pool); add(l.lx, l.y + 2.9, l.lz, 0xffa85a, WINTER ? 7.5 : 13, WINTER ? 8 : 9.5, { pool: l.pool, kind: 'lamp' }); /* v0.71 J5: на снегу пятна фонарей мягче */ }
   // лампы в комнатах и подсветки (builder.light): внутренние — только на своём этаже
   for (const s of W.lightSources || []) {
     if (lampPools.has(s.pool)) continue;

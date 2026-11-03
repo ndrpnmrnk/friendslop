@@ -40,7 +40,7 @@ export function bounceAt(x, z, y,drop=Infinity) {
 
 // ---------- удары по объектам мира (вызывается из бросков, выпада, гаджетов) ----------
 export function worldHit(p, power, vel) {
-  hitIcicles(p, power); hitSnowmen(p, power, vel);
+  hitIcicles(p, power); hitSnowmen(p, power, vel); for (const f of W.fortHooks || []) f(p, power);
   // гидрант: сбили крышку — струя
   for (const h of W.hydrants) if (!h.on && power >= 3 && Math.hypot(h.x - p.x, h.z - p.z) < 0.7 && p.y < h.y + 1.3) { h.on = 8; h.t = 0; sfx('hydrant', { at: h }); burst(h.x, h.y + 0.8, h.z, 10, { color: 0x9ccbec, size: 0.3, speed: 3, up: 4 }); if (h.cap) h.cap.visible = false; addZone('puddle', { c: [h.x, h.z, 1.6] }, h.y, { expires: 14 }); }
   // машина: сигнализация

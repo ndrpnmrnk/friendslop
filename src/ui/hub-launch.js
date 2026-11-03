@@ -36,7 +36,8 @@ export function signTex(text, bg = '#1b1524', fg = '#f4ecdc', w = 256, h = 64, s
     g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle'; fit(g, text, W2 - 28, Math.floor(H2 * .42), PX); g.fillText(text, W2 / 2, H2 / 2 + 1); }).t;
 }
 /* ---------- арена и мяч ---------- */
-export const ARENA = { x0: -7, x1: 7, z0: -10, z1: 2, goals: [-4.6, 0, 4.6], gw: 3.2, gh: 2.1, gd: 1.4 };
+// v0.71 J1: каток на западе нового хаба - длиннее (14×20 м), только лёд
+export const ARENA = { x0: -25, x1: -11, z0: -13, z1: 7, goals: [-22.2, -18, -13.8], gw: 3.2, gh: 2.1, gd: 1.4 };
 export function buildVoteArena(b, modes) {
   const A = ARENA, group = new THREE.Group(); W.group.add(group); W.keep.push(group);
   const cx = (A.x0 + A.x1) / 2, cz = (A.z0 + A.z1) / 2, w = A.x1 - A.x0, d = A.z1 - A.z0;

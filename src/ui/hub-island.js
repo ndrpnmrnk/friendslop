@@ -1,6 +1,7 @@
 import { THREE, G, lam, col, glow, compose } from '../core/gfx.js';
 import { T, rep, pix } from '../core/textures.js';
 import { burst } from '../world/particles.js';
+import { WINTER } from '../config.js';
 
 /* v0.58 — хаб на летающем острове. Двор с домами — кусок города, вырванный и поднятый в небо:
    - сверху тот же двор, по краю — травяная кромка и обрыв (с севера край ближе: оттуда стреляет рогатка);
@@ -10,7 +11,8 @@ import { burst } from '../world/particles.js';
    Всё дёшево: ~12 вызовов отрисовки, ничего не считается на процессоре, кроме сдвига облаков. */
 
 // контур острова: радиус по углу, с севера (−z) срезан — край в паре шагов за ограждением у рогатки
-export const islandR = th => 47 - 18 * Math.pow(Math.max(0, Math.cos(th - Math.PI * 1.5)), 3) + Math.sin(th * 5) * 1.1 + Math.sin(th * 11 + 1) * .6;
+// v0.71 J1: новый хаб-ярмарка - остров круглее (~31 м), с севера выступ под горку саней (37 м), с юга - к мосту (44 м)
+export const islandR = th => 31 + 13 * Math.pow(Math.max(0, Math.sin(th)), 4) + 6 * Math.pow(Math.max(0, -Math.sin(th)), 6) + Math.sin(th * 5) * .7 + Math.sin(th * 11 + 1) * .35;
 let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
 export function rockCone(rf = islandR, DEPTH = 46, key = 'island-rock') {
@@ -36,7 +38,7 @@ export function cap(rf = islandR) {
   for (let s = 0; s <= SEG; s++) { const th = s / SEG * Math.PI * 2, R = rf(th); (s ? shape.lineTo : shape.moveTo).call(shape, Math.cos(th) * R, -Math.sin(th) * R); }
   const geo = new THREE.ShapeGeometry(shape, 2); geo.rotateX(-Math.PI / 2); // форма в XY (y = −z мира) → на землю лицом вверх
   const uvs = geo.attributes.uv; for (let i = 0; i < uvs.count; i++) uvs.setXY(i, uvs.getX(i) / 4, uvs.getY(i) / 4);
-  const asphalt = new THREE.Mesh(geo, lam({ map: rep(T.asphalt(), 1, 1) }, 'island-asphalt')); asphalt.position.y = -.04;
+  const asphalt = new THREE.Mesh(geo, WINTER ? lam({ map: rep(T.grass(), 1, 1), color: 0xd4dae6 }, 'island-snow71') : lam({ map: rep(T.asphalt(), 1, 1) }, 'island-asphalt')); asphalt.position.y = -.04;
   // кромка: кольцо травы и земляной бортик (толщина 0.6 м) по краю
   const pos = [], idx = [], uv = [];
   for (let s = 0; s <= SEG; s++) { const th = s / SEG * Math.PI * 2, R = rf(th), x = Math.cos(th), z = Math.sin(th);
@@ -81,6 +83,11 @@ export function buildIsland(group) {
   seed = 7; const g = new THREE.Group(); g.name = 'island'; group.add(g);
   const [asphalt, rim] = cap(); g.add(asphalt, rim);
   const rock = rockCone(); g.add(rock);
+  const pipes = [];
+  if (WINTER) { // v0.71 J1: снизу ничего не висит в воздухе - только сосульки, вросшие в кромку, и снежный козырёк
+    g.add(compose('island-icicles71', a => { const ice = lam({ color: 0xcfe4f6, emissive: 0x24405a, emissiveIntensity: .35 }, 'island-icicle71'); for (let i = 0; i < 70; i++) { const th = i / 70 * Math.PI * 2 + rnd() * .05, R = islandR(th) + .1, L = .5 + rnd() * 1.4;
+      a(G.cone4, ice, Math.cos(th) * R, -.55 - L / 2, Math.sin(th) * R, .12 + rnd() * .1, L, .12 + rnd() * .1, Math.PI, 0, 0); } }));
+  } else {
   // корни и обрывки кабелей по краю снизу
   g.add(compose('island-roots', a => { for (let i = 0; i < 26; i++) { const th = rnd() * Math.PI * 2, R = islandR(th) * (.78 + rnd() * .2), L = 1.5 + rnd() * 4;
     a(G.cyl6, i % 4 ? col(0x3a2a20) : col(0x1c1a22), Math.cos(th) * R, -2.5 - L / 2 - rnd() * 3, Math.sin(th) * R, .05 + rnd() * .06, L, .05 + rnd() * .06, (rnd() - .5) * .3, 0, (rnd() - .5) * .3); } }));
@@ -88,18 +95,18 @@ export function buildIsland(group) {
   g.add(compose('island-lanterns', a => { for (let i = 0; i < 9; i++) { const th = i / 9 * Math.PI * 2 + .3, R = islandR(th) - 1.6, x = Math.cos(th) * R, z = Math.sin(th) * R, L = 1.2 + (i % 3) * .7;
     a(G.cyl6, col(0x2a2430), x, -.8 - L / 2, z, .02, L, .02); a(G.box, col(0x2a2430), x, -.85 - L - .2, z, .22, .06, .22); a(G.box, glow(0xffc070), x, -.85 - L - .38, z, .16, .26, .16); } }));
   // сломанная труба с водопадом (с запада) и вторая сухая
-  const pipes = [];
   for (const [th, wet] of [[Math.PI * .92, true], [Math.PI * .28, false]]) { const R = islandR(th) - .6, x = Math.cos(th) * R, z = Math.sin(th) * R;
     const p = new THREE.Mesh(G.cyl8, lam({ map: T.rust() }, 'island-pipe')); p.position.set(x, -2.2, z); p.scale.set(.45, 2.6, .45); p.rotation.set(0, -th, Math.PI / 2 - .25); g.add(p);
     if (wet) pipes.push({ x: Math.cos(th) * (R + 1.3), y: -2.0, z: Math.sin(th) * (R + 1.3), t: 0 }); }
+  }
   // облака: кольцо вокруг и ниже острова + несколько выше
   const clouds = [];
   for (let i = 0; i < 16; i++) { const th = i / 16 * Math.PI * 2 + rnd() * .3, far = 58 + rnd() * 50, below = i % 3 !== 0;
     const c = cloud(i % 5, 4 + (rnd() * 3 | 0), 9 + rnd() * 10); c.position.set(Math.cos(th) * far, below ? -10 - rnd() * 30 : 14 + rnd() * 18, Math.sin(th) * far); c.rotation.y = rnd() * 6;
     g.add(c); clouds.push({ m: c, th, far, sp: .006 + rnd() * .01 }); }
-  // летающие камешки рядом с островом
+  // летающие камешки рядом с островом (зимой убраны - висели «в воздухе»)
   const rocks = [];
-  for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), lam({ color: 0x5a4a5e, flatShading: true }, 'island-pebble'));
+  for (let i = 0; i < (WINTER ? 0 : 6); i++) { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), lam({ color: 0x5a4a5e, flatShading: true }, 'island-pebble'));
     const th = rnd() * Math.PI * 2, R = islandR(th) + 6 + rnd() * 10; m.position.set(Math.cos(th) * R, -4 - rnd() * 12, Math.sin(th) * R); m.scale.setScalar(.8 + rnd() * 1.8); g.add(m); rocks.push({ m, y: m.position.y, ph: rnd() * 6 }); }
   // город внизу
   const city = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: cityTex(), transparent: true, depthWrite: false, fog: false }));

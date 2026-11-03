@@ -740,6 +740,13 @@ if (WINTER) {
       for (let i = 0; i < w * h * .1; i++) { const x = (rr() * w) | 0, y = (rr() * h) | 0, n = rr() < .25 ? 2 : 1; g.fillStyle = `rgba(${226 + (rr() * 20) | 0},${232 + (rr() * 16) | 0},244,${.35 + rr() * .35})`; g.fillRect(x, y, n, 1); }
       for (let i = 0; i < 10; i++) { const x = rr() * w, y = rr() * h; g.fillStyle = 'rgba(222,229,240,.32)'; g.beginPath(); g.ellipse(x, y, 3 + rr() * 6, 1.5 + rr() * 3, rr() * 3, 0, 7); g.fill(); }
       t.needsUpdate = true; } return t; }; }
+  // v0.71 J6: земля и грунт (стройка, огороды) зимой под снегом с проталинами - без «осенней» земли
+  for (const k of ['dirt', 'soil']) { const o = T[k]; if (!o) continue; T[k] = (...a) => { const t = o(...a);
+    if (t?.image?.getContext && !t.userData.snow71) { t.userData.snow71 = 1; const g = t.image.getContext('2d'), w = t.image.width, h = t.image.height; let q = 0x5eed + k.length * 131; const rr = () => ((q = (q * 16807) % 2147483647) / 2147483647);
+      g.fillStyle = 'rgba(205,214,230,.78)'; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 14; i++) { g.fillStyle = 'rgba(120,96,80,.45)'; g.beginPath(); g.ellipse(rr() * w, rr() * h, 1 + rr() * w * .08, 1 + rr() * h * .05, rr() * 3, 0, 7); g.fill(); }
+      for (let i = 0; i < w * h * .08; i++) { g.fillStyle = `rgba(240,244,250,${.4 + rr() * .4})`; g.fillRect((rr() * w) | 0, (rr() * h) | 0, 1, 1); }
+      t.needsUpdate = true; } return t; }; }
   { const roof0 = T.roof; T.roof = (...a) => photo('roofW70' + (a[0] ?? ''), 64, 64, (g, W, H) => { const src = roof0(...a).image; if (src) g.drawImage(src, 0, 0, W, H);
     // снег лежит полосами вдоль рядов черепицы, кое-где просвечивает крыша
     for (let y = 0; y < H; y += 4) { g.fillStyle = `rgba(236,241,249,${0.72 + R() * 0.2})`; g.fillRect(0, y, W, 3); }

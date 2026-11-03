@@ -56,9 +56,9 @@ export function createMenu(){
   initHubSync(scene);
   scene.background=new THREE.Color(SEASON.bg);scene.fog=new THREE.Fog(SEASON.fog[0],40,120);
   const hemi=new THREE.HemisphereLight(SEASON.hemi[0],SEASON.hemi[1],SEASON.hemi[2]*.62*Math.PI);scene.add(hemi);
-  const moon=new THREE.DirectionalLight(SEASON.sun[0],SEASON.sun[1]*.93*Math.PI);moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);moon.shadow.bias=-.0008;moon.shadow.normalBias=.05;moon.shadow.radius=2.2;Object.assign(moon.shadow.camera,{left:-20,right:20,top:20,bottom:-20,near:1,far:160});scene.add(moon,moon.target);
+  const moon=new THREE.DirectionalLight(SEASON.sun[0],SEASON.sun[1]*(WINTER?.8:.93)*Math.PI);moon.castShadow=true;moon.shadow.mapSize.set(1024,1024);moon.shadow.bias=-.0008;moon.shadow.normalBias=.05;moon.shadow.radius=2.2;Object.assign(moon.shadow.camera,{left:-20,right:20,top:20,bottom:-20,near:1,far:160});scene.add(moon,moon.target);
   const world=withRandom(0x60448,()=>buildHub(scene)),localLighting=createLocalLighting(scene),sky=createSky(scene,{moonDirection:new V3(-.22,.29,-.91),skyline:false}),hubSnow=WINTER?createSnowfall(scene,{density:.4,size:.11}):null,SPLASH_CAM=new V3(1.7,2.2,HUB.spawn.z+5.1),SPLASH_LOOK=new V3(0,1,HUB.spawn.z),look=SPLASH_LOOK.clone();sky.setNight(.12);const direction=sky.moonDir();moon.position.copy(direction).multiplyScalar(70);
-  const haze=createHaze(scene,0x8a80b0,.9,36);const bounce=new THREE.DirectionalLight(0x8a7ac8,.35*Math.PI);bounce.position.set(-direction.x*45,30,-direction.z*45);scene.add(bounce);
+  const haze=WINTER?createHaze(scene,0xb8c2dc,.3,30):createHaze(scene,0x8a80b0,.9,36);/* v0.71 J5: зимой дымка почти незаметна - без «слоя» света */const bounce=new THREE.DirectionalLight(WINTER?0x7a8ac8:0x8a7ac8,(WINTER?.22:.35)*Math.PI);bounce.position.set(-direction.x*45,30,-direction.z*45);scene.add(bounce);
   // v0.58: тёплый отсвет ночного города снизу — подсвечивает каменное дно острова и облака снизу
   const cityGlow=new THREE.DirectionalLight(0xff9a5a,.8*Math.PI);cityGlow.position.set(8,-60,14);scene.add(cityGlow);
   // v0.60: в помещениях (гардероб, аркада) уличный свет не мешает: луна с тенями от рам, синий отсвет и оранжевый
@@ -129,7 +129,7 @@ export function createMenu(){
      Участники сцены запуска — все в лобби по номеру игрока (у всех одинаковый порядок). */
   const guest=()=>inRoom()&&!NET.host,flowSend=o=>{if(inRoom()&&NET.host&&NET.players.size>1)send({t:'ev',e:'flow',...o});};
   const syncMembers=()=>{st.members=inRoom()?[...remoteActors(true),{id:NET.id,me:true}].sort((a,b)=>a.id-b.id).map(q=>q.me?st.player:q):[st.player];};
-  st.debugGoal=i=>scope(()=>world.vote.force(i)); // для проверок: гол в ворота i
+  st.debugGoal=i=>scope(()=>world.vote.force(i));st.world=world; // для проверок: гол в ворота i
   // v0.70: шайба выбирает режим, только пока лежит в воротах; достали - загрузка режима останавливается (до запуска)
   world.vote.onLeave=()=>{if(!st.flow||st.flow.stage==='cutscene'||guest())return;st.flow=null;world.screen.idle();world.sling.zone(false);flowSend({s:'cancel'});};
   world.vote.onGoal=m=>{if(st.flow?.stage==='cutscene')return;st.flow={stage:'mode',mode:m,t:0};world.screen.showMode(m);flowSend({s:'mode',i:world.vote.goals.findIndex(g=>g.m===m)});};
@@ -212,7 +212,7 @@ export function createMenu(){
     world.sling.arm(st.members);document.body.classList.add('cine');sfx('fanfare');}
   const smooth=x=>{x=clamp(x,0,1);return x*x*(3-2*x);};
   function launchStep(dt){const L=st.launch,S=world.sling.st,seat=new V3(),T=L.t=Math.max(0,(serverNow()-L.at)/1000)*1.18,/* v0.59: весь ролик бодрее на 18% */c=world.sling.rest,D=world.sling.deck,H=world.sling.huddle;
-    if(S.phase==='fly'&&world.sling.breakAt){L.ft=Math.max(0,S.t-world.sling.breakAt);}else if(S.phase==='fly'){const u=Math.max(0,Math.min(.45,S.t-.3));L.ft=Math.min(.3,S.t)*.3+u*.3+u*u*.7/.9+Math.max(0,S.t-.75);}
+    if(S.phase==='fly'&&world.sling.breakAt){L.ft=S.t;}/* v0.71: сани целы весь полёт, ft - время полёта */else if(S.phase==='fly'){const u=Math.max(0,Math.min(.45,S.t-.3));L.ft=Math.min(.3,S.t)*.3+u*.3+u*u*.7/.9+Math.max(0,S.t-.75);}
     const CLIMB=4.6;let seated=0;
     for(const r of L.riders){const a=r.a,o={t:st.t,speed:0};
       if(S.phase==='fly'&&world.sling.breakAt&&S.t<world.sling.breakAt){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=Math.PI;a.ch.animate(dt,{t:st.t,speed:0,crouch:false,act:'cheer'});continue;} // v0.70: в санях до развала
@@ -245,10 +245,14 @@ export function createMenu(){
     if(!L.bump&&T>2.4){L.bump=true;if(L.riders.some(r=>r.partner))sfx('clap',{v:.6});}
     if(!L.cheer&&T>3.5){L.cheer=true;sparksAt(H.x,2.6,H.z);sfx('confetti');}
     if(seated===L.riders.length&&!L.seatedAt)L.seatedAt=T;
-    if((!inRoom()||NET.host)&&!L.fired&&L.seatedAt&&T>L.seatedAt+.9&&S.phase==='board'){L.fired=true;world.sling.pull();}
+    if((!inRoom()||NET.host)&&!L.fired&&L.seatedAt&&T>L.seatedAt+.3&&S.phase==='board'){L.fired=true;world.sling.pull();}
     // монтаж: номер плана и его камера; при смене плана — склейка (камера ставится сразу), внутри плана — плавное движение
     const P=st.player.pos;let shot,cp,cl,rate=3;
-    if(S.phase==='fly'&&world.sling.breakAt&&S.t<world.sling.breakAt+.2){shot=7;const sp=world.sling.sledPos();cp=new V3(sp.x+5.5,sp.y+2.2,sp.z+5.5);cl=new V3(sp.x,sp.y+.3,sp.z-2.5);rate=5;}
+    if((S.phase==='pull'||S.phase==='fire'||S.phase==='fly')&&world.sling.kicker){shot=6;const sp=world.sling.sledPos(),K=world.sling.kicker;/* v0.71 J2: один непрерывный план без склеек - общий план горки → проводка рядом с санями → снизу у трамплина → полёт следом над городом */
+      if(S.phase==='fly'){const k=Math.min(1,S.t/world.sling.fly);cp=new V3(sp.x+3.6-k*1.6,sp.y+1.6+k*3.2,sp.z+6.5+k*3.5);cl=new V3(sp.x,sp.y-k*3,sp.z-7);rate=2.6;}
+      else if(S.pull<.3){cp=new V3(sp.x+9,sp.y+2.2,sp.z-1);cl=new V3(sp.x,sp.y,sp.z-3);rate=2.2;}
+      else if(S.pull<.82){cp=new V3(sp.x+3.4,sp.y+1.3,sp.z+1.6);cl=new V3(sp.x,sp.y+.3,sp.z-3.5);rate=3.2;}
+      else{cp=new V3(K.x+4.2,K.y-.6,K.z-2.5);cl=new V3(sp.x,sp.y+.6,sp.z);rate=3;}}
     else if(S.phase==='fly'){shot=7;const ft=L.ft||0;if(ft<.25){cp=new V3(c.x+6.4,c.y+.9,c.z+3.2);cl=new V3(P.x,P.y+.8,P.z);rate=6;}else{const down=clamp((ft-.9)/1.2,0,1);cp=new V3(P.x+2.4,P.y+3.2+down*2.5,P.z+8.5-down*1.5);cl=new V3(P.x,P.y+.4-down*7,P.z-6-down*4);rate=4.5;}}
     else if((S.phase==='pull'||S.phase==='fire')&&world.sling.sledPos){shot=6;const sp=world.sling.sledPos(),an=-.9+S.t*.55;cp=new V3(sp.x+Math.sin(an)*6.5,sp.y+2.4,sp.z+Math.cos(an)*6.5);cl=new V3(sp.x,sp.y+.6,sp.z-1.2);rate=3.2;} // v0.70: плавная облётная проводка вокруг саней
     else if(S.phase==='pull'||S.phase==='fire'){shot=6;cp=new V3(c.x-6.6,c.y+.7,c.z+2.4);cl=new V3(c.x,c.y-.5,c.z+1.2+S.pull*1.6);rate=2;}
@@ -261,7 +265,7 @@ export function createMenu(){
     L.cam.lerp(cp,1-Math.exp(-dt*rate));L.look.lerp(cl,1-Math.exp(-dt*rate*1.5));camera.position.copy(L.cam);camera.position.x+=Math.sin(st.t*2.3)*.025;camera.position.y+=Math.sin(st.t*3.1)*.02;camera.lookAt(L.look);
     {const fv=S.phase==='fly'?CONFIG.camera.fov+16:S.phase==='pull'?CONFIG.camera.fov+(world.sling.breakAt?8*S.pull:-6*S.pull):CONFIG.camera.fov;camera.fov+=(fv-camera.fov)*(1-Math.exp(-dt*(S.phase==='fly'?7:3)));camera.updateProjectionMatrix();}
     if(S.phase==='fly'&&!L.whoosh){L.whoosh=true;sfx('wind');sfx('dash',{v:1.6});}
-    if(S.phase==='fly'&&(L.ft||0)>2.3&&!L.done){L.done=true;resetVfx();st.onLaunch?.({mode:st.flow.mode,ids:st.flow.ids||randomMap(),theme:st.flow.theme,members:st.members.map(a=>a.ch.skinId)});}}
+    if(S.phase==='fly'&&(L.ft||0)>(world.sling.fly||2.3)&&!L.done){L.done=true;resetVfx();st.onLaunch?.({mode:st.flow.mode,ids:st.flow.ids||randomMap(),theme:st.flow.theme,members:st.members.map(a=>a.ch.skinId)});}}
   function sparksAt(x,y,z){scope(()=>{impactBurst({x,y,z},0xffd27a,.8);vfxSparks({x,y,z},18,0xffd27a);});}
   function walk(dt){
     const P=st.player,delta=takeLook();world.state.time=st.t;
@@ -303,7 +307,7 @@ export function createMenu(){
     }
     else if(st.mode==='roam'&&!st.pause&&!st.pausedForSettings)walk(dt);else st.ch.animate(dt,{t:st.t,speed:0,ride:st.sit>.05?'sit':null,dangle:true});
     if(st.mode!=='splash')hubPhysics(dt);
-    if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}hubSnow?.update(dt,camera);sky.update(camera,st.t,dt);{const c=camera.position,inside=(c.x>-17&&c.x<-10.8&&c.z>-8.8&&c.z<-1.2)||(c.x>10.8&&c.x<19.8&&c.z>-10.2&&c.z<.2)||st.mode==='claw'||st.mode==='wardrobe';haze.set(inside?0:1);{const k0=inK;inK+=((inside?1:0)-inK)*(1-Math.exp(-dt*8));if(Math.abs(inK-k0)>1e-4||inK>.999&&k0!==1)indoor(inK>.999?1:inK<.001?0:inK);}/* v0.59: в помещениях дымки нет — она давала светлую пелену и полосы на стенах */}haze.update(st.t,camera);world.island.update(dt,st.t);world.isle2.update(dt,st.t,st.mode==='roam'?st.player:null);setListener(st.player.pos.x,st.player.pos.y+1.5,st.player.pos.z,camera.getWorldDirection(audioForward));
+    if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}hubSnow?.update(dt,camera);sky.update(camera,st.t,dt);{const c=camera.position,inside=world.inside(c)||st.mode==='claw'||st.mode==='wardrobe';haze.set(inside?0:1);{const k0=inK;inK+=((inside?1:0)-inK)*(1-Math.exp(-dt*8));if(Math.abs(inK-k0)>1e-4||inK>.999&&k0!==1)indoor(inK>.999?1:inK<.001?0:inK);}/* v0.59: в помещениях дымки нет — она давала светлую пелену и полосы на стенах */}haze.update(st.t,camera);world.island.update(dt,st.t);world.isle2.update(dt,st.t,st.mode==='roam'?st.player:null);setListener(st.player.pos.x,st.player.pos.y+1.5,st.player.pos.z,camera.getWorldDirection(audioForward));
     for(const{light}of world.lampLights)light.removeFromParent();scope(()=>{if(!localLighting.wl)localLighting.rebuild();localLighting.update(camera,dt);});
     // v0.61: друзья в хабе (онлайн) — свои движения отправляем, чужих показываем
     if(st.ch?.skinId&&st.mode==='roam'&&st.ch.skinId!==NET.skin)setSkin(st.ch.skinId);

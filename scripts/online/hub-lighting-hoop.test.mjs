@@ -16,17 +16,8 @@ test('all hub lamp instances explicitly disable volumetric light shafts',()=>{
  assert(!lamps.includes('cone = new THREE.Mesh(LAMP_CONE'),'light shafts must be absent in every district');
  assert.match(lighting,/if\(!l\.cone\)continue/,'light updater must skip absent cones');
 });
-test('hoop faces the paved central pathway away from the western building',()=>{
- const match=hub.match(/buildHoop\(b,(-?[\d.]+),(-?[\d.]+),(-?Math\.PI\/2)\)/);
- assert(match,'hub hoop angle should be explicit');
- assert.equal(+match[1],-17.5);
- assert.equal(+match[2],20.5);
- const angle=match[3]==='-Math.PI/2'?-Math.PI/2:Math.PI/2;
- // The hoop ring sits on local -Z, so this angle points toward hub +X.
- const forward={x:-Math.sin(angle),z:-Math.cos(angle)};
- assert(forward.x>.99);
- assert(Math.abs(forward.z)<1e-10);
- // Scoring and collisions derive from the same root transform.
+// v0.71: в новом хабе-ярмарке баскетбольного кольца нет; проверяем, что модуль кольца по-прежнему строит всё от одного корня
+test('hoop module derives scoring and collisions from one root transform',()=>{
  assert.match(hoop,/const center=root\.localToWorld/);
  assert.match(hoop,/\bpole=root\.localToWorld/);
  assert.match(hoop,/const boardCenter=root\.localToWorld/);

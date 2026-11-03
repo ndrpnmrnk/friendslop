@@ -1,6 +1,6 @@
 import { random } from '../core/random.js';
 import { THREE, G, V3, col, tmat, lam, glow, compose } from '../core/gfx.js';
-import { T } from '../core/textures.js';
+import { T, pix } from '../core/textures.js';
 import { W } from '../world/state.js';
 import { addSolid, moveSolid, addZone } from '../world/physics.js';
 import { rockCone, cap, islandR } from './hub-island.js';
@@ -124,14 +124,33 @@ export function buildIsle2(b, group) {
   for (let i = 0; i < 12; i++) { const an = i / 12 * Math.PI * 2; addSolid(A.x + Math.cos(an) * (AR - .4) - .5, A.z + Math.sin(an) * (AR - .4) - .5, A.x + Math.cos(an) * (AR - .4) + .5, A.z + Math.sin(an) * (AR - .4) + .5, 0, .4); }
   addSolid(A.x - 1.6, A.z - 1.6, A.x + 1.6, A.z + 1.6, 0, .4);
   const barrels = WINTER ? [] : [0, 1, 2].map(i => b.ride('barrel', A.x + (i - 1) * 1.2, A.z + (i % 2 ? .6 : -.4), 0, .4));
-  if (WINTER) { // v0.70 снежные крепости: две стенки с зубцами друг напротив друга, внутри сугробы со снежками
-    const sm = lam({ map: T.grass(), color: 0xffffff }, 'fort70'), ice = lam({ color: 0xbcd8f0, emissive: 0x203040, emissiveIntensity: .3 }, 'fort70ice');
-    for (const s2 of [-1, 1]) { const fx = A.x + s2 * 4.6, fz = A.z;
-      g.add(compose('fort70-' + s2, a => { a(G.box, sm, fx - s2 * .9, .55, fz, .5, 1.1, 3.2); for (const zz of [-1.2, 1.2]) a(G.box, sm, fx, .5, fz + zz, 1.8, 1.0, .45);
-        for (let k = -1; k <= 1; k++) a(G.box, sm, fx - s2 * .9, 1.25, fz + k * 1.05, .52, .3, .5); a(G.box, ice, fx - s2 * .9, 1.12, fz, .54, .06, 3.22);
-        a(G.cyl8, col(0x2b2533), fx + s2 * .6, 1.3, fz - 1.2, .04, 2.6, .04); a(G.box, lam({ color: s2 < 0 ? 0xd8243a : 0x4ab0f0 }, 'fort70flag' + s2), fx + s2 * .6 + .25, 2.35, fz - 1.2, .5, .32, .03); }));
-      addSolid(fx - s2 * .9 - .25, fz - 1.6, fx - s2 * .9 + .25, fz + 1.6, 0, 1.1); for (const zz of [-1.2, 1.2]) addSolid(fx - .9, fz + zz - .22, fx + .9, fz + zz + .22, 0, 1.0);
-      b.snowdrift(fx + s2 * .2, fz, 0, .55); }
+  if (WINTER) { /* v0.71 J1: снежные крепости - стены из снежных блоков, угловые башенки с зубцами, флаги команд.
+       Мини-игра: на башне каждой крепости мишень. Попал снежком в мишень соперника - очко своей команде,
+       мишень крутится и звенит; табло между крепостями считает до 5, потом праздничный салют и новый раунд. */
+    const brick = pix('fortBrick71', 32, 32, (g2, w, h) => { g2.fillStyle = '#c9d3e4'; g2.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 8) for (let x = (y / 8 % 2) * 8 - 8; x < w; x += 16) { g2.fillStyle = ['#e6ecf6', '#dde5f1', '#eef3fa'][(x + y) / 8 & 1 ? 1 : (x / 16 | 0) % 2 ? 2 : 0]; g2.fillRect(x + 1, y + 1, 14, 6); } });
+    const sm = lam({ map: brick }, 'fort71'), cap = lam({ color: 0xf2f6fc }, 'fort71cap'), ice = lam({ color: 0xbcd8f0, emissive: 0x203040, emissiveIntensity: .3 }, 'fort70ice');
+    const score = [0, 0], targets = [], sb = boardTex(); sb.c.width = 128; sb.c.height = 64;
+    const drawScore = () => { const g2 = sb.c.getContext('2d'); g2.fillStyle = '#17111f'; g2.fillRect(0, 0, 128, 64); g2.fillStyle = '#d8243a'; g2.fillRect(4, 4, 58, 56); g2.fillStyle = '#4ab0f0'; g2.fillRect(66, 4, 58, 56);
+      g2.fillStyle = '#fff'; g2.font = 'bold 36px monospace'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText(score[0], 33, 34); g2.fillText(score[1], 95, 34); sb.t.needsUpdate = true; };
+    { const m = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: sb.t })); m.position.set(A.x, 2.6, A.z - 3.2); m.scale.set(1.6, .8, 1); m.userData.noBatch = true; g.add(m); W.keep.push(m);
+      g.add(compose('fort71-board', a => { for (const s3 of [-1, 1]) a(G.box, wood, A.x + s3 * .75, 1.3, A.z - 3.25, .1, 2.6, .1); a(G.box, cap, A.x, 3.05, A.z - 3.25, 1.8, .1, .25); })); drawScore(); }
+    for (const s2 of [-1, 1]) { const fx = A.x + s2 * 4.6, fz = A.z, team = s2 < 0 ? 0 : 1, tc = team ? 0x4ab0f0 : 0xd8243a;
+      g.add(compose('fort71-' + s2, a => {
+        a(G.box, sm, fx - s2 * .9, .6, fz, .6, 1.2, 3.2); for (const zz of [-1.3, 1.3]) a(G.box, sm, fx, .55, fz + zz, 1.8, 1.1, .5);
+        for (let k = -1; k <= 1; k++) a(G.box, cap, fx - s2 * .9, 1.36, fz + k * 1.05, .62, .32, .5); a(G.box, ice, fx - s2 * .9, 1.21, fz, .64, .04, 3.22);
+        for (const zz of [-1.6, 1.6]) { a(G.cyl12, sm, fx - s2 * .9, .9, fz + zz, .55, 1.8, .55); for (let k = 0; k < 6; k++) { const an = k / 6 * 6.283; a(G.box, cap, fx - s2 * .9 + Math.cos(an) * .45, 1.95, fz + zz + Math.sin(an) * .45, .2, .26, .2); } }
+        a(G.cyl8, col(0x2b2533), fx - s2 * .9, 2.6, fz - 1.6, .04, 2.2, .04); a(G.box, lam({ color: tc }, 'fort70flag' + s2), fx - s2 * .9 + .28, 3.4, fz - 1.6, .55, .34, .03); }));
+      addSolid(fx - s2 * .9 - .3, fz - 1.9, fx - s2 * .9 + .3, fz + 1.9, 0, 1.2); for (const zz of [-1.3, 1.3]) addSolid(fx - .9, fz + zz - .25, fx + .9, fz + zz + .25, 0, 1.1);
+      for (const zz of [-1.6, 1.6]) addSolid(fx - s2 * .9 - .5, fz + zz - .5, fx - s2 * .9 + .5, fz + zz + .5, 0, 1.9);
+      b.snowdrift(fx + s2 * .2, fz, 0, .55);
+      // мишень на южной башне: бело-цветная «яблочко», висит над зубцами
+      const tg = new THREE.Group(); tg.position.set(fx - s2 * .9, 2.45, fz + 1.6); g.add(tg); W.keep.push(tg);
+      tg.add(compose('fort71-target' + s2, a => { for (const [r, c] of [[.42, tc], [.3, 0xf2f6fc], [.18, tc], [.07, 0xf5c542]]) a(G.cyl12, lam({ color: c, emissive: c, emissiveIntensity: .15 }, 'fort71t' + c), 0, 0, 0, r, .05 + (.42 - r) * .1, r, 0, 0, Math.PI / 2); }));
+      tg.rotation.y = s2 > 0 ? -Math.PI / 2 : Math.PI / 2; targets.push({ g: tg, team, spin: 0 }); }
+    (W.fortHooks ??= []).push((p, power) => { if (power < 1) return; for (const t of targets) { const q = t.g.position; if (t.spin <= 0 && Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z) < .7) {
+      t.spin = 1.2; const win = 1 - t.team; score[win]++; sfx('bell'); burst(q.x, q.y, q.z, 14, { color: win ? 0x4ab0f0 : 0xd8243a, size: .18, speed: 3, up: 2 });
+      if (score[win] >= 5) { for (let k = 0; k < 4; k++) burst(A.x + (random() - .5) * 6, 3 + random() * 2, A.z + (random() - .5) * 4, 24, { color: win ? 0x4ab0f0 : 0xd8243a, size: .2, speed: 5, up: 3 }); sfx('fanfare'); score[0] = score[1] = 0; } drawScore(); } } });
+    W.animated.push(dt => { for (const t of targets) if (t.spin > 0) { t.spin -= dt; t.g.rotation.x += dt * 14 * t.spin; } else t.g.rotation.x *= Math.exp(-dt * 6); });
   }
   // батут у входа на арену: сюда падают вернувшиеся снизу
   const TR = new V3(X(-2.2), 0, Z(5.2));
