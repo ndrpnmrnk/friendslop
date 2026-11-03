@@ -216,7 +216,7 @@ $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 initAccountUI(() => beforeHub(showHub));
 initSettingsPanel();
 // v0.67: приземление доски/самоката/велосипеда после подлёта
-W.onBoardLand=(b,v)=>{burst(b.x,b.y+.1,b.z,Math.min(14,4+v*.6|0),{color:0xbfb3a3,size:.14,speed:1.6+v*.08,up:.8});sfx('land',{at:{x:b.x,y:b.y,z:b.z},v:Math.min(1,.35+v*.04)});if(b.rider===W.player)shake(Math.min(.32,v*.018));};
+W.onBoardLand=(b,v)=>{burst(b.x,b.y+.1,b.z,Math.min(14,4+v*.6|0),{color:0xbfb3a3,size:.14,speed:1.6+v*.08,up:.8});sfx('land',{at:{x:b.x,y:b.y,z:b.z},v:Math.min(1,.35+v*.04)});if(b.rider===W.player)shakeCam(Math.min(.32,v*.018));};
 // v0.61: сетевой матч — синхронизация; хост закрыл лобби или выгнали посреди матча — матч заканчивается, все в хаб
 initMatchSync({
   open: openMission,
@@ -1028,7 +1028,7 @@ function frame() {
     updateBreakables(dt, S.state === 'play' ? P : null);
     updateActionEffects(dt,S.state==='play'&&!S.mg?P:null,camera);updateParticles(dt);updateVfx(dt);updateSplat(dt);setActionVisuals(P&&!S.mg?Math.max(0,(Math.hypot(P.vel.x,P.vel.z)-7)/8):0,FX.shake*.5);
     prof.mark('частицы');
-    updateCamera(camera, P, dt, false, S.state === 'play' && !S.settingsOpen ? lk : null, !!(P && (P.charging || mouse.left && !P.pickClick && locked() && ['bow','sling','water','bubbles','net','perfume'].includes(P.held?.type)))); // v0.67: зажатая ЛКМ со стрелковым предметом - камера к плечу prof.mark('камера'); if (S.state === 'play' || S.state === 'intro' || S.state === 'finale') { updateCull(dt, camera, P); checkFrozen(); }
+    updateCamera(camera, P, dt, false, S.state === 'play' && !S.settingsOpen ? lk : null, !!(P && (P.charging || mouse.left && !P.pickClick && locked() && ['bow','sling','water','bubbles','net','perfume'].includes(P.held?.type)))); /* v0.67: зажатая ЛКМ со стрелковым предметом - камера к плечу */ prof.mark('камера'); if (S.state === 'play' || S.state === 'intro' || S.state === 'finale') { updateCull(dt, camera, P); checkFrozen(); }
     {const k=S.state==='play'&&!P?.drone&&!P?.returning?Math.min(1,(P?.hazeT||0)/2):0;camera.rotation.z+=Math.sin(t*1.8)*.035*k;canvas.style.filter=k>0?`blur(${(.45*k).toFixed(2)}px) saturate(1.12)`:'';}
     S.mg?.game?.afterCamera?.();S.wm?.game?.afterCamera?.();
     { aimMoon(sky.moonDir()); const fx = camera.position.x + (P ? (P.pos.x - camera.position.x) * 0.6 : 0), fz = camera.position.z + (P ? (P.pos.z - camera.position.z) * 0.6 : 0); followSun(fx, P ? P.pos.y : 0, fz);

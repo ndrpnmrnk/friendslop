@@ -21,7 +21,13 @@ export function stampMotion(track,ts,arrive=motionNow()){
  if(ts>track.ts){track.gap+=(Math.min(.3,ts-track.ts)-track.gap)*.12;track.ts=ts;}
  return ts+track.off;
 }
-export const motionDelay=track=>track?.off==null?.1:Math.max(.045,Math.min(.32,(track.gap||.06)*0.95+(track.jit||.02)*1.1+.005));
+// v0.69: запас - полтора интервала и два разброса: опоздавший пакет больше не даёт рывок «догнал-отскочил» (+~40 мс к показу).
+export function motionDelay(track){
+ if(track?.off==null)return .12;
+ const want=Math.max(.07,Math.min(.3,(track.gap||.06)*1.5+(track.jit||.02)*2+.015));
+ // задержка меняется плавно: резкая смена сама по себе сдвигает картинку рывком
+ track.show=track.show==null?want:track.show+Math.max(-.0015,Math.min(.0015,want-track.show));return track.show;
+}
 // Добавить кадр по порядку; повтор и опоздавший кадр отбрасываются. Возвращает true, если кадр принят.
 export function pushMotion(buf,frame,max=24){
  const last=buf.at(-1);if(last&&frame.t<=last.t)return false;

@@ -32,7 +32,7 @@ function norm(src, m) {
 
 function probe(ch) {
   const nodes = []; ch.root.traverse(o => nodes.push(o));
-  const snap = nodes.map(o => ({ o, p: o.position.clone(), q: o.quaternion.clone(), s: o.scale.clone(), v: o.visible, m: o.material, g: o.geometry, gv: o.geometry?.attributes?.position?.version }));
+  const snap = nodes.map(o => ({ o, p: o.position.clone(), q: o.quaternion.clone(), r: o.rotation.clone(), s: o.scale.clone(), v: o.visible, m: o.material, g: o.geometry, gv: o.geometry?.attributes?.position?.version }));
   const own = Object.fromEntries(Object.entries(ch).filter(([, v]) => isPrimitive(v)));
   const moved = new Set(), vis = new Set(), swap = new Set();
   const check = () => { for (const s of snap) { const o = s.o;
@@ -48,7 +48,9 @@ function probe(ch) {
     for (let i = 0; i < 160; i++) { t += .05; ch.animate(.05, { t, speed: 0 }); check(); } // моргание, idle-анимации скинов
     ch.croakNow?.(); for (let i = 0; i < 20; i++) { t += .05; ch.animate(.05, { t, speed: 0 }); check(); }
   } finally {
-    for (const s of snap) { s.o.position.copy(s.p); s.o.quaternion.copy(s.q); s.o.scale.copy(s.s); s.o.visible = s.v; if (s.m) s.o.material = s.m; }
+    // Поворот восстанавливается углами Эйлера, а не кватернионом: из кватерниона разворот на 180° читается как
+    // (π, 0, π), и дальше код, ставящий rotation.y, крутил персонажа задом наперёд (v0.68.2).
+    for (const s of snap) { s.o.position.copy(s.p); s.o.rotation.copy(s.r); s.o.scale.copy(s.s); s.o.visible = s.v; if (s.m) s.o.material = s.m; }
     for (const k of Object.keys(ch)) if (isPrimitive(ch[k]) && !(k in own)) delete ch[k];
     Object.assign(ch, own); for (const [k, f] of quiet) ch[k] = f;
   }
@@ -79,7 +81,7 @@ export function mergeCharacter(ch) {
     cand.add(o);
   });
   // Спрятать можно только меш, у которого все живые потомки тоже склеиваются; одиночки по материалу не склеиваются.
-  const keyOf = o => o.material.uuid + '|' + o.castShadow + o.receiveShadow + '|' + o.renderOrder + '|' + o.layers.mask;
+  const keyOf = o => o.material.uuid + '|' + (o.userData.castBase ?? o.castShadow) + o.receiveShadow + '|' + o.renderOrder + '|' + o.layers.mask;
   let groups;
   for (let again = true; again;) { again = false; groups = new Map();
     for (const o of cand) { const k = keyOf(o); let g = groups.get(k); if (!g) groups.set(k, g = { m: o.material, list: [] }); g.list.push(o); }
@@ -105,7 +107,7 @@ export function mergeCharacter(ch) {
     for (const { g, merged } of built) {
       merged.computeBoundingBox(); merged.computeBoundingSphere();
       const mesh = new THREE.SkinnedMesh(merged, g.m), o0 = g.list[0];
-      mesh.name = 'character-merged'; mesh.castShadow = o0.castShadow; mesh.receiveShadow = o0.receiveShadow; mesh.renderOrder = o0.renderOrder; mesh.layers.mask = o0.layers.mask;
+      mesh.name = 'character-merged'; mesh.castShadow = o0.castShadow; if (o0.userData.castBase !== undefined) mesh.userData.castBase = o0.userData.castBase; // тень вблизи/вдали - cull.js mesh.receiveShadow = o0.receiveShadow; mesh.renderOrder = o0.renderOrder; mesh.layers.mask = o0.layers.mask;
       mesh.userData.noBatch = true; mesh.userData.merged = true; mesh.raycast = () => {};
       // Границы с запасом на размах рук, прыжок и падение: считать позу каждый кадр не нужно.
       const sp = merged.boundingSphere.clone(); sp.radius = sp.radius * 1.6 + .4; mesh.boundingSphere = sp;

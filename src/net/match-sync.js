@@ -209,7 +209,7 @@ function sendTake(it){
   if(!MATCH.on||MATCH.host||!it?.netId)return;
   // Even the owner of a mission scope must ask the host before taking an item.
   // Otherwise the client's local scope could bypass authoritative pickup.
-  it.netPendingTakeAt=performance.now();
+  it.netPendingTakeAt=performance.now();MATCH.world.forgetVisual?.(it.g);
   MATCH.world.request('take',it);
 }
 function sendThrow(it, from, vel) { if (MATCH.on && !MATCH.world.ownsScope?.(it.netScope)) MATCH.world.request('throw', it, { v: vel.toArray() }); }

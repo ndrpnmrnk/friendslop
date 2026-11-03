@@ -265,7 +265,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     if (msg.kind === 'take') {
       // v0.63.4: гость уже проверил дистанцию у себя (1.5-1.7 м). Хост видит его с задержкой,
       // поэтому даём запас и не режем подбор лучом - иначе предмет «не брался» и откатывался.
-      const dy=p.y-a.pos.y;if(a.heldBy||Math.hypot(p.x-a.pos.x,p.z-a.pos.z)>(o.state==='fly'?3.6:3)||dy<-1.6||dy>3.2)return; if(a.held&&(a.held.state!=='held'||a.held.owner!==a))a.held=null;
+      const dy=p.y-a.pos.y;if(a.heldBy||Math.hypot(p.x-a.pos.x,p.z-a.pos.z)>(o.state==='fly'?4.4:3.8)||dy<-1.6||dy>3.2)return; if(a.held&&(a.held.state!=='held'||a.held.owner!==a))a.held=null;
       if (!a.held && ['rest', 'placed', 'fly'].includes(o.state) && (!o.boxed || o.boxed.open) && pickUp(o) !== false) { o.owner = a; a.held = o; o.wasHeld = true; } return; }
     if (!reachable(a, p, msg.kind === 'interact' ? Math.min(4, o.r || 2.4) + .3 : 2.5)) return;
     if(msg.kind==='slam'){o.open=true;o.av=msg.ux?Math.sign(msg.ux)*10:10;}
@@ -321,6 +321,8 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
     setIdentity(value){myKey=value;serial=0;},
     discover(){for(const[type,list]of Object.entries(LISTS))for(const o of W[list]||[])if(!seen.has(o))register(type,o);},
     restoreBaseline(){apply([...baseline]);for(const[k,{o}]of objects)if(!initialKeys.has(k)){if(o.owner?.held===o)o.owner.held=null;if(o.rider?.ride===o)o.rider.ride=null;if(o.grabbed?.grab===o)o.grabbed.grab=null;o.g?.removeFromParent();o.mesh?.removeFromParent();o.m?.removeFromParent();if(o.on!==undefined)o.on=false;for(const list of Object.values(LISTS))if(Array.isArray(W[list]))W[list]=W[list].filter(v=>v!==o);objects.delete(k);}visual.clear();motionView.clear();motionPackets.reset();received.clear();dirty.clear();worldSentAt.clear();delta.last=new Map(delta.base);delta.rev=0;delta.visited.clear();serial=0;},
+    // v0.69: свой подбор - старая «плавная» цель (где предмет лежал) больше не тянет его из руки обратно на пол.
+    forgetVisual(o){if(o)visual.delete(o);},
     setHost(value){host=!!value;api.host=host;api.replica=!host;if(host)for(const it of W.items)clearTug(it);serial=0;worldSentAt.clear();visual.clear();motionView.clear();motionPackets.reset();},
     resetStream(){serial=0;},
     get applying() { return applying; },
@@ -339,6 +341,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
       }
     },
     stats:{captureMs:0,rows:0,objects:0},
+    debugKeys(){return objects.keys();},
     capture(full=false,options={}){
       const at=performance.now(),now=options.now??at,viewers=options.viewers||[],queued=options.queued||0;
       const frame=delta.snapshot(records(),full,(key,previous,next)=>{

@@ -46,7 +46,7 @@ try{
  wall.o.on=false;const first=sync.capture(true).rows.find(r=>r[0]===key)?.[1],second=sync.capture(true).rows.find(r=>r[0]===key)?.[1];
  assert(first&&first===second,'unchanged collider reuses its packed array');wall.o.on=true;h.m.match.MATCH.fullT=0;
  await sleep(500);assert(g.m.match.MATCH.world.objects.get(key).o.on,'baseline collider remains correct after snapshot recovery');
- log('CPU-only world capture',sync.stats);log('Network counters',h.m.net.netStats());
+ log('CPU-only world capture',sync.stats);{const ms=[];for(let i=0;i<12;i++){sync.capture(false);ms.push(sync.stats.captureMs);}ms.sort((a,b)=>a-b);const by={};for(const k of sync.debugKeys?.()||[])by[k[0]]=(by[k[0]]||0)+1;log('Regular capture ms',{median:+ms[6].toFixed(2),max:+ms[11].toFixed(2),by});}log('Network counters',h.m.net.netStats());
  h.w.document.dispatchEvent(new h.w.KeyboardEvent('keydown',{code:'F3',bubbles:true}));await sleep(650);
  const hud=h.w.document.getElementById('perfHud')?.textContent||'';
  assert(hud.includes('RTT до комнаты')&&hud.includes('сеть/снимки'),'F3 displays network RTT, queue and CPU snapshot costs');
