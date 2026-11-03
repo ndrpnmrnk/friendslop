@@ -16,6 +16,8 @@ export { Accounts };
 const MAX = 8, GRACE = 8000, NAME_MAX = 16;
 const clean = s => String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, NAME_MAX);
 
+// v0.70 уровень игрока - только для показа (влияния на игру нет), значения ограничены
+const prog = m => ({ lvl: Math.max(0, Math.min(99, m.lvl | 0)), xp: Math.max(0, Math.min(1e7, m.xp | 0)), wins: Math.max(0, Math.min(1e6, m.wins | 0)) });
 export class Room extends DurableObject {
   async fetch(req) {
     if (req.headers.get('Upgrade') !== 'websocket') return new Response('expected websocket', { status: 426 });
@@ -25,7 +27,7 @@ export class Room extends DurableObject {
     return new Response(null, { status: 101, webSocket: client });
   }
   players() { const out = []; for (const ws of this.ctx.getWebSockets()) { const a = ws.deserializeAttachment(); if (a?.id) out.push({ ws, a }); } return out; }
-  pub(a) { return { id: a.id, name: a.name, avatar: a.avatar || '', skin: a.skin, ready: !!a.ready, host: !!a.host, muted: !!a.muted, rtt: a.rtt | 0, scene:a.match?'match':'hub' }; }
+  pub(a) { return { id: a.id, name: a.name, avatar: a.avatar || '', lvl: a.lvl | 0, xp: a.xp | 0, wins: a.wins | 0, skin: a.skin, ready: !!a.ready, host: !!a.host, muted: !!a.muted, rtt: a.rtt | 0, scene:a.match?'match':'hub' }; }
   send(ws, m) { try { ws.send(typeof m === 'string' ? m : JSON.stringify(m)); } catch { } }
   cast(m, except) { const s = JSON.stringify(m); for (const { ws } of this.players()) if (ws !== except) this.send(ws, s); }
   async webSocketMessage(ws, raw) {
@@ -72,6 +74,7 @@ export class Room extends DurableObject {
       case 'rules': {if(!a.host||typeof m.bots!=='boolean')break;await this.ctx.storage.put('bots',m.bots);this.cast({t:'rules',bots:m.bots});break;}
       case 'p': this.send(ws, { t: 'P', c: m.c, s:Date.now() }); break;
       case 'ready': a.ready = !!m.v; ws.serializeAttachment(a); this.cast({ t: 'upd', p: this.pub(a) }); break;
+      case 'prog': Object.assign(a, prog(m)); ws.serializeAttachment(a); this.cast({ t: 'upd', p: this.pub(a) }); break; // v0.70: уровень/опыт/победы для лобби и итогов
       case 'skin': a.skin = clean(m.s); ws.serializeAttachment(a); this.cast({ t: 'upd', p: this.pub(a) }); break;
       case 'name': a.name = clean(m.n) || a.name; ws.serializeAttachment(a); this.cast({ t: 'upd', p: this.pub(a) }); break;
       case 'kick': case 'mute': {
@@ -103,7 +106,7 @@ export class Room extends DurableObject {
     }
     const id=restored?.id||(await st.get('next'))||1;if(!restored)await st.put('next',id+1);
     const avatar = typeof m.avatar === 'string' && /^https:\/\/cdn\.discordapp\.com\/[\w./?=-]{1,200}$/.test(m.avatar) ? m.avatar : '';
-    Object.assign(a, { id, name, avatar, skin: clean(m.skin) || 'cat', ready: false, host, muted: false, rtt: 0, token });
+    Object.assign(a, { id, name, avatar, ...prog(m), skin: clean(m.skin) || 'cat', ready: false, host, muted: false, rtt: 0, token });
     ws.serializeAttachment(a);
     this.send(ws, { t: 'welcome', id, host, code: a.code, players: this.players().map(q => this.pub(q.a)),bots:(await st.get('bots'))!==false });
     this.cast({ t: 'join', p: this.pub(a) }, ws);

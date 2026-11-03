@@ -73,6 +73,9 @@ import {resetCoins,updateCoins,coinState,grabFist,nearFist} from './game/coins.j
 import {telemetry,diagnosticsText} from './net/telemetry.js';
 import {collection,addCoins} from './game/collection.js';
 import { createPodium, assignAwards, AWARDS, skinName } from './ui/podium.js';
+import { awardMatch, previewMatch, levelSpan } from './game/progress.js';
+import { account } from './net/account.js';
+import { initProfileUI } from './ui/profile-ui.js';
 import { buildMinimap, drawMinimap } from './ui/minimap.js';
 import { throwPotato, initEvents, resetEvents, updateEvents, stopEvent, EV, bigTarget, PHASE, phaseOf } from './game/events.js';
 import { DISTRICTS } from './world/districts/index.js';
@@ -215,6 +218,7 @@ addEventListener('pointerdown', () => { initAudio(); ambience(true); }, { once: 
 $('skinPrev').onclick = () => { menu.next(-1); sfx('click'); };
 $('skinNext').onclick = () => { menu.next(1); sfx('click'); };
 initAccountUI(() => beforeHub(showHub));
+initProfileUI(); // v0.70: уровень и статистика в хабе
 initSettingsPanel();
 // v0.67: приземление доски/самоката/велосипеда после подлёта
 W.onBoardLand=(b,v)=>{burst(b.x,b.y+.1,b.z,Math.min(14,4+v*.6|0),{color:0xbfb3a3,size:.14,speed:1.6+v*.08,up:.8});sfx('land',{at:{x:b.x,y:b.y,z:b.z},v:Math.min(1,.35+v*.04)});if(b.rider===W.player)shakeCam(Math.min(.32,v*.018));};
@@ -501,10 +505,18 @@ function endRound() {
   // места и награды: у каждого — заголовок по его стилю игры, подпись и очки
   const rows = MATCH.on && MATCH.final ? MATCH.final.rows.map(r=>({...r,me:r.key==='p'+NET.id,name:r.key==='p'+NET.id?TEXT.you:r.name})) : finalRows();
   $('results').classList.toggle('five',rows.length>4);$('podcards').innerHTML = ''; $('resBtns').classList.add('hidden'); $('resMe').classList.add('hidden');
+  // v0.70 опыт: мой начисляется один раз здесь; чужой - только показ по их опыту из лобби. Боты без уровня.
+  const meRow = rows.find(r => r.me), xpOf = new Map();
+  rows.forEach((r, place) => { if (r === meRow) xpOf.set(r, awardMatch(place, rows.length, r.st?.missions || 0));
+    else if (MATCH.on && /^p\d+$/.test(r.key || '')) { const meta = NET.players.get(+r.key.slice(1)); if (meta) xpOf.set(r, { ...previewMatch(meta.xp | 0, place, rows.length, r.st?.missions || 0), avatar: meta.avatar }); } });
+  $('results').classList.toggle('many', rows.length > 5);
   podium.start(rows, (c, pos) => {
     const r = c.r, A = AWARDS[r.award], role = r.champ && r.award === 'tourist' ? AWARDS.champ : A;
-    const el = document.createElement('div'); el.className = 'aw' + (r.champ ? ' champ' : '') + (r.me ? ' me' : '');
-    el.innerHTML = `<div class="pl">${c.place + 1}</div><div class="at">${r.champ ? AWARDS.champ.title + (r.award !== 'tourist' ? '<br>' + A.title : '') : A.title}</div><div class="nm">${r.name} · ${skinName(r.skin)}</div><div class="sb">${role.sub(r.st)}</div><div class="sc">${r.score}</div>`;
+    const el = document.createElement('div'); el.className = 'aw' + (r.champ ? ' champ' : '') + (r.me ? ' me' : '') + (rows.length > 5 && c.place >= 3 ? ' mini' : '');
+    const xp = xpOf.get(r), ava = r.me ? account()?.avatar : xp?.avatar;
+    el.innerHTML = `<div class="pl">${c.place + 1}</div><div class="at">${r.champ ? AWARDS.champ.title + (r.award !== 'tourist' ? '<br>' + A.title : '') : A.title}</div><div class="nm">${ava ? `<img class="av" src="${ava}" alt="" referrerpolicy="no-referrer">` : ''}${escapeHtml(r.name)} · ${skinName(r.skin)}</div><div class="sb">${role.sub(r.st)}</div><div class="sc">${r.score}</div>`
+      + (xp ? `<div class="xpw"><span class="lv">УР <b>${xp.l0}</b></span><div class="xpb"><i></i></div><span class="xg">+${xp.gain}</span></div>` : '');
+    if (xp) setTimeout(() => animateXp(el, xp), 700);
     el.style.transform = `translate(${Math.round(pos.x)}px,${Math.round(pos.y)}px) translate(-50%,-100%)`; $('podcards').appendChild(el); c.card = el;
     if (r.champ) { const b = el.getBoundingClientRect(); sparks(b.left + b.width / 2, b.top + b.height / 2, ['#ff8a1f', '#f5c542', '#9be36b', '#b18cff'], 30, $('podcards')); }
   }, () => {
@@ -514,6 +526,17 @@ function endRound() {
   });
 }
 
+// полоска опыта на карточке итогов: заполняется от «было» к «стало», на новом уровне - вспышка и +фисты
+function animateXp(el, xp) {
+  const bar = el.querySelector('.xpb i'), lv = el.querySelector('.lv b'); if (!bar) return; const t0 = performance.now(), dur = 1400; let shown = xp.l0;
+  const step = () => { const k = Math.min(1, (performance.now() - t0) / dur), e = 1 - Math.pow(1 - k, 3), now = xp.before + (xp.after - xp.before) * e, [a, b, n] = levelSpan(Math.round(now));
+    bar.style.width = (a / b * 100).toFixed(1) + '%';
+    if (n > shown) { shown = n; lv.textContent = n; el.classList.remove('lvup'); void el.offsetWidth; el.classList.add('lvup'); sfx('crown');
+      if (el.classList.contains('me') && xp.fists) { const f = document.createElement('div'); f.className = 'lvfists'; f.textContent = `НОВЫЙ УРОВЕНЬ · +${xp.fists}`; el.appendChild(f); } }
+    if (k < 1) requestAnimationFrame(step); };
+  { const [a, b] = levelSpan(xp.before); bar.style.width = (a / b * 100).toFixed(1) + '%'; } requestAnimationFrame(step);
+}
+const escapeHtml = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 function findMat(key) { let m = null; W.group.traverse(o => { if (!m && o.isMesh && o.material && o.material.emissive && o.material.color && o.material.emissive.getHex() === 0xff9a4a) m = o.material; }); return m; }
 /* ---------- курсор-точка ---------- */
 function setCursor(v) { S.cursor=v; const ui=S.state!=='play'||S.settingsOpen;$('dot').classList.toggle('hidden',!v&&!ui);$('dot').classList.toggle('ui-cursor',ui);if(ui){$('dot').classList.remove('charge','focus');$('dot').style.transform=`translate(${mouse.x}px,${mouse.y}px)`;}document.body.classList.toggle('ui-cursor-on',ui); }

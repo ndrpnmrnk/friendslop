@@ -45,7 +45,7 @@ function open(code, create) {
   let ws; try { ws = new WebSocket(serverUrl() + '/ws?room=' + code); } catch { fail('Сервер недоступен'); return; }
   NET.ws = ws;
   ws.onopen = () => { let token = SS('friendslop.tok.' + code); if (!token) { token = random().toString(36).slice(2) + Date.now().toString(36); SS('friendslop.tok.' + code, token); }
-    send({ t: 'hello', name: myName() || 'Игрок', avatar: (()=>{try{return JSON.parse(LS('friendslop.account'))?.avatar||'';}catch{return '';}})(), skin: NET.skin, ver: VER, migrate: true,bots:LS('friendslop.bots')!=='0', create: create ? 1 : 0, token }); };
+    send({ t: 'hello', ...(()=>{try{const p=JSON.parse(localStorage.getItem('friendslop.progress.v1')||'{}'),x=p.xp|0;let l=0;while(l<10&&x>=25*(l+1)*(l+2))l++;return{lvl:l,xp:x,wins:p.wins|0};}catch{return{};}})(), name: myName() || 'Игрок', avatar: (()=>{try{return JSON.parse(LS('friendslop.account'))?.avatar||'';}catch{return '';}})(), skin: NET.skin, ver: VER, migrate: true,bots:LS('friendslop.bots')!=='0', create: create ? 1 : 0, token }); };
   ws.onmessage = e => { const start=performance.now();let m; try { m = JSON.parse(e.data); } catch { return; }countTraffic('rx',e.data.length);try{handle(m);}finally{const ms=performance.now()-start;traffic.receiveMs=Math.max(traffic.receiveMs*.9,ms);telemetry.incoming(e.data.length,ms);} };
   ws.onclose = () => { if (NET.ws !== ws) return; clearInterval(pingT); NET.ws = null;
     if (NET.state !== 'off' && !wantClose && retry < 4) { retry++; NET.state = 'connecting'; emit('state'); emit('toast', 'Связь пропала — переподключаюсь…'); retryTimer = setTimeout(() => {if(!wantClose)open(NET.code, false);}, 800 * retry); return; }

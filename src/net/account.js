@@ -5,7 +5,7 @@ import { serverUrl, myName } from './net.js';
    Discord: ник, аватар и прогресс на сервере комнат, одинаковые на любой ссылке и в любом браузере.
    Синхронизируется прогресс; настройки графики, звука и микрофона остаются у каждого устройства свои. */
 const AUTH = 'friendslop.account', LINKED = 'friendslop.account.linked', REV = 'friendslop.account.rev';
-export const SYNC_KEYS = ['friendslop.collection.v1', 'friendslop.skin', 'friendslop.parkourBest', 'friendslop.parkourFist', 'friendslop.tut', 'friendslop.throwTip'];
+export const SYNC_KEYS = ['friendslop.collection.v1', 'friendslop.skin', 'friendslop.parkourBest', 'friendslop.parkourFist', 'friendslop.tut', 'friendslop.throwTip', 'friendslop.progress.v1'];
 const get = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const set = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { } };
 const json = t => { try { return JSON.parse(t); } catch { return null; } };
@@ -38,6 +38,8 @@ export function mergeProgress(local = {}, remote = {}) {
   }
   const num = k => [local[k], remote[k]].map(Number).filter(v => Number.isFinite(v) && v > 0);
   const best = num('friendslop.parkourBest'); if (best.length) out['friendslop.parkourBest'] = String(Math.min(...best));
+  { const pa = json(local['friendslop.progress.v1']) || {}, pb = json(remote['friendslop.progress.v1']) || {}; // v0.70: прогресс - больший из двух
+    if (local['friendslop.progress.v1'] || remote['friendslop.progress.v1']) out['friendslop.progress.v1'] = JSON.stringify(Object.fromEntries(['xp', 'wins', 'missions', 'matches'].map(k => [k, Math.max(pa[k] | 0, pb[k] | 0)]))); }
   for (const k of ['friendslop.parkourFist', 'friendslop.throwTip']) { const v = num(k); if (v.length) out[k] = String(Math.max(...v)); }
   if (local['friendslop.tut'] || remote['friendslop.tut']) out['friendslop.tut'] = '1';
   const sel = json(out['friendslop.collection.v1'])?.selected; if (sel) out['friendslop.skin'] = sel;

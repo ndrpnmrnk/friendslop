@@ -745,3 +745,33 @@ body.cine #hubUI,body.cine #hubPrompt,body.cine #hubHeld{opacity:0;pointer-event
 @media(max-height:520px){#settings .setHead{padding:10px 14px 8px}#settings .settingsGroup summary{padding:10px 14px}}
 @media(prefers-reduced-motion:reduce){#settings .setPanel{animation:none}#settings .settingsGroup summary::after{transition:none}#settings .setScroll{scroll-behavior:auto}}
 #settings .snote{margin:0}
+/* v0.70 итоги: аватар, полоска опыта, новый уровень; до 8 карточек - компактнее */
+#podcards .aw .nm .av{width:16px;height:16px;vertical-align:-3px;margin-right:5px;image-rendering:pixelated;clip-path:var(--notch)}
+#podcards .aw .xpw{display:flex;align-items:center;gap:6px;margin-top:5px;font:10px var(--px);color:var(--text)}
+#podcards .aw .xpw .lv b{color:#f5c542;font-weight:400}
+#podcards .aw .xpb{flex:1;min-width:54px;height:6px;background:rgba(0,0,0,.45);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+#podcards .aw .xpb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#9be36b,#f5c542)}
+#podcards .aw .xg{color:#9be36b}
+#podcards .aw.lvup{animation:lvup .7s cubic-bezier(.2,1.6,.4,1)}
+@keyframes lvup{0%{filter:brightness(2.2)}100%{filter:none}}
+#podcards .aw .lvfists{margin-top:4px;font:10px var(--px);color:#f5c542;animation:lvf 2.6s forwards}
+#podcards .aw .lvfists::after{content:'';display:inline-block;width:12px;height:12px;margin-left:4px;vertical-align:-2px;background:var(--fist-icon) center/contain no-repeat;image-rendering:pixelated}
+@keyframes lvf{0%{opacity:0;transform:translateY(6px)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+#results.many #podcards .aw{transform-origin:50% 100%;font-size:90%;padding:6px 8px;min-width:0;max-width:150px}
+#results.many #podcards .aw .sb{display:none}
+/* v0.70 профиль в хабе: плашка рядом с настройками, по клику - карточка */
+#profileChip{position:absolute;left:72px;top:16px;display:none;align-items:center;gap:10px;padding:6px 14px 6px 6px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);font:12px var(--px);color:var(--text);border:0;cursor:pointer}
+#menu.in-hub:not(.clawing) #profileChip{display:flex}
+#profileChip img,#profileCard img{width:34px;height:34px;image-rendering:pixelated;clip-path:var(--notch);background:#5865f2;object-fit:cover}
+#profileChip .pc{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+#profileChip .pc>b{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400}
+#profileChip .pr{display:flex;align-items:center;gap:6px;font-size:10px}#profileChip .pr i{font-style:normal}#profileChip .pr i b{color:#f5c542;font-weight:400}
+.xpb{display:inline-block;width:110px;height:6px;background:rgba(0,0,0,.45);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}.xpb>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#9be36b,#f5c542);transition:width .6s}
+.xpb.big{width:100%;height:10px}
+#profileCard{position:absolute;left:72px;top:72px;width:250px;padding:14px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);font:12px var(--px);color:var(--text);display:flex;flex-direction:column;gap:8px;animation:pcIn .25s ease-out;z-index:5}
+#profileCard.hidden{display:none}#profileCard img{width:56px;height:56px}#profileCard>b{font-size:14px;font-weight:400}
+#profileCard .pcLvl b{color:#f5c542;font-weight:400}#profileCard .pcRow{font-size:10px;opacity:.8}
+#profileCard .pcGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:10px}#profileCard .pcGrid span{display:flex;flex-direction:column;gap:3px;padding:6px;background:rgba(0,0,0,.25)}#profileCard .pcGrid b{font-size:14px;font-weight:400;color:#f1e8ff}
+@keyframes pcIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+#menu:not(.in-hub) #profileCard,#menu.clawing #profileCard{display:none}
+#podcards .aw.mini{padding:4px 7px}#podcards .aw.mini .at,#podcards .aw.mini .sb{display:none}#podcards .aw.mini .nm{font-size:10px}#podcards .aw.mini .pl{font-size:12px}
