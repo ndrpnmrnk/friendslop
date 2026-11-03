@@ -24,7 +24,7 @@ import { slamDoor } from './player.js';
 import { hitBreakables } from '../world/breakables.js';
 import { voice } from './voice.js';
 import { buildingAt, floorAt, routeTo } from '../missions/location.js';
-import { actors, shove, knockDown, tickStun, ragK, daze } from './actors.js';
+import { actors, shove, knockDown, tickStun, ragK, daze, snowHit, updateSnowHit } from './actors.js';
 import { useTool } from './tools.js';
 import { applyGripMotion, grabTarget, grabActor, letGo, startEmote, updateEmote } from './grab.js';
 
@@ -186,7 +186,9 @@ function steer(b, tx, tz, dt) {
 
 /* ---------- обновление ---------- */
 export function updateBots(dt, t, P) {
+  if (P) updateSnowHit(P, dt);
   for (const b of W.bots || []) {
+    updateSnowHit(b, dt);
     if (b.puppet) { W.netPuppet?.(b, dt, t); continue; } // v0.61: живой игрок или бот хоста по сети — двигает сеть
     if (b.drone || b.returning) { if(b.work&&!b.work.world)interruptBotWork(b);continue; }
     tickStun(b, dt);
@@ -415,7 +417,8 @@ export function botHitHook(it, p, heavy, r) {
     if (a.held && a.held.type === 'umbrella' && a.held.open) { const f = a.root.rotation.y; if (-(it.vel.x * Math.sin(f) + it.vel.z * Math.cos(f)) > 2) { it.vel.multiplyScalar(-0.35); sfx('umbrella', { at: a.pos }); continue; } }
     // в пузыре: попадание лопает пузырь
     if (a.floatT > 0) { a.popBubble = true; continue; }
-    if (heavy) { knockDown(a, it.vel.x * 0.4, it.vel.z * 0.4, a === W.player ? 1.2 : 1.4); voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); }
+    if (it.type === 'snowball') { snowHit(a, it.vel.x, it.vel.z, Math.min(5.5, 2.5 + it.vel.length() * .18)); sfx('snowHit', { at: a.pos }); }
+    else if (heavy) { knockDown(a, it.vel.x * 0.4, it.vel.z * 0.4, a === W.player ? 1.2 : 1.4); voice(a.ch, 'hurt', a === W.player ? undefined : a.pos); }
     else { a.push.set(it.vel.x * (a.bot ? 0.2 : 0.15), 0, it.vel.z * (a.bot ? 0.2 : 0.15)); if (it.type === 'balloon') { a.wetT = 4; a.slipT = 2; }
       // мяч и шарик — стан стоя (звёздочки), без падения
       if(a.puppet)W.netHit?.(a,'shove',[it.vel.x*.15,it.vel.z*.15,Math.hypot(it.vel.x,it.vel.z)*.15,0,false]);

@@ -81,6 +81,12 @@ export function updateWorldFx(dt, t, P) {
   }
   for (let i = ai; i < _alarmPool.length; i++) if (_alarmPool[i]) _alarmPool[i].visible = false;
   for (const v of W.vendings) v.cd -= dt;
+  // v0.70 сугробы: на каждом лежит снежок; забрали - через 2 с из сугроба лепится новый (только у ведущего: предмет общий)
+  if (!W.net?.replica) for (const d of W.drifts || []) {
+    if (d.ball && d.ball.state === 'rest' && Math.hypot(d.ball.pos.x - d.x, d.ball.pos.z - d.z) < .9) { d.t = 0; continue; }
+    d.ball = null; d.t = (d.t || 0) + dt;
+    if (d.t >= 2) { d.t = 0; const it = addItem('snowball', d.x, d.y + d.h, d.z, 0); it.def = { ...it.def, respawn: 0 }; d.ball = it; puff(d.x, d.y + d.h, d.z, { color: 0xf2f6ff, size: .3, life: .4, vy: .4 }); }
+  }
   // колокол: раскачивается, расходится кольцо
   for (const b of W.bells) {
     if (b.ring > 0) { b.ring -= dt; if (b.mesh) b.mesh.rotation.z = Math.sin(t * 10) * 0.4 * Math.min(1, b.ring);

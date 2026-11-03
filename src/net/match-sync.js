@@ -8,7 +8,7 @@ import {alignMountedVisual,alignBikePedals} from './rider-visual.js';
 import { W, withWorld } from '../world/state.js';
 import { withRandom } from '../core/random.js';
 import { V3 } from '../core/gfx.js';
-import { knockDown, shove, daze, dropHeld, separateActors, releaseDisconnected } from '../game/actors.js';
+import { knockDown, shove, daze, snowHit, dropHeld, separateActors, releaseDisconnected } from '../game/actors.js';
 import { makePuppet, createBots } from '../game/bots.js';
 import { cancelBotOnEliminate } from '../missions/bot-work.js';
 import { cargoPosition } from '../game/handheld.js';
@@ -220,7 +220,7 @@ function sendHit(a, k, args) {
   // v0.66: удар гостя идёт сразу всем (цель применяет у себя, хост - для ботов и выпавшего предмета), без промежуточного хоста.
   else event({ e: 'phit', to: a.netKey, k, a: args });
 }
-const validHit=(attacker,target,m)=>attacker&&target&&attacker.pos.distanceTo(target.pos)<4.5&&['knock','shove','daze'].includes(m.k)&&Array.isArray(m.a)&&m.a.every(v=>finite(v,35));
+const validHit=(attacker,target,m)=>attacker&&target&&attacker.pos.distanceTo(target.pos)<4.5&&['knock','shove','daze','snow'].includes(m.k)&&Array.isArray(m.a)&&m.a.every(v=>finite(v,35));
 function receiveDirectHit(m){
   const target=find(m.to),attacker=find('p'+m.id);if(!validHit(attacker,target,m)||MATCH.final)return;
   if(target===W.player){applyHit(W.player,m.k,m.a);return;}
@@ -249,7 +249,7 @@ function handleCommand(a,m){
   if(m.kind==='coin-ack'){if(MATCH.host)coinAwards.acknowledge(m.coin,Number(a.netKey?.slice(1)));return;}
   if(m.kind==='coin-take'){if(MATCH.host)tryCoinPickup(a,m.coin);return;}
   if(['claim','finish','chain'].includes(m.kind))MATCH.missions.handle(a,m);
-  else if(m.kind==='hit'){const target=find(m.to);if(target&&a.pos.distanceTo(target.pos)<3&&['knock','shove','daze'].includes(m.k)&&Array.isArray(m.a)&&m.a.every(v=>finite(v,30))){if(target.puppet)sendHit(target,m.k,m.a);else applyHit(target,m.k,m.a);}}
+  else if(m.kind==='hit'){const target=find(m.to);if(target&&a.pos.distanceTo(target.pos)<3&&['knock','shove','daze','snow'].includes(m.k)&&Array.isArray(m.a)&&m.a.every(v=>finite(v,30))){if(target.puppet)sendHit(target,m.k,m.a);else applyHit(target,m.k,m.a);}}
   else MATCH.world.act(a,m);
   if(['take','mount','cart','claim','drop'].includes(m.kind))MATCH.fullT=0;
 }
@@ -322,7 +322,7 @@ function applyCorrection(m){if(m.to!==myKey()||!vector(m.p))return;
       W.player.pos.x += m.p[0] - sent[0]; W.player.pos.z += m.p[2] - sent[2];
       pushOut(W.player.pos, W.player.r, W.player.pos.y + W.player.step, W.player.pos.y + W.player.h);
     }
-function applyHit(a, k, v) { if (!a) return; if (k === 'knock') knockDown(a, v[0], v[1], v[2]); else if (k === 'shove') shove(a, v[0], v[1], v[2], v[3], !!v[4]); else if (k === 'daze') daze(a, v[0]); }
+function applyHit(a, k, v) { if (!a) return; if (k === 'knock') knockDown(a, v[0], v[1], v[2]); else if (k === 'shove') shove(a, v[0], v[1], v[2], v[3], !!v[4]); else if (k === 'daze') daze(a, v[0]); else if (k === 'snow') snowHit(a, v[0], v[1], v[2]); }
 
 function syncAuthority(){
  const elected=[...NET.players.values()].find(p=>p.host)?.id;

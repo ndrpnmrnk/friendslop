@@ -126,12 +126,15 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const wading=zoneAt(p.pos.x,p.pos.z,p.pos.y,'wading');
   const slick = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'oil') || zoneAt(p.pos.x, p.pos.z, p.pos.y, 'puddle');
   const wash = zoneAt(p.pos.x, p.pos.z, p.pos.y, 'wash');
+  // v0.70 лёд: медленный разгон, долгое торможение, занос (скорость доворачивает к вводу медленно)
+  const ice = p.onGround && !water && !!zoneAt(p.pos.x, p.pos.z, p.pos.y, 'ice'); p.onIce = ice;
   // разгон спринта: сначала разбег, потом набор скорости; после спринта — плавное торможение
   if (p.sprinting) p.boost = Math.min(1, p.boost + dt / PC.sprintRamp); else p.boost = Math.max(0, p.boost - dt / PC.sprintFade);
   const ramp = p.boost * p.boost * (3 - 2 * p.boost);
   let top = (PC.walk + (PC.sprint - PC.walk) * (p.sprinting ? ramp : 0)) * (water ? 0.5 : wading ? 0.85 : 1) * (p.held && p.held.def.heavy ? 0.85 : 1);
   if (p.energy > 0) top *= 1.2; else if (p.tired > 0) top *= 0.8;
   if (p.webT > 0) { p.webT -= dt; top *= 0.4; }
+  if (p.snowT > 0) top *= 0.75; // снежок: -25% пока тает снег
   if (p.daze > 0) top *= 0.18;
   if (p.crouch) top = Math.min(top, PC.crouchSpeed);
   if (p.grab) top *= p.grab.kind === 'barrow' ? 0.82 : 0.92;
@@ -141,6 +144,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   const cur = Math.hypot(p.vel.x, p.vel.z);
   let acc;
   if (!p.onGround) acc = 6.5;
+  else if (ice) acc = il ? 1.35 : 0.32;
   else if (slick || p.slipT > 0) acc = 1.2;
   else if (il) acc = PC.accel;
   else acc = cur > PC.walk + 0.5 ? PC.sprintDecel : PC.decel;
@@ -151,7 +155,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     p.vel.x = p.slideDir[0] * p.slideV; p.vel.z = p.slideDir[1] * p.slideV;
     if (random() < dt * 22) smoke(p.pos.x - p.slideDir[0] * 0.3, p.pos.y + 0.12, p.pos.z - p.slideDir[1] * 0.3, { size: 0.16, grow: 0.55, life: 0.55, vy: 0.5, vx: -p.slideDir[0] * 1.2 + (random() - 0.5), vz: -p.slideDir[1] * 1.2 + (random() - 0.5) });
   } else if (p.dive === 'air') { /* в выпаде управление не действует */ }
-  else if (p.dive === 'roll') { p.rollT -= dt; p.vel.x *= Math.exp(-dt * 2); p.vel.z *= Math.exp(-dt * 2); if (p.rollT <= 0) p.dive = null; }
+  else if (p.dive === 'roll') { p.rollT -= dt; const fr = ice ? .35 : 2; p.vel.x *= Math.exp(-dt * fr); p.vel.z *= Math.exp(-dt * fr); if (ice && p.rollT <= 0 && Math.hypot(p.vel.x, p.vel.z) > 2.2) p.rollT = .1; if (p.rollT <= 0) p.dive = null; } // на льду - долгое скольжение на животе
   else { p.vel.x += (ix * top - p.vel.x) * damp(acc, dt); p.vel.z += (iz * top - p.vel.z) * damp(acc, dt); }
   // щётки автомойки отбрасывают
 

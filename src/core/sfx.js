@@ -99,6 +99,9 @@ const SND = {
   glass: () => { for (let i = 0; i < 6; i++) tone(2400 + random() * 2400, 1800, 0.12, 'triangle', 0.05, i * 0.02); noise(0.2, 0.12, 5000, 1); },
   wood: () => { noise(0.14, 0.2, 700, 2); tone(180, 90, 0.12, 'square', 0.06); },
   splash: () => noise(0.35, 0.16, 1400, 0.8, 0, 'lowpass', 300),
+  // v0.70: мягкий хруст снежка и шлепок по персонажу
+  snowHit: s => { noise(0.12, 0.2 * (s.v ?? 1), 2400, 1.2, 0, 'bandpass', 900); noise(0.08, 0.1, 600, 1, 0.02, 'lowpass', 200); },
+  snowPack: () => { noise(0.09, 0.12, 2000, 1.4, 0, 'bandpass', 700); noise(0.07, 0.1, 2600, 1.4, 0.1, 'bandpass', 800); },
   points: () => { tone(660, 660, 0.07, 'square', 0.08); tone(990, 990, 0.1, 'square', 0.08, 0.07); },
   done: () => { [523, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.12, 'square', 0.08, i * 0.07)); },
   count: () => tone(440, 440, 0.15, 'square', 0.1),

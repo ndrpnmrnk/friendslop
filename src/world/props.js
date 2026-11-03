@@ -2,7 +2,7 @@ import { random } from '../core/random.js';
 import {buildClockTower} from './plaza-landmarks.js';
 import { THREE, G, mesh, compose, col, tmat, lam, glow } from '../core/gfx.js';
 import { T } from '../core/textures.js';
-import { HW } from '../config.js';
+import { HW, WINTER } from '../config.js';
 import { W } from './state.js';
 import { breakBox } from './breakables.js';
 import { addZone,isFree } from './physics.js';
@@ -316,6 +316,7 @@ export const PropMethods = {
   },
   // Пугало (сезонный декор)
   scarecrow(x, z, ry = 0) {
+    if (WINTER) return this.snowman(x, z, ry);
     const g = this.prop(x, z, ry), wd = tmat(T.bark()), cl = tmat(T.tunic());
     const add = (geo, m, px, py, pz, sx, sy, sz, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(px, py, pz); o.scale.set(sx, sy, sz); o.rotation.z = rz; g.add(o); };
     add(G.box, wd, 0, 1.1, 0, 0.08, 2.2, 0.08); add(G.box, wd, 0, 1.55, 0, 1.6, 0.07, 0.07);
@@ -386,13 +387,25 @@ export const PropMethods = {
     return g;
   },
   // Пирамида тыкв на ступенчатом прилавке: заденешь — раскатятся
+  // v0.70 снеговик вместо пугала: три кома, ведро, морковка, шарф, руки-ветки
+  snowman(x, z, ry = 0, sc = 1) {
+    const g = this.prop(x, z, ry), w = lam({ color: 0xf2f6ff, emissive: 0x3a4660, emissiveIntensity: .22 }, 'snowman70'), dk = col(0x17111f), bark = tmat(T.bark());
+    mesh(G.sph10, w, 0, .45 * sc, 0, .55 * sc, .5 * sc, .55 * sc, g); mesh(G.sph10, w, 0, 1.15 * sc, 0, .4 * sc, .37 * sc, .4 * sc, g); mesh(G.sph10, w, 0, 1.68 * sc, 0, .28 * sc, .27 * sc, .28 * sc, g);
+    mesh(G.cyl8, col(0x5a6a7a), 0, 2.02 * sc, 0, .2 * sc, .22 * sc, .2 * sc, g).rotation.z = .15;
+    mesh(G.torus, col(0xd8243a), 0, 1.42 * sc, 0, .3 * sc, .3 * sc, .4, g).rotation.x = Math.PI / 2;
+    mesh(G.box, col(0xd8243a), .18 * sc, 1.25 * sc, .3 * sc, .1 * sc, .35 * sc, .05 * sc, g);
+    mesh(G.cone4, col(0xff8a1f), 0, 1.66 * sc, .34 * sc, .05 * sc, .25 * sc, .05 * sc, g).rotation.x = Math.PI / 2;
+    for (const s2 of [-1, 1]) { mesh(G.sph, dk, s2 * .1 * sc, 1.76 * sc, .25 * sc, .04, .04, .03, g); const arm = mesh(G.box, bark, s2 * .62 * sc, 1.25 * sc, 0, .5 * sc, .05, .05, g); arm.rotation.z = s2 * .45; }
+    for (let i = 0; i < 3; i++) mesh(G.sph, dk, 0, (1.05 + i * .12) * sc, .39 * sc, .035, .035, .03, g);
+    this.solid(x, z, .9 * sc, .9 * sc, 0, 2 * sc);
+  },
   pumpkinPile(x, z) {
     const wd = tmat(T.wood());
     const tz = [[z, 1.7], [z - 0.4, 0.9], [z - 0.62, 0.46]];
     tz.forEach(([cz, d], k) => this.box(x, cz, 3.2 - k * 0.8, d, 0.35 + k * 0.35, wd));
     const pz = [z + 0.45, z - 0.25, z - 0.62];
     for (let k = 0; k < 3; k++) { const n = 4 - k; for (let i = 0; i < n; i++) this.item('pumpkin', x + (i - (n - 1) / 2) * 0.75, pz[k], 0.35 + k * 0.35); }
-    this.sign(x, 1.6, z + 0.85, 0, 'ТЫКВЫ 3 ЗА 100', '#ff8a1f', '#17111f', 2.4, 0.35);
+    this.sign(x, 1.6, z + 0.85, 0, WINTER ? 'СНЕЖКИ 3 ЗА 100' : 'ТЫКВЫ 3 ЗА 100', WINTER ? '#eef3fb' : '#ff8a1f', '#17111f', 2.4, 0.35);
   },
   // Штабель кирпичей на поддонах: обрушить краном или тяжёлым броском
   brickStack(x, z) {

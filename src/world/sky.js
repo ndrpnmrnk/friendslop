@@ -1,7 +1,7 @@
 import { random } from '../core/random.js';
 import { THREE } from '../core/gfx.js';
 import { pix, T } from '../core/textures.js';
-import { SEASON, HW } from '../config.js';
+import { WINTER, SEASON, HW } from '../config.js';
 import { W } from './state.js';
 
 /* Небо: купол с градиентом (тёплый горизонт → сливовый зенит), луна с ореолом, мерцающие звёзды,
@@ -15,12 +15,14 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
   const mat = o => new THREE.MeshBasicMaterial({ fog: false, depthWrite: false, ...o });
   // купол
   const dome = new THREE.SphereGeometry(190, 24, 12), col = [], c = new THREE.Color();
-  const top = new THREE.Color(HW ? 0x150f26 : 0x5a9ad8), mid = new THREE.Color(SEASON.bg), low = new THREE.Color(HW ? 0x6a3a4a : 0xd8e8f0);
-  for (let i = 0; i < dome.attributes.position.count; i++) {
+  const top = new THREE.Color(HW ? 0x150f26 : WINTER ? 0x2a3150 : 0x5a9ad8), mid = new THREE.Color(SEASON.bg), low = new THREE.Color(HW ? 0x6a3a4a : WINTER ? 0x8c96b0 : 0xd8e8f0);
+  // v0.70: цвета купола пересчитываются под погоду раунда (снежный вечер / лунный / день)
+  const paint = () => { col.length = 0; for (let i = 0; i < dome.attributes.position.count; i++) {
     const y = dome.attributes.position.getY(i) / 190;
     if (y < 0.08) c.copy(mid).lerp(low, Math.max(0, 1 - Math.abs(y - 0.02) / 0.1) * 0.75); else c.copy(mid).lerp(top, Math.min(1, (y - 0.08) / 0.6));
     col.push(c.r, c.g, c.b);
-  }
+  } };
+  paint();
   dome.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   const domeM = mat({ vertexColors: true, side: THREE.BackSide }), domeMesh = new THREE.Mesh(dome, domeM); domeMesh.renderOrder = -10; g.add(domeMesh);
   // звёзды: два набора мерцают в противофазе
@@ -56,12 +58,15 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
   const TINT = { cemetery: 0x9ad8a8, industrial: 0xffc890, sewer: 0x90d8d0, hospital: 0x9ad8c0, port: 0xa8c8ff };
   const baseHemi = new THREE.Color(SEASON.hemi[0]), baseFog = new THREE.Color(SEASON.fog[0]), curT = new THREE.Color(1, 1, 1), tmp = new THREE.Color();
   let night = 0; const nightFog = new THREE.Color(0x120c1e), md0 = md.clone();
+  const dayStars = { v: 1 };
   return {
+    setPalette(p) { if (!p) return; top.setHex(p.sky[0]); mid.setHex(p.sky[1]); low.setHex(p.sky[2]); paint(); dome.attributes.color.array.set(col); dome.attributes.color.needsUpdate = true;
+      baseHemi.setHex(p.hemi); baseFog.setHex(p.fog); dayStars.v = p.light > 1.2 ? 0 : 1; moon.visible = halo.visible = p.light <= 1.2; },
     moonDir: () => moon.position.clone().normalize(),
     setNight(k) { night = k; const m2 = md0.clone(); m2.y += k * 55; m2.normalize().multiplyScalar(170); moon.position.copy(m2); halo.position.copy(m2).multiplyScalar(1.01); },
     update(camera, t, dt, player, hemi, fog) {
       g.position.set(camera.position.x, 0, camera.position.z);
-      stars[0].material.opacity = (0.7 + Math.sin(t * 1.7) * 0.3); stars[1].material.opacity = (0.7 - Math.sin(t * 1.7) * 0.3);
+      stars[0].material.opacity = (0.7 + Math.sin(t * 1.7) * 0.3) * dayStars.v; stars[1].material.opacity = (0.7 - Math.sin(t * 1.7) * 0.3) * dayStars.v;
       clouds.rotation.y += dt * 0.004;
       domeM.color.setScalar(1 - night * 0.45); ring.material.color.setScalar(1 - night * 0.3);
       // туман ползёт, мигающие фонари и вывески

@@ -21,7 +21,7 @@
 export const CONFIG = {
   roundTime: 300,
   music: {intro:.14,play:.065,crossfade:.8}, // тихий фон; отдельный канал музыки и приглушение у радио
-  season: 'halloween',            // 'halloween' | 'none'
+  season: 'winter',               // 'winter' | 'halloween' | 'none' (v0.70: зимний сезон)
   grid: 3,                        // 3x3 районов на карте
   chunk: 44, road: 6, base: 0.15, // размер района, ширина дороги, высота тротуара
   pixelScale: 2,
@@ -117,6 +117,7 @@ export const CONFIG = {
     // drag — сопротивление воздуха, bounce — упругость
     balloon: { name: 'Шарик с водой', icon: '💧', heavy: false, r: 0.22, respawn: 9, mass: 0.5, drag: 0.35, bounce: 0.3 },
     tomato:  { name: 'Помидор', icon: '🍅', heavy: false, r: 0.16, respawn: 8, mass: 0.25, drag: 0.1, bounce: 0.2 },
+    snowball: { name: 'Снежок', icon: '❄️', heavy: false, r: 0.14, respawn: 0, mass: 0.35, drag: 0.04, bounce: 0.05 }, // v0.70
     pumpkin: { name: 'Тыква', icon: '🎃', heavy: true, r: 0.32, respawn: 12, mass: 3, drag: 0, bounce: 0.15 },
     ball:    { name: 'Мяч', icon: '🏀', heavy: false, r: 0.24, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.65 },
     brick:   { name: 'Кирпич', icon: '🧱', heavy: true, r: 0.2, respawn: 10, mass: 2.5, drag: 0, bounce: 0.1, sinks: true },
@@ -217,7 +218,11 @@ export const HINTS = {
 
 export const DIFF = { easy: 0x9be36b, mid: 0xf5c542, hard: 0xff5a6e };
 export const HW = CONFIG.season === 'halloween';
-export const SEASON = HW
+export const WINTER = CONFIG.season === 'winter';
+export const SEASON = WINTER
+  // v0.70: зимний вечер - холодный читаемый свет, тёплые окна и гирлянды; день и лунная ночь - в погоде раунда
+  ? { bg: 0x46506e, fog: [0x56607e, 55, 150], hemi: [0xc9d6ff, 0x3a3852, 0.92], sun: [0xe2ebff, 0.95], lit: '#ffc27a', lamp: 0xffc27a }
+  : HW
   // v0.19: свет луны — холодный, сильнее, рассеянный ниже: тени от объектов на улице читаются чётче
   ? { bg: 0x302735, fog: [0x38303b, 50, 145], hemi: [0xb9b1c6, 0x302333, 0.76], sun: [0xd3d8ec, 0.90], lit: '#ffa94d', lamp: 0xffb35c }
   : { bg: 0x9fd3ff, fog: [0x9fd3ff, 60, 150], hemi: [0xffffff, 0x6a7a5a, 1.0], sun: [0xffffff, 0.8], lit: '#fff1b0', lamp: 0xfff1b0 };

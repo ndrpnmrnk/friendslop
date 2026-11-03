@@ -5,7 +5,7 @@ import {pix} from '../core/textures.js';
 import { THREE, G, V3, mesh, col, tmat, glow, basic, own, alphaMat, lam, flat, paint, compose, LEAF_CAM } from '../core/gfx.js';
 import { T, facade, rep } from '../core/textures.js';
 import { rand, range, pick } from '../core/rng.js';
-import { HW, SEASON } from '../config.js';
+import { HW, SEASON, WINTER } from '../config.js';
 import { W } from './state.js';
 import { addSolid, addZone, isFree } from './physics.js';
 import { addItem,restOnSurface } from '../game/items.js';
@@ -69,7 +69,7 @@ export class Builder {
   surface(x,z,w,d,y,ry=0,kind='table',owner=null){return surface(this.X(x),this.Y+y,this.Z(z),w,d,ry,kind,owner);}
   counter(x,z,w,d,h,mat,y=0,ry=0){const g=this.box(x,z,w,d,h,mat,{y,ry});g.surface=this.surface(x,z,w,d,y+h,ry,'counter');return g;}
   birds(kind, x0, z0, x1, z1, n) { addBirds(kind, { x0: this.X(x0), z0: this.Z(z0), x1: this.X(x1), z1: this.Z(z1), y: this.Y }, n); }
-  hw(fn) { if (HW) fn(); }
+  hw(fn) { if (HW || WINTER) fn(); } // v0.70: сезонный слой - зимой те же места получают зимний декор
 
   /* ---------- свет и эффекты ---------- */
   light(x, z, r = 3, y = 0, dim = false) {
@@ -104,8 +104,18 @@ export class Builder {
   }
   // Надувная тыква-батут
   bouncyPumpkin(x, z, r = 1.6) {
+    if (WINTER) return this.bouncySnowman(x, z, r);
     const pm = this.m(G.sph10, lam({ map: T.pumpkin(), emissive: 0x3a1a00 }, 'bouncyP'), x, 0.55, z, r, 0.6, r); pm.rotation.y = rand() * 3;
     this.m(G.cyl6, col(0x3f6b2a), x, 1.2, z, 0.12, 0.2, 0.12);
+    this.solid(x, z, r * 1.3, r * 1.3, 0, 1.0); this.bouncer(x - r * 0.65, z - r * 0.65, x + r * 0.65, z + r * 0.65, 1.0, 12);
+  }
+  // v0.70 надувной снеговик-батут: мягкий низ пружинит, сверху голова с морковкой и шарфом
+  bouncySnowman(x, z, r = 1.6) {
+    const w = lam({ color: 0xf4f7fc, emissive: 0x3a4660, emissiveIntensity: .2 }, 'snowmanInfl70'), dk = col(0x17111f), carrot = col(0xff8a1f), scarf = col(0xd8243a);
+    this.m(G.sph10, w, x, 0.55, z, r, 0.6, r); this.m(G.sph10, w, x, 1.35, z, r * 0.5, r * 0.45, r * 0.5);
+    this.m(G.torus, scarf, x, 1.05, z, r * 0.42, r * 0.42, 0.5).rotation.x = Math.PI / 2;
+    for (const s of [-1, 1]) this.m(G.sph, dk, x + s * r * 0.17, 1.5, z + r * 0.42, 0.07, 0.07, 0.05);
+    this.m(G.cone4, carrot, x, 1.4, z + r * 0.55, 0.06, 0.32, 0.06).rotation.x = Math.PI / 2;
     this.solid(x, z, r * 1.3, r * 1.3, 0, 1.0); this.bouncer(x - r * 0.65, z - r * 0.65, x + r * 0.65, z + r * 0.65, 1.0, 12);
   }
   // Стелющийся туман: два прозрачных слоя с бегущим шумом
@@ -320,7 +330,14 @@ export class Builder {
   // Тыквы — не декор, а настоящие предметы: их можно пнуть, взять и бросить. Не больше двух на район.
   pumpkin(x, z, s = 0.45, y = 0) {
     this._pk = (this._pk || 0) + 1; if (this._pk > 2) return;
+    if (WINTER) return this.snowdrift(x, z, y);
     this.item('pumpkin', x, z, y);
+  }
+  // v0.70 сугроб: низкая куча снега (по ней можно пройти), сверху снежок; новый лепится через 2 с после того, как забрали
+  snowdrift(x, z, y = 0, r = 0.75) {
+    const m = snowMatB(), g = this.prop(x, z, rand() * 6.28);
+    mesh(G.sphL, m, 0, y, 0, r, 0.32, r * 0.8, g); mesh(G.sphL, m, r * 0.45, y, r * 0.2, r * 0.55, 0.22, r * 0.5, g); mesh(G.sphL, m, -r * 0.4, y, -r * 0.25, r * 0.5, 0.18, r * 0.45, g);
+    const d = { x: this.X(x), z: this.Z(z), y: this.Y + y, h: 0.3, t: 2, ball: null }; (W.drifts ||= []).push(d); return d;
   }
   // v0.51: разные надгробия — крест, обелиск, плита с оградкой; холмик земли перед камнем, свечи и цветы у части могил
   graveVaried(x, z, ry = 0) {
@@ -366,11 +383,12 @@ export class Builder {
     const q = Math.abs(Math.sin(ry)) > 0.5; this.solid(x, z, q ? 0.36 : 0.95, q ? 0.95 : 0.36, 0, 1.25);
   }
   // v0.57: паутина только «в углу» — если за ней (или перед ней) нет стены в 0.35 м, не вешаем: висящей в воздухе паутины больше нет
-  web(x, y, z, ry, s = 1.2) { if (this.name !== 'Двор') { const nx = Math.sin(ry), nz = Math.cos(ry), X = this.X(x), Z = this.Z(z), Y = this.Y + y, e = s * .3;
+  web(x, y, z, ry, s = 1.2) { if (WINTER) return; if (this.name !== 'Двор') { const nx = Math.sin(ry), nz = Math.cos(ry), X = this.X(x), Z = this.Z(z), Y = this.Y + y, e = s * .3;
       if (isFree(Math.min(X - nx * .35, X + nx * .35) - (nz ? e : .02), Math.min(Z - nz * .35, Z + nz * .35) - (nx ? e : .02), Math.max(X - nx * .35, X + nx * .35) + (nz ? e : .02), Math.max(Z - nz * .35, Z + nz * .35) + (nx ? e : .02), Y - s * .3, Y + s * .3)) return; }
     const m = this.m(G.plane, alphaMat(T.web(), { side: THREE.DoubleSide, opacity: 0.7 }), x, y, z, s, s, 1); m.rotation.y = ry; }
   // гирлянда на столбах: столбы каждые ~8 м, провод провисает между ними, лампочки висят на проводе
-  stringLights(x0, z0, x1, z1, y, colors = [0xff8a1f, 0xb18cff, 0x9be36b], options = {}) {
+  stringLights(x0, z0, x1, z1, y, colors = WINTER ? [0xd8243a, 0x9be36b, 0xf5c542, 0xf1e8ff] : [0xff8a1f, 0xb18cff, 0x9be36b], options = {}) {
+    if (WINTER && colors[0] === 0xff8a1f) colors = [0xd8243a, 0x9be36b, 0xf5c542, 0xf1e8ff]; // гирлянды
     const len = Math.hypot(x1 - x0, z1 - z0), spans = Math.max(1, Math.ceil(len / 8)), pole = col(0x2b2533);
     for (let k = 0; k <= spans; k++) { if(options.endPoles&&k>0&&k<spans)continue;const t = k / spans, px = x0 + (x1 - x0) * t, pz = z0 + (z1 - z0) * t;
       // столб не ставим перед дверью (вход всегда свободен)
@@ -493,7 +511,7 @@ function leafDither(m) {
   m.customProgramCacheKey = () => key + '-leafdither56'; m.needsUpdate = true; return m;
 }
 const leafCardMat = k => _lc.get(k) || (_lc.set(k, leafDither(lam({ map: T.leafCard(k), alphaTest: 0.5, side: THREE.DoubleSide }, 'leafCard' + k))), _lc.get(k));
-const coreMat = kind => _core.get(kind) || (_core.set(kind, leafDither(lam({ map: T.leafCard(kind === 'maple' ? 0 : 1), color: 0x8a6a5a, alphaTest: 0.01 }, 'leafCore' + kind))), _core.get(kind));
+const coreMat = kind => _core.get(kind) || (_core.set(kind, leafDither(lam({ map: T.leafCard(kind === 'maple' ? 0 : 1), color: WINTER ? 0x9aa6b4 : 0x8a6a5a, alphaTest: 0.01 }, 'leafCore' + kind))), _core.get(kind));
 const CAR_CABIN = G.box.clone();
 for (let i = 0; i < CAR_CABIN.attributes.position.count; i++) {
   const a = CAR_CABIN.attributes.position;
@@ -509,4 +527,5 @@ export const WATERMAT = () => _wm || (_wm = lam({ map: T.water(), transparent: t
 let _wh, _fo;
 export const WATERHI = () => _wh || (_wh = alphaMat(T.waterHi(), { blending: THREE.AdditiveBlending, opacity: 0.32 }));
 export const FOAM = () => _fo || (_fo = alphaMat(T.foam(), { opacity: 0.75 }));
+let _snowB = null; const snowMatB = () => _snowB || (_snowB = lam({ map: T.grass(), color: 0xffffff }, 'drift70'));
 export const PFACE = () => _pf || (_pf = new THREE.MeshBasicMaterial({ map: T.pumpkinFace(), transparent: true, alphaTest: 0.5 }));

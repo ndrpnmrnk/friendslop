@@ -33,6 +33,24 @@ export function shove(a, dx, dz, power = 6, up = 3.5, drop = true) { if(a.netPro
   burst(a.pos.x, a.pos.y + 1, a.pos.z, 5, { color: 0xf1e8ff, size: 0.16, speed: 2, up: 1.5 });
 }
 
+// v0.70 снежок: толчок без оглушения и замедление 25% на ~1.5 с. На льду сносит сильнее.
+// Пока действует замедление, на персонаже лежит снег - частицы тают (updateSnowHit в player/bots).
+export const SNOW_SLOW = 1.5;
+export function snowHit(a, dx, dz, power = 4) { if (!a || a.netProtected) return;
+  if (a.puppet) { a.snowT = SNOW_SLOW; W.netHit?.(a, 'snow', [dx, dz, power]); return; } // у себя - только снег на персонаже
+  if (a.drone || a.returning) return;
+  const d = Math.hypot(dx, dz) || 1, k = a.onIce ? 1.8 : 1;
+  a.vel.x += dx / d * power * k; a.vel.z += dz / d * power * k; a.vel.y = Math.max(a.vel.y, 1.2); a.knockT = Math.max(a.knockT || 0, .12);
+  a.snowT = SNOW_SLOW; a.snowFx = 0;
+  burst(a.pos.x, a.pos.y + 1.1, a.pos.z, 10, { color: 0xf2f6ff, size: 0.14, speed: 2.2, up: 1.6 });
+}
+// снег на плечах и голове тает: несколько хлопьев в секунду, всё меньше к концу замедления
+export function updateSnowHit(a, dt) {
+  if (!(a.snowT > 0)) return; a.snowT -= dt; a.snowFx = (a.snowFx || 0) - dt;
+  if (a.snowFx <= 0) { const k = Math.max(0, a.snowT / SNOW_SLOW); a.snowFx = .07 + (1 - k) * .12;
+    burst(a.pos.x + (random() - .5) * .5, a.pos.y + .9 + random() * .8, a.pos.z + (random() - .5) * .5, 1, { color: 0xf2f6ff, size: .08 + k * .07, speed: .3, up: -.4, g: 2, life: .6 }); }
+}
+
 /* Два вида оглушения (v0.18):
    - рэгдолл (knockDown): падает «тряпичной куклой», лежит без управления (a.stun), потом плавно встаёт (a.getT);
      предмет из рук вылетает по физике в сторону удара — его можно перехватить;

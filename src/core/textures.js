@@ -4,7 +4,7 @@ import {W} from '../world/state.js';
 import { THREE, renderer } from './gfx.js';
 import {trackTexture} from './quality.js';
 const ANISO = Math.min(16, renderer.capabilities.getMaxAnisotropy());
-import { HW, SEASON } from '../config.js';
+import { HW, SEASON, WINTER } from '../config.js';
 
 /* Текстуры «под фото»: рисуем мягко в высоком разрешении, затем ужимаем до 16–64 px.
    Получается та самая размытая пиксельная фактура PS1. Позже любую можно заменить
@@ -686,7 +686,9 @@ export const T = {
 /* v0.51: «карточка» листвы для крон — кучка листьев с прозрачными просветами (как кроны деревьев на PS1/N64).
    0 — клён (красно-оранжевый), 1 — дуб (охра и бронза), 2 — берёза/тополь (жёлтый). Низ кучки темнее. */
 T.leafCard = (kind = 0) => pix('leafCard' + kind, 64, 64, (g, W, H) => {
-  const P = [['#7a1f14', '#b8321c', '#e0552a', '#f08a2c', '#ffb24a'], ['#4a3014', '#7a4a1a', '#a8682a', '#c88a3a', '#8a7a2a'], ['#6a5a14', '#a88a1c', '#d8b02a', '#f0d04a', '#c8a830']][kind % 3];
+  // v0.70 зима: тёмная хвойная/зимняя зелень, верхние листья под снегом
+  const P = WINTER ? [['#0f2a22', '#1c3e30', '#2c5444', '#b9c5d8', '#e6ecf5'], ['#14281c', '#22402a', '#30563a', '#b4c0d4', '#dfe6f2'], ['#102620', '#1a3a2e', '#28503e', '#bcc8da', '#e8eef6']][kind % 3]
+    : [['#7a1f14', '#b8321c', '#e0552a', '#f08a2c', '#ffb24a'], ['#4a3014', '#7a4a1a', '#a8682a', '#c88a3a', '#8a7a2a'], ['#6a5a14', '#a88a1c', '#d8b02a', '#f0d04a', '#c8a830']][kind % 3];
   const rnd = (a, b) => a + random() * (b - a);
   for (let i = 0; i < 320; i++) {
     const a = random() * 6.283, r = Math.sqrt(random()) * W * 0.47, x = W / 2 + Math.cos(a) * r, y = H / 2 + Math.sin(a) * r * 0.86;
@@ -712,6 +714,25 @@ let facN = 0;
   over('corrugated', 'corrug_g', 64, 64, c => shade(c, 30)); over('bark', 'bark', 32, 64); over('stone', 'stone', 64, 64); over('soil', 'soil', 128, 128);
   over('carpet', 'carpet_g', 64, 64, c => shade(c ?? 0x3a4458, 40)); over('brickWall', 'brick', 128, 128);
   over('cardboard', 'cardboard', 32, 32); over('floorTile', 'tiles', 128, 128, () => '#e4d8ee'); }
+/* v0.70 зима: газоны, листва, кусты и крыши под снегом. Снег - не чистый белый: голубоватые тени,
+   неровности сугробов, редкие травинки и блёстки, чтобы PS1-картинка не выгорала. */
+if (WINTER) {
+  T.grass = () => photo('snowGround70', 64, 64, (g, W, H) => {
+    fill(g, W, H, '#b9c3d6'); blobs(g, W, H, ['#a7b2c8', '#cbd3e2', '#b1bbd0', '#d6dde9'], 90, 6, 22, 0.55);
+    strokes(g, W, H, ['#6f7f6a', '#8a9a7a'], 160, 3, -Math.PI / 2, 0.5, 1.5, 0.45);
+    g.fillStyle = 'rgba(240,244,250,.8)'; for (let i = 0; i < 40; i++) g.fillRect((R() * W) | 0, (R() * H) | 0, 1, 1); grain(g, W, H, 6);
+  });
+  T.leaves = i => photo('leavesW' + i, 32, 32, (g, W, H) => {
+    const pal = [['#24503a', '#183c2a', '#2f6446', '#10281c'], ['#2a5a36', '#1a4026', '#36683e', '#122a18'], ['#1f4a3a', '#14382a', '#2a5a46', '#0e2620']][i % 3];
+    fill(g, W, H, pal[3]); blobs(g, W, H, pal, 220, 4, 12, 0.85); blobs(g, W, H, ['#eef2f9', '#dfe6f2'], 70, 2, 7, 0.9); grain(g, W, H, 14);
+  });
+  T.leafLitter = () => pix('snowClumps70', 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H); for (let i = 0; i < 60; i++) { const x = R() * W, y = R() * H; if (Math.hypot(x - W / 2, y - H / 2) > W * 0.46) continue; g.fillStyle = ['#eef2f9', '#dfe6f2', '#c9d3e6'][(R() * 3) | 0]; g.fillRect(x | 0, y | 0, 2, 2); } });
+  T.bush = () => photo('bushW70', 32, 32, (g, W, H) => { fill(g, W, H, '#16302a'); blobs(g, W, H, ['#22463a', '#2e5a46', '#183a2e'], 260, 3, 9, 0.85); blobs(g, W, H, ['#eef2f9', '#dfe6f2'], 60, 2, 6, 0.9); grain(g, W, H, 14); });
+  { const roof0 = T.roof; T.roof = (...a) => photo('roofW70' + (a[0] ?? ''), 64, 64, (g, W, H) => { const src = roof0(...a).image; if (src) g.drawImage(src, 0, 0, W, H);
+    // снег лежит полосами вдоль рядов черепицы, кое-где просвечивает крыша
+    for (let y = 0; y < H; y += 4) { g.fillStyle = `rgba(236,241,249,${0.72 + R() * 0.2})`; g.fillRect(0, y, W, 3); }
+    blobs(g, W, H, ['rgba(201,211,230,.8)', 'rgba(246,248,252,.9)'], 50, 3, 10, 0.8); grain(g, W, H, 6); }, 1); }
+}
 /* v0.20: стены квартир изнутри — фото обоев (2 раза по ширине), окрашены в цвет квартиры, плинтус и карниз;
    текстура на один этаж по высоте. Ткань/кожа для диванов и кроватей, фанера для ящиков. */
 T.wallIn = (c = 0xc8b8d8, k = 'wallpaper_g') => phOk(k) ? photo('wallIn' + c + k, 128, 128, (g, W, H) => { phDraw(g, W, H * 0.86, k, shade(c, 10), 2, 2);

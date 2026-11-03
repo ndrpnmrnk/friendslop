@@ -5,7 +5,7 @@ import { poseGrip } from '../game/grab.js';
 import { W, withWorld } from '../world/state.js';
 import { createWorldSync } from './world-sync.js';
 import { NET, onNet, inRoom, send, hubHostId } from './net.js';
-import { knockDown, shove, daze, dropHeld, separateActors, releaseDisconnected } from '../game/actors.js';
+import { knockDown, shove, daze, snowHit, dropHeld, separateActors, releaseDisconnected } from '../game/actors.js';
 import { botHitHook } from '../game/bots.js';
 import { cargoPosition, poseMeleeItem } from '../game/handheld.js';
 import { pushOut, pushActorsOut, bumpPushables } from '../world/physics.js';
@@ -60,7 +60,7 @@ export function createHubSession(world,remotes,options){
    if(resumed){away=resuming=false;queue.length=0;pendingPositions.clear();full=worldT=0;}
  });});
  function hit(a,k,args){if(a.netProtected)return;predictHit(a,k,args);if(host){if(k!=='daze')dropHeld(a,args[0],args[1]);event({kind:'hit',to:a.netKey,k,args});}else command({kind:'hit',to:a.netKey,k,args});}
- function applyHit(a,k,args){if(!a||a.netProtected)return;if(k==='knock')knockDown(a,...args);else if(k==='shove')shove(a,...args);else if(k==='daze')daze(a,...args);}
+ function applyHit(a,k,args){if(!a||a.netProtected)return;if(k==='knock')knockDown(a,...args);else if(k==='shove')shove(a,...args);else if(k==='daze')daze(a,...args);else if(k==='snow')snowHit(a,...args);}
  function stationAct(a,m){
    if(!a)return;const name=m.station;if(!['wardrobe','claw'].includes(name))return;
    if(m.kind==='station-leave'){if(slots[name]===a.netKey){slots[name]=null;a.netProtected=false;if(name==='wardrobe')world.curtain(0);}return;}

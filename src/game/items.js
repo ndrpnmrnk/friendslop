@@ -15,7 +15,7 @@ import { addOutline, OUTLINE } from './outline.js';
 import { chairModel, coneModel, trashModel, litterModel } from '../world/props.js';
 import { PFACE } from '../world/builder.js';
 import { T } from '../core/textures.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, WINTER } from '../config.js';
 import { W } from '../world/state.js';
 import { groundAt, solidHit, raySolids, addZone, impulsePushables, zoneAt, materialAt } from '../world/physics.js';
 import { puff, burst, chunk, splash, ripple, decal } from '../world/particles.js';
@@ -53,6 +53,8 @@ function build(type) {
     mesh(G.sph, tmat(T.tomato()), 0, 0, 0, 0.16, 0.13, 0.16, g);
     for (let i = 0; i < 5; i++) { const l = mesh(G.box, col(0x3f6b2a), Math.cos(i * 1.26) * 0.04, 0.13, Math.sin(i * 1.26) * 0.04, 0.07, 0.01, 0.025, g); l.rotation.y = -i * 1.26; }
     mesh(G.cyl6, col(0x3f6b2a), 0, 0.15, 0, 0.012, 0.04, 0.012, g);
+  } else if (type === 'snowball') { // v0.70: комок снега - чуть неровный, с голубой тенью
+    mesh(G.ico, snowMat(), 0, 0, 0, 0.14, 0.13, 0.14, g); mesh(G.ico, snowMat(), 0.05, 0.04, -0.03, 0.07, 0.06, 0.07, g);
   } else if (type === 'pumpkin') {
     mesh(G.sph, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.25, 0.32, g); // low-poly, «PS1»
     mesh(G.cyl6, col(0x3f6b2a), 0, 0.28, 0, 0.05, 0.14, 0.05, g);
@@ -154,7 +156,9 @@ function toolModel(type, g) {
 // v0.57: прогрев шейдеров — по одной модели каждого предмета (с обводкой), чтобы первый выпавший сетемёт или петарда
 // не подвешивали кадр компиляцией. Группу показывают на один renderer.compile и выбрасывают.
 export function prewarmKit() { const kit = new THREE.Group(); for (const type of Object.keys(CONFIG.items)) { try { const g = jellify(build(type), 0.7, true); addOutline(g, 0.045, OUTLINE[rarityOf(type)]); kit.add(g); } catch (_) {} } return kit; }
+let _snowM = null; const snowMat = () => _snowM || (_snowM = lam({ color: 0xf2f6ff, emissive: 0x3a4660, emissiveIntensity: .25 }, 'snowball70'));
 export function addItem(type, x, y, z, ry = 0) {
+  if (WINTER && type === 'pumpkin') type = 'snowball'; // v0.70: зимой бросаемые тыквы - снежки (те же места появления)
   const def = CONFIG.items[type], g = jellify(build(type), 0.7, true); W.group.add(g); // v0.52: предметы — «желе», выделяются из фона
   const it = { type, def, g, pos: g.position, vel: new V3(), state: 'rest', home: { x, y, z, ry }, respawnT: 0, spin: new V3(), noHit: 0, outline: addOutline(g, 0.045, OUTLINE[rarityOf(type)]), rarity: rarityOf(type), ammo: def.ammo || 0, cd: 0 };
   g.rotation.y = ry;
@@ -228,6 +232,10 @@ function impact(it, n, speed) {
     burst(p.x, p.y, p.z, 5, { color: 0xd8301a, size: 0.22, speed: 2.5 });
     splatter(p, it.vel, 0xb8200e, 24, 0.9, { owner: it.owner });
     vanish(it);
+  } else if (t === 'snowball') {
+    for (let i = 0; i < 6; i++) chunk(p.x, p.y, p.z, [(random() - 0.5) * 3 + it.vel.x * 0.1, 1 + random() * 2, (random() - 0.5) * 3 + it.vel.z * 0.1], { mat: snowMat(), size: 0.07 + random() * 0.05, life: 1.2 });
+    burst(p.x, p.y, p.z, 8, { color: 0xf2f6ff, size: 0.12, speed: 1.6 }); splatter(p, it.vel, 0xeef3fb, 14, 0.7, { owner: it.owner }); sfx('snowHit', { at: p, v: .7 });
+    vanish(it);
   } else if (t === 'pumpkin') {
     const m = tmat(T.pumpkin());
     for (let i = 0; i < 9; i++) chunk(p.x, p.y, p.z, [(random() - 0.5) * 5 + it.vel.x * 0.15, 2 + random() * 3, (random() - 0.5) * 5 + it.vel.z * 0.15], { mat: m, size: 0.18 + random() * 0.1, life: 2.5 });
@@ -263,7 +271,7 @@ function impact(it, n, speed) {
 }
 
 // шлейф: короткие пиксельные клубки за летящим предметом
-const TRAIL = { balloon: 0x8ac8f0, tomato: 0xff6a4a, pumpkin: 0xffb04a, brick: 0xc89080, ball: 0xf5c542, can: 0xff5a6e, slipper: 0xff7aa8, banana: 0xf5d442, paint: 0x4ab0f0, firework: 0xffd25c };
+const TRAIL = { snowball: 0xeef3fb, balloon: 0x8ac8f0, tomato: 0xff6a4a, pumpkin: 0xffb04a, brick: 0xc89080, ball: 0xf5c542, can: 0xff5a6e, slipper: 0xff7aa8, banana: 0xf5d442, paint: 0x4ab0f0, firework: 0xffd25c };
 function trail(it, dt) {
   it.trT = (it.trT || 0) - dt; if (it.trT > 0) return; it.trT = 0.025;
   puff(it.pos.x, it.pos.y, it.pos.z, { size: it.def.r * 0.9, grow: -0.6, life: 0.22, vy: 0, vx: 0, vz: 0, color: TRAIL[it.type] ?? 0xd8d0e4, opacity: 0.6 });
@@ -296,7 +304,7 @@ function simulate(it, dt, flying) {
     const onG = p.y - ry <= groundAt(p.x, p.z, r * 0.5, p.y) + 0.02;
     // трение: круглые катятся, кирпич быстро останавливается
     if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, bigpumpkin: 0.8, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7, chair: 6, cone: 3, trash: 5, litter: 3, parcel: 6, duck: 2, cucumber: 2.5 }[it.type] ?? 5)); v.x *= f; v.z *= f; }
-    if (['ball', 'bigpumpkin', 'pumpkin', 'balloon', 'tomato', 'litter', 'can', 'duck', 'cucumber', 'bulb'].includes(it.type)) { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
+    if (['snowball', 'ball', 'bigpumpkin', 'pumpkin', 'balloon', 'tomato', 'litter', 'can', 'duck', 'cucumber', 'bulb'].includes(it.type)) { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
   } else { const k = Math.min(3, 0.6 + v.length() / 8); it.g.rotation.x += dt * 8 * k; it.g.rotation.y += dt * 5 * k; }
 }
 
