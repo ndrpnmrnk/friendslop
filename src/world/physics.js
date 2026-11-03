@@ -183,11 +183,11 @@ export function recordImpact(b,hit,speed){if(hit&&!b.impactContact&&speed>1.8){b
 // Круг остаётся на воде и при езде, и при толкании/столкновении с другим предметом.
 export function constrainWaterRide(b,previous={x:b.x,z:b.z}){
   if(!b.ride?.water)return true;
-  const margin=b.r*.72,wet=(x,z)=>{for(let i=0;i<9;i++){const a=i*Math.PI/4,r=i===8?0:margin;if(!zoneAt(x+Math.cos(a)*r,z+Math.sin(a)*r,b.y,'water'))return false;}return true;};
+  const margin=b.r*.72,wet=(x,z)=>{for(let i=0;i<9;i++){const a=i*Math.PI/4,r=i===8?0:margin;const px=x+Math.cos(a)*r,pz=z+Math.sin(a)*r;if(!zoneAt(px,pz,b.y,'water')&&!zoneAt(px,pz,b.y,'ice'))return false;}return true;};
   if(wet(b.x,b.z)){b.waterHome={x:b.x,z:b.z};return true;}
   const from=wet(previous.x,previous.z)?previous:b.waterHome;
   if(from){let lo=0,hi=1;for(let i=0;i<10;i++){const k=(lo+hi)/2;if(wet(from.x+(b.x-from.x)*k,from.z+(b.z-from.z)*k))lo=k;else hi=k;}b.x=from.x+(b.x-from.x)*lo;b.z=from.z+(b.z-from.z)*lo;}
-  else{const q=zoneAt(previous.x,previous.z,b.y,'water');if(q?.c){const dx=b.x-q.c[0],dz=b.z-q.c[1],l=Math.hypot(dx,dz)||1,k=Math.min(l,Math.max(0,q.c[2]-margin-.02))/l;b.x=q.c[0]+dx*k;b.z=q.c[1]+dz*k;}else if(q?.r){b.x=clamp(b.x,q.r[0]+margin+.02,q.r[2]-margin-.02);b.z=clamp(b.z,q.r[1]+margin+.02,q.r[3]-margin-.02);}else{b.x=previous.x;b.z=previous.z;}}
+  else{const q=zoneAt(previous.x,previous.z,b.y,'water')||zoneAt(previous.x,previous.z,b.y,'ice');if(q?.c){const dx=b.x-q.c[0],dz=b.z-q.c[1],l=Math.hypot(dx,dz)||1,k=Math.min(l,Math.max(0,q.c[2]-margin-.02))/l;b.x=q.c[0]+dx*k;b.z=q.c[1]+dz*k;}else if(q?.r){b.x=clamp(b.x,q.r[0]+margin+.02,q.r[2]-margin-.02);b.z=clamp(b.z,q.r[1]+margin+.02,q.r[3]-margin-.02);}else{b.x=previous.x;b.z=previous.z;}}
   b.vx=b.vz=0;if(wet(b.x,b.z))b.waterHome={x:b.x,z:b.z};return false;
 }
 export function updatePushables(dt, player) {

@@ -76,7 +76,8 @@ export class Builder {
     const m = this.m(G.plane, dim ? LIGHTDIM() : LIGHTMAT(), x, y + 0.03, z, r * 2, r * 2, 1); m.rotation.x = -Math.PI / 2; m.renderOrder = 2;(W.lightSources??=[]).push({x:this.X(x),y:this.Y+y+(dim?1.85:2.55),z:this.Z(z),color:dim?0xffd8ac:0xffc384,strength:dim?3.5:6,range:dim?6:8,pool:m});return m;
   }
   // вода: тёмная толща + бегущие блики + пена у берега
-  water(x, z, r, y = 0, fish = true) {
+  water(x, z, r, y = 0, fish = true, opt = {}) {
+    if (WINTER && opt.ice) return this.icePond(x, z, r, y, fish);
     const m = this.m(G.cyl12, WATERMAT(), x, y + 0.06, z, r, 0.04, r);
     const hi = this.m(new THREE.CircleGeometry(1, 24), WATERHI(), x, y + 0.09, z, r, r, 1); hi.rotation.x = -Math.PI / 2;
     const fm = this.m(new THREE.RingGeometry(0.88, 1, 28, 1), FOAM(), x, y + 0.1, z, r, r, 1); fm.rotation.x = -Math.PI / 2;
@@ -84,6 +85,25 @@ export class Builder {
     if (fish && r >= 2.5) for (const a of (Array.isArray(fish) ? fish : [0.15, 0.8, 2.45, 5.75])) { const dx = Math.cos(a), dz = Math.sin(a);
       W.spots.fish.push({ x: this.X(x + dx * (r + 0.8)), z: this.Z(z + dz * (r + 0.8)), y: this.Y + y, f: [-dx, -dz], wx: this.X(x + dx * (r - 1.4)), wz: this.Z(z + dz * (r - 1.4)), wy: this.Y + y + 0.08, cx: this.X(x), cz: this.Z(z), R: r, district: this.d, label: 'у воды' }); }
     return m;
+  }
+  /* v0.70 замёрзший пруд/фонтан: тёмная вода внизу, под полупрозрачным льдом медленно плавают рыбы,
+     сверху иней и снежные заплатки. Лёд скользкий (зона 'ice'), по нему ходят и катаются ватрушки.
+     Места рыбалки - лунки во льду (spot.ice). Лёд - на 6 см выше земли, без ступеньки. */
+  icePond(x, z, r, y = 0, fish = true) {
+    const deep = lam({ color: 0x2f6488, emissive: 0x0c2236 }, 'iceDeep70'), fishM = col(0x0a1622);
+    this.m(G.cyl12, deep, x, y + 0.012, z, r, 0.01, r);
+    const ice = this.m(G.cyl12, iceMat(), x, y + 0.035, z, r, 0.05, r); ice.renderOrder = 2; ice.userData.noBatch = true;
+    for (let i = 0; i < 5; i++) { const a = rand() * 6.28, rr = rand() * r * 0.8; const sp = this.m(G.disc, snowMatB(), x + Math.cos(a) * rr, y + 0.062, z + Math.sin(a) * rr, 0.25 + rand() * 0.5, 0.18 + rand() * 0.3, 1); sp.rotation.x = -Math.PI / 2; sp.rotation.z = rand() * 3; }
+    // рыбы подо льдом: плоские силуэты ходят кругами (одна общая анимация на пруд)
+    const school = []; for (let i = 0; i < Math.min(6, Math.round(r * 1.2)); i++) { const f = new THREE.Group(); const b0 = mesh(G.sph, fishM, 0, 0, 0, 0.22, 0.02, 0.07, f); const t0 = mesh(G.cone4, fishM, -0.26, 0, 0, 0.06, 0.12, 0.02, f); t0.rotation.z = Math.PI / 2; void b0; f.position.set(this.X(x), this.Y + y + 0.022, this.Z(z)); this.g.add(f); W.keep.push(f); school.push({ f, a: rand() * 6.28, rr: (0.3 + rand() * 0.6) * (r - 0.5), w: (0.15 + rand() * 0.2) * (rand() < 0.5 ? -1 : 1) }); }
+    const cx = this.X(x), cz = this.Z(z); W.animated.push(dt => { for (const q of school) { q.a += q.w * dt; q.f.position.x = cx + Math.cos(q.a) * q.rr; q.f.position.z = cz + Math.sin(q.a) * q.rr; q.f.rotation.y = -q.a - (q.w > 0 ? 0 : Math.PI); } });
+    addZone('ice', { c: [cx, cz, r] }, this.Y + y + 0.06);
+    if (fish && r >= 2.5) for (const a of (Array.isArray(fish) ? fish : [0.15, 0.8, 2.45, 5.75])) { const dx = Math.cos(a), dz = Math.sin(a), hx = x + dx * (r - 1.4), hz = z + dz * (r - 1.4);
+      // лунка: тёмная вода, снежный бортик из наколотого льда
+      const h = this.m(G.disc, deep, hx, y + 0.066, hz, 0.3, 0.3, 1); h.rotation.x = -Math.PI / 2;
+      for (let k = 0; k < 6; k++) { const b2 = k / 6 * 6.28; this.m(G.ico, snowMatB(), hx + Math.cos(b2) * 0.38, y + 0.08, hz + Math.sin(b2) * 0.38, 0.12, 0.06, 0.1); }
+      W.spots.fish.push({ x: this.X(x + dx * (r + 0.8)), z: this.Z(z + dz * (r + 0.8)), y: this.Y + y, f: [-dx, -dz], wx: this.X(hx), wz: this.Z(hz), wy: this.Y + y + 0.066, cx, cz, R: r, ice: true, district: this.d, label: 'у лунки' }); }
+    return ice;
   }
   waterRect(x0, z0, x1, z1, y = 0, foam = true) {
     const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
@@ -527,5 +547,6 @@ export const WATERMAT = () => _wm || (_wm = lam({ map: T.water(), transparent: t
 let _wh, _fo;
 export const WATERHI = () => _wh || (_wh = alphaMat(T.waterHi(), { blending: THREE.AdditiveBlending, opacity: 0.32 }));
 export const FOAM = () => _fo || (_fo = alphaMat(T.foam(), { opacity: 0.75 }));
+let _iceM = null; const iceMat = () => _iceM || (_iceM = lam({ map: T.ice70(), color: 0xa8c8e4, emissive: 0x10202e, emissiveIntensity: .25, transparent: true, opacity: .42, depthWrite: false }, 'ice70'));
 let _snowB = null; const snowMatB = () => _snowB || (_snowB = lam({ map: T.grass(), color: 0xffffff }, 'drift70'));
 export const PFACE = () => _pf || (_pf = new THREE.MeshBasicMaterial({ map: T.pumpkinFace(), transparent: true, alphaTest: 0.5 }));

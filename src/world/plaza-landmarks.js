@@ -26,7 +26,7 @@ export function buildClockTower(b,x,z){
 }
 
 export function buildPlazaFountain(b,cx,cz,R=3.8){
- const stone=smat(T.stone()),bronze=tmat(T.paintMetal(0x66786c));b.water(cx,cz,R-.2,0,false);
+ const stone=smat(T.stone()),bronze=tmat(T.paintMetal(0x66786c));b.water(cx,cz,R-.2,0,false,{ice:true});
  const lathe=(points,segments=12)=>{const g=new THREE.LatheGeometry(points.map(p=>new THREE.Vector2(...p)),segments);W.mapResources.add(g);return g;};
  b.m(lathe([[R-.22,0],[R+.27,0],[R+.27,.34],[R+.16,.49],[R-.22,.49],[R-.22,0]]),stone,cx,0,cz);
  for(let i=0;i<20;i++){const a=i/20*Math.PI*2;b.solid(cx+Math.cos(a)*R,cz+Math.sin(a)*R,.55,.55,0,.49);}

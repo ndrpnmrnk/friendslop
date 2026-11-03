@@ -1,3 +1,4 @@
+import { WINTER } from '../../config.js';
 import { random } from '../../core/random.js';
 import { G, tmat, smat, col, compose } from '../../core/gfx.js';
 import { T } from '../../core/textures.js';
@@ -23,7 +24,7 @@ export default {
     b.path([[14, 13], [21, 18.5]], 2.4, dirt, .07); // к причалу уточек
 
     /* ---------- пруд, островок, беседка ---------- */
-    b.water(PX, PZ, PR, 0, [.2, 1.3, 2.6, 4.2, 5.4]);
+    b.water(PX, PZ, PR, 0, [.2, 1.3, 2.6, 4.2, 5.4], { ice: true }); // v0.70: зимой - каток с лунками
     for (let i = 0; i < 26; i++) { const a = i / 26 * 6.28, r = PR + .25; if (Math.abs(a - Math.PI) < .3) continue; const s = b.m(G.ico, tmat(T.stone()), PX + Math.cos(a) * r, .1, PZ + Math.sin(a) * r, .38, .22, .32); s.rotation.y = a; }
     for (let i = 0; i < 10; i++) { const a = .4 + i * .12, r = PR - .4, x = PX + Math.cos(a) * r, z = PZ + Math.sin(a) * r; b.m(G.box, col(0x5a7a3a), x, .5, z, .04, 1, .04); b.m(G.cyl5, tmat(T.bark()), x, 1.05, z, .065, .25, .065); }
     // островок с беседкой
@@ -37,9 +38,9 @@ export default {
     b.light(PX, PZ, 2, .3);
     // причал уточек на западном берегу + табличка
     b.pier(21.4, 22.6, PX - PR + .6, 22.6, .3);
-    b.sign(20.95, 1.75, 21.2, -Math.PI / 2, 'УТОЧКИ', '#f5c542', '#2a1f3d', 1.5, .45); b.m(G.box, col(0x2b2533), 21.05, .8, 21.2, .08, 1.6, .08); b.solid(21.05, 21.2, .15, .15, 0, 1.6);
+    b.sign(20.95, 1.75, 21.2, -Math.PI / 2, WINTER ? 'ВАТРУШКИ' : 'УТОЧКИ', '#f5c542', '#2a1f3d', 1.5, .45); b.m(G.box, col(0x2b2533), 21.05, .8, 21.2, .08, 1.6, .08); b.solid(21.05, 21.2, .15, .15, 0, 1.6);
     // лодки-уточки
-    const ducks = [[PX - 4.6, 21], [PX - 3.2, 28.6], [PX + 3.6, 20.4], [PX + 4.6, 28.2]].map(([x, z], i) => b.ride('duck', x, z, i * 1.7, .02));
+    const ducks = [[PX - 4.6, 21], [PX - 3.2, 28.6], [PX + 3.6, 20.4], [PX + 4.6, 28.2]].map(([x, z], i) => b.ride('duck', x, z, i * 1.7, WINTER ? .06 : .02));
     // Only the authoritative room simulation runs this effect.
     // Every pair is checked once, with a cooldown and one victim per ram.
     // knockDown already handles dismounting (including network ownership).

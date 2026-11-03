@@ -162,7 +162,7 @@ export function updateRide(p, dt, t, ix, iz, ctrl) {
   if(!isMotorCar(b.kind)&&b.boostT>0){b.boostT-=dt;b.vx+=Math.sin(b.heading)*Math.max(R.acc,8)*.9*dt;b.vz+=Math.cos(b.heading)*Math.max(R.acc,8)*.9*dt;}
   b.drifting=drifting;if(b.skid>0){b.skid=Math.max(0,b.skid-dt);b.heading+=(b.spin||1.6)*dt;}else b.spin=0;
   const keep = drifting||b.skid>0?Math.exp(-dt*1.05):b.kind === 'chair' ? 0.92 : Math.exp(-dt * (isMotorCar(b.kind)?5:6));
-  const mx = (R.water && !zoneAt(b.x, b.z, b.y, 'water') ? 2 : R.max) * (b.boostT > 0 ? 1.4 : 1);
+  const mx = (R.water && !zoneAt(b.x, b.z, b.y, 'water') && !zoneAt(b.x, b.z, b.y, 'ice') ? 2 : R.max) * (b.boostT > 0 ? 1.4 : 1);
   let nf = Math.max(-mx * 0.4, Math.min(mx, fwd)), ns = side * keep;
   b.vx = fx * nf - fz * ns; b.vz = fz * nf + fx * ns;
   if (b.kind === 'chair') b.heading += side * dt * 0.8;

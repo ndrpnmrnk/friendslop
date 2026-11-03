@@ -716,6 +716,10 @@ let facN = 0;
   over('cardboard', 'cardboard', 32, 32); over('floorTile', 'tiles', 128, 128, () => '#e4d8ee'); }
 /* v0.70 зима: газоны, листва, кусты и крыши под снегом. Снег - не чистый белый: голубоватые тени,
    неровности сугробов, редкие травинки и блёстки, чтобы PS1-картинка не выгорала. */
+// v0.70 лёд: голубой, царапины от коньков, белые трещины, иней по краю (прозрачность задаёт материал)
+T.ice70 = () => pix('ice70', 64, 64, (g, W, H) => { fill(g, W, H, '#9fc4e2'); blobs(g, W, H, ['#b6d4ec', '#8ab4d6', '#c8e0f2'], 40, 6, 18, 0.5);
+  g.strokeStyle = 'rgba(240,248,255,.75)'; g.lineWidth = 1; for (let i = 0; i < 14; i++) { g.beginPath(); let x = R() * W, y = R() * H; g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (R() - .5) * 18; y += (R() - .5) * 18; g.lineTo(x, y); } g.stroke(); }
+  g.strokeStyle = 'rgba(255,255,255,.35)'; for (let i = 0; i < 10; i++) { g.beginPath(); const x = R() * W, y = R() * H, a = R() * 6.28; g.arc(x, y, 6 + R() * 16, a, a + 1.2); g.stroke(); } grain(g, W, H, 6); });
 if (WINTER) {
   T.grass = () => photo('snowGround70', 64, 64, (g, W, H) => {
     fill(g, W, H, '#b9c3d6'); blobs(g, W, H, ['#a7b2c8', '#cbd3e2', '#b1bbd0', '#d6dde9'], 90, 6, 22, 0.55);

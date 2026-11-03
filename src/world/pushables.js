@@ -1,3 +1,4 @@
+import { WINTER } from '../config.js';
 import { random } from '../core/random.js';
 import {bicycleModel,kartModel,scooterModel} from './vehicles.js';
 import { splatter } from './splat.js';
@@ -83,6 +84,14 @@ export function addPushable(b, kind, x, z, y = 0) {
       for (const sx of [-0.28, 0.28]) { add(G.box, mt, sx, 0.9, 0.1, 0.03, 0.03, 1.2); for (const sz of [-0.8, 0.8]) { add(G.box, mt, sx, 0.38, sz, 0.04, 0.66, 0.04); add(G.cyl8, dk, sx, 0.06, sz, 0.06, 0.04, 0.06, 0, 0, Math.PI / 2); } }
       add(G.box, mt, 0, 0.25, 0, 0.5, 0.03, 1.5); }));
     r = 0.6;
+  } else if (kind === 'duck' && WINTER) {
+    // v0.70 ватрушка: надувной круг с натянутым дном, ручками и полосой; таран как у лодки-уточки
+    const c = [0xd8243a, 0x4ab0f0, 0x9be36b, 0xf5c542][W.pushables.filter(p => p.kind === 'duck').length % 4];
+    g.add(compose('tube70-' + c, a => { const body = col(c), dk = col(0x2b2533), white = col(0xf1e8ff);
+      a(new THREE.TorusGeometry(.62, .26, 8, 16), body, 0, .26, 0, 1, 1, 1, Math.PI / 2); a(G.cyl12, col(0x1e1a26), 0, .1, 0, .66, .06, .66);
+      for (let i = 0; i < 4; i++) { const an = i / 4 * 6.28 + .4; a(G.box, white, Math.cos(an) * .64, .3, Math.sin(an) * .64, .14, .2, .14); }
+      for (const s2 of [-1, 1]) a(G.torus, dk, s2 * .86, .36, 0, .1, .1, .1, 0, 0, Math.PI / 2); }));
+    r = 0.85;
   } else if (kind === 'duck') {
     const c = [0xf5c542, 0xf1e8ff, 0x9be36b, 0xff8a6e][W.pushables.filter(p => p.kind === 'duck').length % 4];
     g.add(compose('duckBoat60-' + c, a => { const body = col(c), dk = col(0x2b2533), beak = col(0xff8a1f);
