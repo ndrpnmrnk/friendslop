@@ -65,6 +65,7 @@ const BIG = {
       s.snow.state.wind.x = s.wind.x * 9 * k; s.snow.state.wind.z = s.wind.z * 9 * k; if (s.made) s.snow.update(dt, ctx.camera?.());
       WX.blizzard = k; s.gustT -= dt; if (s.gustT <= 0) { s.gustT = 2.5 + random() * 2; WX.gust = 1.2; sfx('wind'); }
       if (WX.gust > 0) { const w0 = WX.wind; WX.wind = { ...w0, x: s.wind.x, z: s.wind.z }; gust(dt, ctx.player(), 1.4 * k); WX.wind = w0; } return null; },
+    replica(s, dt) { if (!s.snow) return; BIG.blizzard.update(s, dt); },
     info() { return 'МЕТЕЛЬ · держись подальше от края'; },
     bot() { return null; },
     stop(s) { WX.blizzard = 0; if (s.made) s.snow.dispose(); else { s.snow.state.density = s.d0; s.snow.state.fall = s.fall0; } } },
@@ -119,7 +120,12 @@ const BIG = {
   // Мотылёк в трусах: кружит и пикирует, с неба падают тапки — кидай в него; очки за попадание и бонус за последнее
   moth: { dur: 45,
     start(s) {
-      const P = ctx.player(); s.c = new V3(P.pos.x, P.pos.y, P.pos.z); s.hp = 12; s.max = 12; s.ang = 0; s.y = P.pos.y + 6; s.dive = null; s.diveT = 3; s.slipT = 0; s.hitCD = 0;
+      // v0.70: место - случайный открытый участок карты (не у ведущего); цели - все участники
+      const P = ctx.player(), zs = W.missionZones.filter(z => z.type === 'floor' && z.x1 - z.x0 > 8 && z.z1 - z.z0 > 8), z0 = zs[(random() * zs.length) | 0];
+      s.c = z0 ? new V3((z0.x0 + z0.x1) / 2, z0.y, (z0.z0 + z0.z1) / 2) : new V3(P.pos.x, P.pos.y, P.pos.z); s.hp = 12; s.max = 12; s.ang = 0; s.y = s.c.y + 6; s.dive = null; s.diveT = 3; s.slipT = 0; s.hitCD = 0; s.mode = 'circle'; s.mt = 0;
+      const warnM = new THREE.MeshBasicMaterial({ color: 0xff3a3a, transparent: true, opacity: .5, depthWrite: false, side: THREE.DoubleSide });
+      s.ring = mesh(G.ring, warnM, 0, 0, 0, 1.9, 1.9, 1, W.group); s.ring.rotation.x = -Math.PI / 2; s.ring.visible = false; s.ring.renderOrder = 4; W.keep.push(s.ring);
+      s.lane = mesh(G.plane, warnM, 0, 0, 0, 2.2, 14, 1, W.group); s.lane.rotation.x = -Math.PI / 2; s.lane.visible = false; s.lane.renderOrder = 4; W.keep.push(s.lane);
       s.g = new THREE.Group(); W.group.add(s.g); W.keep.push(s.g);
       const fur = lam({ map: T.mothFur() }, 'mothFur');
       s.body = compose('mothBody', a => { a(G.sph10, fur, 0, 0, 0, 0.55, 0.6, 0.9);for(let i=0;i<4;i++){a(G.sph10,fur,0,-.04-i*.03,-.30-i*.22,.49-i*.08,.43-i*.06,.25);}a(G.sph10,fur,0,.18,.55,.58,.47,.40); a(G.sph10, fur, 0, 0.25, 0.8, 0.45, 0.42, 0.42);
@@ -138,19 +144,34 @@ const BIG = {
       s.hitCD -= dt;s.prev.copy(s.g.position);
       // полёт: круги над районом, иногда пике на кого-нибудь
       if (s.dead) { s.g.position.y -= dt * 6; s.g.rotation.z += dt * 6; s.hpS.visible = false; if (s.g.position.y < s.c.y) { burst(s.g.position.x, s.c.y + 0.5, s.g.position.z, 24, { color: 0xb8a890, size: 0.3, speed: 4, up: 3 }); smokeRing(s.g.position.x, s.c.y + 0.1, s.g.position.z, 12, { speed: 3 }); shake(0.3); return 'end'; } return null; }
-      if (!s.dive) { s.ang += dt * 0.5; const R = 7; const tx = s.c.x + Math.cos(s.ang) * R, tz = s.c.z + Math.sin(s.ang) * R, ty = s.y + Math.sin(t * 1.3) * 0.8;
-        s.g.position.x += (tx - s.g.position.x) * Math.min(1, dt * 2); s.g.position.z += (tz - s.g.position.z) * Math.min(1, dt * 2); s.g.position.y += (ty - s.g.position.y) * Math.min(1, dt * 2);
-        s.diveT -= dt; if (s.diveT <= 0) { const list = actors().filter(a => !a.hidden && Math.hypot(a.pos.x - s.c.x, a.pos.z - s.c.z) < 16); const v = list[(random() * list.length) | 0]; if (v) { s.dive = { v, t: 0, from: s.g.position.clone() }; sfx('moth', { at: s.g.position }); } s.diveT = 4 + random() * 3; } }
-      else { const d = s.dive; d.t += dt; const tgt = d.v.pos.clone().setY(d.v.pos.y + 1.0), k = Math.min(1, d.t / 1.1);
-        if (k < 1) s.g.position.lerpVectors(d.from, tgt, k * k);
-        else { s.g.position.y += dt * 8; if (d.t > 2.0) s.dive = null; }
-        if (!d.hit && s.g.position.distanceTo(tgt) < 1.3) { d.hit = true; daze(d.v, CONFIG.mothStun); shove(d.v, d.v.pos.x - d.from.x, d.v.pos.z - d.from.z, 7, 5, true); voice(d.v.ch, 'hurt', d.v.pos); sfx('hit', { at: d.v.pos }); } }
+      // v0.70: две атаки с заранее видимым предупреждением; место/направление фиксируются, уйти можно; урон - только по реальному попаданию
+      const pos = s.g.position, alive = actors().filter(a => !a.hidden && !a.drone), near = alive.filter(a => Math.hypot(a.pos.x - s.c.x, a.pos.z - s.c.z) < 24);
+      s.mt += dt; s.dive = s.mode === 'dive' || s.mode === 'dash' ? s.mode : null;
+      if (s.mode === 'circle') { s.ang += dt * .5; const R = 7, tx = s.c.x + Math.cos(s.ang) * R, tz = s.c.z + Math.sin(s.ang) * R, ty = s.y + Math.sin(t * 1.3) * .8;
+        pos.x += (tx - pos.x) * Math.min(1, dt * 2); pos.z += (tz - pos.z) * Math.min(1, dt * 2); pos.y += (ty - pos.y) * Math.min(1, dt * 2);
+        if (!near.length && alive.length) { const a = alive[(random() * alive.length) | 0]; s.c.x += Math.sign(a.pos.x - s.c.x) * Math.min(Math.abs(a.pos.x - s.c.x), dt * 4); s.c.z += Math.sign(a.pos.z - s.c.z) * Math.min(Math.abs(a.pos.z - s.c.z), dt * 4); s.c.y = a.pos.y; s.y = a.pos.y + 6; }
+        s.diveT -= dt; if (s.diveT <= 0 && near.length) { const v = near[(random() * near.length) | 0]; s.mt = 0; sfx('moth', { at: pos });
+          if (random() < .5) { s.mode = 'warnDive'; s.pt = v.pos.clone(); s.ring.position.set(s.pt.x, groundAt(s.pt.x, s.pt.z, .1, s.pt.y + .5) + .06, s.pt.z); s.ring.visible = true; s.from = pos.clone(); }
+          else { s.mode = 'warnDash'; const d = v.pos.clone().sub(pos).setY(0); if (d.lengthSq() < .01) d.set(1, 0, 0); d.normalize(); s.dir = d; s.a0 = v.pos.clone().addScaledVector(d, -7); s.a1 = v.pos.clone().addScaledVector(d, 7); s.dy = v.pos.y + 1.2;
+            const m = s.a0.clone().lerp(s.a1, .5); s.lane.position.set(m.x, groundAt(m.x, m.z, .1, v.pos.y + .5) + .06, m.z); s.lane.rotation.z = -Math.atan2(d.x, d.z); s.lane.visible = true; s.hitList = new Set(); } s.diveT = 3.5 + random() * 2.5; } }
+      else if (s.mode === 'warnDive') { const k = Math.min(1, s.mt / 1.3); pos.lerp(s.pt.clone().setY(s.pt.y + 5), Math.min(1, dt * 3)); s.ring.material.opacity = .25 + .4 * Math.abs(Math.sin(s.mt * 9)); s.ring.scale.setScalar(1.9 * (1.3 - k * .3));
+        if (k >= 1) { s.mode = 'dive'; s.mt = 0; s.from = pos.clone(); } }
+      else if (s.mode === 'dive') { const k = Math.min(1, s.mt / .35); pos.lerpVectors(s.from, s.pt.clone().setY(s.pt.y + .9), k * k);
+        if (k >= 1) { s.ring.visible = false; burst(s.pt.x, s.pt.y + .3, s.pt.z, 16, { color: 0xb8a890, size: .25, speed: 4, up: 2 }); shake(.25); sfx('hit', { at: s.pt });
+          for (const a of alive) if (Math.hypot(a.pos.x - s.pt.x, a.pos.z - s.pt.z) < 1.9 && Math.abs(a.pos.y - s.pt.y) < 2) { daze(a, CONFIG.mothStun); shove(a, a.pos.x - s.pt.x || .1, a.pos.z - s.pt.z, 7, 5, true); voice(a.ch, 'hurt', a.pos); }
+          s.mode = 'recover'; s.mt = 0; } }
+      else if (s.mode === 'warnDash') { const k = Math.min(1, s.mt / 1.4); pos.lerp(s.a0.clone().setY(s.dy + .3), Math.min(1, dt * 3)); s.lane.material.opacity = .2 + .4 * Math.abs(Math.sin(s.mt * 8));
+        if (k >= 1) { s.mode = 'dash'; s.mt = 0; pos.copy(s.a0).setY(s.dy); sfx('moth', { at: pos, v: 1.2 }); } }
+      else if (s.mode === 'dash') { const k = Math.min(1, s.mt * 16 / 14); pos.lerpVectors(s.a0.clone().setY(s.dy), s.a1.clone().setY(s.dy), k);
+        for (const a of alive) if (!s.hitList.has(a) && Math.hypot(a.pos.x - pos.x, a.pos.z - pos.z) < 1.1 && Math.abs(a.pos.y + 1 - pos.y) < 1.4) { s.hitList.add(a); daze(a, CONFIG.mothStun); shove(a, s.dir.x, s.dir.z, 8, 4, true); voice(a.ch, 'hurt', a.pos); sfx('hit', { at: a.pos }); }
+        if (k >= 1) { s.lane.visible = false; s.mode = 'recover'; s.mt = 0; } }
+      else if (s.mode === 'recover') { pos.y += dt * 5; if (s.mt > 1.1) { s.mode = 'circle'; s.mt = 0; } }
       // курс и взмахи крыльев
       const motion=s.g.position.clone().sub(s.prev);if(motion.lengthSq()>.00001)s.g.lookAt(s.g.position.clone().add(motion));s.g.rotation.z=Math.sin(t*.7)*.10;s.pants.rotation.x=Math.sin(t*6)*.07;s.pants.scale.set(1+Math.sin(t*8)*.035,1-Math.sin(t*8)*.05,1);
       const flap = Math.sin(t * (s.dive ? 22 : 12)) * 0.7; s.wings[0].rotation.z = flap; s.wings[1].rotation.z = -flap;s.wings[0].rotation.y=.15+Math.cos(t*12)*.06;s.wings[1].rotation.y=-.15-Math.cos(t*12)*.06;
       s.hpS.position.copy(s.g.position).add(new V3(0, 2.0, 0));
       // тапки падают с неба вокруг
-      s.slipT -= dt; if (s.slipT <= 0) { s.slipT = 1.0 + random() * 0.6; const P = ctx.player(), a = random() * 6.28, r = 2 + random() * 8;
+      s.slipT -= dt; if (s.slipT <= 0) { s.slipT = 1.0 + random() * 0.6; const pool = actors().filter(q => !q.hidden && !q.drone), P = pool[(random() * pool.length) | 0] || ctx.player(), a = random() * 6.28, r = 2 + random() * 8;
         const x = (random() < 0.6 ? P.pos.x : s.c.x) + Math.cos(a) * r, z = (random() < 0.6 ? P.pos.z : s.c.z) + Math.sin(a) * r, gy = groundAt(x, z, 0.2, P.pos.y + 3);
         if (Math.abs(gy - P.pos.y) < 4) { const it = spawnTool(x, gy + 12, z, false, 'slipper'); it.vel.set(0, -8, 0); } }
       // попадания брошенным
@@ -158,12 +179,13 @@ const BIG = {
       for (const it of W.items) if (it.state !== 'fly') it.mothHit = false;
       return null;
     },
+    info(s) { return `ТАПКИ С НЕБА · ПКМ - бросок · красное на земле - уходи! · ${Math.ceil(s.hp)}/${s.max}`; },
     bot(s, b) {
       if (b.held) return { who: { pos: s.g.position.clone().setY(s.g.position.y - 1), vel: new V3() }, kind: 'eventThrow', near: 40 };
       let best = null, bd = 14; for (const it of W.items) if (it.state === 'rest' && it.type === 'slipper') { const d = Math.hypot(it.pos.x - b.pos.x, it.pos.z - b.pos.z); if (d < bd) { bd = d; best = it; } }
       return best ? { x: best.pos.x, y: best.pos.y - 0.14, z: best.pos.z, kind: 'fetch', it: best, near: 1.1 } : null;
     },
-    stop(s) { W.group.remove(s.g); W.group.remove(s.hpS);s.barT.dispose();s.hpS.material.dispose(); W.moth = null; },
+    stop(s) { s.ring?.removeFromParent(); s.lane?.removeFromParent(); W.group.remove(s.g); W.group.remove(s.hpS);s.barT.dispose();s.hpS.material.dispose(); W.moth = null; },
     info: s => `${Math.max(0, Math.ceil(s.hp))}/${s.max}`,
   },
 
@@ -328,7 +350,7 @@ function makePitch(s) {
 export function updateEvents(dt, ui) {
   if (W.net?.replica) {
     const B = EV.big || EV.cur;
-    if (B) ui.tick(B.key, Math.ceil(EV.big ? B.left : EV.left), B.def.info ? B.def.info(B.s) : '');
+    if (B) { B.def.replica?.(B.s, dt); ui.tick(B.key, Math.ceil(EV.big ? B.left : EV.left), B.def.info ? B.def.info(B.s) : ''); } // v0.70: у гостя - своя погода события
     return;
   }
   EV.t += dt;
