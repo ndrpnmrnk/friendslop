@@ -2,7 +2,7 @@ import {G,compose,col,tmat} from '../core/gfx.js';
 import {T} from '../core/textures.js';
 // Проходы, края прилавков, крыши и щели у ящиков. Перед выбором проверяется видимость.
 export const SHAKIR_SPOTS=[[-1.06,-.58,0],[-.61,-.57,0],[-.04,-.58,0],[.58,-.57,0],[-1.05,-.03,0],[-.58,.02,0],[.04,-.02,0],[.66,.01,0],[-1.04,.59,0],[-.60,.58,0],[.02,.59,0],[.65,.58,0],[-.95,-.30,.34],[-.33,-.30,.34],[.29,-.30,.34],[.91,-.30,.34],[-.95,.33,.34],[-.33,.33,.34],[.29,.33,.34],[.91,.33,.34],[-1.08,.29,0],[-.61,.28,0],[.10,.27,0],[.62,.29,0],[-.72,-.03,0],[-.12,.02,0],[.50,-.03,0],[1.07,.10,0],[-.79,.58,0],[-.18,.58,0],[.44,.58,0],[1.08,.58,0]];
-export function marketMiniature(pattern){return compose('shakir37-market-'+pattern,a=>{const wood=tmat(T.wood()),metal=tmat(T.metal()),colors=[0x92705e,0x778c75,0x86829a,0xb29b6e],stone=tmat(T.pave());a(G.box,stone,0,-.015,0,2.4,.03,1.5);
+export function marketMiniature(pattern){return compose('shakir37-market-'+pattern,a=>{const wood=tmat(T.wood()),metal=tmat(T.metal()),colors=[0xc8403a,0x3f8a52,0x4a78c8,0xd8a838,0x9a5ab0,0xe0703a],stone=tmat(T.pave());a(G.box,stone,0,-.015,0,2.4,.03,1.5);
  for(let row=0;row<2;row++)for(let c=0;c<4;c++){const x=-.95+c*.62,z=row?.33:-.30,clr=col(colors[(c+row+pattern)%4]);a(G.box,wood,x,.10,z,.36,.20,.22);for(const s of[-1,1])a(G.box,col(0x554c3e),x+s*.18,.23,z-.10,.012,.28,.012);a(G.box,clr,x,.32,z,.44,.025,.32,.10);for(let i=0;i<6;i++)a(G.box,col(i%2?0xbcb293:0x6e7465),x+(i-2.5)*.065,.324,z+.157,.033,.035,.012);for(let i=0;i<8;i++){const dx=(i%4-1.5)*.077,dz=Math.floor(i/4)*.07-.035,mat=col(colors[(i+c)%4]);if((i+c+pattern)%3===0){a(G.cyl6,mat,x+dx,.235,z+dz,.022,.06,.022);a(G.cyl6,metal,x+dx,.269,z+dz,.010,.015,.010);}else if((i+c)%3===1){a(G.box,mat,x+dx,.225,z+dz,.055,.025,.047);a(G.box,col(0xc8b891),x+dx,.242,z+dz,.041,.008,.032);}else a(G.sphL,mat,x+dx,.233,z+dz,.025,.030,.026);}
   // Ящики сбоку и за столом, но маленькие проходы перед лицом остаются открыты.
   a(G.box,wood,x+.245,.055,z-.06,.09,.11,.09);for(const s of[-1,1])a(G.box,col(0x635442),x+.245,.07+s*.025,z-.009,.087,.007,.008);a(G.box,wood,x-.10,.04,z-.19,.13,.08,.09);
@@ -10,8 +10,16 @@ export function marketMiniature(pattern){return compose('shakir37-market-'+patte
  for(let i=0;i<18;i++)a(G.box,col(0xc3b99c),-1.1+i*.13,.004,.02,.07,.008,.018);
  for(const x of[-1.16,1.16])for(const z of[-.65,.65]){a(G.cyl6,col(0x606a57),x,.22,z,.008,.44,.008);a(G.sphL,col(0xc8bd8a),x,.45,z,.032,.04,.032);}
  // Дальний ряд низких фасадов: двери, кирпичные пояса, окна и вывески.
- for(let i=0;i<5;i++){const x=-.94+i*.46;a(G.box,col(colors[(i+pattern)%4]),x,.18,-.735,.40,.36,.10);a(G.box,wood,x,.37,-.735,.44,.04,.14);a(G.box,col(0x4c4b4d),x,.09,-.678,.075,.17,.012);for(const s of[-1,1]){a(G.box,col(0xb5b098),x+s*.12,.24,-.676,.085,.10,.012);a(G.box,wood,x+s*.12,.24,-.666,.008,.10,.008);}a(G.box,col(0xc7b98f),x,.335,-.676,.18,.035,.009);}
+ for(let i=0;i<5;i++){const x=-.94+i*.46;a(G.box,col(colors[(i+pattern)%6]),x,.18,-.735,.40,.36,.10);a(G.box,wood,x,.37,-.735,.44,.04,.14);a(G.box,col(0x4c4b4d),x,.09,-.678,.075,.17,.012);for(const s of[-1,1]){a(G.box,col(0xb5b098),x+s*.12,.24,-.676,.085,.10,.012);a(G.box,wood,x+s*.12,.24,-.666,.008,.10,.008);}a(G.box,col(0xc7b98f),x,.335,-.676,.18,.035,.009);}
+ // v0.71.1 сложнее и ярче: гирлянды над прилавками, горки красных яблок и ягод (цвет перчаток Шакира),
+ // коричневые жучки-«двойники» без перчаток в проходах, снежные кучки и мини-ёлки
+ for(let row=0;row<2;row++)for(let c=0;c<4;c++){const x=-.95+c*.62,z=row?.33:-.30;for(let i=0;i<7;i++)a(G.sph,col([0xff3a3a,0xf5c542,0x4ab0f0,0x9be36b][(i+c)%4]),x-.2+i*.066,.36+Math.sin(i/6*Math.PI)*.02,z+.17,.012,.012,.012);
+  for(let i=0;i<5;i++)a(G.sph,col(i%2?0xd8243a:0xb01828),x+.14+(i%3)*.03,.24+Math.floor(i/3)*.022,z+.08,.017,.017,.017);}
+ const bug=(x,z,ry)=>{a(G.sphL,col(0x5a3a22),x,.025,z,.02,.018,.03,0,ry,0);a(G.sphL,col(0x4a2e1a),x+Math.sin(ry)*.03,.03,z+Math.cos(ry)*.03,.014,.014,.014);for(const s of[-1,1])a(G.box,col(0x2a1a10),x+s*.018,.012,z,.02,.004,.004,0,ry,0);};
+ [[-.88,-.05,.4],[-.3,.55,2],[.35,0,1.2],[.8,.55,-1],[-.1,-.55,2.6],[.95,-.1,.8],[-1.0,.3,1.6],[.2,.3,-.6],[-.45,-.05,3],[.6,-.57,1.9]].forEach(([x,z,r])=>bug(x,z,r));
+ for(const[x,z]of[[-1.12,-.15],[1.12,.38],[-.3,.7],[.5,-.68]]){a(G.sphL,col(0xeef3fb),x,.012,z,.06,.02,.05);}
+ for(const[x,z]of[[-1.15,.0],[1.15,-.3],[0,.72]]){a(G.cone6,col(0x2f6a3a),x,.07,z,.04,.12,.04);a(G.sph,col(0xf5c542),x,.135,z,.01,.01,.01);}
  // Миниатюрные покупатели: похожие цвета вещей служат честными ложными целями.
- for(let i=0;i<12;i++){const x=-.82+(i%6)*.34,z=i<6?-.02:.59;if(i%6===3)continue;const y=.038;a(G.cyl6,col(colors[(i+pattern)%4]),x,y,z,.016,.052,.016);a(G.sphL,col(0xc6a789),x,y+.046,z,.021,.022,.019);for(const s of[-1,1])a(G.box,col(0x5c5348),x+s*.009,.01,z,.012,.02,.014);a(G.box,col(i%3?0x9c8465:0xb0544c),x+.03,.029,z,.025,.035,.022);}
+ for(let i=0;i<12;i++){const x=-.82+(i%6)*.34,z=i<6?-.02:.59;if(i%6===3)continue;const y=.038;a(G.cyl6,col(colors[(i+pattern)%6]),x,y,z,.016,.052,.016);a(G.sphL,col(0xc6a789),x,y+.046,z,.021,.022,.019);for(const s of[-1,1])a(G.box,col(0x5c5348),x+s*.009,.01,z,.012,.02,.014);a(G.box,col(i%3?0x9c8465:0xb0544c),x+.03,.029,z,.025,.035,.022);}
  for(const x of[-.7,.1,.76]){a(G.box,wood,x,.025,.69,.12,.05,.07);a(G.sphL,col(0x708368),x,.08,.69,.045,.04,.04);}for(const z of[-.55,.11,.60]){a(G.cyl6,col(0x7d7767),1.10,.045,z,.035,.09,.035);a(G.cyl6,col(0x5d5e56),1.10,.095,z,.038,.01,.038);}
  });}

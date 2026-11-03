@@ -1,4 +1,5 @@
 import { random } from '../core/random.js';
+import { iconCanvas } from './icons.js';
 import { THREE, G, mesh, col, lam, tmat, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
@@ -33,11 +34,14 @@ function players() {
   return list;
 }
 export function buildBoard(group, x, y, z, ry, kind) {
-  const tx = canvasTex(256, 192), m = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: tx.t })); m.position.set(x, y, z); m.rotation.y = ry; m.scale.set(2.2, 1.65, 1); m.userData.noBatch = true; group.add(m);
+  // v0.71.1: табло в 2× разрешении с мип-картами - текст не рябит издалека; табло - твёрдый объект
+  const tx = canvasTex(512, 384); tx.t.magFilter = THREE.LinearFilter; tx.t.minFilter = THREE.LinearMipmapLinearFilter; tx.t.generateMipmaps = true; tx.t.anisotropy = 4;
+  const m = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: tx.t })); m.position.set(x, y, z); m.rotation.y = ry; m.scale.set(2.2, 1.65, 1); m.userData.noBatch = true; group.add(m);
   group.add(compose('xboard70-' + kind, a => { a(G.box, col(0x2b2533), x - Math.sin(ry) * .04, y, z - Math.cos(ry) * .04, 2.4, 1.85, .08, 0, ry, 0); for (const s of [-1, 1]) a(G.box, col(0x2b2533), x + Math.cos(ry) * s * 1.05, (y - .9) / 2, z - Math.sin(ry) * s * 1.05, .1, y - .9, .1); a(G.box, lam({ color: 0xeef3fb }, 'xboard70snow'), x, y + .97, z, 2.45, .1, .2, 0, ry, 0); }));
+  { const c = Math.abs(Math.cos(ry)), hx = c > .7 ? 1.25 : .3, hz = c > .7 ? .3 : 1.25; addSolid(x - hx, z - hz, x + hx, z + hz, 0, y + .95); }
   let sig = '';
   function draw() { const list = players().sort((a, b) => kind === 'wins' ? b.wins - a.wins || b.lvl - a.lvl : b.lvl - a.lvl || b.wins - a.wins).slice(0, 8), next = JSON.stringify(list); if (next === sig) return; sig = next;
-    const g = tx.c.getContext('2d'); g.fillStyle = '#17111f'; g.fillRect(0, 0, 256, 192); g.fillStyle = kind === 'wins' ? '#f5c542' : '#9be36b'; g.font = 'bold 20px monospace'; g.textAlign = 'center'; g.fillText(kind === 'wins' ? 'ПОБЕДЫ' : 'УРОВНИ', 128, 24);
+    const g = tx.c.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.fillStyle = '#17111f'; g.fillRect(0, 0, 256, 192); g.fillStyle = kind === 'wins' ? '#f5c542' : '#9be36b'; g.font = 'bold 20px monospace'; g.textAlign = 'center'; g.fillText(kind === 'wins' ? 'ПОБЕДЫ' : 'УРОВНИ', 128, 24);
     g.textAlign = 'left'; g.font = 'bold 15px monospace'; list.forEach((p, i) => { const yy = 50 + i * 18; g.fillStyle = p.me ? '#ffd27a' : '#e8e0f8'; g.fillText(`${i + 1}. ${String(p.name).slice(0, 12)}`, 10, yy); g.textAlign = 'right'; g.fillStyle = kind === 'wins' ? '#f5c542' : '#9be36b'; g.fillText(kind === 'wins' ? String(p.wins) : 'ур ' + p.lvl, 246, yy); g.textAlign = 'left'; });
     tx.t.needsUpdate = true; }
   draw(); let t = 0; return { update(dt) { t -= dt; if (t <= 0) { t = 1.5; draw(); } } };
@@ -47,15 +51,15 @@ const WHEEL_KEY = 'friendslop.wheelAt', CD = 12 * 3600 * 1000;
 const SECT = [{ n: 1, w: 22 }, { n: 10, w: 12 }, { n: 2, w: 20 }, { n: 25, w: 8 }, { n: 3, w: 16 }, { n: 50, w: 4 }, { n: 5, w: 16 }, { skin: true, w: 2 }];
 const SC = ['#d8243a', '#f1e8ff', '#2f7a40', '#f1e8ff', '#4ab0f0', '#f5c542', '#2f7a40', '#b18cff'];
 const readyIn = () => { let t = 0; try { t = +localStorage.getItem(WHEEL_KEY) || 0; } catch { } return Math.max(0, t + CD - Date.now()); };
-// пиксельный кулак-фист для табличек колеса
-function drawFist(g, x, y, s, c = '#f5c542') { const P = ['.####.', '######', '######', '#####.', '.####.', '..##..'];
-  g.fillStyle = '#17111f'; P.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') g.fillRect(x + i * s - s * .5, y + j * s - s * .5, s * 2, s * 2); }));
-  g.fillStyle = c; P.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') g.fillRect(x + i * s, y + j * s, s, s); }));
-  g.fillStyle = 'rgba(0,0,0,.35)'; for (let i = 1; i < 4; i++) g.fillRect(x + i * s + s * .8, y + s, s * .2, s * 2); }
-function drawSkin(g, cx, cy, s) { // силуэт персонажа со знаком вопроса
-  g.fillStyle = '#17111f'; g.beginPath(); g.arc(cx, cy - s * .55, s * .42, 0, 7); g.fill(); g.fillRect(cx - s * .45, cy - s * .1, s * .9, s * .9);
-  g.fillStyle = '#b18cff'; g.beginPath(); g.arc(cx, cy - s * .55, s * .34, 0, 7); g.fill(); g.fillRect(cx - s * .37, cy - s * .04, s * .74, s * .78);
-  g.fillStyle = '#17111f'; g.font = `bold ${s * .62 | 0}px monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', cx, cy - s * .52); }
+// v0.71.1: на колесе та же пиксельная иконка фиста, что у монеты (ui/icons.js)
+function drawFist(g, x, y, s) { g.imageSmoothingEnabled = false; g.drawImage(iconCanvas('fist', 4), x, y, 12 * s * .75, 12 * s * .75); }
+// скин: контур персонажа (голова с ушками, тело, руки) с подсветкой и большой знак вопроса - «выпадет случайный друг»
+function drawSkin(g, cx, cy, s) {
+  const body = () => { g.beginPath(); g.moveTo(cx - s * .34, cy - s * .78); g.lineTo(cx - s * .2, cy - s * .56); g.lineTo(cx + s * .2, cy - s * .56); g.lineTo(cx + s * .34, cy - s * .78); g.lineTo(cx + s * .36, cy - s * .38);
+    g.arc(cx, cy - s * .38, s * .36, 0, Math.PI); g.closePath(); g.rect(cx - s * .26, cy - s * .08, s * .52, s * .6); g.rect(cx - s * .46, cy, s * .2, s * .32); g.rect(cx + s * .26, cy, s * .2, s * .32); };
+  g.save(); g.lineJoin = 'round'; body(); g.lineWidth = 7; g.strokeStyle = '#17111f'; g.stroke(); g.fillStyle = '#3a2a5a'; g.fill(); g.lineWidth = 2.5; g.strokeStyle = '#f5c542'; g.stroke(); g.restore();
+  g.fillStyle = '#f5c542'; g.font = `bold ${s * .5 | 0}px monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 4; g.strokeStyle = '#17111f'; g.strokeText('?', cx, cy + s * .2); g.fillText('?', cx, cy + s * .2);
+  for (const [dx, dy] of [[-.5, -.7], [.52, -.2], [-.45, .45]]) { g.fillStyle = '#fff4c0'; g.fillRect(cx + dx * s - 1, cy + dy * s - 4, 2, 8); g.fillRect(cx + dx * s - 4, cy + dy * s - 1, 8, 2); } }
 /* v0.71 J3: колесо удачи в игровом зале. Сектора - картинки (фист + число, отдельная иконка скина), подписи всегда
    стоят прямо (не крутятся вместе с колесом). Таблички шансов нет; под колесом - личный таймер «через Ч:ММ». */
 export function buildWheel(group, x, z, ry, toast) {

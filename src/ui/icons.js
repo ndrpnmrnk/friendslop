@@ -3,6 +3,12 @@
 const PAL = { k: '#17111f', o: '#ff8a1f', O: '#c85a0a', y: '#f5c542', g: '#9be36b', G: '#4f8a3a', r: '#ff5a6e', R: '#a8243a', b: '#4ab0f0', B: '#1e6aa8',
   w: '#f1e8ff', p: '#b18cff', P: '#6a4aa8', n: '#a8744a', N: '#6a4428', s: '#a8a8b8', d: '#4a4058', c: '#d8f0ff', m: '#eee8ff' };
 const ART = {
+  snowball:['............','....wwww....','..wwwwwwcw..','.wwwwwwwwcw.','.wwwccwwwwc.','.wwcwwwwwwc.','.wwwwwwwccc.','.cwwwwwwcck.','..ccwwccck..','...kccckk...','............','............'],
+  gift:['....r..r....','...r.rr.r...','....rrrr....','.bbbbyybbbb.','.bbbbyybbbb.','.yyyyyyyyyy.','.bbbbyybbbb.','.bbbbyybbbb.','.bbbbyybbbb.','.bbbbyybbbb.','.kkkkkkkkkk.','............'],
+  gingerbread:['....nnnn....','...nwnnwn...','...nnnnnn...','...nwwwwn...','.nnnnnnnnnn.','nnwnnrnnnwnn','....nnnn....','....nrnn....','...nnnnnn...','...nn..nn...','..nnn..nnn..','............'],
+  candycane:['....rrww....','...w....r...','..r......w..','..w......r..','.........w..','.........r..','.........w..','.........r..','.........w..','.........r..','.........k..','............'],
+  cocoa:['...w..w.....','....w..w....','..wwmwwm....','.kNNNNNNk...','.krrrrrrkkk.','.krrrrrrk.k.','.krrrrrrk.k.','.krrrrrrkkk.','.krrrrrrk...','..kkkkkk....','............','............'],
+  ornament:['.....yy.....','....yyyy....','....kyyk....','...pppppp...','..pwwppppp..','.ppwppppppp.','.ppppppppp p','.ppppppppppp','.PPpppppppPP','..PPPPPPPP..','...PPPPPP...','............'],
   fist:['.....NG.....','....NNG.....','..RRRrRRRR..','.RRrrrRRRRR.','RRRnnnnnnRRR','.nwwnwwnwwn.','.nkknkknkkn.','.nwwnwwnwwn.','.nnnnnnnnnn.','..RRRRRRRR..','...RRRRRR...','............'],
   bus:['.kkkkkkkkkk.','.kRRRRRRRRk.','.kcccccccck.','.kckckckcck.','.kcccccccck.','.kRRRRRRRRk.','.kRwRwRwRRk.','.kRRRRRRRRk.','.kyRRRRRRyk.','.kkkkkkkkkk.','..kk....kk..','............'],
   outfit:['....kkkk....','...k....k...','...k....k...','....kkkk....','...kkkkkk...','..kwwwwwwk..','.kwwwwwwwwk.','kwwwwwwwwwwk','..kwwwwwwk..','..kwwwwwwk..','..kkkkkkkk..','............'],

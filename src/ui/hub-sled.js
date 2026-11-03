@@ -5,6 +5,7 @@ import { W } from '../world/state.js';
 import { addSolid } from '../world/physics.js';
 import { sfx } from '../core/sfx.js';
 import { shake } from '../game/worldfx.js';
+import { puff } from '../world/particles.js';
 
 /* v0.71 J2 — запуск в матч: новогодние сани наверху высокой мультяшной горки (без снеговика-толкача).
    Игроки запрыгивают; как только сел последний - сани резко трогаются, 3.5 с разгоняются вниз по горке, уходят вверх
@@ -16,28 +17,36 @@ import { shake } from '../game/worldfx.js';
      летят над городом (fly); через 0.55 с полёта сани разламываются на доски, игроки выпадают и летят на карту.
    Состояние st - только числа/строки: ведущий пересылает его гостям, у всех один и тот же ролик. */
 const BREAK = 99; // в хабе сани целы весь полёт - разлом над картой (main.js)
-export const SLED_FLY = 2.6; // столько секунд летим над островом до загрузки
+export const SLED_FLY = 2.0; // столько секунд летим над островом до загрузки
 export { BREAK as SLED_BREAK };
 /* Новогодние сани: загнутые полозья с завитками, резные красные борта с золотом, 4 скамьи, фонари на носу,
    мешок подарков сзади. parts=true - вернуть куски по отдельности (для разлома над картой). */
 export function sleighModel(parts = false) {
+  // v0.71.1: корпус и борта - сплошные, без торчащих деталей; сзади турбина (шуточный «ракетный ускоритель»)
   const red = lam({ color: 0xc8202e, emissive: 0x3a0a08, emissiveIntensity: .3 }, 'sleigh71-red'), dred = lam({ color: 0x8a1420 }, 'sleigh71-dred'),
     gold = lam({ color: 0xf5c542, emissive: 0x6a4a10, emissiveIntensity: .45 }, 'sleigh71-gold'), wood = tmat(T.wood()), steel = tmat(T.metal()),
-    lampM = lam({ color: 0xffe0a0, emissive: 0xffc070, emissiveIntensity: 1.1 }, 'sleigh71-lamp'), sack = lam({ map: T.cloth(0x8a5a36), color: 0xffffff }, 'sleigh71-sack');
+    lampM = lam({ color: 0xffe0a0, emissive: 0xffc070, emissiveIntensity: 1.1 }, 'sleigh71-lamp'), dark = col(0x2b2533), white = lam({ color: 0xf1ede4 }, 'sleigh71-fur');
   const P = {
-    runners: a => { for (const s of [-1, 1]) { a(G.box, steel, s * .62, -.12, .1, .07, .07, 3.6); a(G.halfTorus, gold, s * .62, .2, -1.78, .32, .32, .5, 0, Math.PI / 2, 0); a(G.box, steel, s * .62, .02, 1.8, .07, .3, .07, .4, 0, 0);
-        for (let k = 0; k < 4; k++) a(G.box, steel, s * .62, .02, -1.2 + k * .85, .05, .26, .05); } },
-    hull: a => { a(G.box, red, 0, .22, 0, 1.3, .3, 3.2); a(G.box, wood, 0, .38, 0, 1.12, .05, 3.0); a(G.box, gold, 0, .07, 0, 1.34, .05, 3.24); },
-    sideL: a => { a(G.box, red, -.66, .55, 0, .1, .45, 3.1); a(G.box, gold, -.72, .78, 0, .05, .06, 3.1); for (let k = 0; k < 5; k++) a(G.sph, gold, -.72, .55, -1.2 + k * .6, .07, .07, .03); },
-    sideR: a => { a(G.box, red, .66, .55, 0, .1, .45, 3.1); a(G.box, gold, .72, .78, 0, .05, .06, 3.1); for (let k = 0; k < 5; k++) a(G.sph, gold, .72, .55, -1.2 + k * .6, .07, .07, .03); },
-    nose: a => { a(G.box, red, 0, .62, -1.68, 1.3, .7, .22, -.35, 0, 0); a(G.halfTorus, gold, 0, 1.0, -1.82, .55, .3, .3, 0, 0, 0); a(G.box, gold, 0, .72, -1.82, 1.1, .07, .07);
-      for (const s of [-1, 1]) { a(G.cyl6, steel, s * .55, 1.0, -1.85, .03, .5, .03); a(G.box, lampM, s * .55, 1.3, -1.85, .14, .2, .14); a(G.cone4, col(0x2b2533), s * .55, 1.45, -1.85, .14, .12, .14); } },
-    back: a => { a(G.box, dred, 0, .75, 1.62, 1.3, .9, .2, .25, 0, 0); a(G.box, gold, 0, 1.22, 1.72, 1.2, .07, .07); a(G.sph10, sack, 0, 1.1, 1.35, .45, .42, .4); a(G.cyl6, gold, 0, 1.5, 1.35, .08, .1, .08);
-      for (const [dx, c] of [[-.3, 0x4ab0f0], [.32, 0x9be36b]]) a(G.box, lam({ color: c }, 'sleigh71-gift' + c), dx, 1.45, 1.25, .26, .26, .26, 0, dx, 0); },
-    benches: a => { for (let r = 0; r < 4; r++) { a(G.box, dred, 0, .5, -1.05 + r * .72 + .22, 1.1, .1, .22); a(G.box, gold, 0, .56, -1.05 + r * .72 + .33, 1.1, .03, .03); } },
+    runners: a => { for (const s of [-1, 1]) { a(G.box, gold, s * .66, -.14, .15, .08, .08, 3.5);
+        for (let k = 0; k < 6; k++) { const an = k / 5 * Math.PI; a(G.box, gold, s * .66, .14 - Math.cos(an) * .28, -1.62 - Math.sin(an) * .28, .08, .08, .14, an, 0, 0); }
+        for (let k = 0; k < 4; k++) a(G.box, steel, s * .66, .02, -1.0 + k * .75, .05, .3, .05); } },
+    hull: a => { a(G.box, red, 0, .26, .05, 1.36, .36, 3.1); a(G.box, wood, 0, .45, .05, 1.14, .04, 2.9); a(G.box, gold, 0, .09, .05, 1.4, .05, 3.14); a(G.box, white, 0, .44, .05, 1.42, .05, 3.14); },
+    sideL: a => { for (let k = 0; k < 6; k++) { const z = -1.3 + k * .54, hh = .5 + Math.sin(k / 5 * Math.PI) * .12; a(G.box, red, -.7, .4 + hh / 2, z, .1, hh, .56); } a(G.box, gold, -.76, .95, .05, .04, .05, 3.0); for (let k = 0; k < 5; k++) a(G.box, gold, -.76, .7, -1.05 + k * .54, .02, .14, .14, 0, 0, Math.PI / 4); },
+    sideR: a => { for (let k = 0; k < 6; k++) { const z = -1.3 + k * .54, hh = .5 + Math.sin(k / 5 * Math.PI) * .12; a(G.box, red, .7, .4 + hh / 2, z, .1, hh, .56); } a(G.box, gold, .76, .95, .05, .04, .05, 3.0); for (let k = 0; k < 5; k++) a(G.box, gold, .76, .7, -1.05 + k * .54, .02, .14, .14, 0, 0, Math.PI / 4); },
+    nose: a => { for (let k = 0; k < 5; k++) { const an = k / 4 * 1.1; a(G.box, red, 0, .55 + Math.sin(an) * .45, -1.55 - Math.cos(an) * .05 - Math.sin(an) * .2, 1.36, .14, .18, -an, 0, 0); }
+      a(G.box, gold, 0, 1.06, -1.82, 1.2, .07, .07); for (const s of [-1, 1]) { a(G.box, lampM, s * .55, 1.18, -1.82, .14, .18, .14); a(G.box, dark, s * .55, 1.3, -1.82, .18, .05, .18); } },
+    back: a => { a(G.box, dred, 0, .82, 1.6, 1.36, .82, .14); a(G.box, gold, 0, 1.25, 1.6, 1.38, .06, .16); a(G.box, white, 0, 1.3, 1.6, 1.4, .06, .2);
+      a(G.sph10, lam({ map: T.cloth(0x8a5a36), color: 0xffffff }, 'sleigh71-sack'), -.38, 1.4, 1.45, .28, .26, .24); a(G.box, lam({ color: 0x4ab0f0 }, 'sleigh71-gift'), .38, 1.42, 1.45, .3, .28, .28); a(G.box, gold, .38, 1.42, 1.45, .31, .29, .06); },
+    turbine: a => { a(G.cyl12, steel, 0, .62, 2.1, .38, .9, .38, Math.PI / 2, 0, 0); a(G.cyl12, red, 0, .62, 1.78, .41, .14, .41, Math.PI / 2, 0, 0); a(G.cyl12, gold, 0, .62, 2.48, .34, .12, .34, Math.PI / 2, 0, 0);
+      a(G.cyl12, dark, 0, .62, 2.56, .26, .04, .26, Math.PI / 2, 0, 0); for (const s of [-1, 1]) a(G.box, steel, s * .3, .35, 1.9, .06, .3, .4); a(G.box, white, 0, 1.02, 2.1, .2, .04, .7); },
+    benches: a => { for (let r = 0; r < 4; r++) { a(G.box, dred, 0, .58, -1.0 + r * .72 + .22, 1.18, .14, .26); a(G.box, gold, 0, .66, -1.0 + r * .72 + .34, 1.18, .03, .03); } },
   };
-  if (parts) return Object.entries(P).map(([k, f]) => compose('sleigh71-' + k, f));
-  const g = new THREE.Group(); for (const [k, f] of Object.entries(P)) g.add(compose('sleigh71-' + k, f)); return g;
+  if (parts) return Object.entries(P).map(([k, f]) => compose('sleigh711-' + k, f));
+  const g = new THREE.Group(); for (const [k, f] of Object.entries(P)) g.add(compose('sleigh711-' + k, f));
+  // пламя турбины: два аддитивных конуса, растут при запуске
+  const fl = new THREE.Group(); fl.position.set(0, .62, 2.6); g.add(fl); g.userData.flame = fl; fl.visible = false;
+  for (const [c, r, l] of [[0x7ad8ff, .3, 1.6], [0xffb040, .2, 1.0]]) { const m = new THREE.Mesh(G.cone8, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .75, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); m.rotation.x = -Math.PI / 2; m.scale.set(r, l, r); m.position.z = l / 2; m.userData.noLight = true; fl.add(m); }
+  return g;
 }
 export function buildSled(b, x, z) {
   const group = new THREE.Group(); W.group.add(group); W.keep.push(group);
@@ -66,23 +75,31 @@ export function buildSled(b, x, z) {
       for (const s of [-1, 1]) a(G.box, red71(), x + s * 1.06, m.y + .08, m.z, .12, .42, L, -ang, 0, 0);
       if (i % 3 === 0 && m.y > .5) for (const s of [-1, 1]) a(G.box, steel, x + s * .9, m.y / 2 - .1, m.z, .12, Math.max(.1, m.y - .2), .12); }
     // флажки вдоль трамплина
-    for (let i = 0; i < 9; i++) { const p = along(.62 + i * .04); for (const s of [-1, 1]) a(G.box, lam({ color: scarf[i % 4] }, 'sled70-flag' + (i % 4)), x + s * 1.25, p.y + .9, p.z, .04, .24, .2); }
+    for (let i = 0; i < 9; i++) { const p = along(.62 + i * .04); for (const s of [-1, 1]) { a(G.box, steel, x + s * 1.08, p.y + .55, p.z, .04, .7, .04); a(G.box, lam({ color: scarf[i % 4] }, 'sled70-flag' + (i % 4)), x + s * 1.08, p.y + .82, p.z + .11, .03, .2, .2); } } // флажки на стойках бортов, не в воздухе
   }));
   addSolid(x - DX, D0, x + DX, D1, DY - .24, DY); addSolid(x - DX, D1 - .1, x + DX, D1, DY, DY + .6);
   for (const s of [-1, 1]) for (let k = 0; k < NST; k++) { const tx = x + s * (DX + RUN * (k + .5) / NST), top = DY * (NST - k) / NST; addSolid(tx - RUN / NST / 2, SZ - SW / 2, tx + RUN / NST / 2, SZ + SW / 2, top - .3, top); }
   addSolid(x - 1.15, z - 11.6, x + 1.15, z + .6, 0, 2.6); // по склону не бегают
   const sled = sleighModel(); group.add(sled);
-  const seats = [[-.27, -1.05], [.27, -1.05], [-.27, -.33], [.27, -.33], [-.27, .39], [.27, .39], [-.27, 1.11], [.27, 1.11]];
-  const st = { phase: 'idle', t: 0, riders: [], pull: 0, out: 0, bob: 0, bv: 0, u: 0, ft: 0, broken: 0 };
-  const sledPos = new V3(), sledDir = new V3(), vFly = new V3(0, 7, -15);
+  const seats = [[-.3, -.85], [.3, -.85], [-.3, -.13], [.3, -.13], [-.3, .59], [.3, .59], [-.3, 1.31], [.3, 1.31]];
+  const st = { phase: 'idle', t: 0, riders: [], pull: 0, out: 0, bob: 0, bv: 0, u: 0, ft: 0, broken: 0, ign: 0 };
+  const sledPos = new V3(), sledDir = new V3(), vFly = new V3(0, 8, -26);
   function place() {
-    if (st.phase === 'fly') { const t = st.t; sledPos.copy(K0).addScaledVector(vFly, t); sledPos.y -= 2.4 * t * t; sled.position.copy(sledPos); const vy = vFly.y - 4.8 * t; sled.rotation.set(Math.atan2(vy, -vFly.z) * .8, 0, Math.sin(t * 2.2) * .06); }
+    if (st.phase === 'fly') { const t = st.t; sledPos.copy(K0).addScaledVector(vFly, t); sledPos.z -= 6 * t * t; sledPos.y -= 1.2 * t * t; sled.position.copy(sledPos); const vy = vFly.y - 2.4 * t; sled.rotation.set(Math.atan2(vy, -vFly.z) * .8, 0, Math.sin(t * 2.2) * .06); }
     else { const u = st.u, p = along(u), q = along(Math.min(1, u + .015)); sledDir.subVectors(q, p).normalize(); sled.position.copy(p); sled.position.y += st.bob + .1; sled.rotation.set(Math.atan2(sledDir.y, -sledDir.z), 0, 0); }
   }
   place();
   const PZ0 = D1 + .5, PZ1 = D1 + 3.6;
   b.ground(x - 4, PZ0, x + 4, PZ1, T.concrete(), 2, .03);
   for (const [mx, mz, sx, sz] of [[x, PZ0 + .05, 8, .12], [x, PZ1 - .05, 8, .12], [x - 3.95, (PZ0 + PZ1) / 2, .12, PZ1 - PZ0], [x + 3.95, (PZ0 + PZ1) / 2, .12, PZ1 - PZ0]]) b.marking(mx, mz, sx, sz, 0xf5c542);
+  // v0.71.1 зона сбора понятнее: ворота из леденцовых столбов с баннером «ВСЕ В САНИ!», огоньки по периметру площадки
+  { const bc = document.createElement('canvas'); bc.width = 256; bc.height = 64; const g = bc.getContext('2d'); g.fillStyle = '#7a1420'; g.fillRect(0, 0, 256, 64); g.fillStyle = '#f5c542'; g.fillRect(0, 0, 256, 5); g.fillRect(0, 59, 256, 5);
+    g.font = 'bold 30px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff4e0'; g.fillText('ВСЕ В САНИ!', 128, 34); const bt = new THREE.CanvasTexture(bc); bt.colorSpace = THREE.SRGBColorSpace;
+    const ban = new THREE.Mesh(G.plane, lam({ map: bt, emissive: 0xffffff, emissiveMap: bt, emissiveIntensity: .45, side: THREE.DoubleSide }, 'sled711-banner')); ban.position.set(x, 3.05, PZ1 + .3); ban.scale.set(5.2, 1.2, 1); ban.userData.noBatch = true; group.add(ban);
+    const rr = lam({ color: 0xd8243a }, 'cane71r'), ww = lam({ color: 0xf6f0ea }, 'cane71w');
+    group.add(compose('sled711-gate', a => { for (const sx of [-1, 1]) { for (let k = 0; k < 9; k++) a(G.cyl8, k % 2 ? ww : rr, x + sx * 2.9, .2 + k * .4, PZ1 + .3, .12, .4, .12); a(G.sph, lam({ color: 0xf5c542, emissive: 0xf5c542, emissiveIntensity: .8 }, 'sled711-top'), x + sx * 2.9, 3.8, PZ1 + .3, .2, .2, .2); }
+      for (let k = 0; k < 16; k++) { const c = scarf[k % 4]; for (const zz of [PZ0, PZ1]) a(G.sph, lam({ color: c, emissive: c, emissiveIntensity: .9 }, 'sled711-pb' + c), x - 3.8 + k * 7.6 / 15, .08, zz, .07, .07, .07); } }));
+    for (const sx of [-1, 1]) addSolid(x + sx * 2.9 - .13, PZ1 + .17, x + sx * 2.9 + .13, PZ1 + .43, 0, 3.6); }
   const zc = document.createElement('canvas'); zc.width = 256; zc.height = 192; { const g = zc.getContext('2d'); g.strokeStyle = '#ffd27a'; g.lineWidth = 8; g.setLineDash([22, 14]); g.strokeRect(8, 8, 240, 176); g.setLineDash([]); g.fillStyle = '#ffd27a';
     for (const yy of [52, 96, 140]) { g.beginPath(); g.moveTo(128 - 34, yy + 16); g.lineTo(128, yy - 10); g.lineTo(128 + 34, yy + 16); g.lineTo(128 + 20, yy + 16); g.lineTo(128, yy + 2); g.lineTo(128 - 20, yy + 16); g.fill(); } }
   const zoneMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(zc), transparent: true, opacity: 0, depthWrite: false, color: 0xffd27a, fog: false });
@@ -96,19 +113,24 @@ export function buildSled(b, x, z) {
     deck: { y: DY, z0: D0, z1: D1, x: DX, stairZ: SZ, run: RUN }, huddle: new V3(x, 0, (PZ0 + PZ1) / 2),
     bounce(k = 1) { st.bv -= .8 * k; },
     onPad(p) { return p.x > x - 4 && p.x < x + 4 && p.z > PZ0 && p.z < PZ1 && Math.abs(p.y) < 1; },
-    seatPos(i, out = new V3()) { sled.updateMatrixWorld(true); const s = seats[i % seats.length]; return sled.localToWorld(out.set(s[0], .52, s[1])); },
+    seatPos(i, out = new V3()) { sled.updateMatrixWorld(true); const s = seats[i % seats.length]; return sled.localToWorld(out.set(s[0], .7, s[1])); },
     sledPos: () => sled.position, breakAt: BREAK,
-    reset() { Object.assign(st, { phase: 'idle', t: 0, riders: [], pull: 0, out: 0, bob: 0, bv: 0, u: 0, ft: 0, broken: 0, manual: false }); sled.visible = true; zoneMesh.visible = false; place(); },
+    reset() { Object.assign(st, { phase: 'idle', t: 0, riders: [], pull: 0, out: 0, bob: 0, bv: 0, u: 0, ft: 0, broken: 0, manual: false, ign: 0 }); sled.visible = true; zoneMesh.visible = false; place(); },
     update(dt, t) {
       st.t += dt;
       st.bv += -st.bob * 90 * dt; st.bv *= Math.exp(-dt * 5); st.bob += st.bv * dt;
       if (st.phase === 'idle') { st.u = 0; }
       else if (st.phase === 'board') { if (!st.manual && st.t > .9 + st.riders.length * .2) this.pull(); }
       else if (st.phase === 'pull') { // резкий рывок с места, затем плавный разгон 3.5 с до трамплина
-        const k = Math.min(1, st.t / 3.5); st.pull = k; st.u = Math.min(1, .03 * Math.min(1, st.t / .25) + .97 * k * k * (1.6 - .6 * k));
+        // v0.71.1 инерция: тяжёлые сани трогаются медленно (до 45%), потом зажигается турбина и они резко уходят к трамплину
+        const k = Math.min(1, st.t / 3.2); st.pull = k; st.u = k < .45 ? .14 * (k / .45) * (k / .45) : .14 + .86 * Math.pow((k - .45) / .55, 1.6);
+        if (k > .45 && !st.ign) { st.ign = 1; sfx('boom', { v: .8 }); sfx('dash', { v: 1.6 }); shake(.4); }
         if (random() < dt * 10) sfx('snowPack', { v: .35 + k * .5 }); if (k >= 1) { st.u = 1; st.phase = 'fire'; st.t = 0; sfx('dash', { v: 1.4 }); shake(.35); } }
       else if (st.phase === 'fire') { st.u = 1; if (st.t > .06) { st.phase = 'fly'; st.t = 0; } }
       if (!sled.visible) sled.visible = true;
+      { const fl = sled.userData.flame, on = st.ign && (st.phase === 'pull' || st.phase === 'fire' || st.phase === 'fly'); fl.visible = !!on;
+        if (on) { const p = st.phase === 'fly' ? 1.6 : 1; fl.scale.set(1 + Math.sin(t * 40) * .12, 1 + Math.sin(t * 31) * .12, p * (1.2 + Math.sin(t * 53) * .25));
+          if (random() < dt * 30) { const q = fl.getWorldPosition(new V3()); puff(q.x, q.y, q.z, { color: random() < .5 ? 0xffa040 : 0x7ad8ff, size: .35, vy: .4, life: .5, grow: 2 }); } } }
       place(); void t;
     },
   };

@@ -37,7 +37,7 @@ export function signTex(text, bg = '#1b1524', fg = '#f4ecdc', w = 256, h = 64, s
 }
 /* ---------- арена и мяч ---------- */
 // v0.71 J1: каток на западе нового хаба - длиннее (14×20 м), только лёд
-export const ARENA = { x0: -25, x1: -11, z0: -13, z1: 7, goals: [-22.2, -18, -13.8], gw: 3.2, gh: 2.1, gd: 1.4 };
+export const ARENA = WINTER ? { x0: -26, x1: -10, z0: -13, z1: 7, goals: [-22.6, -18, -13.4], gw: 3.8, gh: 1.7, gd: 2.4 } : { x0: -25, x1: -11, z0: -13, z1: 7, goals: [-22.2, -18, -13.8], gw: 3.2, gh: 2.1, gd: 1.4 }; // v0.71.1: хоккейные ворота шире и глубже - шайба входит целиком
 export function buildVoteArena(b, modes) {
   const A = ARENA, group = new THREE.Group(); W.group.add(group); W.keep.push(group);
   const cx = (A.x0 + A.x1) / 2, cz = (A.z0 + A.z1) / 2, w = A.x1 - A.x0, d = A.z1 - A.z0;
@@ -58,12 +58,15 @@ export function buildVoteArena(b, modes) {
   const edges = [A.x0 - .2, ...A.goals.flatMap(g => [g - A.gw / 2 - .1, g + A.gw / 2 + .1]), A.x1 + .2];
   for (let i = 0; i < edges.length; i += 2) if (edges[i + 1] - edges[i] > .05) wall((edges[i] + edges[i + 1]) / 2, A.z0 - .1, edges[i + 1] - edges[i], .2);
   // ворота: белые штанги, перекладина, сетка; над ними табличка режима
-  const post = col(0xf1ede4), netM = lam({ map: T.chainlink(), transparent: true, alphaTest: .4, side: THREE.DoubleSide }, 'arena55-net');
+  const post = WINTER ? lam({ color: 0xd8243a, emissive: 0x3a0a0a, emissiveIntensity: .25 }, 'goal71-red') : col(0xf1ede4), netM = lam({ map: T.chainlink(), transparent: true, alphaTest: .4, side: THREE.DoubleSide }, 'arena55-net');
   const goals = A.goals.map((gx, i) => {
     const m = modes[i], z = A.z0;
     group.add(compose('arena55-goal', a => {
       for (const s of [-1, 1]) { a(G.cyl8, post, s * A.gw / 2, A.gh / 2, 0, .08, A.gh, .08); a(G.cyl8, post, s * A.gw / 2, A.gh / 2, -A.gd, .05, A.gh, .05); a(G.cyl8, post, s * A.gw / 2, A.gh, -A.gd / 2, .05, A.gd, .05, Math.PI / 2, 0, 0); }
       a(G.cyl8, post, 0, A.gh, 0, .08, A.gw, .08, 0, 0, Math.PI / 2); a(G.cyl8, post, 0, A.gh, -A.gd, .05, A.gw, .05, 0, 0, Math.PI / 2);
+      if (WINTER) { // v0.71.1 хоккейные ворота: красная рама, белая нижняя планка, снег на крыше сетки, гирлянда по перекладине
+        a(G.box, lam({ color: 0xf1ede4 }, 'goal71-base'), 0, .04, -A.gd / 2, A.gw, .08, A.gd); a(G.box, lam({ color: 0xeef3fb }, 'goal71-snow'), 0, A.gh + .06, -A.gd / 2, A.gw - .1, .06, A.gd - .1);
+        for (let k = 0; k < 9; k++) { const c = [0xd8243a, 0xf5c542, 0x9be36b, 0x4ab0f0][k % 4]; a(G.sph, lam({ color: c, emissive: c, emissiveIntensity: .9 }, 'goal71-b' + c), -A.gw / 2 + .2 + k * (A.gw - .4) / 8, A.gh - .1 - Math.sin(k / 8 * Math.PI) * .1, .02, .05, .05, .05); } }
     }).translateX(gx).translateZ(z));
     const net = new THREE.Group(); net.position.set(gx, 0, z); group.add(net);
     for (const [px, pz, sx, ry] of [[0, -A.gd, A.gw, 0], [-A.gw / 2, -A.gd / 2, A.gd, Math.PI / 2], [A.gw / 2, -A.gd / 2, A.gd, Math.PI / 2]]) { const q = mesh(G.plane, netM, px, A.gh / 2, pz, sx, A.gh, 1, net); q.rotation.y = ry; }
@@ -188,7 +191,7 @@ export function buildScreen(b, x, y, z, modes) {
       modes.forEach((m, i) => { const x0 = 8 + i * 104, w = 96; g.fillStyle = hex(m.color); g.fillRect(x0, 34, w, 4); g.fillStyle = '#1c1830'; g.fillRect(x0, 38, w, 110);
         g.fillStyle = '#f4ecdc'; g.textAlign = 'center'; g.textBaseline = 'top'; fit(g, m.name.toUpperCase(), w - 8, 8, PX); g.fillText(m.name.toUpperCase(), x0 + w / 2, 46);
         g.fillStyle = '#c8bedc'; m.short.forEach((l, k) => { fit(g, l, w - 8, 11, TX, 500); g.fillText(l, x0 + w / 2, 66 + k * 18); }); });
-      center('ЗАБЕЙ МЯЧ В ВОРОТА', 164, 9, '#ffd27a');
+      center(WINTER ? 'ЗАБЕЙ ШАЙБУ В ВОРОТА' : 'ЗАБЕЙ МЯЧ В ВОРОТА', 164, 9, '#ffd27a');
     } else if (st.kind === 'mode') {
       const m = st.mode; g.fillStyle = hex(m.color); g.fillRect(0, 0, 320, 6); center('РЕЖИМ', 24, 9, '#c8bedc'); center(m.name.toUpperCase(), 50, 18, '#ffffff');
       m.lines.forEach((l, k) => center(l, 86 + k * 20, 13, '#e6deef', TX)); center(m.tag, 162, 10, hex(m.color), TX);

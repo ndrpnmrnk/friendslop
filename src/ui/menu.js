@@ -215,11 +215,11 @@ export function createMenu(){
     if(S.phase==='fly'&&world.sling.breakAt){L.ft=S.t;}/* v0.71: сани целы весь полёт, ft - время полёта */else if(S.phase==='fly'){const u=Math.max(0,Math.min(.45,S.t-.3));L.ft=Math.min(.3,S.t)*.3+u*.3+u*u*.7/.9+Math.max(0,S.t-.75);}
     const CLIMB=4.6;let seated=0;
     for(const r of L.riders){const a=r.a,o={t:st.t,speed:0};
-      if(S.phase==='fly'&&world.sling.breakAt&&S.t<world.sling.breakAt){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=Math.PI;a.ch.animate(dt,{t:st.t,speed:0,crouch:false,act:'cheer'});continue;} // v0.70: в санях до развала
+      if(S.phase==='fly'&&world.sling.breakAt&&S.t<world.sling.breakAt){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=Math.PI;a.ch.animate(dt,{t:st.t,speed:0,ride:'kart',rideSpeed:10});continue;} // v0.70: в санях до развала
       if(S.phase==='fly'){if(!r.v){r.p0=a.pos.clone();r.v=withRandom((L.recipe?.seed||1)^r.i,()=>world.sling.breakAt?new V3((r.i%2?1:-1)*(1.5+random()*2.2),7+random()*2.5,-13-random()*4):new V3((r.i%3-1)*1.8+(random()-.5),13+random()*1.5,-27-random()*3));}
         const t=L.ft;a.pos.set(r.p0.x+r.v.x*t,r.p0.y+r.v.y*t-5*t*t,r.p0.z+r.v.z*t);a.root.position.copy(a.pos);a.root.rotation.y=Math.PI;a.ch.animate(dt,{t:st.t,fly:true,vy:r.v.y-10*t,flySpin:4.5});continue;}
       if(r.seated){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=turn(a.root.rotation.y,Math.PI,1-Math.exp(-dt*8));
-        a.ch.animate(dt,S.phase==='board'&&world.sling.breakAt?{t:st.t,speed:0,emote:['wave','clap','laugh','dance'][(r.i+(L.recipe?.seed|0))%4],emoteT:T}:{t:st.t,speed:0,crouch:S.phase==='pull',act:S.phase==='board'?'cheer':undefined});seated++;continue;} // v0.70: в санях каждый по-своему - машет, хлопает, смеётся, танцует
+        a.ch.animate(dt,{t:st.t,speed:0,ride:'kart',rideSpeed:S.phase==='board'?0:10});seated++;continue;} /* v0.71.1: в санях сидят (поза как в карте) - ноги внутри, не сквозь борта */ // v0.70: в санях каждый по-своему - машет, хлопает, смеётся, танцует
       const face=p=>{const d=p.clone().sub(a.pos);if(d.lengthSq()>.0004)a.root.rotation.y=turn(a.root.rotation.y,Math.atan2(d.x,d.z),1-Math.exp(-dt*10));};
       const walk=(A,B,k,sp)=>{a.pos.lerpVectors(A,B,smooth(k));face(B);o.speed=k<1?sp:0;};
       if(T<1.0){walk(r.from,r.spot,T/1.0,.8);}
@@ -237,7 +237,7 @@ export function createMenu(){
         else if(t<runT+1.7){walk(top,edge,(t-runT-1.1)/.6,.8);}
         else{a.pos.copy(edge);face(new V3(edge.x,0,c.z-5));r.ready=true;}
         if(r.ready&&!r.jump&&T>=L.jumpAt&&L.riders.filter(q=>q.jump&&!q.seated).length===0&&L.riders.every(q=>q.i>=r.i||q.jump)){r.jump={t0:T,from:a.pos.clone()};L.jumpAt=T+.55;sfx('jump');}
-        if(r.jump){const k=clamp((T-r.jump.t0)/.8,0,1);world.sling.seatPos(r.i,seat);a.pos.lerpVectors(r.jump.from,seat,smooth(k));a.pos.y+=Math.sin(k*Math.PI)*1.8;face(seat);o.dive='roll';o.roll=smooth(k);o.speed=0;
+        if(r.jump){const k=clamp((T-r.jump.t0)/.8,0,1),kx=smooth(Math.min(1,k/.7));world.sling.seatPos(r.i,seat);a.pos.lerpVectors(r.jump.from,seat,kx);a.pos.y=r.jump.from.y+(seat.y-r.jump.from.y)*k+Math.sin(Math.min(1,k/.8)*Math.PI)*1.6;if(k<.85)a.pos.y=Math.max(a.pos.y,seat.y+.95*(k<.7?1:(.85-k)/.15));/* v0.71.1: сначала над местом, потом вниз - не сквозь борт */face(seat);o.dive='roll';o.roll=smooth(k);o.speed=0;
           if(k>=1){r.seated=true;a.ch.squash=1.2;world.sling.bounce(1);sfx('land',{v:.7});sfx('fabric',{v:1.4});}}}
       a.root.position.copy(a.pos);a.ch.animate(dt,o);}
     // хлопки и искры: «пять» и общее «ура»
@@ -249,18 +249,19 @@ export function createMenu(){
     // монтаж: номер плана и его камера; при смене плана — склейка (камера ставится сразу), внутри плана — плавное движение
     const P=st.player.pos;let shot,cp,cl,rate=3;
     if((S.phase==='pull'||S.phase==='fire'||S.phase==='fly')&&world.sling.kicker){shot=6;const sp=world.sling.sledPos(),K=world.sling.kicker;/* v0.71 J2: один непрерывный план без склеек - общий план горки → проводка рядом с санями → снизу у трамплина → полёт следом над городом */
-      if(S.phase==='fly'){const k=Math.min(1,S.t/world.sling.fly);cp=new V3(sp.x+3.6-k*1.6,sp.y+1.6+k*3.2,sp.z+6.5+k*3.5);cl=new V3(sp.x,sp.y-k*3,sp.z-7);rate=2.6;}
-      else if(S.pull<.3){cp=new V3(sp.x+9,sp.y+2.2,sp.z-1);cl=new V3(sp.x,sp.y,sp.z-3);rate=2.2;}
-      else if(S.pull<.82){cp=new V3(sp.x+3.4,sp.y+1.3,sp.z+1.6);cl=new V3(sp.x,sp.y+.3,sp.z-3.5);rate=3.2;}
-      else{cp=new V3(K.x+4.2,K.y-.6,K.z-2.5);cl=new V3(sp.x,sp.y+.6,sp.z);rate=3;}}
+      if(S.phase==='fly'){const k=Math.min(1,S.t/world.sling.fly);cp=new V3(sp.x+2.6-k*1.2,sp.y+1.4+k*2.6,sp.z+5.5+k*5);cl=new V3(sp.x,sp.y-k*2.5,sp.z-8);rate=4.5;}
+      else if(S.pull<.42){cp=new V3(sp.x+1.4,sp.y+1.1,sp.z-4.6);cl=new V3(sp.x,sp.y+.7,sp.z);rate=3;}/* лица в санях: медленно трогаемся */
+      else if(S.pull<.86){cp=new V3(sp.x+.6,sp.y+1.7,sp.z+4.4);cl=new V3(sp.x,sp.y+.2,sp.z-6);rate=7;}/* турбина зажглась - камера сзади, держится за санями */
+      else{cp=new V3(K.x+4.6,K.y-.8,K.z-3);cl=new V3(sp.x,sp.y+.6,sp.z);rate=4;}}/* снизу у трамплина */
     else if(S.phase==='fly'){shot=7;const ft=L.ft||0;if(ft<.25){cp=new V3(c.x+6.4,c.y+.9,c.z+3.2);cl=new V3(P.x,P.y+.8,P.z);rate=6;}else{const down=clamp((ft-.9)/1.2,0,1);cp=new V3(P.x+2.4,P.y+3.2+down*2.5,P.z+8.5-down*1.5);cl=new V3(P.x,P.y+.4-down*7,P.z-6-down*4);rate=4.5;}}
     else if((S.phase==='pull'||S.phase==='fire')&&world.sling.sledPos){shot=6;const sp=world.sling.sledPos(),an=-.9+S.t*.55;cp=new V3(sp.x+Math.sin(an)*6.5,sp.y+2.4,sp.z+Math.cos(an)*6.5);cl=new V3(sp.x,sp.y+.6,sp.z-1.2);rate=3.2;} // v0.70: плавная облётная проводка вокруг саней
     else if(S.phase==='pull'||S.phase==='fire'){shot=6;cp=new V3(c.x-6.6,c.y+.7,c.z+2.4);cl=new V3(c.x,c.y-.5,c.z+1.2+S.pull*1.6);rate=2;}
-    else if(L.riders.some(r=>r.jump)||L.seatedAt){shot=5;cp=new V3(c.x+3.4,1.4,c.z-4.4);cl=new V3(c.x,c.y-.2,c.z+1);rate=1.5;}
-    else if(T>=CLIMB){shot=4;const k=clamp((T-CLIMB)/3,0,1);cp=new V3(c.x+8,1.8+k*2.6,D.stairZ+4.4-k*1.2);cl=new V3(c.x+1.2,D.y*k*.8+.8,D.stairZ-.6);rate=1.6;}
-    else if(T>=3.2){shot=3;cp=new V3(H.x+5.2,.7,H.z+1.6);cl=new V3(H.x-.4,1.5,H.z-1.6);rate=1.2;}
-    else if(T>=1.6){shot=2;const an=.9+(T-1.6)*.42;cp=new V3(H.x+Math.sin(an)*4.4,1.7,H.z+Math.cos(an)*4.4);cl=new V3(H.x,1.05,H.z);rate=3;}
-    else{shot=1;const k=smooth(T/1.6);cp=new V3(H.x+4.6-k*1.4,1.1+k*.3,H.z+.9-k*.3);cl=new V3(H.x,1.0,H.z-.2);rate=2;}
+    // v0.71.1 монтаж до запуска - разные стороны: лицом к компании → сбоку → пролёт к саням → лестница с другой стороны → прыжки в сани спереди
+    else if(L.riders.some(r=>r.jump)||L.seatedAt){shot=5;const sp=world.sling.sledPos();cp=new V3(sp.x-1.8,sp.y+1.9,sp.z-3.6);cl=new V3(sp.x,sp.y+.5,sp.z+.6);rate=2;}
+    else if(T>=CLIMB){shot=4;const k=clamp((T-CLIMB)/3,0,1);cp=new V3(c.x-9,1.6+k*3.2,D.stairZ+3.2-k*1.4);cl=new V3(c.x-2,D.y*k*.85+.8,D.stairZ-.4);rate=1.6;}
+    else if(T>=3.2){shot=3;const k=smooth(clamp((T-3.2)/(CLIMB-3.2),0,1)),from=new V3(H.x+3,1.4,H.z+3),to=new V3(c.x+3.5,D.y+1.6,D.z1+3.2);cp=from.lerp(to,k);cp.y+=Math.sin(k*Math.PI)*1.5;cl=new V3(H.x,1,H.z).lerp(new V3(c.x,D.y+.4,D.z0),k);rate=3.5;}
+    else if(T>=1.6){shot=2;const an=1.45+(T-1.6)*.25;cp=new V3(H.x+Math.sin(an)*5,1.3,H.z+Math.cos(an)*5);cl=new V3(H.x,1.0,H.z);rate=2.5;}
+    else{shot=1;const k=smooth(T/1.6);cp=new V3(H.x+.4,1.25+k*.2,H.z+5.4-k*1.2);cl=new V3(H.x,1.05,H.z);rate=2;}
     if(shot!==L.shot){L.shot=shot;L.cam.copy(cp);L.look.copy(cl);}
     L.cam.lerp(cp,1-Math.exp(-dt*rate));L.look.lerp(cl,1-Math.exp(-dt*rate*1.5));camera.position.copy(L.cam);camera.position.x+=Math.sin(st.t*2.3)*.025;camera.position.y+=Math.sin(st.t*3.1)*.02;camera.lookAt(L.look);
     {const fv=S.phase==='fly'?CONFIG.camera.fov+16:S.phase==='pull'?CONFIG.camera.fov+(world.sling.breakAt?8*S.pull:-6*S.pull):CONFIG.camera.fov;camera.fov+=(fv-camera.fov)*(1-Math.exp(-dt*(S.phase==='fly'?7:3)));camera.updateProjectionMatrix();}

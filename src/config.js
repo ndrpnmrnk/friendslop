@@ -118,6 +118,11 @@ export const CONFIG = {
     balloon: { name: 'Шарик с водой', icon: '💧', heavy: false, r: 0.22, respawn: 9, mass: 0.5, drag: 0.35, bounce: 0.3 },
     tomato:  { name: 'Помидор', icon: '🍅', heavy: false, r: 0.16, respawn: 8, mass: 0.25, drag: 0.1, bounce: 0.2 },
     gift: { name: 'Подарок', icon: '🎁', heavy: false, r: 0.26, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.2 }, // v0.70: сани Деда Мороза
+    // v0.71.1 ярмарка хаба: товары с прилавков - берутся и бросаются
+    gingerbread: { name: 'Пряничный человечек', heavy: false, r: 0.14, respawn: 25, mass: 0.2, drag: 0.15, bounce: 0.3, breaks: 7 },
+    candycane: { name: 'Леденец-трость', heavy: false, r: 0.15, respawn: 25, mass: 0.2, drag: 0.08, bounce: 0.4 },
+    cocoa: { name: 'Какао с зефиром', heavy: false, r: 0.09, respawn: 25, mass: 0.3, drag: 0.05, bounce: 0.1, breaks: 4 },
+    ornament: { name: 'Ёлочный шар', heavy: false, r: 0.12, respawn: 25, mass: 0.15, drag: 0.1, bounce: 0.5, breaks: 3.5 },
     snowball: { name: 'Снежок', icon: '❄️', heavy: false, r: 0.14, respawn: 0, mass: 0.35, drag: 0.04, bounce: 0.05 }, // v0.70
     pumpkin: { name: 'Тыква', icon: '🎃', heavy: true, r: 0.32, respawn: 12, mass: 3, drag: 0, bounce: 0.15 },
     ball:    { name: 'Мяч', icon: '🏀', heavy: false, r: 0.24, respawn: 0, mass: 0.6, drag: 0.05, bounce: 0.65 },

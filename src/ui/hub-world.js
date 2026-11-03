@@ -1,13 +1,14 @@
 import {installHubReturn} from './hub-return.js';
 import {buildHoop} from '../world/basketball.js';
 import {THREE,G,V3,mesh,col,tmat,glow,lam,compose} from '../core/gfx.js';
-import {T,facade} from '../core/textures.js';
+import {T,facade,rep} from '../core/textures.js';
 import {Builder} from '../world/builder.js';
 import {createWorld,withWorld,W} from '../world/state.js';
 import {addSolid} from '../world/physics.js';
 import {bakeStatic} from '../world/bake.js';
 import {registerInteracts} from '../game/worldfx.js';
 import {resetTools} from '../game/tools.js';
+import {addItem} from '../game/items.js';
 import {resetSplat} from '../world/splat.js';
 import {MODES} from '../game/modes.js';
 import {HW,WINTER} from '../config.js';
@@ -69,12 +70,14 @@ function stall(b,group,x,z,ry,kind,c){
   for(const s of[-1,1]){a(G.box,roof,0,2.95+.0,s*.38-.08,2.95,.08,1.05,s*.62,0,0);a(G.box,snow,0,3.04,s*.36-.08,2.9,.07,.95,s*.62,0,0);}
   for(let i=0;i<9;i++)a(G.sph,lam({color:[0xd8243a,0xf5c542,0x9be36b,0x4ab0f0][i%4],emissive:[0xd8243a,0xf5c542,0x9be36b,0x4ab0f0][i%4],emissiveIntensity:.8},'stall71-b'+(i%4)),-1.2+i*.3,2.55-Math.sin(i/8*Math.PI)*.15,.75,.05,.05,.05);
   a(G.box,lamp,0,2.4,.2,.18,.22,.18);
-  if(kind==='cocoa'){for(let i=0;i<5;i++){a(G.cyl8,lam({color:[0xd8243a,0xf1e8ff,0x4ab0f0][i%3]},'stall71-cup'+(i%3)),-.8+i*.4,1.25,.45,.09,.16,.09);a(G.cyl8,col(0x5a3a26),-.8+i*.4,1.33,.45,.075,.01,.075);}a(G.cyl12,steelM(),.9,1.5,-.2,.3,.6,.3);}
-  else if(kind==='ginger'){for(let i=0;i<6;i++){const xx=-1+i*.4;a(G.sph,col(0xa86a38),xx,1.3,.45,.08,.08,.03);a(G.box,col(0xa86a38),xx,1.18,.45,.13,.16,.03);a(G.box,col(0xf1e8ff),xx,1.18,.47,.12,.015,.01);}}
-  else if(kind==='toys'){for(let i=0;i<5;i++){const xx=-.9+i*.45;a(G.box,lam({color:[0xd8243a,0x4ab0f0,0x9be36b,0xf5c542,0xb18cff][i]},'stall71-gift'+i),xx,1.27,.4,.3,.24,.3);a(G.box,col(0xf1e8ff),xx,1.27,.4,.31,.25,.06);}}
-  else {for(let i=0;i<4;i++){a(G.cone8,lam({color:0x2f6a4a},'stall71-fir'),-.75+i*.5,1.42,.42,.16,.5,.16);a(G.sph,lam({color:0xd8243a,emissive:0xd8243a,emissiveIntensity:.6},'stall71-orn'),-.75+i*.5,1.5,.56,.04,.04,.04);}}
+  if(kind==='cocoa')a(G.cyl12,steelM(),.9,1.5,-.2,.3,.6,.3);
  });g.position.set(x,0,z);g.rotation.y=ry;group.add(g);
- const c2=Math.abs(Math.cos(ry)),hw=c2>.9?1.4:c2<.1?.8:1.15,hd=c2>.9?.8:c2<.1?1.4:1.15;addSolid(x-hw,z-hd,x+hw,z+hd,0,2.9);
+ // v0.71.1: прилавок по высоте стойки (на него кладутся товары), задняя стенка - во всю высоту
+ const sn=Math.sin(ry),cs=Math.cos(ry),q=Math.abs(cs)>.5,hw=q?1.4:.75,hd=q?.75:1.4;addSolid(x-hw,z-hd,x+hw,z+hd,0,1.15);
+ { const bx=x-sn*.55,bz=z-cs*.55;addSolid(bx-(q?1.35:.1),bz-(q?.1:1.35),bx+(q?1.35:.1),bz+(q?.1:1.35),1.15,2.9); }
+ // товары - настоящие предметы: взять, бросить, через 25 с на прилавке появляется новый
+ const goods={cocoa:'cocoa',ginger:'gingerbread',toys:'ornament',fir:'candycane'}[kind];
+ for(let i=0;i<4;i++){const lx=-.9+i*.5,lz=.4;addItem(goods,x+sn*lz+cs*lx,1.17,z+cs*lz-sn*lx,ry);}
  (W.lightSources??=[]).push({x:x+Math.sin(ry)*.6,y:2.2,z:z+Math.cos(ry)*.6,color:0xffc888,strength:1.6,range:4.5});
  // вывеска-картинка над прилавком
  const t=picTex(kind==='cocoa'?'cup':kind==='ginger'?'ginger':kind==='toys'?'gift':'fir','#1b1524','#ffd27a',96,48,null),m=new THREE.Mesh(G.plane,lam({map:t,emissive:0xffffff,emissiveMap:t,emissiveIntensity:.5},'stall71-sign'+kind));
@@ -85,9 +88,9 @@ const steelM=()=>tmat(T.metal());
 function chaletRoof(group,x0,x1,z0,z1,h,color,ridgeX=false){
  const w=x1-x0,d=z1-z0,cx=(x0+x1)/2,cz=(z0+z1)/2,rf=lam({color},'chalet71-'+color),snow=lam({map:T.roof(),color:0xffffff},'chalet71-snow'),wood=tmat(T.wood());
  group.add(compose('chalet71-'+x0+z0,a=>{
-  if(ridgeX){const half=d/2+.5,ang=.62,L=half/Math.cos(ang);for(const s of[-1,1]){a(G.box,rf,cx,h+Math.sin(ang)*L/2+.2,cz+s*half/2,w+1,.18,L,-s*ang,0,0);a(G.box,snow,cx,h+Math.sin(ang)*L/2+.32,cz+s*half/2,w+.9,.08,L-.1,-s*ang,0,0);}
+  if(ridgeX){const half=d/2+.5,ang=.62,L=half/Math.cos(ang);for(const s of[-1,1]){a(G.box,rf,cx,h+Math.sin(ang)*L/2+.2,cz+s*half/2,w+1,.18,L,s*ang,0,0);a(G.box,snow,cx,h+Math.sin(ang)*L/2+.32,cz+s*half/2,w+.9,.08,L-.1,s*ang,0,0);}
    for(const s of[-1,1]){const tri=new THREE.Shape([new THREE.Vector2(-d/2,0),new THREE.Vector2(d/2,0),new THREE.Vector2(0,Math.tan(ang)*d/2)]);const geo=new THREE.ShapeGeometry(tri);a(geo,wood,x0+(s>0?w:0)+s*.05,h+.2,cz,1,1,1,0,Math.PI/2,0);}}
-  else{const half=w/2+.5,ang=.62,L=half/Math.cos(ang);for(const s of[-1,1]){a(G.box,rf,cx+s*half/2,h+Math.sin(ang)*L/2+.2,cz,L,.18,d+1,0,0,s*ang);a(G.box,snow,cx+s*half/2,h+Math.sin(ang)*L/2+.32,cz,L-.1,.08,d+.9,0,0,s*ang);}
+  else{const half=w/2+.5,ang=.62,L=half/Math.cos(ang);for(const s of[-1,1]){a(G.box,rf,cx+s*half/2,h+Math.sin(ang)*L/2+.2,cz,L,.18,d+1,0,0,-s*ang);a(G.box,snow,cx+s*half/2,h+Math.sin(ang)*L/2+.32,cz,L-.1,.08,d+.9,0,0,-s*ang);}
    for(const s of[-1,1]){const tri=new THREE.Shape([new THREE.Vector2(-w/2,0),new THREE.Vector2(w/2,0),new THREE.Vector2(0,Math.tan(ang)*w/2)]);a(new THREE.ShapeGeometry(tri),wood,cx,h+.2,z0+(s>0?d:0)+s*.05,1,1,1,0,s>0?0:Math.PI,0);}}
   a(G.box,col(0x5a4a5a),x1-1.2,h+2.2,z1-1.4,.6,1.6,.6);a(G.box,lam({color:0xeef3fb},'chalet71-snowcap'),x1-1.2,h+3.05,z1-1.4,.7,.12,.7);
  }));
@@ -98,7 +101,7 @@ function edgeRail(group){
  group.add(compose('rail71',a=>{const N=84;let prev=null;for(let i=0;i<=N;i++){const th=i/N*Math.PI*2,R=islandR(th)-1.1,x=Math.cos(th)*R,z=Math.sin(th)*R;
   const gap=(Math.abs(x)<2.2&&z<0)||(Math.abs(x)<2.4&&z>0);if(gap){prev=null;continue;}
   a(G.box,wood,x,.45,z,.16,.9,.16);a(G.box,snow,x,.94,z,.22,.08,.22);
-  if(prev){const mx=(x+prev[0])/2,mz=(z+prev[1])/2,L=Math.hypot(x-prev[0],z-prev[1]);a(G.cyl6,rope,mx,.72,mz,.03,L,.03,Math.PI/2,Math.atan2(x-prev[0],z-prev[1]),0);}prev=[x,z];}}));
+  if(prev){const mx=(x+prev[0])/2,mz=(z+prev[1])/2,L=Math.hypot(x-prev[0],z-prev[1]);a(G.box,rope,mx,.72,mz,.045,.045,L,0,Math.atan2(x-prev[0],z-prev[1]),0);}prev=[x,z];}}));
 }
 export function buildHub(scene){
  const group=new THREE.Group();scene.add(group);const state=createWorld(group);state.bounds=HUB.bounds;
@@ -107,21 +110,24 @@ export function buildHub(scene){
   const LS=(state.lightSources??=[]);
   /* ---------- дорожки: утоптанный снег по плитке, кольцо вокруг ёлки и лучи к зонам ---------- */
   b.ground(-2,-16,2,30,T.pave(),2,.016);b.ground(-10,-2,10,2,T.pave(),2,.016);b.ground(2,-2,11,2,T.pave(),2,.018);
-  { const r=new THREE.Mesh(new THREE.RingGeometry(4.2,6.2,40),lam({map:T.pave(),polygonOffset:true,polygonOffsetFactor:-2},'hub71-ring'));r.rotation.x=-Math.PI/2;r.position.y=.02;group.add(r); }
+  // v0.71.1: кольцо вокруг ёлки - UV по мировым координатам (2 м на плитку), без растянутой «размытой» текстуры
+  { const rg=new THREE.RingGeometry(4.2,6.2,48,2),uv=rg.attributes.uv,ps=rg.attributes.position;for(let i=0;i<uv.count;i++)uv.setXY(i,ps.getX(i)/2,ps.getY(i)/2);
+    const r=new THREE.Mesh(rg,lam({map:rep(T.pave(),1,1),polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2},'hub71-ring2'));r.rotation.x=-Math.PI/2;r.position.y=.02;group.add(r); }
   edgeRail(group);
   /* ---------- центр: большая ёлка, табло побед ---------- */
   const xmas=[];
   buildTree(group,0,0,2.1);xmas.push(buildBoard(group,-4.2,1.75,7.2,Math.PI*.15,'wins'));xmas.push(buildBoard(group,4.2,1.75,7.2,-Math.PI*.15,'levels'));
   // гирлянды лучами от верхушки ёлки к домикам ярмарки
-  for(const[x,z]of[[7.5,7.5],[-7.5,7.5],[7.5,-7.5],[-7.5,-7.5]])b.stringLights(x*.18,z*.18,x,z,3.2);
+  for(const[x,z]of[[5.6,9.5],[-5.6,9.5],[-5.6,-8.5],[5.6,-4]])b.stringLights(x*.15,z*.15,x,z,3.2);
   /* ---------- запад: каток выбора режима, над воротами табло ---------- */
   const vote=buildVoteArena(b,MODES);
   const screen=buildScreen(b,-18,6.6,-16.6,MODES);
   /* ---------- север: высокая горка с санями ---------- */
   const sling=WINTER?buildSled(b,0,-24):buildSlingshot(b,0,-24);
   /* ---------- ярмарочные домики ---------- */
-  stall(b,group,8.2,8.2,-Math.PI*.75,'cocoa',0xc8302a);stall(b,group,-7.6,8.6,Math.PI*.75,'ginger',0x2f7a46);
-  stall(b,group,7.8,-8.2,-Math.PI*.25,'toys',0x4a6ab0);stall(b,group,-7.4,-8.6,Math.PI*.25,'fir',0xb08a30);
+  // v0.71.1: домики вдоль главной дорожки, лицом к ней; от входов в гардероб и игровой зал отодвинуты, от фонарей - не впритык
+  stall(b,group,-6.6,10.5,Math.PI/2,'cocoa',0xc8302a);stall(b,group,6.6,10.5,-Math.PI/2,'ginger',0x2f7a46);
+  stall(b,group,-6.6,-9.5,Math.PI/2,'toys',0x4a6ab0);stall(b,group,6.6,17.5,-Math.PI/2,'fir',0xb08a30);
   /* ---------- фонари вдоль дорожек, скамейки, снеговики ---------- */
   for(const[x,z,ry]of[[-2.8,12,Math.PI/2],[2.8,20,-Math.PI/2],[-2.8,26,Math.PI/2],[2.8,-11,-Math.PI/2],[-2.8,-15,Math.PI/2],[9.5,-2.8,0],[-9.5,2.8,Math.PI],[14,14,-Math.PI*.75],[-14,13,Math.PI*.75]])b.lamp(x,z,ry,false);
   b.bench(-4.6,13,Math.PI/2);b.bench(4.6,13,-Math.PI/2);b.bench(-4.6,22,Math.PI/2);b.bench(4.6,22,-Math.PI/2);
@@ -158,8 +164,14 @@ export function buildHub(scene){
     // софтбокс прямо над подиумом + рамка и мягкий ореол
     b.box(16.6,WC,1.5,1.5,.12,dark,{y:3.62,solid:false});b.box(16.6,WC,1.36,1.36,.02,lam({color:0xfff4e8,emissive:0xfff0dc,emissiveIntensity:.95},'hub58-softbox'),{y:3.55,solid:false});
   }
-  LS.push({x:16.6,y:3.4,z:WC,color:0xfff6ee,strength:3.2,range:4.6},{x:14.6,y:2.2,z:WC,color:0xfff0e6,strength:2,range:4.2},{x:15,y:3.3,z:WC-2.6,color:0xffe8d8,strength:1,range:3.6},{x:15,y:3.3,z:WC+2.6,color:0xffe8d8,strength:1,range:3.6});
-  const doors=[-1,1].map(s=>{const g=new THREE.Group();group.add(g);state.keep.push(g);g.add(compose('hub55-door',a=>{a(G.box,wood,0,1.3,0,.08,2.6,1.2);a(G.box,lam({color:0x9ab0c8,transparent:true,opacity:.45},'hub55-doorglass'),0,1.5,0,.1,1.6,.9);a(G.box,metal,-.07,1.2,s*-.45,.06,.3,.05);}));return{g,s};});
+  // v0.71.1: подсветка именно персонажа - тёплый «ключ» спереди-сверху с малым радиусом, контровой сзади, общий фон приглушён
+  LS.push({x:15.3,y:2.6,z:WC,color:0xfff2e4,strength:4.2,range:2.6},{x:16.6,y:3.4,z:WC,color:0xfff6ee,strength:2.2,range:3.2},{x:17.8,y:2.4,z:WC-.9,color:0xc8d8ff,strength:1.6,range:2.2},{x:15,y:3.3,z:WC-2.6,color:0xffe8d8,strength:.6,range:3.2},{x:15,y:3.3,z:WC+2.6,color:0xffe8d8,strength:.6,range:3.2});
+  // v0.71.1: двери гардероба - глухие деревянные с филёнками, морозное (непрозрачное) окошко, венок и латунная ручка
+  const doors=[-1,1].map(s=>{const g=new THREE.Group();group.add(g);state.keep.push(g);g.add(compose('hub71-door',a=>{const dw=lam({color:0x6a2a2a},'door71-wood'),fr=lam({color:0x4a1a1c},'door71-frame');
+    a(G.box,dw,0,1.3,0,.1,2.6,1.2);for(const yy of[.55,2.1])a(G.box,fr,-.06,yy,0,.03,.5,.9);a(G.box,lam({color:0xcfe0f0,emissive:0x8aa8c8,emissiveIntensity:.5},'door71-frost'),-.06,1.35,0,.03,.7,.8);
+    for(const[yy,zz,w,h]of[[1.35,0,.04,.74],[1.35,0,.04,.04]])a(G.box,fr,-.075,yy,zz,.02,h,w===.04&&h===.04?.84:w);
+    a(G.torus,lam({color:0x2f6a3a},'door71-wreath'),-.09,1.95,0,.2,.2,.3,0,Math.PI/2,0);a(G.sph,lam({color:0xd8243a,emissive:0xd8243a,emissiveIntensity:.5},'door71-bow'),-.12,1.78,0,.06,.06,.04);
+    a(G.cyl8,lam({color:0xd8b050,emissive:0x6a4a10,emissiveIntensity:.4},'door71-brass'),-.11,1.2,s*-.48,.025,.32,.025);}));return{g,s};});
   const entrySolid=addSolid(WX0-.2,WC-1.2,WX0+.2,WC+1.2,0,2.6);
 
   /* ---------- восток-юг: игровой зал - автомат с друзьями и колесо удачи ---------- */

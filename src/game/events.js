@@ -143,7 +143,16 @@ const BIG = {
     update(s, dt, t) {
       s.hitCD -= dt;s.prev.copy(s.g.position);
       // полёт: круги над районом, иногда пике на кого-нибудь
-      if (s.dead) { s.g.position.y -= dt * 6; s.g.rotation.z += dt * 6; s.hpS.visible = false; if (s.g.position.y < s.c.y) { burst(s.g.position.x, s.c.y + 0.5, s.g.position.z, 24, { color: 0xb8a890, size: 0.3, speed: 4, up: 3 }); smokeRing(s.g.position.x, s.c.y + 0.1, s.g.position.z, 12, { speed: 3 }); shake(0.3); return 'end'; } return null; }
+      // v0.71.1 победа: мотылёк разваливается в воздухе - крылья, тело, трусы разлетаются, кувыркаются и падают; из него сыплются фисты
+      if (s.dead) { s.hpS.visible = false; s.deadT = (s.deadT || 0) + dt;
+        if (!s.parts) { s.parts = []; const p0 = s.g.position.clone(); s.g.updateMatrixWorld(true);
+          for (const ch of [...s.g.children]) { const wp = ch.getWorldPosition(new V3()), wq = ch.getWorldQuaternion(new THREE.Quaternion()); W.group.add(ch); ch.position.copy(wp); ch.quaternion.copy(wq);
+            const v = wp.clone().sub(p0).setY(0); if (v.lengthSq() < .01) v.set(random() - .5, 0, random() - .5); v.normalize().multiplyScalar(3 + random() * 3); v.y = 3 + random() * 3; s.parts.push({ m: ch, v, w: new V3(random() * 8 - 4, random() * 8 - 4, random() * 8 - 4) }); }
+          burst(p0.x, p0.y, p0.z, 30, { color: 0xb8a890, size: .35, speed: 5, up: 2 }); shake(.35); sfx('boom', { at: p0, v: .7 });
+          for (let i = 0; i < 6; i++) { const c = spawnCoin(p0.x, p0.y, p0.z, true); if (c) c.vel.set((random() - .5) * 7, 3 + random() * 3, (random() - .5) * 7); } }
+        for (const q of s.parts) { q.v.y -= 12 * dt; q.m.position.addScaledVector(q.v, dt); q.m.rotation.x += q.w.x * dt; q.m.rotation.y += q.w.y * dt; q.m.rotation.z += q.w.z * dt;
+          const gy = groundAt(q.m.position.x, q.m.position.z, .2, q.m.position.y + .5); if (q.m.position.y < gy + .2) { q.m.position.y = gy + .2; q.v.multiplyScalar(.4); q.v.y = Math.abs(q.v.y) * .3; q.w.multiplyScalar(.5); } }
+        if (s.deadT > 3.2) { for (const q of s.parts) { smokeRing(q.m.position.x, q.m.position.y, q.m.position.z, 5, { speed: 1.5 }); q.m.removeFromParent(); } return 'end'; } return null; }
       // v0.70: две атаки с заранее видимым предупреждением; место/направление фиксируются, уйти можно; урон - только по реальному попаданию
       const pos = s.g.position, alive = actors().filter(a => !a.hidden && !a.drone), near = alive.filter(a => Math.hypot(a.pos.x - s.c.x, a.pos.z - s.c.z) < 24);
       s.mt += dt; s.dive = s.mode === 'dive' || s.mode === 'dash' ? s.mode : null;
@@ -153,21 +162,21 @@ const BIG = {
         s.diveT -= dt; if (s.diveT <= 0 && near.length) { const v = near[(random() * near.length) | 0]; s.mt = 0; sfx('moth', { at: pos });
           if (random() < .5) { s.mode = 'warnDive'; s.pt = v.pos.clone(); s.ring.position.set(s.pt.x, groundAt(s.pt.x, s.pt.z, .1, s.pt.y + .5) + .06, s.pt.z); s.ring.visible = true; s.from = pos.clone(); }
           else { s.mode = 'warnDash'; const d = v.pos.clone().sub(pos).setY(0); if (d.lengthSq() < .01) d.set(1, 0, 0); d.normalize(); s.dir = d; s.a0 = v.pos.clone().addScaledVector(d, -7); s.a1 = v.pos.clone().addScaledVector(d, 7); s.dy = v.pos.y + 1.2;
-            const m = s.a0.clone().lerp(s.a1, .5); s.lane.position.set(m.x, groundAt(m.x, m.z, .1, v.pos.y + .5) + .06, m.z); s.lane.rotation.z = -Math.atan2(d.x, d.z); s.lane.visible = true; s.hitList = new Set(); } s.diveT = 3.5 + random() * 2.5; } }
+            const m = s.a0.clone().lerp(s.a1, .5); s.lane.position.set(m.x, groundAt(m.x, m.z, .1, v.pos.y + .5) + .06, m.z); s.lane.rotation.z = Math.atan2(-d.x, -d.z); s.lane.visible = true; /* v0.71.1: полоса предупреждения совпадает с линией атаки */ s.hitList = new Set(); } s.diveT = 3.5 + random() * 2.5; } }
       else if (s.mode === 'warnDive') { const k = Math.min(1, s.mt / 1.3); pos.lerp(s.pt.clone().setY(s.pt.y + 5), Math.min(1, dt * 3)); s.ring.material.opacity = .25 + .4 * Math.abs(Math.sin(s.mt * 9)); s.ring.scale.setScalar(1.9 * (1.3 - k * .3));
         if (k >= 1) { s.mode = 'dive'; s.mt = 0; s.from = pos.clone(); } }
       else if (s.mode === 'dive') { const k = Math.min(1, s.mt / .35); pos.lerpVectors(s.from, s.pt.clone().setY(s.pt.y + .9), k * k);
         if (k >= 1) { s.ring.visible = false; burst(s.pt.x, s.pt.y + .3, s.pt.z, 16, { color: 0xb8a890, size: .25, speed: 4, up: 2 }); shake(.25); sfx('hit', { at: s.pt });
           for (const a of alive) if (Math.hypot(a.pos.x - s.pt.x, a.pos.z - s.pt.z) < 1.9 && Math.abs(a.pos.y - s.pt.y) < 2) { daze(a, CONFIG.mothStun); shove(a, a.pos.x - s.pt.x || .1, a.pos.z - s.pt.z, 7, 5, true); voice(a.ch, 'hurt', a.pos); }
           s.mode = 'recover'; s.mt = 0; } }
-      else if (s.mode === 'warnDash') { const k = Math.min(1, s.mt / 1.4); pos.lerp(s.a0.clone().setY(s.dy + .3), Math.min(1, dt * 3)); s.lane.material.opacity = .2 + .4 * Math.abs(Math.sin(s.mt * 8));
-        if (k >= 1) { s.mode = 'dash'; s.mt = 0; pos.copy(s.a0).setY(s.dy); sfx('moth', { at: pos, v: 1.2 }); } }
+      else if (s.mode === 'warnDash') { const k = Math.min(1, s.mt / 1.4), goal = s.a0.clone().setY(s.dy); if (!s.wFrom) s.wFrom = pos.clone(); pos.lerpVectors(s.wFrom, goal, k * k * (3 - 2 * k)); /* долетает точно в начало полосы */ s.lane.material.opacity = .2 + .4 * Math.abs(Math.sin(s.mt * 8));
+        if (k >= 1) { s.mode = 'dash'; s.mt = 0; s.wFrom = null; pos.copy(s.a0).setY(s.dy); sfx('moth', { at: pos, v: 1.2 }); } }
       else if (s.mode === 'dash') { const k = Math.min(1, s.mt * 16 / 14); pos.lerpVectors(s.a0.clone().setY(s.dy), s.a1.clone().setY(s.dy), k);
         for (const a of alive) if (!s.hitList.has(a) && Math.hypot(a.pos.x - pos.x, a.pos.z - pos.z) < 1.1 && Math.abs(a.pos.y + 1 - pos.y) < 1.4) { s.hitList.add(a); daze(a, CONFIG.mothStun); shove(a, s.dir.x, s.dir.z, 8, 4, true); voice(a.ch, 'hurt', a.pos); sfx('hit', { at: a.pos }); }
         if (k >= 1) { s.lane.visible = false; s.mode = 'recover'; s.mt = 0; } }
-      else if (s.mode === 'recover') { pos.y += dt * 5; if (s.mt > 1.1) { s.mode = 'circle'; s.mt = 0; } }
+      else if (s.mode === 'recover') { pos.y += dt * 4; if (s.mt > .8) { s.mode = 'circle'; s.mt = 0; s.y = Math.max(s.y, pos.y); s.ang = random() * 6.28; s.c.x = pos.x - Math.cos(s.ang) * 7; s.c.z = pos.z - Math.sin(s.ang) * 7; } } /* v0.71.1: после атаки кружит с текущего места, а не летит назад */
       // курс и взмахи крыльев
-      const motion=s.g.position.clone().sub(s.prev);if(motion.lengthSq()>.00001)s.g.lookAt(s.g.position.clone().add(motion));s.g.rotation.z=Math.sin(t*.7)*.10;s.pants.rotation.x=Math.sin(t*6)*.07;s.pants.scale.set(1+Math.sin(t*8)*.035,1-Math.sin(t*8)*.05,1);
+      const motion=s.g.position.clone().sub(s.prev);s.g.rotation.order='YXZ';if(motion.lengthSq()>.00001){const hz=Math.hypot(motion.x,motion.z);if(hz>.0005)s.yaw=Math.atan2(motion.x,motion.z);s.pitch=THREE.MathUtils.clamp(-Math.atan2(motion.y,Math.max(hz,.001)),-.55,.55);}s.g.rotation.set((s.pitch||0)*.8,s.yaw||0,Math.sin(t*.7)*.10);/* v0.71.1: без переворота вверх ногами */s.pants.rotation.x=Math.sin(t*6)*.07;s.pants.scale.set(1+Math.sin(t*8)*.035,1-Math.sin(t*8)*.05,1);
       const flap = Math.sin(t * (s.dive ? 22 : 12)) * 0.7; s.wings[0].rotation.z = flap; s.wings[1].rotation.z = -flap;s.wings[0].rotation.y=.15+Math.cos(t*12)*.06;s.wings[1].rotation.y=-.15-Math.cos(t*12)*.06;
       s.hpS.position.copy(s.g.position).add(new V3(0, 2.0, 0));
       // тапки падают с неба вокруг
@@ -335,7 +344,7 @@ function hitMoth(s, p, dmg, owner) {
   if (s.dead || s.hitCD > 0) return; s.hitCD = 0.12; s.hp -= dmg; drawBar(s); hitFreeze(0.05); sfx('bonk', { at: p });
   burst(p.x, p.y, p.z, 8, { color: 0xb8a890, size: 0.2, speed: 2.5, up: 1.5 });
   if (owner) award(owner, dmg >= 1 ? 25 : 12, p);
-  if (s.hp <= 0) { s.dead = true; if (owner) award(owner, 150, p);for(let i=0;i<2+(random()*3|0);i++)spawnCoin(p.x+(random()-.5)*.8,p.y,p.z+(random()-.5)*.8,true);sfx('goal'); }
+  if (s.hp <= 0) { s.dead = true; if (owner) award(owner, 150, p); sfx('goal'); }
 }
 // временное поле, если стадиона на карте нет: площадка-пол побольше и двое ворот-рамок
 function makePitch(s) {

@@ -482,21 +482,28 @@ export const PropMethods = {
     this.m(G.cyl12, base, x, 0.12, z, r + 0.2, 0.24, r + 0.2); this.solid(x, z, 0.5, 0.5, 0, 4.2);
     const rot = new THREE.Group(); rot.position.y = 0.24; g.add(rot);
     add(G.cyl12, deck, 0, 0.05, 0, r, 0.1, r, 0, rot); add(G.cyl12, gold, 0, 2.1, 0, 0.18, 4.2, 0.18, 0, rot);
-    const roof = add(G.cone8, tmat(T.awning('#ff8a1f', '#2a1f3d')), 0, 4.4, 0, r + 0.5, 1.4, r + 0.5, 0, rot); roof.rotation.y = Math.PI / 8;
+    const roof = add(G.cone8, tmat(WINTER ? T.awning('#d8243a', '#f1e8ff') : T.awning('#ff8a1f', '#2a1f3d')), 0, 4.4, 0, r + 0.5, 1.4, r + 0.5, 0, rot); if (WINTER) add(G.ico, lam({ color: 0xffe08a, emissive: 0xffc040, emissiveIntensity: 1.2 }, 'xstar70'), 0, 5.35, 0, .3, .3, .12, 0, rot); roof.rotation.y = Math.PI / 8;
     add(G.cyl12, col(0x2a1f3d), 0, 3.7, 0, r + 0.5, 0.18, r + 0.5, 0, rot);
     const riders = [];
     for (let i = 0; i < 6; i++) {
       const a = i / 6 * Math.PI * 2, px = Math.cos(a) * (r - 0.7), pz = Math.sin(a) * (r - 0.7);
       add(G.cyl6, gold, px, 1.9, pz, 0.035, 3.6, 0.035, 0, rot);
       const s2 = new THREE.Group(); s2.position.set(px, 1.0, pz); s2.rotation.y = -a; rot.add(s2);
-      if (i % 2) { add(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.26, 0.32, 0, s2); add(G.box, col(0x3f6b2a), 0, 0.3, 0, 0.06, 0.12, 0.06, 0, s2); }
+      if (WINTER) { // v0.71.1 новогодняя карусель: олени и санки-сиденья, на них можно сесть и кататься
+        if (i % 2) { const fur = col(0x8a5a36), lt = col(0xd9b98c); add(G.sph10, fur, 0, 0, 0, 0.22, 0.2, 0.42, 0, s2); add(G.sph10, fur, 0, 0.28, 0.32, 0.12, 0.13, 0.16, 0, s2); add(G.sph, glow(0xff3a3a), 0, 0.26, 0.48, 0.04, 0.04, 0.04, 0, s2);
+          for (const sd of [-1, 1]) { add(G.cyl6, lt, sd * 0.07, 0.5, 0.28, 0.02, 0.22, 0.02, 0, s2); add(G.cyl6, lt, sd * 0.13, 0.6, 0.26, 0.015, 0.14, 0.015, 0, s2); for (const zz of [-.25, .25]) add(G.cyl6, fur, sd * 0.1, -0.28, zz, 0.04, 0.3, 0.04, 0, s2); }
+          add(G.box, col(0xd8243a), 0, 0.2, 0, 0.3, 0.06, 0.34, 0, s2); }
+        else { add(G.box, col(0xc8202e), 0, 0, 0, 0.5, 0.25, 0.7, 0, s2); add(G.box, col(0xc8202e), 0, 0.2, -0.33, 0.5, 0.35, 0.08, 0, s2); add(G.box, gold, 0, 0.14, 0, 0.52, 0.04, 0.72, 0, s2); add(G.box, col(0x8a1420), 0, 0.15, 0.05, 0.42, 0.06, 0.4, 0, s2); }
+      } else if (i % 2) { add(G.sph10, tmat(T.pumpkin()), 0, 0, 0, 0.32, 0.26, 0.32, 0, s2); add(G.box, col(0x3f6b2a), 0, 0.3, 0, 0.06, 0.12, 0.06, 0, s2); }
       else { add(G.sphL, col(0x2a2232), 0, 0, 0, 0.22, 0.2, 0.3, 0, s2); for (const sd of [-1, 1]) { const wg = add(G.box, col(0x3a3046), sd * 0.35, 0.1, 0, 0.5, 0.03, 0.3, 0, s2); wg.rotation.z = sd * 0.3; } }
+      if (WINTER) { const wp = new THREE.Vector3(), seat = { seats: [0], riders: [], exitOffset: 1.3, noInteract: true, skel: false, get x() { return wp.x; }, get y() { return wp.y - 0.3; }, get z() { return wp.z; }, ry: 0, s2, wp };
+        W.benches.push(seat); W.interacts.push({ get x() { return wp.x; }, get z() { return wp.z; }, get y() { return wp.y - 1; }, r: 1.1, self: true, label: 'Прокатиться на карусели', enabled: P => !P.held && !P.holding && !seat.riders.length, act: P => W.sitBench?.(P, seat) }); seat.upd = () => { s2.getWorldPosition(wp); seat.ry = rot.rotation.y - a; }; (W.seatUpd ??= []).push(seat); }
       riders.push(s2);
     }
-    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; add(G.box, glow(i % 2 ? 0xffd28a : 0xff8a1f), Math.cos(a) * (r + 0.45), 3.65, Math.sin(a) * (r + 0.45), 0.14, 0.14, 0.14, 0, rot); }
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; add(G.box, glow(WINTER ? [0xd8243a, 0x9be36b, 0xffd28a][i % 3] : i % 2 ? 0xffd28a : 0xff8a1f), Math.cos(a) * (r + 0.45), 3.65, Math.sin(a) * (r + 0.45), 0.14, 0.14, 0.14, 0, rot); }
     this.light(x, z, r + 1.2);
     { const a = r * 0.7; this.solid(x, z, a * 2, a * 2, 0, 0.34); W.carousels.push({ x: this.X(x), z: this.Z(z), r: r * 0.95, top: this.Y + 0.34, w: 0.5 }); }
-    W.animated.push((dt, t) => { rot.rotation.y += dt * 0.5; riders.forEach((q, i) => (q.position.y = 1.0 + Math.sin(t * 2 + i) * 0.3)); });
+    W.animated.push((dt, t) => { rot.rotation.y += dt * 0.5; riders.forEach((q, i) => (q.position.y = 1.0 + Math.sin(t * 2 + i) * 0.3)); for (const sb of W.seatUpd || []) if (sb.s2.parent?.parent === g) sb.upd(); });
   },
   // Летняя эстрада-ракушка: сцена со ступенями, полукупол сзади, прожекторы
   bandshell(x, z, w = 7, ry = 0) {
@@ -504,6 +511,11 @@ export const PropMethods = {
     this.box(x, z, w, 4, 0.8, wd);
     const sm = this.m(new THREE.SphereGeometry(1, 12, 6, 0, Math.PI, 0, Math.PI / 2), sh, x, 0.8, z - 0.2, w / 2, 3.6, 2.6); sm.rotation.y = Math.PI; sm.material = lam({ map: T.plaster(), side: THREE.DoubleSide }, 'shellIn');
     this.solid(x, z - 1.8, w, 0.4, 0.8, 3.6);
+    // v0.71.1: по контуру полукупола - твёрдые стенки (сквозь края ракушки больше не проходят); зимой - гирлянда по кромке, ёлочки, снег на куполе
+    for (let k = 0; k <= 6; k++) { const an = k / 6 * Math.PI, px = x + Math.cos(an) * (w / 2 - .15), pz = z - 0.2 - Math.sin(an) * 2.4; this.solid(px, pz, .5, .5, 0.8, 3.2 * Math.max(.3, Math.sin(an * .5 + .5))); }
+    if (WINTER) { for (let k = 0; k < 15; k++) { const an = k / 14 * Math.PI, c = [0xd8243a, 0xf5c542, 0x9be36b, 0x4ab0f0][k % 4]; this.m(G.sph, glow(c), x + Math.cos(an) * (w / 2), 0.85 + Math.sin(an) * 3.55, z - 0.15, .09, .09, .09); }
+      this.m(new THREE.SphereGeometry(1, 12, 4, 0, Math.PI, 0, Math.PI / 5), lam({ color: 0xeef3fb }, 'shellSnow71'), x, 0.82, z - 0.2, w / 2 + .05, 3.66, 2.66).rotation.y = Math.PI;
+      for (const s2 of [-1, 1]) { this.m(G.cone8, lam({ color: 0x1f4a3a }, 'podPine71'), x + s2 * (w / 2 + .9), 1.2, z - .8, .7, 2.2, .7); this.m(G.cone8, lam({ color: 0xe8eef8 }, 'podPineSnow71'), x + s2 * (w / 2 + .9), 1.9, z - .8, .35, .6, .35); this.solid(x + s2 * (w / 2 + .9), z - .8, .9, .9, 0, 2.2); } }
     for (let i = 0; i < 5; i++) { const a = Math.PI * (0.15 + i * 0.175); this.m(G.box, glow([0xff5a6e, 0xf5c542, 0x9be36b, 0x4ab0f0, 0xb18cff][i]), x + Math.cos(a) * (w / 2 - 0.3), 0.8 + Math.sin(a) * 3.2, z - 0.4, 0.25, 0.25, 0.25); }
     this.stairs(x - 1.2, z + 3.26, 'n', 0, 0.8, 1.6); this.stairs(x + 1.2, z + 3.26, 'n', 0, 0.8, 1.6);
     for (const s2 of [-1, 1]) { this.box(x + s2 * (w / 2 - 0.5), z + 1.2, 0.8, 0.6, 1.4, col(0x17111f), { y: 0.8 }); this.m(G.cyl12, col(0x3a3a40), x + s2 * (w / 2 - 0.5), 1.8, z + 1.52, 0.25, 0.02, 0.25).rotation.x = Math.PI / 2; }

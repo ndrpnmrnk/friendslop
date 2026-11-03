@@ -29,7 +29,7 @@ export function spawnCoin(x,y,z,fly=true,id=null,fromNetwork=false){
  const coinId=id??s.nextId++;
  if(!Number.isSafeInteger(coinId)||coinId<1||coinId>=1000000)return null;
  s.nextId=Math.max(s.nextId,coinId+1);
- s.coins[i]={id:coinId,pos:new V3(x,y,z),vel:new V3(fly?(random()-.5)*1.6:0,fly?2.4:0,fly?(random()-.5)*1.6:0),r:.25,h:.64,step:.015,mass:.35,onGround:!fly,fly,phase:random()*6.28,yaw:random()*6.28,gone:false,take:null,target:null,requested:false};
+ s.coins[i]={id:coinId,pos:new V3(x,y,z),vel:new V3(fly?(random()-.5)*1.6:0,fly?2.4:0,fly?(random()-.5)*1.6:0),r:.25,h:.64,step:.015,mass:.35,onGround:!fly,fly,phase:random()*6.28,yaw:random()*6.28,rx:0,rz:0,sx:fly?(random()-.5)*16:0,sz:fly?(random()-.5)*10:0,gone:false,take:null,target:null,requested:false};
  return s.coins[i];
 }
 export function crateCoins(p){if(W.net?.replica)return;for(let n=0;n<(p.coinCount||0);n++)spawnCoin(p.mesh.position.x,p.solid.y0+.25,p.mesh.position.z,true);p.coinCount=0;}
@@ -114,8 +114,10 @@ export function updateCoins(dt,P){const s=current();s.age+=dt;FIST_SHINE.value=s
    for(const a of actors()){if(a.drone||a.returning||a.hidden||a.pos.y>c.pos.y+.6||a.pos.y+a.h<c.pos.y)continue;const dx=c.pos.x-a.pos.x,dz=c.pos.z-a.pos.z,d=Math.hypot(dx,dz),over=c.r+a.r-d;if(over>0&&d>.001){const nx=dx/d,nz=dz/d;c.pos.x+=nx*over;c.pos.z+=nz*over;const speed=Math.max(.5,a.vel.x*nx+a.vel.z*nz);c.vel.x+=nx*speed*.7;c.vel.z+=nz*speed*.7;c.fly=true;}}
    for(const it of movers){if(Math.abs(it.pos.y-c.pos.y-.25)>.5)continue;const dx=c.pos.x-it.pos.x,dz=c.pos.z-it.pos.z,d=Math.hypot(dx,dz),over=c.r+it.def.r-d;if(over>0&&d>.001){c.pos.x+=dx/d*over;c.pos.z+=dz/d*over;c.vel.x+=it.vel.x*.5;c.vel.z+=it.vel.z*.5;c.fly=true;}}
    for(let j=0;j<i;j++){const b=s.coins[j];if(b.gone||b.take||Math.abs(b.pos.y-c.pos.y)>.5)continue;const dx=c.pos.x-b.pos.x,dz=c.pos.z-b.pos.z,d=Math.hypot(dx,dz);if(d>.001&&d<.5){const k=(.5-d)/2/d;c.pos.x+=dx*k;c.pos.z+=dz*k;b.pos.x-=dx*k;b.pos.z-=dz*k;c.fly=b.fly=true;}}
-   if(check&&!c.fly&&groundAt(c.pos.x,c.pos.z,.15,c.pos.y+.05)<c.pos.y-.1){c.fly=true;c.onGround=false;}if(c.fly){moveBody(c,dt);c.vel.x*=Math.exp(-dt*5);c.vel.z*=Math.exp(-dt*5);c.yaw+=dt*c.vel.length()*.4;if(c.onGround)c.fly=false;}}
-  tmp.position.copy(c.pos);tmp.position.y+=.055*scale;tmp.rotation.set(0,c.yaw,0);tmp.scale.setScalar(scale);tmp.updateMatrix();for(const b of s.batches)b.setMatrixAt(i,tmp.matrix);
+   if(check&&!c.fly&&groundAt(c.pos.x,c.pos.z,.15,c.pos.y+.05)<c.pos.y-.1){c.fly=true;c.onGround=false;}if(c.fly){const vy=c.vel.y;moveBody(c,dt);c.vel.x*=Math.exp(-dt*(c.onGround?5:1.2));c.vel.z*=Math.exp(-dt*(c.onGround?5:1.2));c.yaw+=dt*c.vel.length()*.6;c.rx+=c.sx*dt;c.rz+=c.sz*dt;
+     if(c.onGround){if(vy<-2.2){c.vel.y=-vy*.38;c.onGround=false;c.sx*=.5;c.sz*=.5;c.sx+=(random()-.5)*6;}else c.fly=false;}}
+   if(!c.fly&&(c.rx||c.rz)){const tw=Math.PI*2;c.rx=Math.round(c.rx/tw)*tw+(c.rx-Math.round(c.rx/tw)*tw)*Math.exp(-dt*9);c.rz=Math.round(c.rz/tw)*tw+(c.rz-Math.round(c.rz/tw)*tw)*Math.exp(-dt*9);if(Math.abs(c.rx%tw)<.002&&Math.abs(c.rz%tw)<.002)c.rx=c.rz=0;}}/* v0.71.1: фисты кувыркаются в полёте, подпрыгивают и встают */
+  tmp.position.copy(c.pos);tmp.position.y+=.055*scale+(c.rx||c.rz?.25:0);tmp.rotation.set(c.rx||0,c.yaw,c.rz||0);tmp.scale.setScalar(scale);tmp.updateMatrix();for(const b of s.batches)b.setMatrixAt(i,tmp.matrix);
   const near=P&&!P.drone&&!P.returning&&!c.take&&c.pos.distanceTo(P.pos)<2.6;tmp.scale.setScalar(scale*1.10);tmp.updateMatrix();for(const b of s.outlines)b.setMatrixAt(i,near?tmp.matrix:zero);
   const shine=Math.max(0,Math.sin(s.age*2.1+c.phase))**12;tmp.position.copy(c.pos).add(new V3(.18,.45,.18));tmp.rotation.set(0,0,s.age*.5);tmp.scale.set(.024*shine,.14*shine,.024*shine);tmp.updateMatrix();s.spark.setMatrixAt(i*2,c.take?zero:tmp.matrix);tmp.scale.set(.10*shine,.024*shine,.024*shine);tmp.updateMatrix();s.spark.setMatrixAt(i*2+1,c.take?zero:tmp.matrix);
 

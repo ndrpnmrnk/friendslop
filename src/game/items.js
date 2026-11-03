@@ -58,6 +58,25 @@ function build(type) {
     const c = [0xd8243a, 0x4ab0f0, 0x9be36b, 0xb18cff][(Math.random() * 4) | 0];
     mesh(G.box, lam({ color: c, emissive: c, emissiveIntensity: .15 }, 'gift70c' + c), 0, 0, 0, .42, .38, .42, g); mesh(G.box, lam({ color: 0xf5c542, emissive: 0x6a4a10, emissiveIntensity: .4 }, 'gift70r'), 0, 0, 0, .44, .4, .08, g); mesh(G.box, lam({ color: 0xf5c542, emissive: 0x6a4a10, emissiveIntensity: .4 }, 'gift70r'), 0, 0, 0, .08, .4, .44, g);
     for (const s2 of [-1, 1]) { const bw = mesh(G.torus, lam({ color: 0xf5c542 }, 'gift70bow'), s2 * .08, .24, 0, .08, .08, .08, g); bw.rotation.y = Math.PI / 2; }
+  } else if (type === 'gingerbread') { // v0.71.1 пряничный человечек с глазурью и пуговками
+    const gb = lam({ color: 0xb06a32 }, 'ginger71'), ic = lam({ color: 0xf6f0ea }, 'icing71');
+    mesh(G.cyl12, gb, 0, .1, 0, .07, .03, .07, g).rotation.x = Math.PI / 2; mesh(G.box, gb, 0, -.01, 0, .12, .14, .03, g); mesh(G.box, gb, 0, .01, 0, .24, .04, .03, g);
+    for (const s2 of [-1, 1]) mesh(G.box, gb, s2 * .035, -.1, 0, .045, .1, .03, g);
+    mesh(G.box, ic, 0, .1, .017, .06, .006, .004, g); for (const yy of [.02, -.03]) mesh(G.sph, lam({ color: 0xd8243a }, 'gbBtn71'), 0, yy, .018, .012, .012, .006, g);
+    for (const s2 of [-1, 1]) mesh(G.box, ic, s2 * .1, .01, .017, .006, .035, .004, g);
+  } else if (type === 'candycane') { // леденец-трость в красно-белую полоску
+    const r = lam({ color: 0xd8243a }, 'cane71r'), w = lam({ color: 0xf6f0ea }, 'cane71w');
+    for (let i = 0; i < 6; i++) mesh(G.cyl8, i % 2 ? w : r, 0, -.14 + i * .045, 0, .025, .045, .025, g);
+    for (let i = 0; i < 5; i++) { const an = i / 4 * Math.PI; mesh(G.sph, i % 2 ? w : r, Math.cos(an) * .05 - .05, .12 + Math.sin(an) * .05, 0, .027, .027, .027, g); }
+  } else if (type === 'cocoa') { // кружка какао с зефирками
+    const c = [0xd8243a, 0x2f7a46, 0xf1e8ff][(Math.random() * 3) | 0];
+    mesh(G.cyl12, lam({ color: c }, 'cocoa71c' + c), 0, 0, 0, .08, .15, .08, g); mesh(G.cyl12, lam({ color: 0x5a3220 }, 'cocoa71in'), 0, .07, 0, .068, .01, .068, g);
+    for (const [dx, dz] of [[.02, .01], [-.025, .02], [0, -.03]]) mesh(G.box, lam({ color: 0xfff4f0 }, 'mallow71'), dx, .08, dz, .025, .02, .025, g);
+    mesh(G.torus, lam({ color: c }, 'cocoa71c' + c), .09, 0, 0, .04, .04, .04, g);
+  } else if (type === 'ornament') { // ёлочный шар: стекло с блеском, колпачок и петелька
+    const c = [0xd8243a, 0xf5c542, 0x4ab0f0, 0xb18cff][(Math.random() * 4) | 0];
+    mesh(G.sph10, lam({ color: c, emissive: c, emissiveIntensity: .25 }, 'orn71' + c), 0, 0, 0, .12, .12, .12, g); mesh(G.sph, lam({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: .7 }, 'orn71hl'), -.04, .05, .08, .025, .035, .015, g).userData.noLight = true;
+    mesh(G.cyl8, lam({ color: 0xd8c070 }, 'orn71cap'), 0, .125, 0, .035, .04, .035, g); mesh(G.torus, lam({ color: 0xd8c070 }, 'orn71cap'), 0, .16, 0, .025, .025, .025, g);
   } else if (type === 'snowball') { // v0.70: комок снега - чуть неровный, с голубой тенью
     mesh(G.ico, snowMat(), 0, 0, 0, 0.14, 0.13, 0.14, g); mesh(G.ico, snowMat(), 0.05, 0.04, -0.03, 0.07, 0.06, 0.07, g);
   } else if (type === 'pumpkin') {
@@ -204,7 +223,8 @@ function impact(it, n, speed) {
   if (WINTER && speed > 3 && (!n || n.y > .5)) dent(p.x, p.z, p.y, Math.max(.18, it.def.r)); // v0.70: ямка в снегу
   if(t==='popcorn'){hitActors(it,p,false);scatterPopcorn(p);vanish(it);return;}
   // хрупкая мелочь: сильный удар — разбилось (осколки, звон), до конца раунда
-  if (it.def.breaks && speed > it.def.breaks) { const glass = t === 'monitor' || t === 'dlamp' || t === 'mug';
+  if (it.def.breaks && speed > it.def.breaks) { const glass = t === 'monitor' || t === 'dlamp' || t === 'mug' || t === 'ornament' || t === 'cocoa';
+    if (t === 'cocoa') burst(p.x, p.y + .1, p.z, 10, { color: 0x6a3a22, size: .1, speed: 2.5, up: 2 }); if (t === 'gingerbread') burst(p.x, p.y + .1, p.z, 10, { color: 0xb06a32, size: .07, speed: 2.5, up: 2 }); if (t === 'ornament') burst(p.x, p.y + .1, p.z, 12, { color: 0xfff0a0, size: .06, speed: 3.5, up: 2.5 });
     for (let i = 0; i < 9; i++) chunk(p.x, p.y + 0.1, p.z, [(random() - 0.5) * 4, 2 + random() * 2, (random() - 0.5) * 4], { mat: col([0x2b2533, 0x9a9da8, t === 'pot' ? 0xc8643a : 0xd8d0c0, 0x3a3440][i % 4]), size: 0.07, sy: 0.6, life: 5 });
     if (glass) burst(p.x, p.y + 0.2, p.z, 8, { color: 0xc8e8ff, size: 0.08, speed: 3, up: 2 }); if (t === 'pot') burst(p.x, p.y, p.z, 8, { color: 0x6a4a2a, size: 0.12, speed: 2, up: 1.5 });
     sfx(glass ? 'glass' : 'wood', { at: p }); for (const h of W.hitHooks.slice()) h(it, p); hitActors(it,p,heavyHit(it,speed)); vanish(it); return; }
@@ -312,7 +332,7 @@ function simulate(it, dt, flying) {
     const onG = p.y - ry <= groundAt(p.x, p.z, r * 0.5, p.y) + 0.02;
     // трение: круглые катятся, кирпич быстро останавливается
     if (onG) { const f = Math.exp(-dt * ({ ball: 0.9, bigpuck: 0.18, bigpumpkin: 0.8, pumpkin: 1.6, balloon: 2, tomato: 2.5, brick: 7, chair: 6, cone: 3, trash: 5, litter: 3, parcel: 6, duck: 2, cucumber: 2.5 }[it.type] ?? 5)); v.x *= f; v.z *= f; }
-    if (['snowball', 'ball', 'bigpumpkin', 'pumpkin', 'balloon', 'tomato', 'litter', 'can', 'duck', 'cucumber', 'bulb'].includes(it.type)) { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
+    if (['snowball', 'ornament', 'ball', 'bigpumpkin', 'pumpkin', 'balloon', 'tomato', 'litter', 'can', 'duck', 'cucumber', 'bulb'].includes(it.type)) { it.g.rotation.x += v.z * dt / r; it.g.rotation.z -= v.x * dt / r; }
   } else { const k = Math.min(3, 0.6 + v.length() / 8); it.g.rotation.x += dt * 8 * k; it.g.rotation.y += dt * 5 * k; }
 }
 

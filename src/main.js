@@ -417,21 +417,23 @@ function crashArrival(a, prev, hit, dt) {
   impactBurst({ x: a.pos.x, y: a.pos.y + 1, z: a.pos.z }, 0xffd8a0, .7); sfx('hit', { at: a.pos, v: 1.2 }); sfx('land', { at: a.pos, v: .8 });
 }
 // v0.71 J2: дуга вылета из саней над картой: старт с места в санях, медленно и плавно (3-3.4 с), лёгкое вращение
+const sleighHeading = () => withRandom((MATCH.on ? MATCH.seed : 7) ^ 0xa11, () => random() * Math.PI * 2);
 function sleighArc(to, sky, i) {
-  const seat = new V3(((i % 2) - .5) * .55, .5, -1.05 + ((i >> 1) % 4) * .72), dur = 3 + random() * .4, spin = (random() < .5 ? -1 : 1) * (1.5 + random() * 1.5); let f = null;
+  const a = sleighHeading(), seat = new V3(((i % 2) - .5) * .6, .7, -.85 + ((i >> 1) % 4) * .72).applyAxisAngle(new V3(0, 1, 0), Math.atan2(-Math.sin(a), -Math.cos(a))), dur = 3 + random() * .4, spin = (random() < .5 ? -1 : 1) * (1.5 + random() * 1.5); let f = null;
   for (const h of [10 + random() * 4, 18, 26]) { f = { from: sky.clone().add(seat), to: to.clone(), dur, h, spin }; if (arcClear(f)) return f; }
   f.risky = true; return f;
 }
 // сани над картой: 0.9 с летят целыми с игроками, затем разлом - крупные куски медленно разлетаются, вращаются и падают
 function startSleighBreak(sky) {
-  const parts = sleighModel(true), root = new THREE.Group(); root.position.copy(sky); root.userData.x0 = sky.x; root.userData.z0 = sky.z; W.group.add(root); for (const p of parts) root.add(p);
-  return { root, parts, t: 0, broken: false, v: new V3(0, 0, 0) };
+  const parts = sleighModel(true), root = new THREE.Group(), a = sleighHeading(), V = new V3(Math.sin(a) * 22, -2, Math.cos(a) * 22);
+  root.position.copy(sky).addScaledVector(V, -.5); root.rotation.y = Math.atan2(-V.x, -V.z); root.userData.sky = sky.clone(); /* v0.71.1: сани влетают на карту по инерции и разваливаются в полёте */ W.group.add(root); for (const p of parts) root.add(p);
+  return { root, parts, t: 0, broken: false, v: V };
 }
 function updateSleighBreak(q, dt) {
   if (!q || q.done) return; q.t += dt;
-  if (!q.broken) { q.root.position.addScaledVector(q.v, dt); q.root.rotation.z = Math.sin(q.t * 3) * .05; if (q.t > .9) { q.broken = true; sfx('wood'); sfx('wood', { v: .7 }); shakeCam(.25);
+  if (!q.broken) { q.root.position.addScaledVector(q.v, dt); q.root.rotation.z = Math.sin(q.t * 9) * .04; if (q.t > .5) { q.broken = true; sfx('wood'); sfx('wood', { v: .7 }); shakeCam(.25);
       sparks(innerWidth / 2, innerHeight * .35, ['#f5c542', '#ff5a6e', '#f2f6ff'], 26);
-      for (const p of q.parts) { const c = new V3(); new THREE.Box3().setFromObject(p).getCenter(c); q.root.worldToLocal(c); p.userData.v = new V3(c.x * 3 + (random() - .5) * 2, 2 + random() * 2.5, c.z * 1.6 + (random() - .5) * 2 - 2); p.userData.w = new V3((random() - .5) * 2.4, (random() - .5) * 2.4, (random() - .5) * 2.4); } } return; }
+      for (const p of q.parts) { const c = new V3(); new THREE.Box3().setFromObject(p).getCenter(c); q.root.worldToLocal(c); p.userData.v = new V3(c.x * 3 + (random() - .5) * 2, 2 + random() * 2.5, c.z * 1.6 + (random() - .5) * 2 - 2).applyQuaternion(q.root.quaternion).addScaledVector(q.v, .55); p.userData.w = new V3((random() - .5) * 2.4, (random() - .5) * 2.4, (random() - .5) * 2.4); } } return; }
   for (const p of q.parts) { const v = p.userData.v; v.y -= 5 * dt; p.position.addScaledVector(v, dt); p.rotation.x += p.userData.w.x * dt; p.rotation.y += p.userData.w.y * dt; p.rotation.z += p.userData.w.z * dt; }
   if (q.t > 6) { q.done = true; q.root.removeFromParent(); }
 }
@@ -443,7 +445,7 @@ function startIntro() {
   const sky = WINTER ? withRandom((MATCH.on ? MATCH.seed : 7) ^ 0x51e1, () => new V3((random() - .5) * 20, 46, (random() - .5) * 20)) : null;
   let seatN = 0; const arc = (to, i) => sky ? sleighArc(to, sky, i) : arrivalArc(to);
   const myIdx = MATCH.on ? Math.max(0, myRank()) : 0;
-  S.intro = { t: 0, drop: true, landed: false, cd: 4, me: MATCH.on?withRandom(MATCH.seed^NET.id,()=>arc(P.pos, myIdx)):arc(P.pos, 0), delay: sky ? .9 : .35, bots: (W.bots || []).filter(b => !b.puppet).map((b, i) => ({ b, f: arc(b.pos, ++seatN + myIdx), delay: sky ? .9 + i * .05 : .1 + i * .3, landed: false })) };
+  S.intro = { t: 0, drop: true, landed: false, cd: 4, me: MATCH.on?withRandom(MATCH.seed^NET.id,()=>arc(P.pos, myIdx)):arc(P.pos, 0), delay: sky ? .5 : .35, bots: (W.bots || []).filter(b => !b.puppet).map((b, i) => ({ b, f: arc(b.pos, ++seatN + myIdx), delay: sky ? .5 + i * .02 : .1 + i * .3, landed: false })) };
   if (sky) { S.intro.sleigh = startSleighBreak(sky); for (const q of S.intro.bots) { q.b.pos.copy(q.f.from); q.b.root.position.copy(q.f.from); } }
   takeLook(); P.frozen = true; P.root.visible = true; P.pos.copy(S.intro.me.from); P.root.position.copy(P.pos);
   for (const b of W.bots || []) if (b.puppet) { b.root.visible = false; if (b.tag) b.tag.visible = false; }
@@ -472,11 +474,12 @@ function updateIntro(dt) {
   // v0.59: приземлившиеся боты лежат «тряпичной куклой», скользят по инерции и за 3 с поднимаются
   for (const q of I.bots) { if (!q.landed || !q.rag) continue; const r = q.rag; r.t += dt; moveBody(r.body, dt); if (r.body.onGround) { q.b.vel.x *= Math.exp(-dt * 4); q.b.vel.z *= Math.exp(-dt * 4); }
     q.b.root.position.copy(q.b.pos); const k = r.t < 2.3 ? 1 : Math.max(0, 1 - (r.t - 2.3) / .7); q.b.ch.animate(dt, { t, rag: k, stun: k >= 1, air: !r.body.onGround, vy: q.b.vel.y, speed: 0 }); if (r.t > 3) { q.rag = null; q.b.stun = 0; q.b.getT = 0; } }
-  for (const q of I.bots) { if (q.landed) continue; const k = (t - q.delay) / q.f.dur; if (k < 0) { if (I.sleigh) { q.b.root.visible = true; const sp = I.sleigh.root.position, o = q.f.from; q.b.root.position.set(o.x + sp.x - I.sleigh.root.userData.x0, o.y, o.z + sp.z - I.sleigh.root.userData.z0); q.b.root.rotation.y = Math.PI; q.b.ch.animate(dt, { t, speed: 0, act: 'cheer' }); } continue; } q.b.root.visible = true;
+  for (const q of I.bots) { if (q.landed) continue; const k = (t - q.delay) / q.f.dur; if (k < 0) { if (I.sleigh) { q.b.root.visible = true; q.b.root.position.copy(q.f.from).add(I.sleigh.root.position).sub(I.sleigh.root.userData.sky); q.b.root.rotation.y = I.sleigh.root.rotation.y; q.b.ch.animate(dt, { t, speed: 0, ride: 'kart', rideSpeed: 10 }); } continue; } q.b.root.visible = true;
     if (q.crash) { moveBody(q.crash, dt); q.b.root.position.copy(q.b.pos); q.b.ch.animate(dt, { t, fly: true, vy: q.b.vel.y, flySpin: 7 }); if (q.crash.onGround) { q.landed = true; q.b.frozenIntro = false; q.b.ch.flySpin = 0; smokeRing(q.b.pos.x, q.b.pos.y + .05, q.b.pos.z, 5, { speed: 2.4, size: .1, grow: .5, life: .5, color: 0x9a90a6 }); sfx('land', { at: q.b.pos, v: .7 }); } continue; }
     if (k >= 1) { q.landed = true; q.b.frozenIntro = false; landArc(q.b, q.f, false); landRag(q.b, q.f); q.rag = { t: 0, body: { pos: q.b.pos, vel: q.b.vel, r: .35, h: 1.5, step: .3, onGround: false } }; continue; }
     const prev = q.b.pos.clone(); flyStep(q.b, q.f, k, dt, t); const hit = k > .04 && arrivalHit(q.b, prev);
     if (hit) { crashArrival(q.b, prev, hit, dt); q.crash = { pos: q.b.pos, vel: q.b.vel, r: .35, h: 1.5, step: .3, onGround: false }; } }
+  if (!I.landed && I.sleigh && t < I.delay) { P.pos.copy(f.from).add(I.sleigh.root.position).sub(I.sleigh.root.userData.sky); P.root.position.copy(P.pos); P.root.rotation.y = I.sleigh.root.rotation.y; P.ch.animate(dt, { t, speed: 0, ride: 'kart', rideSpeed: 10 }); const back = P.pos.clone().addScaledVector(I.sleigh.v, -.35); back.y += 3; cam.free = { p: back, l: P.pos.clone().addScaledVector(I.sleigh.v, .3) }; return; }
   if (!I.landed) {
     const k = Math.max(0, (t - I.delay) / f.dur);
     if (k < 1) { const prev = P.pos.clone(); flyStep(P, f, k, dt, t); const hit = k > .04 && arrivalHit(P, prev);

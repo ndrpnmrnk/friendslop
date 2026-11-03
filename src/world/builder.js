@@ -289,12 +289,17 @@ export class Builder {
   vitrine(x, z, w, h, axis = 'x', y = 0.4) { return breakBox(this.X(x), this.Y + y, this.Z(z), axis === 'x' ? w : 0.06, h, axis === 'x' ? 0.06 : w, 'glass', glassMat()); }
   // деревянный сарай: стены из досок, крыша падает, если выбить половину стен
   shed(x, z, w, d, h = 2.2) {
-    const wood = tmat(T.wood()), pieces = [];
-    const wall = (cx, cz, len, axis) => { const n = Math.max(2, Math.round(len / 0.7)); for (let i = 0; i < n; i++) { const o = -len / 2 + (i + 0.5) * len / n;
-      pieces.push(breakBox(this.X(axis === 'x' ? cx + o : cx), this.Y, this.Z(axis === 'x' ? cz : cz + o), axis === 'x' ? len / n - 0.02 : 0.12, h, axis === 'x' ? 0.12 : len / n - 0.02, 'wood', wood)); } };
-    wall(x + w / 2, z, w, 'x'); wall(x + w / 2, z + d, w, 'x'); wall(x, z + d / 2, d - 0.12, 'z'); wall(x + w, z + d / 2, d - 0.12, 'z');
+    // v0.71.1: сарайчик читается как домик - вертикальные доски двух тонов, дверь с рамой, угловые стойки, окошко, двускатная (ступенчатая) крыша со снегом
+    const wood = tmat(T.wood()), wood2 = tmat(T.wood(), { color: 0xb08a6a }), door = tmat(T.wood(), { color: 0x6a3a26 }), post = tmat(T.wood(), { color: 0x4a2e1c }), pieces = [];
+    const wall = (cx, cz, len, axis, front) => { const n = Math.max(2, Math.round(len / 0.7)); for (let i = 0; i < n; i++) { const o = -len / 2 + (i + 0.5) * len / n, mid = front && i === (n >> 1);
+      const p = breakBox(this.X(axis === 'x' ? cx + o : cx), this.Y, this.Z(axis === 'x' ? cz : cz + o), axis === 'x' ? len / n - 0.02 : 0.12, mid ? h - .3 : h, axis === 'x' ? 0.12 : len / n - 0.02, 'wood', mid ? door : i % 2 ? wood2 : wood); pieces.push(p); } };
+    wall(x + w / 2, z, w, 'x'); wall(x + w / 2, z + d, w, 'x', true); wall(x, z + d / 2, d - 0.12, 'z'); wall(x + w, z + d / 2, d - 0.12, 'z');
+    for (const [px, pz] of [[x, z], [x + w, z], [x, z + d], [x + w, z + d]]) pieces.push(breakBox(this.X(px), this.Y, this.Z(pz), .18, h + .05, .18, 'wood', post));
+    pieces.push(breakBox(this.X(x + w / 2), this.Y + h - .32, this.Z(z + d + .03), Math.min(1, w / 3) + .2, .1, .14, 'wood', post)); // перемычка над дверью
     const roof = breakBox(this.X(x + w / 2), this.Y + h, this.Z(z + d / 2), w + 0.4, 0.14, d + 0.4, 'wood', tmat(T.roof()));
-    let broken = 0; for (const p of pieces) p.onBreak = () => { broken++; if (broken > pieces.length * 0.4) breakPiece(roof, [0, -2, 0]); };
+    const ridge = breakBox(this.X(x + w / 2), this.Y + h + .14, this.Z(z + d / 2), w * .62, 0.16, d + 0.3, 'wood', tmat(T.roof()));
+    const top = breakBox(this.X(x + w / 2), this.Y + h + .3, this.Z(z + d / 2), w * .26, 0.12, d + 0.2, 'wood', tmat(T.roof()));
+    let broken = 0; for (const p of pieces) p.onBreak = () => { broken++; if (broken > pieces.length * 0.4) { breakPiece(roof, [0, -2, 0]); breakPiece(ridge, [0, -2, 0]); breakPiece(top, [0, -2, 0]); } };
     this.zone('inside', x + 0.5, z + 0.5, x + w - 0.5, z + d - 0.5);
   }
   // мостик-доска между крышами на высоте y (верх доски)

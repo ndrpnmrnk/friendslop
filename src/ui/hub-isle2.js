@@ -83,8 +83,8 @@ export function buildIsle2(b, group) {
   const placeFist = () => { if (!fist || fist.gone) { if (fistReadyIn() > 0) return; fist = spawnCoin(FP.x, FP.y, FP.z, false) || null; } };
   placeFist();
   // табло у старта
-  const board = boardTex(), boardM = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: board.t })); boardM.position.set(P0.x - 2.2, 2.2, P0.z + .2); boardM.scale.set(2.4, 1.5, 1); boardM.rotation.y = Math.PI * .12; g.add(boardM);
-  g.add(compose('isle2-boardframe', a => { a(G.box, dark, P0.x - 2.2, 2.2, P0.z + .15, 2.6, 1.7, .08, 0, Math.PI * .12, 0); for (const s of [-1, 1]) a(G.box, dark, P0.x - 2.2 + s * 1.15, .7, P0.z + .15 - s * .43, .1, 1.4, .1); }));
+  const board = boardTex(), boardM = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: board.t })); boardM.position.set(P0.x - 2.2, 2.2, P0.z + .2); boardM.scale.set(2.4, 1.5, 1); boardM.rotation.y = Math.PI * .12; /* v0.71.1: табло рекорда паркура убрано по просьбе автора */
+  if (false) g.add(compose('isle2-boardframe', a => { a(G.box, dark, P0.x - 2.2, 2.2, P0.z + .15, 2.6, 1.7, .08, 0, Math.PI * .12, 0); for (const s of [-1, 1]) a(G.box, dark, P0.x - 2.2 + s * 1.15, .7, P0.z + .15 - s * .43, .1, 1.4, .1); }));
   let best = 0; try { best = +localStorage.getItem('friendslop.parkourBest') || 0; } catch { }
   const run = { state: 'idle', t: 0, last: 0, prev: 0 }; let boardFist = -1;
   function drawBoard() { const q = board.c.getContext('2d'); q.fillStyle = '#17111f'; q.fillRect(0, 0, 256, 160); q.textAlign = 'center';

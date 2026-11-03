@@ -46,7 +46,7 @@ export function updateSnowTrails(dt, camera) {
     const gy = snowAt(p.x, p.z, p.y); if (gy === null || p.y - gy > .25) { s.d = 0; continue; }
     s.d += d; const ride = a.ride;
     if (ride && s.d > .3) { s.d = 0; const ang = Math.atan2(dx, dz); stamp(p.x, p.z, gy, ang, ride.kind === 'duck' ? 1.2 : ride.kind === 'kart' ? 1.1 : .32, .5, 18); continue; }
-    if (!ride && s.d > .45) { s.d = 0; s.foot = -s.foot; const ang = Math.atan2(dx, dz), ox = Math.cos(ang) * .12 * s.foot, oz = -Math.sin(ang) * .12 * s.foot; stamp(p.x + ox, p.z + oz, gy, ang); }
+    if (!ride && s.d > .45) { s.d = 0; s.foot = -s.foot; const ang = Math.atan2(dx, dz), ox = Math.cos(ang) * .12 * s.foot, oz = -Math.sin(ang) * .12 * s.foot; stamp(p.x + ox, p.z + oz, gy, ang + Math.PI); } /* v0.71.1: носок по ходу движения */
   }
   // заметание: раз в 4 кадра цвет каждого следа уходит к цвету снега; снегопад ускоряет
   if (++frame % 4) return; const now = performance.now() / 1000, k = 1 + (WX.snow ? WX.snow.state.density * 1.5 : 0);

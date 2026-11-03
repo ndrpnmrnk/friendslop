@@ -170,7 +170,7 @@ export function leaveHide(P) {
   for (const c of W.cats) { const q = c.root.position; if (Math.hypot(q.x - P.pos.x, q.z - P.pos.z) < 2.5) c.hit && c.hit(false, fx * 5, fz * 5); }
   scareBirds(P.pos.x, P.pos.z, 6);
 }
-export function registerInteracts() {
+export function registerInteracts() { W.sitBench = sitBench;
   // в уличной урне тоже можно спрятаться (после того как её обыскали); опрокинут урну — выкатишься рэгдоллом
   for (const b of W.pushables) if (b.kind === 'bin') W.hides.push({ get x() { return b.x; }, get y() { return b.y; }, get z() { return b.z; }, r: 1.0, kind: 'bin', out: [0, 1], pb: b });
   for (const h of W.hides) W.interacts.push({ get x() { return h.kind === 'wardrobe' ? h.x + h.out[0] * 0.8 : h.x; }, get z() { return h.kind === 'wardrobe' ? h.z + h.out[1] * 0.8 : h.z; }, get y() { return h.y; }, r: h.kind === 'wardrobe' ? 0.9 : h.r, dy: h.kind === 'bin' ? 1.5 : 0.9, get label() { return 'Спрятаться ' + ({ leaves: 'в листья', wardrobe: 'в шкаф', cinema:'в тёмном зале',bin: h.pb ? 'в урну' : 'в мусорный бак' }[h.kind] || ''); },
@@ -192,6 +192,6 @@ export function registerInteracts() {
           if (W.containerLoot && W.containerLoot(at)) c.gave = true;
           else if (random() < 0.35) { c.gave = true; const l = ['umbrella', 'extinguisher', 'ball', 'can', 'banana', 'rake', 'water'], it = addItem(l[(random() * l.length) | 0], at.x, at.y, at.z); it.noHitT = 0.6; launch(it, at.clone(), new V3(-Math.cos(c.ry) * 2, 3, Math.sin(c.ry) * 2)); } } } });
     W.animated.push(dt => { const want = c.open ? 1 : 0; c.lidK = (c.lidK || 0) + (want - (c.lidK || 0)) * Math.min(1, dt * 8); c.lid.rotation.z = -c.lidK * 1.3; }); }
-  for (const b of W.benches) W.interacts.push({ x: b.x + Math.sin(b.ry) * 0.6, z: b.z + Math.cos(b.ry) * 0.6, y: b.y, r: 1.1, self: true, label: 'Сесть на скамейку', enabled: P => !P.held && !P.holding && b.riders.length < (b.skel ? 1 : (b.seats?.length||2)), act: P => sitBench(P, b) });
+  for (const b of W.benches) if (!b.noInteract) W.interacts.push({ x: b.x + Math.sin(b.ry) * 0.6, z: b.z + Math.cos(b.ry) * 0.6, y: b.y, r: 1.1, self: true, label: 'Сесть на скамейку', enabled: P => !P.held && !P.holding && b.riders.length < (b.skel ? 1 : (b.seats?.length||2)), act: P => sitBench(P, b) });
   for (const s of W.swingSeats) W.interacts.push({ get x() { return s.pivot.position.x; }, get z() { return s.pivot.position.z; }, y: s.pivot.position.y - 2.46, r: 0.9, self: true, label: 'Сесть на качели', enabled: P => !s.rider && !P.held, act: P => sitSwing(P, s) });
 }
