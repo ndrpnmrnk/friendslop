@@ -36,7 +36,7 @@ const shadowPoint=new V3(),shadowRotation=new THREE.Quaternion(),flatShadow=new 
 export function groundBlob(p) {
   const support=p.ride?.solid,wasOn=support?.on;let g;
   try{if(support)support.on=false;g=groundAt(p.pos.x,p.pos.z,.1,p.pos.y+.05);}finally{if(support)support.on=wasOn;}
-  const h=Math.max(0,p.pos.y-g),k=Math.max(0,1-h/6),b=p.ch.blob;
+  const h=Math.max(0,p.pos.y-g),k=h>2.6||g<-50?0:Math.max(0,1-h/2.6)**.7,b=p.ch.blob;
   p.root.updateWorldMatrix(true,false);shadowPoint.set(p.pos.x,g+.03,p.pos.z);b.position.copy(p.root.worldToLocal(shadowPoint));
   p.root.getWorldQuaternion(shadowRotation);b.quaternion.copy(shadowRotation.invert()).multiply(flatShadow);
   b.scale.setScalar(p.ch.blobS*(.55+.45*k));b.material.opacity=.32*k;b.visible=k>.02;

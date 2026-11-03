@@ -6,6 +6,8 @@ import { T } from '../core/textures.js';
 import { SEASON, WINTER } from '../config.js';
 import { createSnowfall } from './snowfall.js';
 import { W } from './state.js';
+import { WL } from '../core/wl-uniforms.js';
+import { glow } from '../core/gfx.js';
 import { puff, ripple, burst } from './particles.js';
 import { scareBirds } from './birds.js';
 import { sfx, rainLoop } from '../core/sfx.js';
@@ -19,9 +21,10 @@ export const WX = { kind: 'clear', wet: 0, wind: { x: 1, z: 0, k: 0 }, gust: 0, 
 /* v0.70 зима: погода раунда случайна - снежный вечер, ясный лунный вечер или зимний день.
    palette - цвета неба/тумана/света; light - множитель освещения; nightK - насколько сгущается ночь за раунд. */
 export const WINTER_WEATHER = {
-  snow: { sky: [0x2a3150, 0x5a6684, 0x8c96b0], fog: 0x66708e, hemi: 0xc9d6ff, light: 1, nightK: .8, snow: 1 },
-  moon: { sky: [0x0f1430, 0x3a4670, 0x6a7aa8], fog: 0x485678, hemi: 0xbccbff, light: .92, nightK: 1, snow: 0 },
-  day:  { sky: [0x6f9ad0, 0xb8cce6, 0xe8eef6], fog: 0xc4d2e4, hemi: 0xffffff, light: 1.45, nightK: .25, snow: .45 },
+  // v0.71 J5: свет мягче и атмосфернее; sun - цвет «солнца/луны», glow - сила свечения ярких мест, lamps:false - днём фонари не горят
+  snow: { sky: [0x2a3150, 0x5a6684, 0x8c96b0], fog: 0x66708e, hemi: 0xc0ccf4, sun: 0xc8d4ff, light: .9, nightK: .8, snow: 1, glow: .85 },
+  moon: { sky: [0x0f1430, 0x3a4670, 0x6a7aa8], fog: 0x485678, hemi: 0xb0c0f4, sun: 0xb8c8ff, light: .86, nightK: 1, snow: 0, glow: 1 },
+  day:  { sky: [0x7aa0cc, 0xb6c6dc, 0xdfe4ec], fog: 0xbcc6d6, hemi: 0xd4def4, sun: 0xfff0dc, light: .86, nightK: .2, snow: 0, flakes: .16, glow: .45, lamps: false },
 };
 const N = 700;
 let rain = null, halos = [],haloBatch=null, gustT = 6, base = null;
@@ -32,7 +35,8 @@ export function startWeather(scene, kind) {
   WX.kind = kind || globalThis.__forceWeather || kinds[(random() * kinds.length) | 0];
   const wp = WINTER ? WINTER_WEATHER[WX.kind] || WINTER_WEATHER.snow : null;
   WX.palette = wp; WX.light = wp?.light ?? 1; WX.nightK = wp?.nightK ?? 1;
-  if (wp?.snow) { WX.snow = createSnowfall(scene, { density: wp.snow }); }
+  if (wp?.snow || wp?.flakes) { WX.snow = createSnowfall(scene, { density: wp.snow || wp.flakes, small: !wp.snow }); }
+  setLampsOff(wp?.lamps === false);
   WX.wet = WX.kind === 'rain' ? 1 : 0; const a = random() * 6.28; WX.wind = { x: Math.cos(a), z: Math.sin(a), k: WX.kind === 'wind' ? 1 : WX.kind === 'rain' ? 0.35 : 0.1 }; WX.gust = 0; gustT = 5;
   base = { near: SEASON.fog[1], far: SEASON.fog[2] };
   if (WX.kind === 'rain') {
@@ -47,9 +51,14 @@ export function startWeather(scene, kind) {
     for(const L of W.lamps){const p=haloBatch.spawn({x:L.lx,y:L.y+2.95,z:L.lz,color:0xffd8a0,life:Infinity,scale:3.2,alpha:.22});if(p)halos.push({p,L});}
   }
 }
+// v0.71 J8: днём фонари не горят - ни плафон, ни пятна света (world-light гасит источники kind:'lamp')
+function setLampsOff(off) {
+  WL.lampsOff = off; const g = glow(0xfff0c8); g.emissiveIntensity = off ? 0 : 0.9; g.color.setHex(off ? 0xb8bcc8 : 0xfff0c8);
+  for (const L of W.lamps || []) if (L.pool && !L.pool.userData.broken && !L.dead) L.pool.visible = !off;
+}
 export function stopWeather(scene) {
   if (rain) { scene.remove(rain); rain.geometry.dispose();rain.material.dispose();rain = null; }
-  haloBatch?.dispose();haloBatch=null;halos=[];WX.snow?.dispose();WX.snow=null;WX.palette=null;WX.light=1;WX.nightK=1;
+  haloBatch?.dispose();haloBatch=null;halos=[];WX.snow?.dispose();WX.snow=null;WX.palette=null;WX.light=1;WX.nightK=1;if(WL.lampsOff)setLampsOff(false);
   rainLoop(false); WX.kind = 'clear'; WX.wet = 0; WX.wind.k = 0;
 }
 

@@ -20,7 +20,8 @@ import { statsOf } from './score.js';
 import { arrest, hasPolice } from './police.js';
 import { vacuumFire } from './tools.js';
 import { sfx } from '../core/sfx.js';
-import { slamDoor } from './player.js';
+import { slamDoor, groundBlob } from './player.js';
+import { bowlAt } from '../world/skate-bowl.js';
 import { hitBreakables } from '../world/breakables.js';
 import { voice } from './voice.js';
 import { buildingAt, floorAt, routeTo } from '../missions/location.js';
@@ -270,6 +271,12 @@ export function updateBots(dt, t, P) {
     // застрял — шаг в сторону
     b.stuck = Math.hypot(b.pos.x - b.last.x, b.pos.z - b.last.z) < dt * 0.8 && Math.abs(b.pos.y - b.last.y) < dt * 0.6 && (ix || iz) ? b.stuck + dt : 0; b.last.copy(b.pos);
     if (b.stuck > 0.7 && !b.stairRoute && b.onGround && !b.heldBy && !b.stepDown) { b.vel.y = PC.jump; b.onGround = false; if (b.stuck > 1.4) { const a = random() * 6.28; b.dodge = { x: Math.cos(a), z: Math.sin(a), t: 0.9 }; b.stuck = 0; b.nav=null;b.navCD=0;b.failures=(b.failures||0)+1;if(b.failures>=3){if(b.goal?.m)b.avoid={m:b.goal.m,left:12};b.goal=null;b.think=0;b.stairRoute=null;b.failures=0;} b.ladder = null; b.ladderDn = null; } }
+    // v0.71 J7: чаша скейт-парка - если бот пешком ходит в ней дольше 2.5 с, а цель снаружи, он с разбега взбегает по стенке; после 7 с - выход на край
+    { const bw=W.skateBowl,c=bw&&!b.ride&&!b.heldBy?bowlAt(bw,b.pos.x,b.pos.z):null,gIn=b.goal&&Math.hypot(b.goal.x-bw?.x,b.goal.z-bw?.z)<bw?.rimRadius;
+      if(c&&c.r<bw.rimRadius-.25&&!gIn){b.bowlT=(b.bowlT||0)+dt;
+        if(b.bowlT>2.5&&b.onGround&&c.onWall){b.vel.x=c.nx*6.5;b.vel.z=c.nz*6.5;b.vel.y=Math.max(b.vel.y,PC.jump*1.15);b.onGround=false;b.nav=null;b.dodge=null;}
+        if(b.bowlT>7){const r=bw.rimRadius+.8;b.pos.set(bw.x+c.nx*r,bw.baseY+.05,bw.z+c.nz*r);b.vel.set(0,0,0);b.bowlT=0;b.nav=null;}}
+      else b.bowlT=0; }
     // движение
     if(b.work?.game.botSpeed)run*=b.work.game.botSpeed;
     const wading=zoneAt(b.pos.x,b.pos.z,b.pos.y,'wading');
@@ -312,7 +319,7 @@ function progBar(b) {
   B.sp.position.y = (b.ch.d.top || 1.8) + 0.45; const k = Math.round(Math.max(0,Math.min(1,b.work?.m.progress||0))*30); if (k === B.k) return; B.k = k;
   const g = B.g; g.fillStyle = '#17111f'; g.fillRect(0, 0, 34, 8); g.fillStyle = '#3a3046'; g.fillRect(2, 2, 30, 4); g.fillStyle = '#f5c542'; g.fillRect(2, 2, k, 4); B.tex.needsUpdate = true;
 }
-function blob(b) { const gb = b.ch.blob; if (!gb) return; const g = groundAt(b.pos.x, b.pos.z, 0.1, b.pos.y + 0.05), h = Math.max(0, b.pos.y - g), kk = Math.max(0, 1 - h / 6); gb.position.y = g - b.pos.y + 0.03; gb.scale.setScalar(b.ch.blobS * (0.55 + 0.45 * kk)); gb.material.opacity = 0.32 * kk; }
+function blob(b) { if (b.ch.blob) groundBlob(b); } // v0.71 J5: общая тень с игроком - только на земле, в повороте корпуса не висит в воздухе
 
 // выбор цели по характеру
 function decide(b, P) {

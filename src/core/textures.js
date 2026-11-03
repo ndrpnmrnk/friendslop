@@ -271,14 +271,15 @@ export const T = {
     if (coat.patches) for (let i = 0; i < 9; i++) { g.fillStyle = coat.patches[i % coat.patches.length]; g.beginPath(); g.ellipse(R() * W, R() * H, W * (0.12 + R() * 0.16), H * (0.1 + R() * 0.14), R() * 3, 0, 7); g.fill(); }
     blobs(g, W, H, [coat.light, coat.dark], 40, 10, 30, 0.25);
     if (coat.stripes) { g.globalAlpha = 0.55; g.fillStyle = coat.dark; for (let x = 0; x < W; x += W / 5) { g.beginPath(); for (let y = 0; y <= H; y += 8) g.lineTo(x + Math.sin(y * 0.06) * 12, y); for (let y = H; y >= 0; y -= 8) g.lineTo(x + 14 + Math.sin(y * 0.06) * 12, y); g.fill(); } g.globalAlpha = 1; }
-    strokes(g, W, H, [coat.light, coat.dark, coat.base], 900, 10, Math.PI / 2, 0.6, 2, 0.5);
-    grain(g, W, H, 14);
+    // v0.71 J6: мех спокойнее - крупные пряди без мелкого шума (мелкая рябь мерцала на 32 px при движении)
+    strokes(g, W, H, [coat.light, coat.dark, coat.base], 240, 14, Math.PI / 2, 1.4, 3, 0.35);
+    grain(g, W, H, 5);
   }),
   catFace: (coat, expr = 'open') => photo('cf' + coat.name + expr, 48, 40, (g, W, H) => {
     fill(g, W, H, coat.base);
     g.fillStyle = radial(g, W / 2, H * 0.45, W * 0.55, coat.light, coat.base); g.fillRect(0, 0, W, H);
     if (coat.stripes) { g.globalAlpha = 0.5; g.strokeStyle = coat.dark; g.lineWidth = W * 0.025; for (const dx of [-0.08, 0, 0.08]) { g.beginPath(); g.moveTo(W * (0.5 + dx), H * 0.05); g.lineTo(W * (0.5 + dx * 0.6), H * 0.28); g.stroke(); } g.globalAlpha = 1; }
-    strokes(g, W, H, [coat.light, coat.dark], 500, 12, Math.PI / 2, 1.2, 2, 0.35);
+    strokes(g, W, H, [coat.light, coat.dark], 160, 14, Math.PI / 2, 1.6, 3, 0.3);
     // сиамская «маска» вокруг носа и глаз
     if (coat.points) { g.fillStyle = radial(g, W / 2, H * 0.62, W * 0.36, coat.points, 'rgba(0,0,0,0)'); g.fillRect(0, 0, W, H); }
     if (coat.patches) { g.fillStyle = coat.patches[0]; g.beginPath(); g.ellipse(W * 0.25, H * 0.25, W * 0.22, H * 0.25, 0.4, 0, 7); g.fill(); g.fillStyle = coat.patches[1]; g.beginPath(); g.ellipse(W * 0.78, H * 0.2, W * 0.2, H * 0.22, -0.4, 0, 7); g.fill(); }
@@ -732,6 +733,13 @@ if (WINTER) {
   });
   T.leafLitter = () => pix('snowClumps70', 32, 32, (g, W, H) => { g.clearRect(0, 0, W, H); for (let i = 0; i < 60; i++) { const x = R() * W, y = R() * H; if (Math.hypot(x - W / 2, y - H / 2) > W * 0.46) continue; g.fillStyle = ['#eef2f9', '#dfe6f2', '#c9d3e6'][(R() * 3) | 0]; g.fillRect(x | 0, y | 0, 2, 2); } });
   T.bush = () => photo('bushW70', 32, 32, (g, W, H) => { fill(g, W, H, '#16302a'); blobs(g, W, H, ['#22463a', '#2e5a46', '#183a2e'], 260, 3, 9, 0.85); blobs(g, W, H, ['#eef2f9', '#dfe6f2'], 60, 2, 6, 0.9); grain(g, W, H, 14); });
+  // v0.71 J6: на дорожках, асфальте и плитке - лёгкая снежная пыль (меньше, чем на газонах): крупинки и тонкие наносы в швах
+  for (const k of ['asphalt', 'pave', 'cobble', 'flag', 'pathStone', 'concrete', 'court']) { const o = T[k]; T[k] = (...a) => { const t = o(...a);
+    if (t?.image?.getContext && !t.userData.snow71) { t.userData.snow71 = 1; const g = t.image.getContext('2d'), w = t.image.width, h = t.image.height; let q = 0x9e37 + k.length * 977;
+      const rr = () => ((q = (q * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < w * h * .1; i++) { const x = (rr() * w) | 0, y = (rr() * h) | 0, n = rr() < .25 ? 2 : 1; g.fillStyle = `rgba(${226 + (rr() * 20) | 0},${232 + (rr() * 16) | 0},244,${.35 + rr() * .35})`; g.fillRect(x, y, n, 1); }
+      for (let i = 0; i < 10; i++) { const x = rr() * w, y = rr() * h; g.fillStyle = 'rgba(222,229,240,.32)'; g.beginPath(); g.ellipse(x, y, 3 + rr() * 6, 1.5 + rr() * 3, rr() * 3, 0, 7); g.fill(); }
+      t.needsUpdate = true; } return t; }; }
   { const roof0 = T.roof; T.roof = (...a) => photo('roofW70' + (a[0] ?? ''), 64, 64, (g, W, H) => { const src = roof0(...a).image; if (src) g.drawImage(src, 0, 0, W, H);
     // снег лежит полосами вдоль рядов черепицы, кое-где просвечивает крыша
     for (let y = 0; y < H; y += 4) { g.fillStyle = `rgba(236,241,249,${0.72 + R() * 0.2})`; g.fillRect(0, y, W, 3); }

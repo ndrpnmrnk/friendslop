@@ -774,6 +774,13 @@ body.cine #hubUI,body.cine #hubPrompt,body.cine #hubHeld{opacity:0;pointer-event
 #profileCard .pcGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:10px}#profileCard .pcGrid span{display:flex;flex-direction:column;gap:3px;padding:6px;background:rgba(0,0,0,.25)}#profileCard .pcGrid b{font-size:14px;font-weight:400;color:#f1e8ff}
 @keyframes pcIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 #menu:not(.in-hub) #profileCard,#menu.clawing #profileCard{display:none}
-#podcards .aw.mini{padding:4px 7px}#podcards .aw.mini .at,#podcards .aw.mini .sb{display:none}#podcards .aw.mini .nm{font-size:10px}#podcards .aw.mini .pl{font-size:12px}
+#podcards .aw.mini{padding:4px 7px;min-width:0;max-width:112px}#podcards .aw.mini .at,#podcards .aw.mini .sb{display:none}#podcards .aw.mini .nm{font-size:10px}#podcards .aw.mini .pl{font-size:12px}
 #hubToast{position:fixed;left:50%;top:22%;transform:translateX(-50%);padding:10px 18px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);font:14px var(--px);color:#ffd27a;opacity:0;pointer-events:none;z-index:30}
 #hubToast.on{animation:hubToast 2.8s forwards}@keyframes hubToast{0%{opacity:0;transform:translate(-50%,10px)}10%{opacity:1;transform:translate(-50%,0)}80%{opacity:1}100%{opacity:0}}
+
+/* v0.71 J7: карточки итогов - зимняя тёмно-синяя плашка, не перекрываются (мини для 4-8 мест) */
+#podcards .aw{background:linear-gradient(#1c2744,#121a30);box-shadow:inset 0 0 0 2px #3a4a78,0 3px 0 #070a14}
+#podcards .aw.me{box-shadow:inset 0 0 0 2px var(--pumpkin),0 3px 0 #070a14}
+#podcards .aw.champ{background:linear-gradient(#3a2a10,#17111f);box-shadow:inset 0 0 0 3px var(--gold),0 0 0 3px var(--night)}
+#podcards .aw:not(.mini){min-width:140px;max-width:150px}
+#podcards .aw.champ{min-width:160px;max-width:170px}

@@ -1,3 +1,4 @@
+import { WL } from '../core/wl-uniforms.js';
 import { random } from '../core/random.js';
 import { THREE } from '../core/gfx.js';
 import { pix, T } from '../core/textures.js';
@@ -62,7 +63,7 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
   const dayStars = { v: 1 };
   return {
     setPalette(p) { if (!p) return; top.setHex(p.sky[0]); mid.setHex(p.sky[1]); low.setHex(p.sky[2]); paint(); dome.attributes.color.array.set(col); dome.attributes.color.needsUpdate = true;
-      baseHemi.setHex(p.hemi); baseFog.setHex(p.fog); dayStars.v = p.light > 1.2 ? 0 : 1; moon.visible = halo.visible = p.light <= 1.2; },
+      baseHemi.setHex(p.hemi); baseFog.setHex(p.fog); dayStars.v = p.lamps === false ? 0 : 1; moon.visible = halo.visible = p.lamps !== false; },
     moonDir: () => moon.position.clone().normalize(),
     setNight(k) { night = k; const m2 = md0.clone(); m2.y += k * 55; m2.normalize().multiplyScalar(170); moon.position.copy(m2); halo.position.copy(m2).multiplyScalar(1.01); },
     update(camera, t, dt, player, hemi, fog) {
@@ -76,7 +77,7 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
         f.t -= dt; if (f.t <= 0) { f.on = !f.on; f.t = f.period ? f.period : f.on ? (random() < 0.3 ? 0.08 : 1 + random() * 5) : 0.04 + random() * 0.18; }
         const k = f.on ? 1 : (f.sign ? 0.3 : f.period ? 0.15 : 0.08);
         for (const m of f.mats) { if (m.emissive) m.emissiveIntensity = 0.9 * k; else m.color.setScalar(k); }
-        if (f.pool) f.pool.visible = f.on && !f.pool.userData.broken;
+        if (f.pool) { if (WL.lampsOff) { for (const m of f.mats) { if (m.emissive) m.emissiveIntensity = 0; } f.pool.visible = false; } else f.pool.visible = f.on && !f.pool.userData.broken; }
       }
       if (!player || !hemi) return;
       let id = null; for (const d of W.districts) if (player.pos.x >= d.ox && player.pos.x < d.x1 && player.pos.z >= d.oz && player.pos.z < d.z1) { id = d.id; break; }

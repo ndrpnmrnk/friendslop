@@ -4,9 +4,13 @@ import {drawIngredient} from './perfume-icons.js';
 
 export const PERFUME_INGREDIENTS=[['РОЗА',0xd16b8d],['МЯТА',0x77ba8b],['ВАНИЛЬ',0xe2c681],['КЕДР',0x92724a],['ЛИМОН',0xe9d354],['ЛАВАНДА',0xa489cb],['МОХ',0x6b8460],['ЯНТАРЬ',0xc58649]];
 export const ingredientPosition=i=>[-.89+(i%3)*.37,1.47+Math.floor(i/3)*.48,-.17];
-function label(name){return pix('perfume-label47-'+name,96,48,c=>{
-  c.fillStyle='#d9c8a5';c.fillRect(0,0,96,48);c.strokeStyle='#8a714d';c.strokeRect(1.5,1.5,93,45);
-  drawIngredient(c,name,4,4,30);c.fillStyle='#44362d';c.font='bold 11px sans-serif';c.textAlign='center';c.fillText(name,61,27,57);
+// v0.71 J7: аккуратная этикетка - бумага со скруглением, полоса цвета ингредиента, латунная двойная рамка, крупная иконка
+function label(name,color=0x888888){return pix('perfume-label71-'+name,96,48,c=>{
+  const hex='#'+color.toString(16).padStart(6,'0');c.clearRect(0,0,96,48);
+  c.fillStyle='#7a6142';c.beginPath();c.roundRect(0,0,96,48,6);c.fill();c.fillStyle='#efe2c4';c.beginPath();c.roundRect(2,2,92,44,5);c.fill();
+  c.fillStyle=hex;c.fillRect(2,2,92,7);c.fillStyle='rgba(0,0,0,.18)';c.fillRect(2,9,92,1);
+  c.strokeStyle='#b69a62';c.lineWidth=1;c.strokeRect(4.5,11.5,87,32);
+  drawIngredient(c,name,7,13,28);c.fillStyle='#3a2c24';c.font='bold 12px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(name.toUpperCase(),63,28,54);
 });}
 export function ingredientBottle(name,color,i){
   const b=new THREE.Group();b.name='perfume-ingredient-'+i;b.userData.ingredient=i;b.position.set(...ingredientPosition(i));
@@ -15,7 +19,7 @@ export function ingredientBottle(name,color,i){
     a(G.cyl8,glass,0,0,0,.115,.32,.10);a(G.cyl8,glass,0,.18,0,.054,.06,.052);
     a(G.cyl8,brass,0,.225,0,.065,.035,.062);a(G.cyl8,dark,0,.26,0,.055,.04,.052);
     a(G.cyl8,col(color),0,-.055,0,.089,.16,.078);
-    a(G.box,tmat(label(name)),0,-.01,.102,.29,.145,.012);
+    a(G.box,tmat(label(name,color)),0,-.01,.102,.29,.145,.012);
   }));return b;
 }
 export function perfumeCabinet(){

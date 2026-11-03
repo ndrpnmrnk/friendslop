@@ -223,7 +223,7 @@ export const HW = CONFIG.season === 'halloween';
 export const WINTER = CONFIG.season === 'winter';
 export const SEASON = WINTER
   // v0.70: зимний вечер - холодный читаемый свет, тёплые окна и гирлянды; день и лунная ночь - в погоде раунда
-  ? { bg: 0x46506e, fog: [0x56607e, 55, 150], hemi: [0xc9d6ff, 0x3a3852, 0.92], sun: [0xe2ebff, 0.95], lit: '#ffc27a', lamp: 0xffc27a }
+  ? { bg: 0x46506e, fog: [0x56607e, 55, 150], hemi: [0xb4c2e8, 0x342e48, 0.78], sun: [0xd6e0ff, 0.84], lit: '#ffc27a', lamp: 0xffc27a }
   : HW
   // v0.19: свет луны — холодный, сильнее, рассеянный ниже: тени от объектов на улице читаются чётче
   ? { bg: 0x302735, fog: [0x38303b, 50, 145], hemi: [0xb9b1c6, 0x302333, 0.76], sun: [0xd3d8ec, 0.90], lit: '#ffa94d', lamp: 0xffb35c }

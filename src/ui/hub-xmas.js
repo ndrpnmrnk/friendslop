@@ -85,19 +85,7 @@ export function buildWheel(group, x, z, ry, toast) {
     if (k >= 1) { const i = spin.idx; spin = null; reward(i); } } };
 }
 
-// снеговик, которого можно сбить броском: падает набок, рассыпается снегом и через 20 с лепится заново
-export function buildSnowman(group, x, z, ry = 0) {
-  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; group.add(g); W.keep.push(g);
-  const w = lam({ color: 0xf2f6ff, emissive: 0x3a4660, emissiveIntensity: .22 }, 'snowman70'), dk = col(0x17111f);
-  g.add(compose('hubSnowman70', a => { a(G.sph10, w, 0, .45, 0, .55, .5, .55); a(G.sph10, w, 0, 1.15, 0, .4, .37, .4); a(G.sph10, w, 0, 1.68, 0, .28, .27, .28);
-    a(G.cyl8, col(0x5a6a7a), 0, 2.02, 0, .2, .22, .2); a(G.torus, col(0xd8243a), 0, 1.42, 0, .3, .3, .4, Math.PI / 2, 0, 0); a(G.cone4, col(0xff8a1f), 0, 1.66, .34, .05, .25, .05, Math.PI / 2, 0, 0);
-    for (const s of [-1, 1]) { a(G.sph, dk, s * .1, 1.76, .25, .04, .04, .03); a(G.box, tmat(T.bark()), s * .62, 1.25, 0, .5, .05, .05, 0, 0, s * .45); } }));
-  const st = { down: 0, t: 0 }; (W.snowmen ??= []).push({ x, z, g, st });
-  addSolid(x - .45, z - .45, x + .45, z + .45, 0, 1.7);
-}
-export function hitSnowmen(p, power, vel) { for (const m of W.snowmen || []) if (!m.st.down && power > 1 && Math.hypot(m.x - p.x, m.z - p.z) < .9 && p.y < 2.3) { m.st.down = 1; m.st.t = 0; m.st.dir = Math.atan2(vel?.x || 1, vel?.z || 0); sfx('snowHit'); } }
-export function updateSnowmen(dt) { for (const m of W.snowmen || []) { const s = m.st; if (!s.down) continue; s.t += dt;
-  if (s.t < .5) { m.g.rotation.set(0, s.dir, 0); m.g.rotateX(Math.min(1.45, s.t * 3.2)); }
-  else if (s.t < 20) { m.g.visible = s.t < 2.5; if (s.t > 2 && s.t < 2.5) m.g.scale.setScalar(1 - (s.t - 2) * 2); }
-  else if (s.t < 21) { m.g.visible = true; m.g.rotation.set(0, 0, 0); m.g.scale.setScalar(Math.min(1, s.t - 20)); }
-  else { s.down = 0; m.g.scale.setScalar(1); } } }
+// v0.71: снеговик - общий модуль world/snowman.js (распадается на части)
+import { buildSnowman as bs, hitSnowmen, updateSnowmen } from '../world/snowman.js';
+export { hitSnowmen, updateSnowmen };
+export const buildSnowman = (group, x, z, ry = 0) => bs(group, x, 0, z, ry);

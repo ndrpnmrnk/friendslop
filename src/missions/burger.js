@@ -2,6 +2,7 @@ import {THREE,G,V3,mesh,col,tmat,compose,glow} from '../core/gfx.js';
 import {T} from '../core/textures.js';
 import {W} from '../world/state.js';
 import {sfx} from '../core/sfx.js';
+import {puff} from '../world/particles.js';
 import {addOutline} from '../game/outline.js';
 import {photoCard} from './photo-card.js';
 import {BURGER_LAYERS,BURGER_HEIGHTS,burgerLayer,burgerSample,disposeBurger} from './burger-model.js';
@@ -14,17 +15,26 @@ export function burgerGame(o,api,ctx){
  const homes=[new V3(.23,.058,.23),new V3(.62,.058,-.23),new V3(1.02,.058,.23),new V3(1.02,.058,-.23),new V3(.23,.058,-.23)];
  const parts=BURGER_LAYERS.map((kind,i)=>{const p=burgerLayer(kind,kind==='patty');p.position.copy(homes[i]);root.add(p);return p;}),patty=parts[1],sides=patty.sides,outlines=parts.map(p=>addOutline(p,.008));
  const sample=ctx?.bot?null:burgerSample(),photo=sample?photoCard(sample,{title:'СОБЕРИ БУРГЕР',width:160,height:160,supersample:4,steps:5,background:0x77654e,view:[.45,.65,1]}):null;
- const canvas=document.createElement('canvas');canvas.width=256;canvas.height=48;const tex=new THREE.CanvasTexture(canvas);tex.magFilter=tex.minFilter=THREE.NearestFilter;const mat=new THREE.SpriteMaterial({map:tex,depthTest:true}),cue=new THREE.Sprite(mat);cue.position.set(-.85,.40,0);cue.scale.set(.82,.15,1);root.add(cue);let old='';
- function label(text){if(text===old)return;old=text;const c=canvas.getContext('2d');c.clearRect(0,0,256,48);c.fillStyle='#28232de6';c.fillRect(0,0,256,48);c.font='bold 23px monospace';c.textAlign='center';c.fillStyle='#f0d4a3';c.fillText(text,128,32);tex.needsUpdate=true;}
- let phase='raw',side=0,times=[0,0],layer=0,end=0,flip=0,motion=null,age=0,stopped=false;
- const messages=['Нижняя булочка','Готовая котлета','Сыр','Салат','Верхняя булочка'],raw=new THREE.Color(0xe5a1a0),cooked=new THREE.Color(0x79513a);
+ // v0.71 J7: вместо надписей - иконка-таймер над грилем в стиле игры: кольцо прожарки, огонь, «перевернуть», галочка, «горит»
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=64;const tex=new THREE.CanvasTexture(canvas);tex.magFilter=tex.minFilter=THREE.NearestFilter;const mat=new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}),cue=new THREE.Sprite(mat);cue.renderOrder=5;cue.position.set(-.85,.42,0);cue.scale.set(.24,.24,1);root.add(cue);let old='';
+ function label(kind,k=0){const key=kind+(k*20|0);if(key===old)return;old=key;cue.visible=!!kind;if(!kind)return;const c=canvas.getContext('2d');c.clearRect(0,0,64,64);
+  c.fillStyle='#28232de6';c.beginPath();c.arc(32,32,28,0,7);c.fill();c.lineWidth=6;c.strokeStyle='#4a4250';c.beginPath();c.arc(32,32,24,0,7);c.stroke();
+  const ring={cook:'#f5c542',flip:'#9be36b',take:'#9be36b',burn:'#ff5a3a',grill:'#f0d4a3',done:'#9be36b'}[kind];c.strokeStyle=ring;c.beginPath();c.arc(32,32,24,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,k));c.stroke();
+  c.fillStyle=ring;c.strokeStyle=ring;c.lineWidth=4;
+  if(kind==='cook'||kind==='burn'){for(const[x,h]of[[22,14],[32,20],[42,14]]){c.beginPath();c.moveTo(x-5,44);c.quadraticCurveTo(x-6,44-h*.6,x,44-h);c.quadraticCurveTo(x+6,44-h*.6,x+5,44);c.fill();}}
+  else if(kind==='flip'){c.beginPath();c.arc(32,32,11,Math.PI*1.1,Math.PI*1.9);c.stroke();c.beginPath();c.moveTo(43,25);c.lineTo(44,33);c.lineTo(36,30);c.fill();c.beginPath();c.arc(32,32,11,Math.PI*.1,Math.PI*.9);c.stroke();c.beginPath();c.moveTo(21,39);c.lineTo(20,31);c.lineTo(28,34);c.fill();}
+  else if(kind==='take'||kind==='done'){c.beginPath();c.moveTo(20,33);c.lineTo(29,42);c.lineTo(45,22);c.stroke();}
+  else if(kind==='grill'){c.beginPath();c.moveTo(32,16);c.lineTo(32,40);c.stroke();c.beginPath();c.moveTo(22,32);c.lineTo(32,44);c.lineTo(42,32);c.fill();}
+  tex.needsUpdate=true;}
+ let phase='raw',side=0,times=[0,0],layer=0,end=0,flip=0,motion=null,age=0,stopped=false,bump=0,shake=0,smokeT=0;
+ const raw=new THREE.Color(0xe5a1a0),cooked=new THREE.Color(0x79513a);
  function move(p,to,done,straighten=false){motion={p,from:p.position.clone(),to:to.clone(),t:0,done,angle:p.rotation.x,straighten};}
- function reset(){parts.forEach((p,i)=>{p.position.copy(homes[i]);p.rotation.set(0,0,0);});phase='raw';side=0;times=[0,0];layer=0;flip=0;motion=null;sides.forEach(p=>p.material.color.copy(raw));api.progress(0);api.msg('Котлету на гриль - ЛКМ. Собери один бургер по фото');}
+ function reset(){parts.forEach((p,i)=>{p.position.copy(homes[i]);p.rotation.set(0,0,0);});phase='raw';side=0;times=[0,0];layer=0;flip=0;motion=null;sides.forEach(p=>p.material.color.copy(raw));api.progress(0);api.msg('Собери бургер как на фото');}
  function click(index){if(end>0||motion||flip>0)return;
   if(phase==='raw'){if(index!==1)return;move(patty,new V3(-.85,.135,0),()=>{phase='cook';sfx('hiss');});return;}
-  if(phase==='cook'){if(index!==1)return;if(times[side]<3){api.msg('Пока сырая - дождись подсказки');return;}if(side===0){side=1;flip=.45;sfx('hiss');}else{phase='stack';label('ОБЕ СТОРОНЫ ГОТОВЫ');api.msg('Собери снизу вверх: булочка, котлета, сыр, салат, булочка');}return;}
-  if(index!==layer){api.msg('Следующий слой: '+messages[layer]);return;}
-  const y=.058+BURGER_HEIGHTS.slice(0,layer).reduce((a,b)=>a+b,0);move(parts[index],new V3(.62,y,.06),()=>{layer++;api.progress(layer/5);sfx('pickup');if(layer===5){end=.9;label('БУРГЕР ГОТОВ');api.msg('Бургер собран!','good');sfx('done');}},index===1);
+  if(phase==='cook'){if(index!==1)return;if(times[side]<3){sfx('hiss');bump=.25;return;}if(side===0){side=1;flip=.45;sfx('hiss');}else{phase='stack';label(null);sfx('points');}return;}
+  if(index!==layer){sfx('click');shake=.3;return;}
+  const y=.058+BURGER_HEIGHTS.slice(0,layer).reduce((a,b)=>a+b,0);move(parts[index],new V3(.62,y,.06),()=>{layer++;api.progress(layer/5);sfx('pickup');if(layer===5){end=.9;label('done',1);sfx('done');}},index===1);
  }
  reset();const checked=()=>BURGER_LAYERS.map((_,i)=>i<layer);
  return{root,parts,homes,photo,get phase(){return phase;},get layer(){return layer;},
@@ -35,9 +45,13 @@ export function burgerGame(o,api,ctx){
    if(end>0){end-=dt;if(end<=0)api.finish({success:true,mult:1});return;}
    if(motion){const m=motion;m.t+=dt;const k=Math.min(1,m.t/.3);m.p.position.lerpVectors(m.from,m.to,k*k*(3-2*k));m.p.position.y+=Math.sin(k*Math.PI)*.10;if(m.straighten)m.p.rotation.x=m.angle*(1-k);if(k===1){motion=null;m.done();}return;}
    if(phase==='cook'){if(flip>0){flip=Math.max(0,flip-dt);const k=1-flip/.45;patty.rotation.x=k*Math.PI;patty.position.y=.135+.04*k+Math.sin(k*Math.PI)*.12;}else times[side]+=dt;
-    sides[0].material.color.copy(raw).lerp(cooked,Math.min(1,times[0]/3));sides[1].material.color.copy(raw).lerp(cooked,Math.min(1,times[1]/3));label(times[side]>=3?(side?'СНЯТЬ':'ПЕРЕВЕРНУТЬ'):'ЖАРИТСЯ');
-    if(times[side]>7){api.msg('Сгорела! Возьми новую котлету','bad');reset();}
-   }else if(phase==='raw')label('КОТЛЕТУ НА ГРИЛЬ');
+    sides[0].material.color.copy(raw).lerp(cooked,Math.min(1,times[0]/3));sides[1].material.color.copy(raw).lerp(cooked,Math.min(1,times[1]/3));const ts=times[side];label(ts>=5?'burn':ts>=3?(side?'take':'flip'):'cook',ts>=3?1-(ts-3)/4:ts/3);
+    cue.position.y=.42+(ts>=3?Math.abs(Math.sin(age*6))*.04:0)+(bump>0?Math.sin(bump*40)*.015:0);bump=Math.max(0,bump-dt);
+    // дым: светлый, пока жарится; густой и тёмный, когда подгорает
+    smokeT-=dt;if(smokeT<=0&&flip<=0){smokeT=ts>=5?.08:.3;const p=patty.getWorldPosition(new V3());puff(p.x+(Math.random()-.5)*.1,p.y+.05,p.z+(Math.random()-.5)*.1,{color:ts>=5?0x3a3438:0xdad4dc,size:ts>=5?.16:.09,vy:.6,life:.8,opacity:ts>=5?.7:.35});}
+    if(ts>7){sfx('hiss');label('burn',0);reset();}
+   }else if(phase==='raw'){label('grill',1);cue.position.y=.42+Math.abs(Math.sin(age*4))*.04;}
+   if(phase==='stack'&&parts[layer]){shake=Math.max(0,shake-dt);parts[layer].rotation.z=Math.sin(shake*50)*.5*shake;} // неверный слой - нужный продукт покачивается
   },
   stop(){if(stopped)return;stopped=true;outlines.forEach(o=>o.set(false));photo?.dispose();if(sample)disposeBurger(sample);parts.forEach(disposeBurger);root.removeFromParent();tex.dispose();mat.dispose();}
  };

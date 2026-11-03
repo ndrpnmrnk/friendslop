@@ -18,6 +18,7 @@ export function cargoPosition(a, out = new V3(), radius = 0.2) {
 export function toolHand(ctx, object, x=0, y=0, z=0) {
   object.traverse(o=>o.userData.noOcc=true);
   if(!ctx?.character || ctx.bot)return;
+  (globalThis.__mgHands ??= new Set()).add(object); // v0.71 J7: рука мини-игры не улетает за кадр (main.js clampMgHands)
   const h=ctx.character.handR.clone(true);h.position.set(x,y,z);h.rotation.set(0,0,0);h.scale.setScalar(0.85);object.add(h);
 }
 

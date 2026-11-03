@@ -3,7 +3,7 @@ import {updateVfx,resetVfx,impactBurst,sparks as vfxSparks} from '../game/vfx.js
 import {createLocalLighting} from '../world/scene-lighting.js';
 import {updateActionEffects} from '../world/action-fx.js';
 import {characterFade} from '../core/model-fade.js';
-import {THREE,V3,G,sprite,makeCamera} from '../core/gfx.js';
+import {THREE,V3,G,sprite,makeCamera,renderer} from '../core/gfx.js';
 import {makeCharacter} from '../characters/rig.js';
 import {SKINS,SKIN_IDS} from '../characters/skins.js';
 import {takeLook,locked,requestLock,unlock,on,mouse,tapped,aim} from '../core/input.js';
@@ -88,7 +88,10 @@ export function createMenu(){
     }
   }
   function mode(name){st.mode=name;clearThrow();st.choosing=name==='wardrobe';$('menu').classList.toggle('in-hub',name!=='splash');$('menu').classList.toggle('choosing',st.choosing);$('hubUI').classList.toggle('hidden',!['roam','transition'].includes(name));$('skinLock').classList.add('hidden');if(name!=='roam'){st.velocity.set(0,0,0);takeLook();}if(name!=='roam'&&name!=='transition')unlock();}
-  function refreshSkin(){const id=collectionOrder()[st.idx]||collection().selected;character(id,!owns(id));st.ch.root.position.copy(world.wardrobe.preview);st.ch.root.rotation.y=world.wardrobe.outYaw;st.player.facing=world.wardrobe.outYaw;$('skinName').textContent=SKINS[id].name;$('skinDone').disabled=!owns(id);$('skinLock').classList.toggle('hidden',owns(id));}
+  // v0.71 J7: соседние скины готовим заранее (модель + шейдеры), чтобы листание в гардеробе не фризило
+  let preT=0;function preloadAround(){clearTimeout(preT);const order=collectionOrder(),L=order.length;const q=[1,-1,2,-2,3].map(d=>order[((st.idx+d)%L+L)%L]).filter(id=>id&&!characters.has(id));
+    const step=()=>{if(!st.choosing||!q.length)return;const id=q.shift();if(!characters.has(id)){const ch=makeCharacter(id);characters.set(id,{ch,skin:ch.skin,muted:false,base:new Map(),materials:[]});try{renderer.compileAsync?.(ch.root,camera,scene)?.catch?.(()=>{});}catch(e){}}preT=setTimeout(step,140);};preT=setTimeout(step,200);}
+  function refreshSkin(){const id=collectionOrder()[st.idx]||collection().selected;character(id,!owns(id));st.ch.root.position.copy(world.wardrobe.preview);st.ch.root.rotation.y=world.wardrobe.outYaw;st.player.facing=world.wardrobe.outYaw;$('skinName').textContent=SKINS[id].name;$('skinDone').disabled=!owns(id);$('skinLock').classList.toggle('hidden',owns(id));preloadAround();}
   function travel(name,pos,camPos,target,duration,done,opts={}){
     mode('transition');unlock();st.pause=false;$('setBtn').classList.remove('hub-settings');$('hubPause').classList.remove('open');
     const toRotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(camPos,target,new V3(0,1,0)));
@@ -114,7 +117,7 @@ export function createMenu(){
   st.closeTV=()=>{};
   st.togglePause=()=>{if(st.mode!=='roam')return;clearThrow();st.pause=!st.pause;$('hubPause').classList.toggle('open',st.pause);$('setBtn').classList.toggle('hub-settings',st.pause);st.velocity.set(0,0,0);if(st.pause){unlock();$('hubResume').focus();}else requestLock();};
   st.resume=()=>{if(st.pause)st.togglePause();};st.suspend=()=>{st.pausedForSettings=true;unlock();};st.resumeSettings=()=>{st.pausedForSettings=false;};
-  Object.defineProperty(st,'wantsLock',{get:()=>st.mode!=='splash'&&st.mode!=='claw'&&(st.active||st.pausedForSettings)});
+  Object.defineProperty(st,'wantsLock',{get:()=>st.mode!=='splash'&&st.mode!=='claw'&&st.mode!=='wardrobe'&&(st.active||st.pausedForSettings)});/* v0.71 J7: в гардеробе мышь свободна - стрелки/клавиши не захватывают её обратно в центр */
   st.claw=createClaw(scene,id=>{character(id);st.ch.root.position.copy(st.clawRoam?.pos||clawStand);st.ch.root.rotation.y=st.clawRoam?.actorYaw??Math.PI/2;st.ch.root.visible=false;});
   st.claw.root.position.copy(world.claw.pos);st.claw.root.rotation.y=world.claw.ry;st.claw.root.scale.setScalar(world.claw.scale);scope(()=>addSolid(...world.claw.solid,0,2.5));
   st.claw.onClose=()=>{if(st.mode!=='claw')return;rig.state.yaw=st.clawRoam?.yaw??0;rig.state.pitch=st.clawRoam?.pitch??.45;st.ch.root.visible=true;const pos=(st.clawRoam?.pos||clawStand).clone(),pose=viewPose(pos,rig.state.yaw);travel('arcade-out',pos,pose.p,pose.l,1.45,roam);};

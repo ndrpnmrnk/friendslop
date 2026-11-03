@@ -14,6 +14,7 @@ function buildHand(character) {
   // У телевизора в правой руке карандаш, поэтому гладим свободной перчаткой.
   const g = character.handL.clone(true);
   g.position.set(0, 0, 0); g.rotation.set(0, 0, 0); g.scale.set(1, 1, 1);
+  (globalThis.__mgHands ??= new Set()).add(g);
   return g;
 }
 

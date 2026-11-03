@@ -180,7 +180,7 @@ export function buildHub(scene){
   if(WINTER){buildTree(group,-6.6,16);xmas.push(buildBoard(group,-6.6,1.75,19.6,Math.PI/2,'wins'));
     xmas.push(buildWheel(group,11.6,1.8,-Math.PI/2,msg=>{let t=document.getElementById('hubToast');if(!t){t=document.createElement('div');t.id='hubToast';document.body.appendChild(t);}t.textContent=msg;t.classList.remove('on');void t.offsetWidth;t.classList.add('on');}));
     xmas.push(buildBoard(group,-9.2,1.75,1.8,Math.PI/2,'levels'));
-    for(const[x,z,ry]of[[4.6,23,-.4],[-15.5,4.5,.6],[15.8,21.5,-.8]])buildSnowman(group,x,z,ry);xmas.push({update:updateSnowmen});}
+    for(const[x,z,ry]of[[4.6,23,-.4],[-15.5,4.5,.6],[15.8,21.5,-.8]])buildSnowman(group,x,z,ry);}
 
   // северный край острова: низкое ограждение, за ним обрыв — туда стреляет рогатка
   b.fence(-11,-25.6,11,-25.6,1.0,'iron');

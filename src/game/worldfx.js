@@ -1,5 +1,5 @@
 import { updateSnowrolls } from '../world/snowroll.js';
-import { hitSnowmen } from '../ui/hub-xmas.js';
+import { hitSnowmen, updateSnowmen } from '../world/snowman.js';
 import { hitIcicles, updateIcicles } from '../world/icicles.js';
 import { random } from '../core/random.js';
 import { THREE, G, V3, col, lam, glow, tmat, mesh, compose } from '../core/gfx.js';
@@ -64,7 +64,7 @@ export function worldHit(p, power, vel) {
 const effects=new WeakMap();
 function worldEffects(){let state=effects.get(W.group||W);if(!state){state={alarm:[],ring:null};effects.set(W.group||W,state);}return state;}
 export function updateWorldFx(dt, t, P) {
-  updateIcicles(dt); updateSnowrolls(dt);
+  updateIcicles(dt); updateSnowrolls(dt); updateSnowmen(dt);
   const _alarmPool=worldEffects().alarm;
   // гидранты
   for (const h of W.hydrants) {

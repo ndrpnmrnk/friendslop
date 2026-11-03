@@ -1,7 +1,7 @@
 import { random } from '../core/random.js';
 import { THREE, G, col, lam, compose } from '../core/gfx.js';
 import { W } from './state.js';
-import { HW } from '../config.js';
+import { HW, WINTER } from '../config.js';
 import { UG } from './underground.js';
 import { puff, smoke } from './particles.js';
 import { WX } from './weather.js';
@@ -43,7 +43,7 @@ export function buildLife(scene) {
     leafM = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.12, 0.08), new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }), 36); leafM.frustumCulled = false; scene.add(leafM);
     for (let i = 0; i < 36; i++) { leafM.setColorAt(i, _c.setHex(cols[i % cols.length])); leaves.push({ p: new THREE.Vector3(), v: new THREE.Vector3(), spin: random() * 4, life: 0 }); }
   }
-  leaves.forEach(l => (l.life = 0));
+  leaves.forEach(l => (l.life = 0)); leafM.visible = !WINTER; // v0.71 J5: зимой листьев в ветре нет - вместо них мелкие снежинки погоды
 }
 
 export function updateLife(dt, t, player, camera) {

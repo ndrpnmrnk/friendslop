@@ -33,7 +33,7 @@ import './styles.css';
 import {predictBow,predictNet} from './game/bow.js';
 import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow,setActionVisuals,warmup, lam } from './core/gfx.js';
 import { T } from './core/textures.js';
-import { CONFIG, SEASON, HINTS, DIFF } from './config.js';
+import { CONFIG, SEASON, HINTS, DIFF, WINTER } from './config.js';
 import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock,clearInput } from './core/input.js';
 import { W } from './world/state.js';
 import { generateMap } from './world/world.js';
@@ -113,7 +113,21 @@ const SUN_DIR = new V3(-30, 50, 25).normalize(), SUN_R = new V3().crossVectors(n
 const bounce = new THREE.DirectionalLight(0xa18eac, 0.22 * Math.PI); scene.add(bounce, bounce.target);
 function aimMoon(d) { const k = Math.max(0.55, d.y); SUN_DIR.set(d.x, k, d.z).normalize(); SUN_R.crossVectors(new V3(0, 1, 0), SUN_DIR.clone().negate()).normalize(); SUN_U.crossVectors(SUN_DIR.clone().negate(), SUN_R).normalize(); }
 const sky = createSky(scene);
-const haze = createHaze(scene); // v0.57: лёгкая дымка у земли
+let dayGlow = 1;
+/* v0.71 J7: рука (или инструмент с рукой) мини-игры всегда в рабочей зоне - не дальше ~2.5 м от точки,
+   куда смотрит камера мини-игры, и не за краем экрана. Работает для всех игр сразу. */
+const _mh = new THREE.Vector3(), _mn = new THREE.Vector3();
+function clampMgHands() {
+  const H = globalThis.__mgHands; if (!H?.size) return; const pose = cam.pose;
+  for (const o of H) { if (!o.parent) { H.delete(o); continue; } if (!S.mg || !pose?.l || o.parent !== W.group || !o.visible) continue;
+    o.getWorldPosition(_mh); const R = Math.max(2.5, pose.p.distanceTo(pose.l) * 0.9);
+    if (_mh.distanceTo(pose.l) > R) _mh.sub(pose.l).setLength(R).add(pose.l);
+    _mn.copy(_mh).project(camera); if (_mn.z > 1) { _mh.copy(pose.l); _mn.copy(_mh).project(camera); }
+    const cx = THREE.MathUtils.clamp(_mn.x, -.9, .9), cy = THREE.MathUtils.clamp(_mn.y, -.88, .88);
+    if (cx !== _mn.x || cy !== _mn.y) { _mn.x = cx; _mn.y = cy; _mh.copy(_mn).unproject(camera); }
+    o.position.copy(o.parent.worldToLocal(_mh)); }
+}
+const haze = WINTER ? createHaze(scene, 0xb8c2dc, .55) : createHaze(scene); // v0.57: лёгкая дымка у земли
 // вспышка взрыва: короткий точечный свет
 initDust(scene);
 W.flash = (p, c, k = 1, range = 12, decay = 3.5) => localLighting.flash({ x: p.x, y: p.y + 1, z: p.z }, c, k, range, decay);
@@ -512,7 +526,7 @@ function endRound() {
   $('results').classList.toggle('many', rows.length > 5);
   podium.start(rows, (c, pos) => {
     const r = c.r, A = AWARDS[r.award], role = r.champ && r.award === 'tourist' ? AWARDS.champ : A;
-    const el = document.createElement('div'); el.className = 'aw' + (r.champ ? ' champ' : '') + (r.me ? ' me' : '') + (rows.length > 5 && c.place >= 3 ? ' mini' : '');
+    const el = document.createElement('div'); el.className = 'aw' + (r.champ ? ' champ' : '') + (r.me ? ' me' : '') + (c.place >= 3 ? ' mini' : '');
     const xp = xpOf.get(r), ava = r.me ? account()?.avatar : xp?.avatar;
     el.innerHTML = `<div class="pl">${c.place + 1}</div><div class="at">${r.champ ? AWARDS.champ.title + (r.award !== 'tourist' ? '<br>' + A.title : '') : A.title}</div><div class="nm">${ava ? `<img class="av" src="${ava}" alt="" referrerpolicy="no-referrer">` : ''}${escapeHtml(r.name)} · ${skinName(r.skin)}</div><div class="sb">${role.sub(r.st)}</div><div class="sc">${r.score}</div>`
       + (xp ? `<div class="xpw"><span class="lv">УР <b>${xp.l0}</b></span><div class="xpb"><i></i></div><span class="xg">+${xp.gain}</span></div>` : '');
@@ -946,7 +960,7 @@ function frame() {
         S.main = best; for (const m of M.list) focusMissionMarker(m,P,m===best,t); }
       // ничейные предметы миссий (выронили и никто не подобрал) исчезают через 10 с
       for (const q of W.items) if (q.steal && q.state === 'rest' && q.mine !== P) { q.restT = (q.restT || 0) + dt; if (q.restT > 10) { q.state = 'gone'; q.g.visible = false; q.steal = null; } } else if (q.steal) q.restT = 0;
-      if(S.mg){const j=S.mg;if(W.net)W.net.runWork(j.m,()=>j.game.update(dt));else j.game.update(dt);}
+      if(S.mg){const j=S.mg;if(W.net)W.net.runWork(j.m,()=>j.game.update(dt));else j.game.update(dt);}clampMgHands();
       if(S.wm){const j=S.wm;if(W.net)W.net.runWork(j.m,()=>j.game.update(dt));else j.game.update(dt);}
       S.hudT -= dt; if (S.hudT <= 0) { renderHud(S, P, promptText(), 0.1); S.hudT = 0.1; }
       renderStamina(P, dt, S.wm?.game);
@@ -982,7 +996,7 @@ function frame() {
     if(S.state==='play'&&P.held?.type==='net'&&(P.held.aimT||0)>0&&!S.mg&&M_.left){shown=predictNet(P,aimPoint(),arc,land);for(const q of arc){q.scale.setScalar(.11);q.material.depthTest=true;q.material.color.setHex(0x9be36b);}}
     else if(S.state==='play'&&P.held?.type==='bow'&&(P.held.draw||0)>.05&&!S.mg){shown=predictBow(P,aimPoint(),arc,land);for(const q of arc){q.scale.setScalar(.085);q.material.depthTest=true;q.material.color.setHex(0xe8dfb9);}}else for(const q of arc){q.scale.setScalar(.13);q.material.depthTest=true;}
     arc.forEach((m, i) => (m.visible = i < shown)); if (!shown) land.visible = false;
-    const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt); updateGlow(); setGlow(S.mg ? 0.15 : 1); updateDust(t, P); { const dt2 = $('droneT'), on = !!(P && (P.drone || P.returning)); dt2.classList.toggle('hidden', !on); if (on) { const v = P.drone ? Math.max(0, Math.ceil(P.drone.left)) : 0, h = P.drone ? String(v) : 'СЕЙЧАС'; if (dt2.lastChild.textContent !== h) dt2.lastChild.textContent = h; } } { const h = $('droneHud'), on = !!(P && P.drone && !(P.drone.intro > 0)); h.classList.toggle('hidden', !on);
+    const fo = focusTarget(); if (fo !== lastFocus) { lastFocus && lastFocus.set(false); fo && fo.set(true); lastFocus = fo; $('dot').classList.toggle('focus', !!fo); } pulseOutline(dt); updateGlow(); setGlow(S.mg ? 0.15 : dayGlow); updateDust(t, P); { const dt2 = $('droneT'), on = !!(P && (P.drone || P.returning)); dt2.classList.toggle('hidden', !on); if (on) { const v = P.drone ? Math.max(0, Math.ceil(P.drone.left)) : 0, h = P.drone ? String(v) : 'СЕЙЧАС'; if (dt2.lastChild.textContent !== h) dt2.lastChild.textContent = h; } } { const h = $('droneHud'), on = !!(P && P.drone && !(P.drone.intro > 0)); h.classList.toggle('hidden', !on);
       if (on) { if (!h.dataset.ok) { h.dataset.ok = 1; for (const [id, n] of [['dhNet', 'net'], ['dhCandy', 'candy'], ['dhUp', 'updown']]) { $(id).firstChild.innerHTML = img(n, 28); $(id).insertAdjacentHTML('beforeend', '<b></b>'); } }
         const cd = Math.max(0, P.drone.cd) / DRONE_NET_COOLDOWN; $('dhNet').dataset.cd=P.drone.cd>0?Math.ceil(P.drone.cd)+'с':''; $('dhNet').lastChild.style.top = (100 - cd * 100) + '%'; $('dhCandy').classList.toggle('off', !P.drone.candy); } }
     W.wmActive = !!S.wm;
@@ -1043,7 +1057,7 @@ function frame() {
     prof.mark('боты/события');
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' || S.state === 'finale' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) * WX.nightK : 0; updateWeather(dt, t, camera, P, scene, nk); updateSnowTrails(dt, camera); sky.setNight(nk);
-      hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1) * WX.light; sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35) * WX.light;
+      hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1) * WX.light; sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35) * WX.light; if (WX.palette?.sun) sun.color.setHex(WX.palette.sun); else sun.color.setHex(0xaab8ff); dayGlow = WX.palette?.glow ?? 1;
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
     updateReflections(camera, t);localLighting.update(camera,dt,0); haze.update(t, camera); prof.mark('погода/свет');
     cam.shake = FX.shake; cam.fovAdd = S.state === 'intro' && S.intro && !S.intro.landed ? 12 : P && S.state === 'play'&&!S.mg ? P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8) : 0;

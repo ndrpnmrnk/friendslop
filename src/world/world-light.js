@@ -184,7 +184,7 @@ export function buildWorldLight(group) {
     update(dim = 0) {
       for (const l of lights) {
         let k = 1;
-        if (l.pool) k = l.pool.visible && !l.pool.userData.broken ? 1 : 0;
+        if (l.pool) k = l.pool.visible && !l.pool.userData.broken && !(WL.lampsOff && l.kind === 'lamp') ? 1 : 0;
         else if (l.mats) { const m = l.mats[0]; k = m.emissive ? Math.min(1, m.emissiveIntensity / 0.9) : Math.min(1, (m.color.r + m.color.g + m.color.b) / 2.2); if (dim > 0.3) k *= 0.25; }
         l.k = Math.round(k * 20) / 20;
       }

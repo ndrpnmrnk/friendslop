@@ -23,7 +23,7 @@ export const SKINS = {
       for (const s of [-1, 1]) { const e = mesh(G.cone4, fur, s * 0.42, 1.62, 0, 0.22, 0.5, 0.1, head); e.rotation.z = -s * 0.6; mesh(G.cone4, col(0xe8a8a0), s * 0.42, 1.6, 0.06, 0.12, 0.32, 0.04, head).rotation.z = -s * 0.6; }
       const tb = mesh(G.cyl6, fur, 0, 0.62, 0, 0.3, 0.62, 0.24, torso); tb.rotation.y = Math.PI / 6;
       // светлая грудка — плоская накладка на тело, без шаров
-      const chest = mesh(G.plane, lam({ map: T.catChest(), transparent: true, alphaTest: 0.05 }), 0, 0.66, 0.225, 0.34, 0.44, 1, torso); chest.userData.noOutline = true;
+      const chest = mesh(G.plane, lam({ map: T.catChest(), alphaTest: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 0, 0.66, 0.262, 0.34, 0.44, 1, torso); // v0.71: впереди грани корпуса, без прозрачной сортировки - не мерцает chest.userData.noOutline = true;
       // хвост из трёх сегментов, загнут вверх
       const t1 = new THREE.Group(); t1.position.set(0, 0.42, -0.2); torso.add(t1); t1.rotation.x = -0.5;
       mesh(G.box, fur, 0, 0, -0.16, 0.08, 0.08, 0.32, t1);

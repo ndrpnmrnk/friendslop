@@ -7,7 +7,7 @@ export const WL = {
   origin: { value: new THREE.Vector2() }, gridSize: { value: new THREE.Vector2(1, 1) }, cell: { value: 1 }, maskInv: { value: new THREE.Vector2(1, 1) },
   count: { value: 1 }, base: { value: 0.15 },
   // сколько «неба» остаётся внутри зданий и под навесами
-  indoor: { value: 0.32 }, aoK: { value: 1 }, lightK: { value: 1 },
+  indoor: { value: 0.32 }, aoK: { value: 1 }, lightK: { value: 1 }, lampsOff: false,
   // до 4 вспышек (взрывы, фейерверки, огонь): xyz + радиус, цвет * сила
   dynP: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, -999, 0, 1)) }, dynC: { value: [0, 1, 2, 3].map(() => new THREE.Vector3()) },
 };
