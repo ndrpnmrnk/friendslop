@@ -18,6 +18,9 @@ export const collection=()=>({coins:data?.coins||0,unlocked:[...(data?.unlocked|
 export const owns=id=>!!data?.unlocked.includes(id);
 export const collectionOrder=()=>[...ids.filter(owns),...ids.filter(id=>!owns(id))];
 export function selectCharacter(id){if(!owns(id))return false;const next={...data,selected:id};if(!commit(next))return false;try{localStorage.setItem('friendslop.skin',id);}catch{}return true;}
+// v0.70 колесо удачи: открыть персонажа без смены выбранного (повтор - false, тогда награда фистами)
+export function unlockCharacter(id){if(!data||!ids.includes(id)||owns(id))return false;return commit({...data,unlocked:[...new Set([...data.unlocked,id])]});}
+export const lockedCharacters=()=>ids.filter(id=>!owns(id));
 export function addCoins(n){if(!data||!Number.isSafeInteger(n)||n<1||data.coins>Number.MAX_SAFE_INTEGER-n)return false;return commit({...data,coins:data.coins+n});}
 export function beginClaw(){if(!data||data.pending||data.coins<50||ids.every(owns))return false;return commit({...data,coins:data.coins-50,pending:{reward:null}});}
 export function reserveClaw(id){if(!data?.pending||!ids.includes(id)||owns(id))return false;return commit({...data,pending:{reward:id}});}

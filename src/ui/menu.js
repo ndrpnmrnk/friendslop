@@ -127,9 +127,12 @@ export function createMenu(){
   const guest=()=>inRoom()&&!NET.host,flowSend=o=>{if(inRoom()&&NET.host&&NET.players.size>1)send({t:'ev',e:'flow',...o});};
   const syncMembers=()=>{st.members=inRoom()?[...remoteActors(true),{id:NET.id,me:true}].sort((a,b)=>a.id-b.id).map(q=>q.me?st.player:q):[st.player];};
   st.debugGoal=i=>scope(()=>world.vote.force(i)); // для проверок: гол в ворота i
+  // v0.70: шайба выбирает режим, только пока лежит в воротах; достали - загрузка режима останавливается (до запуска)
+  world.vote.onLeave=()=>{if(!st.flow||st.flow.stage==='cutscene'||guest())return;st.flow=null;world.screen.idle();world.sling.zone(false);flowSend({s:'cancel'});};
   world.vote.onGoal=m=>{if(st.flow?.stage==='cutscene')return;st.flow={stage:'mode',mode:m,t:0};world.screen.showMode(m);flowSend({s:'mode',i:world.vote.goals.findIndex(g=>g.m===m)});};
   onNet('ev',m=>{if(m.e!=='flow'||!guest())return;scope(()=>{
     if(m.s==='mode'){if(st.flow?.stage!=='cutscene')world.vote.force(m.i);return;}
+    if(m.s==='cancel'){if(st.flow?.stage!=='cutscene'){st.flow=null;world.vote.unforce?.();world.screen.idle();world.sling.zone(false);}return;}
     if(st.flow?.stage==='cutscene')return;
     if(!st.flow)st.flow={stage:'mode',mode:world.vote.goals[m.i??0]?.m,t:0};const f=st.flow;if(m.i!==undefined&&world.vote.goals[m.i])f.mode=world.vote.goals[m.i].m;
     if(m.s==='map'){f.stage='map';f.t=0;f.theme=m.theme;f.ids=m.ids;world.screen.spinMap(m.ids,m.theme);}
@@ -206,10 +209,11 @@ export function createMenu(){
     world.sling.arm(st.members);document.body.classList.add('cine');sfx('fanfare');}
   const smooth=x=>{x=clamp(x,0,1);return x*x*(3-2*x);};
   function launchStep(dt){const L=st.launch,S=world.sling.st,seat=new V3(),T=L.t=Math.max(0,(serverNow()-L.at)/1000)*1.18,/* v0.59: весь ролик бодрее на 18% */c=world.sling.rest,D=world.sling.deck,H=world.sling.huddle;
-    if(S.phase==='fly'){const u=Math.max(0,Math.min(.45,S.t-.3));L.ft=Math.min(.3,S.t)*.3+u*.3+u*u*.7/.9+Math.max(0,S.t-.75);}
+    if(S.phase==='fly'&&world.sling.breakAt){L.ft=Math.max(0,S.t-world.sling.breakAt);}else if(S.phase==='fly'){const u=Math.max(0,Math.min(.45,S.t-.3));L.ft=Math.min(.3,S.t)*.3+u*.3+u*u*.7/.9+Math.max(0,S.t-.75);}
     const CLIMB=4.6;let seated=0;
     for(const r of L.riders){const a=r.a,o={t:st.t,speed:0};
-      if(S.phase==='fly'){if(!r.v){r.p0=a.pos.clone();r.v=withRandom((L.recipe?.seed||1)^r.i,()=>new V3((r.i%3-1)*1.8+(random()-.5),13+random()*1.5,-27-random()*3));}
+      if(S.phase==='fly'&&world.sling.breakAt&&S.t<world.sling.breakAt){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=Math.PI;a.ch.animate(dt,{t:st.t,speed:0,crouch:false,act:'cheer'});continue;} // v0.70: в санях до развала
+      if(S.phase==='fly'){if(!r.v){r.p0=a.pos.clone();r.v=withRandom((L.recipe?.seed||1)^r.i,()=>world.sling.breakAt?new V3((r.i%2?1:-1)*(1.5+random()*2.2),7+random()*2.5,-13-random()*4):new V3((r.i%3-1)*1.8+(random()-.5),13+random()*1.5,-27-random()*3));}
         const t=L.ft;a.pos.set(r.p0.x+r.v.x*t,r.p0.y+r.v.y*t-5*t*t,r.p0.z+r.v.z*t);a.root.position.copy(a.pos);a.root.rotation.y=Math.PI;a.ch.animate(dt,{t:st.t,fly:true,vy:r.v.y-10*t,flySpin:4.5});continue;}
       if(r.seated){world.sling.seatPos(r.i,seat);a.pos.copy(seat);a.root.position.copy(seat);a.root.rotation.y=turn(a.root.rotation.y,Math.PI,1-Math.exp(-dt*8));
         a.ch.animate(dt,{t:st.t,speed:0,crouch:S.phase==='pull',act:S.phase==='board'?'cheer':undefined});seated++;continue;}
@@ -241,7 +245,9 @@ export function createMenu(){
     if((!inRoom()||NET.host)&&!L.fired&&L.seatedAt&&T>L.seatedAt+.9&&S.phase==='board'){L.fired=true;world.sling.pull();}
     // монтаж: номер плана и его камера; при смене плана — склейка (камера ставится сразу), внутри плана — плавное движение
     const P=st.player.pos;let shot,cp,cl,rate=3;
-    if(S.phase==='fly'){shot=7;const ft=L.ft||0;if(ft<.25){cp=new V3(c.x+6.4,c.y+.9,c.z+3.2);cl=new V3(P.x,P.y+.8,P.z);rate=6;}else{const down=clamp((ft-.9)/1.2,0,1);cp=new V3(P.x+2.4,P.y+3.2+down*2.5,P.z+8.5-down*1.5);cl=new V3(P.x,P.y+.4-down*7,P.z-6-down*4);rate=4.5;}}
+    if(S.phase==='fly'&&world.sling.breakAt&&S.t<world.sling.breakAt+.2){shot=7;const sp=world.sling.sledPos();cp=new V3(sp.x+5.5,sp.y+2.2,sp.z+5.5);cl=new V3(sp.x,sp.y+.3,sp.z-2.5);rate=5;}
+    else if(S.phase==='fly'){shot=7;const ft=L.ft||0;if(ft<.25){cp=new V3(c.x+6.4,c.y+.9,c.z+3.2);cl=new V3(P.x,P.y+.8,P.z);rate=6;}else{const down=clamp((ft-.9)/1.2,0,1);cp=new V3(P.x+2.4,P.y+3.2+down*2.5,P.z+8.5-down*1.5);cl=new V3(P.x,P.y+.4-down*7,P.z-6-down*4);rate=4.5;}}
+    else if((S.phase==='pull'||S.phase==='fire')&&world.sling.sledPos){shot=6;const sp=world.sling.sledPos(),an=-.9+S.t*.55;cp=new V3(sp.x+Math.sin(an)*6.5,sp.y+2.4,sp.z+Math.cos(an)*6.5);cl=new V3(sp.x,sp.y+.6,sp.z-1.2);rate=3.2;} // v0.70: плавная облётная проводка вокруг саней
     else if(S.phase==='pull'||S.phase==='fire'){shot=6;cp=new V3(c.x-6.6,c.y+.7,c.z+2.4);cl=new V3(c.x,c.y-.5,c.z+1.2+S.pull*1.6);rate=2;}
     else if(L.riders.some(r=>r.jump)||L.seatedAt){shot=5;cp=new V3(c.x+3.4,1.4,c.z-4.4);cl=new V3(c.x,c.y-.2,c.z+1);rate=1.5;}
     else if(T>=CLIMB){shot=4;const k=clamp((T-CLIMB)/3,0,1);cp=new V3(c.x+8,1.8+k*2.6,D.stairZ+4.4-k*1.2);cl=new V3(c.x+1.2,D.y*k*.8+.8,D.stairZ-.6);rate=1.6;}
@@ -250,7 +256,7 @@ export function createMenu(){
     else{shot=1;const k=smooth(T/1.6);cp=new V3(H.x+4.6-k*1.4,1.1+k*.3,H.z+.9-k*.3);cl=new V3(H.x,1.0,H.z-.2);rate=2;}
     if(shot!==L.shot){L.shot=shot;L.cam.copy(cp);L.look.copy(cl);}
     L.cam.lerp(cp,1-Math.exp(-dt*rate));L.look.lerp(cl,1-Math.exp(-dt*rate*1.5));camera.position.copy(L.cam);camera.position.x+=Math.sin(st.t*2.3)*.025;camera.position.y+=Math.sin(st.t*3.1)*.02;camera.lookAt(L.look);
-    {const fv=S.phase==='fly'?CONFIG.camera.fov+16:S.phase==='pull'?CONFIG.camera.fov-6*S.pull:CONFIG.camera.fov;camera.fov+=(fv-camera.fov)*(1-Math.exp(-dt*(S.phase==='fly'?7:3)));camera.updateProjectionMatrix();}
+    {const fv=S.phase==='fly'?CONFIG.camera.fov+16:S.phase==='pull'?CONFIG.camera.fov+(world.sling.breakAt?8*S.pull:-6*S.pull):CONFIG.camera.fov;camera.fov+=(fv-camera.fov)*(1-Math.exp(-dt*(S.phase==='fly'?7:3)));camera.updateProjectionMatrix();}
     if(S.phase==='fly'&&!L.whoosh){L.whoosh=true;sfx('wind');sfx('dash',{v:1.6});}
     if(S.phase==='fly'&&(L.ft||0)>2.3&&!L.done){L.done=true;resetVfx();st.onLaunch?.({mode:st.flow.mode,ids:st.flow.ids||randomMap(),theme:st.flow.theme,members:st.members.map(a=>a.ch.skinId)});}}
   function sparksAt(x,y,z){scope(()=>{impactBurst({x,y,z},0xffd27a,.8);vfxSparks({x,y,z},18,0xffd27a);});}
@@ -265,7 +271,7 @@ export function createMenu(){
     if(P.held){cargoPosition(P,P.held.pos,P.held.def.r);P.held.g.rotation.y=P.root.rotation.y;poseMeleeItem(P,P.held);}
     if(P.charging&&(!P.held||P.stun>0))clearThrow();
     let shown=0;if(P.charging&&P.held){const tgt=aimPoint();P.aimYaw=Math.atan2(tgt.x-P.pos.x,tgt.z-P.pos.z);shown=predict(P.held.pos,throwVelocity(P.held.pos,tgt,P.charge,P.held.def),arc,arc.length,P.held.def,land);}if(P.held?.type==='net'&&(P.held.aimT||0)>0&&mouse.left){shown=predictNet(P,aimPoint(),arc,land);for(const m of arc){m.scale.setScalar(.11);m.material.depthTest=true;m.material.color.setHex(0x9be36b);}}else if(P.held?.type==='bow'&&(P.held.draw||0)>.05){shown=predictBow(P,aimPoint(),arc,land);for(const m of arc){m.scale.setScalar(.085);m.material.depthTest=true;m.material.color.setHex(0xe8dfb9);}}else for(const m of arc){m.scale.setScalar(.13);m.material.depthTest=true;m.material.color.setHex(0xffb45a);}arc.forEach((m,i)=>m.visible=i<shown);if(!shown)land.visible=false;
-    world.vote.follow=guest();    world.vote.update(dt,st.t);world.screen.update(dt);world.sling.update(dt,st.t);flowStep(dt);
+    world.vote.follow=guest();    world.vote.update(dt,st.t);world.screen.update(dt);world.sling.update(dt,st.t);world.update?.(dt);flowStep(dt);
 
     const want=new Set();if(!P.held)for(const it of world.state.items)if(['rest','placed'].includes(it.state)&&!it.noPickup&&(!it.boxed||it.boxed.open)&&it.pos.distanceTo(P.pos)<2.2)want.add(it.outline);
     for(const q of world.state.interacts)if(q.outline&&(!q.glow||q.glow())&&(!q.enabled||q.enabled(P))&&Math.hypot(q.x-P.pos.x,q.z-P.pos.z)<q.r+.7&&Math.abs(q.y-P.pos.y)<(q.dy??.9)+.3)want.add(q.outline);

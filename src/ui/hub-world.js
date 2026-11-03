@@ -10,7 +10,9 @@ import {registerInteracts} from '../game/worldfx.js';
 import {resetTools} from '../game/tools.js';
 import {resetSplat} from '../world/splat.js';
 import {MODES} from '../game/modes.js';
-import {HW} from '../config.js';
+import {HW,WINTER} from '../config.js';
+import {buildSled} from './hub-sled.js';
+import {buildTree,buildBoard,buildWheel,buildSnowman,updateSnowmen} from './hub-xmas.js';
 import {buildVoteArena,buildScreen,buildSlingshot,signTex} from './hub-launch.js';
 import {buildIsland} from './hub-island.js';
 import {buildIsle2,hubWalk} from './hub-isle2.js';
@@ -80,7 +82,7 @@ export function buildHub(scene){
   /* ---------- арена, табло, рогатка ---------- */
   const vote=buildVoteArena(b,MODES);
   const screen=buildScreen(b,0,6.6,-12.8,MODES);
-  const sling=buildSlingshot(b,0,-21);
+  const sling=WINTER?buildSled(b,0,-21):buildSlingshot(b,0,-21); // v0.70: зимой - сани с трамплина
   // два прожектора над ареной и фонари по периметру двора
   for(const s of[-1,1])b.floodlight(s*8.4,2.6,s>0?-2.6:2.6,8,false);
   // v0.60.15: отключить все объёмные ламповые конусы в хабе.
@@ -173,6 +175,12 @@ export function buildHub(scene){
   b.ride('cart',8.5,4,Math.PI/2);b.ride('skate',-2,8);
   b.stringLights(-8,4.5,-8,22,4.8,[0xffb45a,0xff7a5a,0xffd27a]);b.stringLights(8,4.5,8,22,4.8,[0xffb45a,0xff7a5a,0xffd27a]);
   decor(b,group);
+  // v0.70 зима: ёлка с табло побед у точки появления, колесо удачи и табло уровней у лавок
+  const xmas=[];
+  if(WINTER){buildTree(group,-6.6,16);xmas.push(buildBoard(group,-6.6,1.75,19.6,Math.PI/2,'wins'));
+    xmas.push(buildWheel(group,11.6,1.8,-Math.PI/2,msg=>{let t=document.getElementById('hubToast');if(!t){t=document.createElement('div');t.id='hubToast';document.body.appendChild(t);}t.textContent=msg;t.classList.remove('on');void t.offsetWidth;t.classList.add('on');}));
+    xmas.push(buildBoard(group,-9.2,1.75,1.8,Math.PI/2,'levels'));
+    for(const[x,z,ry]of[[4.6,23,-.4],[-15.5,4.5,.6],[15.8,21.5,-.8]])buildSnowman(group,x,z,ry);xmas.push({update:updateSnowmen});}
 
   // северный край острова: низкое ограждение, за ним обрыв — туда стреляет рогатка
   b.fence(-11,-25.6,11,-25.6,1.0,'iron');
@@ -201,7 +209,7 @@ export function buildHub(scene){
    stations:[{id:'wardrobe',name:'Гардероб',hint:'Сменить персонажа',p:new V3(-10,0,-5),r:1.9},{id:'claw',name:'Автомат с друзьями',hint:'Выловить нового друга',p:new V3(16.2,0,-4.4),r:1.5},...isle2.stations],
    curtain(open){curtainOpen=THREE.MathUtils.clamp(open,0,1);entrySolid.on=curtainOpen<.92;for(const{g,s}of doors)g.position.set(-11.05,0,-5+s*(.6+curtainOpen*1.15));},
    get curtainOpen(){return curtainOpen;},
-   update(){}
+   update(dt=0){for(const x of xmas)x.update(dt);}
   };result.curtain(0);return result;
  });
 }

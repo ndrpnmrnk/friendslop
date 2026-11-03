@@ -10,7 +10,7 @@ export function initProfileUI(skinIcon) {
   const chip = $('profileChip'), card = $('profileCard'); if (!chip) return;
   const render = () => {
     const p = progress(), [a, b, n] = levelSpan(p.xp), u = account(), ava = u?.avatar || (skinIcon ? skinIcon() : '');
-    for (const id of ['profAva', 'pcAva']) { const im = $(id); if (ava) im.src = ava; im.style.visibility = ava ? '' : 'hidden'; }
+    for (const id of ['profAva', 'pcAva']) { const im = $(id); if (ava) im.src = ava; im.style.display = ava ? '' : 'none'; }
     $('profName').textContent = $('pcName').textContent = u?.name || myName() || 'Гость';
     $('profLvl').textContent = $('pcLvl').textContent = n; const w = (n >= MAX_LEVEL ? 100 : a / b * 100).toFixed(1) + '%'; $('profBar').style.width = $('pcBar').style.width = w;
     $('pcXp').textContent = n >= MAX_LEVEL ? `${p.xp} опыта · максимальный уровень` : `${p.xp} опыта · до ${n + 1} уровня: ${xpForLevel(n + 1) - p.xp}`;

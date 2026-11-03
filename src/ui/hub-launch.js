@@ -6,7 +6,8 @@ import { addSolid } from '../world/physics.js';
 import { addPushable } from '../world/pushables.js';
 import { DISTRICTS } from '../world/districts/index.js';
 import { districtIcon } from './district-icons.js';
-import { CONFIG, HW } from '../config.js';
+import { CONFIG, HW, WINTER } from '../config.js';
+import { addZone } from '../world/physics.js';
 import { sfx } from '../core/sfx.js';
 import { sparks, impactBurst } from '../game/vfx.js';
 import { shake } from '../game/worldfx.js';
@@ -40,11 +41,15 @@ export function buildVoteArena(b, modes) {
   const A = ARENA, group = new THREE.Group(); W.group.add(group); W.keep.push(group);
   const cx = (A.x0 + A.x1) / 2, cz = (A.z0 + A.z1) / 2, w = A.x1 - A.x0, d = A.z1 - A.z0;
   // поле: трава с разметкой, бортики из досок (низкие — игрок перешагивает, мяч отскакивает)
-  b.ground(A.x0, A.z0, A.x1, A.z1, T.grass(), 2, .02);
-  const line = col(0xe8e4d8);
-  for (const [x, z, sx, sz] of [[cx, A.z0 + .05, w, .1], [cx, A.z1 - .05, w, .1], [A.x0 + .05, cz, .1, d], [A.x1 - .05, cz, .1, d], [cx, cz + 1, w, .1]]) b.marking(x, z, sx, sz, 0xe8e4d8);
-  { const r = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.02, 40), lam({ color: 0xe8e4d8, polygonOffset: true, polygonOffsetFactor: -3 }, 'arena55-ring')); r.rotation.x = -Math.PI / 2; r.position.set(cx, .04, cz + 1); group.add(r); }
-  const board = tmat(T.wood()), H = .34;
+  if (WINTER) { // v0.70: ледовая арена - скользкий лёд, синяя разметка, подсветка катка
+    const ice = new THREE.Mesh(G.plane, lam({ map: T.ice70(), color: 0xe2eefa, emissive: 0x2a4462, emissiveIntensity: .55 }, 'rink70')); ice.rotation.x = -Math.PI / 2; ice.position.set(cx, .021, cz); ice.scale.set(w, d, 1); group.add(ice);
+    addZone('ice', { r: [A.x0, A.z0, A.x1, A.z1] }, 0);
+    for (const s2 of [-1, 1]) (W.lightSources ??= []).push({ x: cx + s2 * 3.6, y: 4.2, z: cz, color: 0xcfe4ff, strength: 1.5, range: 7.5 });
+  } else b.ground(A.x0, A.z0, A.x1, A.z1, T.grass(), 2, .02);
+  const line = col(0xe8e4d8), mark = WINTER ? 0x3a78c8 : 0xe8e4d8;
+  for (const [x, z, sx, sz] of [[cx, A.z0 + .05, w, .1], [cx, A.z1 - .05, w, .1], [A.x0 + .05, cz, .1, d], [A.x1 - .05, cz, .1, d], [cx, cz + 1, w, .1]]) b.marking(x, z, sx, sz, mark);
+  { const r = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.02, 40), lam({ color: WINTER ? 0xc8302a : 0xe8e4d8, polygonOffset: true, polygonOffsetFactor: -3 }, 'arena55-ring')); r.rotation.x = -Math.PI / 2; r.position.set(cx, .04, cz + 1); group.add(r); }
+  const board = WINTER ? lam({ color: 0xeef2f8 }, 'rink70-board') : tmat(T.wood()), H = WINTER ? .55 : .34; // зимой - белые бортики катка
   const wall = (x, z, sx, sz) => { b.box(x, z, sx, sz, H, board); b.box(x, z, sx + .04, sz + .04, .05, col(0xe8e4d8), { y: H, solid: false }); };
   wall(A.x0 - .1, cz, .2, d); wall(A.x1 + .1, cz, .2, d);
   for (const [a0, a1] of [[A.x0 - .2, cx - 1.8], [cx + 1.8, A.x1 + .2]]) wall((a0 + a1) / 2, A.z1 + .1, a1 - a0, .2); // юг: проход 3.6 м посередине
@@ -75,8 +80,11 @@ export function buildVoteArena(b, modes) {
   });
   // мяч: на Хэллоуин — тыква-мяч, иначе обычный футбольный; декор меняется, мяч — нет
   const ball = addPushable(b, 'voteBall', cx, cz + 1, 0);
-  const skin = new THREE.Mesh(new THREE.SphereGeometry(.95, 14, 10), lam({ map: HW ? ballPumpkin() : ballSoccer() }, 'arena55-ball'));
-  skin.position.y = .95; skin.castShadow = true; ball.mesh.add(jellify(skin, .35)); ball.mesh.userData.noBatch = true;
+  const PUCK = WINTER; if (PUCK) ball.puck = true;
+  // v0.70 шайба: большой резиновый диск (как мяч в Rocket League) с полосой и логотипом; скользит по инерции
+  const skin = PUCK ? new THREE.Mesh(new THREE.CylinderGeometry(.92, .92, .5, 20), lam({ color: 0x1c1a22, emissive: 0x08080c }, 'puck70')) : new THREE.Mesh(new THREE.SphereGeometry(.95, 14, 10), lam({ map: HW ? ballPumpkin() : ballSoccer() }, 'arena55-ball'));
+  if (PUCK) { skin.add(compose('puck70-trim', a => { a(G.cyl12, lam({ color: 0xc8302a }, 'puck70-stripe'), 0, 0, 0, .935, .12, .935); a(G.cyl12, lam({ color: 0xf5c542, emissive: 0x5a4210, emissiveIntensity: .5 }, 'puck70-logo'), 0, .255, 0, .45, .01, .45); })); }
+  skin.position.y = PUCK ? .25 : .95; skin.castShadow = true; ball.mesh.add(jellify(skin, .35)); ball.mesh.userData.noBatch = true;
   if (HW) { const stem = mesh(G.cyl6, col(0x4a6a2a), 0, 1.0, 0, .08, .3, .08, skin); stem.position.set(0, .98 / .95, 0); }
   let picked = -1, inside = -1, flashT = 0;
   const api = {
@@ -84,17 +92,19 @@ export function buildVoteArena(b, modes) {
     follow: false,
     // v0.61: хост сообщил гол в ворота i — показываем то же самое
     force(i) { const g = goals[i]; if (!g) return; inside = i; picked = i; flashT = 1.2; sfx('goal'); shake(.25); const p = { x: g.x, y: 1.2, z: A.z0 - .6 }; impactBurst(p, g.m.color, 1.6); sparks(p, 30, g.m.color); api.onGoal?.(g.m); },
+    unforce() { picked = -1; inside = -1; },
     reset() { picked = -1; inside = -1; ball.x = cx; ball.z = cz + 1; ball.vx = ball.vz = 0; },
     update(dt, t) {
       // мяч катится: поворачиваем шар по ходу
       const sp = Math.hypot(ball.vx, ball.vz);
-      if (sp > .01) { const ax = new V3(ball.vz, 0, -ball.vx).normalize(); skin.rotateOnWorldAxis(ax, sp * dt / .95); }
-      if (skin.position.y > .95) skin.position.y = Math.max(.95, skin.position.y - dt * 8);
+      if (PUCK) { skin.rotation.y += sp * dt * .35; skin.position.y = .25; }
+      else { if (sp > .01) { const ax = new V3(ball.vz, 0, -ball.vx).normalize(); skin.rotateOnWorldAxis(ax, sp * dt / .95); }
+      if (skin.position.y > .95) skin.position.y = Math.max(.95, skin.position.y - dt * 8); }
       // гол: мяч целиком пересёк линию в створе ворот. v0.60: мяч остаётся в воротах — видно, что выбрано;
       // выбить его обратно и забить в другие ворота можно в любой момент
       let inG = -1; for (const g of goals) if (ball.z < A.z0 - .3 && Math.abs(ball.x - g.x) < A.gw / 2 - .2) inG = g.i;
       if (api.follow) inG = inside; // v0.61: у гостя сетевого лобби гол засчитывает только хост
-      if (inG !== inside) { inside = inG; const g = goals[inG]; if (g) {
+      if (inG !== inside) { const was = inside; inside = inG; const g = goals[inG]; if (PUCK && !g && was >= 0) { picked = -1; api.onLeave?.(); } if (g) {
         picked = g.i; flashT = 1.2; sfx('goal'); shake(.25); ball.vx *= .2; ball.vz *= .2;
         const p = { x: g.x, y: 1.2, z: A.z0 - .6 }; impactBurst(p, g.m.color, 1.6); sparks(p, 30, g.m.color); sparks(p, 20, 0xffffff);
         api.onGoal?.(g.m); } }
@@ -304,7 +314,7 @@ export function buildSlingshot(b, x, z) {
       st.bv += -st.bob * 90 * dt; st.bv *= Math.exp(-dt * 5); st.bob += st.bv * dt;
       if (st.phase === 'idle') { st.pull += (Math.sin(t * 1.5) * .02 - st.pull) * Math.min(1, dt * 4); }
       else if (st.phase === 'board') { if (!st.manual && st.t > .9 + st.riders.length * .2) { st.phase = 'pull'; st.t = 0; sfx('squeak'); } }
-      else if (st.phase === 'pull') { st.pull = Math.min(1, st.pull + dt / 2.2); if (random() < dt * 5) sfx('squeak', { v: .3 }); if (random() < dt * 9) sfx('tick', { v: .5 }); if (st.t > 2.9) { st.phase = 'fire'; st.t = 0; sfx('spring'); sfx('dash', { v: 1.4 }); sfx('birdcry'); shake(.5); } }
+      else if (st.phase === 'pull') { st.pull = Math.min(1, st.pull + dt / 2.2); if (random() < dt * 5) sfx('squeak', { v: .3 }); if (random() < dt * 9) sfx('tick', { v: .5 }); if (st.t > 2.9) { st.phase = 'fire'; st.t = 0; sfx('spring'); sfx('dash', { v: 1.4 }); shake(.5); } }
       else if (st.phase === 'fire') { const k = Math.min(1, st.t / .16); st.pull = 1 - k; st.out = Math.sin(k * Math.PI) * .9; if (k >= 1) { st.phase = 'fly'; st.t = 0; st.pull = 0; st.out = 0; sparks({ x: REST.x, y: REST.y + 1, z: REST.z }, 30, 0xffd27a); } }
       else if (st.phase === 'fly') { st.pull = Math.sin(st.t * 18) * .12 * Math.max(0, 1 - st.t * 1.5); }
       placeBands();

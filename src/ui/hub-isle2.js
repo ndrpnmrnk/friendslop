@@ -2,12 +2,13 @@ import { random } from '../core/random.js';
 import { THREE, G, V3, col, tmat, lam, glow, compose } from '../core/gfx.js';
 import { T } from '../core/textures.js';
 import { W } from '../world/state.js';
-import { addSolid, moveSolid } from '../world/physics.js';
+import { addSolid, moveSolid, addZone } from '../world/physics.js';
 import { rockCone, cap, islandR } from './hub-island.js';
 import { sfx } from '../core/sfx.js';
 import { burst } from '../world/particles.js';
 import { respawnItem } from '../game/items.js';
 import { resetCoins, spawnCoin } from '../game/coins.js';
+import { WINTER } from '../config.js';
 
 /* «Остров затей» (v0.59, переделан в v0.60): за южной аркой двора верёвочный мост ведёт на соседний летающий островок.
    - паркур на время (запад): старт с коврика у моста, ступени, лифт, бревно, узкие столбики, платформа на рельсе
@@ -35,6 +36,9 @@ export function buildIsle2(b, group) {
   const rock = rockCone(r2, 26, 'isle2-rock'); rock.position.copy(C); g.add(rock);
   for (const m of cap(r2)) { m.position.x += C.x; m.position.z += C.z; g.add(m); }
   b.ground(X(-3), Z(-17), X(3), Z(-6), T.cobble(), 2, .014); // дорожка от моста
+  // v0.70 зима: настил моста покрыт льдом - по ледяной дорожке на второй остров слегка скользишь
+  if (WINTER) { const B = ISLE.bridge, ice = new THREE.Mesh(G.plane, lam({ map: T.ice70(), color: 0xd8e8f8, emissive: 0x2a4462, emissiveIntensity: .45, transparent: true, opacity: .8, depthWrite: false }, 'bridgeIce70'));
+    ice.rotation.x = -Math.PI / 2; ice.position.set(0, .085, (B.z0 + B.z1) / 2); ice.scale.set(2.9, B.z1 - B.z0, 1); ice.renderOrder = 2; ice.userData.noBatch = true; g.add(ice); addZone('ice', { r: [B.x0, B.z0, B.x1, B.z1] }, .08); }
   // мост: доски с щелями, канаты-перила на столбиках
   g.add(compose('isle2-bridge', a => { const B = ISLE.bridge; for (let z = B.z0; z < B.z1; z += .55) a(G.box, wood, 0, .03, z + .25, 3.0, .08, .45, 0, (Math.sin(z * 7) * .03), 0);
     for (const s of [-1, 1]) { for (let z = B.z0; z <= B.z1; z += 2.5) a(G.box, wood, s * 1.55, .6, z, .12, 1.2, .12); a(G.cyl6, rope, s * 1.55, 1.1, (B.z0 + B.z1) / 2, .03, B.z1 - B.z0, .03, Math.PI / 2); a(G.cyl6, rope, s * 1.55, .6, (B.z0 + B.z1) / 2, .025, B.z1 - B.z0, .025, Math.PI / 2); } }));
@@ -45,28 +49,29 @@ export function buildIsle2(b, group) {
   for (const s of [-1, 1]) addSolid(X(s * 2.2) - .13, Z(-14.6) - .13, X(s * 2.2) + .13, Z(-14.6) + .13, 0, 3.2);
 
   /* ---------- паркур на время (запад) ---------- */
-  const yel = col(0xffd27a), plat = (x, z, w, d, h, m = wood) => { b.box(X(x), Z(z), w, d, h, m); b.box(X(x), Z(z), w + .08, d + .08, .06, yel, { y: h - .03, solid: false }); };
+  const SP = WINTER ? 1.1 : 1, SW2 = WINTER ? .82 : 1, px = x => -4.2 + (x + 4.2) * SP, pz = z => -11.2 + (z + 11.2) * SP; // v0.70: паркур сложнее - шире прыжки, уже площадки
+  const yel = col(0xffd27a), plat = (x0, z0, w, d, h, m = wood) => { const x = px(x0), z = pz(z0); w *= SW2; d *= SW2; b.box(X(x), Z(z), w, d, h, m); b.box(X(x), Z(z), w + .08, d + .08, .06, yel, { y: h - .03, solid: false }); };
   const P0 = new V3(X(-4.2), 0, Z(-11.2));
   g.add(compose('isle2-startpad', a => { a(G.cyl12, col(0x9be36b), P0.x, .03, P0.z, 1.1, .04, 1.1); a(G.cyl12, dark, P0.x, .02, P0.z, 1.25, .03, 1.25); }));
   // 1–3: ступени вверх
   plat(-6.7, -11.4, 1.6, 1.6, .9); plat(-9.1, -10.2, 1.4, 1.4, 1.8); plat(-11.4, -8.4, 1.4, 1.4, 2.7);
   // 4: лифт вверх-вниз
-  const LX = X(-12.6), LZ = Z(-5.6), lift = new THREE.Mesh(G.box, metal); lift.scale.set(1.6, .25, 1.6); lift.position.set(LX, 2.5, LZ); g.add(lift); W.keep.push(lift);
+  const LX = X(px(-12.6)), LZ = Z(pz(-5.6)), lift = new THREE.Mesh(G.box, metal); lift.scale.set(1.6, .25, 1.6); lift.position.set(LX, 2.5, LZ); g.add(lift); W.keep.push(lift);
   const liftS = addSolid(LX - .8, LZ - .8, LX + .8, LZ + .8, 2.25, 2.5);
   g.add(compose('isle2-liftrails', a => { for (const s of [-1, 1]) a(G.box, dark, LX + s * .95, 2.6, LZ, .1, 5.2, .1); a(G.box, dark, LX, 5.2, LZ, 2, .1, .1); }));
   // 5–6: площадка и ржавое бревно
-  plat(-13.2, -2.6, 1.4, 1.4, 4.4); b.box(X(-13.2), Z(.1), .35, 4.0, .25, tmat(T.rust()), { y: 4.15 }); plat(-13.0, 2.8, 1.2, 1.2, 4.4);
+  plat(-13.2, -2.6, 1.4, 1.4, 4.4); b.box(X(px(-13.2)), Z(pz(.1)), .3, 4.0 * SP, .25, tmat(T.rust()), { y: 4.15 }); plat(-13.0, 2.8, 1.2, 1.2, 4.4);
   // 7: узкие столбики
   plat(-11.8, 4.6, .8, .8, 4.8, metal); plat(-10.3, 5.9, .8, .8, 5.0, metal); plat(-8.8, 7.0, .9, .9, 5.1, metal);
   // 8: платформа ездит по рельсу туда-сюда (надо поймать момент)
-  const MZ = Z(8.2), MX0 = X(-7.2), MX1 = X(-4.0), mov = new THREE.Mesh(G.box, metal); mov.scale.set(1.3, .25, 1.3); mov.position.set(MX0, 5.0, MZ); g.add(mov); W.keep.push(mov);
+  const MZ = Z(pz(8.2)), MX0 = X(px(-7.2)), MX1 = X(px(-4.0)), mov = new THREE.Mesh(G.box, metal); mov.scale.set(1.3, .25, 1.3); mov.position.set(MX0, 5.0, MZ); g.add(mov); W.keep.push(mov);
   const movS = addSolid(MX0 - .65, MZ - .65, MX0 + .65, MZ + .65, 4.75, 5.0); let movX = MX0;
   g.add(compose('isle2-rail', a => { a(G.box, dark, (MX0 + MX1) / 2, 6.3, MZ, MX1 - MX0 + 1.6, .08, .08); for (const x of [MX0 - .8, MX1 + .8]) a(G.box, dark, x, 3.15, MZ, .12, 6.3, .12); }));
   for (const x of [MX0 - .8, MX1 + .8]) addSolid(x - .06, MZ - .06, x + .06, MZ + .06, 0, 6.3);
   const hanger = new THREE.Mesh(G.box, dark); hanger.scale.set(.05, 1.2, .05); g.add(hanger); W.keep.push(hanger);
   // 9: самый трудный конец — маленькие столбики всё выше, потом башня
   plat(-2.8, 9.6, .6, .6, 5.6, metal); plat(-3.6, 11.3, .6, .6, 6.2, metal); plat(-5.2, 12.2, .55, .55, 6.7, metal);
-  const TW = new V3(X(-7.0), 7.2, Z(12.0));
+  const TW = new V3(X(px(-7.0)), 7.2, Z(pz(12.0)));
   plat(-7.0, 12.0, 1.6, 1.6, 7.2, tmat(T.brickWall()));
   // колокол на башне
   const bell = compose('isle2-bell', a => { a(G.box, wood, -.6, .9, 0, .1, 1.8, .1); a(G.box, wood, -.3, 1.8, 0, .7, .1, .1); a(G.cone8, lam({ color: 0xf5c542, emissive: 0x5a3a00 }, 'isle2-bellgold'), 0, 1.5, 0, .26, .38, .26); });
@@ -118,7 +123,16 @@ export function buildIsle2(b, group) {
   g.add(compose('isle2-arena', a => { a(G.cyl12, col(0x4a3a6a), A.x, .2, A.z, AR, .4, AR); a(G.cyl12, gold, A.x, .41, A.z, AR - .1, .02, AR - .1); a(G.cyl12, col(0x4a3a6a), A.x, .42, A.z, AR - .4, .02, AR - .4); }));
   for (let i = 0; i < 12; i++) { const an = i / 12 * Math.PI * 2; addSolid(A.x + Math.cos(an) * (AR - .4) - .5, A.z + Math.sin(an) * (AR - .4) - .5, A.x + Math.cos(an) * (AR - .4) + .5, A.z + Math.sin(an) * (AR - .4) + .5, 0, .4); }
   addSolid(A.x - 1.6, A.z - 1.6, A.x + 1.6, A.z + 1.6, 0, .4);
-  const barrels = [0, 1, 2].map(i => b.ride('barrel', A.x + (i - 1) * 1.2, A.z + (i % 2 ? .6 : -.4), 0, .4));
+  const barrels = WINTER ? [] : [0, 1, 2].map(i => b.ride('barrel', A.x + (i - 1) * 1.2, A.z + (i % 2 ? .6 : -.4), 0, .4));
+  if (WINTER) { // v0.70 снежные крепости: две стенки с зубцами друг напротив друга, внутри сугробы со снежками
+    const sm = lam({ map: T.grass(), color: 0xffffff }, 'fort70'), ice = lam({ color: 0xbcd8f0, emissive: 0x203040, emissiveIntensity: .3 }, 'fort70ice');
+    for (const s2 of [-1, 1]) { const fx = A.x + s2 * 4.6, fz = A.z;
+      g.add(compose('fort70-' + s2, a => { a(G.box, sm, fx - s2 * .9, .55, fz, .5, 1.1, 3.2); for (const zz of [-1.2, 1.2]) a(G.box, sm, fx, .5, fz + zz, 1.8, 1.0, .45);
+        for (let k = -1; k <= 1; k++) a(G.box, sm, fx - s2 * .9, 1.25, fz + k * 1.05, .52, .3, .5); a(G.box, ice, fx - s2 * .9, 1.12, fz, .54, .06, 3.22);
+        a(G.cyl8, col(0x2b2533), fx + s2 * .6, 1.3, fz - 1.2, .04, 2.6, .04); a(G.box, lam({ color: s2 < 0 ? 0xd8243a : 0x4ab0f0 }, 'fort70flag' + s2), fx + s2 * .6 + .25, 2.35, fz - 1.2, .5, .32, .03); }));
+      addSolid(fx - s2 * .9 - .25, fz - 1.6, fx - s2 * .9 + .25, fz + 1.6, 0, 1.1); for (const zz of [-1.2, 1.2]) addSolid(fx - .9, fz + zz - .22, fx + .9, fz + zz + .22, 0, 1.0);
+      b.snowdrift(fx + s2 * .2, fz, 0, .55); }
+  }
   // батут у входа на арену: сюда падают вернувшиеся снизу
   const TR = new V3(X(-2.2), 0, Z(5.2));
   g.add(compose('isle2-tramp', a => { a(new THREE.TorusGeometry(.93, .07, 5, 16), metal, 0, .5, 0, 1.2, 1, 1.2, Math.PI / 2); a(G.cyl12, col(0x1e2a4a), 0, .48, 0, 1.08, .02, 1.08); for (let i = 0; i < 6; i++) { const an = i / 6 * Math.PI * 2; a(G.cyl6, metal, Math.cos(an) * 1.08, .25, Math.sin(an) * 1.08, .05, .5, .05); } }).translateX(TR.x).translateZ(TR.z));
