@@ -64,10 +64,11 @@ const BIG = {
   ...(WINTER ? { blizzard: { dur: 20,
     start(s) { s.t = 0; s.made = !WX.snow; s.snow = WX.snow || createSnowfall(ctx.scene?.() || W.group, { density: 0 }); s.d0 = s.snow.state.density; s.fall0 = s.snow.state.fall; const a = random() * 6.28; s.wind = { x: Math.cos(a), z: Math.sin(a) }; s.gustT = 2; sfx('wind'); },
     target() { return null; },
-    update(s, dt) { s.t += dt; const k = Math.min(1, s.t / 2.5) * Math.min(1, Math.max(0, (20 - s.t) / 2.5)); s.snow.state.density = s.d0 + 3.4 * k; s.snow.state.fall = s.fall0 + 3 * k;
-      s.snow.state.wind.x = s.wind.x * 9 * k; s.snow.state.wind.z = s.wind.z * 9 * k; if (s.made) s.snow.update(dt, ctx.camera?.());
-      WX.blizzard = k; s.gustT -= dt; if (s.gustT <= 0) { s.gustT = 2.5 + random() * 2; WX.gust = 1.2; sfx('wind'); }
-      if (WX.gust > 0) { const w0 = WX.wind; WX.wind = { ...w0, x: s.wind.x, z: s.wind.z }; gust(dt, ctx.player(), 1.4 * k); WX.wind = w0; } return null; },
+    update(s, dt) { s.t += dt; const k = Math.min(1, s.t / 2.5) * Math.min(1, Math.max(0, (20 - s.t) / 2.5)); s.snow.state.density = s.d0 + 4.4 * k; s.snow.state.fall = s.fall0 + 4 * k; /* v0.73 настоящая буря: плотнее, косее, позёмка, затемнение (main.js), порывы реже, но заметные */
+      s.snow.state.wind.x = s.wind.x * 15 * k; s.snow.state.wind.z = s.wind.z * 15 * k;
+      { const P = ctx.player(), cam = ctx.camera?.(); if (P && k > .3) for (let i = 0; i < 3; i++) if (random() < dt * 30 * k) { const ox = (random() - .5) * 18, oz = (random() - .5) * 18; puff(P.pos.x + ox - s.wind.x * 6, P.pos.y + .15 + random() * .5, P.pos.z + oz - s.wind.z * 6, { color: 0xf2f6ff, size: .5 + random() * .4, vx: s.wind.x * 9, vy: .2, vz: s.wind.z * 9, g: 0, life: 1.2, grow: 1.5, opacity: .5 }); } void cam; } if (s.made) s.snow.update(dt, ctx.camera?.());
+      WX.blizzard = k; s.gustT -= dt; if (s.gustT <= 0) { s.gustT = 5 + random() * 2.5; WX.gust = 1.6; sfx('wind', { v: 1.3 }); }
+      if (WX.gust > 0) { const w0 = WX.wind; WX.wind = { ...w0, x: s.wind.x, z: s.wind.z }; gust(dt, ctx.player(), 1.1 * k); WX.wind = w0; } return null; },
     replica(s, dt) { if (!s.snow) return; BIG.blizzard.update(s, dt); },
     info() { return 'МЕТЕЛЬ · держись подальше от края'; },
     bot() { return null; },

@@ -36,14 +36,19 @@ export function sleighModel(parts = false) {
     nose: a => { for (let k = 0; k < 5; k++) { const an = k / 4 * 1.1; a(G.box, red, 0, .55 + Math.sin(an) * .45, -1.55 - Math.cos(an) * .05 - Math.sin(an) * .2, 1.36, .14, .18, -an, 0, 0); }
       a(G.box, gold, 0, 1.06, -1.82, 1.2, .07, .07); for (const s of [-1, 1]) { a(G.box, lampM, s * .55, 1.18, -1.82, .14, .18, .14); a(G.box, dark, s * .55, 1.3, -1.82, .18, .05, .18); } },
     back: a => { a(G.box, dred, 0, .82, 1.6, 1.36, .82, .14); a(G.box, gold, 0, 1.25, 1.6, 1.38, .06, .16); a(G.box, white, 0, 1.3, 1.6, 1.4, .06, .2); },
-    turbine: a => { a(G.cyl12, steel, 0, .62, 2.1, .38, .9, .38, Math.PI / 2, 0, 0); a(G.cyl12, red, 0, .62, 1.78, .41, .14, .41, Math.PI / 2, 0, 0); a(G.cyl12, gold, 0, .62, 2.5, .36, .1, .36, Math.PI / 2, 0, 0);
-      for (const s of [-1, 1]) a(G.box, steel, s * .3, .35, 1.9, .06, .3, .4); a(G.box, white, 0, 1.02, 2.1, .2, .04, .7); }, // v0.71.2: без мешка, подарка и тёмного диска
+    turbine: a => { // v0.73: турбина без совпадающих граней (не рябит): корпус, воздухозаборник с решёткой, кольца, стабилизаторы, сопло
+      a(G.cyl12, steel, 0, .62, 2.15, .37, .8, .37, Math.PI / 2, 0, 0); a(G.cyl12, red, 0, .62, 1.8, .42, .16, .42, Math.PI / 2, 0, 0);
+      for (let k = 0; k < 6; k++) { const an = k / 6 * Math.PI; a(G.box, dark, 0, .62, 1.71, .7, .03, .02, 0, 0, an); }
+      a(G.cyl12, gold, 0, .62, 2.25, .385, .06, .385, Math.PI / 2, 0, 0); a(G.cyl12, gold, 0, .62, 2.61, .33, .14, .33, Math.PI / 2, 0, 0); a(G.cyl12, col(0x6a6a74), 0, .62, 2.69, .22, .03, .22, Math.PI / 2, 0, 0);
+      for (const an of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) a(G.box, red, Math.cos(an) * .45, .62 + Math.sin(an) * .45, 2.35, .04 + Math.abs(Math.sin(an)) * .12, .04 + Math.abs(Math.cos(an)) * .12, .5, 0, 0, 0);
+      for (const s of [-1, 1]) a(G.box, steel, s * .3, .35, 1.95, .06, .3, .4); a(G.box, white, 0, 1.03, 2.15, .2, .04, .7);
+      for (let k = 0; k < 8; k++) { const an = k / 8 * 6.283; a(G.sph, gold, Math.cos(an) * .375, .62 + Math.sin(an) * .375, 2.0, .025, .025, .025); } },
     benches: a => { for (let r = 0; r < 4; r++) { a(G.box, dred, 0, .58, -1.0 + r * .72 + .22, 1.18, .14, .26); a(G.box, gold, 0, .66, -1.0 + r * .72 + .34, 1.18, .03, .03); } },
   };
   if (parts) return Object.entries(P).map(([k, f]) => compose('sleigh711-' + k, f));
   const g = new THREE.Group(); for (const [k, f] of Object.entries(P)) g.add(compose('sleigh711-' + k, f));
   // пламя турбины: два аддитивных конуса, растут при запуске
-  const fl = new THREE.Group(); fl.position.set(0, .62, 2.6); g.add(fl); g.userData.flame = fl; fl.visible = false;
+  const fl = new THREE.Group(); fl.position.set(0, .62, 2.72); g.add(fl); g.userData.flame = fl; fl.visible = false;
   for (const [c, r, l] of [[0x7ad8ff, .3, 1.6], [0xffb040, .2, 1.0]]) { const m = new THREE.Mesh(G.cone8, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .75, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); m.rotation.x = -Math.PI / 2; m.scale.set(r, l, r); m.position.z = l / 2; m.userData.noLight = true; fl.add(m); }
   return g;
 }

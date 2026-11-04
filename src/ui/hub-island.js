@@ -2,6 +2,7 @@ import { THREE, G, lam, col, glow, compose } from '../core/gfx.js';
 import { T, rep, pix } from '../core/textures.js';
 import { burst } from '../world/particles.js';
 import { WINTER } from '../config.js';
+import { pixelCloud } from '../world/pixel-cloud.js';
 
 /* v0.58 — хаб на летающем острове. Двор с домами — кусок города, вырванный и поднятый в небо:
    - сверху тот же двор, по краю — травяная кромка и обрыв (с севера край ближе: оттуда стреляет рогатка);
@@ -102,7 +103,7 @@ export function buildIsland(group) {
   // облака: кольцо вокруг и ниже острова + несколько выше
   const clouds = [];
   for (let i = 0; i < 16; i++) { const th = i / 16 * Math.PI * 2 + rnd() * .3, far = 58 + rnd() * 50, below = i % 3 !== 0;
-    const c = cloud(i % 5, 4 + (rnd() * 3 | 0), 9 + rnd() * 10); c.position.set(Math.cos(th) * far, below ? -10 - rnd() * 30 : 14 + rnd() * 18, Math.sin(th) * far); c.rotation.y = rnd() * 6;
+    const c = pixelCloud(16 + ((i * 7) % 5) * 4, 'h' + (i % 4)); // v0.73: единый пиксельный объёмный стиль облаков c.position.set(Math.cos(th) * far, below ? -10 - rnd() * 30 : 14 + rnd() * 18, Math.sin(th) * far); c.rotation.y = rnd() * 6;
     g.add(c); clouds.push({ m: c, th, far, sp: .006 + rnd() * .01 }); }
   // летающие камешки рядом с островом (зимой убраны - висели «в воздухе»)
   const rocks = [];

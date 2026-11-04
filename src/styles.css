@@ -813,3 +813,8 @@ body.cine #hud{opacity:.15;transition:opacity .3s}
 #junkPanel .jcard img{image-rendering:pixelated;width:40px;height:40px}#junkPanel .cost img{width:16px;height:16px;vertical-align:-3px;margin-right:3px}
 #junkPanel .pips{display:flex;gap:3px}#junkPanel .pips i{width:10px;height:10px;background:#3a3448}#junkPanel .pips i.on{background:#9be36b}
 body.playing #junkChip{display:none}
+
+/* v0.73: детали - рядом с фистами справа, объёмная пиксельная иконка */
+#partsBox{display:inline-flex;align-items:center;gap:8px;margin-left:14px;color:#cfe4ff}#partsBox.hidden{display:none}
+.partIcon{width:25px;height:25px;background:var(--part-icon) center/contain no-repeat;image-rendering:pixelated;display:inline-block}
+#partsBox.pop{animation:lvup .25s}

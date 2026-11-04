@@ -22,6 +22,8 @@ export function selectCharacter(id){if(!owns(id))return false;const next={...dat
 export function unlockCharacter(id){if(!data||!ids.includes(id)||owns(id))return false;return commit({...data,unlocked:[...new Set([...data.unlocked,id])]});}
 export const lockedCharacters=()=>ids.filter(id=>!owns(id));
 export function addCoins(n){if(!data||!Number.isSafeInteger(n)||n<1||data.coins>Number.MAX_SAFE_INTEGER-n)return false;return commit({...data,coins:data.coins+n});}
+// v0.73: оплата фистами (постройки свалки)
+export function spendCoins(n){if(!data||!Number.isSafeInteger(n)||n<1||data.coins<n)return false;return commit({...data,coins:data.coins-n});}
 export function beginClaw(){if(!data||data.pending||data.coins<50||ids.every(owns))return false;return commit({...data,coins:data.coins-50,pending:{reward:null}});}
 export function reserveClaw(id){if(!data?.pending||!ids.includes(id)||owns(id))return false;return commit({...data,pending:{reward:id}});}
 export function finishClaw(){if(!data?.pending?.reward)return null;const id=data.pending.reward;if(!commit({...data,unlocked:[...new Set([...data.unlocked,id])],selected:id,pending:null}))return null;try{localStorage.setItem('friendslop.skin',id);}catch{}return id;}

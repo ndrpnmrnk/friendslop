@@ -14,7 +14,7 @@ function flake() {
 }
 export function createSnowfall(scene, { density = 1, size = 0.13, small = false } = {}) {
   if (small) size = .07; // v0.71 J5: зимний день - редкие мелкие снежинки вместо листвы, не снегопад
-  const max = 2600, pos = new Float32Array(max * 3), seed = new Float32Array(max);
+  const max = 4200, pos = new Float32Array(max * 3), seed = new Float32Array(max);
   for (let i = 0; i < max; i++) { pos[i * 3] = (Math.random() - .5) * BOX; pos[i * 3 + 1] = Math.random() * H; pos[i * 3 + 2] = (Math.random() - .5) * BOX; seed[i] = Math.random() * 6.28; }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const mat = new THREE.PointsMaterial({ map: flake(), size, transparent: true, opacity: .85, depthWrite: false, alphaTest: .2, color: 0xf2f6ff });

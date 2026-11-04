@@ -33,6 +33,11 @@ export function createPlayer(skin, ch = makeCharacter(skin)) {
 
 // Пятно-тень лежит на земле под персонажем и не подпрыгивает вместе с ним: чем выше, тем меньше и бледнее
 const shadowPoint=new V3(),shadowRotation=new THREE.Quaternion(),flatShadow=new THREE.Quaternion().setFromAxisAngle(new V3(1,0,0),-Math.PI/2);
+// ближайшая стена сбоку/спереди на высоте корпуса: нормаль от стены к персонажу
+function wallNear(p) { const r = (p.r || .35) + .32, y0 = p.pos.y + .4, y1 = p.pos.y + 1.4; let best = null, bd = r;
+  for (const s of solidsNear(p.pos.x - r, p.pos.z - r, p.pos.x + r, p.pos.z + r)) { if (!s.on || s.y1 < y1 || s.y0 > y0 || s.y1 - s.y0 < 1.2) continue;
+    const cx = Math.max(s.x0, Math.min(p.pos.x, s.x1)), cz = Math.max(s.z0, Math.min(p.pos.z, s.z1)), dx = p.pos.x - cx, dz = p.pos.z - cz, d = Math.hypot(dx, dz); if (d > .001 && d < bd) { bd = d; best = { nx: dx / d, nz: dz / d }; } }
+  return best; }
 export function groundBlob(p) {
   const support=p.ride?.solid,wasOn=support?.on;let g;
   try{if(support)support.on=false;g=groundAt(p.pos.x,p.pos.z,.1,p.pos.y+.05);}finally{if(support)support.on=wasOn;}
@@ -83,7 +88,7 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
   }
   // Проверенный маршрут подтягивания: от края вверх, затем на опору.
   if(p.mantle&&(p.stun>0||p.heldBy||p.ride||p.frozen)){p.mantle=null;p.onGround=false;}
-  if(p.mantle){const active=advanceMantle(p,dt);p.ch.animate(dt,{t,speed:0,climb:true,air:false,vy:2});if(active&&!p.mantle)smokeRing(p.pos.x,p.pos.y+.05,p.pos.z,4,{speed:1.2,size:.12,grow:.3,life:.4});groundBlob(p);return;}
+  if(p.mantle){const m0=p.mantle,ledge=m0.landing?m0.landing.y-p.pos.y:1,ed=m0.landing?(m0.landing.x-p.pos.x)*Math.sin(p.facing)+(m0.landing.z-p.pos.z)*Math.cos(p.facing)-.35:.4;const active=advanceMantle(p,dt);p.ch.animate(dt,{t,speed:0,mantle:{k:m0.t,ledge,edge:ed},air:false,vy:2});if(active&&!p.mantle)smokeRing(p.pos.x,p.pos.y+.05,p.pos.z,4,{speed:1.2,size:.12,grow:.3,life:.4});groundBlob(p);return;}
 
   clearInvalidRide(p);
   if (p.ride) {
@@ -202,6 +207,15 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
     if (p.climb) { const l = p.climb, tx = -l.nz, tz = l.nx, side = ix * tx + iz * tz; p.vel.x = l.nx * 4.5 + tx * side * 4; p.vel.z = l.nz * 4.5 + tz * side * 4; p.vel.y = PC.jump * 0.8; p.climb = null; p.ladderCD = 0.4; }
     smokeRing(p.pos.x, p.pos.y + 0.1, p.pos.z, 5, { speed: 1.6, size: 0.14, grow: 0.42, life: 0.5 });
   }
+  // v0.73 отскок от стены (как в паркуре Roblox): в прыжке у стены жмёшь пробел - персонаж на миг цепляется и отталкивается
+  // от стены в сторону WASD с переворотом. Один раз до касания земли, 15% выносливости.
+  if (p.onGround) p.wallJumped = false;
+  if (ctrl && p.jumpBuf > 0 && !p.onGround && p.coyote <= 0 && !p.climb && !p.dive && !p.wallJumped && !p.holding && !p.heldBy && !p.ride && p.stamina >= .15) {
+    const w = wallNear(p); if (w) { p.jumpBuf = 0; p.wallJumped = true; p.stamina -= .15; p.stDelay = PC.stamina.delay;
+      const side = ix * -w.nz + iz * w.nx, fx = w.nx * 5.2 + -w.nz * side * 3.2 + ix * 1.5, fz = w.nz * 5.2 + w.nx * side * 3.2 + iz * 1.5;
+      p.vel.x = fx; p.vel.z = fz; p.vel.y = PC.jump * .95; p.wallFlip = .42; p.facing = Math.atan2(fx, fz); p.root.rotation.y = p.facing;
+      sfx('jump'); sfx('land', { v: .4 }); smokeRing(p.pos.x - w.nx * .3, p.pos.y + 1, p.pos.z - w.nz * .3, 4, { speed: 1.4, size: .12, grow: .35, life: .4 }); } }
+  p.wallFlip = Math.max(0, (p.wallFlip || 0) - dt);
   p.noGrav = !!p.climb && p.vel.y === 0;
   const wasGround = p.onGround;
   // выпадом можно пробить стекло и ящик (вылететь в окно)
@@ -299,7 +313,8 @@ export function updatePlayer(p, dt, t, canMove, yaw = 0) {
       const d = decal(T.foot(), p.pos.x + sx, p.pos.y, p.pos.z + sz, 0.32, 4 + p.wetT, 0xffffff); d.rotation.z = f; d.material.opacity = 0.3 + 0.2 * p.wetT / 3; } }
   groundBlob(p);
   p.accel = (spd - p.lastSpd) / Math.max(dt, 1e-3); p.lastSpd = spd;
-  p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, rag: ragK(p), daze: p.daze > 0, grabbed: p.netT > 0 && !(p.stun > 0), climb: !!p.climb,
+  if (p.wallFlip > 0) { p.ch.animate(dt, { t, speed: 0, dive: 'roll', roll: 1 - p.wallFlip / .42 }); groundBlob(p); }
+  else p.ch.animate(dt, { t, speed: spd / PC.sprint * 1.4, air: !p.onGround && !p.climb, vy: p.vel.y, stun: p.stun > 0, rag: ragK(p), daze: p.daze > 0, grabbed: p.netT > 0 && !(p.stun > 0), climb: !!p.climb,
     payload:p.carryCrate?0.5:p.carryKitten||p.dogHeld?0.42:p.held?.def.r||0, missionTool: !!p.missionTool, hold: (!!p.hotPotato || !!p.held || !!p.grab || p.pushing > 0 || !!p.carryKitten || !!p.carryCrate || !!p.carryNet || !!p.dogHeld) && !p.holding, zombie: !!p.zombie, charge: p.charging ? p.charge : 0, landed: p.landedNow, throwT: p.throwT, accel: p.accel, sprint: p.boost,
     crouch: p.crouch && !p.dive && p.slideT <= 0, slide: p.slideT > 0, dive: p.dive, roll: p.dive === 'roll' ? 1 - p.rollT / PC.rollTime : null,
     emote: p.emote, emoteT: p.emoteT, held2: !!p.holding, restrained: !!p.heldBy, swat: p.swatT > 0 ? p.swatT : 0, fly: p.flyT > 0 && !p.onGround, vy2: p.vel.y, flySpin: p.flyT > 0 ? 6 : 0 });

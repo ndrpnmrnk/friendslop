@@ -50,7 +50,7 @@ const _up = new THREE.Vector3(0, 0.18, 0), _fp = new THREE.Vector3();
 function animateMove(c, dt, s) {
   const d = c.d, f = damp(18, dt), ctr = 0.8, fr = damp(16, dt);
   let th, drop = 0, tuck = 0;
-  if (s.dive === 'roll') { const k = s.roll || 0, e = 1 - (1 - k) * (1 - k); th = 1.25 + (Math.PI * 2 - 1.25) * e; tuck = Math.sin(Math.PI * k); drop = 0.3 * tuck; c.body.rotation.x = th; }
+  if (s.dive === 'roll') { const k = s.roll || 0, e = k < .5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k); th = 1.25 + (Math.PI * 2 - 1.25) * e; tuck = Math.min(1, Math.sin(Math.PI * k) * 1.6); drop = 0.3 * tuck; c.body.rotation.x = th; }
   else { th = s.dive === 'air' ? 1.25 : -0.85; let r = c.body.rotation.x; r = Math.atan2(Math.sin(r), Math.cos(r)); c.body.rotation.x = r + (th - r) * fr; }
   const a = c.body.rotation.x;
   c.slideK = (c.slideK || 0) + ((s.slide ? 1 : 0) - (c.slideK || 0)) * damp(14, dt);
@@ -60,16 +60,18 @@ function animateMove(c, dt, s) {
   c.mvY = c.body.position.y; c.mvZ = c.body.position.z;
   c.stars.visible = false;
   if (s.slide) {
-    setHand(c.footL, -d.footX, d.footY + 0.15, 0.55, f); setHand(c.footR, d.footX, d.footY + 0.15, 0.45, f);
-    setHand(c.handL, -d.handX - 0.1, 0.35, -0.2, f); setHand(c.handR, d.handX + 0.1, 0.35, -0.2, f);
+    // v0.73 подкат: ведущая нога вытянута вперёд, вторая согнута под себя, одна рука опирается сзади о землю, другая поднята для баланса
+    setHand(c.footL, -d.footX, d.footY + 0.12, 0.7, f); setHand(c.footR, d.footX * 1.2, d.footY + 0.08, 0.05, f);
+    setHand(c.handL, -d.handX - 0.15, 0.12, -0.35, f); setHand(c.handR, d.handX + 0.2, 0.95 + Math.sin(s.t * 9) * .04, 0.2, f);
   } else if (s.dive === 'air') {
     setHand(c.handL, -d.handX * 0.6, 0.9, 1.3, f); setHand(c.handR, d.handX * 0.6, 0.9, 1.3, f);
     setHand(c.footL, -d.footX, 0.75, -0.7, f); setHand(c.footR, d.footX, 0.85, -0.6, f);
   } else {
-    const ring = (r, o) => [Math.sin(a + o) * r, ctr - Math.cos(a + o) * r - drop], rr = 0.55 - tuck * 0.12, g = damp(30, dt);
-    const [hz, hy] = ring(rr, 0.6), [fz, fy] = ring(rr, Math.PI + 0.4);
-    setHand(c.handL, -d.handX * 0.7, hy, hz, g); setHand(c.handR, d.handX * 0.7, hy, hz, g);
-    setHand(c.footL, -d.footX, fy, fz, g); setHand(c.footR, d.footX, fy, fz, g);
+    // v0.73 перекат в группировке: колени к груди, руки обхватывают голени; руки и ноги - одна «клубочная» поза, вращаются вместе с телом, а не крутятся мельницей
+    const rot = (y, z) => [z * Math.cos(a) + y * Math.sin(a), ctr + y * Math.cos(a) - z * Math.sin(a) - drop], g = damp(30, dt), T2 = tuck;
+    const [kz, ky] = rot(-0.42 + 0.1 * (1 - T2), 0.32 * T2), [hz2, hy2] = rot(-0.28, 0.38 * T2 + 0.1), [fz2, fy2] = rot(-0.62 + 0.25 * T2, 0.1 + 0.12 * T2);
+    setHand(c.handL, -d.handX * 0.55, hy2, hz2, g); setHand(c.handR, d.handX * 0.55, hy2, hz2, g);
+    setHand(c.footL, -d.footX * .8, (fy2 + ky) / 2, (fz2 + kz) / 2, g); setHand(c.footR, d.footX * .8, (fy2 + ky) / 2, (fz2 + kz) / 2, g);
   }
 }
 function animateRide(c, dt, s) {
@@ -145,10 +147,25 @@ function animateFly(c, dt, s) {
 }
 function setHand(h, x, y, z, k) { h.position.x += (x - h.position.x) * k; h.position.y += (y - h.position.y) * k; h.position.z += (z - h.position.z) * k; }
 
+/* v0.73 подтягивание по-настоящему: кисти прилипают к краю уступа (мировая точка), тело поднимается на руках,
+   локти уходят вверх-назад, на середине - колено на край, затем встаёт. s.mantle = { k, ledge (высота края над ногами), edge (до края по ходу) } */
+function animateMantle(c, dt, s) {
+  const d = c.d, m = s.mantle, k = m.k, g = damp(40, dt), f = damp(18, dt), L = m.ledge, E = clamp(m.edge, .2, .7);
+  c.stars.visible = false; c.body.rotation.y *= .8; c.body.rotation.z *= .8;
+  const pull = clamp(k / .66, 0, 1), over = clamp((k - .66) / .34, 0, 1);
+  c.body.rotation.x += ((0.35 * Math.sin(pull * Math.PI) + 0.25 * over * (1 - over)) - c.body.rotation.x) * f;
+  c.body.scale.set(1, 1 - 0.06 * Math.sin(pull * Math.PI), 1); c.body.position.set(0, c.mvY, 0);
+  const hy = Math.max(.2, L + .02), hz = E;
+  setHand(c.handL, -d.handX * .85, hy, hz, g); setHand(c.handR, d.handX * .85, hy, hz, g);
+  c.handL.rotation.x = c.handR.rotation.x = -0.9 * (1 - over);
+  const knee = Math.max(0, Math.min(1, (k - .3) / .3)) * (1 - over);
+  setHand(c.footR, d.footX, d.footY + Math.min(L, .9) * knee, .1 + .35 * knee, f); setHand(c.footL, -d.footX, d.footY + Math.max(0, .15 - pull * .15), -.1 * pull, f);
+}
 function animate(c, dt, s) {
   if (c.handOff) { c.handL.position.y += c.handOff; c.handR.position.y += c.handOff; c.handOff = 0; }
   const d = c.d, t = s.t, k = clamp(s.speed || 0, 0, 1), run = !s.air && !s.climb && k > 0.05;
   if (s.rag > 0.001) return animateRag(c, dt, s);
+  if (s.mantle) return animateMantle(c, dt, s);
   if (s.ride) return animateRide(c, dt, s);
   if (s.fly) return animateFly(c, dt, s);
   if (s.dive || s.slide) return animateMove(c, dt, s);
@@ -156,16 +173,17 @@ function animate(c, dt, s) {
   c.mvY = (c.mvY || 0) * (1 - damp(12, dt)); c.mvZ = (c.mvZ || 0) * (1 - damp(12, dt)); c.slideK = 0;
   c.body.position.z = c.mvZ; c.body.position.x = 0; c.body.rotation.x = Math.atan2(Math.sin(c.body.rotation.x), Math.cos(c.body.rotation.x));
   c.ph += dt * (s.climb ? 7 : 4 + k * 10) * (run || s.climb ? 1 : 0);
-  const sn = Math.sin(c.ph), cs = Math.cos(c.ph), f = damp(16, dt);
+  // v0.73: волна шага с «зависанием» в крайних точках и разгоном в середине (не чистый синус), руки отстают от ног (overlap)
+  const shp = v => Math.sign(v) * Math.pow(Math.abs(v), .7), sn = shp(Math.sin(c.ph)), cs = Math.cos(c.ph), an = shp(Math.sin(c.ph - .3)), f = damp(16, dt);
   // тело
   if (s.landed) c.squash = 1;
   c.squash = Math.max(0, c.squash - dt * 5);
   const stretch = s.air ? clamp(s.vy * 0.025, -0.12, 0.15) : 0;
   const sy = 1 + stretch - c.squash * 0.18, sxz = 1 - stretch * 0.5 + c.squash * 0.12;
   c.body.scale.set(sxz, sy, sxz);
-  c.body.position.y = (run ? Math.abs(sn) * 0.08 : Math.sin(t * 2.2) * 0.025) + c.mvY;
+  c.body.position.y = (run ? Math.pow(Math.abs(Math.sin(c.ph)), 1.6) * 0.09 * (.6 + k * .4) : Math.sin(t * 2.2) * 0.025) + c.mvY;
   // наклон: сильнее на разгоне и в спринте, назад при резком торможении
-  const lean = run ? 0.1 * k + 0.12 * (s.sprint || 0) + clamp((s.accel || 0) * 0.012, -0.15, 0.12) : 0;
+  const lean = run ? 0.14 * k + 0.14 * (s.sprint || 0) + clamp((s.accel || 0) * 0.012, -0.15, 0.12) : 0;
   c.body.rotation.x += (lean - c.body.rotation.x) * damp(8, dt);
   // замах: корпус чуть разворачивается
   const twist = s.charge ? -0.35 * s.charge : (s.throwT > 0 ? 0.3 * (s.throwT / 0.3) : 0);
@@ -274,8 +292,8 @@ function animate(c, dt, s) {
     // зомби: руки вытянуты вперёд, покачиваются
     setHand(c.handL, -hx * 0.7, d.top - 0.45 + Math.sin(t * 4) * 0.05, 0.55, f); setHand(c.handR, hx * 0.7, d.top - 0.45 - Math.sin(t * 4) * 0.05, 0.55, f); c.body.rotation.z += Math.sin(t * 3) * 0.04;
   } else {
-    setHand(c.handL, -hx, hy + fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? -sn * 0.35 * k : 0), f);
-    setHand(c.handR, hx, hy - fl + (run ? Math.abs(cs) * 0.05 : 0), hz + (run ? sn * 0.35 * k : 0), f);
+    setHand(c.handL, -hx - (run ? .04 * k : 0), hy + fl + (run ? Math.max(0, -an) * 0.12 * k : 0), hz + (run ? -an * 0.42 * k : 0), f);
+    setHand(c.handR, hx + (run ? .04 * k : 0), hy - fl + (run ? Math.max(0, an) * 0.12 * k : 0), hz + (run ? an * 0.42 * k : 0), f);
   }
   // ткань (платок): отстаёт при беге, подлетает в прыжке, трепещет на ветру
   const fl2 = c.torso.userData.flaps;

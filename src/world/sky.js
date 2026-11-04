@@ -5,6 +5,7 @@ import { pix, T } from '../core/textures.js';
 import { WINTER, SEASON, HW } from '../config.js';
 import { W } from './state.js';
 import { WX } from './weather.js';
+import { pixelCloud, cloudMaterial } from './pixel-cloud.js';
 
 /* Небо: купол с градиентом (тёплый горизонт → сливовый зенит), луна с ореолом, мерцающие звёзды,
    медленные облака и силуэт далёкого города по кругу. Всё без тумана, ездит вместе с камерой.
@@ -44,8 +45,8 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
   // облака
   const cloudT = canvasTex('cloud', 64, 24, (x, w, h) => { for (let i = 0; i < 22; i++) { const cx = 8 + R() * (w - 16), cy = h * 0.55 + (R() - 0.5) * h * 0.3, r = 4 + R() * 7; const gr = x.createRadialGradient(cx, cy, 0, cx, cy, r); gr.addColorStop(0, HW ? 'rgba(90,70,120,.7)' : 'rgba(255,255,255,.8)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, w, h); } });
   const clouds = new THREE.Group(); g.add(clouds);
-  for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + R(), r = 150, m = new THREE.Mesh(new THREE.PlaneGeometry(70, 24), mat({ map: cloudT, transparent: true, side: THREE.DoubleSide }));
-    m.position.set(Math.cos(a) * r, 34 + R() * 30, Math.sin(a) * r); m.lookAt(0, m.position.y, 0); m.renderOrder = -9; clouds.add(m); }
+  // v0.73: облака - объёмные пиксельные кластеры (общий стиль с хабом)
+  for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28 + R(), r = 140 + R() * 25, m = pixelCloud(46 + ((i * 7) % 4) * 10, 's' + (i % 3)); m.position.set(Math.cos(a) * r, 30 + R() * 34, Math.sin(a) * r); m.rotation.y = R() * 3; m.renderOrder = -9; clouds.add(m); }
   // силуэт города вдали
   const skyT = canvasTex('skyline', 256, 48, (x, w, h) => { x.clearRect(0, 0, w, h); let px = 0;
     while (px < w) { const bw = 6 + (R() * 16) | 0, bh = 10 + (R() * 34) | 0; x.fillStyle = R() < 0.5 ? '#1d1630' : '#241b3a'; x.fillRect(px, h - bh, bw, bh);
@@ -54,7 +55,10 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
       px += bw; } });
   skyT.wrapS = THREE.RepeatWrapping; skyT.repeat.set(5, 1);
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(175, 175, 34, 48, 1, true), mat({ map: skyT, transparent: true, alphaTest: 0.5, side: THREE.BackSide }));
-  ring.position.y = 10; ring.renderOrder = -7; ring.visible = skyline; g.add(ring); // v0.58: в хабе (остров над городом) силуэта на горизонте нет
+  ring.position.y = 10; ring.renderOrder = -7; ring.visible = skyline; g.add(ring);
+  // v0.73 воздушная перспектива: дымка поверх силуэта города (цвет тумана погоды, днём гуще) - город не «чернеет» днём
+  const hazeT = canvasTex('skyhaze73', 4, 64, (x, w, h) => { const gr = x.createLinearGradient(0, h, 0, 0); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.55, 'rgba(255,255,255,.75)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, w, h); });
+  const hazeM = mat({ map: hazeT, transparent: true, side: THREE.BackSide, color: SEASON.fog[0], opacity: .45 }), hazeRing = new THREE.Mesh(new THREE.CylinderGeometry(168, 168, 48, 48, 1, true), hazeM); hazeRing.position.y = 12; hazeRing.renderOrder = -6; hazeRing.visible = skyline; g.add(hazeRing); // v0.58: в хабе (остров над городом) силуэта на горизонте нет
 
   // ---- оттенок района ----
   const TINT = { cemetery: 0x9ad8a8, industrial: 0xffc890, sewer: 0x90d8d0, hospital: 0x9ad8c0, port: 0xa8c8ff };
@@ -63,7 +67,7 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
   const dayStars = { v: 1 };
   return {
     setPalette(p) { if (!p) return; top.setHex(p.sky[0]); mid.setHex(p.sky[1]); low.setHex(p.sky[2]); paint(); dome.attributes.color.array.set(col); dome.attributes.color.needsUpdate = true;
-      baseHemi.setHex(p.hemi); baseFog.setHex(p.fog); dayStars.v = p.lamps === false ? 0 : 1; moon.visible = halo.visible = p.lamps !== false; },
+      baseHemi.setHex(p.hemi); baseFog.setHex(p.fog); hazeM.color.setHex(p.fog); hazeM.opacity = p.lamps === false ? .78 : p.snow ? .6 : .38; cloudMaterial().color.setHex(p.lamps === false ? 0xffffff : p.snow ? 0xb8c0d4 : 0x9aa2c8); dayStars.v = p.lamps === false ? 0 : 1; moon.visible = halo.visible = p.lamps !== false; },
     moonDir: () => moon.position.clone().normalize(),
     setNight(k) { night = k; const m2 = md0.clone(); m2.y += k * 55; m2.normalize().multiplyScalar(170); moon.position.copy(m2); halo.position.copy(m2).multiplyScalar(1.01); },
     update(camera, t, dt, player, hemi, fog) {
@@ -83,7 +87,7 @@ export function createSky(scene, {moonDirection, skyline = true} = {}) {
       let id = null; for (const d of W.districts) if (player.pos.x >= d.ox && player.pos.x < d.x1 && player.pos.z >= d.oz && player.pos.z < d.z1) { id = d.id; break; }
       tmp.setHex(TINT[id] || 0xffffff); curT.lerp(tmp, Math.min(1, dt * 1.2));
       hemi.color.copy(baseHemi).multiply(curT);
-      if (fog) { fog.color.copy(baseFog).lerp(tmp.copy(baseFog).multiply(curT), 0.5).lerp(nightFog, night * 0.55); if (WX.blizzard) fog.color.lerp(tmp.setHex(0xc4ccdc), WX.blizzard * .8); } // v0.70 метель - белёсая мгла
+      if (fog) { fog.color.copy(baseFog).lerp(tmp.copy(baseFog).multiply(curT), 0.5).lerp(nightFog, night * 0.55); if (WX.blizzard) fog.color.lerp(tmp.setHex(0xd4dae6), WX.blizzard * .92); /* v0.73 метель - плотная белая мгла */ } // v0.70 метель - белёсая мгла
     },
   };
 }

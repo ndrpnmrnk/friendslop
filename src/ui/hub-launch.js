@@ -106,6 +106,7 @@ export function buildVoteArena(b, modes) {
       if (skin.position.y > .95) skin.position.y = Math.max(.95, skin.position.y - dt * 8); }
       // гол: мяч целиком пересёк линию в створе ворот. v0.60: мяч остаётся в воротах — видно, что выбрано;
       // выбить его обратно и забить в другие ворота можно в любой момент
+      ball.inGoal = ball.z < A.z0 + .2;
       let inG = -1; for (const g of goals) if (ball.z < A.z0 - .3 && Math.abs(ball.x - g.x) < A.gw / 2 - .2) inG = g.i;
       if (api.follow) inG = inside; // v0.61: у гостя сетевого лобби гол засчитывает только хост
       if (inG !== inside) { const was = inside; inside = inG; const g = goals[inG]; if (PUCK && !g && was >= 0) { picked = -1; api.onLeave?.(); } if (g) {

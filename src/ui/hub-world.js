@@ -17,7 +17,7 @@ import {buildTree,buildBoard,buildWheel,buildSnowman,updateSnowmen} from './hub-
 import {buildVoteArena,buildScreen,buildSlingshot,signTex} from './hub-launch.js';
 import {buildIsland} from './hub-island.js';
 import {buildIsle2,hubWalk} from './hub-isle2.js';
-import {buildJunk,junkWalk,renderChip} from './hub-junk.js';
+import {buildJunk,buildJunkDecor,junkWalk,renderChip} from './hub-junk.js';
 import {pix} from '../core/textures.js';
 
 // v0.58: вывески и постеры гардероба — рисунки без текста (плечики, худи, кроссовок)
@@ -187,7 +187,7 @@ export function buildHub(scene){
   if(WINTER)xmas.push(buildWheel(group,20.2,9.4,-Math.PI/2,msg=>{let t=document.getElementById('hubToast');if(!t){t=document.createElement('div');t.id='hubToast';document.body.appendChild(t);}t.textContent=msg;t.classList.remove('on');void t.offsetWidth;t.classList.add('on');}));
   decor(b,group);
   /* ---------- «Остров затей» за южной аркой ---------- */
-  const isle2=buildIsle2(b,group);state.walk=(x,z)=>hubWalk(x,z)||junkWalk(x,z);
+  buildJunkDecor(b);const isle2=buildIsle2(b,group);state.walk=(x,z)=>hubWalk(x,z)||junkWalk(x,z);
   resetTools();resetSplat();registerInteracts();bakeStatic(group);
   // v0.72 свалка-мастерская у восточного края
   const junk=buildJunk(group);(state.fortHooks??=[]).push((p,power)=>junk.hit(p,power));renderChip();

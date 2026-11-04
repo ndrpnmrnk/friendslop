@@ -133,18 +133,32 @@ const haze = WINTER ? createHaze(scene, 0xb8c2dc, .55) : createHaze(scene); // v
 initDust(scene);
 W.flash = (p, c, k = 1, range = 12, decay = 3.5) => localLighting.flash({ x: p.x, y: p.y + 1, z: p.z }, c, k, range, decay);
 initEvents({ scene: () => scene, camera: () => camera, player: () => P, prepareRace:()=>{if(S.mg)closeMission({success:false});if(S.wm)closeWorld({success:false});for(const b of W.bots||[])if(b.work)removeMission(b.work.m);}, award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
-const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); if (big) { S.bigOn = true; startCine(key); } }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => { eventChip(null); if (S.bigOn) { S.bigOn = false; epicMoment(); } } };
+const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); if (big) { S.bigOn = true; startCine(key); } }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => { eventChip(null); if (S.bigOn) { S.bigOn = false; epicMoment(); volcano?.g.removeFromParent(); volcano = null; } } };
 /* v0.72 заставка большого события (как появление босса): чёрные полосы, управление на паузе ~3.6 с, камера улетает к месту события,
    показывает его со своего ракурса и плавно возвращается за спину игрока. Ракурс - по событию. */
-const CINE = { lava: { h: 26, r: 30, up: 6 }, moth: { h: 3, r: 10, up: 12 }, snowmen: { h: 16, r: 14, up: 2 }, santa: { h: 10, r: 16, up: 8 }, blizzard: { h: 8, r: 12, up: 2 } };
-function startCine(key) { if (!P || S.state !== 'play') return; const T = (bigTarget() || P.pos).clone(), c = CINE[key] || { h: 9, r: 13, up: 2 };
-  S.cine = { t: 0, dur: 3.6, key, T, c, from: camera.position.clone(), look: P.pos.clone().add(new V3(0, 1, 0)), a: Math.atan2(camera.position.x - T.x, camera.position.z - T.z) };
+const CINE = { lava: { h: 14, r: 34, up: 10 }, moth: { h: 3, r: 10, up: 12 }, snowmen: { h: 16, r: 14, up: 2 }, santa: { h: 10, r: 16, up: 8 }, blizzard: { h: 8, r: 12, up: 2 } };
+/* v0.73: заставка 4.8 с, камера никогда не проходит сквозь геометрию (луч от цели к камере, отъезд ближе), плавные графики.
+   Лава: отдельный план - на краю карты извергается вулкан (остаётся на горизонте до конца события), потом плавно назад к персонажу. */
+let volcano = null;
+function makeVolcano() { const g = new THREE.Group(), a = random() * 6.28, R = (W.bounds || 60) + 55; g.position.set(Math.cos(a) * R, CONFIG.base - 6, Math.sin(a) * R); W.group.add(g);
+  const rock = lam({ color: 0x3a2a2a, flatShading: true }, 'volc73'), glowM = lam({ color: 0xff6a1a, emissive: 0xff4a10, emissiveIntensity: 1.2 }, 'volc73-lava');
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(7, 34, 42, 14, 4), rock); cone.position.y = 21; g.add(cone); const p = cone.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (Math.abs(y) < 20.9) { p.setX(i, p.getX(i) * (.9 + Math.sin(i * 7.1) * .1)); p.setZ(i, p.getZ(i) * (.9 + Math.cos(i * 5.3) * .1)); } } cone.geometry.computeVertexNormals();
+  const crater = new THREE.Mesh(new THREE.CylinderGeometry(6.2, 6.2, .6, 14), glowM); crater.position.y = 42; g.add(crater);
+  for (let k = 0; k < 5; k++) { const s = new THREE.Mesh(new THREE.BoxGeometry(1.4, 26 - k * 3, 1), glowM); const an = k * 1.3; s.position.set(Math.cos(an) * 12, 26 - k * 2, Math.sin(an) * 12); s.lookAt(0, 44, 0); s.rotateX(Math.PI / 2); g.add(s); }
+  (W.lightSources ??= []); return { g, top: g.position.clone().add(new V3(0, 42, 0)), t: 0 }; }
+function startCine(key) { if (!P || S.state !== 'play') return; let T = (bigTarget() || P.pos).clone(); const c = CINE[key] || { h: 9, r: 13, up: 2 };
+  if (key === 'lava') { volcano?.g.removeFromParent(); volcano = makeVolcano(); T = volcano.top.clone(); }
+  S.cine = { t: 0, dur: 4.8, key, T, c, from: camera.position.clone(), look: P.pos.clone().add(new V3(0, 1, 0)), a: Math.atan2(camera.position.x - T.x, camera.position.z - T.z) };
   document.body.classList.add('cine'); if (key === 'lava') { shakeCam(.5); sfx('boom', { v: .8 }); } }
-function updateCine(dt) { const q = S.cine; if (!q) return; q.t += dt; const k = Math.min(1, q.t / q.dur), T = q.T, c = q.c;
-  const orbit = q.a + k * 1.1, far = new V3(T.x + Math.sin(orbit) * c.r, T.y + c.h, T.z + Math.cos(orbit) * c.r), look = T.clone().add(new V3(0, c.up * (1 - k * .5), 0));
-  const back = P.pos.clone().add(new V3(-Math.sin(cam.yaw) * 5, 2.6, -Math.cos(cam.yaw) * 5)), e = s3 => s3 * s3 * (3 - 2 * s3);
-  let p, l; if (k < .3) { const u = e(k / .3); p = q.from.clone().lerp(far, u); l = q.look.clone().lerp(look, u); } else if (k < .78) { p = far; l = look; } else { const u = e((k - .78) / .22); p = far.clone().lerp(back, u); l = look.clone().lerp(P.pos.clone().add(new V3(0, 1, 0)), u); }
-  cam.free = { p, l }; if (q.key === 'snowmen' && random() < dt * 6) puff(T.x + (random() - .5) * 16, T.y + 14, T.z + (random() - .5) * 16, { color: 0xf2f6ff, size: .6, vy: -9, g: 0, life: 1.4, grow: .2 });
+const _cineD = new V3();
+function clearCam(p, l) { _cineD.copy(p).sub(l); const len = _cineD.length(); if (len < .5) return p; _cineD.divideScalar(len); const hit = raySolids(l, _cineD, len); if (hit < len) p.copy(l).addScaledVector(_cineD, Math.max(1, hit - .5)); return p; }
+function updateCine(dt) { const q = S.cine; if (!q) return; q.t += dt; const k = Math.min(1, q.t / q.dur), T = q.T, c = q.c, e = u => u * u * (3 - 2 * u), e2 = u => u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+  const orbit = q.a + e(k) * .9, far = new V3(T.x + Math.sin(orbit) * c.r, T.y + c.h, T.z + Math.cos(orbit) * c.r), look = T.clone().add(new V3(0, c.up * (1 - k * .4), 0));
+  const back = P.pos.clone().add(new V3(-Math.sin(cam.yaw) * 5, 2.6, -Math.cos(cam.yaw) * 5)), pl0 = P.pos.clone().add(new V3(0, 1, 0));
+  let p, l; if (k < .28) { const u = e2(k / .28); p = q.from.clone().lerp(far, u); l = q.look.clone().lerp(look, u); } else if (k < .78) { p = far; l = look; } else { const u = e2((k - .78) / .22); p = far.clone().lerp(back, u); l = look.clone().lerp(pl0, u); }
+  clearCam(p, k > .78 ? pl0 : look); cam.free = { p, l };
+  if (q.key === 'snowmen' && random() < dt * 6) puff(T.x + (random() - .5) * 16, T.y + 14, T.z + (random() - .5) * 16, { color: 0xf2f6ff, size: .6, vy: -9, g: 0, life: 1.4, grow: .2 });
+  if (q.key === 'lava' && volcano && random() < dt * 14) { const v = volcano.top; burst(v.x + (random() - .5) * 4, v.y + 1, v.z + (random() - .5) * 4, 3, { color: random() < .5 ? 0xff6a1a : 0xffd25c, size: 1.2, speed: 9, up: 14, g: 12, life: 2.4 }); puff(v.x, v.y + 4, v.z, { color: 0x3a3438, size: 4, vy: 4, life: 3, grow: 2, opacity: .6 }); }
   if (k >= 1) { S.cine = null; cam.free = null; document.body.classList.remove('cine'); resumeCamera(camera); } }
 // эпичный кадр в конце события: стоп-кадр, вспышка и искры
 function epicMoment() { if (S.state !== 'play') return; hitFreeze(.35); shakeCam(.3); sparks(innerWidth / 2, innerHeight * .4, ['#f5c542', '#f2f6ff', '#4ab0f0'], 30); }
@@ -1105,7 +1119,7 @@ function frame() {
     prof.mark('боты/события');
     // погода и ночь: за раунд сумерки уходят в глубокую ночь
     { const nk = S.studioCfg ? .3 : S.state === 'play' || S.state === 'results' || S.state === 'finale' ? Math.min(1, Math.max(0, 1 - Math.max(0, S.time) / CONFIG.roundTime)) * WX.nightK : 0; updateWeather(dt, t, camera, P, scene, nk); updateSnowTrails(dt, camera); sky.setNight(nk);
-      hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1) * WX.light; sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35) * WX.light; if (WX.palette?.sun) sun.color.setHex(WX.palette.sun); else sun.color.setHex(0xaab8ff); dayGlow = WX.palette?.glow ?? 1;
+      hemi.intensity = SEASON.hemi[2] * Math.PI * (1 - nk * 0.3) * (WX.kind === 'fog' ? 0.92 : 1) * WX.light * (1 - (WX.blizzard || 0) * .3); sun.intensity = SEASON.sun[1] * Math.PI * (1 - nk * 0.35) * WX.light * (1 - (WX.blizzard || 0) * .55); if (WX.palette?.sun) sun.color.setHex(WX.palette.sun); else sun.color.setHex(0xaab8ff); dayGlow = WX.palette?.glow ?? 1;
       LIGHTMAT().color.setScalar(1 + nk * 0.45 + (WX.wet ? 0.15 : 0)); if (CURTAIN) CURTAIN.emissiveIntensity = 0.55 + nk * 0.45; }
     updateReflections(camera, t);localLighting.update(camera,dt,0); haze.update(t, camera); prof.mark('погода/свет');
     cam.shake = FX.shake; cam.fovAdd = S.state === 'intro' && S.intro && !S.intro.landed ? 12 : P && S.state === 'play'&&!S.mg ? P.boost*3+Math.min(6,Math.max(0,Math.hypot(P.vel.x,P.vel.z)-6.5)*.8) : 0;

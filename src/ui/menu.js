@@ -18,6 +18,7 @@ import {createClaw} from './claw-machine.js';
 import {T} from '../core/textures.js';
 import {CONFIG,SEASON,WINTER} from '../config.js';
 import {createSnowfall} from '../world/snowfall.js';
+import {raySolids} from '../world/physics.js';
 import {createPlayer,updatePlayer} from '../game/player.js';
 import {createCameraRig} from '../game/camera.js';
 import {withWorld} from '../world/state.js';
@@ -51,7 +52,7 @@ const ease=x=>{x=clamp(x,0,1);return x*x*x*(x*(x*6-15)+10);};
 const turn=(a,b,k)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*k;
 
 export function createMenu(){
-  initCollection(SKIN_IDS);document.documentElement.style.setProperty('--fist-icon',`url("${icon('fist',3)}")`);
+  initCollection(SKIN_IDS);document.documentElement.style.setProperty('--fist-icon',`url("${icon('fist',3)}")`);document.documentElement.style.setProperty('--part-icon',`url("${icon('part',3)}")`);
   const scene=new THREE.Scene(),camera=makeCamera(CONFIG.camera.fov),rig=createCameraRig();
   initHubSync(scene);
   scene.background=new THREE.Color(SEASON.bg);scene.fog=new THREE.Fog(SEASON.fog[0],40,120);
@@ -250,11 +251,15 @@ export function createMenu(){
     const P=st.player.pos;let shot,cp,cl,rate=3;
     /* v0.71.2 монтаж: 4 плана. Общий план компании → (плавно) вид сбоку на сани, пока все запрыгивают → (плавно) за санями на разгоне →
        резкая склейка на взлёте и полёт следом. Внутри одного номера плана камера только плавно едет, склейка - только при смене номера. */
-    const sp=world.sling.sledPos?world.sling.sledPos():c;
-    if(S.phase==='fly'){shot=2;const k=Math.min(1,S.t/(world.sling.fly||2));cp=new V3(sp.x+2.4-k*1.2,sp.y+1.6+k*2.4,sp.z+5.5+k*4.5);cl=new V3(sp.x,sp.y-k*2.5,sp.z-8);rate=5;}
-    else if(S.phase==='pull'||S.phase==='fire'){shot=1;const k=S.pull||0;cp=new V3(sp.x+1.2-k*.6,sp.y+1.8,sp.z+4.6);cl=new V3(sp.x,sp.y+.3,sp.z-6);rate=2+k*5;}
+    const sp=world.sling.sledPos?world.sling.sledPos():c,pk=world.sling.pocket;
+    /* v0.73 монтаж запуска: (1) общий план компании → (1) сбоку у саней → (3) «GoPro» на борту саней с тряской (разгон) →
+       (4) неподвижная камера сбоку от трамплина, взгляд следит за санями (турбина, взлёт) → (3) снова «GoPro» в полёте. Камера не проходит сквозь геометрию (луч + отъезд). */
+    const gopro=(shk)=>{pk.updateMatrixWorld(true);cp=pk.localToWorld(new V3(1.05,1.35,2.6));cl=pk.localToWorld(new V3(-.2,.5,-4));const j=shk*(.6+Math.random()*.4);cp.x+=(Math.random()-.5)*.06*j;cp.y+=(Math.random()-.5)*.08*j;rate=30;};
+    if(S.phase==='fly'){if(S.t<.7){shot=4;const K=world.sling.kicker;cp=new V3(K.x+9,K.y+1.5,K.z+5);cl=sp.clone();rate=12;}else{shot=3;gopro(1.2);}}
+    else if(S.phase==='pull'||S.phase==='fire'){if((S.pull||0)<.45){shot=3;gopro(.4+(S.pull||0));}else{shot=4;const K=world.sling.kicker;cp=new V3(K.x+9,K.y+1.5,K.z+5);cl=sp.clone().add(new V3(0,.6,0));rate=12;}}
     else if(T>=CLIMB||L.riders.some(r=>r.jump)||L.seatedAt){shot=1;cp=new V3(c.x+7.5,D.y+1.8,D.stairZ+1.2);cl=new V3(c.x,D.y+.4,D.stairZ-.6);rate=.9;}
     else{shot=1;const k=smooth(clamp(T/CLIMB,0,1));cp=new V3(H.x+3.2-k*1.4,1.5+k*.5,H.z+5.4-k*.8);cl=new V3(H.x,1.05,H.z-k);rate=1.4;}
+    if(shot===1){const dir=cp.clone().sub(cl),len=dir.length();dir.normalize();const hit=scope(()=>raySolids(cl,dir,len));if(hit<len)cp.copy(cl).addScaledVector(dir,Math.max(1.2,hit-.4));}
     if(shot!==L.shot){L.shot=shot;L.cam.copy(cp);L.look.copy(cl);}
     L.cam.lerp(cp,1-Math.exp(-dt*rate));L.look.lerp(cl,1-Math.exp(-dt*rate*1.5));camera.position.copy(L.cam);camera.position.x+=Math.sin(st.t*2.3)*.025;camera.position.y+=Math.sin(st.t*3.1)*.02;camera.lookAt(L.look);
     {const fv=S.phase==='fly'?CONFIG.camera.fov+16:S.phase==='pull'?CONFIG.camera.fov+(world.sling.breakAt?8*S.pull:-6*S.pull):CONFIG.camera.fov;camera.fov+=(fv-camera.fov)*(1-Math.exp(-dt*(S.phase==='fly'?7:3)));camera.updateProjectionMatrix();}
