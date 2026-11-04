@@ -23,8 +23,8 @@ export const ISLE = { c: new V3(0, 0, 70), r: 17, bridge: { x0: -1.6, x1: 1.6, z
 const r2 = th => ISLE.r + Math.sin(th * 3 + 1) * .7 + Math.sin(th * 7) * .3;
 export function hubWalk(x, z) {
   const B = ISLE.bridge; if (x > B.x0 && x < B.x1 && z > B.z0 && z < B.z1) return true;
-  const dx = x - ISLE.c.x, dz = z - ISLE.c.z; if (Math.hypot(dx, dz) < r2(Math.atan2(dz, dx)) - .4) return true;
-  return Math.hypot(x, z) < islandR(Math.atan2(z, x)) - .5;
+  const dx = x - ISLE.c.x, dz = z - ISLE.c.z; if (Math.hypot(dx, dz) < r2(Math.atan2(dz, dx)) - .12) return true; /* v0.74: край ходьбы = видимый край земли */
+  return Math.hypot(x, z) < islandR(Math.atan2(z, x)) - .12;
 }
 const FIST_CD = 20 * 60 * 1000, FIST_KEY = 'friendslop.parkourFist';
 function boardTex() { const c = document.createElement('canvas'); c.width = 256; c.height = 160; const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace; return { c, t }; }

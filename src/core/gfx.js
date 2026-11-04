@@ -222,8 +222,18 @@ export function present(scene, camera, outlineTarget=null) {
 
 export const cameras = [];
 export function makeCamera(fov) { const c = new THREE.PerspectiveCamera(fov, 1, 0.12, 220); cameras.push(c); resize(); return c; }
+/* v0.74: динамическое разрешение - в суматохе (кадр дольше ~25 мс) картинка чуть крупнее пикселем, FPS держится;
+   при запасе (кадр < 17 мс) возвращается. Для PS1-стиля почти незаметно, геймплей не меняется. */
+let dynK = 1, slowT = 0, fastT = 0, emaDt = 1 / 60;
+export function frameGovernor(rawDt) {
+  if (!(rawDt > 0) || rawDt > .25) return; emaDt += (rawDt - emaDt) * .08;
+  if (emaDt > .025) { slowT += rawDt; fastT = 0; if (slowT > 1.5 && dynK < 1.6) { dynK = Math.min(1.6, dynK + .15); slowT = 0; resize(); } }
+  else if (emaDt < .017) { fastT += rawDt; slowT = 0; if (fastT > 5 && dynK > 1) { dynK = Math.max(1, dynK - .15); fastT = 0; resize(); } }
+  else { slowT = Math.max(0, slowT - rawDt); fastT = 0; }
+}
+export const dynamicScale = () => dynK;
 export function resize() {
-  const quality=graphics.current,s=Math.max(quality.scale,innerWidth/quality.width),w=Math.ceil(innerWidth/s),h=Math.ceil(innerHeight/s);
+  const quality=graphics.current,s=Math.max(quality.scale,innerWidth/quality.width)*dynK,w=Math.ceil(innerWidth/s),h=Math.ceil(innerHeight/s);
   renderer.setSize(w, h, false); rt.setSize(w, h);silhouetteRT.setSize(w,h); SNAP.value.set(w, h); post.uniforms.px.value.set(1 / w, 1 / h);
   for (const c of cameras) { c.aspect = innerWidth / innerHeight; c.updateProjectionMatrix(); }
 }

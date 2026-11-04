@@ -31,7 +31,7 @@ import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/700.css';
 import './styles.css';
 import {predictBow,predictNet} from './game/bow.js';
-import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow,setActionVisuals,warmup, lam } from './core/gfx.js';
+import { THREE, V3, G, present, makeCamera, basic, mesh, sprite, renderer, canvas, setGlow,setActionVisuals,warmup, lam, frameGovernor } from './core/gfx.js';
 import { T } from './core/textures.js';
 import { CONFIG, SEASON, HINTS, DIFF, WINTER } from './config.js';
 import { keys, tapped, endFrame, mouse, on, aim, lock, locked, unlock, takeLook, requestLock,clearInput } from './core/input.js';
@@ -972,7 +972,7 @@ const clock = new THREE.Timer(); let t = 0,graphicsLost=false;
 let CURTAIN = null; // материал занавесок в окнах (ярче к ночи)
 const waterTex = T.water(), waterHi = T.waterHi(), foamTex = T.foam();
 function frame() {
-  clock.update(); let dt = Math.min(0.05, clock.getDelta()); prof.frameStart();updateVoice(dt);prof.mark('голос');
+  clock.update(); const rawDt = clock.getDelta(); let dt = Math.min(0.05, rawDt); if (!globalThis.__noGovernor) frameGovernor(rawDt); prof.frameStart();updateVoice(dt);prof.mark('голос');
   if(graphicsLost||document.hidden){endFrame();return;}
   if (MATCH.on && P && S.state !== 'hub' && S.state !== 'menu') netMatchTick(dt,P);prof.mark('сеть/снимки');
   if(netPaused()&&!['results','finale'].includes(S.state)){clearInput();if(!window.__noRender)present(scene,camera);prof.frameEnd(dt,renderer);endFrame();return;}

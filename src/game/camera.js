@@ -105,7 +105,7 @@ function updateCamera(camera, p, dt, snap, lookDelta, aiming) {
     const k = cam.aimK * 0.5, N = p.bus?{dist:11.5,shoulder:.25,height:3.5}:cam.normal, A = cam.aim,anchor=p.bus?.g.position||p.pos;
     if (snap) { orbitPitch = cam.pitch; orbitYaw = cam.yaw; }
     else { orbitPitch += (cam.pitch - orbitPitch) * damp(30, dt); orbitYaw += (cam.yaw - orbitYaw) * damp(30, dt); }
-    const dist = N.dist + (A.dist - N.dist) * k, shoulder = (N.shoulder + (A.shoulder - N.shoulder) * k) * Math.cos(Math.max(0, orbitPitch) * 0.8);
+    const dist = N.dist + (A.dist - N.dist) * k, shoulder = (N.shoulder + (A.shoulder - N.shoulder) * k) * Math.cos(Math.max(0, orbitPitch) * 0.8) * clamp((cam.curDist - 1) / 3, .3, 1); /* v0.74: в тесноте камера уходит за голову, а не остаётся сбоку */
     const height = p.bus?3.5:Math.min(N.height + (A.height - N.height) * k, p.h + 0.3);
     eye.set(anchor.x,anchor.y+(p.bus?2.4:Math.min(1.35,p.h*.72)),anchor.z);
     const floorY = p.pos.y + 0.45; // всё ниже колен — «пол»: камера над ним скользит, а не упирается

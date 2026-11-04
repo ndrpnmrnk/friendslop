@@ -106,7 +106,8 @@ export function addPushable(b, kind, x, z, y = 0) {
     roller.add(compose('swimRing', add => { add(new THREE.TorusGeometry(0.42, 0.17, 6, 12), lam({ map: T.awning('#ff5a6e', '#f1e8ff') }, 'ringMat'), 0, 0.12, 0, 1, 1, 1, Math.PI / 2); }));
     r = 0.55; roller = null;
   } else if (kind === 'tire') {
-    roller = new THREE.Group(); roller.position.y = 0.33; g.add(roller); roller.add(tireModel()); r = 0.35;
+    /* v0.74: шина - лежачий упругий предмет, а не вечное колесо: лежит плашмя, от толчка скользит и подпрыгивает */
+    const tw = new THREE.Group(); tw.position.y = 0.17; tw.rotation.z = Math.PI / 2; tw.rotation.y = random() * 6; const tm = tireModel(); tw.add(tm); g.add(tw); g.userData.tireTilt = tw; roller = null; r = 0.36;
   } else {
     roller = new THREE.Group(); roller.position.y = 0.42; g.add(roller);
     const rl = compose('barrelRoll', add => {

@@ -104,6 +104,11 @@ export function snowInvasion(ctx, award) {
       if (e.type === 'king') { shake(.6); sfx('fanfare'); s.won = true; } BODY.delete(e.id); e.dieT = 1.5; }
   }
   const nearestEnemy = (p, max) => { let best = null, bd = max; for (const e of [] .concat(W.snowInv?.en || [])) { if (e.hp <= 0 || e.st === 'fall') continue; const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; best = e; } } return best; };
+  const punchFor = s => (P, remote) => { const f = P.root.rotation.y, p = { x: P.pos.x + Math.sin(f) * .8, z: P.pos.z + Math.cos(f) * .8 };
+        /* v0.74: у гостя снеговики - копия; удар сразу виден и слышен у него, а урон считает хост по команде */
+        if (W.net?.replica) { if (performance.now() - (s._seen || 0) > 1500) return false; const e = nearestEnemy(p, 1.6); if (!e || (P.punchCD || 0) > 0) return false; P.punchCD = .32; P.swatT = .25; sfx('snowHit', { at: { x: e.x, y: e.y + 1, z: e.z } }); W.net.request('epunch', null, { yaw: f }); return true; }
+        if (remote) { const now = performance.now(); if (now - (P._ep || 0) < 250) return false; P._ep = now; } const e = nearestEnemy(p, remote ? 2.2 : 1.6); if (!e || (!remote && (P.punchCD || 0) > 0)) return false;
+        P.punchCD = .32; P.swatT = .25; hurt(s, e, 1, P, new V3(Math.sin(f), 0, Math.cos(f))); return true; };
   return {
     dur: 120,
     start(s) {
@@ -113,8 +118,7 @@ export function snowInvasion(ctx, award) {
       const ringM = new THREE.MeshBasicMaterial({ color: 0xff3a3a, transparent: true, opacity: .5, depthWrite: false, side: THREE.DoubleSide });
       for (let i = 0; i < 6; i++) { const m = mesh(new THREE.RingGeometry(.85, 1, 32), ringM, 0, -99, 0, 1, 1, 1, W.group); m.rotation.x = -Math.PI / 2; m.renderOrder = 4; m.visible = false; s.rings.push(m); }
       // удар кулаком: ЛКМ с пустыми руками рядом со снеговиком (main.js)
-      W.enemyPunch = (P) => { if (W.net?.replica) return false; const f = P.root.rotation.y, p = { x: P.pos.x + Math.sin(f) * .8, z: P.pos.z + Math.cos(f) * .8 }, e = nearestEnemy(p, 1.6); if (!e || (P.punchCD || 0) > 0) return false;
-        P.punchCD = .32; P.swatT = .25; hurt(s, e, 1, P, new V3(Math.sin(f), 0, Math.cos(f))); return true; };
+      W.enemyPunch = punchFor(s);
       // перекат, выпад, взрывы - через общий worldHit
       (W.fortHooks ??= []).push(s.hook = (p, power) => { if (power < 3 || W.net?.replica) return; for (const e of s.en) if (e.hp > 0 && e.st !== 'fall' && Math.hypot(e.x - p.x, e.z - p.z) < SNOW_TYPES[e.type].r + 1 && Math.abs(e.y + 1 - p.y) < 2) {
         let o = null, od = 2.6; for (const a of actors()) { const d = Math.hypot(a.pos.x - p.x, a.pos.z - p.z); if (d < od) { od = d; o = a; } } const dir = new V3(e.x - p.x, 0, e.z - p.z).normalize(); hurt(s, e, power >= 5 ? 2 : 1, o, dir); } });
@@ -165,7 +169,7 @@ export function snowInvasion(ctx, award) {
       if (ctx.player().punchCD) ctx.player().punchCD -= dt;
       syncVisual(s, dt, t); return null;
     },
-    replica(s, dt) { s._t = (s._t || 0) + dt; syncVisual(s, dt, s._t); },
+    replica(s, dt) { s._t = (s._t || 0) + dt; s._seen = performance.now(); if (W.snowInv !== s) { W.snowInv = s; W.enemyPunch = punchFor(s); } syncVisual(s, dt, s._t); },
     info(s) { return s.phase === 'boss' ? 'СНЕЖНЫЙ КОРОЛЬ! Бей кулаком (ЛКМ), перекатом и чем угодно' : s.phase === 'rest' ? `Передышка · волна ${Math.min(WAVES, s.wave + 1)} на подходе` : 'Бей снеговиков: ЛКМ - кулак, перекат, броски'; },
     target(s) { const e = s.en.find(q => q.hp > 0); return e ? new V3(e.x, e.y, e.z) : ctx.player().pos; },
     bot(s, b) { const e = nearestEnemy(b.pos, 30); if (!e) return null; if (b.held) return { who: { pos: new V3(e.x, e.y + .6, e.z), vel: new V3() }, kind: 'eventThrow', near: 40 }; return { x: e.x, y: e.y, z: e.z, kind: 'event', near: 1.2 }; },

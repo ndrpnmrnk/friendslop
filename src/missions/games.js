@@ -32,7 +32,11 @@ export const GAMES = {
     const Wp = (a, b) => [cx + F.x * a + C.x * b, cz + F.z * a + C.z * b];
     api.pose(new V3(cx + C.x * 2.0, by + 1.65, cz + C.z * 2.0), new V3(cx, by + 0.6, cz));
     const hand = buildHand(ctx.character); W.group.add(hand); hand.rotation.y = Math.atan2(-C.x, -C.z); // пальцами от камеры — к коту
-    { const [hx, hz] = Wp(0, 0.4); hand.position.set(hx, backY + 0.25, hz); }
+    /* v0.74: рука видна целиком - крупнее и ложится НА спину (по реальному верху тела кота), а не тонет в шерсти */
+    hand.scale.setScalar(1.7); cat.root.updateMatrixWorld(true);
+    const _bb=new THREE.Box3().setFromObject(cat.body), _hb=new THREE.Box3().setFromObject(hand), handHalf=Math.max(.05,(_hb.max.y-_hb.min.y)/2);
+    const backTop=Number.isFinite(_bb.max.y)?_bb.max.y:backY;
+    { const [hx, hz] = Wp(0, 0.4); hand.position.set(hx, backTop + handHalf + 0.22, hz); }
     const target = hand.position.clone(), plane = new THREE.Plane(new V3(0, 1, 0), -backY), hit = new V3();
     let down = false, prog = 0, last = null, done = false, doneT = 0, happy = 0, hiss = 0, purr = 0, t = 0, idle = 0, hintAt = 3;
     api.progress(0); api.msg('Зажми ЛКМ и плавно гладь по спинке'); ctx.cursor(false);
@@ -42,7 +46,7 @@ export const GAMES = {
       down(ray) { down = true; this.move(ray); }, up() { down = false; last = null; },
       update(dt) {
         t += dt; hiss -= dt; happy -= dt; purr -= dt;idle+=dt;
-        target.y = backY + (down ? 0.03 : 0.24);
+        {const la0=(target.x-cx)*F.x+(target.z-cz)*F.z;target.y = backTop + handHalf*.8 - Math.max(0,Math.abs(la0)-.35)*.18 + (down ? 0 : 0.2);}
         hand.position.lerp(target, 1 - Math.exp(-dt * 25));
         const la = (hand.position.x - cx) * F.x + (hand.position.z - cz) * F.z, lb = (hand.position.x - cx) * C.x + (hand.position.z - cz) * C.z;
         const onCat = Math.abs(la) < 0.65 && Math.abs(lb) < 0.45;
@@ -64,10 +68,10 @@ export const GAMES = {
         const hap = happy > 0 || done;
         cat.body.scale.y = saved.bodyS * (1 + prog*0.12 + Math.sin(t * (hap ? 15 : 3)) * (hap ? 0.025+prog*0.025 : 0.015));
         cat.body.position.y=saved.bodyY+prog*0.035;
-        const lift=hiss>0?0.15:0.12+prog*1.35;
+        const lift=hiss>0?1.5:0.75+prog*0.75; /* v0.74: хвост вверх-назад, а не палкой вбок */
         cat.tail.rotation.x+=(lift-cat.tail.rotation.x)*(1-Math.exp(-dt*5));
         cat.tail.rotation.y=Math.sin(t*(hiss>0?19:hap?2.2:4))*(hiss>0?0.65:0.25-prog*0.16);
-        cat.tail2.rotation.x=-prog*0.65;cat.tail2.rotation.y=Math.sin(t*3)*0.1;
+        cat.tail2.rotation.x=.35+prog*0.45;cat.tail2.rotation.y=Math.sin(t*3)*0.1;
         cat.head.position.y=saved.headP.y+prog*0.025;
         cat.head.rotation.z=(hap?Math.sin(t*2.5)*0.08:0);
 

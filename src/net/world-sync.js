@@ -234,6 +234,7 @@ export function createWorldSync({ host, id, actor, command, myKey, visuals = tru
   function actInner(a, msg) {
     if(msg.kind==='drone-action'){if(vector(msg.direction,3,1.1)&&[0,2].includes(msg.button))W.netDroneInput?.(a,msg.button,new V3(...msg.direction));return;}
     if(msg.kind==='demolish'){api.demolish?.(a);return;}
+    if(msg.kind==='epunch'){if(Number.isFinite(msg.yaw)&&a.root)a.root.rotation.y=msg.yaw;W.enemyPunch?.(a,true);return;} // v0.74: удар гостя по снеговику считает хост
     const o = objects.get(msg.key)?.o;
     if (msg.kind === 'struggle') { struggleTap(a); return; }
     if (msg.kind === 'letgo') { letGo(a); return; }

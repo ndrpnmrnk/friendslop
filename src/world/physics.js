@@ -246,7 +246,7 @@ export function updatePushables(dt, player) {
     // v0.61.8: no position snapping by the old radial wheel clamp.
     // The continuous curved surface is now the single source of contact.
     if(!b.air&&!b.grind)constrainBowlWheel(W.skateBowl,b,dt);
-    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: b.puck ? (b.inGoal ? 3.6 : Math.hypot(b.vx, b.vz) < 3 ? .75 : .38) : .45 /* v0.73: от толчка скользит дальше, в воротах быстро замирает */, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
+    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: b.puck ? (b.inGoal ? 3.6 : Math.hypot(b.vx, b.vz) < 3 ? .75 : .38) : .45 /* v0.73: от толчка скользит дальше, в воротах быстро замирает */, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 3.4, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
     // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
     if (b.ride?.water) { b.vy=0;b.air=false; }
@@ -337,6 +337,12 @@ export function updatePushables(dt, player) {
     }
     if(b.kind==='crate'){_selfP=b;const gy=groundAt(b.x,b.z,b.r*.7,b.y+.04);_selfP=null;b.vy-=22*dt;b.y=Math.max(gy,b.y+b.vy*dt);if(b.y<=gy)b.vy=0;}
     if(b.solid){b.solid.on=true;syncPushable(b);}
+    if (b.kind === 'tire') { /* v0.74: надутая шина: резкий толчок - упругий подскок с покачиванием, потом лежит */
+      const v = Math.hypot(b.vx, b.vz), dv = v - (b._tv || 0); b._tv = v; b.hopY = b.hopY || 0; b.hopV = b.hopV || 0;
+      if (dv > 1.2 && b.hopY < .02) { b.hopV = Math.min(3.2, dv * .7); b.wob = (b.wob || 0) + Math.min(.5, dv * .12); }
+      b.hopV -= 14 * dt; b.hopY += b.hopV * dt; if (b.hopY < 0) { b.hopY = 0; b.hopV = b.hopV < -1 ? -b.hopV * .38 : 0; }
+      b.wob = (b.wob || 0) * Math.exp(-dt * 3); const tw = b.mesh.userData.tireTilt; if (tw) { tw.position.y = .17 + b.hopY; tw.rotation.x = Math.sin(performance.now() * .012) * b.wob; }
+    }
     b.mesh.position.set(b.x, b.y+(b.meshOffsetY||0) + (b.kind === 'ring' ? Math.sin(performance.now() * 0.003 + b.x) * 0.04 : 0), b.z);
     // движение по форме: стоячий бак скользит не поворачиваясь; бочка, шина и колёсное едут вдоль «колёс»,
     // боковое скольжение гасится, направление плавно доворачивается к толчку
@@ -344,7 +350,7 @@ export function updatePushables(dt, player) {
     if (b.rider) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.set(-(b.pitch || 0), b.heading + (b.shuv || 0), (b.flip || 0) + (b.lean || 0) + (b.bowlBank || 0)); }
     else if ((b.kind === 'skate' || b.kind === 'scooter') && (b.pitch || b.flip)) { b.mesh.rotation.order = 'YXZ'; b.mesh.rotation.x = -(b.pitch || 0); b.mesh.rotation.z = 0; b.flip = 0; b.shuv = 0; }
     else if (b.kind === 'chair') b.mesh.rotation.y += Math.hypot(b.x - op.x, b.z - op.z) * 2;
-    else if (b.kind !== 'bin' && b.kind!=='crate' && sp > 0.02) {
+    else if (b.kind !== 'bin' && b.kind!=='crate' && b.kind!=='tire' && sp > 0.02) {
       let h = b.mesh.rotation.y; const fx = Math.sin(h), fz = Math.cos(h);
       let vf = b.vx * fx + b.vz * fz, vs = b.vx * fz - b.vz * fx;
       vs *= Math.exp(-dt * (b.roller ? 5 : 7));

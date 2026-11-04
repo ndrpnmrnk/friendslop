@@ -46,7 +46,7 @@ const find = key => key === myKey() ? W.player : W.bots?.find(b => b.netKey === 
 const trusted = m => !!NET.players.get(m.id)?.host;
 const event = data => send({ t: 'ev', ep: MATCH.seed, ...data });
 // v0.66: разовые действия гостя уходят хосту сразу отдельным событием, а не ждут следующего пакета состояния.
-const URGENT = new Set(['take','throw','drop','door','slam','grip','letgo','dismount','release','mount','cart','interact','radio','break','dog','tug','struggle']); // миссии (claim/finish/chain) - обычным пакетом, порядок с их данными важнее
+const URGENT = new Set(['take','throw','drop','door','slam','grip','letgo','dismount','release','mount','cart','interact','radio','break','dog','tug','struggle','epunch']); // миссии (claim/finish/chain) - обычным пакетом, порядок с их данными важнее
 let urgentAt = 0, urgentN = 0;
 const command = data => {
   if (!MATCH.host && URGENT.has(data.kind)) {

@@ -12,7 +12,19 @@ import {tugTarget,startTug} from './item-tug.js';
 const names={cart:'тележку',skate:'скейт',scooter:'самокат',chair:'кресло',barrow:'тачку',kidcar:'машинку',gurney:'каталку',tire:'шину',ring:'круг'};
 const _aimP=new V3();
 const _aimO=new V3();
+/* v0.74: в тесной комнате камера прижата к плечу, и луч из неё упирается в пол в 1-3 м СБОКУ от персонажа -
+   бросок уходил под углом до 95°. Если точка прицела близко или сильно в стороне, целимся тем же направлением
+   камеры, но из груди персонажа (как в TPS-играх: направление броска = направление взгляда). */
+const _aimC=new V3(),_aimF=new V3();
 export function worldAimPoint(player,camera,out=new V3()){
+ const res=rawAimPoint(player,camera,out),f=camera.getWorldDirection(_aimF),vx=res.x-player.pos.x,vz=res.z-player.pos.z,h=Math.hypot(vx,vz),fh=Math.hypot(f.x,f.z)||1;
+ if(h<4&&(h<1.2||(vx*f.x+vz*f.z)/(h*fh)<.9)){
+  const o=_aimC.set(player.pos.x,player.pos.y+1.25,player.pos.z),t=raySolids(o,f,60);
+  if(f.y<-.02){let a=0;const q=_aimP;for(let s=.4;s<Math.min(t,60);s+=Math.max(.35,s*.05)){q.copy(o).addScaledVector(f,s);if(groundAt(q.x,q.z,.05,q.y+3)>q.y){let lo=a,hi=s;for(let i=0;i<7;i++){const m=(lo+hi)/2;q.copy(o).addScaledVector(f,m);if(groundAt(q.x,q.z,.05,q.y+3)>q.y)hi=m;else lo=m;}return out.copy(o).addScaledVector(f,Math.max(hi,1.5));}a=s;}}
+  return out.copy(o).addScaledVector(f,Math.max(1.5,Math.min(t,60)));}
+ return res;
+}
+function rawAimPoint(player,camera,out){
  // v0.71.1: препятствия между камерой и игроком (стена за спиной, угол здания) не считаются - луч начинается на уровне игрока.
  // Иначе прицел оказывался позади персонажа, и бросок летел «в камеру».
  const r=aim(camera),o0=r.ray.origin,d=r.ray.direction,s0=Math.max(0,(player.pos.x-o0.x)*d.x+(player.pos.y+1-o0.y)*d.y+(player.pos.z-o0.z)*d.z-.3),o=_aimO.copy(o0).addScaledVector(d,s0),t=raySolids(o,d,80);
