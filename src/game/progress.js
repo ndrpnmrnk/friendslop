@@ -4,7 +4,7 @@ import { send, inRoom } from '../net/net.js';
 /* v0.70 уровень игрока. Опыт - только в конце матча за место: 1 - 25, 2 - 15, 3 - 10, остальные - 5, последнее - 0,
    плюс 1 за каждое выполненное задание. Уровень 1 - 50 опыта, каждый следующий +50 к порогу (100, 150, …), пока 10 уровней.
    Уровень ничего не даёт, кроме 10 фистов за каждый новый. Discord - сохраняется на сервере (account.js SYNC_KEYS), гость - в браузере. */
-export const KEY = 'friendslop.progress.v1', MAX_LEVEL = 10, FISTS_PER_LEVEL = 10;
+export const KEY = 'friendslop.progress.v1', MAX_LEVEL = 20, FISTS_PER_LEVEL = 10; // v0.72: до 20 уровня
 export const xpForLevel = n => 25 * n * (n + 1); // суммарный опыт для уровня n (1 → 50, 2 → 150, 3 → 300 …)
 export function levelOf(xp) { let n = 0; while (n < MAX_LEVEL && xp >= xpForLevel(n + 1)) n++; return n; }
 // прогресс внутри текущего уровня: [набрано, нужно]

@@ -117,7 +117,7 @@ export function createMenu(){
   st.closeTV=()=>{};
   st.togglePause=()=>{if(st.mode!=='roam')return;clearThrow();st.pause=!st.pause;$('hubPause').classList.toggle('open',st.pause);$('setBtn').classList.toggle('hub-settings',st.pause);st.velocity.set(0,0,0);if(st.pause){unlock();$('hubResume').focus();}else requestLock();};
   st.resume=()=>{if(st.pause)st.togglePause();};st.suspend=()=>{st.pausedForSettings=true;unlock();};st.resumeSettings=()=>{st.pausedForSettings=false;};
-  Object.defineProperty(st,'wantsLock',{get:()=>st.mode!=='splash'&&st.mode!=='claw'&&st.mode!=='wardrobe'&&(st.active||st.pausedForSettings)});/* v0.71 J7: в гардеробе мышь свободна - стрелки/клавиши не захватывают её обратно в центр */
+  Object.defineProperty(st,'wantsLock',{get:()=>!globalThis.__junkPanel&&st.mode!=='splash'&&st.mode!=='claw'&&st.mode!=='wardrobe'&&(st.active||st.pausedForSettings)});/* v0.71 J7: в гардеробе мышь свободна - стрелки/клавиши не захватывают её обратно в центр */
   st.claw=createClaw(scene,id=>{character(id);st.ch.root.position.copy(st.clawRoam?.pos||clawStand);st.ch.root.rotation.y=st.clawRoam?.actorYaw??Math.PI/2;st.ch.root.visible=false;});
   st.claw.root.position.copy(world.claw.pos);st.claw.root.rotation.y=world.claw.ry;st.claw.root.scale.setScalar(world.claw.scale);scope(()=>addSolid(...world.claw.solid,0,2.5));
   st.claw.onClose=()=>{if(st.mode!=='claw')return;rig.state.yaw=st.clawRoam?.yaw??0;rig.state.pitch=st.clawRoam?.pitch??.45;st.ch.root.visible=true;const pos=(st.clawRoam?.pos||clawStand).clone(),pose=viewPose(pos,rig.state.yaw);travel('arcade-out',pos,pose.p,pose.l,1.45,roam);};
@@ -129,7 +129,7 @@ export function createMenu(){
      Участники сцены запуска — все в лобби по номеру игрока (у всех одинаковый порядок). */
   const guest=()=>inRoom()&&!NET.host,flowSend=o=>{if(inRoom()&&NET.host&&NET.players.size>1)send({t:'ev',e:'flow',...o});};
   const syncMembers=()=>{st.members=inRoom()?[...remoteActors(true),{id:NET.id,me:true}].sort((a,b)=>a.id-b.id).map(q=>q.me?st.player:q):[st.player];};
-  st.debugGoal=i=>scope(()=>world.vote.force(i));st.world=world; // для проверок: гол в ворота i
+  st.debugGoal=i=>scope(()=>world.vote.force(i));st.world=world;st.scope=scope; // для проверок: гол в ворота i
   // v0.70: шайба выбирает режим, только пока лежит в воротах; достали - загрузка режима останавливается (до запуска)
   world.vote.onLeave=()=>{if(!st.flow||st.flow.stage==='cutscene'||guest())return;st.flow=null;world.screen.idle();world.sling.zone(false);flowSend({s:'cancel'});};
   world.vote.onGoal=m=>{if(st.flow?.stage==='cutscene')return;st.flow={stage:'mode',mode:m,t:0};world.screen.showMode(m);flowSend({s:'mode',i:world.vote.goals.findIndex(g=>g.m===m)});};
@@ -163,7 +163,7 @@ export function createMenu(){
       st.clawRoam={yaw:rig.state.yaw,pitch:rig.state.pitch,pos:P.pos.clone(),actorYaw:P.root.rotation.y};const shot=st.claw.cameraPose(camera,true);travel('arcade-in',P.pos,shot.p,shot.l,1.6,()=>{mode('claw');st.ch.root.visible=false;st.claw.open();},{yaw:Math.PI/2});
     }});
   });
-  on('down',btn=>{if(!st.wantsLock||!locked())return;scope(()=>{const P=st.player;if(P.stun>0||P.heldBy||P.hang)return;if(btn===0&&tugInput(P,true))return;if(btn===0&&grabFist(P))return;
+  on('down',btn=>{if(!st.wantsLock||!locked())return;scope(()=>{const P=st.player;if(P.stun>0||P.heldBy||P.hang)return;if(btn===0&&!P.held&&world.junk?.punch(P))return;if(btn===0&&tugInput(P,true))return;if(btn===0&&grabFist(P))return;
     if(P.grab&&(btn===0||btn===2)){release(P,1.1);return;}
     if(btn===0&&P.charging){clearThrow();P.chargeManual=false;sfx('click');return;}
     if(btn===0&&P.held){if(!P.held.def.hold){const snd=useTool(P,P.held,aimPoint());if(snd)sfx(snd);else if(!P.held.def.tool){drop(P.held,P.pos.x+Math.sin(P.root.rotation.y)*.7,P.pos.y,P.pos.z+Math.cos(P.root.rotation.y)*.7);P.held=null;}}return;}
@@ -301,7 +301,7 @@ export function createMenu(){
     }
     else if(st.mode==='roam'&&!st.pause&&!st.pausedForSettings)walk(dt);else st.ch.animate(dt,{t:st.t,speed:0,ride:st.sit>.05?'sit':null,dangle:true});
     if(st.mode!=='splash')hubPhysics(dt);
-    if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}hubSnow?.update(dt,camera);sky.update(camera,st.t,dt);{const c=camera.position,inside=world.inside(c)||st.mode==='claw'||st.mode==='wardrobe';haze.set(inside?0:1);{const k0=inK;inK+=((inside?1:0)-inK)*(1-Math.exp(-dt*8));if(Math.abs(inK-k0)>1e-4||inK>.999&&k0!==1)indoor(inK>.999?1:inK<.001?0:inK);}/* v0.59: в помещениях дымки нет — она давала светлую пелену и полосы на стенах */}haze.update(st.t,camera);world.island.update(dt,st.t);world.isle2.update(dt,st.t,st.mode==='roam'?st.player:null);setListener(st.player.pos.x,st.player.pos.y+1.5,st.player.pos.z,camera.getWorldDirection(audioForward));
+    if(st.mode!=='roam'||st.pause||st.pausedForSettings)camera.lookAt(look);camera.updateMatrixWorld();st.claw.update(dt);if(st.mode==='claw'){const shot=st.claw.cameraPose(camera),k=1-Math.exp(-dt*3.7);const rotation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(shot.p,shot.l,new V3(0,1,0)));camera.position.lerp(shot.p,k);camera.quaternion.slerp(rotation,k);look.copy(camera.position).addScaledVector(camera.getWorldDirection(new V3()),THREE.MathUtils.lerp(camera.position.distanceTo(look),shot.p.distanceTo(shot.l),k));camera.updateMatrixWorld();}hubSnow?.update(dt,camera);sky.update(camera,st.t,dt);{const c=camera.position,inside=world.inside(c)||st.mode==='claw'||st.mode==='wardrobe';haze.set(inside?0:1);{const k0=inK;inK+=((inside?1:0)-inK)*(1-Math.exp(-dt*8));if(Math.abs(inK-k0)>1e-4||inK>.999&&k0!==1)indoor(inK>.999?1:inK<.001?0:inK);}/* v0.59: в помещениях дымки нет — она давала светлую пелену и полосы на стенах */}haze.update(st.t,camera);world.island.update(dt,st.t);scope(()=>world.junk?.update(dt,st.t,st.mode==='roam'?st.player:null));world.isle2.update(dt,st.t,st.mode==='roam'?st.player:null);setListener(st.player.pos.x,st.player.pos.y+1.5,st.player.pos.z,camera.getWorldDirection(audioForward));
     for(const{light}of world.lampLights)light.removeFromParent();scope(()=>{if(!localLighting.wl)localLighting.rebuild();localLighting.update(camera,dt);});
     // v0.61: друзья в хабе (онлайн) — свои движения отправляем, чужих показываем
     if(st.ch?.skinId&&st.mode==='roam'&&st.ch.skinId!==NET.skin)setSkin(st.ch.skinId);

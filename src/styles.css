@@ -798,3 +798,18 @@ body.cine::before,body.cine::after{content:'';position:fixed;left:0;right:0;heig
 body.cine::before{top:0}body.cine::after{bottom:0}
 @keyframes cineIn{from{height:0}}
 body.cine #hud{opacity:.15;transition:opacity .3s}
+
+/* v0.72 свалка: фишка деталей под профилем и панель верстака/гаража (иконки, без длинных текстов) */
+#junkChip{position:fixed;left:12px;top:64px;z-index:20;display:flex;align-items:center;gap:6px;padding:4px 9px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 2px var(--edge);font:12px var(--px);color:#f2f6ff}
+#junkChip .jg{width:18px;height:18px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='4.5' fill='%23f5c542' stroke='%2317111f'/%3E%3Ccircle cx='6' cy='6' r='1.6' fill='%2317111f'/%3E%3C/svg%3E") center/contain no-repeat}
+#junkChip b{color:#f5c542;min-width:22px}#junkChip .jlv{color:#9be36b;font-size:10px}#junkChip .jb{width:46px;height:5px;background:rgba(0,0,0,.5)}#junkChip .jb i{display:block;height:100%;background:#9be36b;width:0}
+#junkChip.pop{animation:lvup .25s}
+#junkPanel{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(8,6,14,.55)}#junkPanel.hidden{display:none}
+#junkPanel .jp{position:relative;padding:18px 20px;background:var(--panel);clip-path:var(--notch);box-shadow:inset 0 0 0 3px var(--edge);min-width:300px}
+#junkPanel .jh{display:flex;align-items:center;gap:8px;font:16px var(--px);color:#f5c542;margin-bottom:12px}
+#junkPanel .jc{display:flex;gap:12px}#junkPanel .jx{position:absolute;right:8px;top:6px;border:0;background:none;color:#f2f6ff;font-size:18px;cursor:pointer}
+#junkPanel .jcard{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 14px;border:0;cursor:pointer;background:#1c2744;box-shadow:inset 0 0 0 2px #3a4a78;color:#f2f6ff;font:13px var(--px)}
+#junkPanel .jcard:hover{box-shadow:inset 0 0 0 2px #f5c542;transform:translateY(-2px)}#junkPanel .jcard.poor{opacity:.55}#junkPanel .jcard.done{opacity:.7;cursor:default}
+#junkPanel .jcard img{image-rendering:pixelated;width:40px;height:40px}#junkPanel .cost img{width:16px;height:16px;vertical-align:-3px;margin-right:3px}
+#junkPanel .pips{display:flex;gap:3px}#junkPanel .pips i{width:10px;height:10px;background:#3a3448}#junkPanel .pips i.on{background:#9be36b}
+body.playing #junkChip{display:none}

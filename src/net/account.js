@@ -5,7 +5,7 @@ import { serverUrl, myName } from './net.js';
    Discord: ник, аватар и прогресс на сервере комнат, одинаковые на любой ссылке и в любом браузере.
    Синхронизируется прогресс; настройки графики, звука и микрофона остаются у каждого устройства свои. */
 const AUTH = 'friendslop.account', LINKED = 'friendslop.account.linked', REV = 'friendslop.account.rev';
-export const SYNC_KEYS = ['friendslop.collection.v1', 'friendslop.skin', 'friendslop.parkourBest', 'friendslop.parkourFist', 'friendslop.tut', 'friendslop.throwTip', 'friendslop.progress.v1', 'friendslop.wheelAt'];
+export const SYNC_KEYS = ['friendslop.collection.v1', 'friendslop.skin', 'friendslop.parkourBest', 'friendslop.parkourFist', 'friendslop.tut', 'friendslop.throwTip', 'friendslop.progress.v1', 'friendslop.junk.v1', 'friendslop.wheelAt'];
 const get = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const set = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { } };
 const json = t => { try { return JSON.parse(t); } catch { return null; } };

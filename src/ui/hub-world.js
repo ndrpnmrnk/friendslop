@@ -17,6 +17,7 @@ import {buildTree,buildBoard,buildWheel,buildSnowman,updateSnowmen} from './hub-
 import {buildVoteArena,buildScreen,buildSlingshot,signTex} from './hub-launch.js';
 import {buildIsland} from './hub-island.js';
 import {buildIsle2,hubWalk} from './hub-isle2.js';
+import {buildJunk,junkWalk,renderChip} from './hub-junk.js';
 import {pix} from '../core/textures.js';
 
 // v0.58: вывески и постеры гардероба — рисунки без текста (плечики, худи, кроссовок)
@@ -99,7 +100,7 @@ function chaletRoof(group,x0,x1,z0,z1,h,color,ridgeX=false){
 function edgeRail(group){
  const wood=tmat(T.wood()),snow=lam({color:0xeef3fb},'rail71-snow'),rope=col(0x8a5a36);
  group.add(compose('rail71',a=>{const N=84;let prev=null;for(let i=0;i<=N;i++){const th=i/N*Math.PI*2,R=islandR(th)-1.1,x=Math.cos(th)*R,z=Math.sin(th)*R;
-  const gap=(Math.abs(x)<2.2&&z<0)||(Math.abs(x)<2.4&&z>0);if(gap){prev=null;continue;}
+  const gap=(Math.abs(x)<2.2&&z<0)||(Math.abs(x)<2.4&&z>0)||(x>0&&Math.abs(z+2)<2.4);/* v0.72: проход на свалку */if(gap){prev=null;continue;}
   a(G.box,wood,x,.45,z,.16,.9,.16);a(G.box,snow,x,.94,z,.22,.08,.22);
   if(prev){const mx=(x+prev[0])/2,mz=(z+prev[1])/2,L=Math.hypot(x-prev[0],z-prev[1]);a(G.box,rope,mx,.72,mz,.045,.045,L,0,Math.atan2(x-prev[0],z-prev[1]),0);}prev=[x,z];}}));
 }
@@ -186,13 +187,15 @@ export function buildHub(scene){
   if(WINTER)xmas.push(buildWheel(group,20.2,9.4,-Math.PI/2,msg=>{let t=document.getElementById('hubToast');if(!t){t=document.createElement('div');t.id='hubToast';document.body.appendChild(t);}t.textContent=msg;t.classList.remove('on');void t.offsetWidth;t.classList.add('on');}));
   decor(b,group);
   /* ---------- «Остров затей» за южной аркой ---------- */
-  const isle2=buildIsle2(b,group);state.walk=hubWalk;
+  const isle2=buildIsle2(b,group);state.walk=(x,z)=>hubWalk(x,z)||junkWalk(x,z);
   resetTools();resetSplat();registerInteracts();bakeStatic(group);
+  // v0.72 свалка-мастерская у восточного края
+  const junk=buildJunk(group);(state.fortHooks??=[]).push((p,power)=>junk.hit(p,power));renderChip();
   const island=buildIsland(group);installHubReturn();
   let curtainOpen=0;
   const wardrobe={preview:new V3(16.6,.2,WC),gate:new V3(WX0-2,0,WC),inside:new V3(WX0+1.3,0,WC),exit:new V3(WX0-2.6,0,WC),camera:new V3(13.6,1.6,WC+.85),look:new V3(16.6,1.05,WC),inYaw:Math.PI/2,outYaw:-Math.PI/2};
   const inRect=(c,x0,x1,z0,z1)=>c.x>x0&&c.x<x1&&c.z>z0&&c.z<z1&&c.y<4;
-  const result={state,group,island,isle2,curtains:doors,lampLights:[],entrySolid,vote,screen,sling,claw,wardrobe,shop,
+  const result={state,group,island,isle2,junk,curtains:doors,lampLights:[],entrySolid,vote,screen,sling,claw,wardrobe,shop,
    inside:c=>inRect(c,WX0,WX1,WZ0,WZ1)||inRect(c,AX0,AX1,AZ0,AZ1),
    stations:[{id:'wardrobe',name:'Гардероб',hint:'Сменить персонажа',p:new V3(WX0-2,0,WC),r:1.9},{id:'claw',name:'Автомат с друзьями',hint:'Выловить нового друга',p:new V3(18.2,0,5.6),r:1.5},...isle2.stations],
    curtain(open){curtainOpen=THREE.MathUtils.clamp(open,0,1);entrySolid.on=curtainOpen<.92;for(const{g,s}of doors)g.position.set(WX0,0,WC+s*(.6+curtainOpen*1.15));},
