@@ -784,3 +784,17 @@ body.cine #hubUI,body.cine #hubPrompt,body.cine #hubHeld{opacity:0;pointer-event
 #podcards .aw.champ{background:linear-gradient(#3a2a10,#17111f);box-shadow:inset 0 0 0 3px var(--gold),0 0 0 3px var(--night)}
 #podcards .aw:not(.mini){min-width:140px;max-width:150px}
 #podcards .aw.champ{min-width:160px;max-width:170px}
+
+/* v0.72 полоса волны под таймером: «ВОЛНА 3/5», заполнение = сколько врагов осталось, комбо */
+#waveBar{margin-top:6px;font:11px var(--px);color:#f2f6ff}
+#waveBar .wl{letter-spacing:1px}#waveBar.boss .wl{color:#ff5a6e}
+#waveBar .wb{height:8px;margin:4px 0 2px;background:rgba(0,0,0,.5);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+#waveBar .wb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#4ab0f0,#f2f6ff);transition:width .2s}
+#waveBar.boss .wb i{background:linear-gradient(90deg,#d8243a,#ff8a5a)}
+#waveBar .wc{color:#f5c542;min-height:12px}#waveBar .wc.pop{animation:lvup .3s}
+
+/* v0.72 заставка события: киношные полосы сверху и снизу */
+body.cine::before,body.cine::after{content:'';position:fixed;left:0;right:0;height:11vh;background:#05040a;z-index:40;pointer-events:none;animation:cineIn .35s ease-out}
+body.cine::before{top:0}body.cine::after{bottom:0}
+@keyframes cineIn{from{height:0}}
+body.cine #hud{opacity:.15;transition:opacity .3s}

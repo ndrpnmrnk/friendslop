@@ -23,6 +23,7 @@ import { sfx } from '../core/sfx.js';
 import { voice } from './voice.js';
 import { shake, hitFreeze } from './worldfx.js';
 import { MODE } from './modes.js';
+import { snowInvasion } from './snow-invasion.js';
 const isMode = id => MODE.cur.id === id;
 
 /* События раунда.
@@ -31,7 +32,7 @@ const isMode = id => MODE.cur.id === id;
    объявляется баннером, видно стрелкой и на мини-карте. Пока идёт общее событие, таймеры миссий стоят. */
 /* Ритм раунда: 0:00–1:00 — спокойно, только миссии; 1:00–1:45 — общее событие; 1:45–3:00 — финальный рывок, очки ×2.
    В классическом режиме малые события не запускаются. */
-export const PHASE = { event: 120, resume: 180, final: 225, warn: 5 };
+export const PHASE = { event: 180, resume: 270, final: 270, warn: 5 }; // v0.72: общее событие - в финальной части раунда (3:00-4:30)
 export const phaseOf = t => t < PHASE.event ? 'calm' : t < PHASE.resume ? 'event' : t < PHASE.final ? 'calm' : 'final';
 export const EV = { t: 0, next: 1e9, cur: null, left: 0, big: null, bigAt: 120, bigDone: false };
 const DUR = 20;
@@ -56,6 +57,8 @@ const EVENTS = {
 /* ================= общие события ================= */
 const award = (a, pts, at) => ctx.award && ctx.award(a, pts, at);
 const BIG = {
+  // v0.72 «Нашествие снеговиков» - битва волнами (только зимой)
+  ...(WINTER ? { snowmen: snowInvasion({ player: () => ctx.player() }, (a, p, at) => award(a, p, at)) } : {}),
   /* v0.70 Метель: 20 с очень плотного снега и тумана - видно только ближнюю зону; порывы ветра сносят игроков и лёгкие вещи.
      Только погода: очков нет, задания продолжаются. Видимость и ветер одинаковы у всех (seed события). */
   ...(WINTER ? { blizzard: { dur: 20,

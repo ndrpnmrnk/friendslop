@@ -25,9 +25,10 @@ export const AWARDS = {
   sniper:  { title: 'САМЫЙ МЕТКИЙ', sub: s => `попаданий броском: ${s.throws}`, anim: 'wave' },
   snowking:{ title: 'СНЕЖНЫЙ КОРОЛЬ', sub: s => `попал снежками: ${s.snow}`, anim: 'laugh' },
   santa:   { title: 'ПОМОЩНИК САНТЫ', sub: s => `поймал подарков: ${s.gifts}`, anim: 'dance' },
+  snowfight: { title: 'СНЕГОБОРЕЦ', sub: s => `разбил снеговиков: ${s.snowfight}`, anim: 'dance' },
   tourist: { title: 'ТУРИСТ', sub: () => 'просто гулял по городу', anim: 'look' },
 };
-const CAT = { sniper: s => (s.throws || 0) * 1.2, snowking: s => (s.snow || 0) * 1.6, santa: s => (s.gifts || 0) * 5, bully: s => s.sabot * 3 + s.hits, thief: s => s.steals * 4, trick: s => s.traps * 2, skater: s => s.tricks, worker: s => s.missions * 2, star: s => s.event / 40, clumsy: s => s.falls * 1.5 };
+const CAT = { snowfight: s => (s.snowfight || 0) * 2.5, sniper: s => (s.throws || 0) * 1.2, snowking: s => (s.snow || 0) * 1.6, santa: s => (s.gifts || 0) * 5, bully: s => s.sabot * 3 + s.hits, thief: s => s.steals * 4, trick: s => s.traps * 2, skater: s => s.tricks, worker: s => s.missions * 2, star: s => s.event / 40, clumsy: s => s.falls * 1.5 };
 
 /* rows: [{ name, skin, score, st, me }] → по местам, с наградой у каждого (награды не повторяются) */
 export function assignAwards(rows) {

@@ -133,7 +133,21 @@ const haze = WINTER ? createHaze(scene, 0xb8c2dc, .55) : createHaze(scene); // v
 initDust(scene);
 W.flash = (p, c, k = 1, range = 12, decay = 3.5) => localLighting.flash({ x: p.x, y: p.y + 1, z: p.z }, c, k, range, decay);
 initEvents({ scene: () => scene, camera: () => camera, player: () => P, prepareRace:()=>{if(S.mg)closeMission({success:false});if(S.wm)closeWorld({success:false});for(const b of W.bots||[])if(b.work)removeMission(b.work.m);}, award: (a, pts, at) => { const g = award(a, pts, at); if (a && g) statsOf(a).event += g; } });
-const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => eventChip(null) };
+const eventUi = { start: (key, big) => { eventBanner(key, big); sfx('event'); if (big) { S.bigOn = true; startCine(key); } }, tick: (key, sec, info) => eventChip(key, sec, info), end: () => { eventChip(null); if (S.bigOn) { S.bigOn = false; epicMoment(); } } };
+/* v0.72 заставка большого события (как появление босса): чёрные полосы, управление на паузе ~3.6 с, камера улетает к месту события,
+   показывает его со своего ракурса и плавно возвращается за спину игрока. Ракурс - по событию. */
+const CINE = { lava: { h: 26, r: 30, up: 6 }, moth: { h: 3, r: 10, up: 12 }, snowmen: { h: 16, r: 14, up: 2 }, santa: { h: 10, r: 16, up: 8 }, blizzard: { h: 8, r: 12, up: 2 } };
+function startCine(key) { if (!P || S.state !== 'play') return; const T = (bigTarget() || P.pos).clone(), c = CINE[key] || { h: 9, r: 13, up: 2 };
+  S.cine = { t: 0, dur: 3.6, key, T, c, from: camera.position.clone(), look: P.pos.clone().add(new V3(0, 1, 0)), a: Math.atan2(camera.position.x - T.x, camera.position.z - T.z) };
+  document.body.classList.add('cine'); if (key === 'lava') { shakeCam(.5); sfx('boom', { v: .8 }); } }
+function updateCine(dt) { const q = S.cine; if (!q) return; q.t += dt; const k = Math.min(1, q.t / q.dur), T = q.T, c = q.c;
+  const orbit = q.a + k * 1.1, far = new V3(T.x + Math.sin(orbit) * c.r, T.y + c.h, T.z + Math.cos(orbit) * c.r), look = T.clone().add(new V3(0, c.up * (1 - k * .5), 0));
+  const back = P.pos.clone().add(new V3(-Math.sin(cam.yaw) * 5, 2.6, -Math.cos(cam.yaw) * 5)), e = s3 => s3 * s3 * (3 - 2 * s3);
+  let p, l; if (k < .3) { const u = e(k / .3); p = q.from.clone().lerp(far, u); l = q.look.clone().lerp(look, u); } else if (k < .78) { p = far; l = look; } else { const u = e((k - .78) / .22); p = far.clone().lerp(back, u); l = look.clone().lerp(P.pos.clone().add(new V3(0, 1, 0)), u); }
+  cam.free = { p, l }; if (q.key === 'snowmen' && random() < dt * 6) puff(T.x + (random() - .5) * 16, T.y + 14, T.z + (random() - .5) * 16, { color: 0xf2f6ff, size: .6, vy: -9, g: 0, life: 1.4, grow: .2 });
+  if (k >= 1) { S.cine = null; cam.free = null; document.body.classList.remove('cine'); resumeCamera(camera); } }
+// эпичный кадр в конце события: стоп-кадр, вспышка и искры
+function epicMoment() { if (S.state !== 'play') return; hitFreeze(.35); shakeCam(.3); sparks(innerWidth / 2, innerHeight * .4, ['#f5c542', '#f2f6ff', '#4ab0f0'], 30); }
 function followSun(x, y, z) {
   // привязка к текселю карты теней, чтобы края теней не дрожали при движении
   const tx = 80 / sun.shadow.mapSize.x, c = new V3(x, y, z), a = Math.round(c.dot(SUN_R) / tx) * tx, b = Math.round(c.dot(SUN_U) / tx) * tx, f = c.dot(SUN_DIR);
@@ -789,6 +803,7 @@ on('down', btn => {
   if (S.state !== 'play') return;
   if (P.drone) { droneAction(P, btn, aim(camera).ray.direction); return; }
   if (P.returning||P.hang) return;
+  if(btn===0&&!S.mg&&!S.crane&&!P.held&&W.enemyPunch?.(P))return; // v0.72: кулак по снеговику
   if(btn===0&&!S.mg&&!S.crane&&grabFist(P))return;
   // v0.57: нажатие, которым предмет подобрали, им же не стреляет (сетемёт, лук, пылесос) — выстрел только следующим нажатием
   if (btn === 0) P.pickClick = !P.held;
@@ -975,7 +990,7 @@ function frame() {
       if (M_.left && !P.pickClick && P.held && !P.held.tug && P.held.def.hold && !S.mg && !S.crane && P.stun <= 0 && locked()) { useTool(P, P.held, aimPoint(), dt); P.sprayT=['bow','net','sling'].includes(P.held.type)?0:.1; if ((P.sndT = (P.sndT || 0) - dt) <= 0) { P.sndT = 0.25; if(!['bow','net','sling'].includes(P.held.type))sfx(P.held.type === 'magnet' ? 'magnet' : 'spray'); } }
       if (P.charging && !P.chargeManual) P.charge = Math.min(1, P.charge + dt / CONFIG.throw.chargeTime);
       if(S.mg&&(P.heldBy||P.stun>0||P.daze>0||P.pos.distanceTo(S.mg.start)>0.65))closeMission(null);
-      updatePlayer(P, dt, t, !S.settingsOpen && !S.mg && !S.crane && !P.stationaryWork, cam.yaw);
+      updatePlayer(P, dt, t, !S.settingsOpen && !S.mg && !S.crane && !P.stationaryWork && !S.cine, cam.yaw);
       voiceInput(dt);
       if (P.held) { cargoPosition(P,P.held.pos,P.held.def.r); P.held.g.rotation.y = P.root.rotation.y;poseMeleeItem(P,P.held); }
       if (P.charging && !P.held && !carryK()) { P.charging = false; $('dot').classList.remove('charge'); }
@@ -999,7 +1014,12 @@ function frame() {
         if (ph === 'event' && S.phase === 'calm') glitch();
         S.phase = ph;
         const left = Math.ceil(PHASE.event - EV.t), txt = ph === 'calm' ? (left > 0 && left <= PHASE.warn ? TEXT.phase.soon(left) : TEXT.phase.calm) : ph === 'event' ? (EV.big ? TEXT.events[EV.big.key].replace('!', '') : TEXT.phase.calm) : TEXT.phase.final;
+        if (ph === 'calm' && left > 0 && left <= PHASE.warn && S.warnSec !== left) { S.warnSec = left; shakeCam(.06 + (PHASE.warn - left) * .04); sfx('thunder', { v: .25 + (PHASE.warn - left) * .1 }); } // v0.72: за 5 с - гул и дрожь
         const pe = $('phase'); if (pe.textContent !== txt) { pe.textContent = txt; pe.className = 'ph-' + ph + (ph === 'calm' && left > 0 && left <= PHASE.warn ? ' warn' : ''); } }
+        { const u = EV.big?.def.ui?.(EV.big.s), wb = $('waveBar'); wb.classList.toggle('hidden', !u); // v0.72 полоса волны и комбо
+          if (u) { wb.classList.toggle('boss', u.boss); const l = u.boss ? 'СНЕЖНЫЙ КОРОЛЬ' : u.rest ? `ВОЛНА ${u.wave + 1}/${u.waves} · ${u.rest}` : `ВОЛНА ${u.wave}/${u.waves}`, c = u.combo >= 3 ? `КОМБО ×${Math.min(5, 1 + Math.floor(u.combo / 3))} · ${u.combo}` : '';
+            if (wb.dataset.l !== l) { wb.dataset.l = l; wb.firstChild.textContent = l; } wb.children[1].firstChild.style.width = (u.rest ? 100 : Math.round(100 * u.left / Math.max(1, u.total))) + '%';
+            const wc = wb.children[2]; if (wc.textContent !== c) { wc.textContent = c; wc.classList.remove('pop'); void wc.offsetWidth; if (c) wc.classList.add('pop'); } } }
       // v0.57: мини-карта 30 раз в секунду, а не каждый кадр (на 144 Гц это лишние 2D-отрисовки)
       if ((S.mmT = (S.mmT || 0) - dt) <= 0) { S.mmT = 1 / 30; const bt = bigTarget(); drawMinimap(P, M.list.filter(m => visibleTo(m, P)), S.wm && S.wm.game.target ? S.wm.game.target() : null, bt ? [{ x: bt.x, z: bt.z, color: '#ff8a1f', icon: TEXT.eventIcon[EV.big.key] }] : null, S.nav); }
       if (S.time <= 0 && !W.net?.replica) { S.time = 0; renderHud(S, P, '', 0); startFinale(); }
@@ -1094,6 +1114,7 @@ function frame() {
     updateBreakables(dt, S.state === 'play' ? P : null);
     updateActionEffects(dt,S.state==='play'&&!S.mg?P:null,camera);updateParticles(dt);updateVfx(dt);updateSplat(dt);setActionVisuals(P&&!S.mg?Math.max(0,(Math.hypot(P.vel.x,P.vel.z)-7)/8):0,FX.shake*.5);
     prof.mark('частицы');
+    if (S.cine) updateCine(dt);
     updateCamera(camera, P, dt, false, S.state === 'play' && !S.settingsOpen ? lk : null, !!(P && (P.charging || mouse.left && !P.pickClick && locked() && ['bow','sling','water','bubbles','net','perfume'].includes(P.held?.type)))); /* v0.67: зажатая ЛКМ со стрелковым предметом - камера к плечу */ prof.mark('камера'); if (S.state === 'play' || S.state === 'intro' || S.state === 'finale') { updateCull(dt, camera, P); checkFrozen(); }
     {const k=S.state==='play'&&!P?.drone&&!P?.returning?Math.min(1,(P?.hazeT||0)/2):0;camera.rotation.z+=Math.sin(t*1.8)*.035*k;canvas.style.filter=k>0?`blur(${(.45*k).toFixed(2)}px) saturate(1.12)`:'';}
     S.mg?.game?.afterCamera?.();S.wm?.game?.afterCamera?.();
