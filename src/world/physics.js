@@ -246,7 +246,7 @@ export function updatePushables(dt, player) {
     // v0.61.8: no position snapping by the old radial wheel clamp.
     // The continuous curved surface is now the single source of contact.
     if(!b.air&&!b.grind)constrainBowlWheel(W.skateBowl,b,dt);
-    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: b.puck ? .16 : .45, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
+    const f = Math.exp(-dt * (b.rider ? b.ride.fric : { voteBall: b.puck ? (Math.hypot(b.vx, b.vz) < 3 ? 1.6 : .55) : .45 /* v0.71.2: шайба после лёгкого касания быстро встаёт, сильный удар катится далеко */, table: 6, sack: 7, barrel: 2.6, cart: 2.0, bin: b.tipped ? 6 : 4, skate: 0.6, chair: 1.6, barrow: 2.4, tire: 0.9, scooter: 0.8, kidcar: 2, ring: 1.2, gurney: 2.0 }[b.kind] ?? 4)); b.vx *= f; b.vz *= f;
     if (b.tipped) animateTip(b, dt);
     // колёсное едет по рельефу: заезжает на рампы, с разгона взлетает, падает со ступенек; скейт скользит по перилам
     if (b.ride?.water) { b.vy=0;b.air=false; }

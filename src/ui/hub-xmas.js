@@ -36,13 +36,14 @@ function players() {
 export function buildBoard(group, x, y, z, ry, kind) {
   // v0.71.1: табло в 2× разрешении с мип-картами - текст не рябит издалека; табло - твёрдый объект
   const tx = canvasTex(512, 384); tx.t.magFilter = THREE.LinearFilter; tx.t.minFilter = THREE.LinearMipmapLinearFilter; tx.t.generateMipmaps = true; tx.t.anisotropy = 4;
-  const m = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: tx.t })); m.position.set(x, y, z); m.rotation.y = ry; m.scale.set(2.2, 1.65, 1); m.userData.noBatch = true; group.add(m);
+  // v0.71.2: текст на 6 см перед рамкой (раньше в одной плоскости с её лицом - текст пропадал и «рябил»)
+  const m = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: tx.t, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); m.position.set(x + Math.sin(ry) * .06, y, z + Math.cos(ry) * .06); m.renderOrder = 2; W.keep.push(m); m.rotation.y = ry; m.scale.set(2.2, 1.65, 1); m.userData.noBatch = true; group.add(m);
   group.add(compose('xboard70-' + kind, a => { a(G.box, col(0x2b2533), x - Math.sin(ry) * .04, y, z - Math.cos(ry) * .04, 2.4, 1.85, .08, 0, ry, 0); for (const s of [-1, 1]) a(G.box, col(0x2b2533), x + Math.cos(ry) * s * 1.05, (y - .9) / 2, z - Math.sin(ry) * s * 1.05, .1, y - .9, .1); a(G.box, lam({ color: 0xeef3fb }, 'xboard70snow'), x, y + .97, z, 2.45, .1, .2, 0, ry, 0); }));
   { const c = Math.abs(Math.cos(ry)), hx = c > .7 ? 1.25 : .3, hz = c > .7 ? .3 : 1.25; addSolid(x - hx, z - hz, x + hx, z + hz, 0, y + .95); }
   let sig = '';
-  function draw() { const list = players().sort((a, b) => kind === 'wins' ? b.wins - a.wins || b.lvl - a.lvl : b.lvl - a.lvl || b.wins - a.wins).slice(0, 8), next = JSON.stringify(list); if (next === sig) return; sig = next;
-    const g = tx.c.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.fillStyle = '#17111f'; g.fillRect(0, 0, 256, 192); g.fillStyle = kind === 'wins' ? '#f5c542' : '#9be36b'; g.font = 'bold 20px monospace'; g.textAlign = 'center'; g.fillText(kind === 'wins' ? 'ПОБЕДЫ' : 'УРОВНИ', 128, 24);
-    g.textAlign = 'left'; g.font = 'bold 15px monospace'; list.forEach((p, i) => { const yy = 50 + i * 18; g.fillStyle = p.me ? '#ffd27a' : '#e8e0f8'; g.fillText(`${i + 1}. ${String(p.name).slice(0, 12)}`, 10, yy); g.textAlign = 'right'; g.fillStyle = kind === 'wins' ? '#f5c542' : '#9be36b'; g.fillText(kind === 'wins' ? String(p.wins) : 'ур ' + p.lvl, 246, yy); g.textAlign = 'left'; });
+  function draw() { const list = players().sort((a, b) => kind === 'wins' ? b.wins - a.wins || b.lvl - a.lvl : b.lvl - a.lvl || b.wins - a.wins).slice(0, 5), next = JSON.stringify(list); if (next === sig) return; sig = next;
+    const g = tx.c.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); g.fillStyle = '#17111f'; g.fillRect(0, 0, 256, 192); g.fillStyle = kind === 'wins' ? '#f5c542' : '#9be36b'; g.font = 'bold 26px monospace'; g.textAlign = 'center'; g.fillText(kind === 'wins' ? 'ПОБЕДЫ' : 'УРОВНИ', 128, 30); g.fillRect(20, 40, 216, 3);
+    g.textAlign = 'left'; g.font = 'bold 20px monospace'; list.forEach((p, i) => { const yy = 70 + i * 27; g.fillStyle = p.me ? '#ffd27a' : '#e8e0f8'; g.fillText(`${i + 1}. ${String(p.name).slice(0, 10)}`, 12, yy); g.textAlign = 'right'; g.fillStyle = kind === 'wins' ? '#f5c542' : '#9be36b'; g.fillText(kind === 'wins' ? String(p.wins) : 'ур ' + p.lvl, 246, yy); g.textAlign = 'left'; });
     tx.t.needsUpdate = true; }
   draw(); let t = 0; return { update(dt) { t -= dt; if (t <= 0) { t = 1.5; draw(); } } };
 }
@@ -50,6 +51,7 @@ export function buildBoard(group, x, y, z, ry, kind) {
 const WHEEL_KEY = 'friendslop.wheelAt', CD = 12 * 3600 * 1000;
 const SECT = [{ n: 1, w: 22 }, { n: 10, w: 12 }, { n: 2, w: 20 }, { n: 25, w: 8 }, { n: 3, w: 16 }, { n: 50, w: 4 }, { n: 5, w: 16 }, { skin: true, w: 2 }];
 const SC = ['#d8243a', '#f1e8ff', '#2f7a40', '#f1e8ff', '#4ab0f0', '#f5c542', '#2f7a40', '#b18cff'];
+const hms = ms => { const t = Math.ceil(ms / 1000), p = n => String(n).padStart(2, '0'); return `${p(Math.floor(t / 3600))}:${p(Math.floor(t % 3600 / 60))}:${p(t % 60)}`; }; // v0.71.2: таймер 07:59:00
 const readyIn = () => { let t = 0; try { t = +localStorage.getItem(WHEEL_KEY) || 0; } catch { } return Math.max(0, t + CD - Date.now()); };
 // v0.71.1: на колесе та же пиксельная иконка фиста, что у монеты (ui/icons.js)
 function drawFist(g, x, y, s) { g.imageSmoothingEnabled = false; g.drawImage(iconCanvas('fist', 4), x, y, 12 * s * .75, 12 * s * .75); }
@@ -85,13 +87,13 @@ export function buildWheel(group, x, z, ry, toast) {
   // личный таймер под колесом
   const tt = canvasTex(160, 48), tm = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ map: tt.t })); tm.userData.noBatch = true;
   { const c = Math.cos(ry), s2 = Math.sin(ry); tm.position.set(x + s2 * .2, .42, z + c * .2); tm.rotation.y = ry; tm.scale.set(1.2, .36, 1); group.add(tm); }
-  let tSig = ''; function drawTimer() { const left = readyIn(), txt = spin ? '...' : left > 0 ? `${Math.floor(left / 3600000)}:${String(Math.floor(left % 3600000 / 60000)).padStart(2, '0')}` : 'КРУТИ!'; if (txt === tSig) return; tSig = txt;
+  let tSig = ''; function drawTimer() { const left = readyIn(), txt = spin ? '...' : left > 0 ? hms(left) : 'КРУТИ!'; if (txt === tSig) return; tSig = txt;
     const g = tt.c.getContext('2d'); g.fillStyle = '#17111f'; g.fillRect(0, 0, 160, 48); g.fillStyle = left > 0 ? '#3a3448' : '#2f7a40'; g.fillRect(3, 3, 154, 42);
     if (left > 0 && !spin) { g.strokeStyle = '#e8e0f8'; g.lineWidth = 3; g.beginPath(); g.arc(24, 24, 12, 0, 7); g.stroke(); g.beginPath(); g.moveTo(24, 24); g.lineTo(24, 15); g.moveTo(24, 24); g.lineTo(31, 24); g.stroke(); }
-    g.fillStyle = left > 0 ? '#e8e0f8' : '#f5c542'; g.font = 'bold 24px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, left > 0 ? 94 : 80, 25); tt.t.needsUpdate = true; }
+    g.fillStyle = left > 0 ? '#e8e0f8' : '#f5c542'; g.font = `bold ${left > 0 && !spin ? 20 : 24}px monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, left > 0 ? 96 : 80, 25); tt.t.needsUpdate = true; }
   { const c = Math.cos(ry), s2 = Math.sin(ry); addSolid(x - .9, z - .9, x + .9, z + .9, 0, 3.3); void c; void s2; }
   let spin = null, prize = null;
-  function label() { const left = readyIn(); return spin ? 'Крутится…' : left > 0 ? `Колесо удачи · через ${Math.floor(left / 3600000)}:${String(Math.floor(left % 3600000 / 60000)).padStart(2, '0')}` : 'Крутить колесо удачи'; }
+  function label() { const left = readyIn(); return spin ? 'Крутится…' : left > 0 ? `Колесо удачи · через ${hms(left)}` : 'Крутить колесо удачи'; }
   const q = { x: x + Math.cos(ry) * 1.75 + Math.sin(ry) * .9, z: z - Math.sin(ry) * 1.75 + Math.cos(ry) * .9, y: 0, r: 1.6, get label() { return label(); },
     act() { if (spin) return; if (readyIn() > 0) { sfx('no'); return; }
       const tot = SECT.reduce((s2, k) => s2 + k.w, 0); let r = random() * tot, idx = 0; for (; idx < SECT.length; idx++) { r -= SECT[idx].w; if (r <= 0) break; } idx = Math.min(idx, SECT.length - 1);
@@ -106,7 +108,7 @@ export function buildWheel(group, x, z, ry, toast) {
   let tT = 0;
   return { update(dt) { lever.rotation.x *= Math.exp(-dt * 4); for (const l of labels) l.rotation.z = -disc.rotation.z;
     const t0 = performance.now() / 1000; bulbs.forEach((b, i) => { b.material.emissiveIntensity = spin ? ((i + Math.floor(t0 * 14)) % 4 === 0 ? 1.4 : .25) : .6 + Math.sin(t0 * 2 + i) * .3; });
-    tT -= dt; if (tT <= 0) { tT = 1; drawTimer(); }
+    tT -= dt; if (tT <= 0) { tT = .25; drawTimer(); }
     if (prize) { prize.t += dt; const k = Math.min(1, prize.t / 1.4); prize.m.position.y += dt * 1.2; prize.m.scale.setScalar(.52 + k * .6); prize.m.material.opacity = 1 - Math.max(0, k - .6) / .4; prize.m.material.transparent = true; if (k >= 1) { prize.m.removeFromParent(); prize.m.material.dispose(); prize = null; } }
     if (!spin) { disc.rotation.z += dt * .05; return; } spin.t += dt; const k = Math.min(1, spin.t / 3.6), e = 1 - Math.pow(1 - k, 3); const rz = spin.from + (spin.to - spin.from) * e;
     if (Math.floor(rz / (6.283 / SECT.length)) !== spin.tick) { spin.tick = Math.floor(rz / (6.283 / SECT.length)); sfx('tick', { v: .6 }); } disc.rotation.z = rz;

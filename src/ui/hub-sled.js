@@ -35,10 +35,9 @@ export function sleighModel(parts = false) {
     sideR: a => { for (let k = 0; k < 6; k++) { const z = -1.3 + k * .54, hh = .5 + Math.sin(k / 5 * Math.PI) * .12; a(G.box, red, .7, .4 + hh / 2, z, .1, hh, .56); } a(G.box, gold, .76, .95, .05, .04, .05, 3.0); for (let k = 0; k < 5; k++) a(G.box, gold, .76, .7, -1.05 + k * .54, .02, .14, .14, 0, 0, Math.PI / 4); },
     nose: a => { for (let k = 0; k < 5; k++) { const an = k / 4 * 1.1; a(G.box, red, 0, .55 + Math.sin(an) * .45, -1.55 - Math.cos(an) * .05 - Math.sin(an) * .2, 1.36, .14, .18, -an, 0, 0); }
       a(G.box, gold, 0, 1.06, -1.82, 1.2, .07, .07); for (const s of [-1, 1]) { a(G.box, lampM, s * .55, 1.18, -1.82, .14, .18, .14); a(G.box, dark, s * .55, 1.3, -1.82, .18, .05, .18); } },
-    back: a => { a(G.box, dred, 0, .82, 1.6, 1.36, .82, .14); a(G.box, gold, 0, 1.25, 1.6, 1.38, .06, .16); a(G.box, white, 0, 1.3, 1.6, 1.4, .06, .2);
-      a(G.sph10, lam({ map: T.cloth(0x8a5a36), color: 0xffffff }, 'sleigh71-sack'), -.38, 1.4, 1.45, .28, .26, .24); a(G.box, lam({ color: 0x4ab0f0 }, 'sleigh71-gift'), .38, 1.42, 1.45, .3, .28, .28); a(G.box, gold, .38, 1.42, 1.45, .31, .29, .06); },
-    turbine: a => { a(G.cyl12, steel, 0, .62, 2.1, .38, .9, .38, Math.PI / 2, 0, 0); a(G.cyl12, red, 0, .62, 1.78, .41, .14, .41, Math.PI / 2, 0, 0); a(G.cyl12, gold, 0, .62, 2.48, .34, .12, .34, Math.PI / 2, 0, 0);
-      a(G.cyl12, dark, 0, .62, 2.56, .26, .04, .26, Math.PI / 2, 0, 0); for (const s of [-1, 1]) a(G.box, steel, s * .3, .35, 1.9, .06, .3, .4); a(G.box, white, 0, 1.02, 2.1, .2, .04, .7); },
+    back: a => { a(G.box, dred, 0, .82, 1.6, 1.36, .82, .14); a(G.box, gold, 0, 1.25, 1.6, 1.38, .06, .16); a(G.box, white, 0, 1.3, 1.6, 1.4, .06, .2); },
+    turbine: a => { a(G.cyl12, steel, 0, .62, 2.1, .38, .9, .38, Math.PI / 2, 0, 0); a(G.cyl12, red, 0, .62, 1.78, .41, .14, .41, Math.PI / 2, 0, 0); a(G.cyl12, gold, 0, .62, 2.5, .36, .1, .36, Math.PI / 2, 0, 0);
+      for (const s of [-1, 1]) a(G.box, steel, s * .3, .35, 1.9, .06, .3, .4); a(G.box, white, 0, 1.02, 2.1, .2, .04, .7); }, // v0.71.2: без мешка, подарка и тёмного диска
     benches: a => { for (let r = 0; r < 4; r++) { a(G.box, dred, 0, .58, -1.0 + r * .72 + .22, 1.18, .14, .26); a(G.box, gold, 0, .66, -1.0 + r * .72 + .34, 1.18, .03, .03); } },
   };
   if (parts) return Object.entries(P).map(([k, f]) => compose('sleigh711-' + k, f));
